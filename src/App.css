@@ -80,6 +80,22 @@
   box-shadow: 0 12px 24px rgba(16, 185, 129, 0.25);
 }
 
+.manage-profile {
+  border: none;
+  background: rgba(16, 185, 129, 0.15);
+  color: #065f46;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.manage-profile:hover {
+  background: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+}
+
 .logout-button {
   border: none;
   background: rgba(148, 163, 184, 0.2);
@@ -91,12 +107,23 @@
 }
 
 .user-pill {
+  border: none;
   display: flex;
   align-items: center;
   gap: 12px;
   background: rgba(244, 244, 245, 0.9);
   border-radius: 999px;
   padding: 6px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.user-pill:hover,
+.user-pill:focus-visible {
+  box-shadow: 0 12px 24px rgba(148, 163, 184, 0.25);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .user-avatar {

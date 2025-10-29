@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import ProfileManager from "../components/ProfileManager";
 
 const navLinks = [
   { label: "Home", href: "#", active: true },
@@ -138,6 +139,7 @@ const getInitials = (name, email) => {
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
+  const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
   const displayName = useMemo(() => {
     const name = user?.name || user?.full_name || user?.first_name;
     if (name) return name;
@@ -166,16 +168,27 @@ const DashboardPage = () => {
           <button type="button" className="play-now">
             Play Now
           </button>
+          <button
+            type="button"
+            className="manage-profile"
+            onClick={() => setProfileManagerOpen(true)}
+          >
+            Manage Profile
+          </button>
           <button type="button" className="logout-button" onClick={logout}>
             Log out
           </button>
-          <div className="user-pill">
+          <button
+            type="button"
+            className="user-pill"
+            onClick={() => setProfileManagerOpen(true)}
+          >
             <div className="user-avatar">{initials}</div>
             <div>
               <div className="user-name">{displayName}</div>
               <div className="user-email">{email}</div>
             </div>
-          </div>
+          </button>
         </div>
       </header>
 
@@ -312,6 +325,10 @@ const DashboardPage = () => {
           </article>
         ))}
       </section>
+      <ProfileManager
+        isOpen={isProfileManagerOpen}
+        onClose={() => setProfileManagerOpen(false)}
+      />
     </div>
   );
 };
