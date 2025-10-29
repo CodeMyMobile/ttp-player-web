@@ -69,7 +69,7 @@ const AppRoutes = () => (
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/ttp-player-web">
         <div className="app-shell">
           <AppRoutes />
         </div>
