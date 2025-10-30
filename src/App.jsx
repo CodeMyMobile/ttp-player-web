@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -59,6 +60,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <DashboardPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/coaches"
+      element={(
+        <ProtectedRoute>
+          <PlayerCoachListPage />
         </ProtectedRoute>
       )}
     />

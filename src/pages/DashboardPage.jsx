@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProfileManager from "../components/ProfileManager";
 
 const navLinks = [
-  { label: "Home", href: "#", active: true },
+  { label: "Home", to: "/" },
   { label: "Browse Matches", href: "#matches" },
   { label: "Find Players", href: "#players" },
   { label: "Group Lessons", href: "#lessons" },
-  { label: "Find Coaches", href: "#coaches" },
+  { label: "Find Coaches", to: "/coaches" },
   { label: "My Activity", href: "#activity" },
 ];
 
@@ -139,6 +140,7 @@ const getInitials = (name, email) => {
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
   const displayName = useMemo(() => {
     const name = user?.name || user?.full_name || user?.first_name;
@@ -158,11 +160,21 @@ const DashboardPage = () => {
           <span>Matchplay</span>
         </div>
         <nav className="nav-links">
-          {navLinks.map((link) => (
-            <a key={link.label} className={`nav-link${link.active ? " active" : ""}`} href={link.href}>
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) =>
+            link.to ? (
+              <NavLink
+                key={link.label}
+                to={link.to}
+                className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+              >
+                {link.label}
+              </NavLink>
+            ) : (
+              <a key={link.label} className="nav-link" href={link.href}>
+                {link.label}
+              </a>
+            ),
+          )}
         </nav>
         <div className="header-actions">
           <button type="button" className="play-now">
@@ -254,7 +266,16 @@ const DashboardPage = () => {
                 <div className="title">{action.title}</div>
                 <div className="description">{action.description}</div>
               </div>
-              <button type="button">{action.action}</button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (action.id === "coaches") {
+                    navigate("/coaches");
+                  }
+                }}
+              >
+                {action.action}
+              </button>
             </article>
           ))}
         </div>
