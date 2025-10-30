@@ -1,6 +1,6 @@
 const collapseRepeatedScheme = (scheme, value) => {
   if (!scheme || !value) return value?.trim() || "";
-  const pattern = new RegExp(`^${scheme}\s+`, "i");
+  const pattern = new RegExp(String.raw`^${scheme}\s+`, "i");
   let trimmed = value.trim();
   while (pattern.test(trimmed)) {
     trimmed = trimmed.replace(pattern, "").trim();
