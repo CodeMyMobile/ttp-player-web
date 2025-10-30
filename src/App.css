@@ -1005,11 +1005,50 @@
   border-radius: 16px;
 }
 
+.coach-result-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.coach-result-card.disabled .coach-card-cta {
+  color: #94a3b8;
+}
+
 .coach-detail-header .coach-avatar {
   width: 80px;
   height: 80px;
   font-size: 28px;
   border-radius: 20px;
+}
+
+.coach-loading-state,
+.coach-error-state {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #475569;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-error-state h2,
+.coach-error-state h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.coach-error-state p {
+  margin: 0;
+}
+
+.coach-error-state .cta-button {
+  margin-top: 12px;
 }
 
 .coach-empty-state {
@@ -1035,4 +1074,10 @@
 
 .coach-empty-state p {
   margin: 0;
+}
+
+.detail-chip.muted {
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.12);
+  color: #64748b;
 }

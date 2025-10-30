@@ -88,9 +88,18 @@ export interface PlayerCoachesParams extends PaginationParams {
   search?: string;
   positions?: string[];
   filters?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  signal?: AbortSignal;
 }
 
-export const getPlayerCoaches = async ({ token, perPage, page, search, positions, filters }: PlayerCoachesParams) =>
+export const getPlayerCoaches = async ({
+  token,
+  perPage,
+  page,
+  search,
+  positions,
+  filters,
+  signal,
+}: PlayerCoachesParams) =>
   request<PaginatedResponse<CoachSummary>>("/player/coaches", {
     token,
     query: {
@@ -100,11 +109,19 @@ export const getPlayerCoaches = async ({ token, perPage, page, search, positions
       ...(positions && positions.length ? { positions } : {}),
       ...(filters ? filters : {}),
     },
+    signal,
   });
 
-export const fetchCoachDetailsById = async (token: string, coachId: number | string) =>
+export interface FetchCoachDetailsParams {
+  token: string;
+  coachId: number | string;
+  signal?: AbortSignal;
+}
+
+export const fetchCoachDetailsById = async ({ token, coachId, signal }: FetchCoachDetailsParams) =>
   request<CoachSummary>(`/player/coaches/${coachId}`, {
     token,
+    signal,
   });
 
 export const getNearestCoaches = async (token: string) =>
