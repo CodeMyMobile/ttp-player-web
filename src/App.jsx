@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import FindCoachesPage from "./pages/FindCoachesPage";
+import CoachDetailPage from "./pages/CoachDetailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import "./App.css";
@@ -83,6 +84,14 @@ const AppRoutes = () => {
         element={(
           <ProtectedRoute>
             <FindCoachesPage />
+          </ProtectedRoute>
+        )}
+      />
+      <Route
+        path="/coaches/:coachId"
+        element={(
+          <ProtectedRoute>
+            <CoachDetailPage />
           </ProtectedRoute>
         )}
       />

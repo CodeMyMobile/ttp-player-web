@@ -692,7 +692,8 @@
   }
 }
 
-.find-coaches-page {
+.find-coaches-page,
+.coach-detail-page {
   max-width: 1240px;
   margin: 0 auto;
   display: flex;
@@ -700,18 +701,20 @@
   gap: 32px;
 }
 
-.coaches-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 24px;
-}
-
 .coaches-browser,
-.coach-detail-card {
+.coach-detail-card,
+.coach-not-found {
   background: #ffffff;
   border-radius: 24px;
   padding: 28px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.coaches-browser {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .coaches-browser-header {
@@ -801,11 +804,6 @@
   outline: none;
 }
 
-.coach-result-card.selected {
-  border-color: #16a34a;
-  background: #ecfdf5;
-}
-
 .coach-card-header {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -862,15 +860,20 @@
   width: fit-content;
 }
 
-.coach-detail {
-  display: flex;
-}
-
 .coach-detail-card {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.coach-card-cta {
+  margin-top: auto;
+  font-weight: 600;
+  color: #0f766e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .back-to-list {
@@ -949,34 +952,39 @@
   padding: 16px;
 }
 
-.coach-detail-empty {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+.coach-profile-content {
+  width: 100%;
+  max-width: 960px;
+  align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  gap: 20px;
+}
+
+.coach-not-found {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
   color: #475569;
 }
 
-@media (max-width: 1024px) {
-  .coaches-layout {
-    grid-template-columns: 1fr;
-  }
+.coach-not-found h2 {
+  margin: 0;
+  color: #0f172a;
+}
 
-  .coach-detail {
-    order: -1;
+@media (max-width: 1024px) {
+  .find-coaches-page,
+  .coach-detail-page {
+    padding: 0 4px;
   }
 }
 
 @media (max-width: 640px) {
   .coaches-browser,
   .coach-detail-card,
-  .coach-detail-empty {
+  .coach-not-found {
     padding: 22px;
   }
 
