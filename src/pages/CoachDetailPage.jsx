@@ -21,6 +21,40 @@ import {
   getCoachSpecialties,
 } from "../utils/coachFormatting";
 
+const extractCoachPayload = (payload) => {
+  if (!payload) return null;
+
+  if (Array.isArray(payload)) {
+    return payload[0] ?? null;
+  }
+
+  if (payload.data) {
+    const nested = payload.data;
+    if (Array.isArray(nested)) {
+      return nested[0] ?? null;
+    }
+    if (nested && typeof nested === "object") {
+      if (nested.data && typeof nested.data === "object" && !Array.isArray(nested.data)) {
+        return nested.data;
+      }
+      if (nested.coach && typeof nested.coach === "object") {
+        return nested.coach;
+      }
+      return nested;
+    }
+  }
+
+  if (payload.coach && typeof payload.coach === "object" && !Array.isArray(payload.coach)) {
+    return payload.coach;
+  }
+
+  if (typeof payload === "object" && !Array.isArray(payload)) {
+    return payload;
+  }
+
+  return null;
+};
+
 const CoachDetailPage = () => {
   const { coachId } = useParams();
   const navigate = useNavigate();
@@ -58,12 +92,17 @@ const CoachDetailPage = () => {
 
         if (!isMounted) return;
 
-        const coachPayload = response?.data ?? response ?? null;
+        const coachPayload = extractCoachPayload(response);
         setCoach(coachPayload);
       } catch (fetchError) {
         if (!isMounted) return;
         if (fetchError.name === "AbortError") return;
-        setError(fetchError.message || "We couldn\'t load this coach right now.");
+        const status = fetchError?.status;
+        if (status === 404) {
+          setError("We couldn't find this coach. They may no longer be available.");
+        } else {
+          setError(fetchError.message || "We couldn't load this coach right now.");
+        }
         setCoach(null);
       } finally {
         if (isMounted) {

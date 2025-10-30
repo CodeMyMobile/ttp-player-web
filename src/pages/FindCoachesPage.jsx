@@ -25,6 +25,29 @@ const DEFAULT_LOCATION = "All Locations";
 const DEFAULT_LESSON = "All Lessons";
 const DEFAULT_PAGE_SIZE = 50;
 
+const extractCoachCollection = (payload) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+
+  const candidates = [
+    payload.data,
+    payload.results,
+    payload.coaches,
+    payload.items,
+    payload.data?.data,
+    payload.data?.results,
+    payload.data?.coaches,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return [];
+};
+
 const FindCoachesPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -66,7 +89,7 @@ const FindCoachesPage = () => {
 
         if (!isMounted) return;
 
-        const fetchedCoaches = response?.data ?? [];
+        const fetchedCoaches = extractCoachCollection(response);
         setCoaches(fetchedCoaches);
 
         const derivedLocations = new Set();
@@ -82,7 +105,12 @@ const FindCoachesPage = () => {
       } catch (fetchError) {
         if (!isMounted) return;
         if (fetchError.name === "AbortError") return;
-        setError(fetchError.message || "We couldn\'t load coaches right now.");
+        const status = fetchError?.status;
+        if (status === 404) {
+          setError("We couldn't find any coaches yet. Check back soon.");
+        } else {
+          setError(fetchError.message || "We couldn't load coaches right now.");
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
