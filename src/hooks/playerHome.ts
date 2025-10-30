@@ -49,6 +49,15 @@ import {
   type VerifyUserLevelParams,
 } from "../api/playerHome";
 
+export {
+  usePlayerUpcomingLessons,
+  type FetchUpcomingLessonsArgs,
+  type FetchUpcomingGroupLessonsArgs,
+  type UpcomingLessonsState,
+  type UpdateLessonStatusOptions,
+  type UpdateLessonStatusResult,
+} from "./usePlayerUpcomingLessons";
+
 export const usePlayerFutureLessons = (
   params: PlayerFutureLessonsParams,
   options?: UseApiRequestOptions<PlayerFutureLessonsParams>,

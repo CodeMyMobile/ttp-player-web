@@ -36,41 +36,54 @@ const buildBody = <TPayload extends Record<string, unknown>>(payload: RequestBod
 
 export interface PlayerFutureLessonsParams extends PaginationParams {
   token: string;
+  lessonsPerPage?: number;
+  signal?: AbortSignal;
 }
 
 export const getPlayerFutureLessons = async ({
   token,
-  perPage = 5,
+  perPage,
+  lessonsPerPage,
   page = 1,
-}: PlayerFutureLessonsParams) =>
-  request<PaginatedResponse<LessonSummary>>("/player/upcoming_lessons", {
+  signal,
+}: PlayerFutureLessonsParams) => {
+  const finalPerPage = perPage ?? lessonsPerPage ?? 5;
+  return request<PaginatedResponse<LessonSummary>>("/player/upcoming_lessons", {
     token,
+    signal,
     query: {
-      perPage,
+      perPage: finalPerPage,
       page,
     },
   });
+};
 
 export interface PlayerFutureGroupLessonsParams extends PaginationParams {
   token: string;
   search?: string;
   position?: PositionPayload;
   filters?: FiltersPayload;
+  lessonsPerPage?: number;
+  signal?: AbortSignal;
 }
 
 export const getPlayerFutureGroupLessons = async ({
   token,
-  perPage = 5,
+  perPage,
+  lessonsPerPage,
   page = 1,
   search = "",
   position,
   filters = {},
-}: PlayerFutureGroupLessonsParams) =>
-  request<PaginatedResponse<LessonSummary>>("/player/upcoming_group_lessons", {
+  signal,
+}: PlayerFutureGroupLessonsParams) => {
+  const finalPerPage = perPage ?? lessonsPerPage ?? 5;
+  return request<PaginatedResponse<LessonSummary>>("/player/upcoming_group_lessons", {
     method: "POST",
     token,
+    signal,
     query: {
-      perPage,
+      perPage: finalPerPage,
       page,
     },
     body: buildBody({
@@ -79,6 +92,7 @@ export const getPlayerFutureGroupLessons = async ({
       filters,
     }),
   });
+};
 
 export interface PlayerExternalLesson extends LessonSummary {
   provider?: string;
