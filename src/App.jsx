@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import FindCoachesPage from "./pages/FindCoachesPage";
@@ -37,43 +38,58 @@ const AuthRedirectRoute = ({ children }) => {
   return children;
 };
 
-const AppRoutes = () => (
-  <Routes>
-    <Route
-      path="/login"
-      element={(
-        <AuthRedirectRoute>
-          <LoginPage />
-        </AuthRedirectRoute>
-      )}
-    />
-    <Route
-      path="/forgot-password"
-      element={(
-        <AuthRedirectRoute>
-          <ForgotPasswordPage />
-        </AuthRedirectRoute>
-      )}
-    />
-    <Route
-      path="/"
-      element={(
-        <ProtectedRoute>
-          <DashboardPage />
-        </ProtectedRoute>
-      )}
-    />
-    <Route
-      path="/coaches"
-      element={(
-        <ProtectedRoute>
-          <FindCoachesPage />
-        </ProtectedRoute>
-      )}
-    />
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes>
-);
+const AppRoutes = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.pathname === "/" && location.hash) {
+      const normalizedHash = location.hash.replace(/^#/, "");
+
+      if (normalizedHash === "coaches" || normalizedHash === "/coaches") {
+        navigate("/coaches", { replace: true });
+      }
+    }
+  }, [location, navigate]);
+
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={(
+          <AuthRedirectRoute>
+            <LoginPage />
+          </AuthRedirectRoute>
+        )}
+      />
+      <Route
+        path="/forgot-password"
+        element={(
+          <AuthRedirectRoute>
+            <ForgotPasswordPage />
+          </AuthRedirectRoute>
+        )}
+      />
+      <Route
+        path="/"
+        element={(
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        )}
+      />
+      <Route
+        path="/coaches"
+        element={(
+          <ProtectedRoute>
+            <FindCoachesPage />
+          </ProtectedRoute>
+        )}
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
 
 function App() {
   return (
