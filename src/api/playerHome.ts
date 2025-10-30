@@ -20,47 +20,64 @@ export interface LessonSummary {
 }
 
 export interface PaginationParams {
-  page?: number;
   perPage?: number;
+  page?: number;
 }
+
+export type PositionPayload = Record<string, unknown>;
+export type FiltersPayload = Record<string, unknown>;
+
+type RequestBody<TPayload extends Record<string, unknown>> = Partial<TPayload>;
+
+const buildBody = <TPayload extends Record<string, unknown>>(payload: RequestBody<TPayload>) =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  ) as TPayload;
 
 export interface PlayerFutureLessonsParams extends PaginationParams {
   token: string;
 }
 
-export const getPlayerFutureLessons = async ({ token, perPage, page }: PlayerFutureLessonsParams) =>
-  request<PaginatedResponse<LessonSummary>>("/player/future_lessons", {
+export const getPlayerFutureLessons = async ({
+  token,
+  perPage = 5,
+  page = 1,
+}: PlayerFutureLessonsParams) =>
+  request<PaginatedResponse<LessonSummary>>("/player/upcoming_lessons", {
     token,
     query: {
-      ...(typeof perPage === "number" ? { per_page: perPage } : {}),
-      ...(typeof page === "number" ? { page } : {}),
+      perPage,
+      page,
     },
   });
 
-export interface PlayerFutureGroupLessonsParams {
+export interface PlayerFutureGroupLessonsParams extends PaginationParams {
   token: string;
-  pagination?: PaginationParams;
   search?: string;
-  position?: string;
-  filters?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  position?: PositionPayload;
+  filters?: FiltersPayload;
 }
 
 export const getPlayerFutureGroupLessons = async ({
   token,
-  pagination,
-  search,
+  perPage = 5,
+  page = 1,
+  search = "",
   position,
-  filters,
+  filters = {},
 }: PlayerFutureGroupLessonsParams) =>
-  request<PaginatedResponse<LessonSummary>>("/player/group_lessons/future", {
+  request<PaginatedResponse<LessonSummary>>("/player/upcoming_group_lessons", {
+    method: "POST",
     token,
     query: {
-      ...(pagination?.perPage ? { per_page: pagination.perPage } : {}),
-      ...(pagination?.page ? { page: pagination.page } : {}),
-      ...(search ? { search } : {}),
-      ...(position ? { position } : {}),
-      ...(filters ? filters : {}),
+      perPage,
+      page,
     },
+    body: buildBody({
+      search,
+      position,
+      filters,
+    }),
   });
 
 export interface PlayerExternalLesson extends LessonSummary {
@@ -68,202 +85,380 @@ export interface PlayerExternalLesson extends LessonSummary {
   url?: string;
 }
 
-export const getPlayerExternalLessons = async (token: string) =>
-  request<PaginatedResponse<PlayerExternalLesson>>("/player/external_lessons", {
+export interface PlayerExternalLessonsParams extends PaginationParams {
+  token: string;
+  search?: string;
+  position?: PositionPayload;
+  filters?: FiltersPayload;
+}
+
+export const getPlayerExternalLessons = async ({
+  token,
+  perPage = 5,
+  page = 1,
+  search = "",
+  position,
+  filters = {},
+}: PlayerExternalLessonsParams) =>
+  request<PaginatedResponse<PlayerExternalLesson>>("/player/upcoming_external_lessons", {
+    method: "POST",
+    token,
+    query: {
+      perPage,
+      page,
+    },
+    body: buildBody({
+      search,
+      position,
+      filters,
+    }),
+  });
+
+export interface PlayerExternalLessonByIdParams {
+  token: string;
+  lessonId: number | string;
+}
+
+export const getPlayerExternalLessonById = async ({ token, lessonId }: PlayerExternalLessonByIdParams) =>
+  request<PlayerExternalLesson>(`/player/upcoming_external_lessons/${lessonId}`, {
     token,
   });
 
-export const getPlayerExternalLessonById = async (token: string, lessonId: number | string) =>
-  request<PlayerExternalLesson>(`/player/external_lessons/${lessonId}`, {
-    token,
-  });
+export interface PlayerUpcomingLessonsHubParams extends PaginationParams {
+  token: string;
+  search?: string;
+  position?: PositionPayload;
+  filters?: FiltersPayload;
+  merge?: boolean;
+}
 
-export const getPlayerUpcomingLessonsHub = async (token: string) =>
-  request<PaginatedResponse<LessonSummary>>("/player/lessons/hub", {
+export const getPlayerUpcomingLessonsHub = async ({
+  token,
+  perPage = 5,
+  page = 1,
+  search = "",
+  position = {},
+  filters = {},
+  merge = true,
+}: PlayerUpcomingLessonsHubParams) =>
+  request<PaginatedResponse<LessonSummary>>("/player/lessonshub/upcoming", {
+    method: "POST",
     token,
+    query: {
+      perPage,
+      page,
+    },
+    body: buildBody({
+      search,
+      position,
+      filters,
+      merge,
+    }),
   });
 
 export interface PlayerCoachesParams extends PaginationParams {
-  token: string;
   search?: string;
-  positions?: string[];
-  filters?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  location?: string;
 }
 
-export const getPlayerCoaches = async ({ token, perPage, page, search, positions, filters }: PlayerCoachesParams) =>
+export const getPlayerCoaches = async ({
+  perPage = 5,
+  page = 1,
+  search = "",
+  location = "",
+}: PlayerCoachesParams = {}) =>
   request<PaginatedResponse<CoachSummary>>("/player/coaches", {
-    token,
-    query: {
-      ...(perPage ? { per_page: perPage } : {}),
-      ...(page ? { page } : {}),
-      ...(search ? { search } : {}),
-      ...(positions && positions.length ? { positions } : {}),
-      ...(filters ? filters : {}),
-    },
+    query: buildBody({
+      perPage,
+      page,
+      search,
+      locationSearch: location,
+    }),
   });
 
-export const fetchCoachDetailsById = async (token: string, coachId: number | string) =>
-  request<CoachSummary>(`/player/coaches/${coachId}`, {
-    token,
-  });
-
-export const getNearestCoaches = async (token: string) =>
-  request<PaginatedResponse<CoachSummary>>("/player/coaches/nearest", {
-    token,
-  });
-
-export const getAllLocation = async (token: string) =>
-  request<Record<string, unknown>>("/player/locations", {
-    token,
-  });
-
-export interface RecordExternalLessonClickParams {
+export interface FetchCoachDetailsByIdParams {
   token: string;
+  coachId: number | string;
+}
+
+export const fetchCoachDetailsById = async ({ token, coachId }: FetchCoachDetailsByIdParams) =>
+  request<CoachSummary>(`/player/coach/${coachId}`, {
+    token,
+    authScheme: "Bearer",
+  });
+
+export interface NearestCoachesParams extends PaginationParams {
+  token: string;
+  search?: string;
+  location?: string;
+}
+
+export const getNearestCoaches = async ({
+  token,
+  perPage = 5,
+  page = 1,
+  search = "",
+  location = "",
+}: NearestCoachesParams) =>
+  request<PaginatedResponse<CoachSummary>>("/player/in_proximity/coaches", {
+    token,
+    query: buildBody({
+      perPage,
+      page,
+      search,
+      locationSearch: location,
+    }),
+  });
+
+export interface PlayerTokenOnlyParams {
+  token: string;
+}
+
+export const getAllLocation = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/locations-geojson", {
+    token,
+  });
+
+export interface RecordExternalLessonClickParams extends PlayerTokenOnlyParams {
   lessonId: number | string;
   clickPayload: Record<string, unknown>;
 }
 
-export const recordExternalLessonClick = async ({ token, lessonId, clickPayload }: RecordExternalLessonClickParams) =>
-  request<Record<string, unknown>>(`/player/external_lessons/${lessonId}/clicks`, {
+export const recordExternalLessonClick = async ({
+  token,
+  lessonId,
+  clickPayload,
+}: RecordExternalLessonClickParams) =>
+  request<Record<string, unknown>>(`/player/external-lessons/${lessonId}/clicks`, {
     method: "POST",
     token,
     body: clickPayload,
   });
 
-export interface UpdatePlayerFutureLessonsParams {
-  token: string;
+export interface UpdatePlayerFutureLessonsParams extends PlayerTokenOnlyParams {
   lessonId: number | string;
   status: string;
 }
 
-export const updatePlayerFutureLessons = async ({ token, lessonId, status }: UpdatePlayerFutureLessonsParams) =>
-  request<LessonSummary>(`/player/future_lessons/${lessonId}`, {
+export const updatePlayerFutureLessons = async ({
+  token,
+  lessonId,
+  status,
+}: UpdatePlayerFutureLessonsParams) =>
+  request<LessonSummary>(`/player/upcoming_lessons/${lessonId}`, {
     method: "PATCH",
     token,
     body: { status },
   });
 
-export interface UpdateCoachStatusParams {
-  token: string;
+export interface UpdateCoachStatusParams extends PlayerTokenOnlyParams {
   coachId: number | string;
   isActive: boolean;
 }
 
 export const updateCoachStatus = async ({ token, coachId, isActive }: UpdateCoachStatusParams) =>
-  request<CoachSummary>(`/player/coaches/${coachId}`, {
+  request<CoachSummary>(`/player/coach/${coachId}`, {
     method: "PATCH",
     token,
     body: { is_active: isActive },
   });
 
-export interface RequestCoachPlayerParams {
-  token: string;
+export interface RequestCoachPlayerParams extends PlayerTokenOnlyParams {
   coachId: number | string;
-  status: string;
+  status?: string;
 }
 
-export const requestCoachPlayer = async ({ token, coachId, status }: RequestCoachPlayerParams) =>
-  request<Record<string, unknown>>(`/player/coaches/${coachId}/request`, {
-    method: "POST",
-    token,
-    body: { status },
-  });
-
-export const getCheckLocation = async (token: string) =>
-  request<Record<string, unknown>>("/player/check_location", {
-    token,
-  });
-
-export const fetchPlayerDetails = async (token: string) =>
-  request<Record<string, unknown>>("/player/details", {
-    token,
-  });
-
-export const getSuggestedPlayerCheckLocation = async (token: string) =>
-  request<Record<string, unknown>>("/player/check_location/suggested", {
-    token,
-  });
-
-export interface FavoriteCoachParams {
-  token: string;
-  coachId: number | string;
-}
-
-export const addFavorite = async ({ token, coachId }: FavoriteCoachParams) =>
-  request<Record<string, unknown>>("/player/favorites", {
-    method: "POST",
-    token,
-    body: { coach_id: coachId },
-  });
-
-export const removeFavorite = async ({ token, coachId }: FavoriteCoachParams) =>
-  request<void>(`/player/favorites/${coachId}`, {
-    method: "DELETE",
-    token,
-  });
-
-export const listFavorites = async (token: string) =>
-  request<PaginatedResponse<CoachSummary>>("/player/favorites", {
-    token,
-  });
-
-export const getUserVerificationLevel = async (token: string) =>
-  request<Record<string, unknown>>("/player/verification_level", {
-    token,
-  });
-
-export interface VerifyUserLevelParams {
-  token: string;
-  payload: Record<string, unknown>;
-}
-
-export const verifyUserLevel = async ({ token, payload }: VerifyUserLevelParams) =>
-  request<Record<string, unknown>>("/player/verification_level", {
-    method: "POST",
-    token,
-    body: payload,
-  });
-
-export interface CoachScheduleParams {
-  token: string;
-  coachId?: number | string;
-  date?: string;
-  filters?: Record<string, string | number | boolean>;
-}
-
-export const getAllCoachesSchedules = async ({ token, coachId, date, filters }: CoachScheduleParams) =>
-  request<Record<string, unknown>>("/player/coaches/schedules", {
-    token,
-    query: {
-      ...(coachId ? { coach_id: coachId } : {}),
-      ...(date ? { date } : {}),
-      ...(filters ? filters : {}),
-    },
-  });
-
-export interface BlockPlayerParams {
-  token: string;
-  playerId: number | string;
-  reason?: string;
-}
-
-export const blockPlayer = async ({ token, playerId, reason }: BlockPlayerParams) =>
-  request<Record<string, unknown>>("/player/blocked_players", {
+export const requestCoachPlayer = async ({
+  token,
+  coachId,
+  status = "PENDING",
+}: RequestCoachPlayerParams) =>
+  request<Record<string, unknown>>("/player/request/coach", {
     method: "POST",
     token,
     body: {
-      player_id: playerId,
-      ...(reason ? { reason } : {}),
+      coach_id: coachId,
+      status,
     },
   });
 
-export const unblockPlayer = async ({ token, playerId }: BlockPlayerParams) =>
-  request<void>(`/player/blocked_players/${playerId}`, {
+export interface GetCheckLocationParams extends PaginationParams {
+  token: string;
+  search?: string;
+  location?: string;
+  position?: PositionPayload;
+  radius?: number;
+}
+
+export const getCheckLocation = async ({
+  token,
+  perPage = 5,
+  page = 1,
+  search = "",
+  location = "",
+  position,
+  radius,
+}: GetCheckLocationParams) =>
+  request<Record<string, unknown>>("/player/getchecklocation", {
+    method: "POST",
+    token,
+    query: buildBody({
+      perPage,
+      page,
+      search,
+      locationSearch: location,
+      radius,
+    }),
+    body: buildBody({ position }),
+  });
+
+export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
+  userId: number | string;
+}
+
+export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
+  request<Record<string, unknown>>(
+    "/player/surveys/getchecklocation/specific_user",
+    {
+      token,
+      query: {
+        userId,
+      },
+    },
+  );
+
+export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
+  token: string;
+  search?: string;
+  location?: string;
+  position?: PositionPayload;
+  radius?: number;
+  filters?: FiltersPayload;
+}
+
+export const getSuggestedPlayerCheckLocation = async ({
+  token,
+  perPage = 5,
+  page = 1,
+  search = "",
+  location = "",
+  position,
+  radius,
+  filters = {},
+}: SuggestedPlayerCheckLocationParams) =>
+  request<Record<string, unknown>>("/player/surveys/suggested/player/getchecklocation", {
+    method: "POST",
+    token,
+    query: buildBody({
+      perPage,
+      page,
+      search,
+      locationSearch: location,
+      radius,
+    }),
+    body: buildBody({
+      position,
+      filters,
+    }),
+  });
+
+export interface FavoriteParams extends PlayerTokenOnlyParams {
+  followeeId: number | string;
+}
+
+export const addFavorite = async ({ token, followeeId }: FavoriteParams) =>
+  request<Record<string, unknown>>("/player/favorites/add", {
+    method: "POST",
+    token,
+    body: { followeeId },
+  });
+
+export const removeFavorite = async ({ token, followeeId }: FavoriteParams) =>
+  request<Record<string, unknown>>("/player/favorites/remove", {
     method: "DELETE",
+    token,
+    body: { followeeId },
+  });
+
+export interface ListFavoritesParams extends PaginationParams {
+  token: string;
+}
+
+export const listFavorites = async ({ token, perPage = 5, page = 1 }: ListFavoritesParams) =>
+  request<PaginatedResponse<Record<string, unknown>>>("/player/favorites", {
+    token,
+    query: {
+      perPage,
+      page,
+    },
+  });
+
+export const getUserVerificationLevel = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/verification-level", {
     token,
   });
 
-export const fetchBlockedPlayers = async (token: string) =>
-  request<PaginatedResponse<Record<string, unknown>>>("/player/blocked_players", {
+export interface VerifyUserLevelParams extends PlayerTokenOnlyParams {
+  userId: number | string;
+  level: string;
+}
+
+export const verifyUserLevel = async ({ token, userId, level }: VerifyUserLevelParams) =>
+  request<Record<string, unknown>>("/player/verify-level", {
+    method: "POST",
+    token,
+    body: {
+      userId,
+      level,
+    },
+  });
+
+export interface AllCoachesSchedulesParams extends PaginationParams {
+  token: string;
+  day?: string;
+  locationId?: number | string;
+}
+
+export const getAllCoachesSchedules = async ({
+  token,
+  perPage = 10,
+  page = 1,
+  day,
+  locationId,
+}: AllCoachesSchedulesParams) =>
+  request<Record<string, unknown>>("/player/coaches/schedules", {
+    token,
+    query: buildBody({
+      perPage,
+      page,
+      ...(day ? { day } : {}),
+      ...(locationId ? { location_id: locationId } : {}),
+    }),
+  });
+
+export interface BlockPlayerParams extends PlayerTokenOnlyParams {
+  blockedId: number | string;
+  reason?: string;
+}
+
+export const blockPlayer = async ({ token, blockedId, reason }: BlockPlayerParams) =>
+  request<Record<string, unknown>>("/player/blocks/add", {
+    method: "POST",
+    token,
+    body: buildBody({
+      blockedId,
+      reason,
+    }),
+  });
+
+export const unblockPlayer = async ({ token, blockedId }: BlockPlayerParams) =>
+  request<Record<string, unknown>>("/player/blocks/remove", {
+    method: "DELETE",
+    token,
+    body: { blockedId },
+  });
+
+export const fetchBlockedPlayers = async ({ token }: PlayerTokenOnlyParams) =>
+  request<PaginatedResponse<Record<string, unknown>>>("/player/blocked", {
     token,
   });
