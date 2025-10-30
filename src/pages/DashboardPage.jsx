@@ -1,15 +1,9 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProfileManager from "../components/ProfileManager";
-
-const navLinks = [
-  { label: "Home", href: "#", active: true },
-  { label: "Browse Matches", href: "#matches" },
-  { label: "Find Players", href: "#players" },
-  { label: "Group Lessons", href: "#lessons" },
-  { label: "Find Coaches", href: "#coaches" },
-  { label: "My Activity", href: "#activity" },
-];
+import PlayerHeader from "../components/PlayerHeader";
+import { getDisplayName } from "../utils/userDisplay";
 
 const stats = [
   { label: "Matches", value: "8", change: "+2 this week" },
@@ -123,74 +117,22 @@ const bottomActions = [
   },
 ];
 
-const getInitials = (name, email) => {
-  if (name) {
-    const parts = String(name).split(" ").filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  if (email) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return "MP";
-};
-
 const DashboardPage = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
+  const navigate = useNavigate();
   const displayName = useMemo(() => {
-    const name = user?.name || user?.full_name || user?.first_name;
-    if (name) return name;
-    if (user?.email) return user.email.split("@")[0];
-    return "Paul";
+    const resolved = getDisplayName(user);
+    return resolved === "Player" ? "Paul" : resolved;
   }, [user]);
-
   const email = user?.email || "player@matchplay.app";
-  const initials = getInitials(displayName, email);
 
   return (
     <div className="dashboard-page">
-      <header className="main-nav">
-        <div className="brand">
-          <div className="brand-badge">MP</div>
-          <span>Matchplay</span>
-        </div>
-        <nav className="nav-links">
-          {navLinks.map((link) => (
-            <a key={link.label} className={`nav-link${link.active ? " active" : ""}`} href={link.href}>
-              {link.label}
-            </a>
-          ))}
-        </nav>
-        <div className="header-actions">
-          <button type="button" className="play-now">
-            Play Now
-          </button>
-          <button
-            type="button"
-            className="manage-profile"
-            onClick={() => setProfileManagerOpen(true)}
-          >
-            Manage Profile
-          </button>
-          <button type="button" className="logout-button" onClick={logout}>
-            Log out
-          </button>
-          <button
-            type="button"
-            className="user-pill"
-            onClick={() => setProfileManagerOpen(true)}
-          >
-            <div className="user-avatar">{initials}</div>
-            <div>
-              <div className="user-name">{displayName}</div>
-              <div className="user-email">{email}</div>
-            </div>
-          </button>
-        </div>
-      </header>
+      <PlayerHeader
+        onManageProfile={() => setProfileManagerOpen(true)}
+        displayNameOverride={displayName}
+      />
 
       <section className="hero-card">
         <div className="hero-header">
@@ -254,7 +196,12 @@ const DashboardPage = () => {
                 <div className="title">{action.title}</div>
                 <div className="description">{action.description}</div>
               </div>
-              <button type="button">{action.action}</button>
+              <button
+                type="button"
+                onClick={action.id === "coaches" ? () => navigate("/coaches") : undefined}
+              >
+                {action.action}
+              </button>
             </article>
           ))}
         </div>
@@ -294,7 +241,11 @@ const DashboardPage = () => {
             <h2 className="section-title">Featured Coaches</h2>
             <p className="section-subtitle">Top coaches with stellar reviews from players like you.</p>
           </div>
-          <button type="button" className="section-cta">
+          <button
+            type="button"
+            className="section-cta"
+            onClick={() => navigate("/coaches")}
+          >
             View All Coaches
           </button>
         </div>

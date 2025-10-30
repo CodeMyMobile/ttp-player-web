@@ -691,3 +691,393 @@
     padding: 22px;
   }
 }
+
+.find-coaches-page,
+.coach-detail-page {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.coaches-browser,
+.coach-detail-card,
+.coach-not-found {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.coaches-browser {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.coaches-browser-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.coaches-browser-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.coaches-browser-header p {
+  margin: 6px 0 0;
+  color: #475569;
+}
+
+.coach-results-count {
+  background: rgba(22, 163, 74, 0.12);
+  color: #047857;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 14px;
+  align-self: center;
+}
+
+.coaches-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.filter-field select,
+.filter-field input {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+
+.filter-field input::placeholder {
+  color: #94a3b8;
+}
+
+.filter-field.search input {
+  padding-left: 16px;
+}
+
+.coach-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.coach-result-card {
+  background: #f8fafc;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coach-result-card:hover,
+.coach-result-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(22, 163, 74, 0.35);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1);
+  outline: none;
+}
+
+.coach-card-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.coach-tagline {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.coach-rate {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.coach-card-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.coach-rating {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.coach-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coach-chip,
+.detail-chip {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.coach-availability {
+  font-size: 13px;
+  color: #0f766e;
+  background: rgba(13, 148, 136, 0.12);
+  padding: 8px 12px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.coach-detail-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.coach-card-cta {
+  margin-top: auto;
+  font-weight: 600;
+  color: #0f766e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-to-list {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #0f766e;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.coach-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.coach-detail-info h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.coach-detail-meta {
+  display: flex;
+  gap: 12px;
+  color: #475569;
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.cta-button {
+  border: none;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 16px 32px rgba(22, 163, 74, 0.28);
+}
+
+.coach-detail-summary {
+  margin: 0;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.coach-detail-focus {
+  margin: 0;
+  color: #475569;
+}
+
+.coach-detail-section h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.detail-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.detail-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: #475569;
+}
+
+.coach-detail-section.availability {
+  background: rgba(22, 163, 74, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.coach-profile-content {
+  width: 100%;
+  max-width: 960px;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.coach-not-found {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+  color: #475569;
+}
+
+.coach-not-found h2 {
+  margin: 0;
+  color: #0f172a;
+}
+
+@media (max-width: 1024px) {
+  .find-coaches-page,
+  .coach-detail-page {
+    padding: 0 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .coaches-browser,
+  .coach-detail-card,
+  .coach-not-found {
+    padding: 22px;
+  }
+
+  .coaches-browser-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .coach-results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.coach-result-card .coach-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+  border-radius: 16px;
+}
+
+.coach-result-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.coach-result-card.disabled .coach-card-cta {
+  color: #94a3b8;
+}
+
+.coach-detail-header .coach-avatar {
+  width: 80px;
+  height: 80px;
+  font-size: 28px;
+  border-radius: 20px;
+}
+
+.coach-loading-state,
+.coach-error-state {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #475569;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-error-state h2,
+.coach-error-state h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.coach-error-state p {
+  margin: 0;
+}
+
+.coach-error-state .cta-button {
+  margin-top: 12px;
+}
+
+.coach-empty-state {
+  background: #ffffff;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  color: #475569;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.coach-empty-state h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coach-empty-state p {
+  margin: 0;
+}
+
+.detail-chip.muted {
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+}

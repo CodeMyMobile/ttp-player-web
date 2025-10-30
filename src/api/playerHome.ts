@@ -88,24 +88,79 @@ export interface PlayerCoachesParams extends PaginationParams {
   search?: string;
   positions?: string[];
   filters?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  signal?: AbortSignal;
 }
 
-export const getPlayerCoaches = async ({ token, perPage, page, search, positions, filters }: PlayerCoachesParams) =>
-  request<PaginatedResponse<CoachSummary>>("/player/coaches", {
-    token,
-    query: {
-      ...(perPage ? { per_page: perPage } : {}),
-      ...(page ? { page } : {}),
-      ...(search ? { search } : {}),
-      ...(positions && positions.length ? { positions } : {}),
-      ...(filters ? filters : {}),
-    },
-  });
+type CoachQueryParams = Pick<
+  PlayerCoachesParams,
+  "perPage" | "page" | "search" | "positions" | "filters"
+>;
 
-export const fetchCoachDetailsById = async (token: string, coachId: number | string) =>
-  request<CoachSummary>(`/player/coaches/${coachId}`, {
-    token,
-  });
+const buildCoachQuery = ({ perPage, page, search, positions, filters }: CoachQueryParams) => ({
+  ...(perPage ? { per_page: perPage } : {}),
+  ...(page ? { page } : {}),
+  ...(search ? { search } : {}),
+  ...(positions && positions.length ? { positions } : {}),
+  ...(filters ? filters : {}),
+});
+
+const withLegacyCoachFallback = async <T>(
+  primary: () => Promise<T>,
+  legacy: () => Promise<T>,
+) => {
+  try {
+    return await primary();
+  } catch (error) {
+    if ((error as Error & { status?: number }).status === 404) {
+      return legacy();
+    }
+    throw error;
+  }
+};
+
+export const getPlayerCoaches = async ({
+  token,
+  perPage,
+  page,
+  search,
+  positions,
+  filters,
+  signal,
+}: PlayerCoachesParams) =>
+  withLegacyCoachFallback(
+    () =>
+      request<PaginatedResponse<CoachSummary>>("/player/coaches", {
+        token,
+        query: buildCoachQuery({ perPage, page, search, positions, filters }),
+        signal,
+      }),
+    () =>
+      request<PaginatedResponse<CoachSummary>>("/player_home/coaches", {
+        token,
+        query: buildCoachQuery({ perPage, page, search, positions, filters }),
+        signal,
+      }),
+  );
+
+export interface FetchCoachDetailsParams {
+  token: string;
+  coachId: number | string;
+  signal?: AbortSignal;
+}
+
+export const fetchCoachDetailsById = async ({ token, coachId, signal }: FetchCoachDetailsParams) =>
+  withLegacyCoachFallback(
+    () =>
+      request<CoachSummary>(`/player/coaches/${coachId}`, {
+        token,
+        signal,
+      }),
+    () =>
+      request<CoachSummary>(`/player_home/coaches/${coachId}`, {
+        token,
+        signal,
+      }),
+  );
 
 export const getNearestCoaches = async (token: string) =>
   request<PaginatedResponse<CoachSummary>>("/player/coaches/nearest", {
