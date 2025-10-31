@@ -178,6 +178,22 @@ export interface PlayerCoachesParams extends PaginationParams {
   token?: string;
 }
 
+const sanitizeSearch = (value?: string) => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+const sanitizeLocation = (value?: string) => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  if (!trimmed) return undefined;
+  if (/^current location$/i.test(trimmed)) {
+    return undefined;
+  }
+  return trimmed;
+};
+
 export const getPlayerCoaches = async ({
   perPage = 5,
   page = 1,
@@ -193,8 +209,8 @@ export const getPlayerCoaches = async ({
     query: buildBody({
       perPage,
       page,
-      search,
-      locationSearch: location,
+      search: sanitizeSearch(search),
+      locationSearch: sanitizeLocation(location),
     }),
   });
 };
