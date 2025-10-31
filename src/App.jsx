@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
+import FindCoaches from "./pages/FindCoaches";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
@@ -68,6 +69,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <PlayerCoachListPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/find-coaches"
+      element={(
+        <ProtectedRoute>
+          <FindCoaches />
         </ProtectedRoute>
       )}
     />

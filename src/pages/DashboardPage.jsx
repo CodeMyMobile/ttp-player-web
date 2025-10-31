@@ -8,7 +8,7 @@ const navLinks = [
   { label: "Browse Matches", href: "#matches" },
   { label: "Find Players", href: "#players" },
   { label: "Group Lessons", href: "#lessons" },
-  { label: "Find Coaches", to: "/coaches" },
+  { label: "Find Coaches", to: "/find-coaches" },
   { label: "My Activity", href: "#activity" },
 ];
 
@@ -270,7 +270,7 @@ const DashboardPage = () => {
                 type="button"
                 onClick={() => {
                   if (action.id === "coaches") {
-                    navigate("/coaches");
+                    navigate("/find-coaches");
                   }
                 }}
               >
