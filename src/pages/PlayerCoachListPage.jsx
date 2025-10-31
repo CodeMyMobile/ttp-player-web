@@ -464,6 +464,42 @@ const PlayerCoachListPage = () => {
     return JSON.stringify(Object.fromEntries(activeEntries));
   }, [selectedFilters]);
 
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError("Location is not supported in this browser.");
+      return;
+    }
+    setLocationLoader(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserPos({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationPreview({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationFilter((prev) =>
+          prev && prev.address
+            ? prev
+            : {
+                address: "Current location",
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              },
+        );
+        setLocationLoader(false);
+      },
+      (error) => {
+        console.error("Failed to obtain location", error);
+        setLocationError(error.message || "Unable to fetch location");
+        setLocationLoader(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 1000 * 60 * 5, timeout: 1000 * 20 },
+    );
+  }, []);
+
   useEffect(() => {
     if (hasRequestedLocationRef.current) return;
     hasRequestedLocationRef.current = true;
@@ -949,42 +985,6 @@ const PlayerCoachListPage = () => {
       observer.disconnect();
     };
   }, [activeTab, addedCoachPlayers.length, loadMoreMyCoaches]);
-
-  const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationError("Location is not supported in this browser.");
-      return;
-    }
-    setLocationLoader(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserPos({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationPreview({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationFilter((prev) =>
-          prev && prev.address
-            ? prev
-            : {
-                address: "Current location",
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-              },
-        );
-        setLocationLoader(false);
-      },
-      (error) => {
-        console.error("Failed to obtain location", error);
-        setLocationError(error.message || "Unable to fetch location");
-        setLocationLoader(false);
-      },
-      { enableHighAccuracy: true, maximumAge: 1000 * 60 * 5, timeout: 1000 * 20 },
-    );
-  }, []);
 
   const handleLocationSelect = useCallback((suggestion) => {
     setLocationFilter({
