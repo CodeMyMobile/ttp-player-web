@@ -79,6 +79,182 @@ const IGNORED_OBJECT_KEYS = new Set([
   "publishedAt",
 ]);
 
+const PRIORITIZED_VALUE_KEYS = [
+  "url",
+  "href",
+  "src",
+  "asset",
+  "value",
+  "label",
+  "title",
+  "name",
+  "headline",
+  "heading",
+  "text",
+  "body",
+  "content",
+  "copy",
+  "description",
+  "summary",
+  "location",
+  "image",
+  "profile_image",
+  "profileImage",
+  "profile_photo",
+  "profilePhoto",
+  "avatar",
+  "photo",
+  "picture",
+  "html",
+  "plain",
+  "document",
+  "children",
+  "data",
+  "attributes",
+  "blocks",
+  "nodes",
+];
+
+const HTML_ENTITY_LOOKUP = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+};
+
+const normalizeCandidateText = (value) => {
+  if (value === null || value === undefined) return "";
+  let text = typeof value === "string" ? value : value.toString();
+  if (!text) return "";
+  text = text.replace(/<br\s*\/?>(?=\s|$)/gi, " ");
+  text = text.replace(/<p[^>]*>/gi, " ");
+  text = text.replace(/<\/p>/gi, " ");
+  text = text.replace(/<[^>]+>/g, " ");
+  text = text.replace(/&(nbsp|#160);/gi, " ");
+  text = text
+    .replace(/&(amp|lt|gt|quot|#39);/gi, (match) => {
+      const lower = match.toLowerCase();
+      return HTML_ENTITY_LOOKUP[lower] ?? " ";
+    });
+  return text.replace(/\s+/g, " ").trim();
+};
+
+const collectStringCandidates = (value, state) => {
+  if (!state) {
+    state = {
+      visited: new WeakSet(),
+      seen: new Set(),
+      results: [],
+      order: 0,
+    };
+  }
+  if (value === null || value === undefined) return state;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const normalized = normalizeCandidateText(value);
+    if (!normalized) return state;
+    const key = normalized.toLowerCase();
+    if (state.seen.has(key)) return state;
+    state.seen.add(key);
+    state.results.push({ text: normalized, order: state.order++ });
+    return state;
+  }
+  if (typeof value === "object") {
+    if (state.visited.has(value)) return state;
+    state.visited.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((item) => collectStringCandidates(item, state));
+      return state;
+    }
+    PRIORITIZED_VALUE_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        collectStringCandidates(value[key], state);
+      }
+    });
+    Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+      if (IGNORED_OBJECT_KEYS.has(nestedKey)) return;
+      if (PRIORITIZED_VALUE_KEYS.includes(nestedKey)) return;
+      collectStringCandidates(nestedValue, state);
+    });
+  }
+  return state;
+};
+
+const scoreCandidateString = (text, options = {}) => {
+  if (!text) return Number.NEGATIVE_INFINITY;
+  const { preferLonger = false } = options;
+  const length = text.length;
+  let score = preferLonger ? Math.min(length, 600) : Math.min(length, 160);
+  if (/[a-z]/i.test(text)) score += 30;
+  if (/\s/.test(text)) score += 25;
+  if (/[.?!]/.test(text)) score += 10;
+  if (/[,;]/.test(text)) score += 5;
+  if (/^(https?:)?\/\//i.test(text)) score -= 250;
+  if (text.startsWith("data:")) score -= 250;
+  if (/^\d{5}(?:-\d{4})?$/.test(text)) score -= 120;
+  if (/^zip\s*\d+/i.test(text)) score -= 120;
+  if (/^[\d.,\-\/\s]+$/.test(text)) score -= 150;
+  if (/^n\/?a$/i.test(text)) score -= 80;
+  if (length <= 3) score -= 60;
+  return score;
+};
+
+const extractMeaningfulString = (value, options = {}) => {
+  const state = collectStringCandidates(value);
+  const candidates = state.results.map(({ text, order }) => ({
+    value: text,
+    score: scoreCandidateString(text, options),
+    order,
+  }));
+  if (!candidates.length) {
+    return { value: "", score: Number.NEGATIVE_INFINITY };
+  }
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.order - b.order;
+  });
+  const { minLength = 0, requireMinLength = false } = options;
+  const selected =
+    candidates.find((candidate) => candidate.value.length >= minLength) ?? candidates[0];
+  if (requireMinLength && selected.value.length < minLength) {
+    return { value: "", score: Number.NEGATIVE_INFINITY };
+  }
+  return selected;
+};
+
+const pickMeaningfulStringFromSources = (sources, keys, options = {}) => {
+  let best = { value: "", score: Number.NEGATIVE_INFINITY };
+  for (const source of sources) {
+    if (!source) continue;
+    for (const key of keys) {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+      const candidate = extractMeaningfulString(source[key], options);
+      if (!candidate.value) continue;
+      if (
+        candidate.score > best.score ||
+        (candidate.score === best.score && candidate.value.length > best.value.length)
+      ) {
+        best = candidate;
+      }
+    }
+  }
+  return best.value;
+};
+
+const coalesceMeaningfulStrings = (values, options = {}) => {
+  for (const value of values) {
+    const candidate = extractMeaningfulString(value, options);
+    if (!candidate.value) continue;
+    if (options.requireMinLength && candidate.value.length < (options.minLength ?? 0)) {
+      continue;
+    }
+    if (!options.requireMinLength || candidate.value.length >= (options.minLength ?? 0)) {
+      return candidate.value;
+    }
+  }
+  return "";
+};
+
 const extractString = (value, visited) => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim();
@@ -95,34 +271,7 @@ const extractString = (value, visited) => {
       }
       return "";
     }
-    const prioritizedKeys = [
-      "url",
-      "href",
-      "src",
-      "asset",
-      "value",
-      "label",
-      "title",
-      "name",
-      "text",
-      "body",
-      "content",
-      "path",
-      "location",
-      "image",
-      "profile_image",
-      "profileImage",
-      "profile_photo",
-      "profilePhoto",
-      "avatar",
-      "photo",
-      "picture",
-      "html",
-      "plain",
-      "document",
-      "children",
-    ];
-    for (const key of prioritizedKeys) {
+    for (const key of PRIORITIZED_VALUE_KEYS) {
       if (key in value) {
         const resolved = extractString(value[key], visited);
         if (resolved) return resolved;
@@ -336,30 +485,40 @@ const normalizeCoach = (coach) => {
     "profileSummary",
   ];
   const bio =
-    pickStringFromSources(sourceObjects, bioKeys) ||
-    coalesceStrings(
-      coach.bio,
-      coach.short_bio,
-      coach.description,
-      coach.about,
-      coach.summary,
-      coach.profile?.bio,
-      coach.profile?.about,
-      coach.profile?.description,
-      coach.profile?.short_bio,
-      coach.profile?.summary,
-      coach.profile?.profile_summary,
-      coach.user?.bio,
-      coach.user?.about,
-      coach.user?.profile?.bio,
-      coach.user?.profile?.about,
-      coach.user?.profile?.summary,
-      coach.coach?.bio,
-      coach.coach?.about,
-      coach.coach_profile?.bio,
-      coach.coach_profile?.about,
-      coach.coach_profile?.summary,
-    ) || "";
+    pickMeaningfulStringFromSources(sourceObjects, bioKeys, {
+      preferLonger: true,
+      minLength: 24,
+    }) ||
+    coalesceMeaningfulStrings(
+      [
+        coach.bio,
+        coach.short_bio,
+        coach.description,
+        coach.about,
+        coach.summary,
+        coach.profile?.bio,
+        coach.profile?.about,
+        coach.profile?.description,
+        coach.profile?.short_bio,
+        coach.profile?.summary,
+        coach.profile?.profile_summary,
+        coach.user?.bio,
+        coach.user?.about,
+        coach.user?.profile?.bio,
+        coach.user?.profile?.about,
+        coach.user?.profile?.summary,
+        coach.coach?.bio,
+        coach.coach?.about,
+        coach.coach_profile?.bio,
+        coach.coach_profile?.about,
+        coach.coach_profile?.summary,
+      ],
+      {
+        preferLonger: true,
+        minLength: 24,
+      },
+    ) ||
+    "";
   const ratingValue =
     parseNumber(
       coach.rating ??
