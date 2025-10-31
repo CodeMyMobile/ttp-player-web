@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { MapPin, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import "./coaches.css";
@@ -6,7 +6,7 @@ import "./coaches.css";
 type ResultsHeaderProps = {
   title: string;
   description: string;
-  meta: string[];
+  metaLine: string;
   locationValue: string;
   onChangeLocation?: () => void;
   actionSlot?: ReactNode;
@@ -15,39 +15,33 @@ type ResultsHeaderProps = {
 const ResultsHeader = ({
   title,
   description,
-  meta,
+  metaLine,
   locationValue,
   onChangeLocation,
   actionSlot,
 }: ResultsHeaderProps) => {
   return (
-    <div className="results-header">
-      <div className="results-header__text-group">
-        <h1 className="results-header__title">{title}</h1>
-        <p className="results-header__description">{description}</p>
-        <div className="results-header__meta">
-          {meta.map((item, index) => (
-            <span key={item} className="results-header__meta-item">
-              {item}
-              {index < meta.length - 1 && <span className="results-header__meta-dot" />}
-            </span>
-          ))}
-        </div>
+    <header className="fc-header">
+      <div className="fc-header__text">
+        <h1 className="fc-header__title">{title}</h1>
+        <p className="fc-header__description">{description}</p>
+        <p className="fc-header__meta">{metaLine}</p>
       </div>
-      <div className="results-header__actions">
-        <button type="button" className="location-button" onClick={onChangeLocation}>
+      <div className="fc-header__actions">
+        <button type="button" className="fc-location-chip" onClick={onChangeLocation}>
           <MapPin size={18} />
-          <div className="location-button__meta">
-            <span className="location-button__label">Location</span>
-            <span className="location-button__value">{locationValue}</span>
-          </div>
+          <span className="fc-location-chip__content">
+            <span className="fc-location-chip__label">Current location</span>
+            <span className="fc-location-chip__value">{locationValue}</span>
+          </span>
         </button>
-        <button type="button" className="change-location" onClick={onChangeLocation}>
+        <button type="button" className="fc-change-location" onClick={onChangeLocation}>
+          <RefreshCw size={16} />
           Change location
         </button>
         {actionSlot}
       </div>
-    </div>
+    </header>
   );
 };
 

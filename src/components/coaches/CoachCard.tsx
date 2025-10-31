@@ -1,8 +1,17 @@
-import { ArrowUpRight, MapPin, MessageCircle, Star } from "lucide-react";
-import type { Coach } from "../../data/mockCoaches";
+import { Calendar, MapPin, MessageCircle, Sparkles, Star, Users } from "lucide-react";
+
+import type { Coach, CoachHighlight } from "../../data/mockCoaches";
 import TagPill from "./TagPill";
 
 import "./coaches.css";
+
+const highlightIconMap: Record<CoachHighlight["icon"], JSX.Element> = {
+  calendar: <Calendar size={18} strokeWidth={2} />,
+  map: <MapPin size={18} strokeWidth={2} />,
+  message: <MessageCircle size={18} strokeWidth={2} />,
+  users: <Users size={18} strokeWidth={2} />,
+  spark: <Sparkles size={18} strokeWidth={2} />,
+};
 
 type CoachCardProps = {
   coach: Coach;
@@ -10,60 +19,57 @@ type CoachCardProps = {
 
 const CoachCard = ({ coach }: CoachCardProps) => {
   return (
-    <article className="coach-card">
-      <div className="coach-card__image-wrapper">
-        <img className="coach-card__image" src={coach.imageUrl} alt={`Portrait of ${coach.name}`} />
-        <div className="coach-card__tag-stack">
-          {coach.featured && <TagPill tone="accent">Featured coach</TagPill>}
-          {coach.availability && (
-            <TagPill tone="available">
-              <span className="status-dot" />
-              {coach.availability}
-            </TagPill>
-          )}
+    <article className="fc-card">
+      <div className="fc-card__top">
+        <div className="fc-card__labels">
+          <TagPill tone="available">{coach.availabilityTag}</TagPill>
+          {coach.featured && <TagPill tone="featured">Featured</TagPill>}
+        </div>
+        <div className="fc-card__price">
+          <span className="fc-card__price-value">{coach.pricePerHour}</span>
+          <span className="fc-card__price-caption">per hour</span>
         </div>
       </div>
-      <div className="coach-card__body">
-        <header className="coach-card__header">
-          <div className="coach-card__title-group">
-            <div className="coach-card__name-row">
-              <h3 className="coach-card__name">{coach.name}</h3>
-              <span className="coach-card__rating">
-                <Star size={16} fill="currentColor" strokeWidth={0} />
-                {coach.rating.toFixed(1)}
-              </span>
-            </div>
-            <div className="coach-card__meta">
-              <MapPin size={16} />
-              <span>{coach.location}</span>
-              {coach.sessions && <span>• {coach.sessions}</span>}
-            </div>
-            {coach.status && (
-              <div className="coach-card__status">
-                <span className="status-dot" />
-                {coach.status}
-              </div>
-            )}
+
+      <div className="fc-card__profile">
+        <img className="fc-card__avatar" src={coach.imageUrl} alt={`Portrait of ${coach.name}`} />
+        <div className="fc-card__identity">
+          <h3 className="fc-card__name">{coach.name}</h3>
+          <span className="fc-card__title">{coach.title}</span>
+          <div className="fc-card__rating">
+            <span className="fc-card__rating-badge">
+              <Star size={16} fill="#FDB022" stroke="none" />
+              {coach.rating.toFixed(1)}
+            </span>
+            <span>• {coach.reviewCount} reviews</span>
           </div>
-          <div className="coach-card__price">
-            <span className="coach-card__price-value">{coach.pricePerHour}</span>
-            <span className="coach-card__price-caption">Private lesson</span>
-          </div>
-        </header>
-        {coach.summary && <p className="coach-card__summary">{coach.summary}</p>}
-        <div className="coach-card__tags">
-          {coach.tags.map((tag) => (
-            <TagPill key={tag}>{tag}</TagPill>
-          ))}
         </div>
-        <footer className="coach-card__footer">
-          <button type="button" className="coach-card__secondary">
-            <MessageCircle size={18} /> Message
-          </button>
-          <button type="button" className="coach-card__primary">
-            Book lesson <ArrowUpRight size={18} />
-          </button>
-        </footer>
+      </div>
+
+      <p className="fc-card__summary">{coach.summary}</p>
+
+      <ul className="fc-card__highlights">
+        {coach.highlights.map((highlight) => (
+          <li key={highlight.label} className="fc-card__highlight">
+            {highlightIconMap[highlight.icon]}
+            <span>{highlight.label}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="fc-card__tags">
+        {coach.tags.map((tag) => (
+          <TagPill key={tag}>{tag}</TagPill>
+        ))}
+      </div>
+
+      <div className="fc-card__actions">
+        <button type="button" className="fc-button fc-button--secondary">
+          View profile
+        </button>
+        <button type="button" className="fc-button fc-button--primary">
+          Book lesson
+        </button>
       </div>
     </article>
   );

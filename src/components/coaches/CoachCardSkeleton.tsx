@@ -2,17 +2,29 @@ import "./coaches.css";
 
 const CoachCardSkeleton = () => {
   return (
-    <div className="skeleton-card">
-      <div className="skeleton-card__image" />
-      <div className="skeleton-card__body">
-        <div className="skeleton-card__pill" />
-        <div className="skeleton-card__line skeleton-card__line--wide" />
-        <div className="skeleton-card__line skeleton-card__line--medium" />
-        <div className="skeleton-card__line skeleton-card__line--narrow" />
-        <div className="skeleton-card__pill skeleton-card__pill--small" />
-        <div className="skeleton-card__line skeleton-card__line--wide" />
-        <div className="skeleton-card__line skeleton-card__line--medium" />
-        <div className="skeleton-card__button" />
+    <div className="skeleton-card" aria-hidden>
+      <div className="skeleton-row">
+        <div className="skeleton-badge" />
+        <div className="skeleton-badge" />
+      </div>
+      <div className="skeleton-row">
+        <div className="skeleton-avatar" />
+        <div className="skeleton-stack">
+          <div className="skeleton-line skeleton-line--wide" />
+          <div className="skeleton-line skeleton-line--medium" />
+          <div className="skeleton-line skeleton-line--narrow" />
+        </div>
+      </div>
+      <div className="skeleton-line skeleton-line--wide" />
+      <div className="skeleton-row">
+        <div className="skeleton-line skeleton-line--medium" />
+        <div className="skeleton-line skeleton-line--medium" />
+        <div className="skeleton-line skeleton-line--medium" />
+      </div>
+      <div className="skeleton-row">
+        <div className="skeleton-badge" />
+        <div className="skeleton-badge" />
+        <div className="skeleton-badge" />
       </div>
     </div>
   );

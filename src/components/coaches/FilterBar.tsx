@@ -1,4 +1,4 @@
-import { Filter, LocateFixed, Search, Sparkles } from "lucide-react";
+import { ChevronDown, MapPin, Search } from "lucide-react";
 import type { FormEvent } from "react";
 
 import "./coaches.css";
@@ -7,24 +7,20 @@ type FilterBarProps = {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onSearch: () => void;
-  distances: string[];
-  selectedDistance: string;
-  onDistanceChange: (value: string) => void;
-  specialties: string[];
-  selectedSpecialties: string[];
-  onToggleSpecialty: (value: string) => void;
+  radiusOptions: string[];
+  selectedRadius: string;
+  onRadiusChange: (value: string) => void;
 };
+
+const filterSelectOptions = ["All Ratings", "All Prices", "All Specialties"];
 
 const FilterBar = ({
   searchTerm,
   onSearchTermChange,
   onSearch,
-  distances,
-  selectedDistance,
-  onDistanceChange,
-  specialties,
-  selectedSpecialties,
-  onToggleSpecialty,
+  radiusOptions,
+  selectedRadius,
+  onRadiusChange,
 }: FilterBarProps) => {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -32,80 +28,45 @@ const FilterBar = ({
   };
 
   return (
-    <div className="filter-bar">
-      <form className="filter-bar__row" onSubmit={handleSubmit}>
-        <div className="filter-bar__search">
-          <Search className="filter-bar__search-icon" strokeWidth={2} />
-          <input
-            aria-label="Search coaches"
-            placeholder="Search coaches, focus areas, certifications"
-            value={searchTerm}
-            onChange={(event) => onSearchTermChange(event.target.value)}
-          />
-          <button type="submit" className="filter-bar__search-submit">
-            Search
+    <div className="fc-filter">
+      <div className="fc-filter__distance-row">
+        <div className="fc-filter__distance-group">
+          <button type="button" className="fc-distance-chip fc-distance-chip--location" aria-label="Current location">
+            <MapPin size={18} />
+            Current location
           </button>
-        </div>
-        <div className="filter-chip-group">
-          {specialties.slice(0, 3).map((specialty) => {
-            const isActive = selectedSpecialties.includes(specialty);
-            return (
-              <button
-                key={specialty}
-                type="button"
-                className={`filter-chip${isActive ? " filter-chip--active" : ""}`}
-                onClick={() => onToggleSpecialty(specialty)}
-              >
-                {specialty === "Top rated" ? (
-                  <Sparkles className="filter-chip__icon" strokeWidth={2} />
-                ) : (
-                  <Filter className="filter-chip__icon" strokeWidth={2} />
-                )}
-                {specialty}
-              </button>
-            );
-          })}
-        </div>
-      </form>
-      <div className="filter-bar__row">
-        <div className="filter-chip-group">
-          {distances.map((distance) => (
+          {radiusOptions.map((radius) => (
             <button
-              key={distance}
+              key={radius}
               type="button"
-              className={`filter-chip${selectedDistance === distance ? " filter-chip--active" : ""}`}
-              onClick={() => onDistanceChange(distance)}
+              className={`fc-distance-chip${selectedRadius === radius ? " fc-distance-chip--active" : ""}`}
+              onClick={() => onRadiusChange(radius)}
             >
-              <LocateFixed className="filter-chip__icon" strokeWidth={2} />
-              {distance}
+              {radius}
             </button>
           ))}
         </div>
-        <div className="filter-chip-group">
-          {specialties.slice(3).map((specialty) => {
-            const isActive = selectedSpecialties.includes(specialty);
-            return (
-              <button
-                key={specialty}
-                type="button"
-                className={`filter-chip${isActive ? " filter-chip--active" : ""}`}
-                onClick={() => onToggleSpecialty(specialty)}
-              >
-                {specialty === "Top rated" ? (
-                  <Sparkles className="filter-chip__icon" strokeWidth={2} />
-                ) : (
-                  <Filter className="filter-chip__icon" strokeWidth={2} />
-                )}
-                {specialty}
-              </button>
-            );
-          })}
-          <button type="button" className="filter-chip">
-            <Filter className="filter-chip__icon" strokeWidth={2} />
-            More filters
-          </button>
-        </div>
       </div>
+
+      <form className="fc-filter__form" onSubmit={handleSubmit}>
+        <div className="fc-filter__search">
+          <Search className="fc-filter__search-icon" size={18} strokeWidth={2} />
+          <input
+            aria-label="Search coaches"
+            placeholder="Search coaches..."
+            value={searchTerm}
+            onChange={(event) => onSearchTermChange(event.target.value)}
+          />
+        </div>
+        <div className="fc-filter__selects">
+          {filterSelectOptions.map((option) => (
+            <button key={option} type="button" className="fc-select">
+              {option}
+              <ChevronDown size={16} />
+            </button>
+          ))}
+        </div>
+      </form>
     </div>
   );
 };
