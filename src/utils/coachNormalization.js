@@ -1909,6 +1909,7 @@ export const normalizeCoach = (coach) => {
     slug,
     certifications,
     availabilityCalendar,
+    raw: coach,
   };
 };
 
