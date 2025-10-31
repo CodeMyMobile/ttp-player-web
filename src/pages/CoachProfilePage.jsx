@@ -27,7 +27,10 @@ const hasCoachIndicators = (value) => {
     "user_id",
     "uuid",
     "slug",
+    "coach_slug",
+    "coachSlug",
     "username",
+    "handle",
     "name",
     "full_name",
     "first_name",
@@ -39,10 +42,14 @@ const matchesCoachParam = (coach, rawParam) => {
   if (!coach || !rawParam) return false;
   const identifiers = [
     coach.slug,
+    coach.coach_slug,
+    coach.coachSlug,
+    coach.username,
+    coach.handle,
     coach.id,
     coach.coach_id,
-    coach.user_id,
     coach.player_coach_id,
+    coach.user_id,
     coach.uuid,
   ]
     .filter((item) => item !== undefined && item !== null)
@@ -66,6 +73,8 @@ const pickCoachFromResponse = (payload, matcher) => {
             item.user_id,
             item.uuid,
             item.slug,
+            item.coach_slug,
+            item.coachSlug,
             item.username,
             item.handle,
           ]
@@ -94,6 +103,8 @@ const pickCoachFromResponse = (payload, matcher) => {
         payload.user_id,
         payload.uuid,
         payload.slug,
+        payload.coach_slug,
+        payload.coachSlug,
         payload.username,
         payload.handle,
       ]
@@ -131,19 +142,30 @@ const pickCoachFromResponse = (payload, matcher) => {
 
 const buildOnboardingEndpoints = (coachParam) => {
   const base = "/coach/onboarding";
-  const trimmed = coachParam === undefined || coachParam === null
-    ? ""
-    : coachParam.toString().trim();
+  const trimmed =
+    coachParam === undefined || coachParam === null ? "" : coachParam.toString().trim();
   const encoded = trimmed ? encodeURIComponent(trimmed) : "";
   const endpoints = [];
+  const pushUnique = (value) => {
+    if (!value || endpoints.includes(value)) return;
+    endpoints.push(value);
+  };
   if (encoded) {
-    endpoints.push(`${base}/${encoded}`);
-    endpoints.push(`${base}?slug=${encoded}`);
-    endpoints.push(`${base}?coach_id=${encoded}`);
-    endpoints.push(`${base}?id=${encoded}`);
+    pushUnique(`${base}/${encoded}`);
+    pushUnique(`${base}?slug=${encoded}`);
+    pushUnique(`${base}?coach_slug=${encoded}`);
+    pushUnique(`${base}?coachSlug=${encoded}`);
+    pushUnique(`${base}?username=${encoded}`);
+    pushUnique(`${base}?handle=${encoded}`);
+    pushUnique(`${base}?coach_id=${encoded}`);
+    pushUnique(`${base}?player_coach_id=${encoded}`);
+    pushUnique(`${base}?playerCoachId=${encoded}`);
+    pushUnique(`${base}?user_id=${encoded}`);
+    pushUnique(`${base}?uuid=${encoded}`);
+    pushUnique(`${base}?id=${encoded}`);
   }
-  endpoints.push(base);
-  return endpoints.filter((value, index, array) => array.indexOf(value) === index);
+  pushUnique(base);
+  return endpoints;
 };
 
 const groupLessonTypes = (lessonTypes) => {
