@@ -140,32 +140,66 @@ const pickCoachFromResponse = (payload, matcher) => {
   return null;
 };
 
-const buildOnboardingEndpoints = (coachParam) => {
+const buildOnboardingRequests = (coachParam) => {
   const base = "/coach/onboarding";
   const trimmed =
     coachParam === undefined || coachParam === null ? "" : coachParam.toString().trim();
   const encoded = trimmed ? encodeURIComponent(trimmed) : "";
-  const endpoints = [];
-  const pushUnique = (value) => {
-    if (!value || endpoints.includes(value)) return;
-    endpoints.push(value);
+  const requests = [];
+  const seen = new Set();
+  const pushUnique = ({ path, method = "GET", json }) => {
+    if (!path) return;
+    const normalizedMethod = method.toUpperCase();
+    const key = `${normalizedMethod}|${path}|${json ? JSON.stringify(json) : ""}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const descriptor = { path, method: normalizedMethod };
+    if (json !== undefined) descriptor.json = json;
+    requests.push(descriptor);
   };
   if (encoded) {
-    pushUnique(`${base}/${encoded}`);
-    pushUnique(`${base}?slug=${encoded}`);
-    pushUnique(`${base}?coach_slug=${encoded}`);
-    pushUnique(`${base}?coachSlug=${encoded}`);
-    pushUnique(`${base}?username=${encoded}`);
-    pushUnique(`${base}?handle=${encoded}`);
-    pushUnique(`${base}?coach_id=${encoded}`);
-    pushUnique(`${base}?player_coach_id=${encoded}`);
-    pushUnique(`${base}?playerCoachId=${encoded}`);
-    pushUnique(`${base}?user_id=${encoded}`);
-    pushUnique(`${base}?uuid=${encoded}`);
-    pushUnique(`${base}?id=${encoded}`);
+    pushUnique({ path: `${base}/${encoded}` });
+    const queryKeys = [
+      "slug",
+      "coach_slug",
+      "coachSlug",
+      "username",
+      "handle",
+      "coach_id",
+      "player_coach_id",
+      "playerCoachId",
+      "user_id",
+      "uuid",
+      "id",
+    ];
+    queryKeys.forEach((key) => {
+      pushUnique({ path: `${base}?${key}=${encoded}` });
+    });
+    const bodyKeys = [
+      "coach_id",
+      "coachId",
+      "player_coach_id",
+      "playerCoachId",
+      "user_id",
+      "uuid",
+      "id",
+      "slug",
+      "coach_slug",
+      "coachSlug",
+      "username",
+      "handle",
+    ];
+    const numericValue = Number(trimmed);
+    const numeric = Number.isFinite(numericValue) ? numericValue : null;
+    bodyKeys.forEach((key) => {
+      pushUnique({ path: base, method: "POST", json: { [key]: trimmed } });
+      if (numeric !== null) {
+        pushUnique({ path: base, method: "POST", json: { [key]: numeric } });
+      }
+    });
   }
-  pushUnique(base);
-  return endpoints;
+  pushUnique({ path: base, method: "GET" });
+  return requests;
 };
 
 const groupLessonTypes = (lessonTypes) => {
@@ -308,15 +342,27 @@ const formatTimeDisplay = (value, dateIso) => {
 
 const formatSlotLabel = (slot, dateIso) => {
   if (!slot) return "Available";
-  const label = slot.label ? slot.label.toString().trim() : "";
-  if (label) return label;
+  const parts = [];
+  const seen = new Set();
+  const addPart = (value) => {
+    if (!value && value !== 0) return;
+    const text = value.toString().trim();
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    parts.push(text);
+  };
   const startDisplay = formatTimeDisplay(slot.start, dateIso);
   const endDisplay = formatTimeDisplay(slot.end, dateIso);
   if (startDisplay && endDisplay) {
-    return `${startDisplay} – ${endDisplay}`;
+    addPart(`${startDisplay} – ${endDisplay}`);
+  } else if (startDisplay || endDisplay) {
+    addPart(startDisplay || endDisplay);
   }
-  if (startDisplay) return startDisplay;
-  return "Available";
+  addPart(slot.label);
+  addPart(slot.location);
+  return parts.length ? parts.join(" • ") : "Available";
 };
 
 const formatMonthKey = (date) =>
@@ -355,14 +401,16 @@ const CoachProfilePage = () => {
       }
       setError("");
       try {
-        const endpoints = buildOnboardingEndpoints(coachId);
+        const requests = buildOnboardingRequests(coachId);
         let fetchedCoach = null;
         let fallbackError = null;
-        for (const endpoint of endpoints) {
+        for (const request of requests) {
+          const { path, method = "GET", json } = request;
           try {
             const response = await unwrap(
-              api(endpoint, {
-                method: "GET",
+              api(path, {
+                method,
+                ...(json !== undefined ? { json } : {}),
               }),
             );
             if (ignore) return;

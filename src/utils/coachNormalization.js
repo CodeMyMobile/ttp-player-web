@@ -9,6 +9,32 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const parseCurrencyValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  const text = value.toString().replace(/[^0-9.,-]+/g, "").trim();
+  if (!text) return null;
+  const normalized = text.replace(/,/g, "");
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value);
+  }
+  const text = value.toString().trim();
+  if (!text) return "";
+  return text;
+};
+
 const IGNORED_OBJECT_KEYS = new Set([
   "type",
   "__typename",
@@ -308,12 +334,267 @@ const normalizeDateTimeValue = (value) => {
   return text;
 };
 
+const normalizeTimeComponent = (value) => {
+  if (value === null || value === undefined) return "";
+  const text = value.toString().trim();
+  if (!text) return "";
+  const meridiemMatch = text.match(/\b(AM|PM)$/i);
+  const meridiem = meridiemMatch ? meridiemMatch[1].toUpperCase() : null;
+  const numericPortion = meridiemMatch ? text.slice(0, meridiemMatch.index).trim() : text;
+  const parts = numericPortion.split(":");
+  if (!parts.length) return "";
+  let hour = Number(parts[0]);
+  if (!Number.isFinite(hour)) return "";
+  let minute = parts.length > 1 ? Number(parts[1]) : 0;
+  if (!Number.isFinite(minute)) minute = 0;
+  let second = parts.length > 2 ? Number(parts[2]) : 0;
+  if (!Number.isFinite(second)) second = 0;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (hour < 0 || hour > 23) return "";
+  if (minute < 0 || minute > 59) minute = 0;
+  if (second < 0 || second > 59) second = 0;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+};
+
+const parseTimeRangeFromText = (value) => {
+  if (!value && value !== 0) return null;
+  const text = value.toString().trim();
+  if (!text) return null;
+  const normalized = text.replace(/\s+/g, " ");
+  const match = normalized.match(
+    /(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)\s*[-–—]\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)/i,
+  );
+  if (!match) {
+    const numericMatch = normalized.match(/(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/);
+    if (!numericMatch) return null;
+    const [, startNumeric, endNumeric] = numericMatch;
+    const start = normalizeTimeComponent(startNumeric);
+    const end = normalizeTimeComponent(endNumeric);
+    if (!start && !end) return null;
+    return { start: start || null, end: end || null };
+  }
+  const [, startRaw, endRaw] = match;
+  const start = normalizeTimeComponent(startRaw);
+  const end = normalizeTimeComponent(endRaw);
+  if (!start && !end) return null;
+  return { start: start || null, end: end || null };
+};
+
+const WEEKDAY_NAMES_FULL = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+const WEEKDAY_INDEX_LOOKUP = WEEKDAY_NAMES_FULL.reduce((acc, name, index) => {
+  acc[name.toLowerCase()] = index;
+  acc[name.slice(0, 3).toLowerCase()] = index;
+  return acc;
+}, {});
+
+const normalizeWeekdayIndex = (value) => {
+  if (value === null || value === undefined) return -1;
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 6) {
+    return value;
+  }
+  const text = value.toString().trim().toLowerCase();
+  if (!text) return -1;
+  if (Object.prototype.hasOwnProperty.call(WEEKDAY_INDEX_LOOKUP, text)) {
+    return WEEKDAY_INDEX_LOOKUP[text];
+  }
+  const numeric = Number(text);
+  if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 6) {
+    return numeric;
+  }
+  return -1;
+};
+
+const formatTimeRangeKey = (start, end) => {
+  if (!start && !end) return "";
+  const trim = (value) => {
+    if (!value) return "";
+    const text = value.toString().trim();
+    if (!text) return "";
+    if (/^\d{2}:\d{2}:\d{2}$/.test(text)) {
+      return text.slice(0, 5);
+    }
+    return text;
+  };
+  const normalizedStart = trim(start);
+  const normalizedEnd = trim(end);
+  if (normalizedStart && normalizedEnd) {
+    return `${normalizedStart} - ${normalizedEnd}`;
+  }
+  return normalizedStart || normalizedEnd;
+};
+
+const findAvailabilityLocation = (bucket, candidates = []) => {
+  if (!bucket || typeof bucket !== "object") return null;
+  for (const candidate of candidates) {
+    if (!candidate && candidate !== 0) continue;
+    const rawText = candidate.toString().trim();
+    if (!rawText) continue;
+    const normalizedCandidate = normalizeCandidateText(rawText);
+    for (const [key, value] of Object.entries(bucket)) {
+      if (!value && value !== 0) continue;
+      const keyText = key ? key.toString().trim() : "";
+      if (!keyText) continue;
+      const normalizedKey = normalizeCandidateText(keyText);
+      if (
+        (normalizedCandidate && normalizedKey && normalizedCandidate === normalizedKey) ||
+        rawText === keyText
+      ) {
+        const normalizedValue = normalizeCandidateText(value);
+        if (normalizedValue) return normalizedValue;
+        if (typeof value === "string") {
+          const trimmed = value.trim();
+          if (trimmed) return trimmed;
+        }
+        return value;
+      }
+    }
+  }
+  return null;
+};
+
+const getAvailabilityLocationBucket = (sources, dayIndex, rawKey) => {
+  if (!Array.isArray(sources)) return null;
+  const keysToTry = [];
+  if (rawKey !== undefined && rawKey !== null) {
+    const rawText = rawKey.toString();
+    keysToTry.push(rawText, rawText.toLowerCase());
+  }
+  if (dayIndex >= 0 && dayIndex <= 6) {
+    const dayName = WEEKDAY_NAMES_FULL[dayIndex];
+    if (dayName) {
+      keysToTry.push(dayName, dayName.toLowerCase(), dayName.slice(0, 3), dayName.slice(0, 3).toLowerCase());
+    }
+    keysToTry.push(dayIndex, dayIndex.toString());
+  }
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+    for (const key of keysToTry) {
+      if (key === undefined || key === null) continue;
+      const normalizedKey = typeof key === "string" ? key : key.toString();
+      if (!normalizedKey) continue;
+      if (Object.prototype.hasOwnProperty.call(source, normalizedKey)) {
+        const bucket = source[normalizedKey];
+        if (bucket && typeof bucket === "object") return bucket;
+      }
+    }
+  }
+  return null;
+};
+
+const parseDateKeyToDate = (value) => {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  const text = value.toString().trim();
+  if (!text) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split("-").map((part) => Number(part));
+    if ([year, month, day].every((part) => Number.isFinite(part))) {
+      const date = new Date(year, month - 1, day);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
+  }
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return null;
+};
+
+const formatTimeForSummary = (value) => {
+  if (value === null || value === undefined) return "";
+  const normalized = normalizeTimeComponent(value);
+  if (!normalized) {
+    const text = value.toString().trim();
+    return text;
+  }
+  const [hourRaw, minuteRaw = "0", secondRaw = "0"] = normalized.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  const second = Number(secondRaw);
+  if ([hour, minute, second].some((part) => Number.isNaN(part))) {
+    return normalized;
+  }
+  const date = new Date();
+  date.setHours(hour, minute, second || 0, 0);
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+};
+
+const formatTimeRangeForSummary = (start, end) => {
+  const startDisplay = formatTimeForSummary(start);
+  const endDisplay = formatTimeForSummary(end);
+  if (startDisplay && endDisplay) {
+    return `${startDisplay} – ${endDisplay}`;
+  }
+  return startDisplay || endDisplay || "";
+};
+
+const formatAvailabilitySummaryFromCalendar = (entries) => {
+  if (!Array.isArray(entries) || !entries.length) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const prioritized =
+    entries.find((entry) => {
+      const date = parseDateKeyToDate(entry.date);
+      return (
+        date &&
+        date.getTime() >= today.getTime() &&
+        Array.isArray(entry.slots) &&
+        entry.slots.length > 0
+      );
+    }) ||
+    entries.find((entry) => Array.isArray(entry.slots) && entry.slots.length > 0);
+  if (!prioritized) return "";
+  const date = parseDateKeyToDate(prioritized.date);
+  const dayLabel = date
+    ? new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date)
+    : prioritized.date;
+  const slot = Array.isArray(prioritized.slots)
+    ? prioritized.slots.find((item) => item && (item.start || item.end || item.label || item.location))
+    : null;
+  const parts = [];
+  if (dayLabel) parts.push(dayLabel);
+  if (slot) {
+    const timePart = formatTimeRangeForSummary(slot.start, slot.end);
+    if (timePart) parts.push(timePart);
+    const locationPart = slot.location
+      ? normalizeCandidateText(slot.location) || slot.location
+      : null;
+    if (locationPart) {
+      parts.push(locationPart);
+    } else if (slot.label) {
+      const labelPart = normalizeCandidateText(slot.label) || slot.label;
+      if (labelPart) parts.push(labelPart);
+    }
+  }
+  return parts.filter(Boolean).join(" • ");
+};
+
 const normalizeAvailabilitySlot = (value) => {
   if (value === null || value === undefined) return null;
   if (typeof value === "string" || typeof value === "number") {
     const label = normalizeCandidateText(value);
     if (!label) return null;
-    return { label };
+    const slot = { label };
+    const directRange = parseTimeRangeFromText(value);
+    if (directRange) {
+      slot.start = directRange.start;
+      slot.end = directRange.end;
+    } else {
+      const fallbackRange = parseTimeRangeFromText(label);
+      if (fallbackRange) {
+        slot.start = fallbackRange.start;
+        slot.end = fallbackRange.end;
+      }
+    }
+    return slot;
   }
   if (typeof value === "object") {
     const label = normalizeCandidateText(
@@ -359,11 +640,19 @@ const normalizeAvailabilitySlot = (value) => {
     if (!label && !start && !end) {
       return null;
     }
-    return {
+    const slot = {
       label: label || null,
       start: start || null,
       end: end || null,
     };
+    if ((!slot.start || !slot.end) && label) {
+      const fallbackRange = parseTimeRangeFromText(label);
+      if (fallbackRange) {
+        slot.start = slot.start || fallbackRange.start;
+        slot.end = slot.end || fallbackRange.end;
+      }
+    }
+    return slot;
   }
   return null;
 };
@@ -382,10 +671,21 @@ const parseAvailabilityCalendar = (coach) => {
     if (!date || !slot) return;
     addEntry(date);
     const entry = calendarMap.get(date);
-    const key = `${slot.start ?? ""}|${slot.end ?? ""}|${slot.label ?? ""}`;
+    const locationKeyRaw = slot.location ? normalizeCandidateText(slot.location) : "";
+    const locationKey = locationKeyRaw ? locationKeyRaw.toLowerCase() : "";
+    const key = `${slot.start ?? ""}|${slot.end ?? ""}|${slot.label ?? ""}|${locationKey}`;
     if (entry._keys.has(key)) return;
     entry._keys.add(key);
-    entry.slots.push(slot);
+    const normalizedLocation =
+      typeof slot.location === "string" && slot.location.toString().trim()
+        ? slot.location.toString().trim()
+        : locationKeyRaw || null;
+    entry.slots.push({
+      label: slot.label ?? null,
+      start: slot.start ?? null,
+      end: slot.end ?? null,
+      location: normalizedLocation ?? null,
+    });
   };
 
   const parseValue = (value, contextDate = "") => {
@@ -487,6 +787,123 @@ const parseAvailabilityCalendar = (coach) => {
     }
   };
 
+  const locationSources = [
+    coach.availability_locations,
+    coach.availabilityLocations,
+    coach.schedule?.availability_locations,
+    coach.schedule?.availabilityLocations,
+    coach.profile?.availability_locations,
+    coach.profile?.availabilityLocations,
+    coach.user?.availability_locations,
+    coach.user?.availabilityLocations,
+  ];
+
+  const weeklySources = [
+    coach.availability,
+    coach.weekly_availability,
+    coach.weeklyAvailability,
+    coach.availability_schedule,
+    coach.availabilitySchedule,
+    coach.schedule?.weekly_availability,
+    coach.schedule?.weeklyAvailability,
+    coach.profile?.weekly_availability,
+    coach.profile?.weeklyAvailability,
+    coach.user?.weekly_availability,
+    coach.user?.weeklyAvailability,
+  ];
+
+  const weeklySlots = [];
+
+  weeklySources.forEach((source) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return;
+    Object.entries(source).forEach(([dayKey, rawValue]) => {
+      const dayIndex = normalizeWeekdayIndex(dayKey);
+      if (dayIndex < 0) return;
+      const entries = Array.isArray(rawValue) ? rawValue : [rawValue];
+      const locationBucket = getAvailabilityLocationBucket(locationSources, dayIndex, dayKey);
+      entries.forEach((entry) => {
+        if (entry === null || entry === undefined || entry === "") return;
+        const slot = normalizeAvailabilitySlot(entry);
+        if (!slot) return;
+        const originalLabel =
+          typeof entry === "string" || typeof entry === "number"
+            ? entry.toString()
+            : normalizeCandidateText(
+                coalesceStrings(
+                  entry.originalLabel,
+                  entry.original,
+                  entry.label,
+                  entry.title,
+                  entry.name,
+                  entry.summary,
+                  entry.text,
+                  entry.time,
+                  entry.range,
+                  entry.window,
+                  entry.slot,
+                ),
+              );
+        if ((!slot.start || !slot.end) && originalLabel) {
+          const range = parseTimeRangeFromText(originalLabel);
+          if (range) {
+            slot.start = slot.start || range.start;
+            slot.end = slot.end || range.end;
+          }
+        }
+        if ((!slot.start || !slot.end) && typeof entry === "object") {
+          const fallbackRange = parseTimeRangeFromText(
+            coalesceStrings(
+              entry.time,
+              entry.range,
+              entry.hours,
+              entry.schedule,
+              entry.slot,
+              entry.window,
+              entry.duration,
+            ),
+          );
+          if (fallbackRange) {
+            slot.start = slot.start || fallbackRange.start;
+            slot.end = slot.end || fallbackRange.end;
+          }
+        }
+        if (locationBucket) {
+          const location = findAvailabilityLocation(locationBucket, [
+            typeof entry === "string" || typeof entry === "number" ? entry.toString() : "",
+            originalLabel,
+            slot.label,
+            formatTimeRangeKey(slot.start, slot.end),
+          ]);
+          if (location) {
+            slot.location = location;
+          }
+        }
+        weeklySlots.push({ dayIndex, slot: { ...slot } });
+      });
+    });
+  });
+
+  if (weeklySlots.length) {
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    const totalDays = 42;
+    for (let offset = 0; offset < totalDays; offset += 1) {
+      const current = new Date(startDate);
+      current.setDate(startDate.getDate() + offset);
+      const dayIndex = current.getDay();
+      const dateKey = formatDateOnly(current);
+      weeklySlots.forEach(({ dayIndex: slotDay, slot }) => {
+        if (slotDay !== dayIndex) return;
+        addSlot(dateKey, {
+          label: slot.label || null,
+          start: slot.start || null,
+          end: slot.end || null,
+          location: slot.location || null,
+        });
+      });
+    }
+  }
+
   const sources = [
     coach.availability_calendar,
     coach.availabilityCalendar,
@@ -522,6 +939,7 @@ const parseAvailabilityCalendar = (coach) => {
             label: slot.label || null,
             start: slot.start || null,
             end: slot.end || null,
+            location: slot.location || null,
           }))
         : [],
     }));
@@ -606,13 +1024,17 @@ export const normalizeCoach = (coach) => {
     coach.hourlyRate ??
     coach.price_per_hour ??
     coach.hourly_price ??
+    coach.price_private ??
+    coach.private_price ??
     null;
-  const hourlyRateValue = parseNumber(
+  const hourlyRateValue = parseCurrencyValue(
     coach.hourly_rate ??
       coach.hourlyRate ??
       coach.price_per_hour ??
       coach.hourly_price ??
-      coach.rate,
+      coach.rate ??
+      coach.price_private ??
+      coach.private_price,
   );
   const avatarKeys = [
     "avatar",
@@ -694,6 +1116,8 @@ export const normalizeCoach = (coach) => {
     coach.venues ??
     coach.physical_locations ??
     coach.locationsServed ??
+    coach.home_courts ??
+    coach.homeCourts ??
     coach.profile?.locations ??
     coach.user?.locations ??
     coach.user?.coach_locations ??
@@ -1144,12 +1568,18 @@ export const normalizeCoach = (coach) => {
     (distanceValue !== null
       ? `${distanceValue.toFixed(distanceValue >= 10 ? 0 : 1)} mi`
       : null);
-  const availability =
+  const availabilityRaw =
     coach.availability ??
     coach.next_available ??
     coach.availability_summary ??
     coach.schedule_summary ??
     null;
+  let availability =
+    typeof availabilityRaw === "string"
+      ? normalizeCandidateText(availabilityRaw)
+      : typeof availabilityRaw === "number"
+        ? availabilityRaw.toString()
+        : "";
   const responseTimeLabel = normalizeCandidateText(
     coalesceStrings(
       coach.response_time,
@@ -1202,7 +1632,7 @@ export const normalizeCoach = (coach) => {
       extractMeaningfulString(coach.profile?.availability_notes, { minLength: 6 });
     typicalAvailability = normalizeCandidateText(availabilityCandidate);
   }
-  if (!typicalAvailability && typeof availability === "string") {
+  if (!typicalAvailability && availability) {
     typicalAvailability = availability;
   }
   const lessonTypesRaw =
@@ -1221,6 +1651,11 @@ export const normalizeCoach = (coach) => {
     coach.offerings ??
     coach.services ??
     coach.lessons ??
+    coach.packages ??
+    coach.package_options ??
+    coach.packageOptions ??
+    coach.lesson_packages ??
+    coach.lessonPackages ??
     coach.profile?.lesson_types ??
     coach.profile?.lessons ??
     coach.user?.lesson_types ??
@@ -1259,6 +1694,21 @@ export const normalizeCoach = (coach) => {
       description: normalizedDescription || null,
       category,
     });
+  };
+  const addPriceLessonEntry = (label, ...candidates) => {
+    if (!label) return;
+    const numeric = candidates
+      .map((candidate) => parseCurrencyValue(candidate))
+      .find((value) => value !== null);
+    if (numeric !== null) {
+      addLessonEntry(label, `${formatCurrency(numeric)} per hour`);
+      return;
+    }
+    if (!candidates.length) return;
+    const text = normalizeCandidateText(coalesceStrings(...candidates));
+    if (text) {
+      addLessonEntry(label, text);
+    }
   };
   const parseLessonValue = (value) => {
     if (!value && value !== 0) return;
@@ -1315,6 +1765,34 @@ export const normalizeCoach = (coach) => {
     }
   };
   parseLessonValue(lessonTypesRaw);
+  addPriceLessonEntry(
+    "Private lesson",
+    coach.price_private,
+    coach.private_price,
+    coach.privateRate,
+    coach.privateLessonPrice,
+    coach.lesson_private_price,
+    coach.lessonPrivatePrice,
+    coach.lessons?.private_price,
+  );
+  addPriceLessonEntry(
+    "Semi-private lesson",
+    coach.price_semi,
+    coach.semi_private_price,
+    coach.semiPrivatePrice,
+    coach.lesson_semi_price,
+    coach.lessonSemiPrice,
+    coach.lessons?.semi_private_price,
+  );
+  addPriceLessonEntry(
+    "Group lesson",
+    coach.price_group,
+    coach.group_price,
+    coach.groupLessonPrice,
+    coach.lesson_group_price,
+    coach.lessonGroupPrice,
+    coach.lessons?.group_price,
+  );
   const lessonTypes = lessonTypeEntries;
   const lessonsCount =
     parseNumber(
@@ -1384,6 +1862,13 @@ export const normalizeCoach = (coach) => {
   });
   certifications = Array.from(certificationSet);
   const availabilityCalendar = parseAvailabilityCalendar(coach);
+  const calendarSummary = formatAvailabilitySummaryFromCalendar(availabilityCalendar);
+  if (!availability) {
+    availability = calendarSummary;
+  }
+  if (!typicalAvailability) {
+    typicalAvailability = calendarSummary || availability;
+  }
   const badge =
     coach.badge ??
     coach.highlight ??
@@ -1393,10 +1878,10 @@ export const normalizeCoach = (coach) => {
   const status = (coach.status ?? coach.coach_status ?? "").toString().toLowerCase();
   const slug = coach.slug ?? coach.username ?? id;
   const hourlyRateDisplay =
-    typeof hourlyRate === "number"
-      ? `$${hourlyRate.toFixed(0)}/hr`
+    hourlyRateValue !== null
+      ? `${formatCurrency(hourlyRateValue)}/hr`
       : hourlyRate && typeof hourlyRate === "string"
-        ? hourlyRate
+        ? hourlyRate.trim()
         : null;
 
   return {
@@ -1413,8 +1898,8 @@ export const normalizeCoach = (coach) => {
     specialties: specialties.filter(Boolean),
     facility: facilityLabel || facility,
     distanceLabel,
-    availability,
-    typicalAvailability,
+    availability: availability || null,
+    typicalAvailability: typicalAvailability || null,
     responseTime: responseTimeLabel || null,
     lessonsCount,
     studentsCount,
