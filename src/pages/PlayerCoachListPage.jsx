@@ -57,6 +57,46 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const extractString = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return value.toString();
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const resolved = extractString(item);
+        if (resolved) return resolved;
+      }
+      return "";
+    }
+    const nestedCandidate =
+      value.url ??
+      value.href ??
+      value.src ??
+      value.value ??
+      value.label ??
+      value.title ??
+      value.name ??
+      value.path ??
+      value.location ??
+      value.asset ??
+      null;
+    if (nestedCandidate) {
+      const resolved = extractString(nestedCandidate);
+      if (resolved) return resolved;
+    }
+  }
+  return "";
+};
+
+const coalesceStrings = (...values) => {
+  for (const value of values) {
+    const resolved = extractString(value);
+    if (resolved) return resolved;
+  }
+  return "";
+};
+
 const normalizeCoach = (coach) => {
   if (!coach || typeof coach !== "object") return null;
   const id =
@@ -89,12 +129,35 @@ const normalizeCoach = (coach) => {
       coach.rate,
   );
   const avatar =
-    coach.avatar ??
-    coach.profile_image ??
-    coach.profile_image_url ??
-    coach.profilePhoto ??
-    coach.photo ??
-    "";
+    coalesceStrings(
+      coach.avatar,
+      coach.profile_image,
+      coach.profile_image_url,
+      coach.profilePhoto,
+      coach.photo,
+      coach.profile_picture,
+      coach.profilePicture,
+      coach.photo_url,
+      coach.image,
+      coach.picture,
+      coach.media?.profile_image,
+      coach.media?.avatar,
+      coach.media?.photo,
+      coach.profile?.profile_image,
+      coach.profile?.profile_picture,
+      coach.profile?.avatar,
+      coach.profile?.photo,
+      coach.profile?.image,
+      coach.user?.profile_image,
+      coach.user?.profile_image_url,
+      coach.user?.profile_picture,
+      coach.user?.avatar,
+      coach.user?.photo,
+      coach.user?.image,
+      coach.user?.profile?.avatar,
+      coach.user?.profile?.profile_image,
+      coach.user?.profile?.photo,
+    ) || "";
   const locationsRaw =
     coach.locations ??
     coach.locationList ??
@@ -103,15 +166,33 @@ const normalizeCoach = (coach) => {
     coach.locationName ??
     coach.coach_locations ??
     coach.coachLocations ??
+    coach.venues ??
+    coach.physical_locations ??
+    coach.locationsServed ??
+    coach.profile?.locations ??
+    coach.user?.locations ??
+    coach.user?.coach_locations ??
     [];
   let locationList = [];
   let locationPlaces = [];
   const bio =
-    coach.bio ??
-    coach.short_bio ??
-    coach.description ??
-    coach.about ??
-    "";
+    coalesceStrings(
+      coach.bio,
+      coach.short_bio,
+      coach.description,
+      coach.about,
+      coach.summary,
+      coach.profile?.bio,
+      coach.profile?.about,
+      coach.profile?.description,
+      coach.profile?.short_bio,
+      coach.profile?.summary,
+      coach.user?.bio,
+      coach.user?.about,
+      coach.user?.profile?.bio,
+      coach.user?.profile?.about,
+      coach.user?.profile?.summary,
+    ) || "";
   const ratingValue =
     parseNumber(
       coach.rating ??
@@ -161,37 +242,67 @@ const normalizeCoach = (coach) => {
       .filter(Boolean);
   }
   const facility =
-    coach.facility ??
-    coach.club ??
-    coach.club_name ??
-    coach.location_name ??
-    coach.primary_location ??
-    null;
+    coalesceStrings(
+      coach.facility,
+      coach.club,
+      coach.club_name,
+      coach.location_name,
+      coach.primary_location,
+      coach.venue,
+      coach.profile?.facility,
+      coach.profile?.primary_location,
+      coach.user?.facility,
+      coach.user?.club,
+      coach.user?.primary_location,
+    ) || null;
   const facilityLabel =
-    typeof facility === "string" ? facility.trim() : typeof facility === "number" ? facility.toString() : facility;
+    typeof facility === "string"
+      ? facility.trim()
+      : typeof facility === "number"
+        ? facility.toString()
+        : facility;
   const city =
-    coach.city ??
-    coach.city_name ??
-    coach.cityName ??
-    coach.location_city ??
-    coach.coach_city ??
-    null;
+    coalesceStrings(
+      coach.city,
+      coach.city_name,
+      coach.cityName,
+      coach.location_city,
+      coach.coach_city,
+      coach.profile?.city,
+      coach.profile?.city_name,
+      coach.profile?.cityName,
+      coach.user?.city,
+      coach.user?.city_name,
+      coach.user?.cityName,
+    ) || null;
   const state =
-    coach.state ??
-    coach.state_code ??
-    coach.stateCode ??
-    coach.region ??
-    coach.province ??
-    coach.location_state ??
-    coach.coach_state ??
-    null;
+    coalesceStrings(
+      coach.state,
+      coach.state_code,
+      coach.stateCode,
+      coach.region,
+      coach.province,
+      coach.location_state,
+      coach.coach_state,
+      coach.profile?.state,
+      coach.profile?.state_code,
+      coach.profile?.stateCode,
+      coach.user?.state,
+      coach.user?.state_code,
+      coach.user?.stateCode,
+    ) || null;
   const postalCode =
-    coach.zip ??
-    coach.zip_code ??
-    coach.postal_code ??
-    coach.location_zip ??
-    coach.coach_zip ??
-    null;
+    coalesceStrings(
+      coach.zip,
+      coach.zip_code,
+      coach.postal_code,
+      coach.location_zip,
+      coach.coach_zip,
+      coach.profile?.zip,
+      coach.profile?.postal_code,
+      coach.user?.zip,
+      coach.user?.postal_code,
+    ) || null;
   const fallbackCityState = [city, state].filter(Boolean).join(", ");
   const fallbackRegion = [facilityLabel, fallbackCityState].filter(Boolean).join(" • ");
 
@@ -201,13 +312,25 @@ const normalizeCoach = (coach) => {
       const trimmed = value.trim();
       if (!trimmed) return null;
       if (/^\d{5}(?:-\d{4})?$/.test(trimmed)) {
-        if (fallbackRegion) return `${fallbackRegion} (${trimmed})`;
-        if (fallbackCityState) return `${fallbackCityState} (${trimmed})`;
-        return `ZIP ${trimmed}`;
+        if (fallbackRegion) return `${fallbackRegion}`;
+        if (fallbackCityState) return `${fallbackCityState}`;
+        return null;
       }
       return trimmed;
     }
     if (typeof value === "object") {
+      if (Array.isArray(value)) {
+        const nestedLabels = value
+          .map((item) => formatLocationLabel(item))
+          .filter(Boolean);
+        if (nestedLabels.length) return nestedLabels[0];
+        return null;
+      }
+      if (value.location || value.place || value.venue || value.facility) {
+        const nested = value.location ?? value.place ?? value.venue ?? value.facility;
+        const nestedLabel = formatLocationLabel(nested);
+        if (nestedLabel) return nestedLabel;
+      }
       const name =
         value.name ??
         value.title ??
@@ -215,6 +338,9 @@ const normalizeCoach = (coach) => {
         value.facility ??
         value.location_name ??
         value.club ??
+        value.venue ??
+        value.facility_name ??
+        value.organization ??
         value.location ??
         null;
       const street =
@@ -224,12 +350,15 @@ const normalizeCoach = (coach) => {
         value.street ??
         value.street1 ??
         value.street_1 ??
+        value.address_line1 ??
+        value.address_line_1 ??
         null;
       const localCity =
         value.city ??
         value.city_name ??
         value.locality ??
         value.town ??
+        value.county ??
         city ??
         null;
       const localState =
@@ -237,6 +366,7 @@ const normalizeCoach = (coach) => {
         value.state_code ??
         value.region ??
         value.province ??
+        value.state_abbr ??
         state ??
         null;
       const zip =
@@ -260,6 +390,8 @@ const normalizeCoach = (coach) => {
           (typeof value.description === "string" && value.description.trim()) ||
           (typeof value.value === "string" && value.value.trim()) ||
           (typeof value.slug === "string" && value.slug.trim()) ||
+          (typeof value.display_name === "string" && value.display_name.trim()) ||
+          (typeof value.label === "string" && value.label.trim()) ||
           null;
         return fallback;
       }
@@ -346,6 +478,15 @@ const normalizeCoach = (coach) => {
         locationPlaces.push({ id: "postal", label: `ZIP ${formattedPostal}` });
       }
     }
+  }
+
+  const hasNonZipLocation = locationPlaces.some(
+    (entry) => !/^zip\s*\d{5}(?:-\d{4})?$/i.test(entry.label.trim()),
+  );
+  if (hasNonZipLocation) {
+    locationPlaces = locationPlaces.filter(
+      (entry) => !/^zip\s*\d{5}(?:-\d{4})?$/i.test(entry.label.trim()),
+    );
   }
 
   locationList = locationPlaces.map((entry) => entry.label);
