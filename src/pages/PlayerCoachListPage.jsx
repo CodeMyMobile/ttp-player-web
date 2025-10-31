@@ -1000,10 +1000,6 @@ const PlayerCoachListPage = () => {
     }
   }, []);
 
-  const handleRadiusChange = useCallback((value) => {
-    setRadius(value);
-  }, []);
-
   const commitNameFilter = useCallback(() => {
     if (activeTab === "all") {
       setFilterText(nameDraft.trim());
@@ -1556,9 +1552,9 @@ const PlayerCoachListPage = () => {
                 min="1"
                 max="100"
                 value={radius}
-                onChange={(event) => handleRadiusChange(Number(event.target.value))}
-                onMouseUp={(event) => handleRadiusChange(Number(event.target.value))}
-                onTouchEnd={(event) => handleRadiusChange(Number(event.target.value))}
+                onChange={(event) => setRadius(Number(event.target.value))}
+                onMouseUp={(event) => setRadius(Number(event.target.value))}
+                onTouchEnd={(event) => setRadius(Number(event.target.value))}
                 aria-label="Search radius in miles"
               />
               <p className="radius-hint">Adjust the search radius to expand or narrow results.</p>
