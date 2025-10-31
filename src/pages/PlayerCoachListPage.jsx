@@ -441,13 +441,18 @@ const PlayerCoachListPage = () => {
   const [locationError, setLocationError] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [locationPreview, setLocationPreview] = useState(null);
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [focusFilterSection, setFocusFilterSection] = useState(null);
   const [resultsAnnouncement, setResultsAnnouncement] = useState("");
   const [specialtySelection, setSpecialtySelection] = useState([]);
   const [sortValue, setSortValue] = useState("recommended");
 
   const allListSentinelRef = useRef(null);
   const myListSentinelRef = useRef(null);
+  const locationInputRef = useRef(null);
+  const radiusInputRef = useRef(null);
+  const nameFilterInputRef = useRef(null);
+  const hasRequestedLocationRef = useRef(false);
+  const dynamicFilterRefs = useRef({});
 
   const debouncedUserPos = useDebouncedValue(userPos, 400);
   const filtersSignature = useMemo(() => {
@@ -458,6 +463,27 @@ const PlayerCoachListPage = () => {
     if (!activeEntries.length) return "";
     return JSON.stringify(Object.fromEntries(activeEntries));
   }, [selectedFilters]);
+
+  useEffect(() => {
+    if (hasRequestedLocationRef.current) return;
+    hasRequestedLocationRef.current = true;
+    requestLocation();
+  }, [requestLocation]);
+
+  useEffect(() => {
+    if (locationFilter) return;
+    if (!debouncedUserPos?.latitude || !debouncedUserPos?.longitude) return;
+    setLocationFilter({
+      address: "Current location",
+      latitude: debouncedUserPos.latitude,
+      longitude: debouncedUserPos.longitude,
+    });
+    setLocationPreview({
+      latitude: debouncedUserPos.latitude,
+      longitude: debouncedUserPos.longitude,
+    });
+    setLocationError("");
+  }, [debouncedUserPos, locationFilter]);
 
   const canQueryAllCoaches = useMemo(() => {
     if (locationFilter?.latitude && locationFilter?.longitude) return true;
@@ -606,7 +632,7 @@ const PlayerCoachListPage = () => {
   }, [fetchDynamicFilters]);
 
   useEffect(() => {
-    if (openFilter === "location") {
+    if (openFilter === "filters") {
       setLocationQuery(locationFilter?.address ?? "");
       setLocationPreview(
         locationFilter?.latitude && locationFilter?.longitude
@@ -617,20 +643,25 @@ const PlayerCoachListPage = () => {
           : debouncedUserPos || null,
       );
       setLocationError("");
-    }
-    if (openFilter === "name") {
       setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
     }
-  }, [activeTab, debouncedUserPos, filterText, locationFilter, openFilter, myCoachesFilterText]);
+  }, [
+    activeTab,
+    debouncedUserPos,
+    filterText,
+    locationFilter,
+    myCoachesFilterText,
+    openFilter,
+  ]);
 
   useEffect(() => {
-    if (openFilter !== "location") {
+    if (openFilter !== "filters") {
       setLocationSuggestions([]);
     }
   }, [openFilter]);
 
   useEffect(() => {
-    if (openFilter !== "location") return;
+    if (openFilter !== "filters") return;
     const trimmed = locationQuery.trim();
     if (trimmed.length < 3) {
       setLocationSuggestions([]);
@@ -692,6 +723,41 @@ const PlayerCoachListPage = () => {
       cancelled = true;
     };
   }, [locationQuery, openFilter]);
+
+  useEffect(() => {
+    if (openFilter === "filters") return;
+    if (focusFilterSection === null) return;
+    setFocusFilterSection(null);
+  }, [focusFilterSection, openFilter]);
+
+  useEffect(() => {
+    if (openFilter !== "filters") return;
+    const timer = window.setTimeout(() => {
+      if (focusFilterSection === "location" && locationInputRef.current) {
+        locationInputRef.current.focus();
+      } else if (focusFilterSection === "radius" && radiusInputRef.current) {
+        radiusInputRef.current.focus();
+      } else if (focusFilterSection === "name" && nameFilterInputRef.current) {
+        nameFilterInputRef.current.focus();
+      } else if (focusFilterSection && dynamicFilterRefs.current[focusFilterSection]) {
+        const node = dynamicFilterRefs.current[focusFilterSection];
+        if (node?.scrollIntoView) {
+          node.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        if (node?.focus) {
+          node.focus();
+        }
+      }
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [
+    dynamicFilterRefs,
+    focusFilterSection,
+    locationInputRef,
+    nameFilterInputRef,
+    openFilter,
+    radiusInputRef,
+  ]);
 
   const normalizeListResponse = useCallback(
     (payload) =>
@@ -900,6 +966,15 @@ const PlayerCoachListPage = () => {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
+        setLocationFilter((prev) =>
+          prev && prev.address
+            ? prev
+            : {
+                address: "Current location",
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              },
+        );
         setLocationLoader(false);
       },
       (error) => {
@@ -929,7 +1004,7 @@ const PlayerCoachListPage = () => {
     setRadius(value);
   }, []);
 
-  const handleNameApply = useCallback(() => {
+  const commitNameFilter = useCallback(() => {
     if (activeTab === "all") {
       setFilterText(nameDraft.trim());
       resetAllPagination();
@@ -937,15 +1012,14 @@ const PlayerCoachListPage = () => {
       setMyCoachesFilterText(nameDraft.trim());
       resetMyPagination();
     }
-    setOpenFilter(null);
   }, [activeTab, nameDraft, resetAllPagination, resetMyPagination]);
 
   const handleSearchSubmit = useCallback(
     (event) => {
       event.preventDefault();
-      handleNameApply();
+      commitNameFilter();
     },
-    [handleNameApply],
+    [commitNameFilter],
   );
 
   const handleSearchClear = useCallback(() => {
@@ -959,31 +1033,43 @@ const PlayerCoachListPage = () => {
     }
   }, [activeTab, resetAllPagination, resetMyPagination]);
 
-  const handleClearFilter = useCallback(() => {
-    if (openFilter === "location") {
-      setLocationFilter(null);
-      setLocationPreview(debouncedUserPos || null);
-      setLocationQuery("");
-    }
-    if (openFilter === "radius") {
-      setRadius(DEFAULT_RADIUS);
-    }
-    if (openFilter === "name") {
-      setNameDraft("");
-      if (activeTab === "all") {
-        setFilterText("");
-      } else {
-        setMyCoachesFilterText("");
-      }
-    }
-    if (dynamicFilters.some((filter) => filter.key === openFilter)) {
-      setSelectedFilters((prev) => {
-        const next = { ...prev };
-        delete next[openFilter];
-        return next;
+  const handleFiltersClear = useCallback(() => {
+    if (debouncedUserPos?.latitude && debouncedUserPos?.longitude) {
+      setLocationFilter({
+        address: "Current location",
+        latitude: debouncedUserPos.latitude,
+        longitude: debouncedUserPos.longitude,
       });
+      setLocationPreview({
+        latitude: debouncedUserPos.latitude,
+        longitude: debouncedUserPos.longitude,
+      });
+    } else {
+      setLocationFilter(null);
+      setLocationPreview(null);
     }
-  }, [activeTab, debouncedUserPos, dynamicFilters, openFilter]);
+    setLocationQuery("");
+    setLocationSuggestions([]);
+    setLocationError("");
+    setRadius(DEFAULT_RADIUS);
+    setNameDraft("");
+    setFilterText("");
+    setMyCoachesFilterText("");
+    setSelectedFilters({});
+    setSpecialtySelection([]);
+    resetAllPagination();
+    resetMyPagination();
+  }, [
+    debouncedUserPos,
+    resetAllPagination,
+    resetMyPagination,
+  ]);
+
+  const handleFiltersDone = useCallback(() => {
+    commitNameFilter();
+    setOpenFilter(null);
+    setFocusFilterSection(null);
+  }, [commitNameFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1007,32 +1093,6 @@ const PlayerCoachListPage = () => {
       setIsAllCoachesListEnd(false);
     }
   }, [activeTab, canQueryAllCoaches]);
-
-  const pills = [
-    {
-      key: "location",
-      label: locationFilter?.address ? `Location • ${locationFilter.address}` : "Location",
-      isActive: Boolean(locationFilter?.address),
-    },
-    {
-      key: "radius",
-      label: `Radius • ${radius} mi`,
-      isActive: radius !== DEFAULT_RADIUS,
-    },
-    {
-      key: "name",
-      label:
-        activeTab === "all"
-          ? filterText
-            ? `Name • ${filterText}`
-            : "Name"
-          : myCoachesFilterText
-            ? `Name • ${myCoachesFilterText}`
-            : "Name",
-      isActive: Boolean(activeTab === "all" ? filterText : myCoachesFilterText),
-    },
-    ...dynamicFilterPills,
-  ];
 
   const activeList = activeTab === "all" ? allCoachPlayers : addedCoachPlayers;
   const isActiveLoading = activeTab === "all" ? allMiniLoader : addedMiniLoader;
@@ -1199,15 +1259,25 @@ const PlayerCoachListPage = () => {
           <button
             type="button"
             className="coach-location-trigger"
-            onClick={() => setOpenFilter("location")}
+            onClick={() => {
+              setFocusFilterSection("location");
+              setOpenFilter("filters");
+            }}
             aria-label={
               locationFilter?.address
                 ? `Change location from ${locationFilter.address}`
                 : "Select a location"
             }
+            aria-haspopup="dialog"
           >
             <MapPin size={16} aria-hidden />
-            <span>{locationFilter?.address ? locationFilter.address : "Select location"}</span>
+            <span>
+              {locationFilter?.address
+                ? locationFilter.address
+                : debouncedUserPos?.latitude && debouncedUserPos?.longitude
+                  ? "Current location"
+                  : "Select location"}
+            </span>
           </button>
           <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
             <Search size={16} aria-hidden />
@@ -1228,9 +1298,12 @@ const PlayerCoachListPage = () => {
           <button
             type="button"
             className="coach-filters-toggle"
-            onClick={() => setFiltersExpanded((prev) => !prev)}
-            aria-expanded={filtersExpanded}
-            aria-controls="coach-specialty-chips"
+            onClick={() => {
+              setFocusFilterSection(null);
+              setOpenFilter("filters");
+            }}
+            aria-haspopup="dialog"
+            aria-expanded={openFilter === "filters"}
           >
             <SlidersHorizontal size={16} aria-hidden />
             Filters
@@ -1250,41 +1323,46 @@ const PlayerCoachListPage = () => {
             </select>
           </div>
         </div>
-        {filtersExpanded ? (
-          <div
-            id="coach-specialty-chips"
-            className="coach-chip-toolbar"
-            role="toolbar"
-            aria-label="Specialty filters"
-          >
-            {specialtyChips.map((chip) => {
-              const isSelected = specialtySelection.includes(chip.value);
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  className={`coach-chip${isSelected ? " selected" : ""}`}
-                  onClick={() => toggleSpecialty(chip.value)}
-                  aria-pressed={isSelected}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-        {filtersExpanded && pills.length ? (
-          <div className="coach-filter-pills" role="list">
-            {pills.map((pill) => (
+        <div
+          id="coach-specialty-chips"
+          className="coach-chip-toolbar"
+          role="toolbar"
+          aria-label="Specialty filters"
+        >
+          {specialtyChips.map((chip) => {
+            const isSelected = specialtySelection.includes(chip.value);
+            return (
               <button
+                key={chip.value}
                 type="button"
-                key={pill.key}
-                className={`filter-pill${pill.isActive ? " active" : ""}`}
-                onClick={() => setOpenFilter(pill.key)}
+                className={`coach-chip${isSelected ? " selected" : ""}`}
+                onClick={() => toggleSpecialty(chip.value)}
+                aria-pressed={isSelected}
               >
-                <span>{pill.label}</span>
+                {chip.label}
               </button>
-            ))}
+            );
+          })}
+        </div>
+        {dynamicFilterPills.some((pill) => pill.isActive) ? (
+          <div className="coach-active-filters" role="list" aria-label="Active filters">
+            {dynamicFilterPills
+              .filter((pill) => pill.isActive)
+              .map((pill) => (
+                <button
+                  type="button"
+                  key={pill.key}
+                  className="filter-pill"
+                  role="listitem"
+                  onClick={() => {
+                    setFocusFilterSection(pill.key);
+                    setOpenFilter("filters");
+                  }}
+                  aria-haspopup="dialog"
+                >
+                  <span>{pill.label}</span>
+                </button>
+              ))}
           </div>
         ) : null}
       </section>
@@ -1331,7 +1409,10 @@ const PlayerCoachListPage = () => {
               <button
                 type="button"
                 className="secondary"
-                onClick={() => setOpenFilter("location")}
+                onClick={() => {
+                  setFocusFilterSection("location");
+                  setOpenFilter("filters");
+                }}
               >
                 Enter Manually
               </button>
@@ -1392,130 +1473,156 @@ const PlayerCoachListPage = () => {
       </section>
 
       <FilterModal
-        title="Location"
-        isOpen={openFilter === "location"}
+        title="Filters"
+        isOpen={openFilter === "filters"}
         onClose={() => setOpenFilter(null)}
-        onClearAll={handleClearFilter}
-        onDone={() => setOpenFilter(null)}
+        onClearAll={handleFiltersClear}
+        onDone={handleFiltersDone}
       >
-        <div className="location-filter">
-          <label className="field-label" htmlFor="coach-location-search">
-            Search address
-          </label>
-          <div className="field-with-icon">
-            <Search size={16} />
-            <input
-              id="coach-location-search"
-              type="text"
-              value={locationQuery}
-              placeholder="Search for a city, club, or court"
-              onChange={(event) => setLocationQuery(event.target.value)}
-            />
-          </div>
-          <button type="button" className="use-my-location" onClick={requestLocation}>
-            Use my current location
-          </button>
-          {locationSuggestionLoading ? (
-            <div className="location-suggestions loading">
-              <Loader2 className="spin" size={16} /> Searching…
+        <div className="filters-panel">
+          <section className="filter-group" aria-labelledby="filter-location-heading">
+            <div className="filter-group-header">
+              <h3 id="filter-location-heading">Location</h3>
+              <p>Choose where to search from.</p>
             </div>
-          ) : null}
-          {locationSuggestions.length ? (
-            <ul className="location-suggestions">
-              {locationSuggestions.map((suggestion) => (
-                <li key={suggestion.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleLocationSelect(suggestion);
-                      setLocationQuery(suggestion.label);
+            <label className="field-label" htmlFor="coach-location-search">
+              Search address
+            </label>
+            <div className="field-with-icon">
+              <Search size={16} aria-hidden />
+              <input
+                id="coach-location-search"
+                ref={locationInputRef}
+                type="text"
+                value={locationQuery}
+                placeholder="Search for a city, club, or court"
+                onChange={(event) => setLocationQuery(event.target.value)}
+              />
+            </div>
+            <button type="button" className="use-my-location" onClick={requestLocation}>
+              Use my current location
+            </button>
+            {locationSuggestionLoading ? (
+              <div className="location-suggestions loading">
+                <Loader2 className="spin" size={16} aria-hidden /> Searching…
+              </div>
+            ) : null}
+            {locationSuggestions.length ? (
+              <ul className="location-suggestions">
+                {locationSuggestions.map((suggestion) => (
+                  <li key={suggestion.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLocationSelect(suggestion);
+                        setLocationQuery(suggestion.label);
+                      }}
+                    >
+                      <MapPin size={16} aria-hidden />
+                      <span>{suggestion.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="location-preview">
+              <h4>Selected location</h4>
+              {locationFilter?.address ? (
+                <p>{locationFilter.address}</p>
+              ) : locationPreview?.latitude && locationPreview?.longitude ? (
+                <p>
+                  Lat {locationPreview.latitude.toFixed(4)}, Lng {" "}
+                  {locationPreview.longitude.toFixed(4)}
+                </p>
+              ) : (
+                <p>No location selected yet.</p>
+              )}
+              {locationError ? <p className="location-error">{locationError}</p> : null}
+            </div>
+          </section>
+
+          <section className="filter-group" aria-labelledby="filter-radius-heading">
+            <div className="filter-group-header">
+              <h3 id="filter-radius-heading">Radius</h3>
+              <p>Adjust how far to search from your location.</p>
+            </div>
+            <div className="radius-filter">
+              <div className="radius-value">
+                <span>{radius} miles</span>
+              </div>
+              <input
+                ref={radiusInputRef}
+                type="range"
+                min="1"
+                max="100"
+                value={radius}
+                onChange={(event) => handleRadiusChange(Number(event.target.value))}
+                onMouseUp={(event) => handleRadiusChange(Number(event.target.value))}
+                onTouchEnd={(event) => handleRadiusChange(Number(event.target.value))}
+                aria-label="Search radius in miles"
+              />
+              <p className="radius-hint">Adjust the search radius to expand or narrow results.</p>
+            </div>
+          </section>
+
+          <section className="filter-group" aria-labelledby="filter-name-heading">
+            <div className="filter-group-header">
+              <h3 id="filter-name-heading">Name</h3>
+              <p>Filter coaches by name to find a specific pro.</p>
+            </div>
+            <label className="field-label" htmlFor="coach-name-filter">
+              Coach name
+            </label>
+            <input
+              id="coach-name-filter"
+              ref={nameFilterInputRef}
+              type="text"
+              value={nameDraft}
+              placeholder="Search by coach name"
+              onChange={(event) => setNameDraft(event.target.value)}
+              className="filter-text-input"
+            />
+            <button type="button" className="apply-button" onClick={commitNameFilter}>
+              Apply name filter
+            </button>
+          </section>
+
+          {dynamicFilters.length ? (
+            <section className="filter-group" aria-labelledby="filter-more-heading">
+              <div className="filter-group-header">
+                <h3 id="filter-more-heading">Additional filters</h3>
+                <p>Refine by specialties, programs, and more.</p>
+              </div>
+              <div className="dynamic-filter-list">
+                {dynamicFilters.map((filter) => (
+                  <div
+                    key={filter.key}
+                    className="dynamic-filter-group"
+                    ref={(node) => {
+                      if (node) {
+                        dynamicFilterRefs.current[filter.key] = node;
+                      } else {
+                        delete dynamicFilterRefs.current[filter.key];
+                      }
                     }}
+                    tabIndex={-1}
+                    data-filter-key={filter.key}
+                    role="group"
+                    aria-labelledby={`filter-${filter.key}-heading`}
                   >
-                    <MapPin size={16} />
-                    <span>{suggestion.label}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    <h4 id={`filter-${filter.key}-heading`}>{filter.title}</h4>
+                    {filter.options?.length ? (
+                      renderDynamicFilterControls(filter)
+                    ) : (
+                      <p className="filter-empty">No options available.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
           ) : null}
-          <div className="location-preview">
-            <h3>Selected location</h3>
-            {locationPreview?.latitude && locationPreview?.longitude ? (
-              <p>
-                Lat {locationPreview.latitude.toFixed(4)}, Lng {" "}
-                {locationPreview.longitude.toFixed(4)}
-              </p>
-            ) : (
-              <p>No location selected yet.</p>
-            )}
-          </div>
         </div>
       </FilterModal>
-
-      <FilterModal
-        title="Radius"
-        isOpen={openFilter === "radius"}
-        onClose={() => setOpenFilter(null)}
-        onClearAll={handleClearFilter}
-        onDone={() => setOpenFilter(null)}
-      >
-        <div className="radius-filter">
-          <div className="radius-value">
-            <span>{radius} miles</span>
-          </div>
-          <input
-            type="range"
-            min="1"
-            max="100"
-            value={radius}
-            onChange={(event) => handleRadiusChange(Number(event.target.value))}
-            onMouseUp={(event) => handleRadiusChange(Number(event.target.value))}
-            onTouchEnd={(event) => handleRadiusChange(Number(event.target.value))}
-          />
-          <p className="radius-hint">Adjust the search radius to expand or narrow results.</p>
-        </div>
-      </FilterModal>
-
-      <FilterModal
-        title="Name"
-        isOpen={openFilter === "name"}
-        onClose={() => setOpenFilter(null)}
-        onClearAll={handleClearFilter}
-        onDone={handleNameApply}
-      >
-        <div className="name-filter">
-          <label className="field-label" htmlFor="coach-name-filter">
-            Coach name
-          </label>
-          <input
-            id="coach-name-filter"
-            type="text"
-            value={nameDraft}
-            placeholder="Search by coach name"
-            onChange={(event) => setNameDraft(event.target.value)}
-          />
-          <button type="button" className="apply-button" onClick={handleNameApply}>
-            Apply
-          </button>
-        </div>
-      </FilterModal>
-
-      {dynamicFilters.map((filter) => (
-        <FilterModal
-          key={filter.key}
-          title={filter.title}
-          isOpen={openFilter === filter.key}
-          onClose={() => setOpenFilter(null)}
-          onClearAll={handleClearFilter}
-          onDone={() => setOpenFilter(null)}
-        >
-          {filter.options?.length ? (
-            renderDynamicFilterControls(filter)
-          ) : (
-            <p className="filter-empty">No options available.</p>
-          )}
-        </FilterModal>
-      ))}
     </div>
   );
 };

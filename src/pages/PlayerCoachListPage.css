@@ -316,10 +316,21 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
 }
 
-.coach-filter-pills {
+
+.coach-active-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.coach-active-filters .filter-pill {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.45);
+  color: #0369a1;
+}
+
+.coach-active-filters .filter-pill:hover {
+  background: rgba(14, 165, 233, 0.2);
 }
 
 .filter-pill {
@@ -796,11 +807,40 @@
   overflow-y: auto;
 }
 
-.location-filter,
-.radius-filter,
-.name-filter {
+
+.filters-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.filter-group {
   display: grid;
   gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.filter-group:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.filter-group-header {
+  display: grid;
+  gap: 6px;
+}
+
+.filter-group-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.filter-group-header p {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
 }
 
 .field-label {
@@ -866,7 +906,8 @@
   padding: 14px 16px;
 }
 
-.location-preview h3 {
+.location-preview h3,
+.location-preview h4 {
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 600;
@@ -893,11 +934,43 @@
   color: #64748b;
 }
 
-.name-filter input {
+.filter-text-input {
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 15px;
+  width: 100%;
+}
+
+.dynamic-filter-list {
+  display: grid;
+  gap: 16px;
+}
+
+.dynamic-filter-group {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.dynamic-filter-group:focus {
+  outline: 3px solid rgba(14, 165, 233, 0.35);
+  outline-offset: 2px;
+}
+
+.dynamic-filter-group h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.radius-filter {
+  display: grid;
+  gap: 12px;
 }
 
 .apply-button {
@@ -909,6 +982,17 @@
   color: #ffffff;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.apply-button:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+.apply-button:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.35);
+  outline-offset: 2px;
 }
 
 .filter-options {
