@@ -37,11 +37,11 @@ export const colors = {
 
 export const typography = {
   fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  heading1: { size: "32px", weight: 600, lineHeight: "120%", letterSpacing: "-0.01em" },
+  heading1: { size: "32px", weight: 700, lineHeight: "120%", letterSpacing: "-0.01em" },
   sectionTitle: { size: "16px", weight: 500, lineHeight: "150%" },
-  body: { size: "15px", weight: 400, lineHeight: "150%" },
+  body: { size: "16px", weight: 400, lineHeight: "150%" },
   tag: { size: "13px", weight: 500, lineHeight: "140%", letterSpacing: "0.01em" },
-  price: { size: "28px", weight: 600, lineHeight: "120%" },
+  price: { size: "28px", weight: 700, lineHeight: "120%" },
   caption: { size: "12px", weight: 500, lineHeight: "140%" },
 };
 
