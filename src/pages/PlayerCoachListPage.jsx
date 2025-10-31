@@ -30,6 +30,17 @@ const DEFAULT_RADIUS = 10;
 const buildQueryValue = (value) =>
   value !== undefined && value !== null ? String(value).trim() : "";
 
+const sanitizeLocationSearch = (location) => {
+  if (!location) return "";
+  if (location.isCurrentLocation) return "";
+  const label = buildQueryValue(location.address);
+  if (!label) return "";
+  if (label.replace(/\s+/g, " ").trim().toLowerCase() === "current location") {
+    return "";
+  }
+  return label;
+};
+
 const parseCoachList = (payload) => {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
@@ -833,14 +844,13 @@ const PlayerCoachListPage = () => {
           : null;
       try {
         const searchTerm = buildQueryValue(filterText);
-        const locationSearch = locationFilter?.isCurrentLocation
-          ? ""
-          : locationFilter?.address?.toLowerCase() === "current location"
-            ? ""
-            : buildQueryValue(locationFilter?.address);
+        const locationSearch = sanitizeLocationSearch(locationFilter);
+        const filterParams = buildFilterQueryParam();
         const response = await unwrap(
           api(
-            `/player/getchecklocation?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}&radius=${encodeURIComponent(radius)}${buildFilterQueryParam()}`,
+            `/player/getchecklocation?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}${
+              locationSearch ? `&locationSearch=${encodeURIComponent(locationSearch)}` : ""
+            }&radius=${encodeURIComponent(radius)}${filterParams}`,
             {
               method: "POST",
               json: {
@@ -887,14 +897,13 @@ const PlayerCoachListPage = () => {
       }
       try {
         const searchTerm = buildQueryValue(myCoachesFilterText);
-        const locationSearch = locationFilter?.isCurrentLocation
-          ? ""
-          : locationFilter?.address?.toLowerCase() === "current location"
-            ? ""
-            : buildQueryValue(locationFilter?.address);
+        const locationSearch = sanitizeLocationSearch(locationFilter);
+        const filterParams = buildFilterQueryParam();
         const response = await unwrap(
           api(
-            `/player/coaches?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}${buildFilterQueryParam()}`,
+            `/player/coaches?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}${
+              locationSearch ? `&locationSearch=${encodeURIComponent(locationSearch)}` : ""
+            }${filterParams}`,
             {
               method: "GET",
             },
@@ -920,6 +929,7 @@ const PlayerCoachListPage = () => {
     [
       buildFilterQueryParam,
       locationFilter?.address,
+      locationFilter?.isCurrentLocation,
       myCoachesFilterText,
       normalizeListResponse,
     ],
