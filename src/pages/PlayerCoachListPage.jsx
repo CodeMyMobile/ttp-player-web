@@ -30,6 +30,11 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_API_URL ||
   "https://ttp-api.codemymobile.com/api";
+const DYNAMIC_FILTERS_ENDPOINT =
+  import.meta.env.VITE_PLAYER_FILTERS_ENDPOINT ?? "/player/filters";
+const ENABLE_DYNAMIC_FILTERS =
+  `${import.meta.env.VITE_ENABLE_DYNAMIC_COACH_FILTERS ?? ""}`.toLowerCase() ===
+  "true";
 
 const buildQueryValue = (value) =>
   value !== undefined && value !== null ? String(value).trim() : "";
@@ -223,12 +228,34 @@ const extractMeaningfulString = (value, options = {}) => {
 };
 
 const pickMeaningfulStringFromSources = (sources, keys, options = {}) => {
+  if (!Array.isArray(sources) || !sources.length || !Array.isArray(keys) || !keys.length) {
+    return "";
+  }
+  const normalizedTargets = keys.map((key) => key.toLowerCase());
   let best = { value: "", score: Number.NEGATIVE_INFINITY };
   for (const source of sources) {
-    if (!source) continue;
+    if (!source || typeof source !== "object") continue;
+    const processed = new Set();
     for (const key of keys) {
       if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+      const normalized = key.toLowerCase();
+      if (processed.has(normalized)) continue;
+      processed.add(normalized);
       const candidate = extractMeaningfulString(source[key], options);
+      if (!candidate.value) continue;
+      if (
+        candidate.score > best.score ||
+        (candidate.score === best.score && candidate.value.length > best.value.length)
+      ) {
+        best = candidate;
+      }
+    }
+    for (const [rawKey, rawValue] of Object.entries(source)) {
+      const normalizedKey = rawKey.toLowerCase();
+      if (processed.has(normalizedKey)) continue;
+      if (!normalizedTargets.includes(normalizedKey)) continue;
+      processed.add(normalizedKey);
+      const candidate = extractMeaningfulString(rawValue, options);
       if (!candidate.value) continue;
       if (
         candidate.score > best.score ||
@@ -479,12 +506,26 @@ const normalizeCoach = (coach) => {
     "description",
     "about",
     "summary",
+    "about_me",
+    "aboutMe",
+    "coaching_philosophy",
+    "coachingPhilosophy",
+    "philosophy",
+    "experience",
+    "experience_summary",
+    "experienceSummary",
+    "background",
+    "story",
     "profile_bio",
     "profileBio",
     "profile_summary",
     "profileSummary",
+    "profile_about",
+    "profileAbout",
+    "profile_description",
+    "profileDescription",
   ];
-  const bio =
+  let bio =
     pickMeaningfulStringFromSources(sourceObjects, bioKeys, {
       preferLonger: true,
       minLength: 24,
@@ -502,11 +543,16 @@ const normalizeCoach = (coach) => {
         coach.profile?.short_bio,
         coach.profile?.summary,
         coach.profile?.profile_summary,
+        coach.profile?.profile_about,
+        coach.profile?.profile_description,
         coach.user?.bio,
         coach.user?.about,
+        coach.user?.summary,
         coach.user?.profile?.bio,
         coach.user?.profile?.about,
         coach.user?.profile?.summary,
+        coach.user?.profile?.profile_about,
+        coach.user?.profile?.profile_description,
         coach.coach?.bio,
         coach.coach?.about,
         coach.coach_profile?.bio,
@@ -519,6 +565,28 @@ const normalizeCoach = (coach) => {
       },
     ) ||
     "";
+  if (!bio) {
+    const fallbackSources = [
+      coach.profile,
+      coach.user?.profile,
+      coach.user,
+      coach.coach_profile,
+      coach,
+    ];
+    for (const fallbackSource of fallbackSources) {
+      if (!fallbackSource) continue;
+      const candidate = extractMeaningfulString(fallbackSource, {
+        preferLonger: true,
+        minLength: 32,
+      });
+      if (!candidate.value) continue;
+      const wordCount = candidate.value.split(/\s+/).filter(Boolean).length;
+      if (candidate.score < -40) continue;
+      if (wordCount < 6 && candidate.value.length < 48) continue;
+      bio = candidate.value;
+      break;
+    }
+  }
   const ratingValue =
     parseNumber(
       coach.rating ??
@@ -1316,8 +1384,15 @@ const PlayerCoachListPage = () => {
   }, [filtersSignature]);
 
   const fetchDynamicFilters = useCallback(async () => {
+    if (!ENABLE_DYNAMIC_FILTERS) {
+      setDynamicFilters([]);
+      return;
+    }
     try {
-      const response = await unwrap(api("/player/filters"));
+      const endpoint = DYNAMIC_FILTERS_ENDPOINT.startsWith("/")
+        ? DYNAMIC_FILTERS_ENDPOINT
+        : `/${DYNAMIC_FILTERS_ENDPOINT.replace(/^\/+/u, "")}`;
+      const response = await unwrap(api(endpoint));
       const items = parseCoachList(response).length
         ? parseCoachList(response)
         : Array.isArray(response?.filters)
