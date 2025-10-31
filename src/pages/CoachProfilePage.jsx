@@ -129,6 +129,23 @@ const pickCoachFromResponse = (payload, matcher) => {
   return null;
 };
 
+const buildOnboardingEndpoints = (coachParam) => {
+  const base = "/coach/onboarding";
+  const trimmed = coachParam === undefined || coachParam === null
+    ? ""
+    : coachParam.toString().trim();
+  const encoded = trimmed ? encodeURIComponent(trimmed) : "";
+  const endpoints = [];
+  if (encoded) {
+    endpoints.push(`${base}/${encoded}`);
+    endpoints.push(`${base}?slug=${encoded}`);
+    endpoints.push(`${base}?coach_id=${encoded}`);
+    endpoints.push(`${base}?id=${encoded}`);
+  }
+  endpoints.push(base);
+  return endpoints.filter((value, index, array) => array.indexOf(value) === index);
+};
+
 const groupLessonTypes = (lessonTypes) => {
   const groups = {
     private: [],
@@ -316,22 +333,47 @@ const CoachProfilePage = () => {
       }
       setError("");
       try {
-        const response = await unwrap(
-          api(`/player/coaches/${encodeURIComponent(coachId)}`, {
-            method: "GET",
-          }),
-        );
-        if (ignore) return;
-        const picked = pickCoachFromResponse(response, coachId);
-        if (!picked) {
-          setCoach(hasInitial ? initialCoach : null);
-          setError("We couldn't find this coach profile.");
-        } else {
-          setCoach(normalizeCoach(picked));
+        const endpoints = buildOnboardingEndpoints(coachId);
+        let fetchedCoach = null;
+        let fallbackError = null;
+        for (const endpoint of endpoints) {
+          try {
+            const response = await unwrap(
+              api(endpoint, {
+                method: "GET",
+              }),
+            );
+            if (ignore) return;
+            const picked = pickCoachFromResponse(response, coachId);
+            if (picked) {
+              fetchedCoach = picked;
+              break;
+            }
+          } catch (requestError) {
+            if (ignore) return;
+            if (requestError?.status === 404 || requestError?.status === 422) {
+              fallbackError = requestError;
+              continue;
+            }
+            throw requestError;
+          }
         }
+        if (ignore) return;
+        if (fetchedCoach) {
+          setCoach(normalizeCoach(fetchedCoach));
+          setError("");
+          return;
+        }
+        setCoach(hasInitial ? initialCoach : null);
+        setError(
+          fallbackError?.data?.error ||
+            fallbackError?.message ||
+            "We couldn't find this coach profile.",
+        );
       } catch (err) {
         if (ignore) return;
         console.error("Failed to load coach profile", err);
+        setCoach(hasInitial ? initialCoach : null);
         setError(
           err?.data?.error || err?.message || "We couldn't load this coach profile right now.",
         );
@@ -343,7 +385,14 @@ const CoachProfilePage = () => {
       }
     };
 
-    loadCoach();
+    if (coachId) {
+      loadCoach();
+    } else {
+      setCoach(null);
+      setError("We couldn't find this coach profile.");
+      setLoading(false);
+      setRefreshing(false);
+    }
     return () => {
       ignore = true;
     };
