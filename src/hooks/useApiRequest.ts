@@ -32,11 +32,12 @@ export function useApiRequest<
 
   const serializer = paramsSerializer ?? defaultSerializer;
   const serializedParams = useMemo(() => serializer(params), [params, serializer]);
+  const stableParams = useMemo(() => params, [serializedParams]);
 
   const execute = useCallback(
     async (overrideParams?: Partial<TParams>) => {
       const finalParams = {
-        ...params,
+        ...stableParams,
         ...(overrideParams ?? {}),
       } as TParams;
 
@@ -53,7 +54,7 @@ export function useApiRequest<
         setLoading(false);
       }
     },
-    [fetcher, params, serializedParams],
+    [fetcher, stableParams, serializedParams],
   );
 
   useEffect(() => {
