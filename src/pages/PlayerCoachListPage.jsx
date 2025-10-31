@@ -10,11 +10,13 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  Calendar,
   Loader2,
   MapPin,
   RefreshCcw,
   Search,
   SlidersHorizontal,
+  Star,
   Users2,
 } from "lucide-react";
 import api, { unwrap } from "../services/api";
@@ -36,6 +38,12 @@ const parseCoachList = (payload) => {
   if (Array.isArray(payload?.coaches)) return payload.coaches;
   if (Array.isArray(payload?.items)) return payload.items;
   return [];
+};
+
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 };
 
 const normalizeCoach = (coach) => {
@@ -62,6 +70,7 @@ const normalizeCoach = (coach) => {
     coach.price_per_hour ??
     coach.hourly_price ??
     null;
+  const hourlyRateValue = parseNumber(coach.hourly_rate ?? coach.hourlyRate ?? coach.price_per_hour ?? coach.hourly_price ?? coach.rate);
   const avatar =
     coach.avatar ??
     coach.profile_image ??
@@ -93,6 +102,87 @@ const normalizeCoach = (coach) => {
     coach.description ??
     coach.about ??
     "";
+  const ratingValue =
+    parseNumber(
+      coach.rating ??
+        coach.average_rating ??
+        coach.avg_rating ??
+        coach.review_score ??
+        coach.rating_value ??
+        coach.score,
+    ) ?? null;
+  const ratingCount =
+    parseNumber(
+      coach.rating_count ??
+        coach.reviews_count ??
+        coach.review_count ??
+        coach.ratings ??
+        coach.total_reviews,
+    ) ?? null;
+  const specialtiesRaw =
+    coach.specialties ??
+    coach.speciality ??
+    coach.expertise ??
+    coach.tags ??
+    coach.skill_tags ??
+    coach.focus_areas ??
+    [];
+  let specialties = [];
+  if (Array.isArray(specialtiesRaw)) {
+    specialties = specialtiesRaw.filter(Boolean).map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (typeof item === "object" && item !== null) {
+        return (
+          item.title ??
+          item.name ??
+          item.label ??
+          item.value ??
+          ""
+        ).toString().trim();
+      }
+      return String(item ?? "").trim();
+    });
+  } else if (typeof specialtiesRaw === "string") {
+    specialties = specialtiesRaw
+      .split(/,|\n|\|/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  const facility =
+    coach.facility ??
+    coach.club ??
+    coach.club_name ??
+    coach.location_name ??
+    coach.primary_location ??
+    null;
+  const distanceValue =
+    parseNumber(
+      coach.distance ??
+        coach.distance_miles ??
+        coach.distanceMiles ??
+        coach.distance_in_miles,
+    ) ?? null;
+  const distanceLabel =
+    coach.distance_label ??
+    coach.distanceLabel ??
+    (distanceValue !== null ? `${distanceValue.toFixed(distanceValue >= 10 ? 0 : 1)} mi` : null);
+  const availability =
+    coach.availability ??
+    coach.next_available ??
+    coach.availability_summary ??
+    coach.schedule_summary ??
+    null;
+  const lessonsCount =
+    parseNumber(
+      coach.lessons_booked ??
+        coach.lessons_count ??
+        coach.sessions_count ??
+        coach.total_lessons,
+    ) ?? null;
+  const badge =
+    coach.badge ??
+    coach.highlight ??
+    (coach.is_top_rated || ratingValue >= 4.8 ? "Top Rated" : null);
   const status = (coach.status ?? coach.coach_status ?? "").toString().toLowerCase();
   const slug = coach.slug ?? coach.username ?? id;
   const hourlyRateDisplay =
@@ -106,9 +196,18 @@ const normalizeCoach = (coach) => {
     id,
     name: displayName || "Coach",
     hourlyRate: hourlyRateDisplay,
+    hourlyRateValue,
     avatar,
     locationList,
     bio,
+    ratingValue,
+    ratingCount,
+    specialties: specialties.filter(Boolean),
+    facility,
+    distanceLabel,
+    availability,
+    lessonsCount,
+    badge: typeof badge === "string" && badge.trim() ? badge : null,
     status,
     slug,
   };
@@ -169,7 +268,7 @@ const FilterModal = ({
   );
 };
 
-const CoachCard = ({ coach }) => {
+const CoachCard = ({ coach, variant = "standard" }) => {
   const initials = useMemo(() => {
     if (!coach?.name) return "CC";
     const parts = coach.name
@@ -195,11 +294,35 @@ const CoachCard = ({ coach }) => {
     return "";
   }, [coach?.status]);
 
+  const ratingDisplay =
+    typeof coach?.ratingValue === "number" && !Number.isNaN(coach.ratingValue)
+      ? coach.ratingValue.toFixed(1)
+      : null;
+  const ratingCountDisplay =
+    typeof coach?.ratingCount === "number" && coach.ratingCount > 0
+      ? coach.ratingCount
+      : null;
+  const primaryLocation = coach?.facility || coach?.locationList?.[0] || null;
+  const additionalLocations = coach?.locationList?.slice(1, 3) ?? [];
+  const specialties = Array.isArray(coach?.specialties)
+    ? coach.specialties.filter(Boolean).slice(0, variant === "featured" ? 4 : 3)
+    : [];
+
+  const lessonsDisplay =
+    typeof coach?.lessonsCount === "number" && coach.lessonsCount > 0
+      ? `${coach.lessonsCount.toLocaleString()} lessons`
+      : null;
+
   return (
-    <article className="coach-card">
+    <article className={`coach-card ${variant}`}>
       {statusLabel ? <div className={statusClass}>{statusLabel}</div> : null}
+      {coach?.badge ? (
+        <div className="coach-card-accent" aria-label={coach.badge}>
+          {coach.badge}
+        </div>
+      ) : null}
       <div className="coach-card-main">
-        <div className="coach-card-avatar">
+        <div className="coach-card-avatar" aria-hidden={coach.avatar ? undefined : true}>
           {coach.avatar ? (
             <img src={coach.avatar} alt={coach.name} loading="lazy" />
           ) : (
@@ -207,29 +330,70 @@ const CoachCard = ({ coach }) => {
           )}
         </div>
         <div className="coach-card-body">
-          <div className="coach-card-header">
-            <h3>{coach.name}</h3>
+          <header className="coach-card-header">
+            <div className="coach-card-title">
+              <h3>{coach.name}</h3>
+              {ratingDisplay ? (
+                <div
+                  className="coach-card-rating"
+                  aria-label={`Rated ${ratingDisplay} out of 5${
+                    ratingCountDisplay ? ` from ${ratingCountDisplay} reviews` : ""
+                  }`}
+                >
+                  <Star size={16} aria-hidden />
+                  <span>{ratingDisplay}</span>
+                  {ratingCountDisplay ? <span className="coach-card-rating-count">({ratingCountDisplay})</span> : null}
+                </div>
+              ) : null}
+            </div>
             {coach.hourlyRate ? (
               <span className="coach-card-rate">{coach.hourlyRate}</span>
             ) : null}
-          </div>
-          {coach.locationList?.length ? (
-            <ul className="coach-card-locations">
-              {coach.locationList.slice(0, 3).map((location) => (
-                <li key={location}>
-                  <MapPin size={14} />
-                  <span>{location}</span>
-                </li>
+          </header>
+          {coach.bio ? <p className="coach-card-bio">{coach.bio}</p> : null}
+          {specialties.length ? (
+            <ul className="coach-card-specialties" aria-label="Specialties">
+              {specialties.map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           ) : null}
-          {coach.bio ? <p className="coach-card-bio">{coach.bio}</p> : null}
+          <div className="coach-card-meta">
+            {primaryLocation ? (
+              <div className="coach-card-meta-item">
+                <MapPin size={14} aria-hidden />
+                <span>
+                  {primaryLocation}
+                  {coach.distanceLabel ? ` • ${coach.distanceLabel}` : ""}
+                </span>
+              </div>
+            ) : null}
+            {additionalLocations.length ? (
+              <div className="coach-card-meta-item secondary" aria-label="Additional locations">
+                {additionalLocations.map((location) => (
+                  <span key={location}>{location}</span>
+                ))}
+              </div>
+            ) : null}
+            {coach.availability ? (
+              <div className="coach-card-meta-item">
+                <Calendar size={14} aria-hidden />
+                <span>{coach.availability}</span>
+              </div>
+            ) : null}
+            {lessonsDisplay ? (
+              <div className="coach-card-meta-item">
+                <Users2 size={14} aria-hidden />
+                <span>{lessonsDisplay}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="coach-card-footer">
         <Link className="coach-card-cta" to={`/coaches/${coach.slug || coach.id}`}>
           View Profile
-          <ArrowRight size={16} />
+          <ArrowRight size={16} aria-hidden />
         </Link>
       </div>
     </article>
@@ -263,6 +427,10 @@ const PlayerCoachListPage = () => {
   const [locationError, setLocationError] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [locationPreview, setLocationPreview] = useState(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [resultsAnnouncement, setResultsAnnouncement] = useState("");
+  const [specialtySelection, setSpecialtySelection] = useState([]);
+  const [sortValue, setSortValue] = useState("recommended");
 
   const allListSentinelRef = useRef(null);
   const myListSentinelRef = useRef(null);
@@ -299,6 +467,89 @@ const PlayerCoachListPage = () => {
       };
     });
   }, [dynamicFilters, selectedFilters]);
+
+  const heroStats = useMemo(() => {
+    const available = allCoachPlayers.length;
+    const ratingValues = allCoachPlayers
+      .map((coach) => coach.ratingValue)
+      .filter((value) => typeof value === "number");
+    const hourlyValues = allCoachPlayers
+      .map((coach) => coach.hourlyRateValue)
+      .filter((value) => typeof value === "number");
+    const lessonsValues = allCoachPlayers
+      .map((coach) => coach.lessonsCount)
+      .filter((value) => typeof value === "number");
+    const avgRating = ratingValues.length
+      ? ratingValues.reduce((sum, value) => sum + value, 0) / ratingValues.length
+      : null;
+    const avgRate = hourlyValues.length
+      ? hourlyValues.reduce((sum, value) => sum + value, 0) / hourlyValues.length
+      : null;
+    const totalLessons = lessonsValues.length
+      ? lessonsValues.reduce((sum, value) => sum + value, 0)
+      : null;
+    return {
+      available,
+      avgRating: avgRating ? avgRating.toFixed(1) : null,
+      avgHourlyRate: avgRate ? `$${Math.round(avgRate)}/hr` : null,
+      lessons: totalLessons ? totalLessons.toLocaleString() : null,
+    };
+  }, [allCoachPlayers]);
+
+  const specialtyChips = useMemo(
+    () => [
+      { label: "Serve Technique", value: "serve-technique" },
+      { label: "Match Strategy", value: "match-strategy" },
+      { label: "Junior Development", value: "junior-development" },
+      { label: "Beginner Friendly", value: "beginner-friendly" },
+      { label: "Doubles Strategy", value: "doubles-strategy" },
+      { label: "Mental Game", value: "mental-game" },
+    ],
+    [],
+  );
+
+  const toggleSpecialty = useCallback((value) => {
+    setSpecialtySelection((prev) => {
+      if (prev.includes(value)) {
+        return prev.filter((item) => item !== value);
+      }
+      return [...prev, value];
+    });
+  }, []);
+
+  const handleSortChange = useCallback((event) => {
+    setSortValue(event.target.value);
+  }, []);
+
+  const handleSearchChange = useCallback((event) => {
+    setNameDraft(event.target.value);
+  }, []);
+
+  const handleSearchSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      handleNameApply();
+    },
+    [handleNameApply],
+  );
+
+  const handleSearchClear = useCallback(() => {
+    setNameDraft("");
+    if (activeTab === "all") {
+      setFilterText("");
+      resetAllPagination();
+    } else {
+      setMyCoachesFilterText("");
+      resetMyPagination();
+    }
+  }, [activeTab, resetAllPagination, resetMyPagination, setFilterText, setMyCoachesFilterText]);
+
+  const resultsCount = activeTab === "all" ? allCoachPlayers.length : addedCoachPlayers.length;
+
+  useEffect(() => {
+    const count = activeTab === "all" ? allCoachPlayers.length : addedCoachPlayers.length;
+    setResultsAnnouncement(`${count} coach${count === 1 ? "" : "es"} found`);
+  }, [activeTab, addedCoachPlayers.length, allCoachPlayers.length]);
 
   const resetAllPagination = useCallback(() => {
     setAllCoachesPage(1);
@@ -372,16 +623,17 @@ const PlayerCoachListPage = () => {
       );
       setLocationError("");
     }
-    if (openFilter === "name") {
-      setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
-    }
-  }, [activeTab, debouncedUserPos, filterText, locationFilter, openFilter, myCoachesFilterText]);
+  }, [debouncedUserPos, locationFilter, openFilter]);
 
   useEffect(() => {
     if (openFilter !== "location") {
       setLocationSuggestions([]);
     }
   }, [openFilter]);
+
+  useEffect(() => {
+    setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
+  }, [activeTab, filterText, myCoachesFilterText]);
 
   useEffect(() => {
     if (openFilter !== "location") return;
@@ -703,14 +955,6 @@ const PlayerCoachListPage = () => {
     if (openFilter === "radius") {
       setRadius(DEFAULT_RADIUS);
     }
-    if (openFilter === "name") {
-      setNameDraft("");
-      if (activeTab === "all") {
-        setFilterText("");
-      } else {
-        setMyCoachesFilterText("");
-      }
-    }
     if (dynamicFilters.some((filter) => filter.key === openFilter)) {
       setSelectedFilters((prev) => {
         const next = { ...prev };
@@ -718,7 +962,7 @@ const PlayerCoachListPage = () => {
         return next;
       });
     }
-  }, [activeTab, debouncedUserPos, dynamicFilters, openFilter]);
+  }, [debouncedUserPos, dynamicFilters, openFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -753,18 +997,6 @@ const PlayerCoachListPage = () => {
       key: "radius",
       label: `Radius • ${radius} mi`,
       isActive: radius !== DEFAULT_RADIUS,
-    },
-    {
-      key: "name",
-      label:
-        activeTab === "all"
-          ? filterText
-            ? `Name • ${filterText}`
-            : "Name"
-          : myCoachesFilterText
-            ? `Name • ${myCoachesFilterText}`
-            : "Name",
-      isActive: Boolean(activeTab === "all" ? filterText : myCoachesFilterText),
     },
     ...dynamicFilterPills,
   ];
@@ -857,99 +1089,180 @@ const PlayerCoachListPage = () => {
     );
   };
 
-  const renderList = (list, isLoading, sentinelRef, endOfList) => {
-    if (isLoading && !list.length) {
-      return (
-        <div className="coach-list-loader">
-          <Loader2 className="spin" size={32} />
-          <p>Loading coaches…</p>
-        </div>
-      );
-    }
-
-    if (!isLoading && !list.length) {
-      return <div className="coach-list-empty">No coaches found.</div>;
-    }
-
-    return (
-      <Fragment>
-        <div className="coach-list-grid">
-          {list.map((coach) => (
-            <CoachCard key={coach.id} coach={coach} />
-          ))}
-        </div>
-        <div ref={sentinelRef} className="list-sentinel" aria-hidden>
-          {isLoading && list.length ? <Loader2 className="spin" size={20} /> : null}
-          {endOfList ? <span>End of results</span> : null}
-        </div>
-      </Fragment>
-    );
-  };
-
   return (
     <div className="coach-list-page">
-      <header className="coach-list-header">
-        <div>
-          <p className="coach-list-subtitle">Player Experience</p>
-          <h1>Coaches List</h1>
+      <header className="coach-hero">
+        <div className="coach-hero-copy">
+          <p className="coach-hero-eyebrow">Player Experience</p>
+          <h1>Find Your Perfect Coach</h1>
+          <p className="coach-hero-subtitle">
+            Get matched with certified tennis professionals in your area.
+          </p>
+          <div className="coach-tab-bar" role="tablist" aria-label="Coach views">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "all"}
+              className={`coach-tab${activeTab === "all" ? " active" : ""}`}
+              onClick={() => {
+                setActiveTab("all");
+                resetAllPagination();
+              }}
+            >
+              <Users2 size={16} aria-hidden />
+              All Coaches
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "my"}
+              className={`coach-tab${activeTab === "my" ? " active" : ""}`}
+              onClick={() => {
+                setActiveTab("my");
+                resetMyPagination();
+              }}
+            >
+              <SlidersHorizontal size={16} aria-hidden />
+              My Coaches
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          className={`refresh-button${refreshing ? " refreshing" : ""}`}
-          onClick={handleRefresh}
-        >
-          <RefreshCcw size={16} />
-          Refresh
-        </button>
+        <dl className="coach-hero-stats">
+          <div className="coach-hero-stat">
+            <dt>Available Coaches</dt>
+            <dd>{heroStats.available.toLocaleString()}</dd>
+          </div>
+          <div className="coach-hero-stat">
+            <dt>Avg Rating</dt>
+            <dd>{heroStats.avgRating ?? "—"}</dd>
+          </div>
+          <div className="coach-hero-stat">
+            <dt>Avg Hourly Rate</dt>
+            <dd>{heroStats.avgHourlyRate ?? "—"}</dd>
+          </div>
+          <div className="coach-hero-stat">
+            <dt>Lessons Booked</dt>
+            <dd>{heroStats.lessons ?? "—"}</dd>
+          </div>
+        </dl>
       </header>
 
-      <div className="coach-tab-bar" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          className={`coach-tab${activeTab === "all" ? " active" : ""}`}
-          onClick={() => {
-            setActiveTab("all");
-            resetAllPagination();
-          }}
-        >
-          <Users2 size={16} />
-          All Coaches
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`coach-tab${activeTab === "my" ? " active" : ""}`}
-          onClick={() => {
-            setActiveTab("my");
-            resetMyPagination();
-          }}
-        >
-          <SlidersHorizontal size={16} />
-          My Coaches
-        </button>
-      </div>
-
-      <div className="filter-pill-row">
-        {pills.map((pill) => (
+      <section className="coach-controls" aria-label="Search and filters">
+        <div className="coach-controls-bar">
           <button
             type="button"
-            key={pill.key}
-            className={`filter-pill${pill.isActive ? " active" : ""}`}
-            onClick={() => setOpenFilter(pill.key)}
+            className="coach-location-trigger"
+            onClick={() => setOpenFilter("location")}
+            aria-label={
+              locationFilter?.address
+                ? `Change location from ${locationFilter.address}`
+                : "Select a location"
+            }
           >
-            <span>{pill.label}</span>
+            <MapPin size={16} aria-hidden />
+            <span>{locationFilter?.address ? locationFilter.address : "Select location"}</span>
           </button>
-        ))}
+          <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
+            <Search size={16} aria-hidden />
+            <input
+              type="search"
+              value={nameDraft}
+              onChange={handleSearchChange}
+              placeholder="Search coaches by name…"
+              aria-label="Search coaches by name"
+            />
+            {nameDraft ? (
+              <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
+                <span className="sr-only">Clear search</span>
+                ×
+              </button>
+            ) : null}
+          </form>
+          <button
+            type="button"
+            className="coach-filters-toggle"
+            onClick={() => setFiltersExpanded((prev) => !prev)}
+            aria-expanded={filtersExpanded}
+            aria-controls="coach-specialty-chips"
+          >
+            <SlidersHorizontal size={16} aria-hidden />
+            Filters
+          </button>
+          <div className="coach-sort">
+            <label htmlFor="coach-sort-select">Sort by</label>
+            <select
+              id="coach-sort-select"
+              value={sortValue}
+              onChange={handleSortChange}
+              aria-label="Sort coaches"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="price">Price</option>
+              <option value="rating">Rating</option>
+              <option value="distance">Distance</option>
+            </select>
+          </div>
+        </div>
+        {filtersExpanded ? (
+          <div
+            id="coach-specialty-chips"
+            className="coach-chip-toolbar"
+            role="toolbar"
+            aria-label="Specialty filters"
+          >
+            {specialtyChips.map((chip) => {
+              const isSelected = specialtySelection.includes(chip.value);
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  className={`coach-chip${isSelected ? " selected" : ""}`}
+                  onClick={() => toggleSpecialty(chip.value)}
+                  aria-pressed={isSelected}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="coach-filter-pills" role="group" aria-label="Advanced filters">
+          {pills.map((pill) => (
+            <button
+              type="button"
+              key={pill.key}
+              className={`filter-pill${pill.isActive ? " active" : ""}`}
+              onClick={() => setOpenFilter(pill.key)}
+            >
+              <span>{pill.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="coach-results-header">
+        <div className="coach-results-meta">
+          <p>{resultsCount} coach{resultsCount === 1 ? "" : "es"} found</p>
+          <button
+            type="button"
+            className={`refresh-button${refreshing ? " refreshing" : ""}`}
+            onClick={handleRefresh}
+          >
+            <RefreshCcw size={16} aria-hidden />
+            Refresh
+          </button>
+        </div>
+        <div className="coach-results-announcement" role="status" aria-live="polite">
+          {resultsAnnouncement}
+        </div>
       </div>
 
       {shouldShowLocationPrompt ? (
-        <div className="location-permission-card">
+        <div className="location-permission-card" role="region" aria-live="polite">
           <div className="location-permission-copy">
             <h2>Enable location to find nearby coaches</h2>
             <p>
-              Turn on your device location or pick a location to see coaches close to
-              you.
+              Turn on your device location or pick a location to see coaches close to you.
             </p>
             {locationError ? (
               <p className="location-error">{locationError}</p>
@@ -957,7 +1270,7 @@ const PlayerCoachListPage = () => {
           </div>
           <div className="location-permission-actions">
             <button type="button" className="primary" onClick={requestLocation}>
-              {locationLoader ? <Loader2 className="spin" size={16} /> : null}
+              {locationLoader ? <Loader2 className="spin" size={16} aria-hidden /> : null}
               Enable Location
             </button>
             <button
@@ -973,20 +1286,73 @@ const PlayerCoachListPage = () => {
         </div>
       ) : null}
 
-      <section className="coach-results">
-        {activeTab === "all"
-          ? renderList(
-              allCoachPlayers,
-              allMiniLoader,
-              allListSentinelRef,
-              isAllCoachesListEnd,
-            )
-          : renderList(
-              addedCoachPlayers,
-              addedMiniLoader,
-              myListSentinelRef,
-              isMyCoachesListEnd,
-            )}
+      <section className="coach-results" aria-label="Coach results">
+        {(() => {
+          const list = activeTab === "all" ? allCoachPlayers : addedCoachPlayers;
+          const isLoading = activeTab === "all" ? allMiniLoader : addedMiniLoader;
+          const endOfList = activeTab === "all" ? isAllCoachesListEnd : isMyCoachesListEnd;
+          const sentinelRef = activeTab === "all" ? allListSentinelRef : myListSentinelRef;
+
+          if (isLoading && !list.length) {
+            return (
+              <div className="coach-list-loader">
+                <Loader2 className="spin" size={32} aria-hidden />
+                <p>Loading coaches…</p>
+              </div>
+            );
+          }
+
+          if (!isLoading && !list.length) {
+            return <div className="coach-list-empty">No coaches found.</div>;
+          }
+
+          const featured = activeTab === "all" ? list.slice(0, 2) : [];
+          const remaining = activeTab === "all" ? list.slice(2) : list;
+
+          return (
+            <Fragment>
+              {activeTab === "all" && featured.length ? (
+                <section className="coach-section" aria-labelledby="featured-coaches-heading">
+                  <div className="coach-section-header">
+                    <h2 id="featured-coaches-heading">Featured Coaches</h2>
+                    <p>Coaches with outstanding reviews and engagement.</p>
+                  </div>
+                  <div className="coach-featured-grid">
+                    {featured.map((coach) => (
+                      <CoachCard key={`featured-${coach.id}`} coach={coach} variant="featured" />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="coach-section" aria-labelledby="all-coaches-heading">
+                <div className="coach-section-header">
+                  <h2 id="all-coaches-heading">
+                    {activeTab === "all" ? "All Coaches" : "My Coaches"}
+                  </h2>
+                  <p>
+                    {activeTab === "all"
+                      ? "Browse certified coaches tailored to your goals."
+                      : "Coaches you have already connected with."}
+                  </p>
+                </div>
+                <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
+                  {remaining.map((coach) => (
+                    <CoachCard
+                      key={coach.id}
+                      coach={coach}
+                      variant={activeTab === "all" ? "standard" : "compact"}
+                    />
+                  ))}
+                </div>
+                <div ref={sentinelRef} className="list-sentinel" aria-hidden>
+                  {isLoading && list.length ? <Loader2 className="spin" size={20} aria-hidden /> : null}
+                  {endOfList ? <span>End of results</span> : null}
+                </div>
+              </section>
+            </Fragment>
+          );
+        })()}
       </section>
 
       <FilterModal
@@ -1071,30 +1437,6 @@ const PlayerCoachListPage = () => {
             onTouchEnd={(event) => handleRadiusChange(Number(event.target.value))}
           />
           <p className="radius-hint">Adjust the search radius to expand or narrow results.</p>
-        </div>
-      </FilterModal>
-
-      <FilterModal
-        title="Name"
-        isOpen={openFilter === "name"}
-        onClose={() => setOpenFilter(null)}
-        onClearAll={handleClearFilter}
-        onDone={handleNameApply}
-      >
-        <div className="name-filter">
-          <label className="field-label" htmlFor="coach-name-filter">
-            Coach name
-          </label>
-          <input
-            id="coach-name-filter"
-            type="text"
-            value={nameDraft}
-            placeholder="Search by coach name"
-            onChange={(event) => setNameDraft(event.target.value)}
-          />
-          <button type="button" className="apply-button" onClick={handleNameApply}>
-            Apply
-          </button>
         </div>
       </FilterModal>
 
