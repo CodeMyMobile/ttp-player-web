@@ -1,16 +1,18 @@
-# React + Vite
+# Matchplay Player Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Find Coaches page
 
-Currently, two official plugins are available:
+The `/find-coaches` route renders the pixel-faithful **Find Coaches** experience. It reuses the existing navigation, so selecting **Find Coaches** from the dashboard nav loads this page.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Design tokens** live in [`src/lib/theme.ts`](src/lib/theme.ts). They expose the extracted colors, typography, radius, and shadows used throughout the new UI. Components read these tokens through CSS custom properties, enabling quick tweaks without touching markup.
+- **Mock data** for the listing sits in [`src/data/mockCoaches.ts`](src/data/mockCoaches.ts). Update or expand this file to adjust the sample coaches. The UI reads from this module only—no network calls are made.
+- **UI components** specific to the page live under [`src/components/coaches`](src/components/coaches). The page composition itself is in [`src/pages/FindCoaches.tsx`](src/pages/FindCoaches.tsx).
 
-## React Compiler
+### Local development
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Navigate to `http://localhost:5173/ttp-player-web/find-coaches` (or click **Find Coaches** in the in-app navigation) to view the page. Enter `error` or `empty` in the search field to preview the simulated error or empty states.
