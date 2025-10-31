@@ -525,46 +525,87 @@ const normalizeCoach = (coach) => {
     "profile_description",
     "profileDescription",
   ];
-  let bio =
-    pickMeaningfulStringFromSources(sourceObjects, bioKeys, {
-      preferLonger: true,
-      minLength: 24,
-    }) ||
-    coalesceMeaningfulStrings(
-      [
-        coach.bio,
-        coach.short_bio,
-        coach.description,
-        coach.about,
-        coach.summary,
-        coach.profile?.bio,
-        coach.profile?.about,
-        coach.profile?.description,
-        coach.profile?.short_bio,
-        coach.profile?.summary,
-        coach.profile?.profile_summary,
-        coach.profile?.profile_about,
-        coach.profile?.profile_description,
-        coach.user?.bio,
-        coach.user?.about,
-        coach.user?.summary,
-        coach.user?.profile?.bio,
-        coach.user?.profile?.about,
-        coach.user?.profile?.summary,
-        coach.user?.profile?.profile_about,
-        coach.user?.profile?.profile_description,
-        coach.coach?.bio,
-        coach.coach?.about,
-        coach.coach_profile?.bio,
-        coach.coach_profile?.about,
-        coach.coach_profile?.summary,
-      ],
-      {
+  const directBio = normalizeCandidateText(
+    coalesceStrings(
+      coach.bio,
+      coach.short_bio,
+      coach.description,
+      coach.about,
+      coach.summary,
+      coach.profile?.bio,
+      coach.profile?.about,
+      coach.profile?.description,
+      coach.profile?.short_bio,
+      coach.profile?.summary,
+      coach.profile?.profile_summary,
+      coach.profile?.profile_about,
+      coach.profile?.profile_description,
+      coach.user?.bio,
+      coach.user?.about,
+      coach.user?.summary,
+      coach.user?.profile?.bio,
+      coach.user?.profile?.about,
+      coach.user?.profile?.summary,
+      coach.user?.profile?.profile_about,
+      coach.user?.profile?.profile_description,
+      coach.coach?.bio,
+      coach.coach?.about,
+      coach.coach_profile?.bio,
+      coach.coach_profile?.about,
+      coach.coach_profile?.summary,
+    ),
+  );
+
+  let bio = directBio;
+
+  if (!bio || bio.length < 24) {
+    const scoredBio =
+      pickMeaningfulStringFromSources(sourceObjects, bioKeys, {
         preferLonger: true,
         minLength: 24,
-      },
-    ) ||
-    "";
+      }) ||
+      coalesceMeaningfulStrings(
+        [
+          coach.bio,
+          coach.short_bio,
+          coach.description,
+          coach.about,
+          coach.summary,
+          coach.profile?.bio,
+          coach.profile?.about,
+          coach.profile?.description,
+          coach.profile?.short_bio,
+          coach.profile?.summary,
+          coach.profile?.profile_summary,
+          coach.profile?.profile_about,
+          coach.profile?.profile_description,
+          coach.user?.bio,
+          coach.user?.about,
+          coach.user?.summary,
+          coach.user?.profile?.bio,
+          coach.user?.profile?.about,
+          coach.user?.profile?.summary,
+          coach.user?.profile?.profile_about,
+          coach.user?.profile?.profile_description,
+          coach.coach?.bio,
+          coach.coach?.about,
+          coach.coach_profile?.bio,
+          coach.coach_profile?.about,
+          coach.coach_profile?.summary,
+        ],
+        {
+          preferLonger: true,
+          minLength: 24,
+        },
+      ) ||
+      "";
+
+    if (scoredBio && scoredBio.length > bio.length) {
+      bio = scoredBio;
+    }
+  }
+
+  bio = normalizeCandidateText(bio);
   if (!bio) {
     const fallbackSources = [
       coach.profile,
