@@ -26,6 +26,10 @@ import "./PlayerCoachListPage.css";
 
 const PER_PAGE = 10;
 const DEFAULT_RADIUS = 10;
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  "https://ttp-api.codemymobile.com/api";
 
 const buildQueryValue = (value) =>
   value !== undefined && value !== null ? String(value).trim() : "";
@@ -57,32 +61,49 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const extractString = (value) => {
+const extractString = (value, visited) => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim();
   if (typeof value === "number") return value.toString();
   if (typeof value === "object") {
+    if (!visited) visited = new WeakSet();
+    if (visited.has(value)) return "";
+    visited.add(value);
     if (Array.isArray(value)) {
       for (const item of value) {
-        const resolved = extractString(item);
+        const resolved = extractString(item, visited);
         if (resolved) return resolved;
       }
       return "";
     }
-    const nestedCandidate =
-      value.url ??
-      value.href ??
-      value.src ??
-      value.value ??
-      value.label ??
-      value.title ??
-      value.name ??
-      value.path ??
-      value.location ??
-      value.asset ??
-      null;
-    if (nestedCandidate) {
-      const resolved = extractString(nestedCandidate);
+    const prioritizedKeys = [
+      "url",
+      "href",
+      "src",
+      "asset",
+      "value",
+      "label",
+      "title",
+      "name",
+      "path",
+      "location",
+      "image",
+      "profile_image",
+      "profileImage",
+      "profile_photo",
+      "profilePhoto",
+      "avatar",
+      "photo",
+      "picture",
+    ];
+    for (const key of prioritizedKeys) {
+      if (key in value) {
+        const resolved = extractString(value[key], visited);
+        if (resolved) return resolved;
+      }
+    }
+    for (const nestedValue of Object.values(value)) {
+      const resolved = extractString(nestedValue, visited);
       if (resolved) return resolved;
     }
   }
@@ -97,8 +118,73 @@ const coalesceStrings = (...values) => {
   return "";
 };
 
+const normalizeAssetUrl = (value) => {
+  if (!value) return "";
+  const trimmed = value.toString().trim();
+  if (!trimmed) return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+  try {
+    return new URL(trimmed, API_BASE_URL).href;
+  } catch (error) {
+    return trimmed;
+  }
+};
+
+const collectObjectSources = (coach) => {
+  const sources = [];
+  const addSource = (source) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return;
+    if (sources.includes(source)) return;
+    sources.push(source);
+  };
+
+  addSource(coach);
+  addSource(coach?.profile);
+  addSource(coach?.profile?.data);
+  addSource(coach?.profile?.data?.attributes);
+  addSource(coach?.profile?.profile);
+  addSource(coach?.profile_data);
+  addSource(coach?.profileData);
+  addSource(coach?.profile_details);
+  addSource(coach?.profileDetails);
+  addSource(coach?.profile_info);
+  addSource(coach?.profileInfo);
+  addSource(coach?.media);
+  addSource(coach?.media?.profile);
+  addSource(coach?.media?.data);
+  addSource(coach?.media?.data?.attributes);
+  addSource(coach?.user);
+  addSource(coach?.user?.profile);
+  addSource(coach?.user_profile);
+  addSource(coach?.coach);
+  addSource(coach?.coach?.profile);
+  addSource(coach?.coach_profile);
+  addSource(coach?.coachProfile);
+  addSource(coach?.details);
+  addSource(coach?.meta);
+
+  return sources;
+};
+
+const pickStringFromSources = (sources, keys) => {
+  for (const source of sources) {
+    for (const key of keys) {
+      if (source && Object.prototype.hasOwnProperty.call(source, key)) {
+        const resolved = extractString(source[key]);
+        if (resolved) return resolved;
+      }
+    }
+  }
+  return "";
+};
+
 const normalizeCoach = (coach) => {
   if (!coach || typeof coach !== "object") return null;
+  const sourceObjects = collectObjectSources(coach);
   const id =
     coach.id ??
     coach.coach_id ??
@@ -128,7 +214,45 @@ const normalizeCoach = (coach) => {
       coach.hourly_price ??
       coach.rate,
   );
-  const avatar =
+  const avatarKeys = [
+    "avatar",
+    "avatar_url",
+    "avatarUrl",
+    "avatarURL",
+    "profile_image",
+    "profileImage",
+    "profile_image_url",
+    "profileImageUrl",
+    "profileImageURL",
+    "profile_photo",
+    "profilePhoto",
+    "profile_photo_url",
+    "profilePhotoUrl",
+    "profilePic",
+    "profile_pic",
+    "profile_picture",
+    "profilePicture",
+    "profilePictureUrl",
+    "profile_picture_url",
+    "photo",
+    "photo_url",
+    "photoUrl",
+    "photoURL",
+    "image",
+    "image_url",
+    "imageUrl",
+    "imageURL",
+    "picture",
+    "picture_url",
+    "pictureUrl",
+    "headshot",
+    "headshot_url",
+    "headshotUrl",
+    "media_url",
+    "mediaUrl",
+  ];
+  const avatarRaw =
+    pickStringFromSources(sourceObjects, avatarKeys) ||
     coalesceStrings(
       coach.avatar,
       coach.profile_image,
@@ -157,7 +281,8 @@ const normalizeCoach = (coach) => {
       coach.user?.profile?.avatar,
       coach.user?.profile?.profile_image,
       coach.user?.profile?.photo,
-    ) || "";
+    );
+  const avatar = normalizeAssetUrl(avatarRaw);
   const locationsRaw =
     coach.locations ??
     coach.locationList ??
@@ -175,7 +300,25 @@ const normalizeCoach = (coach) => {
     [];
   let locationList = [];
   let locationPlaces = [];
+  const bioKeys = [
+    "bio",
+    "short_bio",
+    "shortBio",
+    "biography",
+    "bio_text",
+    "bioText",
+    "coach_bio",
+    "coachBio",
+    "description",
+    "about",
+    "summary",
+    "profile_bio",
+    "profileBio",
+    "profile_summary",
+    "profileSummary",
+  ];
   const bio =
+    pickStringFromSources(sourceObjects, bioKeys) ||
     coalesceStrings(
       coach.bio,
       coach.short_bio,
@@ -187,11 +330,17 @@ const normalizeCoach = (coach) => {
       coach.profile?.description,
       coach.profile?.short_bio,
       coach.profile?.summary,
+      coach.profile?.profile_summary,
       coach.user?.bio,
       coach.user?.about,
       coach.user?.profile?.bio,
       coach.user?.profile?.about,
       coach.user?.profile?.summary,
+      coach.coach?.bio,
+      coach.coach?.about,
+      coach.coach_profile?.bio,
+      coach.coach_profile?.about,
+      coach.coach_profile?.summary,
     ) || "";
   const ratingValue =
     parseNumber(
