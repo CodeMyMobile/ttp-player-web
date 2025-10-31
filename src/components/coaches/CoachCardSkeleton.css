@@ -1,0 +1,58 @@
+.coach-card-skeleton {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+@media (max-width: 640px) {
+  .coach-card-skeleton {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.coach-card-skeleton__media {
+  width: 120px;
+  height: 120px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.6), rgba(226, 232, 240, 0.35), rgba(226, 232, 240, 0.6));
+  animation: coach-card-skeleton-shimmer 1.5s infinite;
+}
+
+.coach-card-skeleton__body {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-card-skeleton__line {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.7), rgba(203, 213, 225, 0.5), rgba(226, 232, 240, 0.7));
+  animation: coach-card-skeleton-shimmer 1.5s infinite;
+}
+
+.coach-card-skeleton__line--title {
+  width: 60%;
+  height: 18px;
+}
+
+.coach-card-skeleton__line--subtitle {
+  width: 80%;
+}
+
+.coach-card-skeleton__line--short {
+  width: 40%;
+}
+
+@keyframes coach-card-skeleton-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}

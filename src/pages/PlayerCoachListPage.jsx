@@ -57,7 +57,7 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const normalizeCoach = (coach) => {
+const normalizeCoachLegacy = (coach) => {
   if (!coach || typeof coach !== "object") return null;
   const id =
     coach.id ??
@@ -291,7 +291,7 @@ const FilterModal = ({
   );
 };
 
-const CoachCard = ({ coach, variant = "standard" }) => {
+const LegacyCoachCard = ({ coach, variant = "standard" }) => {
   const initials = useMemo(() => {
     if (!coach?.name) return "CC";
     const parts = coach.name
@@ -811,7 +811,7 @@ const PlayerCoachListPage = () => {
   const normalizeListResponse = useCallback(
     (payload) =>
       parseCoachList(payload)
-        .map(normalizeCoach)
+        .map(normalizeCoachLegacy)
         .filter((coach) => coach && coach.id && coach.id !== user?.id),
     [user?.id],
   );
@@ -926,13 +926,7 @@ const PlayerCoachListPage = () => {
         setAddedMiniLoader(false);
       }
     },
-    [
-      buildFilterQueryParam,
-      locationFilter?.address,
-      locationFilter?.isCurrentLocation,
-      myCoachesFilterText,
-      normalizeListResponse,
-    ],
+    [buildFilterQueryParam, locationFilter, myCoachesFilterText, normalizeListResponse],
   );
 
   useEffect(() => {
@@ -1459,7 +1453,11 @@ const PlayerCoachListPage = () => {
                 </div>
                 <div className="coach-featured-grid">
                   {featuredCoaches.map((coach) => (
-                    <CoachCard key={`featured-${coach.id}`} coach={coach} variant="featured" />
+                    <LegacyCoachCard
+                      key={`featured-${coach.id}`}
+                      coach={coach}
+                      variant="featured"
+                    />
                   ))}
                 </div>
               </section>
@@ -1472,7 +1470,7 @@ const PlayerCoachListPage = () => {
               </div>
               <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
                 {remainingCoaches.map((coach) => (
-                  <CoachCard
+                  <LegacyCoachCard
                     key={coach.id}
                     coach={coach}
                     variant={activeTab === "all" ? "standard" : "compact"}
