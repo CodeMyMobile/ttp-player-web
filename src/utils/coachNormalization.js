@@ -264,6 +264,269 @@ const coalesceStrings = (...values) => {
   return "";
 };
 
+const formatDateOnly = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const normalizeDateValue = (value) => {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateOnly(value);
+  }
+  const text = value.toString().trim();
+  if (!text) return "";
+  const isoMatch = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (isoMatch) {
+    return isoMatch[0];
+  }
+  const slashMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slashMatch) {
+    const [, month, day, year] = slashMatch;
+    const normalizedYear = year.length === 2 ? Number(`20${year}`) : Number(year);
+    const parsed = new Date(normalizedYear, Number(month) - 1, Number(day));
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatDateOnly(parsed);
+    }
+  }
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) {
+    return formatDateOnly(parsed);
+  }
+  return "";
+};
+
+const normalizeDateTimeValue = (value) => {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+  const text = value.toString().trim();
+  if (!text) return "";
+  const isoCandidate = Date.parse(text);
+  if (!Number.isNaN(isoCandidate)) {
+    return new Date(isoCandidate).toISOString();
+  }
+  return text;
+};
+
+const normalizeAvailabilitySlot = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" || typeof value === "number") {
+    const label = normalizeCandidateText(value);
+    if (!label) return null;
+    return { label };
+  }
+  if (typeof value === "object") {
+    const label = normalizeCandidateText(
+      coalesceStrings(
+        value.label,
+        value.summary,
+        value.title,
+        value.name,
+        value.text,
+        value.description,
+        value.note,
+        value.copy,
+      ),
+    );
+    const start = normalizeDateTimeValue(
+      coalesceStrings(
+        value.startDateTime,
+        value.start_date_time,
+        value.start_time,
+        value.startTime,
+        value.start,
+        value.from,
+        value.begin,
+        value.time,
+        value.starts_at,
+        value.startsAt,
+      ),
+    );
+    const end = normalizeDateTimeValue(
+      coalesceStrings(
+        value.endDateTime,
+        value.end_date_time,
+        value.end_time,
+        value.endTime,
+        value.end,
+        value.to,
+        value.finish,
+        value.until,
+        value.ends_at,
+        value.endsAt,
+      ),
+    );
+    if (!label && !start && !end) {
+      return null;
+    }
+    return {
+      label: label || null,
+      start: start || null,
+      end: end || null,
+    };
+  }
+  return null;
+};
+
+const parseAvailabilityCalendar = (coach) => {
+  const calendarMap = new Map();
+
+  const addEntry = (date) => {
+    if (!date) return;
+    if (!calendarMap.has(date)) {
+      calendarMap.set(date, { date, slots: [], _keys: new Set() });
+    }
+  };
+
+  const addSlot = (date, slot) => {
+    if (!date || !slot) return;
+    addEntry(date);
+    const entry = calendarMap.get(date);
+    const key = `${slot.start ?? ""}|${slot.end ?? ""}|${slot.label ?? ""}`;
+    if (entry._keys.has(key)) return;
+    entry._keys.add(key);
+    entry.slots.push(slot);
+  };
+
+  const parseValue = (value, contextDate = "") => {
+    if (value === null || value === undefined) return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => parseValue(item, contextDate));
+      return;
+    }
+    if (typeof value === "string" || typeof value === "number") {
+      const asDate = normalizeDateValue(value);
+      if (asDate) {
+        addEntry(asDate);
+        return;
+      }
+      if (contextDate) {
+        const slot = normalizeAvailabilitySlot(value);
+        if (slot) addSlot(contextDate, slot);
+      }
+      return;
+    }
+    if (typeof value === "object") {
+      const objectKeys = Object.keys(value);
+      let handledKeys = false;
+      objectKeys.forEach((key) => {
+        const keyDate = normalizeDateValue(key);
+        if (keyDate) {
+          handledKeys = true;
+          const nested = value[key];
+          if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+            parseValue({ date: keyDate, ...nested }, keyDate);
+          } else {
+            parseValue(nested, keyDate);
+          }
+        }
+      });
+      if (handledKeys) return;
+
+      const date =
+        normalizeDateValue(
+          value.date ??
+            value.day ??
+            value.date_key ??
+            value.dateKey ??
+            value.date_value ??
+            value.dateValue ??
+            value.calendar_date ??
+            value.calendarDate ??
+            value.dateString ??
+            value.day_key ??
+            value.dayKey ??
+            value.start_date ??
+            value.startDate ??
+            value.on,
+        ) || contextDate;
+
+      if (date) {
+        addEntry(date);
+        const slotCandidates =
+          value.slots ??
+          value.times ??
+          value.time_slots ??
+          value.timeSlots ??
+          value.available_slots ??
+          value.availableSlots ??
+          value.availability ??
+          value.entries ??
+          value.windows ??
+          value.blocks ??
+          value.schedule ??
+          value.sessions ??
+          value.lessons ??
+          value.items ??
+          value.values ??
+          null;
+        if (slotCandidates !== null && slotCandidates !== undefined) {
+          parseValue(slotCandidates, date);
+        }
+        const label = normalizeAvailabilitySlot({
+          label: normalizeCandidateText(
+            coalesceStrings(
+              value.label,
+              value.summary,
+              value.headline,
+              value.description,
+              value.note,
+              value.text,
+              value.copy,
+              value.status,
+            ),
+          ),
+        });
+        if (label?.label) {
+          addSlot(date, label);
+        }
+        return;
+      }
+
+      Object.values(value).forEach((nested) => parseValue(nested, contextDate));
+    }
+  };
+
+  const sources = [
+    coach.availability_calendar,
+    coach.availabilityCalendar,
+    coach.available_dates,
+    coach.availableDates,
+    coach.available_slots,
+    coach.availableSlots,
+    coach.calendar,
+    coach.calendar_entries,
+    coach.calendarEntries,
+    coach.schedule?.calendar,
+    coach.schedule_calendar,
+    coach.profile?.availability_calendar,
+    coach.profile?.calendar,
+    coach.user?.availability_calendar,
+    coach.user?.calendar,
+  ];
+
+  sources.forEach((source) => parseValue(source));
+
+  const entries = Array.from(calendarMap.values()).map(({ date, slots }) => ({
+    date,
+    slots,
+  }));
+
+  return entries
+    .filter((entry) => entry.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((entry) => ({
+      ...entry,
+      slots: Array.isArray(entry.slots)
+        ? entry.slots.filter(Boolean).map((slot) => ({
+            label: slot.label || null,
+            start: slot.start || null,
+            end: slot.end || null,
+          }))
+        : [],
+    }));
+};
+
 const normalizeAssetUrl = (value) => {
   if (!value) return "";
   const trimmed = value.toString().trim();
@@ -887,6 +1150,20 @@ export const normalizeCoach = (coach) => {
     coach.availability_summary ??
     coach.schedule_summary ??
     null;
+  const responseTimeLabel = normalizeCandidateText(
+    coalesceStrings(
+      coach.response_time,
+      coach.responseTime,
+      coach.average_response_time,
+      coach.avg_response_time,
+      coach.response_time_label,
+      coach.responseTimeLabel,
+      coach.response_speed,
+      coach.responseSpeed,
+      coach.reply_time,
+      coach.replyTime,
+    ),
+  );
   let typicalAvailability = normalizeCandidateText(
     coalesceStrings(
       coach.typical_availability,
@@ -1046,6 +1323,67 @@ export const normalizeCoach = (coach) => {
         coach.sessions_count ??
         coach.total_lessons,
     ) ?? null;
+  const studentsCount =
+    parseNumber(
+      coach.students_count ??
+        coach.student_count ??
+        coach.players_count ??
+        coach.players_coached ??
+        coach.clients_count ??
+        coach.client_count ??
+        coach.learners_count ??
+        coach.learners ??
+        coach.athletes_count ??
+        coach.athletes ??
+        coach.students ??
+        coach.total_students ??
+        coach.totalStudents,
+    ) ?? null;
+  const certificationsRaw =
+    coach.certifications ??
+    coach.certification ??
+    coach.credentials ??
+    coach.qualifications ??
+    coach.accreditations ??
+    coach.achievements ??
+    coach.awards ??
+    coach.recognitions ??
+    coach.honors ??
+    coach.designations ??
+    coach.badges_list ??
+    coach.badgesList ??
+    [];
+  let certifications = [];
+  if (Array.isArray(certificationsRaw)) {
+    certifications = certificationsRaw
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item === "object" && item !== null) {
+          return (
+            item.title ??
+            item.name ??
+            item.label ??
+            item.badge ??
+            item.value ??
+            ""
+          ).toString();
+        }
+        return (item ?? "").toString();
+      })
+      .filter(Boolean);
+  } else if (typeof certificationsRaw === "string") {
+    certifications = certificationsRaw
+      .split(/,|\n|\|/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  const certificationSet = new Set();
+  certifications.forEach((item) => {
+    const text = normalizeCandidateText(item);
+    if (text) certificationSet.add(text);
+  });
+  certifications = Array.from(certificationSet);
+  const availabilityCalendar = parseAvailabilityCalendar(coach);
   const badge =
     coach.badge ??
     coach.highlight ??
@@ -1077,11 +1415,15 @@ export const normalizeCoach = (coach) => {
     distanceLabel,
     availability,
     typicalAvailability,
+    responseTime: responseTimeLabel || null,
     lessonsCount,
+    studentsCount,
     lessonTypes,
     badge: typeof badge === "string" && badge.trim() ? badge : null,
     status,
     slug,
+    certifications,
+    availabilityCalendar,
   };
 };
 
