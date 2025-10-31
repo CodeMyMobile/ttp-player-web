@@ -1,5 +1,7 @@
 import { request } from "./http";
 import type { PaginatedResponse } from "./player";
+import { DEFAULT_AUTH_SCHEME } from "./config";
+import { getStoredAuthToken } from "../services/authToken";
 
 export interface CoachSummary {
   id: number;
@@ -173,6 +175,7 @@ export const getPlayerUpcomingLessonsHub = async ({
 export interface PlayerCoachesParams extends PaginationParams {
   search?: string;
   location?: string;
+  token?: string;
 }
 
 export const getPlayerCoaches = async ({
@@ -180,8 +183,13 @@ export const getPlayerCoaches = async ({
   page = 1,
   search = "",
   location = "",
-}: PlayerCoachesParams = {}) =>
-  request<PaginatedResponse<CoachSummary>>("/player/coaches", {
+  token,
+}: PlayerCoachesParams = {}) => {
+  const authToken =
+    token ?? getStoredAuthToken({ preferScheme: DEFAULT_AUTH_SCHEME }) ?? undefined;
+
+  return request<PaginatedResponse<CoachSummary>>("/player/coaches", {
+    token: authToken,
     query: buildBody({
       perPage,
       page,
@@ -189,6 +197,7 @@ export const getPlayerCoaches = async ({
       locationSearch: location,
     }),
   });
+};
 
 export interface FetchCoachDetailsByIdParams {
   token: string;
