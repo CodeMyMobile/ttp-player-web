@@ -1,32 +1,50 @@
 .coach-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 32px;
+  padding: 32px 20px 56px;
+  background: #f8fafc;
 }
 
-.coach-page__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.coach-page__header h1 {
-  margin: 0;
-  font-size: 2rem;
-  color: #0f172a;
-}
-
-.coach-page__header p {
-  margin: 0;
-  color: #475569;
-  font-size: 1rem;
-}
-
-@media (min-width: 768px) {
-  .coach-page__header h1 {
-    font-size: 2.5rem;
+@media (min-width: 1024px) {
+  .coach-page {
+    padding: 48px 64px 80px;
+    gap: 40px;
   }
+}
+
+.coach-page__hero {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(16, 185, 129, 0.18));
+  border-radius: 24px;
+  padding: 32px 28px;
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.coach-page__eyebrow {
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  margin: 0 0 12px;
+  color: #0ea5e9;
+  font-weight: 600;
+}
+
+.coach-page__hero h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
+}
+
+.coach-page__subtitle {
+  margin: 16px 0 0;
+  font-size: 18px;
+  color: #1f2937;
+  max-width: 60ch;
+}
+
+.coach-page__content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }

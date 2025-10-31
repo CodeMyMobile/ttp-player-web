@@ -1,101 +1,75 @@
 .coach-profile {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 32px;
+  padding: 32px 20px 56px;
+  background: #f8fafc;
 }
 
-.coach-profile__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+@media (min-width: 1024px) {
+  .coach-profile {
+    padding: 48px 64px 80px;
+    gap: 40px;
+  }
 }
 
-.coach-profile__header h1 {
-  margin: 0;
-  font-size: 2rem;
+.coach-profile__hero {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.16), rgba(99, 102, 241, 0.12));
   color: #0f172a;
+  padding: 32px 28px;
+  border-radius: 24px;
 }
 
-.coach-profile__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #0b8c55;
-  font-weight: 600;
+.coach-profile__hero h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
 }
 
-.coach-profile__message,
-.coach-profile__error {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-radius: 1rem;
-}
-
-.coach-profile__message {
-  background: #fef9c3;
-  color: #854d0e;
-}
-
-.coach-profile__error {
-  background: #fff5f5;
-  color: #991b1b;
-}
-
-.coach-profile__error button {
-  margin-left: auto;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 999px;
-  background: #0b8c55;
-  color: #fff;
-  cursor: pointer;
-  font-weight: 600;
+.coach-profile__hero p {
+  margin: 16px 0 0;
+  font-size: 18px;
+  color: #1f2937;
+  max-width: 60ch;
 }
 
 .coach-profile__content {
-  display: grid;
-  gap: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.coach-profile__details {
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  display: grid;
-  gap: 1.25rem;
-}
-
-.coach-profile__details h2 {
-  margin: 0;
-  font-size: 1.25rem;
+.coach-profile__error {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  border-radius: 16px;
+  background: rgba(254, 226, 226, 0.6);
+  border: 1px solid rgba(248, 113, 113, 0.4);
   color: #0f172a;
 }
 
-.coach-profile__details p,
-.coach-profile__details li {
-  display: flex;
+.coach-profile__error button {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #1e293b;
-  margin: 0;
+  gap: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.coach-profile__details ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
+.coach-profile__error button:focus-visible {
+  outline: 3px solid rgba(129, 140, 248, 0.6);
+  outline-offset: 2px;
 }
 
-@media (min-width: 768px) {
-  .coach-profile__content {
-    grid-template-columns: 2fr 1fr;
-  }
+.coach-profile__empty {
+  margin: 0;
+  color: #475569;
+  font-size: 16px;
 }
