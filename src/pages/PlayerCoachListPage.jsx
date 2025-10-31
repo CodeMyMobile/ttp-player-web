@@ -61,10 +61,29 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const IGNORED_OBJECT_KEYS = new Set([
+  "type",
+  "__typename",
+  "__component",
+  "id",
+  "uid",
+  "uuid",
+  "slug",
+  "key",
+  "identifier",
+  "created_at",
+  "createdAt",
+  "updated_at",
+  "updatedAt",
+  "published_at",
+  "publishedAt",
+]);
+
 const extractString = (value, visited) => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value.trim();
   if (typeof value === "number") return value.toString();
+  if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "object") {
     if (!visited) visited = new WeakSet();
     if (visited.has(value)) return "";
@@ -85,6 +104,9 @@ const extractString = (value, visited) => {
       "label",
       "title",
       "name",
+      "text",
+      "body",
+      "content",
       "path",
       "location",
       "image",
@@ -95,6 +117,10 @@ const extractString = (value, visited) => {
       "avatar",
       "photo",
       "picture",
+      "html",
+      "plain",
+      "document",
+      "children",
     ];
     for (const key of prioritizedKeys) {
       if (key in value) {
@@ -102,7 +128,8 @@ const extractString = (value, visited) => {
         if (resolved) return resolved;
       }
     }
-    for (const nestedValue of Object.values(value)) {
+    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      if (IGNORED_OBJECT_KEYS.has(nestedKey)) continue;
       const resolved = extractString(nestedValue, visited);
       if (resolved) return resolved;
     }
@@ -136,36 +163,27 @@ const normalizeAssetUrl = (value) => {
 
 const collectObjectSources = (coach) => {
   const sources = [];
-  const addSource = (source) => {
-    if (!source || typeof source !== "object" || Array.isArray(source)) return;
-    if (sources.includes(source)) return;
-    sources.push(source);
+  const visited = new WeakSet();
+  const queue = [];
+
+  const enqueue = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (visited.has(value)) return;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      value.forEach((item) => enqueue(item));
+      return;
+    }
+    sources.push(value);
+    queue.push(value);
   };
 
-  addSource(coach);
-  addSource(coach?.profile);
-  addSource(coach?.profile?.data);
-  addSource(coach?.profile?.data?.attributes);
-  addSource(coach?.profile?.profile);
-  addSource(coach?.profile_data);
-  addSource(coach?.profileData);
-  addSource(coach?.profile_details);
-  addSource(coach?.profileDetails);
-  addSource(coach?.profile_info);
-  addSource(coach?.profileInfo);
-  addSource(coach?.media);
-  addSource(coach?.media?.profile);
-  addSource(coach?.media?.data);
-  addSource(coach?.media?.data?.attributes);
-  addSource(coach?.user);
-  addSource(coach?.user?.profile);
-  addSource(coach?.user_profile);
-  addSource(coach?.coach);
-  addSource(coach?.coach?.profile);
-  addSource(coach?.coach_profile);
-  addSource(coach?.coachProfile);
-  addSource(coach?.details);
-  addSource(coach?.meta);
+  enqueue(coach);
+
+  while (queue.length) {
+    const current = queue.shift();
+    Object.values(current).forEach((child) => enqueue(child));
+  }
 
   return sources;
 };
