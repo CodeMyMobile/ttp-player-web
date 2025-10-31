@@ -105,14 +105,7 @@ const normalizeCoach = (coach) => {
     coach.coachLocations ??
     [];
   let locationList = [];
-  if (Array.isArray(locationsRaw)) {
-    locationList = locationsRaw.filter(Boolean).map(String);
-  } else if (typeof locationsRaw === "string") {
-    locationList = locationsRaw
-      .split(/,|\n|\|/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
+  let locationPlaces = [];
   const bio =
     coach.bio ??
     coach.short_bio ??
@@ -174,6 +167,188 @@ const normalizeCoach = (coach) => {
     coach.location_name ??
     coach.primary_location ??
     null;
+  const facilityLabel =
+    typeof facility === "string" ? facility.trim() : typeof facility === "number" ? facility.toString() : facility;
+  const city =
+    coach.city ??
+    coach.city_name ??
+    coach.cityName ??
+    coach.location_city ??
+    coach.coach_city ??
+    null;
+  const state =
+    coach.state ??
+    coach.state_code ??
+    coach.stateCode ??
+    coach.region ??
+    coach.province ??
+    coach.location_state ??
+    coach.coach_state ??
+    null;
+  const postalCode =
+    coach.zip ??
+    coach.zip_code ??
+    coach.postal_code ??
+    coach.location_zip ??
+    coach.coach_zip ??
+    null;
+  const fallbackCityState = [city, state].filter(Boolean).join(", ");
+  const fallbackRegion = [facilityLabel, fallbackCityState].filter(Boolean).join(" • ");
+
+  const formatLocationLabel = (value) => {
+    if (!value) return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      if (/^\d{5}(?:-\d{4})?$/.test(trimmed)) {
+        if (fallbackRegion) return `${fallbackRegion} (${trimmed})`;
+        if (fallbackCityState) return `${fallbackCityState} (${trimmed})`;
+        return `ZIP ${trimmed}`;
+      }
+      return trimmed;
+    }
+    if (typeof value === "object") {
+      const name =
+        value.name ??
+        value.title ??
+        value.label ??
+        value.facility ??
+        value.location_name ??
+        value.club ??
+        value.location ??
+        null;
+      const street =
+        value.address ??
+        value.address1 ??
+        value.address_1 ??
+        value.street ??
+        value.street1 ??
+        value.street_1 ??
+        null;
+      const localCity =
+        value.city ??
+        value.city_name ??
+        value.locality ??
+        value.town ??
+        city ??
+        null;
+      const localState =
+        value.state ??
+        value.state_code ??
+        value.region ??
+        value.province ??
+        state ??
+        null;
+      const zip =
+        value.zip ??
+        value.zip_code ??
+        value.postal ??
+        value.postal_code ??
+        value.postCode ??
+        value.post_code ??
+        null;
+      const areaLabel = [localCity, localState].filter(Boolean).join(", ");
+      const parts = [];
+      if (name && typeof name === "string") parts.push(name.trim());
+      if (street && typeof street === "string") parts.push(street.trim());
+      const areaParts = [areaLabel, zip && typeof zip === "string" ? zip.trim() : zip]
+        .filter(Boolean)
+        .join(" ");
+      if (areaParts) parts.push(areaParts);
+      if (!parts.length) {
+        const fallback =
+          (typeof value.description === "string" && value.description.trim()) ||
+          (typeof value.value === "string" && value.value.trim()) ||
+          (typeof value.slug === "string" && value.slug.trim()) ||
+          null;
+        return fallback;
+      }
+      return parts.join(" • ");
+    }
+    const text = String(value ?? "").trim();
+    return text || null;
+  };
+
+  const buildLocationEntry = (value, index) => {
+    const label = formatLocationLabel(value);
+    if (!label) return null;
+    let id = null;
+    if (value && typeof value === "object") {
+      id =
+        value.id ??
+        value.uuid ??
+        value.location_id ??
+        value.locationId ??
+        value.slug ??
+        value.code ??
+        null;
+    }
+    return {
+      id: id ? id.toString() : `location-${index}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      label,
+    };
+  };
+
+  const locationEntries = [];
+  if (Array.isArray(locationsRaw)) {
+    locationsRaw.forEach((item, index) => {
+      const entry = buildLocationEntry(item, index);
+      if (entry) locationEntries.push(entry);
+    });
+  } else if (typeof locationsRaw === "string") {
+    locationsRaw
+      .split(/,|\n|\|/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item, index) => {
+        const entry = buildLocationEntry(item, index);
+        if (entry) locationEntries.push(entry);
+      });
+  }
+
+  const seenLabels = new Set();
+  locationPlaces = locationEntries.filter((entry) => {
+    const normalized = entry.label.toLowerCase();
+    if (seenLabels.has(normalized)) return false;
+    seenLabels.add(normalized);
+    return true;
+  });
+
+  if (
+    facilityLabel &&
+    !locationPlaces.some((entry) => entry.label.toLowerCase().includes(facilityLabel.toLowerCase()))
+  ) {
+    locationPlaces.unshift({ id: "facility", label: facilityLabel });
+  }
+
+  if (!locationPlaces.length && fallbackCityState) {
+    locationPlaces.push({ id: "region", label: fallbackCityState });
+  }
+
+  if (fallbackCityState) {
+    const hasCityState = locationPlaces.some((entry) =>
+      entry.label.toLowerCase().includes(fallbackCityState.toLowerCase()),
+    );
+    if (!hasCityState) {
+      locationPlaces.push({ id: "region", label: fallbackCityState });
+    }
+  }
+
+  if (postalCode) {
+    const formattedPostal = postalCode.toString().trim();
+    if (
+      formattedPostal &&
+      !locationPlaces.some((entry) => entry.label.includes(formattedPostal))
+    ) {
+      if (fallbackCityState) {
+        locationPlaces.push({ id: "postal", label: `${fallbackCityState} (${formattedPostal})` });
+      } else {
+        locationPlaces.push({ id: "postal", label: `ZIP ${formattedPostal}` });
+      }
+    }
+  }
+
+  locationList = locationPlaces.map((entry) => entry.label);
   const distanceValue =
     parseNumber(
       coach.distance ??
@@ -222,11 +397,12 @@ const normalizeCoach = (coach) => {
     hourlyRateValue,
     avatar,
     locationList,
+    locationPlaces,
     bio,
     ratingValue,
     ratingCount,
     specialties: specialties.filter(Boolean),
-    facility,
+    facility: facilityLabel || facility,
     distanceLabel,
     availability,
     lessonsCount,
@@ -325,8 +501,24 @@ const CoachCard = ({ coach, variant = "standard" }) => {
     typeof coach?.ratingCount === "number" && coach.ratingCount > 0
       ? coach.ratingCount
       : null;
-  const primaryLocation = coach?.facility || coach?.locationList?.[0] || null;
-  const additionalLocations = coach?.locationList?.slice(1, 3) ?? [];
+  const locationEntries = useMemo(() => {
+    if (Array.isArray(coach?.locationPlaces) && coach.locationPlaces.length) {
+      return coach.locationPlaces;
+    }
+    if (Array.isArray(coach?.locationList) && coach.locationList.length) {
+      return coach.locationList.map((label, index) => ({
+        id: `location-${index}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        label,
+      }));
+    }
+    return [];
+  }, [coach?.locationList, coach?.locationPlaces]);
+  const displayedLocations = locationEntries.slice(0, 3);
+  const remainingLocations = Math.max(locationEntries.length - displayedLocations.length, 0);
+  const facilityDisplay =
+    typeof coach?.facility === "string" ? coach.facility.trim() : coach?.facility;
+  const primaryLocation =
+    displayedLocations[0]?.label || facilityDisplay || coach?.locationList?.[0] || null;
   const specialties = Array.isArray(coach?.specialties)
     ? coach.specialties.filter(Boolean).slice(0, variant === "featured" ? 4 : 3)
     : [];
@@ -384,20 +576,31 @@ const CoachCard = ({ coach, variant = "standard" }) => {
             </ul>
           ) : null}
           <div className="coach-card-meta">
-            {primaryLocation ? (
-              <div className="coach-card-meta-item">
+            {displayedLocations.length ? (
+              <div
+                className="coach-card-locations"
+                aria-label={
+                  primaryLocation
+                    ? `Coaching locations including ${primaryLocation}`
+                    : "Coaching locations"
+                }
+              >
                 <MapPin size={14} aria-hidden />
-                <span>
-                  {primaryLocation}
-                  {coach.distanceLabel ? ` • ${coach.distanceLabel}` : ""}
-                </span>
-              </div>
-            ) : null}
-            {additionalLocations.length ? (
-              <div className="coach-card-meta-item secondary" aria-label="Additional locations">
-                {additionalLocations.map((location) => (
-                  <span key={location}>{location}</span>
-                ))}
+                <div className="coach-card-locations-body">
+                  <ul className="coach-card-locations-list">
+                    {displayedLocations.map((location) => (
+                      <li key={location.id}>{location.label}</li>
+                    ))}
+                  </ul>
+                  <div className="coach-card-locations-footer">
+                    {remainingLocations > 0 ? (
+                      <span className="coach-card-locations-more">+{remainingLocations} more</span>
+                    ) : null}
+                    {coach.distanceLabel ? (
+                      <span className="coach-card-distance">{coach.distanceLabel}</span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             ) : null}
             {coach.availability ? (
