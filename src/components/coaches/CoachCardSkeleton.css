@@ -1,0 +1,79 @@
+.coach-card-skeleton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  background-color: #fff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.coach-card-skeleton__media {
+  width: 100%;
+  padding-top: 66%;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f8fafc 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: coach-card-shimmer 1.2s infinite;
+}
+
+.coach-card-skeleton__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.coach-card-skeleton__line {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f8fafc 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: coach-card-shimmer 1.2s infinite;
+}
+
+.coach-card-skeleton__line--title {
+  width: 60%;
+}
+
+.coach-card-skeleton__line--subtitle {
+  width: 80%;
+}
+
+.coach-card-skeleton__line--short {
+  width: 50%;
+}
+
+.coach-card-skeleton__cta {
+  margin-top: 0.5rem;
+  width: 40%;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f8fafc 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: coach-card-shimmer 1.2s infinite;
+}
+
+@keyframes coach-card-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .coach-card-skeleton {
+    grid-template-columns: 220px 1fr;
+  }
+
+  .coach-card-skeleton__media {
+    padding-top: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .coach-card-skeleton {
+    grid-template-columns: 240px 1fr;
+  }
+}

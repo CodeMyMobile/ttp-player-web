@@ -1,0 +1,59 @@
+.coach-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .coach-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .coach-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.coach-list__error {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 1rem;
+  color: #991b1b;
+}
+
+.coach-list__error svg {
+  flex-shrink: 0;
+}
+
+.coach-list__error button {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: #0b8c55;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.coach-list__error button:hover,
+.coach-list__error button:focus-visible {
+  background: #086d40;
+}
+
+.coach-list__empty {
+  padding: 2rem;
+  text-align: center;
+  border-radius: 1rem;
+  background: #fff;
+  color: #475569;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
