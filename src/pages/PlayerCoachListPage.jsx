@@ -487,6 +487,7 @@ const PlayerCoachListPage = () => {
                 address: "Current location",
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
+                isCurrentLocation: true,
               },
         );
         setLocationLoader(false);
@@ -513,6 +514,7 @@ const PlayerCoachListPage = () => {
       address: "Current location",
       latitude: debouncedUserPos.latitude,
       longitude: debouncedUserPos.longitude,
+      isCurrentLocation: true,
     });
     setLocationPreview({
       latitude: debouncedUserPos.latitude,
@@ -831,7 +833,11 @@ const PlayerCoachListPage = () => {
           : null;
       try {
         const searchTerm = buildQueryValue(filterText);
-        const locationSearch = buildQueryValue(locationFilter?.address);
+        const locationSearch = locationFilter?.isCurrentLocation
+          ? ""
+          : locationFilter?.address?.toLowerCase() === "current location"
+            ? ""
+            : buildQueryValue(locationFilter?.address);
         const response = await unwrap(
           api(
             `/player/getchecklocation?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}&radius=${encodeURIComponent(radius)}${buildFilterQueryParam()}`,
@@ -881,7 +887,11 @@ const PlayerCoachListPage = () => {
       }
       try {
         const searchTerm = buildQueryValue(myCoachesFilterText);
-        const locationSearch = buildQueryValue(locationFilter?.address);
+        const locationSearch = locationFilter?.isCurrentLocation
+          ? ""
+          : locationFilter?.address?.toLowerCase() === "current location"
+            ? ""
+            : buildQueryValue(locationFilter?.address);
         const response = await unwrap(
           api(
             `/player/coaches?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}${buildFilterQueryParam()}`,
@@ -991,6 +1001,7 @@ const PlayerCoachListPage = () => {
       address: suggestion.label,
       latitude: suggestion.latitude,
       longitude: suggestion.longitude,
+      isCurrentLocation: false,
     });
     if (suggestion.latitude && suggestion.longitude) {
       setLocationPreview({
@@ -1035,6 +1046,7 @@ const PlayerCoachListPage = () => {
         address: "Current location",
         latitude: debouncedUserPos.latitude,
         longitude: debouncedUserPos.longitude,
+        isCurrentLocation: true,
       });
       setLocationPreview({
         latitude: debouncedUserPos.latitude,
