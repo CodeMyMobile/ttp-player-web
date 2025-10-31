@@ -363,6 +363,11 @@
   font-weight: 600;
 }
 
+.coach-results-count {
+  font-size: 15px;
+  color: #1e293b;
+}
+
 .coach-results-meta p {
   margin: 0;
 }

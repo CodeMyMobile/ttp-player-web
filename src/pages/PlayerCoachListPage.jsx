@@ -70,7 +70,13 @@ const normalizeCoach = (coach) => {
     coach.price_per_hour ??
     coach.hourly_price ??
     null;
-  const hourlyRateValue = parseNumber(coach.hourly_rate ?? coach.hourlyRate ?? coach.price_per_hour ?? coach.hourly_price ?? coach.rate);
+  const hourlyRateValue = parseNumber(
+    coach.hourly_rate ??
+      coach.hourlyRate ??
+      coach.price_per_hour ??
+      coach.hourly_price ??
+      coach.rate,
+  );
   const avatar =
     coach.avatar ??
     coach.profile_image ??
@@ -138,7 +144,9 @@ const normalizeCoach = (coach) => {
           item.label ??
           item.value ??
           ""
-        ).toString().trim();
+        )
+          .toString()
+          .trim();
       }
       return String(item ?? "").trim();
     });
@@ -165,7 +173,9 @@ const normalizeCoach = (coach) => {
   const distanceLabel =
     coach.distance_label ??
     coach.distanceLabel ??
-    (distanceValue !== null ? `${distanceValue.toFixed(distanceValue >= 10 ? 0 : 1)} mi` : null);
+    (distanceValue !== null
+      ? `${distanceValue.toFixed(distanceValue >= 10 ? 0 : 1)} mi`
+      : null);
   const availability =
     coach.availability ??
     coach.next_available ??
@@ -182,7 +192,9 @@ const normalizeCoach = (coach) => {
   const badge =
     coach.badge ??
     coach.highlight ??
-    (coach.is_top_rated || ratingValue >= 4.8 ? "Top Rated" : null);
+    (coach.is_top_rated || (typeof ratingValue === "number" && ratingValue >= 4.8)
+      ? "Top Rated"
+      : null);
   const status = (coach.status ?? coach.coach_status ?? "").toString().toLowerCase();
   const slug = coach.slug ?? coach.username ?? id;
   const hourlyRateDisplay =
@@ -342,7 +354,9 @@ const CoachCard = ({ coach, variant = "standard" }) => {
                 >
                   <Star size={16} aria-hidden />
                   <span>{ratingDisplay}</span>
-                  {ratingCountDisplay ? <span className="coach-card-rating-count">({ratingCountDisplay})</span> : null}
+                  {ratingCountDisplay ? (
+                    <span className="coach-card-rating-count">({ratingCountDisplay})</span>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -393,7 +407,7 @@ const CoachCard = ({ coach, variant = "standard" }) => {
       <div className="coach-card-footer">
         <Link className="coach-card-cta" to={`/coaches/${coach.slug || coach.id}`}>
           View Profile
-          <ArrowRight size={16} aria-hidden />
+          <ArrowRight size={16} />
         </Link>
       </div>
     </article>
@@ -525,25 +539,6 @@ const PlayerCoachListPage = () => {
     setNameDraft(event.target.value);
   }, []);
 
-  const handleSearchSubmit = useCallback(
-    (event) => {
-      event.preventDefault();
-      handleNameApply();
-    },
-    [handleNameApply],
-  );
-
-  const handleSearchClear = useCallback(() => {
-    setNameDraft("");
-    if (activeTab === "all") {
-      setFilterText("");
-      resetAllPagination();
-    } else {
-      setMyCoachesFilterText("");
-      resetMyPagination();
-    }
-  }, [activeTab, resetAllPagination, resetMyPagination, setFilterText, setMyCoachesFilterText]);
-
   const resultsCount = activeTab === "all" ? allCoachPlayers.length : addedCoachPlayers.length;
 
   useEffect(() => {
@@ -623,17 +618,16 @@ const PlayerCoachListPage = () => {
       );
       setLocationError("");
     }
-  }, [debouncedUserPos, locationFilter, openFilter]);
+    if (openFilter === "name") {
+      setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
+    }
+  }, [activeTab, debouncedUserPos, filterText, locationFilter, openFilter, myCoachesFilterText]);
 
   useEffect(() => {
     if (openFilter !== "location") {
       setLocationSuggestions([]);
     }
   }, [openFilter]);
-
-  useEffect(() => {
-    setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
-  }, [activeTab, filterText, myCoachesFilterText]);
 
   useEffect(() => {
     if (openFilter !== "location") return;
@@ -946,6 +940,25 @@ const PlayerCoachListPage = () => {
     setOpenFilter(null);
   }, [activeTab, nameDraft, resetAllPagination, resetMyPagination]);
 
+  const handleSearchSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      handleNameApply();
+    },
+    [handleNameApply],
+  );
+
+  const handleSearchClear = useCallback(() => {
+    setNameDraft("");
+    if (activeTab === "all") {
+      setFilterText("");
+      resetAllPagination();
+    } else {
+      setMyCoachesFilterText("");
+      resetMyPagination();
+    }
+  }, [activeTab, resetAllPagination, resetMyPagination]);
+
   const handleClearFilter = useCallback(() => {
     if (openFilter === "location") {
       setLocationFilter(null);
@@ -955,6 +968,14 @@ const PlayerCoachListPage = () => {
     if (openFilter === "radius") {
       setRadius(DEFAULT_RADIUS);
     }
+    if (openFilter === "name") {
+      setNameDraft("");
+      if (activeTab === "all") {
+        setFilterText("");
+      } else {
+        setMyCoachesFilterText("");
+      }
+    }
     if (dynamicFilters.some((filter) => filter.key === openFilter)) {
       setSelectedFilters((prev) => {
         const next = { ...prev };
@@ -962,7 +983,7 @@ const PlayerCoachListPage = () => {
         return next;
       });
     }
-  }, [debouncedUserPos, dynamicFilters, openFilter]);
+  }, [activeTab, debouncedUserPos, dynamicFilters, openFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -998,8 +1019,34 @@ const PlayerCoachListPage = () => {
       label: `Radius • ${radius} mi`,
       isActive: radius !== DEFAULT_RADIUS,
     },
+    {
+      key: "name",
+      label:
+        activeTab === "all"
+          ? filterText
+            ? `Name • ${filterText}`
+            : "Name"
+          : myCoachesFilterText
+            ? `Name • ${myCoachesFilterText}`
+            : "Name",
+      isActive: Boolean(activeTab === "all" ? filterText : myCoachesFilterText),
+    },
     ...dynamicFilterPills,
   ];
+
+  const activeList = activeTab === "all" ? allCoachPlayers : addedCoachPlayers;
+  const isActiveLoading = activeTab === "all" ? allMiniLoader : addedMiniLoader;
+  const activeListEnd = activeTab === "all" ? isAllCoachesListEnd : isMyCoachesListEnd;
+  const activeSentinelRef = activeTab === "all" ? allListSentinelRef : myListSentinelRef;
+  const featuredCoaches = activeTab === "all" ? activeList.slice(0, 2) : [];
+  const remainingCoaches = activeTab === "all" ? activeList.slice(2) : activeList;
+  const resultsHeading = activeTab === "all" ? "All Coaches" : "My Coaches";
+  const resultsDescription =
+    activeTab === "all"
+      ? "Browse certified coaches tailored to your goals."
+      : "Coaches you have already connected with.";
+  const showInitialLoader = isActiveLoading && !activeList.length;
+  const showEmptyState = !isActiveLoading && !activeList.length;
 
   const renderDynamicFilterControls = (filter) => {
     const selection = selectedFilters[filter.key] ?? (filter.filterType === "multi" ? [] : "");
@@ -1226,23 +1273,31 @@ const PlayerCoachListPage = () => {
             })}
           </div>
         ) : null}
-        <div className="coach-filter-pills" role="group" aria-label="Advanced filters">
-          {pills.map((pill) => (
-            <button
-              type="button"
-              key={pill.key}
-              className={`filter-pill${pill.isActive ? " active" : ""}`}
-              onClick={() => setOpenFilter(pill.key)}
-            >
-              <span>{pill.label}</span>
-            </button>
-          ))}
-        </div>
+        {filtersExpanded && pills.length ? (
+          <div className="coach-filter-pills" role="list">
+            {pills.map((pill) => (
+              <button
+                type="button"
+                key={pill.key}
+                className={`filter-pill${pill.isActive ? " active" : ""}`}
+                onClick={() => setOpenFilter(pill.key)}
+              >
+                <span>{pill.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <div className="coach-results-header">
+        <div>
+          <h2>{resultsHeading}</h2>
+          <p>{resultsDescription}</p>
+        </div>
         <div className="coach-results-meta">
-          <p>{resultsCount} coach{resultsCount === 1 ? "" : "es"} found</p>
+          <span className="coach-results-count" aria-live="polite">
+            {resultsCount.toLocaleString()} results
+          </span>
           <button
             type="button"
             className={`refresh-button${refreshing ? " refreshing" : ""}`}
@@ -1252,107 +1307,88 @@ const PlayerCoachListPage = () => {
             Refresh
           </button>
         </div>
-        <div className="coach-results-announcement" role="status" aria-live="polite">
-          {resultsAnnouncement}
-        </div>
       </div>
 
-      {shouldShowLocationPrompt ? (
-        <div className="location-permission-card" role="region" aria-live="polite">
-          <div className="location-permission-copy">
-            <h2>Enable location to find nearby coaches</h2>
-            <p>
-              Turn on your device location or pick a location to see coaches close to you.
-            </p>
-            {locationError ? (
-              <p className="location-error">{locationError}</p>
-            ) : null}
-          </div>
-          <div className="location-permission-actions">
-            <button type="button" className="primary" onClick={requestLocation}>
-              {locationLoader ? <Loader2 className="spin" size={16} aria-hidden /> : null}
-              Enable Location
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                setOpenFilter("location");
-              }}
-            >
-              Enter Manually
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       <section className="coach-results" aria-label="Coach results">
-        {(() => {
-          const list = activeTab === "all" ? allCoachPlayers : addedCoachPlayers;
-          const isLoading = activeTab === "all" ? allMiniLoader : addedMiniLoader;
-          const endOfList = activeTab === "all" ? isAllCoachesListEnd : isMyCoachesListEnd;
-          const sentinelRef = activeTab === "all" ? allListSentinelRef : myListSentinelRef;
+        <div className="sr-only" role="status" aria-live="polite">
+          {resultsAnnouncement}
+        </div>
 
-          if (isLoading && !list.length) {
-            return (
-              <div className="coach-list-loader">
-                <Loader2 className="spin" size={32} aria-hidden />
-                <p>Loading coaches…</p>
-              </div>
-            );
-          }
+        {shouldShowLocationPrompt ? (
+          <div className="location-permission-card">
+            <div className="location-permission-copy">
+              <h3>Enable location to find nearby coaches</h3>
+              <p>
+                Turn on your device location or pick a location to see coaches close to you.
+              </p>
+              {locationError ? <p className="location-error">{locationError}</p> : null}
+            </div>
+            <div className="location-permission-actions">
+              <button type="button" className="primary" onClick={requestLocation}>
+                {locationLoader ? <Loader2 className="spin" size={16} aria-hidden /> : null}
+                Enable Location
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setOpenFilter("location")}
+              >
+                Enter Manually
+              </button>
+            </div>
+          </div>
+        ) : null}
 
-          if (!isLoading && !list.length) {
-            return <div className="coach-list-empty">No coaches found.</div>;
-          }
+        {!shouldShowLocationPrompt && showInitialLoader ? (
+          <div className="coach-list-loader">
+            <Loader2 className="spin" size={32} aria-hidden />
+            <p>Loading coaches…</p>
+          </div>
+        ) : null}
 
-          const featured = activeTab === "all" ? list.slice(0, 2) : [];
-          const remaining = activeTab === "all" ? list.slice(2) : list;
+        {!shouldShowLocationPrompt && !showInitialLoader && showEmptyState ? (
+          <div className="coach-list-empty">No coaches found.</div>
+        ) : null}
 
-          return (
-            <Fragment>
-              {activeTab === "all" && featured.length ? (
-                <section className="coach-section" aria-labelledby="featured-coaches-heading">
-                  <div className="coach-section-header">
-                    <h2 id="featured-coaches-heading">Featured Coaches</h2>
-                    <p>Coaches with outstanding reviews and engagement.</p>
-                  </div>
-                  <div className="coach-featured-grid">
-                    {featured.map((coach) => (
-                      <CoachCard key={`featured-${coach.id}`} coach={coach} variant="featured" />
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-
-              <section className="coach-section" aria-labelledby="all-coaches-heading">
+        {!shouldShowLocationPrompt && !showInitialLoader && !showEmptyState ? (
+          <Fragment>
+            {activeTab === "all" && featuredCoaches.length ? (
+              <section className="coach-section" aria-labelledby="featured-coaches-heading">
                 <div className="coach-section-header">
-                  <h2 id="all-coaches-heading">
-                    {activeTab === "all" ? "All Coaches" : "My Coaches"}
-                  </h2>
-                  <p>
-                    {activeTab === "all"
-                      ? "Browse certified coaches tailored to your goals."
-                      : "Coaches you have already connected with."}
-                  </p>
+                  <h3 id="featured-coaches-heading">Featured Coaches</h3>
+                  <p>Coaches with outstanding reviews and engagement.</p>
                 </div>
-                <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
-                  {remaining.map((coach) => (
-                    <CoachCard
-                      key={coach.id}
-                      coach={coach}
-                      variant={activeTab === "all" ? "standard" : "compact"}
-                    />
+                <div className="coach-featured-grid">
+                  {featuredCoaches.map((coach) => (
+                    <CoachCard key={`featured-${coach.id}`} coach={coach} variant="featured" />
                   ))}
                 </div>
-                <div ref={sentinelRef} className="list-sentinel" aria-hidden>
-                  {isLoading && list.length ? <Loader2 className="spin" size={20} aria-hidden /> : null}
-                  {endOfList ? <span>End of results</span> : null}
-                </div>
               </section>
-            </Fragment>
-          );
-        })()}
+            ) : null}
+
+            <section className="coach-section" aria-labelledby="all-coaches-heading">
+              <div className="coach-section-header">
+                <h3 id="all-coaches-heading">{resultsHeading}</h3>
+                <p>{resultsDescription}</p>
+              </div>
+              <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
+                {remainingCoaches.map((coach) => (
+                  <CoachCard
+                    key={coach.id}
+                    coach={coach}
+                    variant={activeTab === "all" ? "standard" : "compact"}
+                  />
+                ))}
+              </div>
+              <div ref={activeSentinelRef} className="list-sentinel" aria-hidden>
+                {isActiveLoading && activeList.length ? (
+                  <Loader2 className="spin" size={20} aria-hidden />
+                ) : null}
+                {activeListEnd ? <span>End of results</span> : null}
+              </div>
+            </section>
+          </Fragment>
+        ) : null}
       </section>
 
       <FilterModal
@@ -1437,6 +1473,30 @@ const PlayerCoachListPage = () => {
             onTouchEnd={(event) => handleRadiusChange(Number(event.target.value))}
           />
           <p className="radius-hint">Adjust the search radius to expand or narrow results.</p>
+        </div>
+      </FilterModal>
+
+      <FilterModal
+        title="Name"
+        isOpen={openFilter === "name"}
+        onClose={() => setOpenFilter(null)}
+        onClearAll={handleClearFilter}
+        onDone={handleNameApply}
+      >
+        <div className="name-filter">
+          <label className="field-label" htmlFor="coach-name-filter">
+            Coach name
+          </label>
+          <input
+            id="coach-name-filter"
+            type="text"
+            value={nameDraft}
+            placeholder="Search by coach name"
+            onChange={(event) => setNameDraft(event.target.value)}
+          />
+          <button type="button" className="apply-button" onClick={handleNameApply}>
+            Apply
+          </button>
         </div>
       </FilterModal>
 
