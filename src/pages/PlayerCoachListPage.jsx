@@ -1,21 +1,16 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  BadgeCheck,
   Loader2,
   MapPin,
   RefreshCcw,
   Search,
-  SlidersHorizontal,
-  Users2,
+  Star,
+  Target,
+  Users,
 } from "lucide-react";
 import api, { unwrap } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -169,7 +164,7 @@ const FilterModal = ({
   );
 };
 
-const CoachCard = ({ coach }) => {
+const CoachCard = ({ coach, variant = "standard" }) => {
   const initials = useMemo(() => {
     if (!coach?.name) return "CC";
     const parts = coach.name
@@ -188,69 +183,65 @@ const CoachCard = ({ coach }) => {
     return null;
   }, [coach?.status]);
 
-  const statusClass = useMemo(() => {
-    if (!coach?.status) return "";
-    if (coach.status === "inactive") return "coach-card-banner inactive";
-    if (coach.status === "pending") return "coach-card-banner pending";
-    return "";
-  }, [coach?.status]);
+  const coachKey = coach?.slug || coach?.id || coach?.name || "";
+  const avatarContent = coach?.avatar ? (
+    <img src={coach.avatar} alt={coach.name} loading="lazy" />
+  ) : (
+    <span>{initials}</span>
+  );
 
   return (
-    <article className="coach-card">
-      {statusLabel ? <div className={statusClass}>{statusLabel}</div> : null}
-      <div className="coach-card-main">
-        <div className="coach-card-avatar">
-          {coach.avatar ? (
-            <img src={coach.avatar} alt={coach.name} loading="lazy" />
-          ) : (
-            <span>{initials}</span>
-          )}
+    <article className={`coach-card coach-card--${variant}`} data-coach-id={coachKey}>
+      {statusLabel ? <div className={`coach-card-status coach-card-status--${coach.status}`}>{statusLabel}</div> : null}
+      <header className="coach-card__header">
+        <div className={`coach-card__avatar${coach?.avatar ? " coach-card__avatar--image" : ""}`}>
+          {avatarContent}
         </div>
-        <div className="coach-card-body">
-          <div className="coach-card-header">
-            <h3>{coach.name}</h3>
-            {coach.hourlyRate ? (
-              <span className="coach-card-rate">{coach.hourlyRate}</span>
-            ) : null}
+        {variant === "featured" ? (
+          <span className="coach-card__badge">
+            <BadgeCheck size={16} />
+            Certified Coach
+          </span>
+        ) : null}
+      </header>
+      <div className="coach-card__body">
+        <div className="coach-card__title-row">
+          <h3>{coach.name}</h3>
+          {coach.hourlyRate ? <span className="coach-card__rate">{coach.hourlyRate}</span> : null}
+        </div>
+        {coach.bio ? <p className="coach-card__bio">{coach.bio}</p> : null}
+        {coach.locationList?.length ? (
+          <div className="coach-card__tags">
+            {coach.locationList.slice(0, variant === "featured" ? 3 : 2).map((location) => (
+              <span key={`${coachKey}-${location}`} className="coach-card__tag">
+                <MapPin size={14} />
+                {location}
+              </span>
+            ))}
           </div>
-          {coach.locationList?.length ? (
-            <ul className="coach-card-locations">
-              {coach.locationList.slice(0, 3).map((location) => (
-                <li key={location}>
-                  <MapPin size={14} />
-                  <span>{location}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {coach.bio ? <p className="coach-card-bio">{coach.bio}</p> : null}
-        </div>
+        ) : null}
       </div>
-      <div className="coach-card-footer">
-        <Link className="coach-card-cta" to={`/coaches/${coach.slug || coach.id}`}>
+      <footer className="coach-card__footer">
+        <Link className="coach-card__cta" to={`/coaches/${coach.slug || coach.id}`}>
           View Profile
           <ArrowRight size={16} />
         </Link>
-      </div>
+      </footer>
     </article>
   );
 };
 
 const PlayerCoachListPage = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("all");
   const [allCoachPlayers, setAllCoachPlayers] = useState([]);
   const [addedCoachPlayers, setAddedCoachPlayers] = useState([]);
   const [allCoachesPage, setAllCoachesPage] = useState(1);
-  const [myCoachesPage, setMyCoachesPage] = useState(1);
   const [allMiniLoader, setAllMiniLoader] = useState(false);
-  const [addedMiniLoader, setAddedMiniLoader] = useState(false);
   const [locationLoader, setLocationLoader] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isAllCoachesListEnd, setIsAllCoachesListEnd] = useState(false);
-  const [isMyCoachesListEnd, setIsMyCoachesListEnd] = useState(false);
   const [filterText, setFilterText] = useState("");
-  const [myCoachesFilterText, setMyCoachesFilterText] = useState("");
+  const [sortOption, setSortOption] = useState("recommended");
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
   const [locationFilter, setLocationFilter] = useState(null);
   const [userPos, setUserPos] = useState(null);
@@ -265,7 +256,6 @@ const PlayerCoachListPage = () => {
   const [locationPreview, setLocationPreview] = useState(null);
 
   const allListSentinelRef = useRef(null);
-  const myListSentinelRef = useRef(null);
 
   const debouncedUserPos = useDebouncedValue(userPos, 400);
   const filtersSignature = useMemo(() => {
@@ -303,11 +293,6 @@ const PlayerCoachListPage = () => {
   const resetAllPagination = useCallback(() => {
     setAllCoachesPage(1);
     setIsAllCoachesListEnd(false);
-  }, []);
-
-  const resetMyPagination = useCallback(() => {
-    setMyCoachesPage(1);
-    setIsMyCoachesListEnd(false);
   }, []);
 
   const buildFilterQueryParam = useCallback(() => {
@@ -373,9 +358,9 @@ const PlayerCoachListPage = () => {
       setLocationError("");
     }
     if (openFilter === "name") {
-      setNameDraft(activeTab === "all" ? filterText : myCoachesFilterText);
+      setNameDraft(filterText);
     }
-  }, [activeTab, debouncedUserPos, filterText, locationFilter, openFilter, myCoachesFilterText]);
+  }, [debouncedUserPos, filterText, locationFilter, openFilter]);
 
   useEffect(() => {
     if (openFilter !== "location") {
@@ -525,54 +510,35 @@ const PlayerCoachListPage = () => {
     ],
   );
 
-  const fetchMyCoaches = useCallback(
-    async ({ page = 1, append = false } = {}) => {
-      setAddedMiniLoader(true);
-      if (!append) {
-        setIsMyCoachesListEnd(false);
-      }
-      try {
-        const searchTerm = buildQueryValue(myCoachesFilterText);
-        const locationSearch = buildQueryValue(locationFilter?.address);
-        const response = await unwrap(
-          api(
-            `/player/coaches?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}${buildFilterQueryParam()}`,
-            {
-              method: "GET",
-            },
-          ),
-        );
-        const normalized = normalizeListResponse(response);
-        setAddedCoachPlayers((prev) =>
-          append ? [...prev, ...normalized] : [...normalized],
-        );
-        setIsMyCoachesListEnd(normalized.length < PER_PAGE);
-        if (!append) {
-          setMyCoachesPage(1);
-        }
-      } catch (error) {
-        console.error("Failed to load added coaches", error);
-        if (!append) {
-          setAddedCoachPlayers([]);
-        }
-      } finally {
-        setAddedMiniLoader(false);
-      }
-    },
-    [
-      buildFilterQueryParam,
-      locationFilter?.address,
-      myCoachesFilterText,
-      normalizeListResponse,
-    ],
-  );
+  const fetchMyCoaches = useCallback(async () => {
+    try {
+      const searchTerm = buildQueryValue(filterText);
+      const locationSearch = buildQueryValue(locationFilter?.address);
+      const response = await unwrap(
+        api(
+          `/player/coaches?perPage=${PER_PAGE}&page=1&search=${encodeURIComponent(searchTerm)}&locationSearch=${encodeURIComponent(locationSearch)}${buildFilterQueryParam()}`,
+          {
+            method: "GET",
+          },
+        ),
+      );
+      const normalized = normalizeListResponse(response);
+      setAddedCoachPlayers(normalized);
+    } catch (error) {
+      console.error("Failed to load added coaches", error);
+      setAddedCoachPlayers([]);
+    }
+  }, [
+    buildFilterQueryParam,
+    filterText,
+    locationFilter?.address,
+    normalizeListResponse,
+  ]);
 
   useEffect(() => {
-    if (activeTab !== "all") return;
     if (!canQueryAllCoaches) return;
     fetchAllCoaches({ page: 1, append: false });
   }, [
-    activeTab,
     canQueryAllCoaches,
     fetchAllCoaches,
     filterText,
@@ -582,34 +548,21 @@ const PlayerCoachListPage = () => {
   ]);
 
   useEffect(() => {
-    if (activeTab !== "my") return;
-    fetchMyCoaches({ page: 1, append: false });
-  }, [activeTab, fetchMyCoaches, myCoachesFilterText, locationFilter, filtersSignature]);
+    fetchMyCoaches();
+  }, [fetchMyCoaches]);
 
   useEffect(() => {
-    if (activeTab !== "all") return;
     if (allCoachesPage <= 1) return;
     fetchAllCoaches({ page: allCoachesPage, append: true });
-  }, [activeTab, allCoachesPage, fetchAllCoaches]);
+  }, [allCoachesPage, fetchAllCoaches]);
 
-  useEffect(() => {
-    if (activeTab !== "my") return;
-    if (myCoachesPage <= 1) return;
-    fetchMyCoaches({ page: myCoachesPage, append: true });
-  }, [activeTab, fetchMyCoaches, myCoachesPage]);
 
   const loadMoreAllCoaches = useCallback(() => {
     if (allMiniLoader || isAllCoachesListEnd) return;
     setAllCoachesPage((prev) => prev + 1);
   }, [allMiniLoader, isAllCoachesListEnd]);
 
-  const loadMoreMyCoaches = useCallback(() => {
-    if (addedMiniLoader || isMyCoachesListEnd) return;
-    setMyCoachesPage((prev) => prev + 1);
-  }, [addedMiniLoader, isMyCoachesListEnd]);
-
   useEffect(() => {
-    if (activeTab !== "all") return;
     const node = allListSentinelRef.current;
     if (!node) return;
     const observer = new IntersectionObserver((entries) => {
@@ -621,22 +574,7 @@ const PlayerCoachListPage = () => {
     return () => {
       observer.disconnect();
     };
-  }, [activeTab, allCoachPlayers.length, loadMoreAllCoaches]);
-
-  useEffect(() => {
-    if (activeTab !== "my") return;
-    const node = myListSentinelRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        loadMoreMyCoaches();
-      }
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [activeTab, addedCoachPlayers.length, loadMoreMyCoaches]);
+  }, [allCoachPlayers.length, loadMoreAllCoaches]);
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -684,15 +622,10 @@ const PlayerCoachListPage = () => {
   }, []);
 
   const handleNameApply = useCallback(() => {
-    if (activeTab === "all") {
-      setFilterText(nameDraft.trim());
-      resetAllPagination();
-    } else {
-      setMyCoachesFilterText(nameDraft.trim());
-      resetMyPagination();
-    }
+    setFilterText(nameDraft.trim());
+    resetAllPagination();
     setOpenFilter(null);
-  }, [activeTab, nameDraft, resetAllPagination, resetMyPagination]);
+  }, [nameDraft, resetAllPagination]);
 
   const handleClearFilter = useCallback(() => {
     if (openFilter === "location") {
@@ -705,11 +638,7 @@ const PlayerCoachListPage = () => {
     }
     if (openFilter === "name") {
       setNameDraft("");
-      if (activeTab === "all") {
-        setFilterText("");
-      } else {
-        setMyCoachesFilterText("");
-      }
+      setFilterText("");
     }
     if (dynamicFilters.some((filter) => filter.key === openFilter)) {
       setSelectedFilters((prev) => {
@@ -718,30 +647,28 @@ const PlayerCoachListPage = () => {
         return next;
       });
     }
-  }, [activeTab, debouncedUserPos, dynamicFilters, openFilter]);
+  }, [debouncedUserPos, dynamicFilters, openFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      if (activeTab === "all") {
-        await fetchAllCoaches({ page: 1, append: false });
-      } else {
-        await fetchMyCoaches({ page: 1, append: false });
-      }
+      await Promise.all([
+        fetchAllCoaches({ page: 1, append: false }),
+        fetchMyCoaches(),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [activeTab, fetchAllCoaches, fetchMyCoaches]);
+  }, [fetchAllCoaches, fetchMyCoaches]);
 
-  const shouldShowLocationPrompt =
-    activeTab === "all" && !canQueryAllCoaches && !locationLoader;
+  const shouldShowLocationPrompt = !canQueryAllCoaches && !locationLoader;
 
   useEffect(() => {
-    if (activeTab === "all" && !canQueryAllCoaches) {
+    if (!canQueryAllCoaches) {
       setAllCoachPlayers([]);
       setIsAllCoachesListEnd(false);
     }
-  }, [activeTab, canQueryAllCoaches]);
+  }, [canQueryAllCoaches]);
 
   const pills = [
     {
@@ -756,18 +683,88 @@ const PlayerCoachListPage = () => {
     },
     {
       key: "name",
-      label:
-        activeTab === "all"
-          ? filterText
-            ? `Name • ${filterText}`
-            : "Name"
-          : myCoachesFilterText
-            ? `Name • ${myCoachesFilterText}`
-            : "Name",
-      isActive: Boolean(activeTab === "all" ? filterText : myCoachesFilterText),
+      label: filterText ? `Name • ${filterText}` : "Name",
+      isActive: Boolean(filterText),
     },
     ...dynamicFilterPills,
   ];
+
+  const parseHourlyRateValue = useCallback((coach) => {
+    if (!coach?.hourlyRate) return null;
+    const match = coach.hourlyRate.match(/[\d,.]+/);
+    if (!match) return null;
+    const numeric = Number(match[0].replace(/,/g, ""));
+    return Number.isFinite(numeric) ? numeric : null;
+  }, []);
+
+  const sortedAllCoaches = useMemo(() => {
+    const items = [...allCoachPlayers];
+    if (sortOption === "name") {
+      return items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
+    if (sortOption === "rateHigh" || sortOption === "rateLow") {
+      return items.sort((a, b) => {
+        const aRate = parseHourlyRateValue(a) ?? (sortOption === "rateLow" ? Infinity : -Infinity);
+        const bRate = parseHourlyRateValue(b) ?? (sortOption === "rateLow" ? Infinity : -Infinity);
+        return sortOption === "rateHigh" ? bRate - aRate : aRate - bRate;
+      });
+    }
+    return items;
+  }, [allCoachPlayers, parseHourlyRateValue, sortOption]);
+
+  const featuredCoaches = useMemo(() => {
+    if (addedCoachPlayers.length) {
+      return addedCoachPlayers.slice(0, 2);
+    }
+    return sortedAllCoaches.slice(0, 2);
+  }, [addedCoachPlayers, sortedAllCoaches]);
+
+  const featuredIdentifiers = useMemo(() => {
+    return new Set(
+      featuredCoaches.map(
+        (coach, index) => coach?.id ?? coach?.slug ?? coach?.name ?? index,
+      ),
+    );
+  }, [featuredCoaches]);
+
+  const remainingCoaches = useMemo(() => {
+    if (!featuredCoaches.length) return sortedAllCoaches;
+    return sortedAllCoaches.filter((coach, index) => {
+      const identifier = coach?.id ?? coach?.slug ?? coach?.name ?? index;
+      if (!featuredIdentifiers.size) {
+        return index >= featuredCoaches.length;
+      }
+      return !featuredIdentifiers.has(identifier);
+    });
+  }, [featuredCoaches, featuredIdentifiers, sortedAllCoaches]);
+
+  const coachesFound = sortedAllCoaches.length;
+
+  const highlightStats = useMemo(
+    () => [
+      {
+        icon: MapPin,
+        label: "Coaches Nearby",
+        value: canQueryAllCoaches ? coachesFound : 0,
+      },
+      {
+        icon: Star,
+        label: "Average Rating",
+        value: "4.8",
+      },
+      {
+        icon: Users,
+        label: "Players Matched",
+        value: "500+",
+      },
+      {
+        icon: Target,
+        label: "Specialties",
+        value: dynamicFilters.length ? `${dynamicFilters.length}` : "7",
+      },
+    ],
+    [canQueryAllCoaches, coachesFound, dynamicFilters.length],
+  );
 
   const renderDynamicFilterControls = (filter) => {
     const selection = selectedFilters[filter.key] ?? (filter.filterType === "multi" ? [] : "");
@@ -857,105 +854,92 @@ const PlayerCoachListPage = () => {
     );
   };
 
-  const renderList = (list, isLoading, sentinelRef, endOfList) => {
-    if (isLoading && !list.length) {
-      return (
-        <div className="coach-list-loader">
-          <Loader2 className="spin" size={32} />
-          <p>Loading coaches…</p>
-        </div>
-      );
-    }
-
-    if (!isLoading && !list.length) {
-      return <div className="coach-list-empty">No coaches found.</div>;
-    }
-
-    return (
-      <Fragment>
-        <div className="coach-list-grid">
-          {list.map((coach) => (
-            <CoachCard key={coach.id} coach={coach} />
-          ))}
-        </div>
-        <div ref={sentinelRef} className="list-sentinel" aria-hidden>
-          {isLoading && list.length ? <Loader2 className="spin" size={20} /> : null}
-          {endOfList ? <span>End of results</span> : null}
-        </div>
-      </Fragment>
-    );
-  };
-
   return (
-    <div className="coach-list-page">
-      <header className="coach-list-header">
-        <div>
-          <p className="coach-list-subtitle">Player Experience</p>
-          <h1>Coaches List</h1>
+    <div className="coach-discover-page">
+      <header className="coach-discover-hero">
+        <div className="coach-discover-hero__copy">
+          <p className="coach-discover-eyebrow">Matchplay Discover</p>
+          <h1>Find Your Perfect Coach</h1>
+          <p className="coach-discover-description">
+            Get matched with certified tennis professionals in your area and start
+            improving your game today.
+          </p>
+          <div className="coach-discover-location">
+            <button
+              type="button"
+              className="coach-discover-location__chip"
+              onClick={() => setOpenFilter("location")}
+            >
+              <MapPin size={16} />
+              <span>{locationFilter?.address || "Add location"}</span>
+            </button>
+            <span className="coach-discover-location__radius">Within {radius} miles</span>
+          </div>
         </div>
-        <button
-          type="button"
-          className={`refresh-button${refreshing ? " refreshing" : ""}`}
-          onClick={handleRefresh}
-        >
-          <RefreshCcw size={16} />
-          Refresh
-        </button>
+        <aside className="coach-discover-stats">
+          {highlightStats.map(({ icon: Icon, label, value }) => (
+            <div key={label} className="coach-discover-stat-card">
+              <div className="coach-discover-stat-icon">
+                <Icon size={18} />
+              </div>
+              <div className="coach-discover-stat-copy">
+                <span className="coach-discover-stat-value">{value}</span>
+                <span className="coach-discover-stat-label">{label}</span>
+              </div>
+            </div>
+          ))}
+        </aside>
       </header>
 
-      <div className="coach-tab-bar" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          className={`coach-tab${activeTab === "all" ? " active" : ""}`}
-          onClick={() => {
-            setActiveTab("all");
-            resetAllPagination();
-          }}
-        >
-          <Users2 size={16} />
-          All Coaches
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`coach-tab${activeTab === "my" ? " active" : ""}`}
-          onClick={() => {
-            setActiveTab("my");
-            resetMyPagination();
-          }}
-        >
-          <SlidersHorizontal size={16} />
-          My Coaches
-        </button>
-      </div>
-
-      <div className="filter-pill-row">
-        {pills.map((pill) => (
+      <div className="coach-discover-toolbar">
+        <div className="coach-discover-pills">
+          {pills.map((pill) => (
+            <button
+              type="button"
+              key={pill.key}
+              className={`coach-filter-pill${pill.isActive ? " coach-filter-pill--active" : ""}`}
+              onClick={() => setOpenFilter(pill.key)}
+            >
+              {pill.label}
+            </button>
+          ))}
+        </div>
+        <div className="coach-discover-actions">
+          <div className="coach-sort">
+            <label htmlFor="coach-sort-select">Sort by</label>
+            <select
+              id="coach-sort-select"
+              value={sortOption}
+              onChange={(event) => setSortOption(event.target.value)}
+            >
+              <option value="recommended">Recommended</option>
+              <option value="rateLow">Price: Low to High</option>
+              <option value="rateHigh">Price: High to Low</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
           <button
             type="button"
-            key={pill.key}
-            className={`filter-pill${pill.isActive ? " active" : ""}`}
-            onClick={() => setOpenFilter(pill.key)}
+            className={`coach-refresh${refreshing ? " coach-refresh--loading" : ""}`}
+            onClick={handleRefresh}
           >
-            <span>{pill.label}</span>
+            <RefreshCcw size={16} />
+            Refresh
           </button>
-        ))}
+        </div>
       </div>
 
       {shouldShowLocationPrompt ? (
-        <div className="location-permission-card">
-          <div className="location-permission-copy">
+        <div className="coach-location-banner">
+          <div className="coach-location-banner__copy">
             <h2>Enable location to find nearby coaches</h2>
             <p>
               Turn on your device location or pick a location to see coaches close to
               you.
             </p>
-            {locationError ? (
-              <p className="location-error">{locationError}</p>
-            ) : null}
+            {locationError ? <p className="coach-location-banner__error">{locationError}</p> : null}
           </div>
-          <div className="location-permission-actions">
+          <div className="coach-location-banner__actions">
             <button type="button" className="primary" onClick={requestLocation}>
               {locationLoader ? <Loader2 className="spin" size={16} /> : null}
               Enable Location
@@ -963,9 +947,7 @@ const PlayerCoachListPage = () => {
             <button
               type="button"
               className="secondary"
-              onClick={() => {
-                setOpenFilter("location");
-              }}
+              onClick={() => setOpenFilter("location")}
             >
               Enter Manually
             </button>
@@ -973,20 +955,56 @@ const PlayerCoachListPage = () => {
         </div>
       ) : null}
 
-      <section className="coach-results">
-        {activeTab === "all"
-          ? renderList(
-              allCoachPlayers,
-              allMiniLoader,
-              allListSentinelRef,
-              isAllCoachesListEnd,
-            )
-          : renderList(
-              addedCoachPlayers,
-              addedMiniLoader,
-              myListSentinelRef,
-              isMyCoachesListEnd,
-            )}
+      <section className="coach-discover-results">
+        <div className="coach-discover-results__meta">
+          <span className="coach-discover-results__count">{coachesFound} coaches found</span>
+        </div>
+
+        {allMiniLoader && !sortedAllCoaches.length ? (
+          <div className="coach-discover-loader">
+            <Loader2 className="spin" size={32} />
+            <p>Loading coaches…</p>
+          </div>
+        ) : null}
+
+        {!allMiniLoader && !sortedAllCoaches.length ? (
+          <div className="coach-discover-empty">No coaches found.</div>
+        ) : null}
+
+        {featuredCoaches.length ? (
+          <div className="coach-featured-section">
+            <div className="coach-section-heading">
+              <h2>Featured Coaches</h2>
+              <p>Handpicked pros with top reviews and specialties.</p>
+            </div>
+            <div className="coach-featured-grid">
+              {featuredCoaches.map((coach) => (
+                <CoachCard key={coach.id || coach.slug || coach.name} coach={coach} variant="featured" />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {remainingCoaches.length ? (
+          <div className="coach-all-section">
+            <div className="coach-section-heading">
+              <h2>All Coaches</h2>
+              <p>Browse every certified Matchplay coach near you.</p>
+            </div>
+            <div className="coach-grid">
+              {remainingCoaches.map((coach) => (
+                <CoachCard
+                  key={`coach-${coach.id || coach.slug || coach.name}`}
+                  coach={coach}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div ref={allListSentinelRef} className="coach-discover-sentinel" aria-hidden>
+          {allMiniLoader && sortedAllCoaches.length ? <Loader2 className="spin" size={20} /> : null}
+          {isAllCoachesListEnd && sortedAllCoaches.length ? <span>End of results</span> : null}
+        </div>
       </section>
 
       <FilterModal
