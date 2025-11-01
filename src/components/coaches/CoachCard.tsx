@@ -1,4 +1,6 @@
+import type { KeyboardEventHandler } from "react";
 import { Calendar, MapPin, MessageCircle, Sparkles, Star, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import type { Coach, CoachHighlight } from "../../data/mockCoaches";
 import TagPill from "./TagPill";
@@ -18,8 +20,28 @@ type CoachCardProps = {
 };
 
 const CoachCard = ({ coach }: CoachCardProps) => {
+  const navigate = useNavigate();
+
+  const goToProfile = () => {
+    navigate(`/coaches/${coach.id}`);
+  };
+
+  const handleKeyDown: KeyboardEventHandler<HTMLElement> = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      goToProfile();
+    }
+  };
+
   return (
-    <article className="fc-card">
+    <article
+      className="fc-card fc-card--interactive"
+      role="link"
+      tabIndex={0}
+      aria-label={`View profile for ${coach.name}`}
+      onClick={goToProfile}
+      onKeyDown={handleKeyDown}
+    >
       <div className="fc-card__top">
         <div className="fc-card__labels">
           <TagPill tone="available">{coach.availabilityTag}</TagPill>
@@ -64,10 +86,23 @@ const CoachCard = ({ coach }: CoachCardProps) => {
       </div>
 
       <div className="fc-card__actions">
-        <button type="button" className="fc-button fc-button--secondary">
+        <button
+          type="button"
+          className="fc-button fc-button--secondary"
+          onClick={(event) => {
+            event.stopPropagation();
+            goToProfile();
+          }}
+        >
           View profile
         </button>
-        <button type="button" className="fc-button fc-button--primary">
+        <button
+          type="button"
+          className="fc-button fc-button--primary"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
           Book lesson
         </button>
       </div>

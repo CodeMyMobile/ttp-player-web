@@ -207,6 +207,24 @@
   gap: 20px;
 }
 
+.fc-card--interactive {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.fc-card--interactive:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 44px -18px rgba(15, 23, 42, 0.3);
+  border-color: #d0d5dd;
+}
+
+.fc-card--interactive:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 4px rgba(127, 86, 217, 0.24), 0 24px 40px -18px rgba(15, 23, 42, 0.28);
+  border-color: #7f56d9;
+}
+
 .fc-card__top {
   display: flex;
   justify-content: space-between;
