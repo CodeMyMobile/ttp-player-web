@@ -7,6 +7,7 @@ type BookingLessonType = {
   id: LessonTypeId;
   label: string;
   price: string;
+  unit: string;
   description: string;
 };
 
@@ -103,12 +104,14 @@ const sharedProfileBase = {
         id: "private" as const,
         label: "Private",
         price: "$85",
+        unit: "/ hour",
         description: "1-on-1 coaching session",
       },
       {
         id: "group" as const,
         label: "Group",
         price: "$50",
+        unit: "/ player",
         description: "2-4 players",
       },
     ],
@@ -180,12 +183,14 @@ export const mockCoachProfiles: CoachProfile[] = [
           id: "private",
           label: "Private",
           price: "$75",
+          unit: "/ hour",
           description: "1-on-1 coaching session",
         },
         {
           id: "group",
           label: "Group",
           price: "$55",
+          unit: "/ player",
           description: "Point play focus",
         },
       ],

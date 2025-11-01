@@ -655,12 +655,12 @@
   align-self: flex-start;
   border-radius: 26px;
   border: 1px solid var(--coach-color-border);
-  background: var(--coach-color-surface-muted);
-  padding: 24px;
+  background: var(--coach-color-surface);
+  padding: 28px 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.28);
 }
 
 .coach-profile-aside__selectors {
@@ -720,10 +720,10 @@
 .coach-profile-lesson-option {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid var(--coach-color-border);
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1.5px solid var(--coach-color-border);
   background: var(--coach-color-surface);
   text-align: left;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
@@ -731,30 +731,57 @@
 }
 
 .coach-profile-lesson-option:hover {
-  border-color: rgba(21, 112, 239, 0.6);
+  border-color: rgba(21, 112, 239, 0.55);
+}
+
+.coach-profile-lesson-option:focus-visible {
+  outline: none;
+  border-color: var(--coach-color-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .coach-profile-lesson-option--active {
   border-color: var(--coach-color-accent);
-  background: var(--coach-color-calendar-accent);
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.15);
+  background: #eff4ff;
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.18);
+}
+
+.coach-profile-lesson-option__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .coach-profile-lesson-option__label {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--coach-color-heading);
+}
+
+.coach-profile-lesson-option__price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--coach-color-heading);
+}
+
+.coach-profile-lesson-option__amount {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.coach-profile-lesson-option__unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--coach-color-subtle);
 }
 
 .coach-profile-lesson-option__description {
   font-size: 14px;
   color: var(--coach-color-subtle);
-}
-
-.coach-profile-lesson-option__price {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--coach-color-accent);
 }
 
 .coach-profile-aside__label-row {
@@ -878,7 +905,21 @@
 }
 
 .coach-profile-summary__price {
-  font-size: 17px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.coach-profile-summary__amount {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.coach-profile-summary__unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--coach-color-subtle);
 }
 
 .coach-profile-summary__description {

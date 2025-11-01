@@ -68,7 +68,7 @@ const Chip = ({ label }: { label: string }) => (
 
 const BookButton = ({ disabled }: { disabled?: boolean }) => (
   <button type="button" disabled={disabled} className="coach-profile-book">
-    Book session
+    Book lesson
     <CheckCircle2 className="coach-profile-book__icon" strokeWidth={2.5} />
   </button>
 );
@@ -334,12 +334,18 @@ const CoachProfilePage = () => {
                             <button
                               key={lesson.id}
                               type="button"
+                              aria-pressed={active}
                               onClick={() => handleLessonTypeChange(lesson.id)}
                               className={`coach-profile-lesson-option${active ? " coach-profile-lesson-option--active" : ""}`}
                             >
-                              <span className="coach-profile-lesson-option__label">{lesson.label}</span>
+                              <span className="coach-profile-lesson-option__header">
+                                <span className="coach-profile-lesson-option__label">{lesson.label}</span>
+                                <span className="coach-profile-lesson-option__price">
+                                  <span className="coach-profile-lesson-option__amount">{lesson.price}</span>
+                                  <span className="coach-profile-lesson-option__unit">{lesson.unit}</span>
+                                </span>
+                              </span>
                               <span className="coach-profile-lesson-option__description">{lesson.description}</span>
-                              <span className="coach-profile-lesson-option__price">{lesson.price}</span>
                             </button>
                           );
                         })}
@@ -403,7 +409,10 @@ const CoachProfilePage = () => {
                       <div className="coach-profile-summary">
                         <div className="coach-profile-summary__row">
                           <span className="coach-profile-summary__label">{lessonType.label}</span>
-                          <span className="coach-profile-summary__price">{lessonType.price}</span>
+                          <span className="coach-profile-summary__price">
+                            <span className="coach-profile-summary__amount">{lessonType.price}</span>
+                            <span className="coach-profile-summary__unit">{lessonType.unit}</span>
+                          </span>
                         </div>
                         <p className="coach-profile-summary__description">{lessonType.description}</p>
                       </div>
