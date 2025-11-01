@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import FindCoaches from "./pages/FindCoaches";
@@ -87,11 +87,11 @@ const AppRoutes = () => (
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter basename="/ttp-player-web">
+      <HashRouter>
         <div className="app-shell">
           <AppRoutes />
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   );
 }
