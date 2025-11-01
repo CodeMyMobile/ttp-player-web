@@ -1,6 +1,7 @@
 .coach-profile-page {
   width: 100%;
-  padding: 32px 24px 96px;
+  box-sizing: border-box;
+  padding: 32px 0 96px;
   background: radial-gradient(140% 140% at 0% 0%, #f8faff 0%, #eef2ff 45%, #f7f9ff 100%);
   --profile-card-shadow: 0 36px 80px -48px rgba(15, 23, 42, 0.35), 0 18px 50px -36px rgba(79, 70, 229, 0.2);
   --profile-border: #e4e9ff;
@@ -46,7 +47,7 @@
 
 @media (min-width: 1024px) {
   .coach-profile-page {
-    padding: 56px 64px 120px;
+    padding: 56px 0 120px;
   }
 }
 
@@ -58,6 +59,14 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .coach-profile-page__inner {
+    padding: 0 24px;
+  }
 }
 
 .coach-profile-content {
@@ -70,16 +79,17 @@
 .coach-profile-hero {
   position: relative;
   width: 100%;
+  box-sizing: border-box;
   background: linear-gradient(120deg, rgba(238, 242, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 58%, rgba(238, 242, 255, 0.96) 100%);
   border-bottom: 1px solid var(--profile-border);
   box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
-  padding: 32px 24px 64px;
+  padding: 32px 0 64px;
   overflow: hidden;
 }
 
 @media (min-width: 1024px) {
   .coach-profile-hero {
-    padding: 48px 48px 88px;
+    padding: 48px 0 88px;
   }
 }
 
@@ -100,6 +110,7 @@
   }
 }
 
+
 .coach-profile-hero__identity {
   padding: 8px 0;
 }
@@ -115,13 +126,14 @@
 .coach-profile-body {
   position: relative;
   margin-top: -96px;
-  padding: 0 24px 120px;
+  padding: 0 0 120px;
+  box-sizing: border-box;
 }
 
 @media (min-width: 1024px) {
   .coach-profile-body {
     margin-top: -144px;
-    padding: 0 48px 140px;
+    padding: 0 0 140px;
   }
 }
 
