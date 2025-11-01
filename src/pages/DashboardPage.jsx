@@ -1,16 +1,6 @@
-import { useMemo, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import ProfileManager from "../components/ProfileManager";
-
-const navLinks = [
-  { label: "Home", to: "/" },
-  { label: "Browse Matches", href: "#matches" },
-  { label: "Find Players", href: "#players" },
-  { label: "Group Lessons", href: "#lessons" },
-  { label: "Find Coaches", to: "/find-coaches" },
-  { label: "My Activity", href: "#activity" },
-];
+import { useNavigate } from "react-router-dom";
+import MainLayout from "../components/MainLayout";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
 
 const stats = [
   { label: "Matches", value: "8", change: "+2 this week" },
@@ -124,86 +114,12 @@ const bottomActions = [
   },
 ];
 
-const getInitials = (name, email) => {
-  if (name) {
-    const parts = String(name).split(" ").filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  if (email) {
-    return email.slice(0, 2).toUpperCase();
-  }
-  return "MP";
-};
-
 const DashboardPage = () => {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
-  const displayName = useMemo(() => {
-    const name = user?.name || user?.full_name || user?.first_name;
-    if (name) return name;
-    if (user?.email) return user.email.split("@")[0];
-    return "Paul";
-  }, [user]);
-
-  const email = user?.email || "player@matchplay.app";
-  const initials = getInitials(displayName, email);
+  const { displayName } = usePlayerIdentity();
 
   return (
-    <div className="dashboard-page">
-      <header className="main-nav">
-        <div className="brand">
-          <div className="brand-badge">MP</div>
-          <span>Matchplay</span>
-        </div>
-        <nav className="nav-links">
-          {navLinks.map((link) =>
-            link.to ? (
-              <NavLink
-                key={link.label}
-                to={link.to}
-                className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-              >
-                {link.label}
-              </NavLink>
-            ) : (
-              <a key={link.label} className="nav-link" href={link.href}>
-                {link.label}
-              </a>
-            ),
-          )}
-        </nav>
-        <div className="header-actions">
-          <button type="button" className="play-now">
-            Play Now
-          </button>
-          <button
-            type="button"
-            className="manage-profile"
-            onClick={() => setProfileManagerOpen(true)}
-          >
-            Manage Profile
-          </button>
-          <button type="button" className="logout-button" onClick={logout}>
-            Log out
-          </button>
-          <button
-            type="button"
-            className="user-pill"
-            onClick={() => setProfileManagerOpen(true)}
-          >
-            <div className="user-avatar">{initials}</div>
-            <div>
-              <div className="user-name">{displayName}</div>
-              <div className="user-email">{email}</div>
-            </div>
-          </button>
-        </div>
-      </header>
-
+    <MainLayout>
       <section className="hero-card">
         <div className="hero-header">
           <div className="hero-text">
@@ -346,11 +262,7 @@ const DashboardPage = () => {
           </article>
         ))}
       </section>
-      <ProfileManager
-        isOpen={isProfileManagerOpen}
-        onClose={() => setProfileManagerOpen(false)}
-      />
-    </div>
+    </MainLayout>
   );
 };
 

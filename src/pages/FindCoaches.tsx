@@ -5,6 +5,7 @@ import CoachCardSkeleton from "../components/coaches/CoachCardSkeleton";
 import FilterBar from "../components/coaches/FilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import StateBanner from "../components/coaches/StateBanner";
+import MainLayout from "../components/MainLayout";
 import { mockCoaches, type Coach } from "../data/mockCoaches";
 import { colors, typography } from "../lib/theme";
 
@@ -161,70 +162,72 @@ const FindCoaches = () => {
   })();
 
   return (
-    <div className="find-coaches-page" style={themeVars}>
-      <div className="find-coaches-page__inner">
-        <ResultsHeader
-          title="Find Coaches"
-          description="Connect with certified tennis professionals in your area."
-          metaLine={metaLine}
-          locationValue="London, UK"
-          onChangeLocation={resetState}
-        />
-
-        <FilterBar
-          searchTerm={searchTerm}
-          onSearchTermChange={setSearchTerm}
-          onSearch={handleSearch}
-          radiusOptions={radiusOptions}
-          selectedRadius={selectedRadius}
-          onRadiusChange={handleRadiusChange}
-        />
-
-        <span className="fc-results-count">{resultsCountLabel}</span>
-
-        {status === "loading" && (
-          <div className="coach-grid">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <CoachCardSkeleton key={index} />
-            ))}
-          </div>
-        )}
-
-        {shouldShowError && (
-          <StateBanner
-            tone="error"
-            title="We couldn't load coaches right now"
-            message="Please try again in a few minutes or adjust your filters."
-            action={
-              <button type="button" className="fc-button fc-button--primary" onClick={resetState}>
-                Retry search
-              </button>
-            }
+    <MainLayout>
+      <div className="find-coaches-page" style={themeVars}>
+        <div className="find-coaches-page__inner">
+          <ResultsHeader
+            title="Find Coaches"
+            description="Connect with certified tennis professionals in your area."
+            metaLine={metaLine}
+            locationValue="London, UK"
+            onChangeLocation={resetState}
           />
-        )}
 
-        {shouldShowEmpty && !shouldShowError && (
-          <StateBanner
-            tone="empty"
-            title="No coaches match these filters"
-            message="Broaden your distance, clear filters, or try a different focus area."
-            action={
-              <button type="button" className="fc-button fc-button--secondary" onClick={resetState}>
-                Reset filters
-              </button>
-            }
+          <FilterBar
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            onSearch={handleSearch}
+            radiusOptions={radiusOptions}
+            selectedRadius={selectedRadius}
+            onRadiusChange={handleRadiusChange}
           />
-        )}
 
-        {shouldShowResults && (
-          <div className="coach-grid">
-            {filteredCoaches.map((coach: Coach) => (
-              <CoachCard key={coach.id} coach={coach} />
-            ))}
-          </div>
-        )}
+          <span className="fc-results-count">{resultsCountLabel}</span>
+
+          {status === "loading" && (
+            <div className="coach-grid">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <CoachCardSkeleton key={index} />
+              ))}
+            </div>
+          )}
+
+          {shouldShowError && (
+            <StateBanner
+              tone="error"
+              title="We couldn't load coaches right now"
+              message="Please try again in a few minutes or adjust your filters."
+              action={
+                <button type="button" className="fc-button fc-button--primary" onClick={resetState}>
+                  Retry search
+                </button>
+              }
+            />
+          )}
+
+          {shouldShowEmpty && !shouldShowError && (
+            <StateBanner
+              tone="empty"
+              title="No coaches match these filters"
+              message="Broaden your distance, clear filters, or try a different focus area."
+              action={
+                <button type="button" className="fc-button fc-button--secondary" onClick={resetState}>
+                  Reset filters
+                </button>
+              }
+            />
+          )}
+
+          {shouldShowResults && (
+            <div className="coach-grid">
+              {filteredCoaches.map((coach: Coach) => (
+                <CoachCard key={coach.id} coach={coach} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
