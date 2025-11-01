@@ -58,6 +58,7 @@
   gap: 64px;
 }
 
+
 .coach-profile-hero {
   position: relative;
   left: 50%;
@@ -67,13 +68,13 @@
   background: linear-gradient(120deg, rgba(238, 242, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 58%, rgba(238, 242, 255, 0.96) 100%);
   border-bottom: 1px solid var(--profile-border);
   box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
-  padding: 40px 24px 72px;
+  padding: 32px 24px 64px;
   overflow: hidden;
 }
 
 @media (min-width: 1024px) {
   .coach-profile-hero {
-    padding: 56px 48px 96px;
+    padding: 48px 48px 88px;
   }
 }
 
@@ -88,7 +89,7 @@
 @media (min-width: 1024px) {
   .coach-profile-hero__inner {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    align-items: end;
+    align-items: start;
     gap: 48px;
   }
 }
