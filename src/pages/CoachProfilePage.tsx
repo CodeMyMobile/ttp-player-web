@@ -17,6 +17,8 @@ import {
 import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
 
+import "./CoachProfilePage.css";
+
 const highlightIconMap = {
   users: Users,
   trophy: Award,
@@ -59,19 +61,15 @@ const useCoachProfile = (id?: string) => {
 };
 
 const Chip = ({ label }: { label: string }) => (
-  <span className="inline-flex items-center rounded-full bg-coach-highlight px-3 py-1 text-[13px] font-semibold leading-[1.2] text-coach-body">
+  <span className="coach-chip">
     {label}
   </span>
 );
 
 const BookButton = ({ disabled }: { disabled?: boolean }) => (
-  <button
-    type="button"
-    disabled={disabled}
-    className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-coach-cta text-[15px] font-semibold text-white shadow-[0_18px_32px_rgba(22,163,74,0.2)] transition hover:bg-coach-ctaHover focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-coach-focus disabled:cursor-not-allowed disabled:opacity-60"
-  >
+  <button type="button" disabled={disabled} className="coach-profile-book">
     Book session
-    <CheckCircle2 className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+    <CheckCircle2 className="coach-profile-book__icon" strokeWidth={2.5} />
   </button>
 );
 
@@ -124,227 +122,192 @@ const CoachProfilePage = () => {
 
   return (
     <MainLayout>
-      <div className="w-full px-6 pb-20 pt-8 lg:px-12">
-        <div className="mx-auto flex w-full max-w-[1128px] flex-col gap-8">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-coach-accent transition hover:text-coach-cta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus"
-          >
-            <ArrowLeft className="size-4" strokeWidth={2.5} /> Back to Coaches
+      <div className="coach-profile-page">
+        <div className="coach-profile-page__inner">
+          <button type="button" onClick={() => navigate(-1)} className="coach-profile-back">
+            <ArrowLeft className="coach-profile-back__icon" strokeWidth={2.5} /> Back to Coaches
           </button>
 
           {loading && (
-            <div className="animate-pulse rounded-[28px] border border-coach-border bg-white p-10 shadow-coach-card">
-              <div className="flex flex-col gap-10 lg:flex-row">
-                <div className="flex-1 space-y-8">
-                  <div className="flex gap-6">
-                    <div className="h-24 w-24 rounded-3xl bg-coach-highlight" />
-                    <div className="flex flex-1 flex-col gap-4">
-                      <div className="h-6 w-48 rounded-full bg-coach-highlight" />
-                      <div className="h-4 w-32 rounded-full bg-coach-highlight" />
-                      <div className="flex gap-3">
-                        <div className="h-10 w-28 rounded-2xl bg-coach-highlight" />
-                        <div className="h-10 w-28 rounded-2xl bg-coach-highlight" />
-                        <div className="h-10 w-28 rounded-2xl bg-coach-highlight" />
+            <div className="coach-profile-skeleton" aria-hidden="true">
+              <div className="coach-profile-skeleton__body">
+                <div className="coach-profile-skeleton__main">
+                  <div className="coach-profile-skeleton__identity-row">
+                    <div className="coach-profile-skeleton__avatar" />
+                    <div className="coach-profile-skeleton__identity">
+                      <div className="coach-profile-skeleton__line coach-profile-skeleton__line--name" />
+                      <div className="coach-profile-skeleton__line coach-profile-skeleton__line--meta" />
+                      <div className="coach-profile-skeleton__chip-row">
+                        <div className="coach-profile-skeleton__chip" />
+                        <div className="coach-profile-skeleton__chip" />
+                        <div className="coach-profile-skeleton__chip" />
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  <div className="coach-profile-skeleton__metrics">
                     {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="h-24 rounded-2xl bg-coach-highlight" />
+                      <div key={index} className="coach-profile-skeleton__metric" />
                     ))}
                   </div>
-                  <div className="space-y-3">
-                    <div className="h-4 w-full rounded-full bg-coach-highlight" />
-                    <div className="h-4 w-3/4 rounded-full bg-coach-highlight" />
+                  <div className="coach-profile-skeleton__paragraph">
+                    <div className="coach-profile-skeleton__line" />
+                    <div className="coach-profile-skeleton__line coach-profile-skeleton__line--short" />
                   </div>
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <div className="coach-profile-skeleton__cards">
                     {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="h-40 rounded-3xl bg-coach-highlight" />
+                      <div key={index} className="coach-profile-skeleton__card" />
                     ))}
                   </div>
                 </div>
-                <div className="w-full max-w-[340px] space-y-6">
-                  <div className="h-[420px] rounded-3xl bg-coach-highlight" />
+                <div className="coach-profile-skeleton__aside">
+                  <div className="coach-profile-skeleton__panel" />
                 </div>
               </div>
             </div>
           )}
 
           {!loading && !profile && (
-            <div className="rounded-[28px] border border-dashed border-coach-border bg-white p-12 text-center shadow-coach-soft">
-              <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-coach-highlight text-coach-accent">
+            <div className="coach-profile-empty">
+              <div className="coach-profile-empty__icon">
                 <MessageCircle strokeWidth={2.4} />
               </div>
-              <h2 className="mt-6 text-[26px] font-semibold tracking-[-0.01em] text-coach-heading">
-                Coach not found
-              </h2>
-              <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-coach-body">
-                We couldn’t locate that profile. It may have been removed or the link is incorrect. Return to the coach directory to keep exploring.
+              <h2 className="coach-profile-empty__title">Coach not found</h2>
+              <p className="coach-profile-empty__copy">
+                We couldn’t locate that profile. It may have been removed or the link is incorrect. Return to the coach directory
+                to keep exploring.
               </p>
-              <Link
-                to="/find-coaches"
-                className="mt-8 inline-flex items-center gap-2 rounded-full border border-coach-border bg-coach-surface px-5 py-2.5 text-[15px] font-semibold text-coach-accent transition hover:border-coach-accent hover:text-coach-cta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus"
-              >
-                <ArrowLeft className="size-4" strokeWidth={2.5} /> Back to Find Coaches
+              <Link to="/find-coaches" className="coach-profile-empty__action">
+                <ArrowLeft className="coach-profile-back__icon" strokeWidth={2.5} /> Back to Find Coaches
               </Link>
             </div>
           )}
 
           {!loading && profile && (
-            <div className="rounded-[28px] border border-coach-border bg-white p-10 shadow-coach-card">
-              <div className="flex flex-col gap-10 lg:flex-row">
-                <section className="flex-1 space-y-10">
-                  <header className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-                        <div className="flex items-start gap-5">
-                          <img
-                            src={profile.imageUrl}
-                            alt={`Portrait of ${profile.name}`}
-                            className="h-28 w-28 rounded-[28px] object-cover"
-                          />
-                          <div className="flex flex-col gap-3">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.01em] text-coach-heading">
-                                {profile.name}
-                              </h1>
-                              {profile.headlineBadge && (
-                                <span className="inline-flex items-center rounded-full bg-coach-successSoft px-3 py-1 text-[13px] font-semibold text-coach-success">
-                                  {profile.headlineBadge}
+            <div className="coach-profile-card">
+              <div className="coach-profile-layout">
+                <section className="coach-profile-main">
+                  <header className="coach-profile-header">
+                    <div className="coach-profile-identity">
+                      <div className="coach-profile-identity__avatar-block">
+                        <img
+                          src={profile.imageUrl}
+                          alt={`Portrait of ${profile.name}`}
+                          className="coach-profile-identity__avatar"
+                        />
+                        <div className="coach-profile-identity__details">
+                          <div className="coach-profile-identity__name-row">
+                            <h1 className="coach-profile-identity__name">{profile.name}</h1>
+                            {profile.headlineBadge && (
+                              <span className="coach-profile-identity__badge">{profile.headlineBadge}</span>
+                            )}
+                          </div>
+                          <div className="coach-profile-identity__meta">
+                            <span className="coach-profile-identity__rating">
+                              <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
+                              {profile.rating.toFixed(1)}
+                            </span>
+                            <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
+                            <span className="coach-profile-identity__separator" aria-hidden="true">
+                              •
+                            </span>
+                            <span className="coach-profile-identity__title">{profile.title}</span>
+                          </div>
+                          <div className="coach-profile-identity__chips">
+                            {profile.highlightChips.map((chip) => {
+                              const Icon = highlightIconMap[chip.icon];
+                              return (
+                                <span key={chip.label} className="coach-profile-identity__chip">
+                                  <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
+                                  {chip.label}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3 text-[15px] text-coach-body">
-                              <span className="inline-flex items-center gap-2 font-semibold text-coach-heading">
-                                <Star className="size-4" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
-                                {profile.rating.toFixed(1)}
-                              </span>
-                              <span className="text-coach-subtle">({profile.reviewCount} reviews)</span>
-                              <span className="hidden text-coach-subtle lg:inline">•</span>
-                              <span className="text-coach-subtle">{profile.title}</span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-coach-subtle">
-                              {profile.highlightChips.map((chip) => {
-                                const Icon = highlightIconMap[chip.icon];
-                                return (
-                                  <span
-                                    key={chip.label}
-                                    className="inline-flex items-center gap-2 rounded-full border border-coach-highlightBorder bg-coach-surfaceSoft px-3 py-2 text-[13px] font-medium text-coach-body"
-                                  >
-                                    <Icon className="size-3.5" strokeWidth={2.2} />
-                                    {chip.label}
-                                  </span>
-                                );
-                              })}
-                            </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="coach-profile-metrics">
                       {profile.metrics.map((metric) => {
                         const Icon = metricIconMap[metric.icon];
                         return (
-                          <div
-                            key={metric.label}
-                            className="flex flex-col gap-2 rounded-3xl border border-coach-highlightBorder bg-coach-surfaceMuted p-5"
-                          >
-                            <div className="flex items-center gap-3 text-coach-subtle">
-                              <span className="flex size-9 items-center justify-center rounded-2xl bg-white text-coach-accent shadow-sm">
-                                <Icon className="size-4" strokeWidth={2.4} />
+                          <div key={metric.label} className="coach-profile-metric">
+                            <div className="coach-profile-metric__label-row">
+                              <span className="coach-profile-metric__icon">
+                                <Icon strokeWidth={2.4} />
                               </span>
-                              <span className="text-[13px] font-medium uppercase tracking-[0.12em] text-coach-subtle">
-                                {metric.label}
-                              </span>
+                              <span className="coach-profile-metric__label">{metric.label}</span>
                             </div>
-                            <div className="flex items-baseline gap-2 text-coach-heading">
-                              <span className="text-[22px] font-semibold leading-none tracking-[-0.01em]">
-                                {metric.value}
-                              </span>
-                              {metric.caption && (
-                                <span className="text-[13px] font-medium uppercase text-coach-subtle">
-                                  {metric.caption}
-                                </span>
-                              )}
+                            <div className="coach-profile-metric__value-row">
+                              <span className="coach-profile-metric__value">{metric.value}</span>
+                              {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
                             </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-coach-body">
+                    <div className="coach-profile-about">
                       <p>{profile.about}</p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="coach-profile-certifications">
                       {profile.certifications.map((certification) => (
-                        <span
-                          key={certification}
-                          className="inline-flex items-center gap-2 rounded-full border border-coach-highlightBorder bg-white px-3 py-1.5 text-[13px] font-medium text-coach-body shadow-sm"
-                        >
-                          <CheckCircle2 className="size-3.5 text-coach-success" strokeWidth={2.4} />
+                        <span key={certification} className="coach-profile-certification">
+                          <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
                           {certification}
                         </span>
                       ))}
                     </div>
                   </header>
 
-                  <section className="grid gap-6 xl:grid-cols-3">
-                    <div className="rounded-3xl border border-coach-border bg-coach-surfaceMuted p-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-[17px] font-semibold text-coach-heading">Specialties</h2>
-                        <Sparkles className="size-5 text-coach-accent" strokeWidth={2.4} />
+                  <section className="coach-profile-sections">
+                    <div className="coach-profile-panel">
+                      <div className="coach-profile-panel__header">
+                        <h2 className="coach-profile-panel__title">Specialties</h2>
+                        <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
                       </div>
-                      <p className="mt-3 text-sm text-coach-subtle">
-                        Focus areas Maria brings into every training block.
-                      </p>
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <p className="coach-profile-panel__copy">Focus areas Maria brings into every training block.</p>
+                      <div className="coach-profile-panel__chips">
                         {profile.specialties.map((specialty) => (
                           <Chip key={specialty} label={specialty} />
                         ))}
                       </div>
                     </div>
 
-                    <div className="rounded-3xl border border-coach-border bg-coach-surfaceMuted p-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-[17px] font-semibold text-coach-heading">Coaching Locations</h2>
-                        <MapPin className="size-5 text-coach-accent" strokeWidth={2.4} />
+                    <div className="coach-profile-panel">
+                      <div className="coach-profile-panel__header">
+                        <h2 className="coach-profile-panel__title">Coaching Locations</h2>
+                        <MapPin className="coach-profile-panel__icon" strokeWidth={2.4} />
                       </div>
-                      <p className="mt-3 text-sm text-coach-subtle">
-                        Sessions can take place at these preferred clubs.
-                      </p>
-                      <ul className="mt-4 space-y-3 text-[15px] text-coach-body">
+                      <p className="coach-profile-panel__copy">Sessions can take place at these preferred clubs.</p>
+                      <ul className="coach-profile-locations">
                         {profile.coachingLocations.map((location) => (
-                          <li key={location} className="flex items-start gap-3">
-                            <span className="mt-1 inline-flex size-2.5 rounded-full bg-coach-accent" />
+                          <li key={location} className="coach-profile-location">
+                            <span className="coach-profile-location__bullet" />
                             <span>{location}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
 
-                    <div className="rounded-3xl border border-coach-border bg-coach-surfaceMuted p-6">
-                      <div className="flex items-center justify-between">
-                        <h2 className="text-[17px] font-semibold text-coach-heading">Lesson Types</h2>
-                        <Users className="size-5 text-coach-accent" strokeWidth={2.4} />
+                    <div className="coach-profile-panel">
+                      <div className="coach-profile-panel__header">
+                        <h2 className="coach-profile-panel__title">Lesson Types</h2>
+                        <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
                       </div>
-                      <p className="mt-3 text-sm text-coach-subtle">
-                        Transparent pricing for the most requested sessions.
-                      </p>
-                      <ul className="mt-4 space-y-4">
+                      <p className="coach-profile-panel__copy">Transparent pricing for the most requested sessions.</p>
+                      <ul className="coach-profile-lessons">
                         {profile.lessonDetails.map((lesson) => (
-                          <li key={lesson.title} className="rounded-2xl border border-coach-highlightBorder bg-white p-4 shadow-sm">
-                            <div className="flex items-baseline justify-between gap-3">
+                          <li key={lesson.title} className="coach-profile-lesson">
+                            <div className="coach-profile-lesson__content">
                               <div>
-                                <p className="text-[16px] font-semibold text-coach-heading">{lesson.title}</p>
-                                <p className="mt-1 text-sm text-coach-subtle">{lesson.description}</p>
+                                <p className="coach-profile-lesson__title">{lesson.title}</p>
+                                <p className="coach-profile-lesson__description">{lesson.description}</p>
                               </div>
-                              <div className="text-right text-coach-heading">
-                                <p className="text-[18px] font-semibold">{lesson.price}</p>
-                                <p className="text-[12px] font-medium uppercase text-coach-subtle">{lesson.cadence}</p>
+                              <div className="coach-profile-lesson__price">
+                                <p className="coach-profile-lesson__amount">{lesson.price}</p>
+                                <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
                               </div>
                             </div>
                           </li>
@@ -354,19 +317,15 @@ const CoachProfilePage = () => {
                   </section>
                 </section>
 
-                <aside className="w-full max-w-[360px] space-y-6 self-start rounded-[26px] border border-coach-border bg-coach-surfaceMuted p-6 shadow-coach-soft">
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-[22px] font-semibold tracking-[-0.01em] text-coach-heading">
-                        {profile.booking.headline}
-                      </h2>
-                      <CalendarDays className="size-6 text-coach-accent" strokeWidth={2.4} />
+                <aside className="coach-profile-aside">
+                  <div className="coach-profile-aside__selectors">
+                    <div className="coach-profile-aside__headline">
+                      <h2 className="coach-profile-aside__title">{profile.booking.headline}</h2>
+                      <CalendarDays className="coach-profile-aside__title-icon" strokeWidth={2.4} />
                     </div>
                     <div>
-                      <span className="text-[13px] font-semibold uppercase tracking-[0.16em] text-coach-subtle">
-                        Select lesson type
-                      </span>
-                      <div className="mt-3 grid grid-cols-2 gap-3">
+                      <span className="coach-profile-aside__label">Select lesson type</span>
+                      <div className="coach-profile-aside__grid coach-profile-aside__grid--two">
                         {profile.booking.lessonTypes.map((lesson) => {
                           const active = selection.lessonType
                             ? selection.lessonType === lesson.id
@@ -376,15 +335,11 @@ const CoachProfilePage = () => {
                               key={lesson.id}
                               type="button"
                               onClick={() => handleLessonTypeChange(lesson.id)}
-                              className={`group flex flex-col gap-1 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus ${
-                                active
-                                  ? "border-coach-accent bg-coach-calendarAccent shadow-[0_10px_20px_rgba(37,99,235,0.15)]"
-                                  : "border-coach-border bg-white hover:border-coach-accent/70"
-                              }`}
+                              className={`coach-profile-lesson-option${active ? " coach-profile-lesson-option--active" : ""}`}
                             >
-                              <span className="text-[15px] font-semibold text-coach-heading">{lesson.label}</span>
-                              <span className="text-sm text-coach-subtle">{lesson.description}</span>
-                              <span className="text-[18px] font-semibold text-coach-accent">{lesson.price}</span>
+                              <span className="coach-profile-lesson-option__label">{lesson.label}</span>
+                              <span className="coach-profile-lesson-option__description">{lesson.description}</span>
+                              <span className="coach-profile-lesson-option__price">{lesson.price}</span>
                             </button>
                           );
                         })}
@@ -392,13 +347,11 @@ const CoachProfilePage = () => {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] font-semibold uppercase tracking-[0.16em] text-coach-subtle">
-                          Select date
-                        </span>
-                        <div className="text-sm font-medium text-coach-subtle">{profile.booking.monthLabel}</div>
+                      <div className="coach-profile-aside__label-row">
+                        <span className="coach-profile-aside__label">Select date</span>
+                        <div className="coach-profile-aside__month">{profile.booking.monthLabel}</div>
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-3">
+                      <div className="coach-profile-aside__grid coach-profile-aside__grid--three">
                         {profile.booking.availableDates.map((date) => {
                           const active = selection.dateId === date.id;
                           return (
@@ -406,22 +359,15 @@ const CoachProfilePage = () => {
                               key={date.id}
                               type="button"
                               onClick={() => handleDateChange(date.id)}
-                              className={`flex flex-col gap-2 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus ${
-                                active
-                                  ? "border-coach-accent bg-white shadow-[0_12px_24px_rgba(21,112,239,0.18)]"
-                                  : "border-coach-border bg-white hover:border-coach-accent/60"
-                              }`}
+                              className={`coach-profile-date${active ? " coach-profile-date--active" : ""}`}
                             >
-                              <div className="flex items-baseline justify-between text-coach-heading">
-                                <span className="text-[20px] font-semibold">{date.date}</span>
-                                <span className="text-xs font-medium uppercase text-coach-subtle">{date.day}</span>
+                              <div className="coach-profile-date__header">
+                                <span className="coach-profile-date__day">{date.date}</span>
+                                <span className="coach-profile-date__weekday">{date.day}</span>
                               </div>
-                              <div className="flex flex-wrap gap-1">
+                              <div className="coach-profile-date__sessions">
                                 {date.sessions.map((session) => (
-                                  <span
-                                    key={session}
-                                    className="inline-flex items-center rounded-full bg-coach-highlight px-2 py-1 text-[11px] font-semibold uppercase text-coach-subtle"
-                                  >
+                                  <span key={session} className="coach-profile-date__session">
                                     {session}
                                   </span>
                                 ))}
@@ -433,10 +379,8 @@ const CoachProfilePage = () => {
                     </div>
 
                     <div>
-                      <span className="text-[13px] font-semibold uppercase tracking-[0.16em] text-coach-subtle">
-                        Select time
-                      </span>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <span className="coach-profile-aside__label">Select time</span>
+                      <div className="coach-profile-aside__grid coach-profile-aside__grid--two-tight">
                         {profile.booking.availableTimes.map((time) => {
                           const active = selection.timeId === time.id;
                           return (
@@ -444,11 +388,7 @@ const CoachProfilePage = () => {
                               key={time.id}
                               type="button"
                               onClick={() => handleTimeChange(time.id)}
-                              className={`rounded-2xl border px-4 py-2 text-[15px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus ${
-                                active
-                                  ? "border-coach-cta bg-coach-successSoft text-coach-cta"
-                                  : "border-coach-border bg-white text-coach-heading hover:border-coach-cta/70"
-                              }`}
+                              className={`coach-profile-time${active ? " coach-profile-time--active" : ""}`}
                             >
                               {time.label}
                             </button>
@@ -458,25 +398,20 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="coach-profile-aside__footer">
                     {lessonType && (
-                      <div className="rounded-2xl border border-coach-border bg-white px-4 py-3 text-sm text-coach-body">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-coach-heading">{lessonType.label}</span>
-                          <span className="text-[17px] font-semibold text-coach-heading">{lessonType.price}</span>
+                      <div className="coach-profile-summary">
+                        <div className="coach-profile-summary__row">
+                          <span className="coach-profile-summary__label">{lessonType.label}</span>
+                          <span className="coach-profile-summary__price">{lessonType.price}</span>
                         </div>
-                        <p className="mt-1 text-xs text-coach-subtle">{lessonType.description}</p>
+                        <p className="coach-profile-summary__description">{lessonType.description}</p>
                       </div>
                     )}
                     <BookButton disabled={!selection.dateId || !selection.timeId} />
-                    <p className="text-center text-[13px] text-coach-subtle">
-                      {profile.booking.note}
-                    </p>
-                    <button
-                      type="button"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-coach-border bg-white px-4 py-3 text-[15px] font-semibold text-coach-heading transition hover:border-coach-accent hover:text-coach-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coach-focus"
-                    >
-                      <MessageCircle className="size-4" strokeWidth={2.4} />
+                    <p className="coach-profile-aside__note">{profile.booking.note}</p>
+                    <button type="button" className="coach-profile-message">
+                      <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
                       Message coach
                     </button>
                   </div>
