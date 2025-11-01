@@ -1,17 +1,41 @@
 :root {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  line-height: 1.5;
+  --coach-color-page: #f5f7fb;
+  --coach-color-surface: #ffffff;
+  --coach-color-surface-soft: #f3f5fb;
+  --coach-color-surface-muted: #f8f9fc;
+  --coach-color-border: #e4e7ec;
+  --coach-color-border-strong: #d0d5dd;
+  --coach-color-heading: #101828;
+  --coach-color-body: #475467;
+  --coach-color-subtle: #667085;
+  --coach-color-muted: #98a2b3;
+  --coach-color-accent: #1570ef;
+  --coach-color-success: #027a48;
+  --coach-color-success-soft: #ecfdf3;
+  --coach-color-highlight: #f2f4f7;
+  --coach-color-highlight-border: #eaecf0;
+  --coach-color-pill: #eef2ff;
+  --coach-color-calendar-accent: #eef4ff;
+  --coach-color-divider: #f1f5f9;
+  --coach-color-cta: #16a34a;
+  --coach-color-cta-hover: #15803d;
+  --coach-color-focus: #bbd4ff;
+
+  color: var(--coach-color-heading);
+  font-family: "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #f4f6fb;
-  font-synthesis: none;
+  line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--coach-color-page);
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--coach-color-page);
+  color: var(--coach-color-heading);
 }
 
 a {
@@ -19,18 +43,10 @@ a {
   text-decoration: none;
 }
 
-a:hover {
-  color: #0b8c55;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #f4f6fb;
-}
-
-#root {
-  min-height: 100vh;
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--coach-color-focus);
+  outline-offset: 2px;
 }
 
 button {
@@ -38,6 +54,10 @@ button {
 }
 
 img {
-  max-width: 100%;
   display: block;
+  max-width: 100%;
+}
+
+#root {
+  min-height: 100vh;
 }

@@ -5,6 +5,7 @@ import FindCoaches from "./pages/FindCoaches";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
+import CoachProfilePage from "./pages/CoachProfilePage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -77,6 +78,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <FindCoaches />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/coaches/:id"
+      element={(
+        <ProtectedRoute>
+          <CoachProfilePage />
         </ProtectedRoute>
       )}
     />
