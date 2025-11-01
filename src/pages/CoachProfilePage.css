@@ -34,6 +34,14 @@
   --profile-green: #22c55e;
   --profile-green-dark: #16a34a;
   color: var(--profile-heading);
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+@supports not (overflow-x: clip) {
+  .coach-profile-page {
+    overflow-x: hidden;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -45,7 +53,7 @@
 
 .coach-profile-page__inner {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -61,10 +69,7 @@
 
 .coach-profile-hero {
   position: relative;
-  left: 50%;
-  width: 100vw;
-  margin-left: -50vw;
-  margin-right: -50vw;
+  width: 100%;
   background: linear-gradient(120deg, rgba(238, 242, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 58%, rgba(238, 242, 255, 0.96) 100%);
   border-bottom: 1px solid var(--profile-border);
   box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
@@ -80,7 +85,7 @@
 
 .coach-profile-hero__inner {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1240px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -90,7 +95,7 @@
 
 @media (min-width: 1280px) {
   .coach-profile-hero__inner {
-    max-width: 1200px;
+    max-width: 1240px;
     gap: 48px;
   }
 }
@@ -122,7 +127,7 @@
 
 .coach-profile-body__inner {
   width: 100%;
-  max-width: 1160px;
+  max-width: 1240px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
