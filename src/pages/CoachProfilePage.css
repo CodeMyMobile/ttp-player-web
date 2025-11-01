@@ -12,7 +12,7 @@
 
 .coach-profile-page__inner {
   width: 100%;
-  max-width: 1128px;
+  max-width: 1184px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -253,22 +253,34 @@
 }
 
 .coach-profile-layout {
+  display: grid;
+  gap: 40px;
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-layout {
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .coach-profile-layout {
+    grid-template-columns: minmax(0, 440px) minmax(520px, 1fr);
+    gap: 48px;
+  }
+}
+
+.coach-profile-main {
   display: flex;
   flex-direction: column;
   gap: 40px;
 }
 
 @media (min-width: 1024px) {
-  .coach-profile-layout {
-    flex-direction: row;
+  .coach-profile-main {
+    max-width: 440px;
   }
-}
-
-.coach-profile-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
 }
 
 .coach-profile-header {
@@ -651,14 +663,21 @@
 
 .coach-profile-aside {
   width: 100%;
-  max-width: 420px;
-  align-self: flex-start;
+  max-width: 560px;
+  align-self: stretch;
   border-radius: 28px;
   border: 1px solid rgba(205, 213, 225, 0.65);
   background: linear-gradient(180deg, #f9fbff 0%, #f2f5ff 100%);
-  padding: 32px 28px;
+  padding: 36px 32px;
   display: flex;
   box-shadow: 0 28px 52px -32px rgba(37, 56, 109, 0.28);
+}
+
+@media (max-width: 1023px) {
+  .coach-profile-aside {
+    max-width: none;
+    padding: 32px 28px;
+  }
 }
 
 .coach-booking {
