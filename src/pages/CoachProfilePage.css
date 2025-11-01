@@ -88,15 +88,16 @@
 
 @media (min-width: 1024px) {
   .coach-profile-hero__inner {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
     align-items: start;
-    gap: 48px;
+    gap: 56px;
   }
 }
 
 @media (min-width: 1280px) {
   .coach-profile-hero__inner {
-    gap: 56px;
+    grid-template-columns: minmax(0, 600px) minmax(0, 1fr);
+    gap: 64px;
   }
 }
 
@@ -106,14 +107,10 @@
 
 @media (min-width: 1024px) {
   .coach-profile-hero__identity {
-    grid-column: 1 / span 7;
-    align-self: start;
-  }
-}
-
-@media (min-width: 1280px) {
-  .coach-profile-hero__identity {
-    grid-column: 1 / span 8;
+    grid-column: 1;
+    align-self: flex-start;
+    max-width: 560px;
+    width: 100%;
   }
 }
 
@@ -141,16 +138,13 @@
 
 @media (min-width: 1024px) {
   .coach-profile-hero__metrics {
-    grid-column: 9 / -1;
+    grid-column: 2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 36px 32px;
-    align-self: start;
-  }
-}
-
-@media (min-width: 1280px) {
-  .coach-profile-hero__metrics {
-    grid-column: 10 / -1;
+    align-self: flex-start;
+    max-width: 420px;
+    width: 100%;
+    margin-left: auto;
   }
 }
 
