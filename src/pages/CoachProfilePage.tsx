@@ -249,144 +249,153 @@ const CoachProfilePage = () => {
           )}
 
           {!loading && profile && (
-            <div className="coach-profile-card">
-              <header className="coach-profile-header">
-                <div className="coach-profile-identity">
-                  <div className="coach-profile-identity__avatar-block">
-                    <img
-                      src={profile.imageUrl}
-                      alt={`Portrait of ${profile.name}`}
-                      className="coach-profile-identity__avatar"
-                    />
-                    <div className="coach-profile-identity__details">
-                      <div className="coach-profile-identity__name-row">
-                        <h1 className="coach-profile-identity__name">{profile.name}</h1>
-                        {profile.headlineBadge && (
-                          <span className="coach-profile-identity__badge">
-                            <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
-                            {profile.headlineBadge}
-                          </span>
-                        )}
-                      </div>
-                      <div className="coach-profile-identity__meta">
-                        <span className="coach-profile-identity__rating">
-                          <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
-                          {profile.rating.toFixed(1)}
-                        </span>
-                        <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
-                        <span className="coach-profile-identity__separator" aria-hidden="true">
-                          •
-                        </span>
-                        <span className="coach-profile-identity__title">{profile.title}</span>
-                      </div>
-                      <div className="coach-profile-identity__chips">
-                        {profile.highlightChips.map((chip) => {
-                          const Icon = highlightIconMap[chip.icon];
-                          return (
-                            <span key={chip.label} className="coach-profile-identity__chip">
-                              <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
-                              {chip.label}
+            <div className="coach-profile-content">
+              <section className="coach-profile-hero">
+                <div className="coach-profile-hero__inner">
+                  <div className="coach-profile-identity coach-profile-hero__identity">
+                    <div className="coach-profile-identity__avatar-block">
+                      <img
+                        src={profile.imageUrl}
+                        alt={`Portrait of ${profile.name}`}
+                        className="coach-profile-identity__avatar"
+                      />
+                      <div className="coach-profile-identity__details">
+                        <div className="coach-profile-identity__name-row">
+                          <h1 className="coach-profile-identity__name">{profile.name}</h1>
+                          {profile.headlineBadge && (
+                            <span className="coach-profile-identity__badge">
+                              <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
+                              {profile.headlineBadge}
                             </span>
-                          );
-                        })}
+                          )}
+                        </div>
+                        <div className="coach-profile-identity__meta">
+                          <span className="coach-profile-identity__rating">
+                            <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
+                            {profile.rating.toFixed(1)}
+                          </span>
+                          <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
+                          <span className="coach-profile-identity__separator" aria-hidden="true">
+                            •
+                          </span>
+                          <span className="coach-profile-identity__title">{profile.title}</span>
+                        </div>
+                        <div className="coach-profile-identity__chips">
+                          {profile.highlightChips.map((chip) => {
+                            const Icon = highlightIconMap[chip.icon];
+                            return (
+                              <span key={chip.label} className="coach-profile-identity__chip">
+                                <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
+                                {chip.label}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="coach-profile-metrics">
-                  {profile.metrics.map((metric) => {
-                    const Icon = metricIconMap[metric.icon];
-                    return (
-                      <div key={metric.label} className="coach-profile-metric">
-                        <div className="coach-profile-metric__label-row">
-                          <span className="coach-profile-metric__icon">
-                            <Icon strokeWidth={2.4} />
-                          </span>
-                          <span className="coach-profile-metric__label">{metric.label}</span>
+                  <div className="coach-profile-hero__metrics">
+                    {profile.metrics.map((metric) => {
+                      const Icon = metricIconMap[metric.icon];
+                      return (
+                        <div key={metric.label} className="coach-profile-metric">
+                          <div className="coach-profile-metric__label-row">
+                            <span className="coach-profile-metric__icon">
+                              <Icon strokeWidth={2.4} />
+                            </span>
+                            <span className="coach-profile-metric__label">{metric.label}</span>
+                          </div>
+                          <div className="coach-profile-metric__value-row">
+                            <span className="coach-profile-metric__value">{metric.value}</span>
+                            {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
+                          </div>
                         </div>
-                        <div className="coach-profile-metric__value-row">
-                          <span className="coach-profile-metric__value">{metric.value}</span>
-                          {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
+              </section>
 
-                <div className="coach-profile-about">
-                  <p>{profile.about}</p>
-                </div>
-
-                <div className="coach-profile-certifications">
-                  {profile.certifications.map((certification) => (
-                    <span key={certification} className="coach-profile-certification">
-                      <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
-                      {certification}
-                    </span>
-                  ))}
-                </div>
-              </header>
-
-              <div className="coach-profile-layout">
-                <section className="coach-profile-main">
-                  <section className="coach-profile-sections">
-                    <div className="coach-profile-panel">
-                      <div className="coach-profile-panel__header">
-                        <h2 className="coach-profile-panel__title">Specialties</h2>
-                        <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
-                      </div>
-                      <p className="coach-profile-panel__copy">Serve technique, match strategy, and tournament prep dialed for your game.</p>
-                      <div className="coach-profile-panel__chips">
-                        {profile.specialties.map((specialty) => (
-                          <Chip key={specialty} label={specialty} />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="coach-profile-panel">
-                      <div className="coach-profile-panel__header">
-                        <h2 className="coach-profile-panel__title">Coaching Locations</h2>
-                        <MapPin className="coach-profile-panel__icon" strokeWidth={2.4} />
-                      </div>
-                      <p className="coach-profile-panel__copy">Certified to coach at these nearby courts and clubs.</p>
-                      <ul className="coach-profile-locations">
-                        {profile.coachingLocations.map((location) => (
-                          <li key={location} className="coach-profile-location">
-                            <span className="coach-profile-location__bullet" />
-                            <span>{location}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="coach-profile-panel">
-                      <div className="coach-profile-panel__header">
-                        <h2 className="coach-profile-panel__title">Lesson Types</h2>
-                        <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
-                      </div>
-                      <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
-                      <ul className="coach-profile-lessons">
-                        {profile.lessonDetails.map((lesson) => (
-                          <li key={lesson.title} className="coach-profile-lesson">
-                            <div className="coach-profile-lesson__content">
-                              <div>
-                                <p className="coach-profile-lesson__title">{lesson.title}</p>
-                                <p className="coach-profile-lesson__description">{lesson.description}</p>
-                              </div>
-                              <div className="coach-profile-lesson__price">
-                                <p className="coach-profile-lesson__amount">{lesson.price}</p>
-                                <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
-                              </div>
+              <div className="coach-profile-body">
+                <div className="coach-profile-body__inner">
+                  <div className="coach-profile-layout">
+                    <section className="coach-profile-main">
+                      <section className="coach-profile-sections">
+                        <div className="coach-profile-panel coach-profile-panel--about">
+                          <div className="coach-profile-panel__header">
+                            <h2 className="coach-profile-panel__title">About {profile.name.split(" ")[0]}</h2>
+                            <MessageCircle className="coach-profile-panel__icon" strokeWidth={2.4} />
+                          </div>
+                          <p className="coach-profile-about__copy">{profile.about}</p>
+                          {profile.certifications.length > 0 && (
+                            <div className="coach-profile-certifications">
+                              {profile.certifications.map((certification) => (
+                                <span key={certification} className="coach-profile-certification">
+                                  <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
+                                  {certification}
+                                </span>
+                              ))}
                             </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </section>
-                </section>
+                          )}
+                        </div>
 
-                <aside className="coach-profile-aside">
+                        <div className="coach-profile-panel">
+                          <div className="coach-profile-panel__header">
+                            <h2 className="coach-profile-panel__title">Specialties</h2>
+                            <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
+                          </div>
+                          <p className="coach-profile-panel__copy">Serve technique, match strategy, and tournament prep dialed for your game.</p>
+                          <div className="coach-profile-panel__chips">
+                            {profile.specialties.map((specialty) => (
+                              <Chip key={specialty} label={specialty} />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="coach-profile-panel">
+                          <div className="coach-profile-panel__header">
+                            <h2 className="coach-profile-panel__title">Coaching Locations</h2>
+                            <MapPin className="coach-profile-panel__icon" strokeWidth={2.4} />
+                          </div>
+                          <p className="coach-profile-panel__copy">Certified to coach at these nearby courts and clubs.</p>
+                          <ul className="coach-profile-locations">
+                            {profile.coachingLocations.map((location) => (
+                              <li key={location} className="coach-profile-location">
+                                <span className="coach-profile-location__bullet" />
+                                <span>{location}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="coach-profile-panel">
+                          <div className="coach-profile-panel__header">
+                            <h2 className="coach-profile-panel__title">Lesson Types</h2>
+                            <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
+                          </div>
+                          <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
+                          <ul className="coach-profile-lessons">
+                            {profile.lessonDetails.map((lesson) => (
+                              <li key={lesson.title} className="coach-profile-lesson">
+                                <div className="coach-profile-lesson__content">
+                                  <div>
+                                    <p className="coach-profile-lesson__title">{lesson.title}</p>
+                                    <p className="coach-profile-lesson__description">{lesson.description}</p>
+                                  </div>
+                                  <div className="coach-profile-lesson__price">
+                                    <p className="coach-profile-lesson__amount">{lesson.price}</p>
+                                    <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </section>
+                    </section>
+
+                    <aside className="coach-profile-aside">
                   <div className="coach-booking">
                     <div className="coach-booking__header">
                       <div className="coach-booking__header-copy">
@@ -532,6 +541,8 @@ const CoachProfilePage = () => {
                 </aside>
               </div>
             </div>
+          </div>
+        </div>
           )}
         </div>
       </div>
