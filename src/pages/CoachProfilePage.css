@@ -1,7 +1,7 @@
 .coach-profile-page {
   width: 100%;
   box-sizing: border-box;
-  padding: 32px 0 96px;
+  padding: 0 0 96px;
   background: radial-gradient(140% 140% at 0% 0%, #f8faff 0%, #eef2ff 45%, #f7f9ff 100%);
   --profile-card-shadow: 0 36px 80px -48px rgba(15, 23, 42, 0.35), 0 18px 50px -36px rgba(79, 70, 229, 0.2);
   --profile-border: #e4e9ff;
@@ -47,7 +47,7 @@
 
 @media (min-width: 1024px) {
   .coach-profile-page {
-    padding: 56px 0 120px;
+    padding: 0 0 120px;
   }
 }
 
@@ -83,13 +83,13 @@
   background: linear-gradient(120deg, rgba(238, 242, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 58%, rgba(238, 242, 255, 0.96) 100%);
   border-bottom: 1px solid var(--profile-border);
   box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
-  padding: 32px 0 64px;
+  padding: 20px 0 64px;
   overflow: hidden;
 }
 
 @media (min-width: 1024px) {
   .coach-profile-hero {
-    padding: 48px 0 88px;
+    padding: 28px 0 88px;
   }
 }
 
@@ -144,34 +144,6 @@
   display: flex;
   flex-direction: column;
   gap: 48px;
-}
-
-.coach-profile-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  padding: 8px 14px;
-  border-radius: 9999px;
-  border: 1px solid var(--profile-pill-border);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(6px);
-  color: var(--profile-purple);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.coach-profile-back:hover {
-  color: var(--profile-green);
-  border-color: var(--profile-green);
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.coach-profile-back__icon {
-  width: 16px;
-  height: 16px;
 }
 
 /* Skeleton */

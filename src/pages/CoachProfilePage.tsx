@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
@@ -76,7 +76,6 @@ const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel
 
 const CoachProfilePage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { loading, profile } = useCoachProfile(id);
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "",
@@ -181,10 +180,6 @@ const CoachProfilePage = () => {
     <MainLayout>
       <div className="coach-profile-page">
         <div className="coach-profile-page__inner">
-          <button type="button" onClick={() => navigate(-1)} className="coach-profile-back">
-            <ArrowLeft className="coach-profile-back__icon" strokeWidth={2.5} /> Back to Coaches
-          </button>
-
           {loading && (
             <div className="coach-profile-skeleton" aria-hidden="true">
               <div className="coach-profile-skeleton__body">
