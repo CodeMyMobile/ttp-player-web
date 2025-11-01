@@ -88,8 +88,14 @@
 
 @media (min-width: 1024px) {
   .coach-profile-hero__inner {
-    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 360px);
-    align-items: stretch;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: start;
+    gap: 48px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .coach-profile-hero__inner {
     gap: 56px;
   }
 }
@@ -98,20 +104,53 @@
   padding: 8px 0;
 }
 
+@media (min-width: 1024px) {
+  .coach-profile-hero__identity {
+    grid-column: 1 / span 7;
+    align-self: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .coach-profile-hero__identity {
+    grid-column: 1 / span 8;
+  }
+}
+
 .coach-profile-hero__metrics {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 18px;
-  padding: 36px 32px;
+  padding: 32px 28px;
   border-radius: 32px;
   border: 1px solid var(--profile-border);
   background: linear-gradient(150deg, rgba(248, 249, 255, 0.92) 0%, rgba(255, 255, 255, 0.86) 85%);
   box-shadow: 0 28px 72px -48px rgba(79, 70, 229, 0.35);
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 599px) {
   .coach-profile-hero__metrics {
-    padding: 28px;
+    padding: 28px 24px;
+  }
+}
+
+@media (min-width: 600px) {
+  .coach-profile-hero__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-hero__metrics {
+    grid-column: 9 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 36px 32px;
+    align-self: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .coach-profile-hero__metrics {
+    grid-column: 10 / -1;
   }
 }
 
@@ -404,6 +443,7 @@
 @media (min-width: 1024px) {
   .coach-profile-identity {
     grid-area: identity;
+    max-width: 640px;
   }
 }
 
@@ -415,7 +455,11 @@
 
 @media (min-width: 1024px) {
   .coach-profile-identity__avatar-block {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 36px;
     justify-content: flex-start;
+    align-items: start;
     padding-right: 40px;
   }
 }
@@ -434,6 +478,14 @@
     width: 112px;
     height: 112px;
     border-radius: 28px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-identity__avatar {
+    width: 164px;
+    height: 164px;
+    border-radius: 40px;
   }
 }
 
