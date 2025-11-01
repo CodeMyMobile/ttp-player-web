@@ -5,8 +5,6 @@ import {
   Award,
   CalendarDays,
   CheckCircle2,
-  Clock3,
-  DollarSign,
   MapPin,
   MessageCircle,
   Sparkles,
@@ -23,13 +21,6 @@ const highlightIconMap = {
   users: Users,
   trophy: Award,
   spark: Sparkles,
-};
-
-const metricIconMap = {
-  dollar: DollarSign,
-  users: Users,
-  clock: Clock3,
-  map: MapPin,
 };
 
 const dayNameMap: Record<string, string> = {
@@ -210,11 +201,6 @@ const CoachProfilePage = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="coach-profile-skeleton__metrics">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="coach-profile-skeleton__metric" />
-                    ))}
-                  </div>
                   <div className="coach-profile-skeleton__paragraph">
                     <div className="coach-profile-skeleton__line" />
                     <div className="coach-profile-skeleton__line coach-profile-skeleton__line--short" />
@@ -295,25 +281,6 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
 
-                  <div className="coach-profile-hero__metrics">
-                    {profile.metrics.map((metric) => {
-                      const Icon = metricIconMap[metric.icon];
-                      return (
-                        <div key={metric.label} className="coach-profile-metric">
-                          <div className="coach-profile-metric__label-row">
-                            <span className="coach-profile-metric__icon">
-                              <Icon strokeWidth={2.4} />
-                            </span>
-                            <span className="coach-profile-metric__label">{metric.label}</span>
-                          </div>
-                          <div className="coach-profile-metric__value-row">
-                            <span className="coach-profile-metric__value">{metric.value}</span>
-                            {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               </section>
 
