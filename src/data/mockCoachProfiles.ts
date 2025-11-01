@@ -9,6 +9,9 @@ type BookingLessonType = {
   price: string;
   unit: string;
   description: string;
+  duration: string;
+  tagline: string;
+  bullets: string[];
 };
 
 type BookingDate = {
@@ -102,17 +105,31 @@ const sharedProfileBase = {
     lessonTypes: [
       {
         id: "private" as const,
-        label: "Private",
+        label: "Private lesson",
         price: "$85",
         unit: "/ hour",
-        description: "1-on-1 coaching session",
+        description: "Laser-focused individual instruction",
+        duration: "60 min • 1 player",
+        tagline: "Dial in technique with video feedback",
+        bullets: [
+          "Custom drills + footwork",
+          "Live ball + situational points",
+          "Next-step practice plan recap",
+        ],
       },
       {
         id: "group" as const,
-        label: "Group",
+        label: "Group session",
         price: "$50",
         unit: "/ player",
-        description: "2-4 players",
+        description: "High-energy squad training",
+        duration: "75 min • 2-4 players",
+        tagline: "Sharpen together with competitive reps",
+        bullets: [
+          "Serve + return patterns",
+          "Live point play rotations",
+          "Shared match video breakdown",
+        ],
       },
     ],
     defaultLessonType: "private" as const,
@@ -181,17 +198,31 @@ export const mockCoachProfiles: CoachProfile[] = [
       lessonTypes: [
         {
           id: "private",
-          label: "Private",
+          label: "Private lesson",
           price: "$75",
           unit: "/ hour",
           description: "1-on-1 coaching session",
+          duration: "60 min • 1 player",
+          tagline: "Detailed technical diagnostics",
+          bullets: [
+            "Video capture + swing notes",
+            "Pattern-based situational drills",
+            "Personalized practice tracker",
+          ],
         },
         {
           id: "group",
-          label: "Group",
+          label: "Group session",
           price: "$55",
           unit: "/ player",
           description: "Point play focus",
+          duration: "75 min • 3-4 players",
+          tagline: "Pressure reps & tactical cues",
+          bullets: [
+            "Serve + first ball frameworks",
+            "Team strategy scrimmages",
+            "Shared progress summary",
+          ],
         },
       ],
       defaultLessonType: "private",

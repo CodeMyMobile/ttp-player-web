@@ -66,9 +66,9 @@ const Chip = ({ label }: { label: string }) => (
   </span>
 );
 
-const BookButton = ({ disabled }: { disabled?: boolean }) => (
+const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel?: string }) => (
   <button type="button" disabled={disabled} className="coach-profile-book">
-    Book lesson
+    Book {lessonLabel ?? "lesson"}
     <CheckCircle2 className="coach-profile-book__icon" strokeWidth={2.5} />
   </button>
 );
@@ -335,17 +335,34 @@ const CoachProfilePage = () => {
                               key={lesson.id}
                               type="button"
                               aria-pressed={active}
+                              aria-label={`${lesson.label} – ${lesson.duration}, ${lesson.tagline}`}
                               onClick={() => handleLessonTypeChange(lesson.id)}
                               className={`coach-profile-lesson-option${active ? " coach-profile-lesson-option--active" : ""}`}
                             >
                               <span className="coach-profile-lesson-option__header">
-                                <span className="coach-profile-lesson-option__label">{lesson.label}</span>
+                                <span
+                                  className={`coach-profile-lesson-option__indicator${active ? " coach-profile-lesson-option__indicator--active" : ""}`}
+                                  aria-hidden="true"
+                                />
+                                <span className="coach-profile-lesson-option__titles">
+                                  <span className="coach-profile-lesson-option__label">{lesson.label}</span>
+                                  <span className="coach-profile-lesson-option__duration">{lesson.duration}</span>
+                                </span>
                                 <span className="coach-profile-lesson-option__price">
                                   <span className="coach-profile-lesson-option__amount">{lesson.price}</span>
                                   <span className="coach-profile-lesson-option__unit">{lesson.unit}</span>
                                 </span>
                               </span>
-                              <span className="coach-profile-lesson-option__description">{lesson.description}</span>
+                              <span className="coach-profile-lesson-option__body">
+                                <span className="coach-profile-lesson-option__tagline">{lesson.tagline}</span>
+                                <ul className="coach-profile-lesson-option__list">
+                                  {lesson.bullets.map((bullet) => (
+                                    <li key={bullet} className="coach-profile-lesson-option__bullet">
+                                      {bullet}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </span>
                             </button>
                           );
                         })}
@@ -414,10 +431,21 @@ const CoachProfilePage = () => {
                             <span className="coach-profile-summary__unit">{lessonType.unit}</span>
                           </span>
                         </div>
-                        <p className="coach-profile-summary__description">{lessonType.description}</p>
+                        <p className="coach-profile-summary__duration">{lessonType.duration}</p>
+                        <p className="coach-profile-summary__description">{lessonType.tagline}</p>
+                        <ul className="coach-profile-summary__list">
+                          {lessonType.bullets.map((bullet) => (
+                            <li key={bullet} className="coach-profile-summary__item">
+                              {bullet}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
-                    <BookButton disabled={!selection.dateId || !selection.timeId} />
+                    <BookButton
+                      disabled={!selection.dateId || !selection.timeId}
+                      lessonLabel={lessonType ? lessonType.label : undefined}
+                    />
                     <p className="coach-profile-aside__note">{profile.booking.note}</p>
                     <button type="button" className="coach-profile-message">
                       <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
