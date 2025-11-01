@@ -14,16 +14,22 @@ type BookingLessonType = {
   bullets: string[];
 };
 
+type BookingSlot = {
+  id: string;
+  time: string;
+  lessonType: LessonTypeId;
+  duration: string;
+  price: string;
+  spotsRemaining: number;
+};
+
 type BookingDate = {
   id: string;
   day: string;
   date: string;
-  sessions: string[];
-};
-
-type BookingTime = {
-  id: string;
   label: string;
+  totalSlots: number;
+  slots: BookingSlot[];
 };
 
 type HighlightChipIcon = "users" | "trophy" | "spark";
@@ -64,7 +70,6 @@ export type CoachProfile = Coach & {
     defaultLessonType: LessonTypeId;
     monthLabel: string;
     availableDates: BookingDate[];
-    availableTimes: BookingTime[];
     note: string;
   };
 };
@@ -135,14 +140,237 @@ const sharedProfileBase = {
     defaultLessonType: "private" as const,
     monthLabel: "October 2025",
     availableDates: [
-      { id: "2025-10-31", day: "Tue", date: "31", sessions: ["Morning", "Evening"] },
-      { id: "2025-11-01", day: "Wed", date: "01", sessions: ["Afternoon"] },
-      { id: "2025-11-05", day: "Sun", date: "05", sessions: ["Morning", "Afternoon"] },
-    ],
-    availableTimes: [
-      { id: "slot-1", label: "7:30 AM" },
-      { id: "slot-2", label: "9:00 AM" },
-      { id: "slot-3", label: "5:30 PM" },
+      {
+        id: "2025-10-31",
+        day: "Fri",
+        date: "31",
+        label: "Oct 31",
+        totalSlots: 16,
+        slots: [
+          {
+            id: "2025-10-31-private-0730",
+            time: "7:30 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-10-31-group-0900",
+            time: "9:00 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 3,
+          },
+          {
+            id: "2025-10-31-private-1730",
+            time: "5:30 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 2,
+          },
+        ],
+      },
+      {
+        id: "2025-11-01",
+        day: "Sat",
+        date: "01",
+        label: "Nov 1",
+        totalSlots: 14,
+        slots: [
+          {
+            id: "2025-11-01-group-0830",
+            time: "8:30 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 2,
+          },
+          {
+            id: "2025-11-01-private-1100",
+            time: "11:00 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-01-private-1630",
+            time: "4:30 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 2,
+          },
+        ],
+      },
+      {
+        id: "2025-11-02",
+        day: "Sun",
+        date: "02",
+        label: "Nov 2",
+        totalSlots: 18,
+        slots: [
+          {
+            id: "2025-11-02-private-0700",
+            time: "7:00 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-02-group-0930",
+            time: "9:30 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 4,
+          },
+          {
+            id: "2025-11-02-group-1500",
+            time: "3:00 PM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 3,
+          },
+        ],
+      },
+      {
+        id: "2025-11-03",
+        day: "Mon",
+        date: "03",
+        label: "Nov 3",
+        totalSlots: 12,
+        slots: [
+          {
+            id: "2025-11-03-private-0630",
+            time: "6:30 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-03-private-1200",
+            time: "12:00 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-03-group-1830",
+            time: "6:30 PM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 2,
+          },
+        ],
+      },
+      {
+        id: "2025-11-04",
+        day: "Tue",
+        date: "04",
+        label: "Nov 4",
+        totalSlots: 16,
+        slots: [
+          {
+            id: "2025-11-04-group-0800",
+            time: "8:00 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 4,
+          },
+          {
+            id: "2025-11-04-private-1330",
+            time: "1:30 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-04-private-1900",
+            time: "7:00 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 2,
+          },
+        ],
+      },
+      {
+        id: "2025-11-05",
+        day: "Wed",
+        date: "05",
+        label: "Nov 5",
+        totalSlots: 15,
+        slots: [
+          {
+            id: "2025-11-05-private-0700",
+            time: "7:00 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-05-group-1000",
+            time: "10:00 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 3,
+          },
+          {
+            id: "2025-11-05-group-1700",
+            time: "5:00 PM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 2,
+          },
+        ],
+      },
+      {
+        id: "2025-11-06",
+        day: "Thu",
+        date: "06",
+        label: "Nov 6",
+        totalSlots: 13,
+        slots: [
+          {
+            id: "2025-11-06-group-0830",
+            time: "8:30 AM",
+            lessonType: "group",
+            duration: "75 min",
+            price: "$50",
+            spotsRemaining: 4,
+          },
+          {
+            id: "2025-11-06-private-1100",
+            time: "11:00 AM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 1,
+          },
+          {
+            id: "2025-11-06-private-1800",
+            time: "6:00 PM",
+            lessonType: "private",
+            duration: "60 min",
+            price: "$85",
+            spotsRemaining: 2,
+          },
+        ],
+      },
     ],
     note: "Need a different time? Message Coach",
   },
@@ -227,14 +455,171 @@ export const mockCoachProfiles: CoachProfile[] = [
       ],
       defaultLessonType: "private",
       availableDates: [
-        { id: "2025-10-28", day: "Fri", date: "28", sessions: ["Morning"] },
-        { id: "2025-10-30", day: "Sun", date: "30", sessions: ["Evening"] },
-        { id: "2025-11-03", day: "Wed", date: "03", sessions: ["Morning", "Midday"] },
-      ],
-      availableTimes: [
-        { id: "slot-1", label: "8:00 AM" },
-        { id: "slot-2", label: "12:30 PM" },
-        { id: "slot-3", label: "6:15 PM" },
+        {
+          id: "2025-10-29",
+          day: "Wed",
+          date: "29",
+          label: "Oct 29",
+          totalSlots: 12,
+          slots: [
+            {
+              id: "2025-10-29-private-0800",
+              time: "8:00 AM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+            {
+              id: "2025-10-29-group-0930",
+              time: "9:30 AM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 3,
+            },
+            {
+              id: "2025-10-29-private-1700",
+              time: "5:00 PM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 2,
+            },
+          ],
+        },
+        {
+          id: "2025-10-30",
+          day: "Thu",
+          date: "30",
+          label: "Oct 30",
+          totalSlots: 11,
+          slots: [
+            {
+              id: "2025-10-30-group-0700",
+              time: "7:00 AM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 4,
+            },
+            {
+              id: "2025-10-30-private-1130",
+              time: "11:30 AM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+            {
+              id: "2025-10-30-private-1800",
+              time: "6:00 PM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+          ],
+        },
+        {
+          id: "2025-11-01",
+          day: "Sat",
+          date: "01",
+          label: "Nov 1",
+          totalSlots: 14,
+          slots: [
+            {
+              id: "2025-11-01-group-0830-b",
+              time: "8:30 AM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 3,
+            },
+            {
+              id: "2025-11-01-private-1030",
+              time: "10:30 AM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+            {
+              id: "2025-11-01-group-1600",
+              time: "4:00 PM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 2,
+            },
+          ],
+        },
+        {
+          id: "2025-11-03",
+          day: "Mon",
+          date: "03",
+          label: "Nov 3",
+          totalSlots: 10,
+          slots: [
+            {
+              id: "2025-11-03-private-0700-b",
+              time: "7:00 AM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+            {
+              id: "2025-11-03-group-1200",
+              time: "12:00 PM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 2,
+            },
+            {
+              id: "2025-11-03-private-1830",
+              time: "6:30 PM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+          ],
+        },
+        {
+          id: "2025-11-04",
+          day: "Tue",
+          date: "04",
+          label: "Nov 4",
+          totalSlots: 13,
+          slots: [
+            {
+              id: "2025-11-04-group-0900",
+              time: "9:00 AM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 4,
+            },
+            {
+              id: "2025-11-04-private-1400",
+              time: "2:00 PM",
+              lessonType: "private",
+              duration: "60 min",
+              price: "$75",
+              spotsRemaining: 1,
+            },
+            {
+              id: "2025-11-04-group-1730",
+              time: "5:30 PM",
+              lessonType: "group",
+              duration: "75 min",
+              price: "$55",
+              spotsRemaining: 3,
+            },
+          ],
+        },
       ],
     },
   },

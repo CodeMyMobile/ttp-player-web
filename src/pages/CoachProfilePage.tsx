@@ -83,13 +83,50 @@ const CoachProfilePage = () => {
 
   useEffect(() => {
     if (!loading && profile) {
+      const defaultLessonType = profile.booking.defaultLessonType;
+      const initialDate = profile.booking.availableDates[0];
+      const initialSlot = initialDate?.slots.find(
+        (slot) => slot.lessonType === defaultLessonType,
+      );
       setSelection({
-        lessonType: profile.booking.defaultLessonType,
-        dateId: profile.booking.availableDates[0]?.id,
-        timeId: profile.booking.availableTimes[0]?.id,
+        lessonType: defaultLessonType,
+        dateId: initialDate?.id,
+        timeId: initialSlot?.id,
       });
     }
   }, [loading, profile]);
+
+  useEffect(() => {
+    if (!profile || !selection.lessonType) {
+      return;
+    }
+
+    const dates = profile.booking.availableDates;
+    if (!dates.length) {
+      return;
+    }
+
+    const activeDate =
+      dates.find((item) => item.id === selection.dateId) ?? dates[0];
+    const slotsForLesson = activeDate.slots.filter(
+      (slot) => slot.lessonType === selection.lessonType,
+    );
+
+    const desiredTimeId =
+      slotsForLesson.length === 0
+        ? undefined
+        : selection.timeId && slotsForLesson.some((slot) => slot.id === selection.timeId)
+          ? selection.timeId
+          : slotsForLesson[0]?.id;
+
+    if (activeDate.id !== selection.dateId || desiredTimeId !== selection.timeId) {
+      setSelection((prev) => ({
+        ...prev,
+        dateId: activeDate.id,
+        timeId: desiredTimeId,
+      }));
+    }
+  }, [profile, selection.dateId, selection.lessonType, selection.timeId]);
 
   const lessonType = useMemo(() => {
     if (!profile) {
@@ -116,9 +153,28 @@ const CoachProfilePage = () => {
   const handleTimeChange = (id: string) => {
     setSelection((prev) => ({
       ...prev,
-      timeId: prev.timeId === id ? undefined : id,
+      timeId: id,
     }));
   };
+
+  const selectedDate = useMemo(() => {
+    if (!profile) {
+      return undefined;
+    }
+    return profile.booking.availableDates.find((date) => date.id === selection.dateId);
+  }, [profile, selection.dateId]);
+
+  const filteredSlots = useMemo(() => {
+    if (!selectedDate) {
+      return [];
+    }
+    return selectedDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
+  }, [selectedDate, selection.lessonType]);
+
+  const selectedSlot = useMemo(
+    () => filteredSlots.find((slot) => slot.id === selection.timeId),
+    [filteredSlots, selection.timeId],
+  );
 
   return (
     <MainLayout>
@@ -318,14 +374,18 @@ const CoachProfilePage = () => {
                 </section>
 
                 <aside className="coach-profile-aside">
-                  <div className="coach-profile-aside__selectors">
-                    <div className="coach-profile-aside__headline">
-                      <h2 className="coach-profile-aside__title">{profile.booking.headline}</h2>
-                      <CalendarDays className="coach-profile-aside__title-icon" strokeWidth={2.4} />
+                  <div className="coach-booking">
+                    <div className="coach-booking__header">
+                      <div className="coach-booking__header-copy">
+                        <h2 className="coach-booking__title">{profile.booking.headline}</h2>
+                        <p className="coach-booking__subtitle">Select your preferred date and time</p>
+                      </div>
+                      <CalendarDays className="coach-booking__icon" strokeWidth={2.4} />
                     </div>
-                    <div>
-                      <span className="coach-profile-aside__label">Select lesson type</span>
-                      <div className="coach-profile-aside__grid coach-profile-aside__grid--two">
+
+                    <div className="coach-booking__section">
+                      <span className="coach-booking__label">Select lesson type</span>
+                      <div className="coach-booking__lesson-grid">
                         {profile.booking.lessonTypes.map((lesson) => {
                           const active = selection.lessonType
                             ? selection.lessonType === lesson.id
@@ -337,120 +397,116 @@ const CoachProfilePage = () => {
                               aria-pressed={active}
                               aria-label={`${lesson.label} – ${lesson.duration}, ${lesson.tagline}`}
                               onClick={() => handleLessonTypeChange(lesson.id)}
-                              className={`coach-profile-lesson-option${active ? " coach-profile-lesson-option--active" : ""}`}
+                              className={`coach-booking__lesson${active ? " coach-booking__lesson--active" : ""}`}
                             >
-                              <span className="coach-profile-lesson-option__header">
-                                <span
-                                  className={`coach-profile-lesson-option__indicator${active ? " coach-profile-lesson-option__indicator--active" : ""}`}
-                                  aria-hidden="true"
-                                />
-                                <span className="coach-profile-lesson-option__titles">
-                                  <span className="coach-profile-lesson-option__label">{lesson.label}</span>
-                                  <span className="coach-profile-lesson-option__duration">{lesson.duration}</span>
-                                </span>
-                                <span className="coach-profile-lesson-option__price">
-                                  <span className="coach-profile-lesson-option__amount">{lesson.price}</span>
-                                  <span className="coach-profile-lesson-option__unit">{lesson.unit}</span>
+                              <span className="coach-booking__lesson-top">
+                                <span className="coach-booking__lesson-name">{lesson.label}</span>
+                                <span className="coach-booking__lesson-price">
+                                  <span className="coach-booking__lesson-amount">{lesson.price}</span>
+                                  <span className="coach-booking__lesson-unit">{lesson.unit}</span>
                                 </span>
                               </span>
-                              <span className="coach-profile-lesson-option__body">
-                                <span className="coach-profile-lesson-option__tagline">{lesson.tagline}</span>
-                                <ul className="coach-profile-lesson-option__list">
-                                  {lesson.bullets.map((bullet) => (
-                                    <li key={bullet} className="coach-profile-lesson-option__bullet">
-                                      {bullet}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </span>
+                              <span className="coach-booking__lesson-footnote">{lesson.description}</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    <div>
-                      <div className="coach-profile-aside__label-row">
-                        <span className="coach-profile-aside__label">Select date</span>
-                        <div className="coach-profile-aside__month">{profile.booking.monthLabel}</div>
+                    <div className="coach-booking__section">
+                      <div className="coach-booking__label-row">
+                        <span className="coach-booking__label">Select date</span>
+                        <span className="coach-booking__month">{profile.booking.monthLabel}</span>
                       </div>
-                      <div className="coach-profile-aside__grid coach-profile-aside__grid--three">
+                      <div className="coach-booking__dates" role="list">
                         {profile.booking.availableDates.map((date) => {
                           const active = selection.dateId === date.id;
                           return (
                             <button
                               key={date.id}
                               type="button"
+                              role="listitem"
                               onClick={() => handleDateChange(date.id)}
-                              className={`coach-profile-date${active ? " coach-profile-date--active" : ""}`}
+                              aria-pressed={active}
+                              aria-label={`${date.label} ${date.day} – ${date.totalSlots} lesson slots`}
+                              className={`coach-booking__date${active ? " coach-booking__date--active" : ""}`}
                             >
-                              <div className="coach-profile-date__header">
-                                <span className="coach-profile-date__day">{date.date}</span>
-                                <span className="coach-profile-date__weekday">{date.day}</span>
-                              </div>
-                              <div className="coach-profile-date__sessions">
-                                {date.sessions.map((session) => (
-                                  <span key={session} className="coach-profile-date__session">
-                                    {session}
-                                  </span>
-                                ))}
-                              </div>
+                              <span className="coach-booking__date-day">{date.day}</span>
+                              <span className="coach-booking__date-number">{date.date}</span>
+                              <span className="coach-booking__date-availability">{date.totalSlots}</span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    <div>
-                      <span className="coach-profile-aside__label">Select time</span>
-                      <div className="coach-profile-aside__grid coach-profile-aside__grid--two-tight">
-                        {profile.booking.availableTimes.map((time) => {
-                          const active = selection.timeId === time.id;
-                          return (
-                            <button
-                              key={time.id}
-                              type="button"
-                              onClick={() => handleTimeChange(time.id)}
-                              className={`coach-profile-time${active ? " coach-profile-time--active" : ""}`}
-                            >
-                              {time.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="coach-profile-aside__footer">
-                    {lessonType && (
-                      <div className="coach-profile-summary">
-                        <div className="coach-profile-summary__row">
-                          <span className="coach-profile-summary__label">{lessonType.label}</span>
-                          <span className="coach-profile-summary__price">
-                            <span className="coach-profile-summary__amount">{lessonType.price}</span>
-                            <span className="coach-profile-summary__unit">{lessonType.unit}</span>
-                          </span>
+                    <div className="coach-booking__section">
+                      <span className="coach-booking__label">Available lessons</span>
+                      {selectedDate ? (
+                        filteredSlots.length > 0 ? (
+                          <div className="coach-booking__slots">
+                            {filteredSlots.map((slot) => {
+                              const active = selection.timeId === slot.id;
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  aria-pressed={active}
+                                  onClick={() => handleTimeChange(slot.id)}
+                                  aria-label={`${selectedDate.label} ${selectedDate.day} at ${slot.time} – ${slot.duration}, ${slot.spotsRemaining} spots left`}
+                                  className={`coach-booking__slot${active ? " coach-booking__slot--active" : ""}`}
+                                >
+                                  <span className="coach-booking__slot-time">{slot.time}</span>
+                                  <span className="coach-booking__slot-meta">{slot.duration} • {slot.spotsRemaining} spots left</span>
+                                  <span className="coach-booking__slot-price">{slot.price}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="coach-booking__empty" role="status">
+                            No {(lessonType ? lessonType.label.toLowerCase() : "available")} lessons on {selectedDate.label}. Choose another day.
+                          </div>
+                        )
+                      ) : (
+                        <div className="coach-booking__empty" role="status">
+                          Select a date to view available lesson times.
                         </div>
-                        <p className="coach-profile-summary__duration">{lessonType.duration}</p>
-                        <p className="coach-profile-summary__description">{lessonType.tagline}</p>
-                        <ul className="coach-profile-summary__list">
-                          {lessonType.bullets.map((bullet) => (
-                            <li key={bullet} className="coach-profile-summary__item">
-                              {bullet}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <BookButton
-                      disabled={!selection.dateId || !selection.timeId}
-                      lessonLabel={lessonType ? lessonType.label : undefined}
-                    />
-                    <p className="coach-profile-aside__note">{profile.booking.note}</p>
-                    <button type="button" className="coach-profile-message">
-                      <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
-                      Message coach
-                    </button>
+                      )}
+                    </div>
+
+                    <div className="coach-booking__footer">
+                      {lessonType && (
+                        <div className="coach-booking__summary">
+                          <div className="coach-booking__summary-row">
+                            <div className="coach-booking__summary-plan">
+                              <span className="coach-booking__summary-label">{lessonType.label}</span>
+                              <span className="coach-booking__summary-duration">{lessonType.duration}</span>
+                            </div>
+                            <div className="coach-booking__summary-price">
+                              <span className="coach-booking__summary-amount">{lessonType.price}</span>
+                              <span className="coach-booking__summary-unit">{lessonType.unit}</span>
+                            </div>
+                          </div>
+                          {selectedDate && selectedSlot && (
+                            <div className="coach-booking__summary-schedule">
+                              <span>{selectedDate.day} • {selectedDate.label}</span>
+                              <span>{selectedSlot.time}</span>
+                            </div>
+                          )}
+                          <p className="coach-booking__summary-tagline">{lessonType.tagline}</p>
+                        </div>
+                      )}
+                      <BookButton
+                        disabled={!selectedSlot}
+                        lessonLabel={lessonType ? lessonType.label : undefined}
+                      />
+                      <p className="coach-booking__note">{profile.booking.note}</p>
+                      <button type="button" className="coach-profile-message">
+                        <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
+                        Message coach
+                      </button>
+                    </div>
                   </div>
                 </aside>
               </div>
