@@ -250,86 +250,86 @@ const CoachProfilePage = () => {
 
           {!loading && profile && (
             <div className="coach-profile-card">
-              <div className="coach-profile-layout">
-                <section className="coach-profile-main">
-                  <header className="coach-profile-header">
-                    <div className="coach-profile-identity">
-                      <div className="coach-profile-identity__avatar-block">
-                        <img
-                          src={profile.imageUrl}
-                          alt={`Portrait of ${profile.name}`}
-                          className="coach-profile-identity__avatar"
-                        />
-                        <div className="coach-profile-identity__details">
-                          <div className="coach-profile-identity__name-row">
-                            <h1 className="coach-profile-identity__name">{profile.name}</h1>
-                            {profile.headlineBadge && (
-                              <span className="coach-profile-identity__badge">
-                                <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
-                                {profile.headlineBadge}
-                              </span>
-                            )}
-                          </div>
-                          <div className="coach-profile-identity__meta">
-                            <span className="coach-profile-identity__rating">
-                              <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
-                              {profile.rating.toFixed(1)}
+              <header className="coach-profile-header">
+                <div className="coach-profile-identity">
+                  <div className="coach-profile-identity__avatar-block">
+                    <img
+                      src={profile.imageUrl}
+                      alt={`Portrait of ${profile.name}`}
+                      className="coach-profile-identity__avatar"
+                    />
+                    <div className="coach-profile-identity__details">
+                      <div className="coach-profile-identity__name-row">
+                        <h1 className="coach-profile-identity__name">{profile.name}</h1>
+                        {profile.headlineBadge && (
+                          <span className="coach-profile-identity__badge">
+                            <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
+                            {profile.headlineBadge}
+                          </span>
+                        )}
+                      </div>
+                      <div className="coach-profile-identity__meta">
+                        <span className="coach-profile-identity__rating">
+                          <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
+                          {profile.rating.toFixed(1)}
+                        </span>
+                        <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
+                        <span className="coach-profile-identity__separator" aria-hidden="true">
+                          •
+                        </span>
+                        <span className="coach-profile-identity__title">{profile.title}</span>
+                      </div>
+                      <div className="coach-profile-identity__chips">
+                        {profile.highlightChips.map((chip) => {
+                          const Icon = highlightIconMap[chip.icon];
+                          return (
+                            <span key={chip.label} className="coach-profile-identity__chip">
+                              <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
+                              {chip.label}
                             </span>
-                            <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
-                            <span className="coach-profile-identity__separator" aria-hidden="true">
-                              •
-                            </span>
-                            <span className="coach-profile-identity__title">{profile.title}</span>
-                          </div>
-                          <div className="coach-profile-identity__chips">
-                            {profile.highlightChips.map((chip) => {
-                              const Icon = highlightIconMap[chip.icon];
-                              return (
-                                <span key={chip.label} className="coach-profile-identity__chip">
-                                  <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
-                                  {chip.label}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
+                          );
+                        })}
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="coach-profile-metrics">
-                      {profile.metrics.map((metric) => {
-                        const Icon = metricIconMap[metric.icon];
-                        return (
-                          <div key={metric.label} className="coach-profile-metric">
-                            <div className="coach-profile-metric__label-row">
-                              <span className="coach-profile-metric__icon">
-                                <Icon strokeWidth={2.4} />
-                              </span>
-                              <span className="coach-profile-metric__label">{metric.label}</span>
-                            </div>
-                            <div className="coach-profile-metric__value-row">
-                              <span className="coach-profile-metric__value">{metric.value}</span>
-                              {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                <div className="coach-profile-metrics">
+                  {profile.metrics.map((metric) => {
+                    const Icon = metricIconMap[metric.icon];
+                    return (
+                      <div key={metric.label} className="coach-profile-metric">
+                        <div className="coach-profile-metric__label-row">
+                          <span className="coach-profile-metric__icon">
+                            <Icon strokeWidth={2.4} />
+                          </span>
+                          <span className="coach-profile-metric__label">{metric.label}</span>
+                        </div>
+                        <div className="coach-profile-metric__value-row">
+                          <span className="coach-profile-metric__value">{metric.value}</span>
+                          {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                    <div className="coach-profile-about">
-                      <p>{profile.about}</p>
-                    </div>
+                <div className="coach-profile-about">
+                  <p>{profile.about}</p>
+                </div>
 
-                    <div className="coach-profile-certifications">
-                      {profile.certifications.map((certification) => (
-                        <span key={certification} className="coach-profile-certification">
-                          <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
-                          {certification}
-                        </span>
-                      ))}
-                    </div>
-                  </header>
+                <div className="coach-profile-certifications">
+                  {profile.certifications.map((certification) => (
+                    <span key={certification} className="coach-profile-certification">
+                      <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
+                      {certification}
+                    </span>
+                  ))}
+                </div>
+              </header>
 
+              <div className="coach-profile-layout">
+                <section className="coach-profile-main">
                   <section className="coach-profile-sections">
                     <div className="coach-profile-panel">
                       <div className="coach-profile-panel__header">
