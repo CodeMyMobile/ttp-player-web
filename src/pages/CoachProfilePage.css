@@ -80,7 +80,7 @@
 
 .coach-profile-hero__inner {
   width: 100%;
-  max-width: 960px;
+  max-width: 1160px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -90,7 +90,7 @@
 
 @media (min-width: 1280px) {
   .coach-profile-hero__inner {
-    max-width: 1040px;
+    max-width: 1200px;
     gap: 48px;
   }
 }
@@ -102,7 +102,7 @@
 @media (min-width: 1024px) {
   .coach-profile-hero__identity {
     align-self: flex-start;
-    max-width: 640px;
+    max-width: 760px;
     width: 100%;
   }
 }
@@ -345,7 +345,7 @@
 
 @media (min-width: 1024px) {
   .coach-profile-layout {
-    grid-template-columns: minmax(340px, 420px) minmax(640px, 1fr);
+    grid-template-columns: minmax(640px, 1fr) minmax(320px, 380px);
     align-items: start;
     gap: 48px;
   }
@@ -353,7 +353,7 @@
 
 @media (min-width: 1280px) {
   .coach-profile-layout {
-    grid-template-columns: minmax(360px, 440px) minmax(720px, 1fr);
+    grid-template-columns: minmax(720px, 1fr) minmax(340px, 420px);
     gap: 64px;
   }
 }
@@ -362,12 +362,6 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-main {
-    max-width: 420px;
-  }
 }
 
 .coach-profile-identity {
@@ -514,6 +508,17 @@
   gap: 8px;
   font-size: 13px;
   color: var(--profile-muted);
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-identity__chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+
+  .coach-profile-identity__chip {
+    white-space: nowrap;
+  }
 }
 
 .coach-profile-identity__chip {
@@ -805,10 +810,10 @@
 }
 
 .coach-booking__label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   color: var(--profile-muted);
 }
 
@@ -822,7 +827,7 @@
 
 .coach-booking__day-grid {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   overflow-x: auto;
   padding-bottom: 8px;
   margin: 0 -8px;
@@ -845,9 +850,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 18px 12px;
+  padding: 16px 12px;
   min-height: 88px;
-  min-width: 140px;
+  min-width: 120px;
   border-radius: 18px;
   border: 1px solid var(--profile-slot-border);
   background: var(--profile-booking-subtle);
@@ -929,82 +934,6 @@
 .coach-booking__lesson-pill--active .coach-booking__lesson-pill-meta,
 .coach-booking__lesson-pill--active .coach-booking__lesson-pill-name {
   color: var(--profile-pill-active-color);
-}
-
-.coach-booking__lesson-details {
-  border-radius: 20px;
-  border: 1px solid var(--profile-slot-border);
-  background: rgba(248, 249, 255, 0.68);
-  padding: 20px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.coach-booking__lesson-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.coach-booking__lesson-summary-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.coach-booking__lesson-summary-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-booking__lesson-summary-duration {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--profile-muted);
-}
-
-.coach-booking__lesson-summary-price {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  color: var(--profile-purple);
-}
-
-.coach-booking__lesson-summary-amount {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.coach-booking__lesson-summary-unit {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.coach-booking__lesson-tagline {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking__lesson-points {
-  margin: 0;
-  padding-left: 20px;
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--profile-muted);
-}
-
-.coach-booking__lesson-points li::marker {
-  color: var(--profile-purple);
 }
 
 .coach-booking__schedule {

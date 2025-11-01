@@ -419,27 +419,6 @@ const CoachProfilePage = () => {
                       </div>
                     </div>
 
-                    {lessonType && (
-                      <div className="coach-booking__lesson-details">
-                        <div className="coach-booking__lesson-summary">
-                          <div className="coach-booking__lesson-summary-text">
-                            <span className="coach-booking__lesson-summary-name">{lessonType.label}</span>
-                            <span className="coach-booking__lesson-summary-duration">{lessonType.duration}</span>
-                          </div>
-                          <div className="coach-booking__lesson-summary-price">
-                            <span className="coach-booking__lesson-summary-amount">{lessonType.price}</span>
-                            <span className="coach-booking__lesson-summary-unit">{lessonType.unit}</span>
-                          </div>
-                        </div>
-                        <p className="coach-booking__lesson-tagline">{lessonType.tagline}</p>
-                        <ul className="coach-booking__lesson-points">
-                          {lessonType.bullets.map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
                     <div className="coach-booking__schedule">
                       <div className="coach-booking__schedule-header">
                         <span className="coach-booking__label">Upcoming availability</span>
