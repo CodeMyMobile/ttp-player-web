@@ -140,11 +140,6 @@ const FindCoaches = () => {
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
 
-  const metaLine =
-    selectedRadius === "All"
-      ? "Showing coaches in all available locations."
-      : `Showing coaches within ${selectedRadius} of your selected location.`;
-
   const resultsCountLabel = (() => {
     if (status === "loading") {
       return "Finding coaches…";
@@ -168,9 +163,6 @@ const FindCoaches = () => {
           <ResultsHeader
             title="Find Coaches"
             description="Connect with certified tennis professionals in your area."
-            metaLine={metaLine}
-            locationValue="London, UK"
-            onChangeLocation={resetState}
           />
 
           <FilterBar

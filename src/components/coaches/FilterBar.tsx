@@ -31,9 +31,9 @@ const FilterBar = ({
     <div className="fc-filter">
       <div className="fc-filter__distance-row">
         <div className="fc-filter__distance-group">
-          <button type="button" className="fc-distance-chip fc-distance-chip--location" aria-label="Current location">
+          <button type="button" className="fc-distance-chip fc-distance-chip--location" aria-label="Selected location">
             <MapPin size={18} />
-            Current location
+            London, UK
           </button>
           {radiusOptions.map((radius) => (
             <button
