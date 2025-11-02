@@ -454,28 +454,62 @@ const CoachProfilePage = () => {
                         </div>
 
                         <div className="coach-profile-panel">
-                          <div className="coach-profile-panel__header">
-                            <h2 className="coach-profile-panel__title">Lesson Types</h2>
-                            <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
-                          </div>
-                          <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
-                          <ul className="coach-profile-lessons">
-                            {profile.lessonDetails.map((lesson) => (
-                              <li key={lesson.title} className="coach-profile-lesson">
-                                <div className="coach-profile-lesson__content">
-                                  <div>
-                                    <p className="coach-profile-lesson__title">{lesson.title}</p>
-                                    <p className="coach-profile-lesson__description">{lesson.description}</p>
-                                  </div>
-                                  <div className="coach-profile-lesson__price">
-                                    <p className="coach-profile-lesson__amount">{lesson.price}</p>
-                                    <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
+                        <div className="coach-profile-panel__header">
+                          <h2 className="coach-profile-panel__title">Lesson Types</h2>
+                          <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
                         </div>
+                        <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
+                        <ul className="coach-profile-lessons">
+                          {profile.lessonDetails.map((lesson) => (
+                            <li key={lesson.title} className="coach-profile-lesson">
+                              <div className="coach-profile-lesson__content">
+                                <div>
+                                  <p className="coach-profile-lesson__title">{lesson.title}</p>
+                                  <p className="coach-profile-lesson__description">{lesson.description}</p>
+                                </div>
+                                <div className="coach-profile-lesson__price">
+                                  <p className="coach-profile-lesson__amount">{lesson.price}</p>
+                                  <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {profile.lessonPackages.length > 0 && (
+                          <div className="coach-profile-packages">
+                            <div className="coach-profile-packages__header">
+                              <div>
+                                <h3 className="coach-profile-packages__title">Package deals</h3>
+                                <p className="coach-profile-packages__copy">
+                                  Lock in savings when you reserve multiple lessons in advance.
+                                </p>
+                              </div>
+                              <span className="coach-profile-packages__badge">Best value</span>
+                            </div>
+                            <ul className="coach-profile-packages__list">
+                              {profile.lessonPackages.map((lessonPackage) => (
+                                <li key={lessonPackage.id} className="coach-profile-package">
+                                  <div className="coach-profile-package__top">
+                                    <span className="coach-profile-package__discount">{lessonPackage.discount}</span>
+                                    <span className="coach-profile-package__lessons">
+                                      {lessonPackage.lessons} lesson{lessonPackage.lessons === 1 ? "" : "s"}
+                                    </span>
+                                  </div>
+                                  <p className="coach-profile-package__title">{lessonPackage.title}</p>
+                                  <p className="coach-profile-package__description">{lessonPackage.description}</p>
+                                  <div className="coach-profile-package__pricing">
+                                    <span className="coach-profile-package__total">{lessonPackage.totalPrice}</span>
+                                    <span className="coach-profile-package__per">{lessonPackage.pricePerLesson}</span>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <button type="button" className="coach-profile-packages__action">
+                              Purchase Package
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       </section>
                     </section>
 
