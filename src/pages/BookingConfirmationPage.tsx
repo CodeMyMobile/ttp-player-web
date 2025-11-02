@@ -293,6 +293,181 @@ const BookingConfirmationPage = () => {
 
   const isConfirmDisabled = isConfirmed || !isNewCardValid || (isUsingCredits && !canUseCredits);
 
+  const savedCardsSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Saved cards</span>
+      <div className="payment-methods__stack">
+        {savedPaymentMethods.map((card) => {
+          const isSelected = paymentMethod === card.id;
+          return (
+            <label key={card.id} className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}>
+              <input
+                type="radio"
+                name="payment-method"
+                value={card.id}
+                checked={isSelected}
+                onChange={() => setPaymentMethod(card.id)}
+              />
+              <span className="payment-method-card__selector" aria-hidden />
+              <span className="payment-method-card__icon">
+                <CreditCard aria-hidden size={18} />
+              </span>
+              <span className="payment-method-card__body">
+                <span className="payment-method-card__title">{card.brand} ending in {card.last4}</span>
+                <span className="payment-method-card__subtitle">
+                  Expires {card.expiry}
+                  {card.nickname ? ` • ${card.nickname}` : ""}
+                </span>
+              </span>
+              {card.isDefault ? <span className="payment-method-card__tag">Default</span> : null}
+            </label>
+          );
+        })}
+
+        <label className={`payment-method-card payment-method-card--new${isUsingNewCard ? " payment-method-card--selected" : ""}`}>
+          <input
+            type="radio"
+            name="payment-method"
+            value="new-card"
+            checked={isUsingNewCard}
+            onChange={() => setPaymentMethod("new-card")}
+          />
+          <span className="payment-method-card__selector" aria-hidden />
+          <span className="payment-method-card__icon">
+            <CreditCard aria-hidden size={18} />
+          </span>
+          <span className="payment-method-card__body">
+            <span className="payment-method-card__title">Add a new credit card</span>
+            <span className="payment-method-card__subtitle">Securely save it for future lessons.</span>
+          </span>
+        </label>
+
+        {isUsingNewCard ? (
+          <div className="payment-method-card__form" role="group" aria-label="New card details">
+            <div className="payment-method-card__form-row">
+              <label className="payment-method-card__form-field">
+                <span>Cardholder name</span>
+                <input
+                  type="text"
+                  value={newCardForm.name}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Name on card"
+                />
+              </label>
+            </div>
+            <div className="payment-method-card__form-row payment-method-card__form-row--split">
+              <label className="payment-method-card__form-field">
+                <span>Card number</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.number}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, number: event.target.value }))}
+                  placeholder="1234 1234 1234 1234"
+                />
+              </label>
+            </div>
+            <div className="payment-method-card__form-row payment-method-card__form-row--grid">
+              <label className="payment-method-card__form-field">
+                <span>Expiration</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.expiry}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, expiry: event.target.value }))}
+                  placeholder="MM/YY"
+                />
+              </label>
+              <label className="payment-method-card__form-field">
+                <span>CVC</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.cvc}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, cvc: event.target.value }))}
+                  placeholder="123"
+                />
+              </label>
+              <label className="payment-method-card__form-field">
+                <span>ZIP code</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={newCardForm.postalCode}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, postalCode: event.target.value }))}
+                  placeholder="12345"
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const digitalWalletSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Digital wallet</span>
+      <label className={`payment-method-card payment-method-card--wallet${isUsingApplePay ? " payment-method-card--selected" : ""}`}>
+        <input
+          type="radio"
+          name="payment-method"
+          value="apple-pay"
+          checked={isUsingApplePay}
+          onChange={() => setPaymentMethod("apple-pay")}
+        />
+        <span className="payment-method-card__selector" aria-hidden />
+        <span className="payment-method-card__icon">
+          <Apple aria-hidden size={18} />
+        </span>
+        <span className="payment-method-card__body">
+          <span className="payment-method-card__title">Apple Pay</span>
+          <span className="payment-method-card__subtitle">Pay instantly with your saved wallet.</span>
+        </span>
+      </label>
+    </div>
+  );
+
+  const lessonCreditsSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Lesson credits</span>
+      <label
+        className={`payment-method-card payment-method-card--credits${
+          isUsingCredits ? " payment-method-card--selected" : ""
+        }${canUseCredits ? "" : " payment-method-card--disabled"}`}
+      >
+        <input
+          type="radio"
+          name="payment-method"
+          value="credits"
+          checked={isUsingCredits}
+          onChange={() => setPaymentMethod("credits")}
+          disabled={!canUseCredits}
+        />
+        <span className="payment-method-card__selector" aria-hidden />
+        <span className="payment-method-card__icon">
+          <Wallet aria-hidden size={18} />
+        </span>
+        <span className="payment-method-card__body">
+          <span className="payment-method-card__title">Use lesson credits</span>
+          <span className="payment-method-card__subtitle">
+            {canUseCredits
+              ? `${lessonCreditWallet.balance} credit${lessonCreditWallet.balance === 1 ? "" : "s"} available • ${lessonCreditWallet.label}`
+              : "No credits available for this lesson type."}
+          </span>
+        </span>
+        {lessonCreditWallet.expiresLabel && canUseCredits ? (
+          <span className="payment-method-card__tag payment-method-card__tag--success">{lessonCreditWallet.expiresLabel}</span>
+        ) : null}
+      </label>
+      {isUsingCredits ? (
+        <div className="payment-methods__credits-note">
+          Applying one credit will cover this lesson. You'll have {remainingCreditsLabel} after booking.
+        </div>
+      ) : null}
+    </div>
+  );
+
   const nextStepsItems = isGroupLesson
     ? [
         "Your spot is reserved immediately as long as space remains.",
@@ -429,200 +604,10 @@ const BookingConfirmationPage = () => {
             </div>
 
             <div className="payment-methods">
-              <div className="payment-methods__group">
-                <span className="payment-methods__group-label">Saved cards</span>
-                <div className="payment-methods__stack">
-                  {savedPaymentMethods.map((card) => {
-                    const isSelected = paymentMethod === card.id;
-                    return (
-                      <label
-                        key={card.id}
-                        className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="payment-method"
-                          value={card.id}
-                          checked={isSelected}
-                          onChange={() => setPaymentMethod(card.id)}
-                        />
-                        <span className="payment-method-card__selector" aria-hidden />
-                        <span className="payment-method-card__icon">
-                          <CreditCard aria-hidden size={18} />
-                        </span>
-                        <span className="payment-method-card__body">
-                          <span className="payment-method-card__title">
-                            {card.brand} ending in {card.last4}
-                          </span>
-                          <span className="payment-method-card__subtitle">
-                            Expires {card.expiry}
-                            {card.nickname ? ` • ${card.nickname}` : ""}
-                          </span>
-                        </span>
-                        {card.isDefault ? <span className="payment-method-card__tag">Default</span> : null}
-                      </label>
-                    );
-                  })}
-
-                  <label
-                    className={`payment-method-card payment-method-card--new${
-                      isUsingNewCard ? " payment-method-card--selected" : ""
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payment-method"
-                      value="new-card"
-                      checked={isUsingNewCard}
-                      onChange={() => setPaymentMethod("new-card")}
-                    />
-                    <span className="payment-method-card__selector" aria-hidden />
-                    <span className="payment-method-card__icon">
-                      <CreditCard aria-hidden size={18} />
-                    </span>
-                    <span className="payment-method-card__body">
-                      <span className="payment-method-card__title">Add a new credit card</span>
-                      <span className="payment-method-card__subtitle">Securely save it for future lessons.</span>
-                    </span>
-                  </label>
-
-                  {isUsingNewCard ? (
-                    <div className="payment-method-card__form" role="group" aria-label="New card details">
-                      <div className="payment-method-card__form-row">
-                        <label className="payment-method-card__form-field">
-                          <span>Cardholder name</span>
-                          <input
-                            type="text"
-                            value={newCardForm.name}
-                            onChange={(event) =>
-                              setNewCardForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            placeholder="Name on card"
-                          />
-                        </label>
-                      </div>
-                      <div className="payment-method-card__form-row payment-method-card__form-row--split">
-                        <label className="payment-method-card__form-field">
-                          <span>Card number</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={newCardForm.number}
-                            onChange={(event) =>
-                              setNewCardForm((prev) => ({ ...prev, number: event.target.value }))
-                            }
-                            placeholder="1234 1234 1234 1234"
-                          />
-                        </label>
-                      </div>
-                      <div className="payment-method-card__form-row payment-method-card__form-row--grid">
-                        <label className="payment-method-card__form-field">
-                          <span>Expiration</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={newCardForm.expiry}
-                            onChange={(event) =>
-                              setNewCardForm((prev) => ({ ...prev, expiry: event.target.value }))
-                            }
-                            placeholder="MM/YY"
-                          />
-                        </label>
-                        <label className="payment-method-card__form-field">
-                          <span>CVC</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={newCardForm.cvc}
-                            onChange={(event) =>
-                              setNewCardForm((prev) => ({ ...prev, cvc: event.target.value }))
-                            }
-                            placeholder="123"
-                          />
-                        </label>
-                        <label className="payment-method-card__form-field">
-                          <span>ZIP code</span>
-                          <input
-                            type="text"
-                            inputMode="text"
-                            value={newCardForm.postalCode}
-                            onChange={(event) =>
-                              setNewCardForm((prev) => ({ ...prev, postalCode: event.target.value }))
-                            }
-                            placeholder="12345"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="payment-methods__group">
-                <span className="payment-methods__group-label">Digital wallet</span>
-                <label
-                  className={`payment-method-card payment-method-card--wallet${
-                    isUsingApplePay ? " payment-method-card--selected" : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="apple-pay"
-                    checked={isUsingApplePay}
-                    onChange={() => setPaymentMethod("apple-pay")}
-                  />
-                  <span className="payment-method-card__selector" aria-hidden />
-                  <span className="payment-method-card__icon">
-                    <Apple aria-hidden size={18} />
-                  </span>
-                  <span className="payment-method-card__body">
-                    <span className="payment-method-card__title">Apple Pay</span>
-                    <span className="payment-method-card__subtitle">Pay instantly with your saved wallet.</span>
-                  </span>
-                </label>
-              </div>
-
-              <div className="payment-methods__group">
-                <span className="payment-methods__group-label">Lesson credits</span>
-                <label
-                  className={`payment-method-card payment-method-card--credits${
-                    isUsingCredits ? " payment-method-card--selected" : ""
-                  }${canUseCredits ? "" : " payment-method-card--disabled"}`}
-                >
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="credits"
-                    checked={isUsingCredits}
-                    onChange={() => setPaymentMethod("credits")}
-                    disabled={!canUseCredits}
-                  />
-                  <span className="payment-method-card__selector" aria-hidden />
-                  <span className="payment-method-card__icon">
-                    <Wallet aria-hidden size={18} />
-                  </span>
-                  <span className="payment-method-card__body">
-                    <span className="payment-method-card__title">Use lesson credits</span>
-                    <span className="payment-method-card__subtitle">
-                      {canUseCredits
-                        ? `${lessonCreditWallet.balance} credit${lessonCreditWallet.balance === 1 ? "" : "s"} available • ${lessonCreditWallet.label}`
-                        : "No credits available for this lesson type."}
-                    </span>
-                  </span>
-                  {lessonCreditWallet.expiresLabel && canUseCredits ? (
-                    <span className="payment-method-card__tag payment-method-card__tag--success">
-                      {lessonCreditWallet.expiresLabel}
-                    </span>
-                  ) : null}
-                </label>
-                {isUsingCredits ? (
-                  <div className="payment-methods__credits-note">
-                    Applying one credit will cover this lesson. You'll have {remainingCreditsLabel} after booking.
-                  </div>
-                ) : null}
-              </div>
-
+              {canUseCredits ? lessonCreditsSection : null}
+              {savedCardsSection}
+              {digitalWalletSection}
+              {!canUseCredits ? lessonCreditsSection : null}
               <div className="payment-packages-banner">
                 <span className="payment-packages-banner__icon">
                   <Package aria-hidden size={20} />
