@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Star, X } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, Star, X } from "lucide-react";
 
 import type { Coach } from "../../data/mockCoaches";
 import { findCoachProfile, type CoachProfile } from "../../data/mockCoachProfiles";
@@ -12,6 +12,11 @@ type LessonFilter = "all" | "private" | "group";
 type SelectionState = {
   day: string;
   lessonType: LessonFilter;
+};
+
+type SelectedSlot = {
+  dateId: string;
+  slotId: string;
 };
 
 const ALL_DAYS_ID = "all-days";
@@ -119,6 +124,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     day: ALL_DAYS_ID,
     lessonType: "all",
   });
+  const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | undefined>();
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -132,6 +138,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         day: ALL_DAYS_ID,
         lessonType: "all",
       });
+      setSelectedSlot(undefined);
     }, 220);
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -199,6 +206,64 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     return profile.location ?? profile.coachingLocations[0];
   }, [profile]);
 
+  useEffect(() => {
+    if (!selectedSlot || !profile) {
+      return;
+    }
+
+    const exists = profile.booking.availableDates.some(
+      (date) => date.id === selectedSlot.dateId && date.slots.some((slot) => slot.id === selectedSlot.slotId),
+    );
+
+    if (!exists) {
+      setSelectedSlot(undefined);
+    }
+  }, [profile, selectedSlot]);
+
+  useEffect(() => {
+    if (!selectedSlot) {
+      return;
+    }
+
+    const stillVisible = filteredDates.some(
+      (date) => date.id === selectedSlot.dateId && date.slots.some((slot) => slot.id === selectedSlot.slotId),
+    );
+
+    if (!stillVisible) {
+      setSelectedSlot(undefined);
+    }
+  }, [filteredDates, selectedSlot]);
+
+  const selectedSlotInfo = useMemo(() => {
+    if (!profile || !selectedSlot) {
+      return undefined;
+    }
+
+    const date = profile.booking.availableDates.find((item) => item.id === selectedSlot.dateId);
+    if (!date) {
+      return undefined;
+    }
+
+    const slot = date.slots.find((item) => item.id === selectedSlot.slotId);
+    if (!slot) {
+      return undefined;
+    }
+
+    const timeRange = buildTimeRangeLabel(slot.time, slot.duration);
+    const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+    const lessonLabel =
+      lessonDetails?.label ?? (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
+
+    return {
+      dayName: dayNameMap[date.day] ?? date.day,
+      dateLabel: date.label,
+      timeRange,
+      lessonLabel,
+      locationLabel: lessonLocationLabel,
+      price: slot.price,
+    };
+  }, [lessonLocationLabel, lessonTypeDetailMap, profile, selectedSlot]);
+
   const renderSlot = (
     dateId: string,
     slot: CoachProfile["booking"]["availableDates"][number]["slots"][number],
@@ -215,9 +280,18 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
       : undefined;
     const groupTitle = isGroupLesson ? slot.title : undefined;
+    const active = selectedSlot?.dateId === dateId && selectedSlot.slotId === slot.id;
 
     return (
-      <button key={`${dateId}-${slot.id}`} type="button" className={`coach-booking-slot coach-booking-slot--${slot.lessonType}`}>
+      <button
+        key={`${dateId}-${slot.id}`}
+        type="button"
+        className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${active ? " coach-booking-slot--active" : ""}`}
+        onClick={() => {
+          setSelectedSlot({ dateId, slotId: slot.id });
+        }}
+        aria-pressed={active}
+      >
         <div className="coach-booking-slot__header">
           <span className="coach-booking-slot__range">{timeRange}</span>
           <span className="coach-booking-slot__price">{slot.price}</span>
@@ -388,12 +462,50 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         </div>
 
         <footer className="book-lesson-modal__footer">
-          <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="fc-button fc-button--primary">
-            Confirm booking request
-          </button>
+          <div className="book-lesson-modal__selection" aria-live="polite">
+            {selectedSlotInfo ? (
+              <>
+                <span className="book-lesson-modal__selection-label">Selected lesson</span>
+                <div className="book-lesson-modal__selection-details">
+                  <span className="book-lesson-modal__selection-pill">
+                    <CalendarDays size={16} aria-hidden />
+                    <span>
+                      {selectedSlotInfo.dayName}
+                      <span className="book-lesson-modal__selection-sub"> · {selectedSlotInfo.dateLabel}</span>
+                    </span>
+                  </span>
+                  <span className="book-lesson-modal__selection-pill">
+                    <Clock3 size={16} aria-hidden />
+                    <span>
+                      {selectedSlotInfo.timeRange}
+                      <span className="book-lesson-modal__selection-sub"> · {selectedSlotInfo.lessonLabel}</span>
+                    </span>
+                  </span>
+                  {selectedSlotInfo.locationLabel ? (
+                    <span className="book-lesson-modal__selection-pill">
+                      <MapPin size={16} aria-hidden />
+                      <span>{selectedSlotInfo.locationLabel}</span>
+                    </span>
+                  ) : null}
+                  <span className="book-lesson-modal__selection-pill book-lesson-modal__selection-pill--price">
+                    {selectedSlotInfo.price}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <span className="book-lesson-modal__selection-placeholder">
+                Choose a time slot to review the details before confirming.
+              </span>
+            )}
+          </div>
+          <div className="book-lesson-modal__actions">
+            <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="fc-button fc-button--primary" disabled={!selectedSlotInfo}>
+              Confirm booking request
+            </button>
+          </div>
         </footer>
       </div>
       <button type="button" className="book-lesson-modal-overlay__backdrop" aria-hidden="true" onClick={onClose} />

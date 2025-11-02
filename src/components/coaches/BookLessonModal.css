@@ -230,7 +230,8 @@
   padding: 24px 32px 32px;
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  gap: 24px;
   flex-wrap: wrap;
   background: linear-gradient(
     180deg,
@@ -240,8 +241,73 @@
   );
 }
 
+.book-lesson-modal__selection {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.book-lesson-modal__selection-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fc-color-text-secondary, #4b5563);
+}
+
+.book-lesson-modal__selection-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.book-lesson-modal__selection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--profile-pill-border);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--profile-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.book-lesson-modal__selection-pill svg {
+  color: var(--profile-purple);
+}
+
+.book-lesson-modal__selection-sub {
+  color: var(--profile-muted);
+  font-weight: 500;
+}
+
+.book-lesson-modal__selection-pill--price {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: var(--fc-color-success, #16a34a);
+}
+
+.book-lesson-modal__selection-placeholder {
+  color: var(--fc-color-text-muted, #6b7280);
+  font-size: 0.95rem;
+}
+
+.book-lesson-modal__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .book-lesson-modal__footer .fc-button {
   min-width: 180px;
+}
+
+.book-lesson-modal__footer .fc-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 @media (max-width: 720px) {
@@ -262,5 +328,23 @@
 
   .book-lesson-modal__schedule {
     max-height: 360px;
+  }
+
+  .book-lesson-modal__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .book-lesson-modal__selection {
+    order: 2;
+  }
+
+  .book-lesson-modal__actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .book-lesson-modal__actions .fc-button {
+    width: 100%;
   }
 }
