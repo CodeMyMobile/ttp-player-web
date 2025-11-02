@@ -217,6 +217,12 @@
   box-shadow: 0 22px 45px -28px rgba(22, 163, 74, 0.55);
 }
 
+.booking-confirmation__confirm:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .booking-confirmation__confirm-icon {
   width: 20px;
   height: 20px;
@@ -226,6 +232,65 @@
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--fc-color-text-muted, #64748b);
+}
+
+.booking-confirmation__status {
+  margin-top: 6px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.24);
+  background: rgba(248, 250, 252, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-confirmation__status h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.booking-confirmation__status p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--fc-color-text-secondary, #475569);
+  line-height: 1.5;
+}
+
+.booking-confirmation__status--success {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(236, 253, 245, 0.95);
+}
+
+.booking-confirmation__status--success h3 {
+  color: #047857;
+}
+
+.booking-confirmation__status--pending {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(255, 251, 235, 0.95);
+}
+
+.booking-confirmation__status--pending h3 {
+  color: #b45309;
+}
+
+.booking-confirmation__status-action {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: transparent;
+  color: var(--fc-color-accent, #6366f1);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.booking-confirmation__status-action:hover {
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .booking-confirmation__aside {
