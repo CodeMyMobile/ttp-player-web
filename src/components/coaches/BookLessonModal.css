@@ -24,6 +24,7 @@
   position: relative;
   max-width: 880px;
   width: min(880px, 100%);
+  height: min(90vh, 920px);
   max-height: min(90vh, 920px);
   --profile-surface: rgba(248, 250, 255, 0.92);
   --profile-surface-strong: rgba(244, 247, 255, 0.98);
@@ -163,18 +164,22 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 24px;
+  min-height: 0;
 }
 
 .book-lesson-modal__booking-surface {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  flex: 1 1 auto;
+  gap: 24px;
   border-radius: 28px;
   border: 1px solid var(--profile-booking-border);
   background: var(--profile-booking-surface);
   box-shadow: var(--profile-booking-shadow);
-  padding: 32px 28px;
+  padding: 28px 24px;
+  min-height: 0;
 }
 
 .book-lesson-modal__controls {
@@ -182,10 +187,11 @@
 }
 
 .book-lesson-modal__schedule {
-  max-height: 420px;
+  flex: 1 1 auto;
   overflow: auto;
   padding-right: 12px;
-  padding-bottom: 24px;
+  padding-bottom: 16px;
+  min-height: 0;
 }
 
 .book-lesson-modal__schedule::-webkit-scrollbar {
@@ -227,14 +233,14 @@
 
 .book-lesson-modal__footer {
   margin-top: auto;
-  padding: 28px 32px 36px;
+  padding: 20px 32px 28px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   background: linear-gradient(
     180deg,
     rgba(248, 250, 252, 0) 0%,
-    rgba(248, 250, 252, 0.85) 45%,
+    rgba(248, 250, 252, 0.8) 45%,
     rgba(248, 250, 252, 1) 100%
   );
 }
@@ -246,8 +252,8 @@
 .book-lesson-modal__selection-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 22px;
+  gap: 12px;
+  padding: 16px 20px;
   border-radius: 20px;
   border: 1px solid rgba(99, 102, 241, 0.18);
   background: linear-gradient(145deg, rgba(238, 242, 255, 0.95) 0%, rgba(224, 231, 255, 0.92) 100%);
@@ -258,7 +264,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .book-lesson-modal__selection-label {
@@ -277,7 +283,7 @@
 
 .book-lesson-modal__selection-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
   color: var(--profile-heading);
 }
@@ -292,7 +298,7 @@
 .book-lesson-modal__selection-copy {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .book-lesson-modal__selection-primary {
@@ -306,11 +312,17 @@
   color: var(--profile-muted);
 }
 
+.book-lesson-modal__selection-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .book-lesson-modal__selection-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
+  padding: 24px 20px;
   border-radius: 20px;
   border: 1px dashed rgba(148, 163, 184, 0.4);
   background: rgba(241, 245, 249, 0.7);
@@ -322,7 +334,7 @@
 .book-lesson-modal__actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   align-items: stretch;
 }
@@ -332,8 +344,8 @@
   justify-content: center;
   font-size: 1.05rem;
   font-weight: 700;
-  padding: 16px;
-  border-radius: 14px;
+  padding: 14px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: #ffffff;
   box-shadow: 0 18px 40px -24px rgba(34, 197, 94, 0.55);
@@ -353,6 +365,33 @@
   color: var(--fc-color-text-muted, #6b7280);
 }
 
+@media (min-width: 860px) {
+  .book-lesson-modal__footer {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .book-lesson-modal__selection {
+    flex: 1 1 auto;
+  }
+
+  .book-lesson-modal__selection-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .book-lesson-modal__selection-details {
+    flex-direction: row;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .book-lesson-modal__actions {
+    max-width: 280px;
+  }
+}
+
 @media (max-width: 720px) {
   .book-lesson-modal {
     border-radius: 18px;
@@ -363,14 +402,6 @@
   .book-lesson-modal__footer {
     padding-left: 20px;
     padding-right: 20px;
-  }
-
-  .book-lesson-modal__controls {
-    grid-template-columns: 1fr;
-  }
-
-  .book-lesson-modal__schedule {
-    max-height: 360px;
   }
 
   .book-lesson-modal__footer {

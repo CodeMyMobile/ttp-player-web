@@ -469,31 +469,33 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                   <span className="book-lesson-modal__selection-label">Your selection</span>
                   <span className="book-lesson-modal__selection-price">{selectedSlotInfo.price}</span>
                 </div>
-                <div className="book-lesson-modal__selection-row">
-                  <CalendarDays size={18} aria-hidden />
-                  <div className="book-lesson-modal__selection-copy">
-                    <span className="book-lesson-modal__selection-primary">
-                      {selectedSlotInfo.dayName}, {selectedSlotInfo.dateLabel}
-                    </span>
-                    <span className="book-lesson-modal__selection-secondary">
-                      {selectedSlotInfo.timeRange} · {selectedSlotInfo.lessonLabel}
-                    </span>
-                  </div>
-                </div>
-                {selectedSlotInfo.locationLabel ? (
+                <div className="book-lesson-modal__selection-details">
                   <div className="book-lesson-modal__selection-row">
-                    <MapPin size={18} aria-hidden />
+                    <CalendarDays size={18} aria-hidden />
                     <div className="book-lesson-modal__selection-copy">
                       <span className="book-lesson-modal__selection-primary">
-                        {selectedSlotInfo.locationLabel}
+                        {selectedSlotInfo.dayName}, {selectedSlotInfo.dateLabel}
+                      </span>
+                      <span className="book-lesson-modal__selection-secondary">
+                        {selectedSlotInfo.timeRange} · {selectedSlotInfo.lessonLabel}
                       </span>
                     </div>
                   </div>
-                ) : null}
+                  {selectedSlotInfo.locationLabel ? (
+                    <div className="book-lesson-modal__selection-row">
+                      <MapPin size={18} aria-hidden />
+                      <div className="book-lesson-modal__selection-copy">
+                        <span className="book-lesson-modal__selection-primary">
+                          {selectedSlotInfo.locationLabel}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="book-lesson-modal__selection-placeholder">
-                <span>Pick a day and time to review the lesson details before you confirm.</span>
+                <span>Select a day and lesson time to review the details before confirming.</span>
               </div>
             )}
           </div>
