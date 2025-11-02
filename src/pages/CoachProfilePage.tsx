@@ -478,7 +478,7 @@ const CoachProfilePage = () => {
                         {profile.lessonPackages.length > 0 && (
                           <div className="coach-profile-packages">
                             <div className="coach-profile-packages__header">
-                              <div>
+                              <div className="coach-profile-packages__intro">
                                 <h3 className="coach-profile-packages__title">Package deals</h3>
                                 <p className="coach-profile-packages__copy">
                                   Lock in savings when you reserve multiple lessons in advance.
@@ -491,11 +491,10 @@ const CoachProfilePage = () => {
                                 <li key={lessonPackage.id} className="coach-profile-package">
                                   <div className="coach-profile-package__top">
                                     <span className="coach-profile-package__discount">{lessonPackage.discount}</span>
-                                    <span className="coach-profile-package__lessons">
-                                      {lessonPackage.lessons} lesson{lessonPackage.lessons === 1 ? "" : "s"}
-                                    </span>
                                   </div>
-                                  <p className="coach-profile-package__title">{lessonPackage.title}</p>
+                                  <p className="coach-profile-package__title">
+                                    {lessonPackage.lessons}-lesson package
+                                  </p>
                                   <p className="coach-profile-package__description">{lessonPackage.description}</p>
                                   <div className="coach-profile-package__pricing">
                                     <span className="coach-profile-package__total">{lessonPackage.totalPrice}</span>
