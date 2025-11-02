@@ -694,6 +694,154 @@
   box-shadow: 0 16px 32px -28px rgba(79, 70, 229, 0.32);
 }
 
+.coach-profile-packages {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid var(--profile-border);
+  background: linear-gradient(160deg, rgba(238, 242, 255, 0.92) 0%, #ffffff 85%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.coach-profile-packages__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.coach-profile-packages__intro {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.coach-profile-packages__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--profile-heading);
+}
+
+.coach-profile-packages__copy {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--profile-muted);
+}
+
+.coach-profile-packages__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(34, 197, 94, 0.16);
+  color: var(--profile-green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.coach-profile-packages__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.coach-profile-package {
+  border-radius: 20px;
+  border: 1px solid var(--profile-border);
+  background: #ffffff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 14px 28px -26px rgba(79, 70, 229, 0.28);
+}
+
+.coach-profile-package__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.coach-profile-package__discount {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--profile-purple);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.coach-profile-package__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--profile-heading);
+}
+
+.coach-profile-package__description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--profile-body);
+  line-height: 1.5;
+}
+
+.coach-profile-package__pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coach-profile-package__total {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--profile-muted);
+}
+
+.coach-profile-package__per {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--profile-purple);
+}
+
+.coach-profile-packages__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 12px 22px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--profile-purple);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 18px 34px -26px rgba(79, 70, 229, 0.45);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.coach-profile-packages__action:hover {
+  background: #4f46e5;
+}
+
+.coach-profile-packages__action:active {
+  transform: translateY(1px);
+}
+
 .coach-profile-lesson__content {
   display: flex;
   justify-content: space-between;

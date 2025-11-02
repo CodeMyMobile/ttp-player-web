@@ -56,6 +56,16 @@ type LessonDetail = {
   cadence: string;
 };
 
+type LessonPackage = {
+  id: string;
+  title: string;
+  lessons: number;
+  discount: string;
+  description: string;
+  totalPrice: string;
+  pricePerLesson: string;
+};
+
 export type CoachProfile = Coach & {
   about: string;
   headlineBadge?: string;
@@ -65,6 +75,7 @@ export type CoachProfile = Coach & {
   specialties: string[];
   coachingLocations: string[];
   lessonDetails: LessonDetail[];
+  lessonPackages: LessonPackage[];
   booking: {
     headline: string;
     lessonTypes: BookingLessonType[];
@@ -104,6 +115,26 @@ const sharedProfileBase = {
       description: "Sharpen live-ball decision making and coordinated drills for small groups.",
       price: "$50",
       cadence: "per player",
+    },
+  ],
+  lessonPackages: [
+    {
+      id: "private-5-pack",
+      title: "5 lesson package",
+      lessons: 5,
+      discount: "Save 10%",
+      description: "Secure five private sessions up front with flexible rescheduling.",
+      totalPrice: "$382.50",
+      pricePerLesson: "$76.50 per lesson",
+    },
+    {
+      id: "private-10-pack",
+      title: "10 lesson package",
+      lessons: 10,
+      discount: "Save 15%",
+      description: "Lock in a season of progress and priority court access.",
+      totalPrice: "$722.50",
+      pricePerLesson: "$72.25 per lesson",
     },
   ],
   booking: {
@@ -397,6 +428,7 @@ export const mockCoachProfiles: CoachProfile[] = [
     specialties: sharedProfileBase.specialties,
     coachingLocations: sharedProfileBase.coachingLocations,
     lessonDetails: sharedProfileBase.lessonDetails,
+    lessonPackages: sharedProfileBase.lessonPackages,
     booking: sharedProfileBase.booking,
   },
   {
@@ -429,6 +461,26 @@ export const mockCoachProfiles: CoachProfile[] = [
         description: "Situational sets with in-point strategy adjustments and stats tracking.",
         price: "$55",
         cadence: "per player",
+      },
+    ],
+    lessonPackages: [
+      {
+        id: "private-5-pack",
+        title: "5 lesson package",
+        lessons: 5,
+        discount: "Save 10%",
+        description: "Bundle private coaching and keep consistent weekly reps.",
+        totalPrice: "$337.50",
+        pricePerLesson: "$67.50 per lesson",
+      },
+      {
+        id: "private-10-pack",
+        title: "10 lesson package",
+        lessons: 10,
+        discount: "Save 15%",
+        description: "Season-long training block with match analysis bonuses.",
+        totalPrice: "$637.50",
+        pricePerLesson: "$63.75 per lesson",
       },
     ],
     booking: {
