@@ -6,6 +6,7 @@ import FilterBar from "../components/coaches/FilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import StateBanner from "../components/coaches/StateBanner";
 import MainLayout from "../components/MainLayout";
+import BookLessonModal from "../components/coaches/BookLessonModal";
 import { mockCoaches, type Coach } from "../data/mockCoaches";
 import { colors, typography } from "../lib/theme";
 
@@ -21,6 +22,7 @@ const FindCoaches = () => {
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
+  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const loadingTimer = useRef<number>();
 
   useEffect(() => {
@@ -213,11 +215,25 @@ const FindCoaches = () => {
           {shouldShowResults && (
             <div className="coach-grid">
               {filteredCoaches.map((coach: Coach) => (
-                <CoachCard key={coach.id} coach={coach} />
+                <CoachCard
+                  key={coach.id}
+                  coach={coach}
+                  onBook={(nextCoach) => {
+                    setSelectedCoach(nextCoach);
+                  }}
+                />
               ))}
             </div>
           )}
         </div>
+        {selectedCoach ? (
+          <BookLessonModal
+            coach={selectedCoach}
+            onClose={() => {
+              setSelectedCoach(null);
+            }}
+          />
+        ) : null}
       </div>
     </MainLayout>
   );

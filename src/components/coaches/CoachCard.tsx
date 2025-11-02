@@ -17,9 +17,10 @@ const highlightIconMap: Record<CoachHighlight["icon"], JSX.Element> = {
 
 type CoachCardProps = {
   coach: Coach;
+  onBook?: (coach: Coach) => void;
 };
 
-const CoachCard = ({ coach }: CoachCardProps) => {
+const CoachCard = ({ coach, onBook }: CoachCardProps) => {
   const navigate = useNavigate();
 
   const goToProfile = () => {
@@ -101,9 +102,10 @@ const CoachCard = ({ coach }: CoachCardProps) => {
           className="fc-button fc-button--primary"
           onClick={(event) => {
             event.stopPropagation();
+            onBook?.(coach);
           }}
         >
-          Book lesson
+          Book now
         </button>
       </div>
     </article>
