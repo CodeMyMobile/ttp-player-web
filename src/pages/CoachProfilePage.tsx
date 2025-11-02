@@ -39,6 +39,13 @@ type BookingSelections = {
   timeId?: string;
 };
 
+type BookingDate = CoachProfile["booking"]["availableDates"][number];
+type BookingSlot = BookingDate["slots"][number];
+type DateEntry = {
+  date: BookingDate;
+  slots: BookingSlot[];
+};
+
 const useCoachProfile = (id?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfile | undefined>();
@@ -75,6 +82,7 @@ const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel
 );
 
 const MINUTES_PER_DAY = 24 * 60;
+const ALL_DATES_ID = "all-dates";
 
 const parseTimeToMinutes = (timeLabel: string) => {
   const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -183,6 +191,28 @@ const CoachProfilePage = () => {
       return;
     }
 
+    if (selection.dateId === ALL_DATES_ID) {
+      if (!selection.timeId) {
+        return;
+      }
+
+      const timeExists = profile.booking.availableDates.some((date) =>
+        (selection.lessonType === "all"
+          ? date.slots
+          : date.slots.filter((slot) => slot.lessonType === selection.lessonType)
+        ).some((slot) => slot.id === selection.timeId),
+      );
+
+      if (!timeExists) {
+        setSelection((prev) => ({
+          ...prev,
+          timeId: undefined,
+        }));
+      }
+
+      return;
+    }
+
     const dates = profile.booking.availableDates;
     if (!dates.length) {
       return;
@@ -222,6 +252,7 @@ const CoachProfilePage = () => {
     setSelection((prev) => ({
       ...prev,
       dateId: id,
+      timeId: id === ALL_DATES_ID ? undefined : prev.timeId,
     }));
   };
 
@@ -238,21 +269,37 @@ const CoachProfilePage = () => {
     { id: "group", label: "Groups", ariaLabel: "Group sessions" },
   ];
 
-  const selectedDate = useMemo(() => {
+  const isAllDatesSelected = selection.dateId === ALL_DATES_ID;
+
+  const dateEntries = useMemo(() => {
     if (!profile) {
+      return [] as DateEntry[];
+    }
+
+    return profile.booking.availableDates.map((date) => {
+      const slots =
+        selection.lessonType === "all"
+          ? date.slots
+          : date.slots.filter((slot) => slot.lessonType === selection.lessonType);
+
+      return {
+        date,
+        slots,
+      } satisfies DateEntry;
+    });
+  }, [profile, selection.lessonType]);
+
+  const selectedDateEntry = useMemo(() => {
+    if (isAllDatesSelected) {
       return undefined;
     }
-    return profile.booking.availableDates.find((date) => date.id === selection.dateId);
-  }, [profile, selection.dateId]);
 
-  const filteredSlots = useMemo(() => {
-    if (!selectedDate) {
-      return [];
-    }
-    return selection.lessonType === "all"
-      ? selectedDate.slots
-      : selectedDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
-  }, [selectedDate, selection.lessonType]);
+    return dateEntries.find((entry) => entry.date.id === selection.dateId);
+  }, [dateEntries, isAllDatesSelected, selection.dateId]);
+
+  const selectedDate = selectedDateEntry?.date;
+
+  const filteredSlots = selectedDateEntry?.slots ?? [];
 
   const selectedSlot = useMemo(
     () => filteredSlots.find((slot) => slot.id === selection.timeId),
@@ -526,6 +573,17 @@ const CoachProfilePage = () => {
                       <div className="coach-booking__section">
                         <span className="coach-booking__label">Select day</span>
                         <div className="coach-booking__day-grid">
+                          <button
+                            type="button"
+                            aria-pressed={isAllDatesSelected}
+                            onClick={() => handleDateChange(ALL_DATES_ID)}
+                            className={`coach-booking__day${
+                              isAllDatesSelected ? " coach-booking__day--active" : ""
+                            }`}
+                          >
+                            <span className="coach-booking__day-name">All Dates</span>
+                            <span className="coach-booking__day-date">View every option</span>
+                          </button>
                           {profile.booking.availableDates.map((date) => {
                             const active = selection.dateId === date.id;
                             return (
@@ -568,7 +626,109 @@ const CoachProfilePage = () => {
 
                     <div className="coach-booking__schedule">
                       <div className="coach-booking__days">
-                        {selectedDate ? (
+                        {isAllDatesSelected ? (
+                          dateEntries.length > 0 ? (
+                            dateEntries.map(({ date, slots }) => (
+                              <section key={date.id} className="coach-booking-day">
+                                <div className="coach-booking-day__header">
+                                  <div className="coach-booking-day__titles">
+                                    <h3>{dayNameMap[date.day] ?? date.day}</h3>
+                                    <span>{date.label}</span>
+                                  </div>
+                                  <span className="coach-booking-day__count">
+                                    {slots.length} {slots.length === 1 ? "option" : "options"}
+                                  </span>
+                                </div>
+                                {slots.length > 0 ? (
+                                  <div className="coach-booking-day__slots">
+                                    {slots.map((slot) => {
+                                      const active = selection.timeId === slot.id;
+                                      const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+                                      const timeRange = buildTimeRangeLabel(
+                                        slot.time,
+                                        lessonDetails?.duration ?? slot.duration,
+                                      );
+                                      const isGroupLesson = slot.lessonType === "group";
+                                      const capacity = isGroupLesson
+                                        ? extractPlayerCapacity(lessonDetails?.duration)
+                                        : undefined;
+                                      const availableSpots = Math.max(slot.spotsRemaining, 0);
+                                      const spotsLabel = isGroupLesson
+                                        ? capacity
+                                          ? `${Math.min(availableSpots, capacity)}/${capacity} spots available`
+                                          : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
+                                        : undefined;
+                                      const lessonLabel =
+                                        lessonDetails?.label ??
+                                        (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
+                                      const groupTitle = isGroupLesson ? slot.title : undefined;
+
+                                      return (
+                                        <button
+                                          key={slot.id}
+                                          type="button"
+                                          aria-pressed={active}
+                                          onClick={() => {
+                                            handleDateChange(date.id);
+                                            handleTimeChange(slot.id);
+                                          }}
+                                          className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
+                                            active ? " coach-booking-slot--active" : ""
+                                          }`}
+                                        >
+                                          <div className="coach-booking-slot__header">
+                                            <span className="coach-booking-slot__range">{timeRange}</span>
+                                            <span className="coach-booking-slot__price">{slot.price}</span>
+                                          </div>
+                                          <div className="coach-booking-slot__details">
+                                            <span className="coach-booking-slot__badge">{lessonLabel}</span>
+                                            {groupTitle ? (
+                                              <>
+                                                <span className="coach-booking-slot__group-title">{groupTitle}</span>
+                                                <span className="coach-booking-slot__separator" aria-hidden />
+                                              </>
+                                            ) : (
+                                              <span className="coach-booking-slot__separator" aria-hidden />
+                                            )}
+                                            <span className="coach-booking-slot__duration">{slot.duration}</span>
+                                            {spotsLabel ? (
+                                              <>
+                                                <span className="coach-booking-slot__separator" aria-hidden />
+                                                <span className="coach-booking-slot__spots">{spotsLabel}</span>
+                                              </>
+                                            ) : null}
+                                          </div>
+                                          {lessonLocationLabel ? (
+                                            <div className="coach-booking-slot__location">
+                                              <MapPin aria-hidden className="coach-booking-slot__location-icon" />
+                                              <span>{lessonLocationLabel}</span>
+                                            </div>
+                                          ) : null}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="coach-booking-day__empty">
+                                    {selection.lessonType === "group" && (
+                                      <p>No group sessions are available on this day.</p>
+                                    )}
+                                    {selection.lessonType === "private" && (
+                                      <p>No private lessons are available on this day.</p>
+                                    )}
+                                    {selection.lessonType === "all" && (
+                                      <p>No lessons are available on this day.</p>
+                                    )}
+                                  </div>
+                                )}
+                              </section>
+                            ))
+                          ) : (
+                            <div className="coach-booking-day__empty">
+                              <p>No lessons are available at this time.</p>
+                            </div>
+                          )
+                        ) : selectedDate ? (
                           <section className="coach-booking-day coach-booking-day--active">
                             <div className="coach-booking-day__header">
                               <div className="coach-booking-day__titles">
