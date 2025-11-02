@@ -1,0 +1,380 @@
+.booking-confirmation {
+  padding: 48px 0 72px;
+  display: flex;
+  justify-content: center;
+  color: var(--fc-color-text-primary, #0f172a);
+}
+
+.booking-confirmation__inner {
+  width: min(1040px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 24px;
+}
+
+.booking-confirmation__back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--fc-color-text-muted, #64748b);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.booking-confirmation__back:hover {
+  color: var(--fc-color-text-primary, #0f172a);
+}
+
+.booking-confirmation__back-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.booking-confirmation__header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.booking-confirmation__eyebrow {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--fc-color-accent, #6366f1);
+}
+
+.booking-confirmation__title {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.booking-confirmation__subtitle {
+  margin: 0;
+  max-width: 620px;
+  font-size: 1rem;
+  color: var(--fc-color-text-secondary, #475569);
+}
+
+.booking-confirmation__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.booking-confirmation__card {
+  background: linear-gradient(145deg, rgba(248, 249, 255, 0.96), rgba(233, 238, 255, 0.9));
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 28px 60px -40px rgba(79, 70, 229, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.booking-confirmation__coach {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.booking-confirmation__coach-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  object-fit: cover;
+  box-shadow: 0 16px 32px -24px rgba(15, 23, 42, 0.45);
+}
+
+.booking-confirmation__coach-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.booking-confirmation__coach-name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.booking-confirmation__coach-title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--fc-color-text-secondary, #475569);
+}
+
+.booking-confirmation__coach-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--fc-color-text-primary, #0f172a);
+}
+
+.booking-confirmation__coach-reviews {
+  color: var(--fc-color-text-muted, #64748b);
+  font-weight: 500;
+}
+
+.booking-confirmation__details {
+  display: grid;
+  gap: 18px;
+}
+
+.booking-confirmation__detail {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.booking-confirmation__detail svg {
+  width: 22px;
+  height: 22px;
+  color: var(--fc-color-accent, #6366f1);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.booking-confirmation__detail-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.booking-confirmation__detail-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(79, 70, 229, 0.9);
+}
+
+.booking-confirmation__detail-primary {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.booking-confirmation__detail-secondary {
+  font-size: 0.9rem;
+  color: var(--fc-color-text-muted, #64748b);
+}
+
+.booking-confirmation__price {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(99, 102, 241, 0.14);
+}
+
+.booking-confirmation__price-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fc-color-text-muted, #64748b);
+}
+
+.booking-confirmation__price-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.booking-confirmation__price-caption {
+  font-size: 0.85rem;
+  color: var(--fc-color-text-secondary, #475569);
+}
+
+.booking-confirmation__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.booking-confirmation__confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 22px 45px -28px rgba(22, 163, 74, 0.55);
+}
+
+.booking-confirmation__confirm-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.booking-confirmation__disclaimer {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--fc-color-text-muted, #64748b);
+}
+
+.booking-confirmation__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.booking-confirmation__aside-card {
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.92);
+  padding: 20px 22px;
+  box-shadow: 0 18px 40px -32px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--fc-color-text-secondary, #475569);
+}
+
+.booking-confirmation__aside-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fc-color-text-primary, #0f172a);
+}
+
+.booking-confirmation__aside-card ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-confirmation__aside-card li {
+  line-height: 1.5;
+}
+
+.booking-confirmation__aside-card--muted {
+  background: rgba(241, 245, 249, 0.92);
+}
+
+.booking-confirmation__aside-card--muted p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.booking-confirmation__aside-back {
+  align-self: flex-start;
+  margin-top: 8px;
+  background: transparent;
+  color: var(--fc-color-accent, #6366f1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.booking-confirmation__aside-back:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.booking-confirmation--empty {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 96px 24px;
+}
+
+.booking-confirmation__empty-card {
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.92));
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 24px;
+  padding: 36px 32px;
+  box-shadow: 0 26px 48px -32px rgba(15, 23, 42, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.booking-confirmation__empty-title {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.booking-confirmation__empty-copy {
+  margin: 0;
+  color: var(--fc-color-text-secondary, #475569);
+  line-height: 1.6;
+}
+
+.booking-confirmation__empty-action {
+  align-self: center;
+  padding-inline: 28px;
+}
+
+@media (max-width: 960px) {
+  .booking-confirmation__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-confirmation__aside {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .booking-confirmation__aside-card {
+    flex: 1 1 240px;
+  }
+}
+
+@media (max-width: 720px) {
+  .booking-confirmation {
+    padding: 32px 0 48px;
+  }
+
+  .booking-confirmation__inner {
+    padding: 0 16px;
+  }
+
+  .booking-confirmation__card {
+    padding: 24px;
+  }
+
+  .booking-confirmation__details {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .booking-confirmation__price {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .booking-confirmation__coach {
+    align-items: flex-start;
+  }
+
+  .booking-confirmation__coach-avatar {
+    width: 64px;
+    height: 64px;
+  }
+}

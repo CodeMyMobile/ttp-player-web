@@ -160,7 +160,7 @@
 }
 
 .book-lesson-modal__body {
-  padding: 20px 32px 0;
+  padding: 20px 32px 28px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -231,180 +231,13 @@
   }
 }
 
-.book-lesson-modal__footer {
-  margin-top: auto;
-  padding: 20px 32px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background: linear-gradient(
-    180deg,
-    rgba(248, 250, 252, 0) 0%,
-    rgba(248, 250, 252, 0.8) 45%,
-    rgba(248, 250, 252, 1) 100%
-  );
-}
-
-.book-lesson-modal__selection {
-  width: 100%;
-}
-
-.book-lesson-modal__selection-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 20px;
-  border-radius: 20px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  background: linear-gradient(145deg, rgba(238, 242, 255, 0.95) 0%, rgba(224, 231, 255, 0.92) 100%);
-  box-shadow: 0 18px 36px -24px rgba(79, 70, 229, 0.35);
-}
-
-.book-lesson-modal__selection-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.book-lesson-modal__selection-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(79, 70, 229, 0.9);
-}
-
-.book-lesson-modal__selection-price {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--profile-purple);
-}
-
-.book-lesson-modal__selection-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  color: var(--profile-heading);
-}
-
-.book-lesson-modal__selection-row svg {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  color: var(--profile-purple);
-}
-
-.book-lesson-modal__selection-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.book-lesson-modal__selection-primary {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.book-lesson-modal__selection-secondary {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.book-lesson-modal__selection-details {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.book-lesson-modal__selection-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 20px;
-  border-radius: 20px;
-  border: 1px dashed rgba(148, 163, 184, 0.4);
-  background: rgba(241, 245, 249, 0.7);
-  color: var(--fc-color-text-muted, #64748b);
-  font-size: 0.95rem;
-  text-align: center;
-}
-
-.book-lesson-modal__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  align-items: stretch;
-}
-
-.book-lesson-modal__confirm {
-  width: 100%;
-  justify-content: center;
-  font-size: 1.05rem;
-  font-weight: 700;
-  padding: 14px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  color: #ffffff;
-  box-shadow: 0 18px 40px -24px rgba(34, 197, 94, 0.55);
-}
-
-.book-lesson-modal__confirm:disabled {
-  background: linear-gradient(135deg, #d1d5db 0%, #cbd5f5 100%);
-  color: rgba(255, 255, 255, 0.9);
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-.book-lesson-modal__disclaimer {
-  text-align: center;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--fc-color-text-muted, #6b7280);
-}
-
-@media (min-width: 860px) {
-  .book-lesson-modal__footer {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .book-lesson-modal__selection {
-    flex: 1 1 auto;
-  }
-
-  .book-lesson-modal__selection-card {
-    flex-direction: row;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .book-lesson-modal__selection-details {
-    flex-direction: row;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .book-lesson-modal__actions {
-    max-width: 280px;
-  }
-}
-
 @media (max-width: 720px) {
   .book-lesson-modal {
     border-radius: 18px;
   }
 
   .book-lesson-modal__header,
-  .book-lesson-modal__body,
-  .book-lesson-modal__footer {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-
-  .book-lesson-modal__footer {
+  .book-lesson-modal__body {
     padding-left: 20px;
     padding-right: 20px;
   }
