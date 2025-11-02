@@ -14,6 +14,15 @@ type BookingLessonType = {
   bullets: string[];
 };
 
+export type GroupParticipant = {
+  id: string;
+  name: string;
+  skillLevel?: string;
+  focusArea?: string;
+  avatarUrl?: string;
+  joinedLabel?: string;
+};
+
 type BookingSlot = {
   id: string;
   time: string;
@@ -22,6 +31,7 @@ type BookingSlot = {
   price: string;
   spotsRemaining: number;
   title?: string;
+  participants?: GroupParticipant[];
 };
 
 type BookingDate = {
@@ -195,6 +205,15 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 3,
             title: "Live Ball Clinic",
+            participants: [
+              {
+                id: "amy-w",
+                name: "Amy W.",
+                skillLevel: "USTA 3.0",
+                focusArea: "Sharpening quick net reactions",
+                joinedLabel: "Joined 2 days ago",
+              },
+            ],
           },
           {
             id: "2025-10-31-private-1730",
@@ -221,6 +240,22 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 2,
             title: "Doubles Drills",
+            participants: [
+              {
+                id: "liam-p",
+                name: "Liam P.",
+                skillLevel: "USTA 3.5",
+                focusArea: "Looking for smarter poaches",
+                joinedLabel: "Joined yesterday",
+              },
+              {
+                id: "serena-k",
+                name: "Serena K.",
+                skillLevel: "USTA 3.0",
+                focusArea: "Dialing in second serves",
+                joinedLabel: "Joined 3 days ago",
+              },
+            ],
           },
           {
             id: "2025-11-01-private-1100",
@@ -272,6 +307,15 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 3,
             title: "Match Play Mixer",
+            participants: [
+              {
+                id: "marco-t",
+                name: "Marco T.",
+                skillLevel: "USTA 3.5",
+                focusArea: "Building attacking patterns",
+                joinedLabel: "Joined today",
+              },
+            ],
           },
         ],
       },
@@ -306,6 +350,22 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 2,
             title: "Evening Cardio Tennis",
+            participants: [
+              {
+                id: "jade-r",
+                name: "Jade R.",
+                skillLevel: "USTA 3.0",
+                focusArea: "Boosting endurance for leagues",
+                joinedLabel: "Joined 5 days ago",
+              },
+              {
+                id: "mason-h",
+                name: "Mason H.",
+                skillLevel: "USTA 2.5",
+                focusArea: "Improving rally consistency",
+                joinedLabel: "Joined yesterday",
+              },
+            ],
           },
         ],
       },
@@ -324,6 +384,7 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 4,
             title: "Morning Rally Charge",
+            participants: [],
           },
           {
             id: "2025-11-04-private-1330",
@@ -366,6 +427,15 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 3,
             title: "Topspin Tune-Up",
+            participants: [
+              {
+                id: "nina-s",
+                name: "Nina S.",
+                skillLevel: "USTA 3.0",
+                focusArea: "Generating heavier topspin",
+                joinedLabel: "Joined 4 days ago",
+              },
+            ],
           },
           {
             id: "2025-11-05-group-1700",
@@ -375,6 +445,22 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 2,
             title: "Advanced Point Patterns",
+            participants: [
+              {
+                id: "owen-l",
+                name: "Owen L.",
+                skillLevel: "USTA 4.0",
+                focusArea: "Attacking short balls",
+                joinedLabel: "Joined 1 week ago",
+              },
+              {
+                id: "zoe-d",
+                name: "Zoe D.",
+                skillLevel: "USTA 3.5",
+                focusArea: "Closing at the net",
+                joinedLabel: "Joined 2 days ago",
+              },
+            ],
           },
         ],
       },
@@ -393,6 +479,7 @@ const sharedProfileBase = {
             price: "$50",
             spotsRemaining: 4,
             title: "Breakfast Club Rally",
+            participants: [],
           },
           {
             id: "2025-11-06-private-1100",
@@ -540,6 +627,15 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 3,
               title: "Baseline Ball Machine",
+              participants: [
+                {
+                  id: "harper-j",
+                  name: "Harper J.",
+                  skillLevel: "USTA 3.5",
+                  focusArea: "Grooving deeper rally balls",
+                  joinedLabel: "Joined 3 days ago",
+                },
+              ],
             },
             {
               id: "2025-10-29-private-1700",
@@ -566,6 +662,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 4,
               title: "Sunrise Strategy Lab",
+              participants: [],
             },
             {
               id: "2025-10-30-private-1130",
@@ -600,6 +697,15 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 3,
               title: "Junior Power Hour",
+              participants: [
+                {
+                  id: "eva-m",
+                  name: "Eva M.",
+                  skillLevel: "USTA 3.0",
+                  focusArea: "Adding pace to forehand",
+                  joinedLabel: "Joined yesterday",
+                },
+              ],
             },
             {
               id: "2025-11-01-private-1030",
@@ -617,6 +723,22 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 2,
               title: "Weekend Match Mixer",
+              participants: [
+                {
+                  id: "jackson-r",
+                  name: "Jackson R.",
+                  skillLevel: "USTA 4.0",
+                  focusArea: "Transitioning to the net",
+                  joinedLabel: "Joined today",
+                },
+                {
+                  id: "olivia-s",
+                  name: "Olivia S.",
+                  skillLevel: "USTA 3.5",
+                  focusArea: "Sharpening return games",
+                  joinedLabel: "Joined 2 days ago",
+                },
+              ],
             },
           ],
         },
@@ -643,6 +765,22 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 2,
               title: "Lunch Break Live Ball",
+              participants: [
+                {
+                  id: "sofia-l",
+                  name: "Sofia L.",
+                  skillLevel: "USTA 3.0",
+                  focusArea: "Improving backhand depth",
+                  joinedLabel: "Joined last week",
+                },
+                {
+                  id: "daniel-g",
+                  name: "Daniel G.",
+                  skillLevel: "USTA 3.5",
+                  focusArea: "Finishing at the net",
+                  joinedLabel: "Joined 2 days ago",
+                },
+              ],
             },
             {
               id: "2025-11-03-private-1830",
@@ -669,6 +807,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 4,
               title: "Footwork Foundations",
+              participants: [],
             },
             {
               id: "2025-11-04-private-1400",
@@ -686,6 +825,22 @@ export const mockCoachProfiles: CoachProfile[] = [
               price: "$55",
               spotsRemaining: 3,
               title: "Evening Point Play Lab",
+              participants: [
+                {
+                  id: "mia-b",
+                  name: "Mia B.",
+                  skillLevel: "USTA 3.5",
+                  focusArea: "Executing aggressive returns",
+                  joinedLabel: "Joined yesterday",
+                },
+                {
+                  id: "ethan-c",
+                  name: "Ethan C.",
+                  skillLevel: "USTA 4.0",
+                  focusArea: "Sharpening mid-court volleys",
+                  joinedLabel: "Joined 4 days ago",
+                },
+              ],
             },
           ],
         },
