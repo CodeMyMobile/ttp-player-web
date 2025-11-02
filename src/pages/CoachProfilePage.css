@@ -3,13 +3,16 @@
   box-sizing: border-box;
   padding: 0 0 96px;
   background: radial-gradient(140% 140% at 0% 0%, #f8faff 0%, #eef2ff 45%, #f7f9ff 100%);
+  --profile-surface: rgba(248, 250, 255, 0.92);
+  --profile-surface-strong: rgba(244, 247, 255, 0.98);
+  --profile-hero-gradient: linear-gradient(135deg, rgba(248, 250, 255, 0.98) 0%, rgba(235, 240, 255, 0.94) 55%, rgba(248, 250, 255, 0.98) 100%);
   --profile-card-shadow: 0 36px 80px -48px rgba(15, 23, 42, 0.35), 0 18px 50px -36px rgba(79, 70, 229, 0.2);
   --profile-border: #e4e9ff;
   --profile-soft-border: #eff1ff;
   --profile-chip-bg: #f3f5ff;
   --profile-chip-border: #e0e7ff;
   --profile-chip-text: #475467;
-  --profile-metric-bg: linear-gradient(145deg, #f6f8ff 0%, #ffffff 75%);
+  --profile-metric-bg: linear-gradient(145deg, rgba(248, 250, 255, 0.98) 0%, rgba(241, 245, 255, 0.9) 75%);
   --profile-metric-border: #e3e9ff;
   --profile-metric-icon-bg: #ecfdf3;
   --profile-metric-icon-color: #16a34a;
@@ -20,8 +23,8 @@
   --profile-badge-color: #047857;
   --profile-booking-border: #e4e9ff;
   --profile-booking-shadow: 0 32px 70px -36px rgba(79, 70, 229, 0.28);
-  --profile-booking-surface: #ffffff;
-  --profile-booking-subtle: #f5f6ff;
+  --profile-booking-surface: var(--profile-surface-strong);
+  --profile-booking-subtle: rgba(236, 240, 255, 0.7);
   --profile-slot-border: #e0e5ff;
   --profile-slot-active-border: #6366f1;
   --profile-slot-active-bg: rgba(99, 102, 241, 0.08);
@@ -34,14 +37,14 @@
   --profile-purple-soft: #eef2ff;
   --profile-green: #22c55e;
   --profile-green-dark: #16a34a;
-  --profile-slot-private-bg: linear-gradient(135deg, #f4f8ff 0%, #ffffff 76%);
-  --profile-slot-private-bg-active: linear-gradient(135deg, #e9f1ff 0%, #f4f7ff 80%);
+  --profile-slot-private-bg: linear-gradient(135deg, #f4f8ff 0%, var(--profile-surface-strong) 76%);
+  --profile-slot-private-bg-active: linear-gradient(135deg, #e9f1ff 0%, rgba(244, 247, 255, 0.98) 80%);
   --profile-slot-private-border: rgba(96, 165, 250, 0.42);
   --profile-slot-private-pill-bg: #dbeafe;
   --profile-slot-private-pill-color: #1d4ed8;
   --profile-slot-private-spot: #1d4ed8;
-  --profile-slot-group-bg: linear-gradient(135deg, #f0f9ff 0%, #ffffff 70%);
-  --profile-slot-group-bg-active: linear-gradient(135deg, #e0f2fe 0%, #f8fbff 78%);
+  --profile-slot-group-bg: linear-gradient(135deg, #f0f9ff 0%, var(--profile-surface-strong) 70%);
+  --profile-slot-group-bg-active: linear-gradient(135deg, #e0f2fe 0%, rgba(244, 247, 255, 0.98) 78%);
   --profile-slot-group-border: rgba(14, 165, 233, 0.26);
   --profile-slot-group-pill-bg: #bae6fd;
   --profile-slot-group-pill-color: #0284c7;
@@ -92,7 +95,7 @@
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(120deg, rgba(238, 242, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 58%, rgba(238, 242, 255, 0.96) 100%);
+  background: var(--profile-hero-gradient);
   border-bottom: 1px solid var(--profile-border);
   box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
   padding: 20px 0 64px;
@@ -561,7 +564,7 @@
   padding: 8px 12px;
   border-radius: 9999px;
   border: 1px solid var(--profile-chip-border);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--profile-surface-strong);
   box-shadow: 0 6px 18px -14px rgba(15, 23, 42, 0.45);
   font-size: 13px;
   font-weight: 500;
@@ -589,7 +592,7 @@
 .coach-profile-panel {
   border-radius: 24px;
   border: 1px solid var(--profile-border);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--profile-surface);
   padding: 26px;
   display: flex;
   flex-direction: column;
@@ -689,7 +692,7 @@
 .coach-profile-lesson {
   border-radius: 20px;
   border: 1px solid var(--profile-border);
-  background: linear-gradient(180deg, rgba(248, 249, 255, 0.9) 0%, #ffffff 85%);
+  background: linear-gradient(180deg, var(--profile-surface-strong) 0%, rgba(248, 250, 255, 0.92) 85%);
   padding: 18px;
   box-shadow: 0 16px 32px -28px rgba(79, 70, 229, 0.32);
 }
@@ -699,7 +702,7 @@
   padding: 24px;
   border-radius: 24px;
   border: 1px solid var(--profile-border);
-  background: linear-gradient(160deg, rgba(238, 242, 255, 0.92) 0%, #ffffff 85%);
+  background: linear-gradient(160deg, var(--profile-surface) 0%, var(--profile-surface-strong) 85%);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -756,7 +759,7 @@
 .coach-profile-package {
   border-radius: 20px;
   border: 1px solid var(--profile-border);
-  background: #ffffff;
+  background: var(--profile-surface-strong);
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -1013,7 +1016,7 @@
 
 .coach-booking__day--active {
   border-color: var(--profile-slot-active-border);
-  background: #ffffff;
+  background: var(--profile-surface-strong);
   box-shadow: 0 22px 40px -28px rgba(79, 70, 229, 0.32);
   color: var(--profile-heading);
   transform: translateY(-2px);
@@ -1078,7 +1081,7 @@
 .coach-booking-day {
   border-radius: 28px;
   border: 1px solid var(--profile-slot-border);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--profile-surface);
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
@@ -1156,7 +1159,7 @@
   padding: 18px 20px;
   border-radius: 18px;
   border: 1px solid var(--coach-slot-border, var(--profile-slot-border));
-  background: var(--coach-slot-bg, #ffffff);
+  background: var(--coach-slot-bg, var(--profile-surface-strong));
   color: var(--profile-heading);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
