@@ -497,8 +497,8 @@ const CoachProfilePage = () => {
                                   </p>
                                   <p className="coach-profile-package__description">{lessonPackage.description}</p>
                                   <div className="coach-profile-package__pricing">
-                                    <span className="coach-profile-package__total">{lessonPackage.totalPrice}</span>
                                     <span className="coach-profile-package__per">{lessonPackage.pricePerLesson}</span>
+                                    <span className="coach-profile-package__total">{lessonPackage.totalPrice}</span>
                                   </div>
                                 </li>
                               ))}

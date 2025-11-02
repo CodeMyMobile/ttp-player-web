@@ -802,19 +802,18 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: var(--profile-purple);
 }
 
 .coach-profile-package__total {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--profile-muted);
 }
 
 .coach-profile-package__per {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--profile-muted);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--profile-purple);
 }
 
 .coach-profile-packages__action {
