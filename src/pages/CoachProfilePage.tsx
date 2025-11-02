@@ -74,6 +74,88 @@ const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel
   </button>
 );
 
+const MINUTES_PER_DAY = 24 * 60;
+
+const parseTimeToMinutes = (timeLabel: string) => {
+  const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) {
+    return null;
+  }
+
+  const [, hourPart, minutePart, periodRaw] = match;
+  let hours = Number.parseInt(hourPart, 10);
+  const minutes = Number.parseInt(minutePart, 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  const period = periodRaw.toUpperCase();
+  hours %= 12;
+  if (period === "PM") {
+    hours += 12;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const parseDurationToMinutes = (durationLabel: string) => {
+  const match = durationLabel.match(/(\d+)\s*min/i);
+  if (!match) {
+    return null;
+  }
+
+  const [, durationPart] = match;
+  const duration = Number.parseInt(durationPart, 10);
+  return Number.isNaN(duration) ? null : duration;
+};
+
+const formatMinutesToTimeLabel = (totalMinutes: number) => {
+  const minutesNormalized = ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  const hours24 = Math.floor(minutesNormalized / 60);
+  const minutes = minutesNormalized % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+};
+
+const buildTimeRangeLabel = (startLabel: string, durationLabel: string) => {
+  const startMinutes = parseTimeToMinutes(startLabel);
+  const durationMinutes = parseDurationToMinutes(durationLabel);
+
+  if (startMinutes == null || durationMinutes == null) {
+    return startLabel;
+  }
+
+  const endMinutes = startMinutes + durationMinutes;
+  return `${formatMinutesToTimeLabel(startMinutes)} - ${formatMinutesToTimeLabel(endMinutes)}`;
+};
+
+const extractPlayerCapacity = (lessonDurationLabel?: string) => {
+  if (!lessonDurationLabel) {
+    return undefined;
+  }
+
+  const rangeMatch = lessonDurationLabel.match(/(\d+)\s*-\s*(\d+)\s*players?/i);
+  if (rangeMatch) {
+    const [, , maxPart] = rangeMatch;
+    const maxPlayers = Number.parseInt(maxPart, 10);
+    if (!Number.isNaN(maxPlayers)) {
+      return maxPlayers;
+    }
+  }
+
+  const singleMatch = lessonDurationLabel.match(/(\d+)\s*players?/i);
+  if (singleMatch) {
+    const [, countPart] = singleMatch;
+    const players = Number.parseInt(countPart, 10);
+    if (!Number.isNaN(players)) {
+      return players;
+    }
+  }
+
+  return undefined;
+};
+
 const CoachProfilePage = () => {
   const { id } = useParams();
   const { loading, profile } = useCoachProfile(id);
@@ -193,6 +275,28 @@ const CoachProfilePage = () => {
 
     return profile.booking.lessonTypes.find((item) => item.id === activeLessonId);
   }, [profile, selectedSlot, selection.lessonType]);
+
+  const lessonTypeDetailMap = useMemo(() => {
+    if (!profile) {
+      return {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>;
+    }
+
+    return profile.booking.lessonTypes.reduce(
+      (acc, lesson) => {
+        acc[lesson.id] = lesson;
+        return acc;
+      },
+      {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>,
+    );
+  }, [profile]);
+
+  const lessonLocationLabel = useMemo(() => {
+    if (!profile) {
+      return undefined;
+    }
+
+    return profile.location ?? profile.coachingLocations[0];
+  }, [profile]);
 
   return (
     <MainLayout>
@@ -431,53 +535,103 @@ const CoachProfilePage = () => {
 
                     <div className="coach-booking__schedule">
                       <div className="coach-booking__days">
-                        {profile.booking.availableDates.map((date) => {
-                          const slotsForType =
-                            selection.lessonType === "all"
-                              ? date.slots
-                              : date.slots.filter((slot) => slot.lessonType === selection.lessonType);
-                          if (!slotsForType.length) {
-                            return null;
-                          }
-                          const isActive = selection.dateId === date.id;
-                          return (
-                            <section key={date.id} className={`coach-booking-day${isActive ? " coach-booking-day--active" : ""}`}>
-                              <div className="coach-booking-day__header">
-                                <div className="coach-booking-day__titles">
-                                  <h3>{dayNameMap[date.day] ?? date.day}</h3>
-                                  <span>{date.label}</span>
-                                </div>
-                                <span className="coach-booking-day__count">{slotsForType.length} {slotsForType.length === 1 ? "option" : "options"}</span>
+                        {selectedDate ? (
+                          <section className="coach-booking-day coach-booking-day--active">
+                            <div className="coach-booking-day__header">
+                              <div className="coach-booking-day__titles">
+                                <h3>{dayNameMap[selectedDate.day] ?? selectedDate.day}</h3>
+                                <span>{selectedDate.label}</span>
                               </div>
+                              <span className="coach-booking-day__count">
+                                {filteredSlots.length} {filteredSlots.length === 1 ? "option" : "options"}
+                              </span>
+                            </div>
+                            {filteredSlots.length > 0 ? (
                               <div className="coach-booking-day__slots">
-                                {slotsForType.map((slot) => {
+                                {filteredSlots.map((slot) => {
                                   const active = selection.timeId === slot.id;
+                                  const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+                                  const timeRange = buildTimeRangeLabel(
+                                    slot.time,
+                                    lessonDetails?.duration ?? slot.duration,
+                                  );
+                                  const isGroupLesson = slot.lessonType === "group";
+                                  const capacity = isGroupLesson
+                                    ? extractPlayerCapacity(lessonDetails?.duration)
+                                    : undefined;
+                                  const availableSpots = Math.max(slot.spotsRemaining, 0);
+                                  const spotsLabel = isGroupLesson
+                                    ? capacity
+                                      ? `${Math.min(availableSpots, capacity)}/${capacity} spots available`
+                                      : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
+                                    : undefined;
+                                  const lessonLabel =
+                                    lessonDetails?.label ??
+                                    (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
+                                  const groupTitle = isGroupLesson ? slot.title : undefined;
+
                                   return (
                                     <button
                                       key={slot.id}
                                       type="button"
                                       aria-pressed={active}
                                       onClick={() => {
-                                        handleDateChange(date.id);
+                                        handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
                                       }}
-                                      className={`coach-booking-slot${active ? " coach-booking-slot--active" : ""}`}
+                                      className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
+                                        active ? " coach-booking-slot--active" : ""
+                                      }`}
                                     >
-                                      <div className="coach-booking-slot__time">
-                                        <span className="coach-booking-slot__start">{slot.time}</span>
+                                      <div className="coach-booking-slot__header">
+                                        <span className="coach-booking-slot__range">{timeRange}</span>
+                                        <span className="coach-booking-slot__price">{slot.price}</span>
+                                      </div>
+                                      <div className="coach-booking-slot__details">
+                                        <span className="coach-booking-slot__badge">{lessonLabel}</span>
+                                        {groupTitle ? (
+                                          <>
+                                            <span className="coach-booking-slot__group-title">{groupTitle}</span>
+                                            <span className="coach-booking-slot__separator" aria-hidden />
+                                          </>
+                                        ) : (
+                                          <span className="coach-booking-slot__separator" aria-hidden />
+                                        )}
                                         <span className="coach-booking-slot__duration">{slot.duration}</span>
+                                        {spotsLabel ? (
+                                          <>
+                                            <span className="coach-booking-slot__separator" aria-hidden />
+                                            <span className="coach-booking-slot__spots">{spotsLabel}</span>
+                                          </>
+                                        ) : null}
                                       </div>
-                                      <div className="coach-booking-slot__meta">
-                                        <span>{slot.spotsRemaining} spots left</span>
-                                      </div>
-                                      <div className="coach-booking-slot__price">{slot.price}</div>
+                                      {lessonLocationLabel ? (
+                                        <div className="coach-booking-slot__location">
+                                          <MapPin aria-hidden className="coach-booking-slot__location-icon" />
+                                          <span>{lessonLocationLabel}</span>
+                                        </div>
+                                      ) : null}
                                     </button>
                                   );
                                 })}
                               </div>
-                            </section>
-                          );
-                        })}
+                            ) : (
+                              <div className="coach-booking-day__empty">
+                                {selection.lessonType === "group" && (
+                                  <p>No group sessions are available on this day.</p>
+                                )}
+                                {selection.lessonType === "private" && (
+                                  <p>No private lessons are available on this day.</p>
+                                )}
+                                {selection.lessonType === "all" && <p>No lessons are available on this day.</p>}
+                              </div>
+                            )}
+                          </section>
+                        ) : (
+                          <div className="coach-booking-day__empty">
+                            <p>Select a day to explore available lessons.</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
