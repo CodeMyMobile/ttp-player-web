@@ -21,6 +21,7 @@ type BookingSlot = {
   duration: string;
   price: string;
   spotsRemaining: number;
+  title?: string;
 };
 
 type BookingDate = {
@@ -162,6 +163,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 3,
+            title: "Live Ball Clinic",
           },
           {
             id: "2025-10-31-private-1730",
@@ -187,6 +189,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 2,
+            title: "Doubles Drills",
           },
           {
             id: "2025-11-01-private-1100",
@@ -228,6 +231,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 4,
+            title: "Intermediate Rally Squad",
           },
           {
             id: "2025-11-02-group-1500",
@@ -236,6 +240,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 3,
+            title: "Match Play Mixer",
           },
         ],
       },
@@ -269,6 +274,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 2,
+            title: "Evening Cardio Tennis",
           },
         ],
       },
@@ -286,6 +292,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 4,
+            title: "Morning Rally Charge",
           },
           {
             id: "2025-11-04-private-1330",
@@ -327,6 +334,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 3,
+            title: "Topspin Tune-Up",
           },
           {
             id: "2025-11-05-group-1700",
@@ -335,6 +343,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 2,
+            title: "Advanced Point Patterns",
           },
         ],
       },
@@ -352,6 +361,7 @@ const sharedProfileBase = {
             duration: "75 min",
             price: "$50",
             spotsRemaining: 4,
+            title: "Breakfast Club Rally",
           },
           {
             id: "2025-11-06-private-1100",
@@ -477,6 +487,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 3,
+              title: "Baseline Ball Machine",
             },
             {
               id: "2025-10-29-private-1700",
@@ -502,6 +513,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 4,
+              title: "Sunrise Strategy Lab",
             },
             {
               id: "2025-10-30-private-1130",
@@ -535,6 +547,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 3,
+              title: "Junior Power Hour",
             },
             {
               id: "2025-11-01-private-1030",
@@ -551,6 +564,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 2,
+              title: "Weekend Match Mixer",
             },
           ],
         },
@@ -576,6 +590,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 2,
+              title: "Lunch Break Live Ball",
             },
             {
               id: "2025-11-03-private-1830",
@@ -601,6 +616,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 4,
+              title: "Footwork Foundations",
             },
             {
               id: "2025-11-04-private-1400",
@@ -617,6 +633,7 @@ export const mockCoachProfiles: CoachProfile[] = [
               duration: "75 min",
               price: "$55",
               spotsRemaining: 3,
+              title: "Evening Point Play Lab",
             },
           ],
         },
