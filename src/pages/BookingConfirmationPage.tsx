@@ -1,11 +1,53 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CalendarDays, CheckCircle2, Clock, MapPin, Star } from "lucide-react";
+import {
+  Apple,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  MapPin,
+  Package,
+  ShieldCheck,
+  Star,
+  Wallet,
+} from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { findCoachProfile } from "../data/mockCoachProfiles";
 
 import "./BookingConfirmationPage.css";
+
+type SavedCard = {
+  id: string;
+  brand: string;
+  last4: string;
+  expiry: string;
+  nickname?: string;
+  isDefault?: boolean;
+};
+
+const savedPaymentMethods: SavedCard[] = [
+  { id: "card-personal", brand: "Visa", last4: "4242", expiry: "04/26", nickname: "Personal", isDefault: true },
+  { id: "card-club", brand: "Mastercard", last4: "1188", expiry: "11/25", nickname: "Club expenses" },
+];
+
+const lessonCreditWallet = {
+  id: "lesson-credits",
+  label: "Adult 60-min private lesson credits",
+  balance: 2,
+  creditValue: "$85 value per credit",
+  expiresLabel: "2 credits expire May 31",
+};
+
+type NewCardFormState = {
+  name: string;
+  number: string;
+  expiry: string;
+  cvc: string;
+  postalCode: string;
+};
 
 type LocationState = {
   coachId?: number;
@@ -112,6 +154,14 @@ const BookingConfirmationPage = () => {
   const state = location.state as LocationState | undefined;
   const searchParams = new URLSearchParams(location.search);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string>(savedPaymentMethods[0]?.id ?? "apple-pay");
+  const [newCardForm, setNewCardForm] = useState<NewCardFormState>({
+    name: "",
+    number: "",
+    expiry: "",
+    cvc: "",
+    postalCode: "",
+  });
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -160,12 +210,263 @@ const BookingConfirmationPage = () => {
     ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
-  const priceLabel = isGroupLesson ? "Total due today" : "Total due now";
-  const priceCaption = isGroupLesson ? "Charged immediately to hold your spot." : "Charged only after the coach approves.";
-  const confirmButtonLabel = isGroupLesson ? "Confirm lesson" : "Submit booking request";
-  const disclaimerCopy = isGroupLesson
-    ? "Your lesson is confirmed instantly when spots are available."
-    : "You won’t be charged until the coach confirms.";
+  const selectedSavedCard = savedPaymentMethods.find((card) => card.id === paymentMethod);
+  const canUseCredits = lessonCreditWallet.balance > 0;
+  const isUsingCredits = paymentMethod === "credits";
+  const isUsingApplePay = paymentMethod === "apple-pay";
+  const isUsingNewCard = paymentMethod === "new-card";
+
+  const remainingCredits = Math.max(lessonCreditWallet.balance - 1, 0);
+  const remainingCreditsLabel = remainingCredits === 0 ? "no credits" : `${remainingCredits} credit${remainingCredits === 1 ? "" : "s"}`;
+
+  const priceLabel = isUsingCredits
+    ? "Credit to apply"
+    : isGroupLesson
+      ? "Total due today"
+      : "Total due now";
+
+  const priceValue = isUsingCredits
+    ? `1 lesson credit${lessonCreditWallet.creditValue ? ` (${lessonCreditWallet.creditValue})` : ""}`
+    : selectedSlot?.price ?? "--";
+
+  const priceCaption = (() => {
+    if (isUsingCredits) {
+      const expiresMessage = lessonCreditWallet.expiresLabel ? ` ${lessonCreditWallet.expiresLabel}.` : "";
+      return `We'll deduct 1 credit from your balance. You'll have ${remainingCreditsLabel} remaining.${expiresMessage}`;
+    }
+    if (isUsingApplePay) {
+      return isGroupLesson
+        ? "Charged instantly via Apple Pay."
+        : "Apple Pay will only be charged after the coach approves.";
+    }
+    if (isUsingNewCard) {
+      return isGroupLesson
+        ? "Charged immediately once the card is saved."
+        : "We'll only charge this card after the coach approves.";
+    }
+    if (selectedSavedCard) {
+      const cardLabel = `${selectedSavedCard.brand} •••• ${selectedSavedCard.last4}`;
+      return isGroupLesson
+        ? `Charged immediately to ${cardLabel}.`
+        : `We'll place a hold and charge ${cardLabel} after approval.`;
+    }
+    return isGroupLesson ? "Charged immediately to hold your spot." : "Charged only after the coach approves.";
+  })();
+
+  const confirmButtonLabel = (() => {
+    if (isUsingCredits) {
+      return isGroupLesson ? "Confirm with credits" : "Request with credits";
+    }
+    if (isUsingApplePay) {
+      return isGroupLesson ? "Confirm with Apple Pay" : "Request with Apple Pay";
+    }
+    if (isUsingNewCard) {
+      return isGroupLesson ? "Confirm with new card" : "Request with new card";
+    }
+    return isGroupLesson ? "Confirm with saved card" : "Request with saved card";
+  })();
+
+  const disclaimerCopy = (() => {
+    if (isUsingCredits) {
+      return isGroupLesson
+        ? "Credit is deducted immediately to secure your spot."
+        : "We reserve the credit but only deduct it after coach approval.";
+    }
+    return isGroupLesson
+      ? "Your lesson is confirmed instantly when spots are available."
+      : "You won’t be charged until the coach confirms.";
+  })();
+
+  const isNewCardValid = useMemo(() => {
+    if (!isUsingNewCard) {
+      return true;
+    }
+    const trimmedNumber = newCardForm.number.replace(/\s+/g, "");
+    return (
+      newCardForm.name.trim().length > 1 &&
+      trimmedNumber.length >= 15 &&
+      newCardForm.expiry.trim().length >= 4 &&
+      newCardForm.cvc.trim().length >= 3 &&
+      newCardForm.postalCode.trim().length >= 3
+    );
+  }, [isUsingNewCard, newCardForm]);
+
+  const isConfirmDisabled = isConfirmed || !isNewCardValid || (isUsingCredits && !canUseCredits);
+
+  const savedCardsSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Saved cards</span>
+      <div className="payment-methods__stack">
+        {savedPaymentMethods.map((card) => {
+          const isSelected = paymentMethod === card.id;
+          return (
+            <label key={card.id} className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}>
+              <input
+                type="radio"
+                name="payment-method"
+                value={card.id}
+                checked={isSelected}
+                onChange={() => setPaymentMethod(card.id)}
+              />
+              <span className="payment-method-card__selector" aria-hidden />
+              <span className="payment-method-card__icon">
+                <CreditCard aria-hidden size={18} />
+              </span>
+              <span className="payment-method-card__body">
+                <span className="payment-method-card__title">{card.brand} ending in {card.last4}</span>
+                <span className="payment-method-card__subtitle">
+                  Expires {card.expiry}
+                  {card.nickname ? ` • ${card.nickname}` : ""}
+                </span>
+              </span>
+              {card.isDefault ? <span className="payment-method-card__tag">Default</span> : null}
+            </label>
+          );
+        })}
+
+        <label className={`payment-method-card payment-method-card--new${isUsingNewCard ? " payment-method-card--selected" : ""}`}>
+          <input
+            type="radio"
+            name="payment-method"
+            value="new-card"
+            checked={isUsingNewCard}
+            onChange={() => setPaymentMethod("new-card")}
+          />
+          <span className="payment-method-card__selector" aria-hidden />
+          <span className="payment-method-card__icon">
+            <CreditCard aria-hidden size={18} />
+          </span>
+          <span className="payment-method-card__body">
+            <span className="payment-method-card__title">Add a new credit card</span>
+            <span className="payment-method-card__subtitle">Securely save it for future lessons.</span>
+          </span>
+        </label>
+
+        {isUsingNewCard ? (
+          <div className="payment-method-card__form" role="group" aria-label="New card details">
+            <div className="payment-method-card__form-row">
+              <label className="payment-method-card__form-field">
+                <span>Cardholder name</span>
+                <input
+                  type="text"
+                  value={newCardForm.name}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Name on card"
+                />
+              </label>
+            </div>
+            <div className="payment-method-card__form-row payment-method-card__form-row--split">
+              <label className="payment-method-card__form-field">
+                <span>Card number</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.number}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, number: event.target.value }))}
+                  placeholder="1234 1234 1234 1234"
+                />
+              </label>
+            </div>
+            <div className="payment-method-card__form-row payment-method-card__form-row--grid">
+              <label className="payment-method-card__form-field">
+                <span>Expiration</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.expiry}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, expiry: event.target.value }))}
+                  placeholder="MM/YY"
+                />
+              </label>
+              <label className="payment-method-card__form-field">
+                <span>CVC</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={newCardForm.cvc}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, cvc: event.target.value }))}
+                  placeholder="123"
+                />
+              </label>
+              <label className="payment-method-card__form-field">
+                <span>ZIP code</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={newCardForm.postalCode}
+                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, postalCode: event.target.value }))}
+                  placeholder="12345"
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const digitalWalletSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Digital wallet</span>
+      <label className={`payment-method-card payment-method-card--wallet${isUsingApplePay ? " payment-method-card--selected" : ""}`}>
+        <input
+          type="radio"
+          name="payment-method"
+          value="apple-pay"
+          checked={isUsingApplePay}
+          onChange={() => setPaymentMethod("apple-pay")}
+        />
+        <span className="payment-method-card__selector" aria-hidden />
+        <span className="payment-method-card__icon">
+          <Apple aria-hidden size={18} />
+        </span>
+        <span className="payment-method-card__body">
+          <span className="payment-method-card__title">Apple Pay</span>
+          <span className="payment-method-card__subtitle">Pay instantly with your saved wallet.</span>
+        </span>
+      </label>
+    </div>
+  );
+
+  const lessonCreditsSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Lesson credits</span>
+      <label
+        className={`payment-method-card payment-method-card--credits${
+          isUsingCredits ? " payment-method-card--selected" : ""
+        }${canUseCredits ? "" : " payment-method-card--disabled"}`}
+      >
+        <input
+          type="radio"
+          name="payment-method"
+          value="credits"
+          checked={isUsingCredits}
+          onChange={() => setPaymentMethod("credits")}
+          disabled={!canUseCredits}
+        />
+        <span className="payment-method-card__selector" aria-hidden />
+        <span className="payment-method-card__icon">
+          <Wallet aria-hidden size={18} />
+        </span>
+        <span className="payment-method-card__body">
+          <span className="payment-method-card__title">Use lesson credits</span>
+          <span className="payment-method-card__subtitle">
+            {canUseCredits
+              ? `${lessonCreditWallet.balance} credit${lessonCreditWallet.balance === 1 ? "" : "s"} available • ${lessonCreditWallet.label}`
+              : "No credits available for this lesson type."}
+          </span>
+        </span>
+        {lessonCreditWallet.expiresLabel && canUseCredits ? (
+          <span className="payment-method-card__tag payment-method-card__tag--success">{lessonCreditWallet.expiresLabel}</span>
+        ) : null}
+      </label>
+      {isUsingCredits ? (
+        <div className="payment-methods__credits-note">
+          Applying one credit will cover this lesson. You'll have {remainingCreditsLabel} after booking.
+        </div>
+      ) : null}
+    </div>
+  );
 
   const nextStepsItems = isGroupLesson
     ? [
@@ -270,38 +571,73 @@ const BookingConfirmationPage = () => {
                 </div>
 
                 {locationLabel ? (
-                  <div className="booking-confirmation__detail">
-                    <MapPin aria-hidden size={20} />
-                    <div className="booking-confirmation__detail-copy">
-                      <span className="booking-confirmation__detail-label">Location</span>
-                      <span className="booking-confirmation__detail-primary">{locationLabel}</span>
-                      {spotsLabel ? (
-                        <span className="booking-confirmation__detail-secondary">{spotsLabel}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="booking-confirmation__price">
-                <div>
-                  <span className="booking-confirmation__price-label">{priceLabel}</span>
-                  <span className="booking-confirmation__price-value">{selectedSlot.price}</span>
+              <div className="booking-confirmation__detail">
+                <MapPin aria-hidden size={20} />
+                <div className="booking-confirmation__detail-copy">
+                  <span className="booking-confirmation__detail-label">Location</span>
+                  <span className="booking-confirmation__detail-primary">{locationLabel}</span>
+                  {spotsLabel ? (
+                    <span className="booking-confirmation__detail-secondary">{spotsLabel}</span>
+                  ) : null}
                 </div>
-                <span className="booking-confirmation__price-caption">{priceCaption}</span>
               </div>
+            ) : null}
+          </div>
 
-              <div className="booking-confirmation__actions">
+          <div className="booking-confirmation__price">
+            <div>
+              <span className="booking-confirmation__price-label">{priceLabel}</span>
+              <span className="booking-confirmation__price-value">{priceValue}</span>
+            </div>
+            <span className="booking-confirmation__price-caption">{priceCaption}</span>
+          </div>
+
+          <div className="booking-confirmation__payment">
+            <div className="booking-confirmation__payment-header">
+              <div>
+                <h3>Payment method</h3>
+                <p>Choose how you’d like to take care of this lesson.</p>
+              </div>
+              <span className="booking-confirmation__payment-secure">
+                <ShieldCheck aria-hidden size={16} /> Secure checkout
+              </span>
+            </div>
+
+            <div className="payment-methods">
+              {canUseCredits ? lessonCreditsSection : null}
+              {savedCardsSection}
+              {digitalWalletSection}
+              {!canUseCredits ? lessonCreditsSection : null}
+              <div className="payment-packages-banner">
+                <span className="payment-packages-banner__icon">
+                  <Package aria-hidden size={20} />
+                </span>
+                <div className="payment-packages-banner__body">
+                  <h4>Need more credits?</h4>
+                  <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
+                </div>
                 <button
                   type="button"
-                  className="fc-button fc-button--primary booking-confirmation__confirm"
-                  onClick={() => setIsConfirmed(true)}
-                  disabled={isConfirmed}
+                  className="payment-packages-banner__action"
+                  onClick={() => navigate("/find-coaches")}
                 >
-                  {confirmButtonLabel}
-                  <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
+                  Browse packages
                 </button>
-                <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="booking-confirmation__actions">
+            <button
+              type="button"
+              className="fc-button fc-button--primary booking-confirmation__confirm"
+              onClick={() => setIsConfirmed(true)}
+              disabled={isConfirmDisabled}
+            >
+              {confirmButtonLabel}
+              <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
+            </button>
+            <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed ? (
                   <div
                     className={`booking-confirmation__status ${
