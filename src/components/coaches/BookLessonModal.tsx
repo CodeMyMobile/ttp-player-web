@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock3, MapPin, Star, X } from "lucide-react";
+import { CalendarDays, MapPin, Star, X } from "lucide-react";
 
 import type { Coach } from "../../data/mockCoaches";
 import { findCoachProfile, type CoachProfile } from "../../data/mockCoachProfiles";
@@ -464,47 +464,50 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         <footer className="book-lesson-modal__footer">
           <div className="book-lesson-modal__selection" aria-live="polite">
             {selectedSlotInfo ? (
-              <>
-                <span className="book-lesson-modal__selection-label">Selected lesson</span>
-                <div className="book-lesson-modal__selection-details">
-                  <span className="book-lesson-modal__selection-pill">
-                    <CalendarDays size={16} aria-hidden />
-                    <span>
-                      {selectedSlotInfo.dayName}
-                      <span className="book-lesson-modal__selection-sub"> · {selectedSlotInfo.dateLabel}</span>
-                    </span>
-                  </span>
-                  <span className="book-lesson-modal__selection-pill">
-                    <Clock3 size={16} aria-hidden />
-                    <span>
-                      {selectedSlotInfo.timeRange}
-                      <span className="book-lesson-modal__selection-sub"> · {selectedSlotInfo.lessonLabel}</span>
-                    </span>
-                  </span>
-                  {selectedSlotInfo.locationLabel ? (
-                    <span className="book-lesson-modal__selection-pill">
-                      <MapPin size={16} aria-hidden />
-                      <span>{selectedSlotInfo.locationLabel}</span>
-                    </span>
-                  ) : null}
-                  <span className="book-lesson-modal__selection-pill book-lesson-modal__selection-pill--price">
-                    {selectedSlotInfo.price}
-                  </span>
+              <div className="book-lesson-modal__selection-card">
+                <div className="book-lesson-modal__selection-header">
+                  <span className="book-lesson-modal__selection-label">Your selection</span>
+                  <span className="book-lesson-modal__selection-price">{selectedSlotInfo.price}</span>
                 </div>
-              </>
+                <div className="book-lesson-modal__selection-row">
+                  <CalendarDays size={18} aria-hidden />
+                  <div className="book-lesson-modal__selection-copy">
+                    <span className="book-lesson-modal__selection-primary">
+                      {selectedSlotInfo.dayName}, {selectedSlotInfo.dateLabel}
+                    </span>
+                    <span className="book-lesson-modal__selection-secondary">
+                      {selectedSlotInfo.timeRange} · {selectedSlotInfo.lessonLabel}
+                    </span>
+                  </div>
+                </div>
+                {selectedSlotInfo.locationLabel ? (
+                  <div className="book-lesson-modal__selection-row">
+                    <MapPin size={18} aria-hidden />
+                    <div className="book-lesson-modal__selection-copy">
+                      <span className="book-lesson-modal__selection-primary">
+                        {selectedSlotInfo.locationLabel}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <span className="book-lesson-modal__selection-placeholder">
-                Choose a time slot to review the details before confirming.
-              </span>
+              <div className="book-lesson-modal__selection-placeholder">
+                <span>Pick a day and time to review the lesson details before you confirm.</span>
+              </div>
             )}
           </div>
           <div className="book-lesson-modal__actions">
-            <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
-              Cancel
+            <button
+              type="button"
+              className="fc-button fc-button--primary book-lesson-modal__confirm"
+              disabled={!selectedSlotInfo}
+            >
+              {selectedSlotInfo ? `Confirm booking - ${selectedSlotInfo.price}` : "Confirm booking"}
             </button>
-            <button type="button" className="fc-button fc-button--primary" disabled={!selectedSlotInfo}>
-              Confirm booking request
-            </button>
+            <span className="book-lesson-modal__disclaimer">
+              You won't be charged until the coach confirms
+            </span>
           </div>
         </footer>
       </div>
