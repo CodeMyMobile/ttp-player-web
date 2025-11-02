@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock, MapPin, Star } from "lucide-react";
 
@@ -111,6 +111,7 @@ const BookingConfirmationPage = () => {
 
   const state = location.state as LocationState | undefined;
   const searchParams = new URLSearchParams(location.search);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -134,6 +135,10 @@ const BookingConfirmationPage = () => {
   const timeRange = selectedSlot ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration) : undefined;
   const locationLabel = profile?.location ?? profile?.coachingLocations[0];
   const isGroupLesson = selectedSlot?.lessonType === "group";
+  const coachFirstName = profile?.name?.split(" ")[0] ?? profile?.name ?? "";
+  const lessonDateLabel = selectedDate
+    ? `${dayNameMap[selectedDate.day] ?? selectedDate.day}, ${selectedDate.label}`
+    : undefined;
 
   const capacity = isGroupLesson ? extractPlayerCapacity(lessonDetails?.duration) : undefined;
   const spotsLabel = useMemo(() => {
@@ -150,6 +155,39 @@ const BookingConfirmationPage = () => {
   }, [capacity, isGroupLesson, selectedSlot]);
 
   const lessonLabel = lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
+
+  const headlineSubtitle = isGroupLesson
+    ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
+    : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
+
+  const priceLabel = isGroupLesson ? "Total due today" : "Total due now";
+  const priceCaption = isGroupLesson ? "Charged immediately to hold your spot." : "Charged only after the coach approves.";
+  const confirmButtonLabel = isGroupLesson ? "Confirm lesson" : "Submit booking request";
+  const disclaimerCopy = isGroupLesson
+    ? "Your lesson is confirmed instantly when spots are available."
+    : "You won’t be charged until the coach confirms.";
+
+  const nextStepsItems = isGroupLesson
+    ? [
+        "Your spot is reserved immediately as long as space remains.",
+        "We'll email your receipt and lesson details right away.",
+        "Manage your booking or make changes from your dashboard.",
+      ]
+    : [
+        `Your request is sent directly to ${coachFirstName} for review.`,
+        "You'll receive an email as soon as the coach confirms.",
+        `Once approved, your booking is confirmed and payment is processed.`,
+      ];
+
+  const confirmationStatus = isGroupLesson
+    ? {
+        title: "Lesson confirmed!",
+        copy: `You're all set for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
+      }
+    : {
+        title: "Booking request sent!",
+        copy: `We've notified ${coachFirstName}. You'll hear from us as soon as they confirm—your payment will only process after approval.`,
+      };
 
   const shouldShowEmptyState = !profile || !selectedDate || !selectedSlot;
 
@@ -191,9 +229,7 @@ const BookingConfirmationPage = () => {
             <div className="booking-confirmation__headline">
               <span className="booking-confirmation__eyebrow">Review & confirm</span>
               <h1 className="booking-confirmation__title">Confirm your lesson with {profile.name}</h1>
-              <p className="booking-confirmation__subtitle">
-                Lock in your preferred time. We’ll notify {profile.name.split(" ")[0]} once you submit the request.
-              </p>
+              <p className="booking-confirmation__subtitle">{headlineSubtitle}</p>
             </div>
           </header>
 
@@ -249,22 +285,42 @@ const BookingConfirmationPage = () => {
 
               <div className="booking-confirmation__price">
                 <div>
-                  <span className="booking-confirmation__price-label">Total due now</span>
+                  <span className="booking-confirmation__price-label">{priceLabel}</span>
                   <span className="booking-confirmation__price-value">{selectedSlot.price}</span>
                 </div>
-                <span className="booking-confirmation__price-caption">Charged only after the coach approves</span>
+                <span className="booking-confirmation__price-caption">{priceCaption}</span>
               </div>
 
               <div className="booking-confirmation__actions">
                 <button
                   type="button"
                   className="fc-button fc-button--primary booking-confirmation__confirm"
-                  onClick={() => navigate("/")}
+                  onClick={() => setIsConfirmed(true)}
+                  disabled={isConfirmed}
                 >
-                  Submit booking request
+                  {confirmButtonLabel}
                   <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
                 </button>
-                <span className="booking-confirmation__disclaimer">You won’t be charged until the coach confirms.</span>
+                <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
+                {isConfirmed ? (
+                  <div
+                    className={`booking-confirmation__status ${
+                      isGroupLesson ? "booking-confirmation__status--success" : "booking-confirmation__status--pending"
+                    }`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <h3>{confirmationStatus.title}</h3>
+                    <p>{confirmationStatus.copy}</p>
+                    <button
+                      type="button"
+                      className="booking-confirmation__status-action"
+                      onClick={() => navigate("/")}
+                    >
+                      Go to dashboard
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -272,9 +328,9 @@ const BookingConfirmationPage = () => {
               <div className="booking-confirmation__aside-card">
                 <h3>What happens next</h3>
                 <ul>
-                  <li>Your request is sent directly to {profile.name.split(" ")[0]} for review.</li>
-                  <li>You’ll receive an email as soon as the coach confirms.</li>
-                  <li>Reschedule or cancel without penalty up to 24 hours in advance.</li>
+                  {nextStepsItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
               <div className="booking-confirmation__aside-card booking-confirmation__aside-card--muted">
