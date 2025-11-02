@@ -278,10 +278,10 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
 
         <div className="book-lesson-modal__body">
           {profile ? (
-            <>
-              <div className="book-lesson-modal__controls">
-                <div className="book-lesson-modal__section">
-                  <span className="book-lesson-modal__label">Select day</span>
+            <div className="book-lesson-modal__booking-surface">
+              <div className="coach-booking__controls book-lesson-modal__controls">
+                <div className="coach-booking__section">
+                  <span className="coach-booking__label">Select day</span>
                   <div className="coach-booking__day-grid">
                     <button
                       type="button"
@@ -311,8 +311,8 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                     })}
                   </div>
                 </div>
-                <div className="book-lesson-modal__section">
-                  <span className="book-lesson-modal__label">Lesson type</span>
+                <div className="coach-booking__section">
+                  <span className="coach-booking__label">Lesson type</span>
                   <div className="coach-booking__lesson-toggle">
                     {[
                       { id: "all" as LessonFilter, label: "All lessons" },
@@ -337,7 +337,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                 </div>
               </div>
 
-              <div className="book-lesson-modal__schedule">
+              <div className="coach-booking__schedule book-lesson-modal__schedule">
                 {hasAnySlots ? (
                   <div className="coach-booking__days">
                     {filteredDates.map((date) => {
@@ -363,7 +363,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                     })}
                   </div>
                 ) : (
-                  <div className="book-lesson-modal__empty">
+                  <div className="coach-booking-day__empty">
                     {selection.lessonType === "group" ? (
                       <p>No group sessions are available for the selected day.</p>
                     ) : selection.lessonType === "private" ? (
@@ -374,7 +374,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           ) : (
             <div className="book-lesson-modal__loading" aria-busy="true">
               <div className="book-lesson-modal__spinner" />
