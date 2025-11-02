@@ -160,12 +160,12 @@
 }
 
 .book-lesson-modal__body {
-  padding: 24px 32px 0;
+  padding: 20px 32px 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 24px;
+  gap: 20px;
   min-height: 0;
 }
 
@@ -173,12 +173,12 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 24px;
+  gap: 20px;
   border-radius: 28px;
   border: 1px solid var(--profile-booking-border);
   background: var(--profile-booking-surface);
   box-shadow: var(--profile-booking-shadow);
-  padding: 28px 24px;
+  padding: 24px 22px;
   min-height: 0;
 }
 
