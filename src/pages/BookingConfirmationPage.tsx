@@ -11,11 +11,12 @@ import {
   Package,
   ShieldCheck,
   Star,
+  Users,
   Wallet,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { findCoachProfile } from "../data/mockCoachProfiles";
+import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 
 import "./BookingConfirmationPage.css";
 
@@ -203,6 +204,61 @@ const BookingConfirmationPage = () => {
 
     return `${remaining} spot${remaining === 1 ? "" : "s"} available`;
   }, [capacity, isGroupLesson, selectedSlot]);
+
+  const participants = useMemo<GroupParticipant[]>(() => {
+    if (!isGroupLesson) {
+      return [];
+    }
+
+    return selectedSlot?.participants ?? [];
+  }, [isGroupLesson, selectedSlot]);
+
+  const participantCount = participants.length;
+  const openSpots = useMemo(() => {
+    if (!isGroupLesson) {
+      return 0;
+    }
+
+    if (capacity != null) {
+      return Math.max(capacity - participantCount, 0);
+    }
+
+    return Math.max(selectedSlot?.spotsRemaining ?? 0, 0);
+  }, [capacity, isGroupLesson, participantCount, selectedSlot]);
+
+  const rosterCaption = useMemo(() => {
+    if (!isGroupLesson) {
+      return undefined;
+    }
+
+    if (capacity != null) {
+      const base = `${participantCount}/${capacity} players confirmed`;
+      if (openSpots === 0) {
+        return `${base} • Full`;
+      }
+      return `${base} • ${openSpots} spot${openSpots === 1 ? "" : "s"} open`;
+    }
+
+    if (participantCount === 0) {
+      return openSpots > 0
+        ? `${openSpots} spot${openSpots === 1 ? "" : "s"} open`
+        : "No spots currently available";
+    }
+
+    const base = `${participantCount} player${participantCount === 1 ? "" : "s"} confirmed`;
+    return openSpots > 0 ? `${base} • ${openSpots} spot${openSpots === 1 ? "" : "s"} open` : base;
+  }, [capacity, isGroupLesson, openSpots, participantCount]);
+
+  const getInitials = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return "";
+    }
+    const parts = trimmed.split(/\s+/).slice(0, 2);
+    return parts
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("");
+  };
 
   const lessonLabel = lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
 
@@ -580,6 +636,60 @@ const BookingConfirmationPage = () => {
                     <span className="booking-confirmation__detail-secondary">{spotsLabel}</span>
                   ) : null}
                 </div>
+              </div>
+            ) : null}
+
+            {isGroupLesson ? (
+              <div className="booking-confirmation__group-roster">
+                <div className="booking-confirmation__group-roster-header">
+                  <span className="booking-confirmation__group-roster-icon" aria-hidden>
+                    <Users size={18} />
+                  </span>
+                  <div className="booking-confirmation__group-roster-heading">
+                    <span className="booking-confirmation__group-roster-label">Who's already in</span>
+                    {rosterCaption ? (
+                      <span className="booking-confirmation__group-roster-caption">{rosterCaption}</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {participantCount > 0 ? (
+                  <ul className="booking-confirmation__group-roster-list">
+                    {participants.map((participant) => (
+                      <li key={participant.id} className="booking-confirmation__group-roster-item">
+                        <span className="booking-confirmation__group-roster-avatar" aria-hidden>
+                          {participant.avatarUrl ? (
+                            <img src={participant.avatarUrl} alt="" />
+                          ) : (
+                            getInitials(participant.name)
+                          )}
+                        </span>
+                        <div className="booking-confirmation__group-roster-body">
+                          <span className="booking-confirmation__group-roster-name">{participant.name}</span>
+                          <span className="booking-confirmation__group-roster-meta">
+                            {participant.skillLevel ?? "Skill level pending"}
+                            {participant.focusArea ? ` • ${participant.focusArea}` : ""}
+                          </span>
+                          {participant.joinedLabel ? (
+                            <span className="booking-confirmation__group-roster-joined">{participant.joinedLabel}</span>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="booking-confirmation__group-roster-empty">
+                    <p>
+                      You're first in line for this session. Invite a friend or grab a spot before they're gone!
+                    </p>
+                  </div>
+                )}
+
+                {openSpots > 0 ? (
+                  <div className="booking-confirmation__group-roster-footer">
+                    +{openSpots} spot{openSpots === 1 ? "" : "s"} open
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
