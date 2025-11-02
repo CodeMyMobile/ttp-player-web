@@ -1,0 +1,249 @@
+.book-lesson-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.book-lesson-modal-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 18, 30, 0.5);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.book-lesson-modal {
+  position: relative;
+  max-width: 880px;
+  width: min(880px, 100%);
+  max-height: min(90vh, 920px);
+  background: var(--fc-color-surface, #ffffff);
+  color: var(--fc-color-text-primary, #111827);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(12, 20, 33, 0.32);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.book-lesson-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 32px 0;
+}
+
+.book-lesson-modal__identity {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.book-lesson-modal__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.book-lesson-modal__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.book-lesson-modal__eyebrow {
+  font-size: 0.85rem;
+  color: var(--fc-color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.book-lesson-modal__title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: inherit;
+}
+
+.book-lesson-modal__stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--fc-color-text-secondary, #4b5563);
+  font-size: 0.95rem;
+}
+
+.book-lesson-modal__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.book-lesson-modal__rating-count {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--fc-color-text-muted, #6b7280);
+}
+
+.book-lesson-modal__separator {
+  width: 1px;
+  height: 16px;
+  background: var(--fc-color-border, rgba(148, 163, 184, 0.4));
+  display: inline-flex;
+}
+
+.book-lesson-modal__price {
+  font-weight: 600;
+  color: var(--fc-color-text-primary, #111827);
+}
+
+.book-lesson-modal__price-unit {
+  color: var(--fc-color-text-muted, #6b7280);
+  margin-left: 2px;
+}
+
+.book-lesson-modal__close {
+  border: none;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--fc-color-icon, #1f2937);
+  border-radius: 999px;
+  padding: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.book-lesson-modal__close:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.book-lesson-modal__body {
+  padding: 24px 32px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.book-lesson-modal__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.book-lesson-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.book-lesson-modal__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--fc-color-text-secondary, #4b5563);
+}
+
+.book-lesson-modal__schedule {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 12px;
+}
+
+.book-lesson-modal__schedule::-webkit-scrollbar {
+  width: 8px;
+}
+
+.book-lesson-modal__schedule::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+.book-lesson-modal__empty {
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 16px;
+  padding: 48px 32px;
+  text-align: center;
+  color: var(--fc-color-text-secondary, #4b5563);
+  font-size: 0.95rem;
+}
+
+.book-lesson-modal__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 96px 0;
+  color: var(--fc-color-text-secondary, #4b5563);
+}
+
+.book-lesson-modal__spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 3px solid rgba(148, 163, 184, 0.25);
+  border-top-color: var(--fc-color-accent, #7f56d9);
+  animation: book-lesson-modal-spin 1s linear infinite;
+}
+
+@keyframes book-lesson-modal-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.book-lesson-modal__footer {
+  margin-top: auto;
+  padding: 24px 32px 32px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0) 0%,
+    rgba(248, 250, 252, 0.85) 35%,
+    rgba(248, 250, 252, 1) 100%
+  );
+}
+
+.book-lesson-modal__footer .fc-button {
+  min-width: 180px;
+}
+
+@media (max-width: 720px) {
+  .book-lesson-modal {
+    border-radius: 18px;
+  }
+
+  .book-lesson-modal__header,
+  .book-lesson-modal__body,
+  .book-lesson-modal__footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .book-lesson-modal__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .book-lesson-modal__schedule {
+    max-height: 360px;
+  }
+}
