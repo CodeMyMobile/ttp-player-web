@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
   CalendarDays,
   CheckCircle2,
-  Clock3,
-  DollarSign,
   MapPin,
   MessageCircle,
   Sparkles,
@@ -23,13 +21,6 @@ const highlightIconMap = {
   users: Users,
   trophy: Award,
   spark: Sparkles,
-};
-
-const metricIconMap = {
-  dollar: DollarSign,
-  users: Users,
-  clock: Clock3,
-  map: MapPin,
 };
 
 const dayNameMap: Record<string, string> = {
@@ -85,21 +76,20 @@ const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel
 
 const CoachProfilePage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { loading, profile } = useCoachProfile(id);
   const [selection, setSelection] = useState<BookingSelections>(() => ({
-    lessonType: "",
+    lessonType: "all",
   }));
 
   useEffect(() => {
     if (!loading && profile) {
       const defaultLessonType = profile.booking.defaultLessonType;
       const initialDate = profile.booking.availableDates[0];
-      const initialSlot = initialDate?.slots.find(
-        (slot) => slot.lessonType === defaultLessonType,
-      );
+      const initialSlot =
+        initialDate?.slots.find((slot) => slot.lessonType === defaultLessonType) ??
+        initialDate?.slots[0];
       setSelection({
-        lessonType: defaultLessonType,
+        lessonType: "all",
         dateId: initialDate?.id,
         timeId: initialSlot?.id,
       });
@@ -118,9 +108,10 @@ const CoachProfilePage = () => {
 
     const activeDate =
       dates.find((item) => item.id === selection.dateId) ?? dates[0];
-    const slotsForLesson = activeDate.slots.filter(
-      (slot) => slot.lessonType === selection.lessonType,
-    );
+    const slotsForLesson =
+      selection.lessonType === "all"
+        ? activeDate.slots
+        : activeDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
 
     const desiredTimeId =
       slotsForLesson.length === 0
@@ -137,14 +128,6 @@ const CoachProfilePage = () => {
       }));
     }
   }, [profile, selection.dateId, selection.lessonType, selection.timeId]);
-
-  const lessonType = useMemo(() => {
-    if (!profile) {
-      return undefined;
-    }
-    return profile.booking.lessonTypes.find((item) => item.id === selection.lessonType) ??
-      profile.booking.lessonTypes.find((item) => item.id === profile.booking.defaultLessonType);
-  }, [profile, selection.lessonType]);
 
   const handleLessonTypeChange = (id: string) => {
     setSelection((prev) => ({
@@ -167,6 +150,12 @@ const CoachProfilePage = () => {
     }));
   };
 
+  const lessonFilters = [
+    { id: "all", label: "All", ariaLabel: "All lesson formats" },
+    { id: "private", label: "Privates", ariaLabel: "Private lessons" },
+    { id: "group", label: "Groups", ariaLabel: "Group sessions" },
+  ];
+
   const selectedDate = useMemo(() => {
     if (!profile) {
       return undefined;
@@ -178,7 +167,9 @@ const CoachProfilePage = () => {
     if (!selectedDate) {
       return [];
     }
-    return selectedDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
+    return selection.lessonType === "all"
+      ? selectedDate.slots
+      : selectedDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
   }, [selectedDate, selection.lessonType]);
 
   const selectedSlot = useMemo(
@@ -186,14 +177,27 @@ const CoachProfilePage = () => {
     [filteredSlots, selection.timeId],
   );
 
+  const activeLessonType = useMemo(() => {
+    if (!profile) {
+      return undefined;
+    }
+
+    const activeLessonId =
+      selection.lessonType === "all"
+        ? selectedSlot?.lessonType
+        : selection.lessonType;
+
+    if (!activeLessonId) {
+      return undefined;
+    }
+
+    return profile.booking.lessonTypes.find((item) => item.id === activeLessonId);
+  }, [profile, selectedSlot, selection.lessonType]);
+
   return (
     <MainLayout>
       <div className="coach-profile-page">
         <div className="coach-profile-page__inner">
-          <button type="button" onClick={() => navigate(-1)} className="coach-profile-back">
-            <ArrowLeft className="coach-profile-back__icon" strokeWidth={2.5} /> Back to Coaches
-          </button>
-
           {loading && (
             <div className="coach-profile-skeleton" aria-hidden="true">
               <div className="coach-profile-skeleton__body">
@@ -209,11 +213,6 @@ const CoachProfilePage = () => {
                         <div className="coach-profile-skeleton__chip" />
                       </div>
                     </div>
-                  </div>
-                  <div className="coach-profile-skeleton__metrics">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="coach-profile-skeleton__metric" />
-                    ))}
                   </div>
                   <div className="coach-profile-skeleton__paragraph">
                     <div className="coach-profile-skeleton__line" />
@@ -295,25 +294,6 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
 
-                  <div className="coach-profile-hero__metrics">
-                    {profile.metrics.map((metric) => {
-                      const Icon = metricIconMap[metric.icon];
-                      return (
-                        <div key={metric.label} className="coach-profile-metric">
-                          <div className="coach-profile-metric__label-row">
-                            <span className="coach-profile-metric__icon">
-                              <Icon strokeWidth={2.4} />
-                            </span>
-                            <span className="coach-profile-metric__label">{metric.label}</span>
-                          </div>
-                          <div className="coach-profile-metric__value-row">
-                            <span className="coach-profile-metric__value">{metric.value}</span>
-                            {metric.caption && <span className="coach-profile-metric__caption">{metric.caption}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               </section>
 
@@ -430,21 +410,18 @@ const CoachProfilePage = () => {
                       <div className="coach-booking__section">
                         <span className="coach-booking__label">Lesson type</span>
                         <div className="coach-booking__lesson-toggle">
-                          {profile.booking.lessonTypes.map((lesson) => {
-                            const active = selection.lessonType
-                              ? selection.lessonType === lesson.id
-                              : lesson.id === profile.booking.defaultLessonType;
+                          {lessonFilters.map((lesson) => {
+                            const active = selection.lessonType === lesson.id;
                             return (
                               <button
                                 key={lesson.id}
                                 type="button"
                                 aria-pressed={active}
-                                aria-label={`${lesson.label} – ${lesson.duration}`}
+                                aria-label={lesson.ariaLabel}
                                 onClick={() => handleLessonTypeChange(lesson.id)}
                                 className={`coach-booking__lesson-pill${active ? " coach-booking__lesson-pill--active" : ""}`}
                               >
-                                <span className="coach-booking__lesson-pill-name">{lesson.label}</span>
-                                <span className="coach-booking__lesson-pill-meta">{lesson.duration}</span>
+                                {lesson.label}
                               </button>
                             );
                           })}
@@ -452,35 +429,13 @@ const CoachProfilePage = () => {
                       </div>
                     </div>
 
-                    {lessonType && (
-                      <div className="coach-booking__lesson-details">
-                        <div className="coach-booking__lesson-summary">
-                          <div className="coach-booking__lesson-summary-text">
-                            <span className="coach-booking__lesson-summary-name">{lessonType.label}</span>
-                            <span className="coach-booking__lesson-summary-duration">{lessonType.duration}</span>
-                          </div>
-                          <div className="coach-booking__lesson-summary-price">
-                            <span className="coach-booking__lesson-summary-amount">{lessonType.price}</span>
-                            <span className="coach-booking__lesson-summary-unit">{lessonType.unit}</span>
-                          </div>
-                        </div>
-                        <p className="coach-booking__lesson-tagline">{lessonType.tagline}</p>
-                        <ul className="coach-booking__lesson-points">
-                          {lessonType.bullets.map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
                     <div className="coach-booking__schedule">
-                      <div className="coach-booking__schedule-header">
-                        <span className="coach-booking__label">Upcoming availability</span>
-                        <span className="coach-booking__month">{profile.booking.monthLabel}</span>
-                      </div>
                       <div className="coach-booking__days">
                         {profile.booking.availableDates.map((date) => {
-                          const slotsForType = date.slots.filter((slot) => slot.lessonType === selection.lessonType);
+                          const slotsForType =
+                            selection.lessonType === "all"
+                              ? date.slots
+                              : date.slots.filter((slot) => slot.lessonType === selection.lessonType);
                           if (!slotsForType.length) {
                             return null;
                           }
@@ -529,7 +484,7 @@ const CoachProfilePage = () => {
                     <div className="coach-booking__footer">
                       <BookButton
                         disabled={!selectedSlot}
-                        lessonLabel={lessonType ? lessonType.label : undefined}
+                        lessonLabel={activeLessonType ? activeLessonType.label : undefined}
                       />
                       <p className="coach-booking__note">{profile.booking.note}</p>
                       <button type="button" className="coach-profile-message">
