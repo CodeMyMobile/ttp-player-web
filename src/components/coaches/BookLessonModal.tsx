@@ -121,6 +121,9 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   });
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     let timer: number | undefined;
     timer = window.setTimeout(() => {
       const nextProfile = findCoachProfile(coach.id);
@@ -140,6 +143,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      document.body.style.overflow = previousOverflow;
       if (timer) {
         window.clearTimeout(timer);
       }
