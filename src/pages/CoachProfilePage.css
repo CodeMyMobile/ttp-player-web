@@ -40,12 +40,12 @@
   --profile-slot-private-pill-bg: #dbeafe;
   --profile-slot-private-pill-color: #1d4ed8;
   --profile-slot-private-spot: #1d4ed8;
-  --profile-slot-group-bg: linear-gradient(135deg, #fef4fb 0%, #ffffff 70%);
-  --profile-slot-group-bg-active: linear-gradient(135deg, #fee9f5 0%, #fff7fd 78%);
-  --profile-slot-group-border: rgba(236, 72, 153, 0.34);
-  --profile-slot-group-pill-bg: #fbcfe8;
-  --profile-slot-group-pill-color: #be185d;
-  --profile-slot-group-spot: #be185d;
+  --profile-slot-group-bg: linear-gradient(135deg, #f0f9ff 0%, #ffffff 70%);
+  --profile-slot-group-bg-active: linear-gradient(135deg, #e0f2fe 0%, #f8fbff 78%);
+  --profile-slot-group-border: rgba(14, 165, 233, 0.26);
+  --profile-slot-group-pill-bg: #bae6fd;
+  --profile-slot-group-pill-color: #0284c7;
+  --profile-slot-group-spot: #0369a1;
   color: var(--profile-heading);
   overflow-x: clip;
   overscroll-behavior-x: none;
@@ -1127,9 +1127,11 @@
 }
 
 .coach-booking-slot__group-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--coach-slot-pill-color, var(--profile-heading));
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--profile-heading);
 }
 
 .coach-booking-slot__location {

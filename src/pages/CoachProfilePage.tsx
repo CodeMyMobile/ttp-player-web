@@ -587,12 +587,16 @@ const CoachProfilePage = () => {
                                         <span className="coach-booking-slot__range">{timeRange}</span>
                                         <span className="coach-booking-slot__price">{slot.price}</span>
                                       </div>
-                                      {groupTitle ? (
-                                        <div className="coach-booking-slot__group-title">{groupTitle}</div>
-                                      ) : null}
                                       <div className="coach-booking-slot__details">
                                         <span className="coach-booking-slot__badge">{lessonLabel}</span>
-                                        <span className="coach-booking-slot__separator" aria-hidden />
+                                        {groupTitle ? (
+                                          <>
+                                            <span className="coach-booking-slot__group-title">{groupTitle}</span>
+                                            <span className="coach-booking-slot__separator" aria-hidden />
+                                          </>
+                                        ) : (
+                                          <span className="coach-booking-slot__separator" aria-hidden />
+                                        )}
                                         <span className="coach-booking-slot__duration">{slot.duration}</span>
                                         {spotsLabel ? (
                                           <>
