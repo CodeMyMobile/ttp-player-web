@@ -6,6 +6,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
+import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -86,6 +87,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CoachProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/booking/confirm"
+      element={(
+        <ProtectedRoute>
+          <BookingConfirmationPage />
         </ProtectedRoute>
       )}
     />

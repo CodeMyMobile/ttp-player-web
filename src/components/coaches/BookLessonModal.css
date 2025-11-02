@@ -24,6 +24,7 @@
   position: relative;
   max-width: 880px;
   width: min(880px, 100%);
+  height: min(90vh, 920px);
   max-height: min(90vh, 920px);
   --profile-surface: rgba(248, 250, 255, 0.92);
   --profile-surface-strong: rgba(244, 247, 255, 0.98);
@@ -159,22 +160,26 @@
 }
 
 .book-lesson-modal__body {
-  padding: 24px 32px 0;
+  padding: 20px 32px 28px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  flex: 1 1 auto;
+  gap: 20px;
+  min-height: 0;
 }
 
 .book-lesson-modal__booking-surface {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  flex: 1 1 auto;
+  gap: 20px;
   border-radius: 28px;
   border: 1px solid var(--profile-booking-border);
   background: var(--profile-booking-surface);
   box-shadow: var(--profile-booking-shadow);
-  padding: 32px 28px;
+  padding: 24px 22px;
+  min-height: 0;
 }
 
 .book-lesson-modal__controls {
@@ -182,10 +187,11 @@
 }
 
 .book-lesson-modal__schedule {
-  max-height: 420px;
+  flex: 1 1 auto;
   overflow: auto;
   padding-right: 12px;
-  padding-bottom: 24px;
+  padding-bottom: 16px;
+  min-height: 0;
 }
 
 .book-lesson-modal__schedule::-webkit-scrollbar {
@@ -225,42 +231,14 @@
   }
 }
 
-.book-lesson-modal__footer {
-  margin-top: auto;
-  padding: 24px 32px 32px;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  background: linear-gradient(
-    180deg,
-    rgba(248, 250, 252, 0) 0%,
-    rgba(248, 250, 252, 0.85) 35%,
-    rgba(248, 250, 252, 1) 100%
-  );
-}
-
-.book-lesson-modal__footer .fc-button {
-  min-width: 180px;
-}
-
 @media (max-width: 720px) {
   .book-lesson-modal {
     border-radius: 18px;
   }
 
   .book-lesson-modal__header,
-  .book-lesson-modal__body,
-  .book-lesson-modal__footer {
+  .book-lesson-modal__body {
     padding-left: 20px;
     padding-right: 20px;
-  }
-
-  .book-lesson-modal__controls {
-    grid-template-columns: 1fr;
-  }
-
-  .book-lesson-modal__schedule {
-    max-height: 360px;
   }
 }

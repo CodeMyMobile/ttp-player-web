@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapPin, Star, X } from "lucide-react";
 
 import type { Coach } from "../../data/mockCoaches";
@@ -119,6 +120,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     day: ALL_DAYS_ID,
     lessonType: "all",
   });
+  const navigate = useNavigate();
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -217,7 +219,17 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     const groupTitle = isGroupLesson ? slot.title : undefined;
 
     return (
-      <button key={`${dateId}-${slot.id}`} type="button" className={`coach-booking-slot coach-booking-slot--${slot.lessonType}`}>
+      <button
+        key={`${dateId}-${slot.id}`}
+        type="button"
+        className={`coach-booking-slot coach-booking-slot--${slot.lessonType}`}
+        onClick={() => {
+          navigate(`/booking/confirm?coach=${coach.id}&date=${dateId}&slot=${slot.id}`, {
+            state: { coachId: coach.id, dateId, slotId: slot.id },
+          });
+          onClose();
+        }}
+      >
         <div className="coach-booking-slot__header">
           <span className="coach-booking-slot__range">{timeRange}</span>
           <span className="coach-booking-slot__price">{slot.price}</span>
@@ -387,14 +399,6 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
           )}
         </div>
 
-        <footer className="book-lesson-modal__footer">
-          <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="fc-button fc-button--primary">
-            Confirm booking request
-          </button>
-        </footer>
       </div>
       <button type="button" className="book-lesson-modal-overlay__backdrop" aria-hidden="true" onClick={onClose} />
     </div>
