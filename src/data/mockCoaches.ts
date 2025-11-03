@@ -5,6 +5,17 @@ export type CoachHighlight = {
   label: string;
 };
 
+export type CoachLessonRates = {
+  private: string;
+  group: string;
+};
+
+export type CoachNextAvailableLesson = {
+  day: string;
+  time: string;
+  court: string;
+};
+
 export type Coach = {
   id: number;
   name: string;
@@ -16,6 +27,16 @@ export type Coach = {
   availabilityTag: string;
   featured?: boolean;
   summary: string;
+  bio: string;
+  yearsExperience: number;
+  certifications: string[];
+  courts: string[];
+  levels: string[];
+  specialties: string[];
+  lessonRates: CoachLessonRates;
+  languages: string[];
+  availability: string;
+  nextAvailableLesson: CoachNextAvailableLesson;
   highlights: CoachHighlight[];
   tags: string[];
   imageUrl: string;
@@ -33,10 +54,27 @@ export const mockCoaches: Coach[] = [
     availabilityTag: "Available",
     featured: true,
     summary: "Former WTA touring pro specializing in aggressive baseliners and match strategy.",
+    bio: "Maria competed on the WTA tour for six seasons before turning her focus to building all-around players. Her sessions combine advanced drilling with match-scenario problem solving and mental resilience training.",
+    yearsExperience: 12,
+    certifications: ["USPTA Elite", "USTA Safe Play", "ITF Coach Education"],
+    courts: ["Greenwich Tennis Center", "Harbor Indoor Courts"],
+    levels: ["Advanced", "High Performance Juniors", "College Prep"],
+    specialties: ["Aggressive baseliners", "Serve & return patterns", "Match strategy"],
+    lessonRates: {
+      private: "$85",
+      group: "$45",
+    },
+    languages: ["English", "Spanish"],
+    availability: "Weekday mornings & evenings",
+    nextAvailableLesson: {
+      day: "Tue, May 14",
+      time: "5:30 PM",
+      court: "Greenwich Tennis Center · Court 4",
+    },
     highlights: [
       { icon: "calendar", label: "Morning & Evening" },
-      { icon: "map", label: "Greenwich Tennis Center" },
-      { icon: "message", label: "Responds in 1 hour" },
+      { icon: "users", label: "High performance juniors" },
+      { icon: "spark", label: "Serve & return focus" },
     ],
     tags: ["Serve clinic", "Footwork", "Video review"],
     imageUrl:
@@ -53,10 +91,27 @@ export const mockCoaches: Coach[] = [
     availabilityTag: "Available",
     featured: false,
     summary: "Data-driven coach blending technical refinements with match analytics for rapid gains.",
+    bio: "David pairs high-frame-rate video review with detailed match charting to uncover the exact adjustments that unlock new levels of play. His calm, analytical coaching style resonates with athletes who enjoy measurable progress.",
+    yearsExperience: 9,
+    certifications: ["USPTA Certified", "ITF Coaching", "Safe Play"],
+    courts: ["Vista Courts", "North Ridge Tennis Park"],
+    levels: ["Intermediate", "Advanced", "Adult League"],
+    specialties: ["Topspin optimization", "Singles tactics", "Data-driven training"],
+    lessonRates: {
+      private: "$75",
+      group: "$40",
+    },
+    languages: ["English", "Korean"],
+    availability: "Late afternoon blocks Tue–Sat",
+    nextAvailableLesson: {
+      day: "Wed, May 15",
+      time: "4:00 PM",
+      court: "Vista Courts · Court 2",
+    },
     highlights: [
       { icon: "calendar", label: "Late afternoons" },
-      { icon: "map", label: "Vista Courts" },
-      { icon: "message", label: "Responds in 2 hours" },
+      { icon: "users", label: "Advanced singles" },
+      { icon: "spark", label: "Data-driven training" },
     ],
     tags: ["Topspin", "Singles tactics", "Match analysis"],
     imageUrl:
@@ -73,10 +128,27 @@ export const mockCoaches: Coach[] = [
     availabilityTag: "Available",
     featured: true,
     summary: "High-performance junior development with tour-level conditioning and mindset coaching.",
+    bio: "Sarah develops junior players with a holistic approach that blends technical precision, advanced fitness, and competitive resilience. She coordinates periodized training blocks tailored to tournament schedules.",
+    yearsExperience: 14,
+    certifications: ["USPTA Elite", "USTA High Performance", "Safe Play"],
+    courts: ["Carlsbad Tennis Club"],
+    levels: ["High Performance Juniors", "Advanced", "College Prep"],
+    specialties: ["Physical conditioning", "Mental toughness", "Tournament preparation"],
+    lessonRates: {
+      private: "$95",
+      group: "$55",
+    },
+    languages: ["English", "Spanish"],
+    availability: "Weekend training blocks & select weekdays",
+    nextAvailableLesson: {
+      day: "Sat, May 18",
+      time: "10:00 AM",
+      court: "Carlsbad Tennis Club · Stadium Court",
+    },
     highlights: [
-      { icon: "calendar", label: "Weekend" },
-      { icon: "map", label: "Carlsbad Tennis Club" },
-      { icon: "message", label: "Responds in 3 hours" },
+      { icon: "calendar", label: "Weekend blocks" },
+      { icon: "users", label: "Elite juniors" },
+      { icon: "spark", label: "Mindset coaching" },
     ],
     tags: ["Junior focus", "Strength", "Tournament prep"],
     imageUrl:
@@ -93,10 +165,27 @@ export const mockCoaches: Coach[] = [
     availabilityTag: "Available",
     featured: false,
     summary: "Fast-paced sessions for all-court players with emphasis on transition play and consistency.",
+    bio: "Michael channels his NCAA playing experience into upbeat, energetic court sessions that sharpen instincts at the net and in transition. He emphasizes decision-making under pressure with competitive live-ball reps.",
+    yearsExperience: 7,
+    certifications: ["USPTR Professional", "Safe Play"],
+    courts: ["Exchange Tennis Centre", "Lakeside Racquet Club"],
+    levels: ["Beginner", "Intermediate", "Doubles League"],
+    specialties: ["Net rush tactics", "Doubles formations", "Serve +1 planning"],
+    lessonRates: {
+      private: "$70",
+      group: "$35",
+    },
+    languages: ["English", "Mandarin"],
+    availability: "Weekday evenings & Sunday mornings",
+    nextAvailableLesson: {
+      day: "Thu, May 16",
+      time: "6:15 PM",
+      court: "Exchange Tennis Centre · Court 7",
+    },
     highlights: [
-      { icon: "calendar", label: "Weekday evenings" },
-      { icon: "map", label: "Exchange Tennis Centre" },
-      { icon: "message", label: "Responds in 1 hour" },
+      { icon: "calendar", label: "Weeknight sessions" },
+      { icon: "users", label: "Doubles specialists" },
+      { icon: "spark", label: "Transition play focus" },
     ],
     tags: ["Approach shots", "Doubles", "Serve +1"],
     imageUrl:
