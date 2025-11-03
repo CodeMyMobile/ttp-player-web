@@ -13,9 +13,14 @@ type LessonFilter = "all" | "private" | "group";
 type SelectionState = {
   day: string;
   lessonType: LessonFilter;
+  range?: {
+    start: string;
+    end: string;
+  };
 };
 
 const ALL_DAYS_ID = "all-days";
+const CUSTOM_RANGE_ID = "custom-range";
 
 const MINUTES_PER_DAY = 24 * 60;
 
@@ -157,8 +162,11 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   const [selection, setSelection] = useState<SelectionState>({
     day: ALL_DAYS_ID,
     lessonType: "all",
+    range: undefined,
   });
-  const [datePickerValue, setDatePickerValue] = useState<string>("");
+  const [rangeStartValue, setRangeStartValue] = useState<string>("");
+  const [rangeEndValue, setRangeEndValue] = useState<string>("");
+  const [rangeError, setRangeError] = useState<string | undefined>();
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
   const navigate = useNavigate();
   const dateMenuRef = useRef<HTMLDivElement | null>(null);
@@ -174,8 +182,11 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       setSelection({
         day: ALL_DAYS_ID,
         lessonType: "all",
+        range: undefined,
       });
-      setDatePickerValue("");
+      setRangeStartValue("");
+      setRangeEndValue("");
+      setRangeError(undefined);
       setIsDateMenuOpen(false);
     }, 220);
 
@@ -223,10 +234,26 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
 
     const predicate = matchesLessonType(selection.lessonType);
 
-    const datesToConsider =
-      selection.day === ALL_DAYS_ID
-        ? profile.booking.availableDates
-        : profile.booking.availableDates.filter((date) => date.id === selection.day);
+    const datesToConsider = (() => {
+      if (selection.range) {
+        const { start, end } = selection.range;
+        return profile.booking.availableDates.filter((date) => {
+          if (start && date.id < start) {
+            return false;
+          }
+          if (end && date.id > end) {
+            return false;
+          }
+          return true;
+        });
+      }
+
+      if (selection.day === ALL_DAYS_ID) {
+        return profile.booking.availableDates;
+      }
+
+      return profile.booking.availableDates.filter((date) => date.id === selection.day);
+    })();
 
     return datesToConsider.map((date) => ({
       ...date,
@@ -237,7 +264,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   const hasAnySlots = filteredDates.some((date) => date.slots.length > 0);
 
   const customSelectionMeta = useMemo(() => {
-    if (!profile || selection.day === ALL_DAYS_ID) {
+    if (!profile || selection.day === ALL_DAYS_ID || selection.range) {
       return undefined;
     }
 
@@ -247,9 +274,32 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     }
 
     return getDateDisplayMeta(selection.day);
-  }, [profile, selection.day]);
+  }, [profile, selection.day, selection.range]);
+
+  const selectedRangeMeta = useMemo(() => {
+    if (!selection.range) {
+      return undefined;
+    }
+
+    const startMeta = getDateDisplayMeta(selection.range.start);
+    const endMeta = getDateDisplayMeta(selection.range.end);
+
+    if (!startMeta || !endMeta) {
+      return undefined;
+    }
+
+    return { start: startMeta, end: endMeta };
+  }, [selection.range]);
 
   const selectedDateSummary = useMemo(() => {
+    if (selection.range && selectedRangeMeta) {
+      const { start, end } = selectedRangeMeta;
+      if (selection.range.start === selection.range.end) {
+        return `${start.weekdayLong}, ${start.monthDayLong}`;
+      }
+      return `${start.weekdayLong}, ${start.monthDayLong} – ${end.weekdayLong}, ${end.monthDayLong}`;
+    }
+
     if (!profile || selection.day === ALL_DAYS_ID) {
       return undefined;
     }
@@ -268,7 +318,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     }
 
     return undefined;
-  }, [profile, selection.day, customSelectionMeta]);
+  }, [selection.range, selectedRangeMeta, profile, selection.day, customSelectionMeta]);
 
   const minSelectableDate = useMemo(() => formatDateForInput(new Date()), []);
   const maxSelectableDate = useMemo(
@@ -276,11 +326,15 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     [],
   );
 
-  const datePickerId = useMemo(() => `book-lesson-date-${coach.id}`, [coach.id]);
+  const datePickerStartId = useMemo(() => `book-lesson-date-start-${coach.id}`, [coach.id]);
+  const datePickerEndId = useMemo(() => `book-lesson-date-end-${coach.id}`, [coach.id]);
   const dateMenuId = useMemo(() => `book-lesson-date-menu-${coach.id}`, [coach.id]);
+  const dateRangeHintId = useMemo(() => `book-lesson-date-hint-${coach.id}`, [coach.id]);
+  const rangeErrorId = useMemo(() => `book-lesson-date-error-${coach.id}`, [coach.id]);
 
   useEffect(() => {
     if (!isDateMenuOpen) {
+      setRangeError(undefined);
       return undefined;
     }
 
@@ -309,7 +363,55 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     };
   }, [isDateMenuOpen]);
 
+  useEffect(() => {
+    if (selection.range) {
+      setRangeStartValue(selection.range.start);
+      setRangeEndValue(selection.range.end);
+    }
+  }, [selection.range]);
+
+  const handleApplyRange = () => {
+    setRangeError(undefined);
+
+    if (!rangeStartValue || !rangeEndValue) {
+      setRangeError("Select both a start and end date.");
+      return;
+    }
+
+    if (rangeStartValue > rangeEndValue) {
+      setRangeError("Start date must be before the end date.");
+      return;
+    }
+
+    setSelection((prev) => ({
+      ...prev,
+      day: CUSTOM_RANGE_ID,
+      range: { start: rangeStartValue, end: rangeEndValue },
+    }));
+    setIsDateMenuOpen(false);
+  };
+
+  const handleClearRange = () => {
+    setRangeStartValue("");
+    setRangeEndValue("");
+    setRangeError(undefined);
+    setSelection((prev) => ({
+      ...prev,
+      range: undefined,
+      day: prev.range ? ALL_DAYS_ID : prev.day,
+    }));
+    setIsDateMenuOpen(false);
+  };
+
   const dateFilterLabel = useMemo(() => {
+    if (selection.range && selectedRangeMeta) {
+      const { start, end } = selectedRangeMeta;
+      if (selection.range.start === selection.range.end) {
+        return `Custom date · ${start.monthDayShort}`;
+      }
+      return `Custom range · ${start.monthDayShort} – ${end.monthDayShort}`;
+    }
+
     if (!profile) {
       return "Select a date";
     }
@@ -327,16 +429,28 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       return `${customSelectionMeta.weekdayShort} · ${customSelectionMeta.monthDayShort}`;
     }
 
+    if (selection.range) {
+      return "Custom range";
+    }
+
     return "Selected date";
-  }, [profile, selection.day, customSelectionMeta]);
+  }, [selection.range, selectedRangeMeta, profile, selection.day, customSelectionMeta]);
 
   const dateFilterDescription = useMemo(() => {
+    if (selection.range && selectedRangeMeta) {
+      const { start, end } = selectedRangeMeta;
+      if (selection.range.start === selection.range.end) {
+        return `Showing availability for ${start.weekdayLong}`;
+      }
+      return `Showing lessons from ${start.monthDayLong} to ${end.monthDayLong}`;
+    }
+
     if (selection.day === ALL_DAYS_ID) {
       return "Showing every available lesson";
     }
 
     return selectedDateSummary ?? "Checking availability";
-  }, [selection.day, selectedDateSummary]);
+  }, [selection.range, selectedRangeMeta, selection.day, selectedDateSummary]);
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -443,6 +557,40 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
               <div className="coach-booking__controls book-lesson-modal__controls">
                 <div className="coach-booking__section">
                   <span className="coach-booking__label">Date</span>
+                  <div className="coach-booking__day-grid">
+                    <button
+                      type="button"
+                      className={`coach-booking__day${
+                        selection.day === ALL_DAYS_ID && !selection.range ? " coach-booking__day--active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID, range: undefined }));
+                        setRangeStartValue("");
+                        setRangeEndValue("");
+                      }}
+                    >
+                      <span className="coach-booking__day-name">All Days</span>
+                      <span className="coach-booking__day-date">View every option</span>
+                    </button>
+                    {profile.booking.availableDates.map((date) => {
+                      const active = selection.day === date.id && !selection.range;
+                      return (
+                        <button
+                          key={date.id}
+                          type="button"
+                          className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
+                          onClick={() => {
+                            setSelection((prev) => ({ ...prev, day: date.id, range: undefined }));
+                            setRangeStartValue(date.id);
+                            setRangeEndValue(date.id);
+                          }}
+                        >
+                          <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
+                          <span className="coach-booking__day-date">{date.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <div className="coach-booking__filters">
                     <div
                       ref={dateMenuRef}
@@ -475,12 +623,17 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                         <div id={dateMenuId} className="coach-booking__filter-dropdown" role="menu">
                           <button
                             type="button"
-                            className={`coach-booking__filter-option${selection.day === ALL_DAYS_ID ? " coach-booking__filter-option--active" : ""}`}
+                            className={`coach-booking__filter-option${
+                              !selection.range && selection.day === ALL_DAYS_ID
+                                ? " coach-booking__filter-option--active"
+                                : ""
+                            }`}
                             role="menuitemradio"
-                            aria-checked={selection.day === ALL_DAYS_ID}
+                            aria-checked={!selection.range && selection.day === ALL_DAYS_ID}
                             onClick={() => {
-                              setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
-                              setDatePickerValue("");
+                              setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID, range: undefined }));
+                              setRangeStartValue("");
+                              setRangeEndValue("");
                               setIsDateMenuOpen(false);
                             }}
                           >
@@ -492,17 +645,20 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                             <span className="coach-booking__filter-group-label">Upcoming options</span>
                             <div className="coach-booking__filter-options-list">
                               {profile.booking.availableDates.map((date) => {
-                                const active = selection.day === date.id;
+                                const active = !selection.range && selection.day === date.id;
                                 return (
                                   <button
                                     key={date.id}
                                     type="button"
-                                    className={`coach-booking__filter-option${active ? " coach-booking__filter-option--active" : ""}`}
+                                    className={`coach-booking__filter-option${
+                                      active ? " coach-booking__filter-option--active" : ""
+                                    }`}
                                     role="menuitemradio"
                                     aria-checked={active}
                                     onClick={() => {
-                                      setSelection((prev) => ({ ...prev, day: date.id }));
-                                      setDatePickerValue(date.id);
+                                      setSelection((prev) => ({ ...prev, day: date.id, range: undefined }));
+                                      setRangeStartValue(date.id);
+                                      setRangeEndValue(date.id);
                                       setIsDateMenuOpen(false);
                                     }}
                                   >
@@ -518,10 +674,15 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                                   type="button"
                                   className="coach-booking__filter-option coach-booking__filter-option--active coach-booking__filter-option--custom"
                                   role="menuitemradio"
-                                  aria-checked={true}
+                                  aria-checked={!selection.range && selection.day === customSelectionMeta.iso}
                                   onClick={() => {
-                                    setSelection((prev) => ({ ...prev, day: customSelectionMeta.iso }));
-                                    setDatePickerValue(customSelectionMeta.iso);
+                                    setSelection((prev) => ({
+                                      ...prev,
+                                      day: customSelectionMeta.iso,
+                                      range: undefined,
+                                    }));
+                                    setRangeStartValue(customSelectionMeta.iso);
+                                    setRangeEndValue(customSelectionMeta.iso);
                                     setIsDateMenuOpen(false);
                                   }}
                                 >
@@ -533,37 +694,87 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                                   </span>
                                 </button>
                               ) : null}
+                              {selection.range && selectedRangeMeta ? (
+                                <button
+                                  type="button"
+                                  className="coach-booking__filter-option coach-booking__filter-option--active coach-booking__filter-option--custom"
+                                  role="menuitemradio"
+                                  aria-checked={true}
+                                  onClick={() => {
+                                    setIsDateMenuOpen(false);
+                                  }}
+                                >
+                                  <span className="coach-booking__filter-option-primary">Custom range</span>
+                                  <span className="coach-booking__filter-option-secondary">
+                                    {selectedRangeMeta.start.monthDayLong} – {selectedRangeMeta.end.monthDayLong}
+                                  </span>
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                           <div className="coach-booking__filter-divider" />
                           <div className="coach-booking__filter-field">
-                            <label className="coach-booking__filter-field-label" htmlFor={datePickerId}>
-                              Jump to a date
-                            </label>
-                            <input
-                              id={datePickerId}
-                              className="coach-booking__date-input"
-                              type="date"
-                              min={minSelectableDate}
-                              max={maxSelectableDate}
-                              value={datePickerValue}
-                              onChange={(event) => {
-                                const nextValue = event.target.value;
-                                setDatePickerValue(nextValue);
-                                if (!nextValue) {
-                                  setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
-                                  setIsDateMenuOpen(false);
-                                  return;
-                                }
-                                setSelection((prev) => ({ ...prev, day: nextValue }));
-                                setIsDateMenuOpen(false);
-                              }}
-                            />
-                            <p className="coach-booking__filter-hint">
-                              {selectedDateSummary
+                            <span className="coach-booking__filter-field-label">Jump to a date range</span>
+                            <div className="coach-booking__filter-range-inputs">
+                              <div className="coach-booking__filter-field-group">
+                                <label className="coach-booking__filter-field-caption" htmlFor={datePickerStartId}>
+                                  Start
+                                </label>
+                                <input
+                                  id={datePickerStartId}
+                                  className="coach-booking__date-input"
+                                  type="date"
+                                  min={minSelectableDate}
+                                  max={rangeEndValue || maxSelectableDate}
+                                  value={rangeStartValue}
+                                  aria-describedby={dateRangeHintId}
+                                  aria-errormessage={rangeError ? rangeErrorId : undefined}
+                                  onChange={(event) => {
+                                    setRangeStartValue(event.target.value);
+                                    setRangeError(undefined);
+                                  }}
+                                />
+                              </div>
+                              <div className="coach-booking__filter-field-group">
+                                <label className="coach-booking__filter-field-caption" htmlFor={datePickerEndId}>
+                                  End
+                                </label>
+                                <input
+                                  id={datePickerEndId}
+                                  className="coach-booking__date-input"
+                                  type="date"
+                                  min={rangeStartValue || minSelectableDate}
+                                  max={maxSelectableDate}
+                                  value={rangeEndValue}
+                                  aria-describedby={dateRangeHintId}
+                                  aria-errormessage={rangeError ? rangeErrorId : undefined}
+                                  onChange={(event) => {
+                                    setRangeEndValue(event.target.value);
+                                    setRangeError(undefined);
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <p id={dateRangeHintId} className="coach-booking__filter-hint">
+                              {selection.range && selectedRangeMeta
+                                ? `Showing availability from ${selectedRangeMeta.start.monthDayLong} to ${selectedRangeMeta.end.monthDayLong}.`
+                                : selectedDateSummary
                                 ? `Showing availability for ${selectedDateSummary}.`
-                                : "Select any future date to check availability."}
+                                : "Select any future dates to check availability."}
                             </p>
+                            {rangeError ? (
+                              <p id={rangeErrorId} className="coach-booking__filter-error" role="alert">
+                                {rangeError}
+                              </p>
+                            ) : null}
+                            <div className="coach-booking__filter-actions">
+                              <button type="button" className="coach-booking__filter-clear" onClick={handleClearRange}>
+                                Clear
+                              </button>
+                              <button type="button" className="coach-booking__filter-apply" onClick={handleApplyRange}>
+                                Apply range
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ) : null}

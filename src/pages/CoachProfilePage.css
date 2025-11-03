@@ -1137,6 +1137,31 @@
   gap: 8px;
 }
 
+.coach-booking__filter-range-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (min-width: 480px) {
+  .coach-booking__filter-range-inputs {
+    flex-direction: row;
+  }
+}
+
+.coach-booking__filter-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.coach-booking__filter-field-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--profile-muted);
+}
+
 .coach-booking__filter-field-label {
   font-size: 12px;
   font-weight: 600;
@@ -1147,6 +1172,66 @@
   margin: 0;
   font-size: 12px;
   color: var(--profile-muted);
+}
+
+.coach-booking__filter-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+}
+
+.coach-booking__filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.coach-booking__filter-clear,
+.coach-booking__filter-apply {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.coach-booking__filter-clear {
+  border: 1px solid var(--profile-slot-border);
+  background: transparent;
+  color: var(--profile-purple);
+}
+
+.coach-booking__filter-clear:hover {
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-1px);
+}
+
+.coach-booking__filter-clear:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.2);
+  outline-offset: 2px;
+}
+
+.coach-booking__filter-apply {
+  border: none;
+  background: var(--profile-purple);
+  color: #ffffff;
+  box-shadow: 0 14px 30px -20px rgba(79, 70, 229, 0.55);
+}
+
+.coach-booking__filter-apply:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 38px -18px rgba(79, 70, 229, 0.6);
+}
+
+.coach-booking__filter-apply:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.2);
+  outline-offset: 2px;
 }
 
 .coach-booking__filter-option--custom {
