@@ -1034,6 +1034,46 @@
   color: inherit;
 }
 
+.coach-booking__date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.coach-booking__date-picker-label {
+  margin: 0;
+}
+
+.coach-booking__date-input {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--profile-slot-border);
+  border-radius: 14px;
+  background: var(--profile-surface-strong);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--profile-heading);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coach-booking__date-input:focus {
+  outline: none;
+  border-color: var(--profile-slot-active-border);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.coach-booking__date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+.coach-booking__date-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--profile-muted);
+}
+
 .coach-booking__lesson-toggle {
   display: flex;
   flex-wrap: wrap;

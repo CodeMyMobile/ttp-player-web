@@ -109,6 +109,44 @@ const dayNameMap: Record<string, string> = {
   Sun: "Sunday",
 };
 
+const MAX_FUTURE_SELECTION_DAYS = 180;
+
+const formatDateForInput = (date: Date) => date.toISOString().slice(0, 10);
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const getDateDisplayMeta = (isoDate: string) => {
+  if (!isoDate) {
+    return undefined;
+  }
+
+  const parsed = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+
+  const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(parsed);
+  const weekdayLong = new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(parsed);
+  const monthDayShort = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(parsed);
+  const monthDayLong = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
+
+  return {
+    iso: isoDate,
+    weekdayShort,
+    weekdayLong,
+    monthDayShort,
+    monthDayLong,
+  };
+};
+
 type BookLessonModalProps = {
   coach: Coach;
   onClose: () => void;
@@ -120,6 +158,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     day: ALL_DAYS_ID,
     lessonType: "all",
   });
+  const [datePickerValue, setDatePickerValue] = useState<string>("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -134,6 +173,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         day: ALL_DAYS_ID,
         lessonType: "all",
       });
+      setDatePickerValue("");
     }, 220);
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -192,6 +232,48 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   }, [profile, selection.day, selection.lessonType]);
 
   const hasAnySlots = filteredDates.some((date) => date.slots.length > 0);
+
+  const customSelectionMeta = useMemo(() => {
+    if (!profile || selection.day === ALL_DAYS_ID) {
+      return undefined;
+    }
+
+    const knownDate = profile.booking.availableDates.some((date) => date.id === selection.day);
+    if (knownDate) {
+      return undefined;
+    }
+
+    return getDateDisplayMeta(selection.day);
+  }, [profile, selection.day]);
+
+  const selectedDateSummary = useMemo(() => {
+    if (!profile || selection.day === ALL_DAYS_ID) {
+      return undefined;
+    }
+
+    const matchedDate = profile.booking.availableDates.find((date) => date.id === selection.day);
+    if (matchedDate) {
+      const meta = getDateDisplayMeta(matchedDate.id);
+      if (meta) {
+        return `${meta.weekdayLong}, ${meta.monthDayLong}`;
+      }
+      return matchedDate.label;
+    }
+
+    if (customSelectionMeta) {
+      return `${customSelectionMeta.weekdayLong}, ${customSelectionMeta.monthDayLong}`;
+    }
+
+    return undefined;
+  }, [profile, selection.day, customSelectionMeta]);
+
+  const minSelectableDate = useMemo(() => formatDateForInput(new Date()), []);
+  const maxSelectableDate = useMemo(
+    () => formatDateForInput(addDays(new Date(), MAX_FUTURE_SELECTION_DAYS)),
+    [],
+  );
+
+  const datePickerId = useMemo(() => `book-lesson-date-${coach.id}`, [coach.id]);
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -304,6 +386,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                       className={`coach-booking__day${selection.day === ALL_DAYS_ID ? " coach-booking__day--active" : ""}`}
                       onClick={() => {
                         setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
+                        setDatePickerValue("");
                       }}
                     >
                       <span className="coach-booking__day-name">All Days</span>
@@ -318,6 +401,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                           className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
                           onClick={() => {
                             setSelection((prev) => ({ ...prev, day: date.id }));
+                            setDatePickerValue(date.id);
                           }}
                         >
                           <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
@@ -325,6 +409,46 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                         </button>
                       );
                     })}
+                    {customSelectionMeta ? (
+                      <button
+                        type="button"
+                        className="coach-booking__day coach-booking__day--active coach-booking__day--custom"
+                        onClick={() => {
+                          setSelection((prev) => ({ ...prev, day: customSelectionMeta.iso }));
+                          setDatePickerValue(customSelectionMeta.iso);
+                        }}
+                      >
+                        <span className="coach-booking__day-name">{customSelectionMeta.weekdayShort}</span>
+                        <span className="coach-booking__day-date">{customSelectionMeta.monthDayShort}</span>
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="coach-booking__date-picker">
+                    <label className="coach-booking__label coach-booking__date-picker-label" htmlFor={datePickerId}>
+                      Jump to a date
+                    </label>
+                    <input
+                      id={datePickerId}
+                      className="coach-booking__date-input"
+                      type="date"
+                      min={minSelectableDate}
+                      max={maxSelectableDate}
+                      value={datePickerValue}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setDatePickerValue(nextValue);
+                        if (!nextValue) {
+                          setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
+                          return;
+                        }
+                        setSelection((prev) => ({ ...prev, day: nextValue }));
+                      }}
+                    />
+                    <p className="coach-booking__date-hint">
+                      {selectedDateSummary
+                        ? `Showing availability for ${selectedDateSummary}.`
+                        : "Select any future date to check availability."}
+                    </p>
                   </div>
                 </div>
                 <div className="coach-booking__section">
