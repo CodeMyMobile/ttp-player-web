@@ -955,12 +955,33 @@
   gap: 12px;
 }
 
+.coach-booking__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-booking__label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .coach-booking__label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--profile-muted);
+}
+
+.coach-booking__label-note {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--profile-muted);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 
@@ -970,37 +991,30 @@
   gap: 28px;
 }
 
-.coach-booking__filters {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 320px;
-}
-
 .coach-booking__filter {
   position: relative;
 }
 
 .coach-booking__filter-trigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border-radius: 16px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   border: 1px solid var(--profile-slot-border);
   background: var(--profile-surface-strong);
-  color: var(--profile-heading);
-  padding: 14px 16px;
+  color: var(--profile-purple);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  text-align: left;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
 }
 
 .coach-booking__filter-trigger:hover {
   transform: translateY(-1px);
   border-color: var(--profile-slot-active-border);
   box-shadow: 0 16px 30px -24px rgba(79, 70, 229, 0.32);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .coach-booking__filter-trigger:focus-visible {
@@ -1008,43 +1022,16 @@
   outline-offset: 2px;
 }
 
-.coach-booking__filter-trigger-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.coach-booking__filter-trigger-label {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.coach-booking__filter-trigger-description {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-trigger-icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--profile-purple);
+.coach-booking__filter-trigger--active {
+  border-color: var(--profile-slot-active-border);
+  background: rgba(99, 102, 241, 0.12);
+  box-shadow: 0 18px 36px -28px rgba(79, 70, 229, 0.38);
 }
 
 .coach-booking__filter-icon {
   width: 18px;
   height: 18px;
-}
-
-.coach-booking__filter-chevron {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.2s ease;
-}
-
-.coach-booking__filter--open .coach-booking__filter-chevron {
-  transform: rotate(-180deg);
+  color: currentColor;
 }
 
 .coach-booking__filter-dropdown {
@@ -1062,6 +1049,11 @@
   box-shadow: 0 30px 60px -32px rgba(79, 70, 229, 0.4);
   padding: 16px;
   z-index: 10;
+}
+
+.coach-booking__filter--compact .coach-booking__filter-dropdown {
+  left: auto;
+  right: 0;
 }
 
 .coach-booking__filter-option {

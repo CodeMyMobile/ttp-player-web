@@ -436,21 +436,26 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     return "Selected date";
   }, [selection.range, selectedRangeMeta, profile, selection.day, customSelectionMeta]);
 
-  const dateFilterDescription = useMemo(() => {
+  const dateSelectionNote = useMemo(() => {
     if (selection.range && selectedRangeMeta) {
       const { start, end } = selectedRangeMeta;
       if (selection.range.start === selection.range.end) {
-        return `Showing availability for ${start.weekdayLong}`;
+        return `Custom date · ${start.monthDayShort}`;
       }
-      return `Showing lessons from ${start.monthDayLong} to ${end.monthDayLong}`;
+      return `Custom range · ${start.monthDayShort} – ${end.monthDayShort}`;
     }
 
     if (selection.day === ALL_DAYS_ID) {
-      return "Showing every available lesson";
+      return undefined;
     }
 
-    return selectedDateSummary ?? "Checking availability";
-  }, [selection.range, selectedRangeMeta, selection.day, selectedDateSummary]);
+    if (!profile) {
+      return undefined;
+    }
+
+    return dateFilterLabel;
+  }, [selection.range, selectedRangeMeta, selection.day, profile, dateFilterLabel]);
+
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -556,49 +561,25 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
             <div className="book-lesson-modal__booking-surface">
               <div className="coach-booking__controls book-lesson-modal__controls">
                 <div className="coach-booking__section">
-                  <span className="coach-booking__label">Date</span>
-                  <div className="coach-booking__day-grid">
-                    <button
-                      type="button"
-                      className={`coach-booking__day${
-                        selection.day === ALL_DAYS_ID && !selection.range ? " coach-booking__day--active" : ""
-                      }`}
-                      onClick={() => {
-                        setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID, range: undefined }));
-                        setRangeStartValue("");
-                        setRangeEndValue("");
-                      }}
-                    >
-                      <span className="coach-booking__day-name">All Days</span>
-                      <span className="coach-booking__day-date">View every option</span>
-                    </button>
-                    {profile.booking.availableDates.map((date) => {
-                      const active = selection.day === date.id && !selection.range;
-                      return (
-                        <button
-                          key={date.id}
-                          type="button"
-                          className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
-                          onClick={() => {
-                            setSelection((prev) => ({ ...prev, day: date.id, range: undefined }));
-                            setRangeStartValue(date.id);
-                            setRangeEndValue(date.id);
-                          }}
-                        >
-                          <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
-                          <span className="coach-booking__day-date">{date.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="coach-booking__filters">
+                  <div className="coach-booking__section-heading">
+                    <div className="coach-booking__label-group">
+                      <span className="coach-booking__label">Date</span>
+                      {dateSelectionNote ? (
+                        <span className="coach-booking__label-note">{dateSelectionNote}</span>
+                      ) : null}
+                    </div>
                     <div
                       ref={dateMenuRef}
-                      className={`coach-booking__filter coach-booking__filter--date${isDateMenuOpen ? " coach-booking__filter--open" : ""}`}
+                      className={`coach-booking__filter coach-booking__filter--date coach-booking__filter--compact${
+                        isDateMenuOpen ? " coach-booking__filter--open" : ""
+                      }`}
                     >
                       <button
                         type="button"
-                        className="coach-booking__filter-trigger"
+                        className={`coach-booking__filter-trigger${
+                          selection.day === CUSTOM_RANGE_ID ? " coach-booking__filter-trigger--active" : ""
+                        }`}
+                        aria-label="Choose custom dates"
                         aria-haspopup="true"
                         aria-expanded={isDateMenuOpen}
                         aria-controls={dateMenuId}
@@ -606,21 +587,10 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                           setIsDateMenuOpen((prev) => !prev);
                         }}
                       >
-                        <span className="coach-booking__filter-trigger-text">
-                          <span className="coach-booking__filter-trigger-label">{dateFilterLabel}</span>
-                          <span className="coach-booking__filter-trigger-description">{dateFilterDescription}</span>
-                        </span>
-                        <span className="coach-booking__filter-trigger-icons">
-                          <CalendarDays aria-hidden="true" className="coach-booking__filter-icon" size={18} />
-                          <ChevronDown
-                            aria-hidden="true"
-                            className="coach-booking__filter-chevron"
-                            size={18}
-                          />
-                        </span>
+                        <CalendarDays aria-hidden="true" className="coach-booking__filter-icon" size={18} />
                       </button>
                       {isDateMenuOpen ? (
-                        <div id={dateMenuId} className="coach-booking__filter-dropdown" role="menu">
+                        <div id={dateMenuId} className="coach-booking__filter-dropdown" role="menu" tabIndex={-1}>
                           <button
                             type="button"
                             className={`coach-booking__filter-option${
@@ -779,6 +749,40 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                         </div>
                       ) : null}
                     </div>
+                  </div>
+                  <div className="coach-booking__day-grid">
+                    <button
+                      type="button"
+                      className={`coach-booking__day${
+                        selection.day === ALL_DAYS_ID && !selection.range ? " coach-booking__day--active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID, range: undefined }));
+                        setRangeStartValue("");
+                        setRangeEndValue("");
+                      }}
+                    >
+                      <span className="coach-booking__day-name">All Days</span>
+                      <span className="coach-booking__day-date">View every option</span>
+                    </button>
+                    {profile.booking.availableDates.map((date) => {
+                      const active = selection.day === date.id && !selection.range;
+                      return (
+                        <button
+                          key={date.id}
+                          type="button"
+                          className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
+                          onClick={() => {
+                            setSelection((prev) => ({ ...prev, day: date.id, range: undefined }));
+                            setRangeStartValue(date.id);
+                            setRangeEndValue(date.id);
+                          }}
+                        >
+                          <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
+                          <span className="coach-booking__day-date">{date.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="coach-booking__section">
