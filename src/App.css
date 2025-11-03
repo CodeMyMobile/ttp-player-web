@@ -20,6 +20,9 @@
   display: flex;
   align-items: center;
   gap: 24px;
+  position: relative;
+  /* Ensure navigation menus always appear above page content like the Find Coaches filters */
+  z-index: 100;
 }
 
 .brand {

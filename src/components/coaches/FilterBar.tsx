@@ -12,7 +12,35 @@ type FilterBarProps = {
   onRadiusChange: (value: string) => void;
 };
 
-const filterSelectOptions = ["All Ratings", "All Prices", "All Specialties"];
+type FilterSelect = {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+};
+
+const filterSelects: FilterSelect[] = [
+  {
+    id: "price",
+    label: "Filter by price",
+    options: [
+      { value: "all", label: "All Prices" },
+      { value: "0-50", label: "$0 - $50" },
+      { value: "50-100", label: "$50 - $100" },
+      { value: "100-plus", label: "$100+" },
+    ],
+  },
+  {
+    id: "specialty",
+    label: "Filter by specialty",
+    options: [
+      { value: "all", label: "All Specialties" },
+      { value: "hitting", label: "Hitting" },
+      { value: "pitching", label: "Pitching" },
+      { value: "strength", label: "Strength & Conditioning" },
+      { value: "mental", label: "Mental Performance" },
+    ],
+  },
+];
 
 const FilterBar = ({
   searchTerm,
@@ -59,11 +87,17 @@ const FilterBar = ({
           />
         </div>
         <div className="fc-filter__selects">
-          {filterSelectOptions.map((option) => (
-            <button key={option} type="button" className="fc-select">
-              {option}
-              <ChevronDown size={16} />
-            </button>
+          {filterSelects.map(({ id, label, options }) => (
+            <div key={id} className="fc-select">
+              <select aria-label={label} defaultValue={options[0].value} className="fc-select__field">
+                {options.map(({ value, label: optionLabel }) => (
+                  <option key={value} value={value}>
+                    {optionLabel}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+            </div>
           ))}
         </div>
       </form>
