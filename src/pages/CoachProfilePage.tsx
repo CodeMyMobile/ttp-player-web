@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
@@ -72,13 +72,6 @@ const Chip = ({ label }: { label: string }) => (
   <span className="coach-chip">
     {label}
   </span>
-);
-
-const BookButton = ({ disabled, lessonLabel }: { disabled?: boolean; lessonLabel?: string }) => (
-  <button type="button" disabled={disabled} className="coach-profile-book">
-    Book {lessonLabel ?? "lesson"}
-    <CheckCircle2 className="coach-profile-book__icon" strokeWidth={2.5} />
-  </button>
 );
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -166,6 +159,7 @@ const extractPlayerCapacity = (lessonDurationLabel?: string) => {
 
 const CoachProfilePage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { loading, profile } = useCoachProfile(id);
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
@@ -301,28 +295,6 @@ const CoachProfilePage = () => {
 
   const filteredSlots = selectedDateEntry?.slots ?? [];
 
-  const selectedSlot = useMemo(
-    () => filteredSlots.find((slot) => slot.id === selection.timeId),
-    [filteredSlots, selection.timeId],
-  );
-
-  const activeLessonType = useMemo(() => {
-    if (!profile) {
-      return undefined;
-    }
-
-    const activeLessonId =
-      selection.lessonType === "all"
-        ? selectedSlot?.lessonType
-        : selection.lessonType;
-
-    if (!activeLessonId) {
-      return undefined;
-    }
-
-    return profile.booking.lessonTypes.find((item) => item.id === activeLessonId);
-  }, [profile, selectedSlot, selection.lessonType]);
-
   const lessonTypeDetailMap = useMemo(() => {
     if (!profile) {
       return {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>;
@@ -344,6 +316,16 @@ const CoachProfilePage = () => {
 
     return profile.location ?? profile.coachingLocations[0];
   }, [profile]);
+
+  const navigateToCheckout = (dateId: string, slotId: string) => {
+    if (!profile) {
+      return;
+    }
+
+    navigate(`/booking/confirm?coach=${profile.id}&date=${dateId}&slot=${slotId}`, {
+      state: { coachId: profile.id, dateId, slotId },
+    });
+  };
 
   return (
     <MainLayout>
@@ -671,6 +653,7 @@ const CoachProfilePage = () => {
                                           onClick={() => {
                                             handleDateChange(date.id);
                                             handleTimeChange(slot.id);
+                                            navigateToCheckout(date.id, slot.id);
                                           }}
                                           className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
                                             active ? " coach-booking-slot--active" : ""
@@ -771,6 +754,7 @@ const CoachProfilePage = () => {
                                       onClick={() => {
                                         handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
+                                        navigateToCheckout(selectedDate.id, slot.id);
                                       }}
                                       className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
                                         active ? " coach-booking-slot--active" : ""
@@ -829,10 +813,6 @@ const CoachProfilePage = () => {
                     </div>
 
                     <div className="coach-booking__footer">
-                      <BookButton
-                        disabled={!selectedSlot}
-                        lessonLabel={activeLessonType ? activeLessonType.label : undefined}
-                      />
                       <p className="coach-booking__note">{profile.booking.note}</p>
                       <button type="button" className="coach-profile-message">
                         <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
