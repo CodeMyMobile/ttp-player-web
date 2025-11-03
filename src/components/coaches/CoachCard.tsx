@@ -1,5 +1,5 @@
 import type { KeyboardEventHandler } from "react";
-import { Calendar, MapPin, MessageCircle, Sparkles, Star, Users } from "lucide-react";
+import { Award, Calendar, MapPin, MessageCircle, Sparkles, Star, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import type { Coach, CoachHighlight } from "../../data/mockCoaches";
@@ -79,7 +79,16 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
               <Star size={16} fill="#FDB022" stroke="none" />
               {coach.rating.toFixed(1)}
             </span>
-            <span>• {coach.reviewCount} reviews</span>
+            {coach.certifications.length > 0 && (
+              <div className="fc-card__certifications">
+                {coach.certifications.slice(0, 2).map((certification) => (
+                  <span key={certification} className="fc-card__certification">
+                    <Award size={14} strokeWidth={2} />
+                    <span>{certification}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
