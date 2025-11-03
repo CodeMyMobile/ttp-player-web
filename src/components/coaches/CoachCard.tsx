@@ -61,6 +61,11 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
       <div className="fc-card__top">
         <div className="fc-card__labels">
           {coach.featured && <TagPill tone="featured">Featured</TagPill>}
+          {coach.certifications.length > 0 && (
+            <TagPill tone="accent" icon={<Award size={14} strokeWidth={2} />}>
+              Certified
+            </TagPill>
+          )}
         </div>
         <div className="fc-card__price">
           <span className="fc-card__price-value">{coach.pricePerHour}</span>
@@ -75,7 +80,6 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
           <span className="fc-card__title">{coach.title}</span>
           {coach.certifications.length > 0 && (
             <div className="fc-card__credentials">
-              <span className="fc-card__credentials-label">Certified</span>
               <div className="fc-card__certifications">
                 {coach.certifications.slice(0, 2).map((certification) => (
                   <span key={certification} className="fc-card__certification">
