@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Star, X } from "lucide-react";
+import { CalendarDays, ChevronDown, MapPin, Star, X } from "lucide-react";
 
 import type { Coach } from "../../data/mockCoaches";
 import { findCoachProfile, type CoachProfile } from "../../data/mockCoachProfiles";
@@ -159,7 +159,9 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     lessonType: "all",
   });
   const [datePickerValue, setDatePickerValue] = useState<string>("");
+  const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const dateMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -174,6 +176,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         lessonType: "all",
       });
       setDatePickerValue("");
+      setIsDateMenuOpen(false);
     }, 220);
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -274,6 +277,66 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   );
 
   const datePickerId = useMemo(() => `book-lesson-date-${coach.id}`, [coach.id]);
+  const dateMenuId = useMemo(() => `book-lesson-date-menu-${coach.id}`, [coach.id]);
+
+  useEffect(() => {
+    if (!isDateMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!dateMenuRef.current) {
+        return;
+      }
+
+      if (!dateMenuRef.current.contains(event.target as Node)) {
+        setIsDateMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsDateMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isDateMenuOpen]);
+
+  const dateFilterLabel = useMemo(() => {
+    if (!profile) {
+      return "Select a date";
+    }
+
+    if (selection.day === ALL_DAYS_ID) {
+      return "All upcoming dates";
+    }
+
+    const matchedDate = profile.booking.availableDates.find((date) => date.id === selection.day);
+    if (matchedDate) {
+      return `${dayNameMap[matchedDate.day] ?? matchedDate.day} · ${matchedDate.label}`;
+    }
+
+    if (customSelectionMeta) {
+      return `${customSelectionMeta.weekdayShort} · ${customSelectionMeta.monthDayShort}`;
+    }
+
+    return "Selected date";
+  }, [profile, selection.day, customSelectionMeta]);
+
+  const dateFilterDescription = useMemo(() => {
+    if (selection.day === ALL_DAYS_ID) {
+      return "Showing every available lesson";
+    }
+
+    return selectedDateSummary ?? "Checking availability";
+  }, [selection.day, selectedDateSummary]);
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -379,76 +442,132 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
             <div className="book-lesson-modal__booking-surface">
               <div className="coach-booking__controls book-lesson-modal__controls">
                 <div className="coach-booking__section">
-                  <span className="coach-booking__label">Select day</span>
-                  <div className="coach-booking__day-grid">
-                    <button
-                      type="button"
-                      className={`coach-booking__day${selection.day === ALL_DAYS_ID ? " coach-booking__day--active" : ""}`}
-                      onClick={() => {
-                        setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
-                        setDatePickerValue("");
-                      }}
+                  <span className="coach-booking__label">Date</span>
+                  <div className="coach-booking__filters">
+                    <div
+                      ref={dateMenuRef}
+                      className={`coach-booking__filter coach-booking__filter--date${isDateMenuOpen ? " coach-booking__filter--open" : ""}`}
                     >
-                      <span className="coach-booking__day-name">All Days</span>
-                      <span className="coach-booking__day-date">View every option</span>
-                    </button>
-                    {profile.booking.availableDates.map((date) => {
-                      const active = selection.day === date.id;
-                      return (
-                        <button
-                          key={date.id}
-                          type="button"
-                          className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
-                          onClick={() => {
-                            setSelection((prev) => ({ ...prev, day: date.id }));
-                            setDatePickerValue(date.id);
-                          }}
-                        >
-                          <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
-                          <span className="coach-booking__day-date">{date.label}</span>
-                        </button>
-                      );
-                    })}
-                    {customSelectionMeta ? (
                       <button
                         type="button"
-                        className="coach-booking__day coach-booking__day--active coach-booking__day--custom"
+                        className="coach-booking__filter-trigger"
+                        aria-haspopup="true"
+                        aria-expanded={isDateMenuOpen}
+                        aria-controls={dateMenuId}
                         onClick={() => {
-                          setSelection((prev) => ({ ...prev, day: customSelectionMeta.iso }));
-                          setDatePickerValue(customSelectionMeta.iso);
+                          setIsDateMenuOpen((prev) => !prev);
                         }}
                       >
-                        <span className="coach-booking__day-name">{customSelectionMeta.weekdayShort}</span>
-                        <span className="coach-booking__day-date">{customSelectionMeta.monthDayShort}</span>
+                        <span className="coach-booking__filter-trigger-text">
+                          <span className="coach-booking__filter-trigger-label">{dateFilterLabel}</span>
+                          <span className="coach-booking__filter-trigger-description">{dateFilterDescription}</span>
+                        </span>
+                        <span className="coach-booking__filter-trigger-icons">
+                          <CalendarDays aria-hidden="true" className="coach-booking__filter-icon" size={18} />
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="coach-booking__filter-chevron"
+                            size={18}
+                          />
+                        </span>
                       </button>
-                    ) : null}
-                  </div>
-                  <div className="coach-booking__date-picker">
-                    <label className="coach-booking__label coach-booking__date-picker-label" htmlFor={datePickerId}>
-                      Jump to a date
-                    </label>
-                    <input
-                      id={datePickerId}
-                      className="coach-booking__date-input"
-                      type="date"
-                      min={minSelectableDate}
-                      max={maxSelectableDate}
-                      value={datePickerValue}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setDatePickerValue(nextValue);
-                        if (!nextValue) {
-                          setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
-                          return;
-                        }
-                        setSelection((prev) => ({ ...prev, day: nextValue }));
-                      }}
-                    />
-                    <p className="coach-booking__date-hint">
-                      {selectedDateSummary
-                        ? `Showing availability for ${selectedDateSummary}.`
-                        : "Select any future date to check availability."}
-                    </p>
+                      {isDateMenuOpen ? (
+                        <div id={dateMenuId} className="coach-booking__filter-dropdown" role="menu">
+                          <button
+                            type="button"
+                            className={`coach-booking__filter-option${selection.day === ALL_DAYS_ID ? " coach-booking__filter-option--active" : ""}`}
+                            role="menuitemradio"
+                            aria-checked={selection.day === ALL_DAYS_ID}
+                            onClick={() => {
+                              setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
+                              setDatePickerValue("");
+                              setIsDateMenuOpen(false);
+                            }}
+                          >
+                            <span className="coach-booking__filter-option-primary">All upcoming dates</span>
+                            <span className="coach-booking__filter-option-secondary">View every lesson</span>
+                          </button>
+                          <div className="coach-booking__filter-divider" />
+                          <div className="coach-booking__filter-group">
+                            <span className="coach-booking__filter-group-label">Upcoming options</span>
+                            <div className="coach-booking__filter-options-list">
+                              {profile.booking.availableDates.map((date) => {
+                                const active = selection.day === date.id;
+                                return (
+                                  <button
+                                    key={date.id}
+                                    type="button"
+                                    className={`coach-booking__filter-option${active ? " coach-booking__filter-option--active" : ""}`}
+                                    role="menuitemradio"
+                                    aria-checked={active}
+                                    onClick={() => {
+                                      setSelection((prev) => ({ ...prev, day: date.id }));
+                                      setDatePickerValue(date.id);
+                                      setIsDateMenuOpen(false);
+                                    }}
+                                  >
+                                    <span className="coach-booking__filter-option-primary">
+                                      {dayNameMap[date.day] ?? date.day}
+                                    </span>
+                                    <span className="coach-booking__filter-option-secondary">{date.label}</span>
+                                  </button>
+                                );
+                              })}
+                              {customSelectionMeta ? (
+                                <button
+                                  type="button"
+                                  className="coach-booking__filter-option coach-booking__filter-option--active coach-booking__filter-option--custom"
+                                  role="menuitemradio"
+                                  aria-checked={true}
+                                  onClick={() => {
+                                    setSelection((prev) => ({ ...prev, day: customSelectionMeta.iso }));
+                                    setDatePickerValue(customSelectionMeta.iso);
+                                    setIsDateMenuOpen(false);
+                                  }}
+                                >
+                                  <span className="coach-booking__filter-option-primary">
+                                    {customSelectionMeta.weekdayLong}
+                                  </span>
+                                  <span className="coach-booking__filter-option-secondary">
+                                    {customSelectionMeta.monthDayLong}
+                                  </span>
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="coach-booking__filter-divider" />
+                          <div className="coach-booking__filter-field">
+                            <label className="coach-booking__filter-field-label" htmlFor={datePickerId}>
+                              Jump to a date
+                            </label>
+                            <input
+                              id={datePickerId}
+                              className="coach-booking__date-input"
+                              type="date"
+                              min={minSelectableDate}
+                              max={maxSelectableDate}
+                              value={datePickerValue}
+                              onChange={(event) => {
+                                const nextValue = event.target.value;
+                                setDatePickerValue(nextValue);
+                                if (!nextValue) {
+                                  setSelection((prev) => ({ ...prev, day: ALL_DAYS_ID }));
+                                  setIsDateMenuOpen(false);
+                                  return;
+                                }
+                                setSelection((prev) => ({ ...prev, day: nextValue }));
+                                setIsDateMenuOpen(false);
+                              }}
+                            />
+                            <p className="coach-booking__filter-hint">
+                              {selectedDateSummary
+                                ? `Showing availability for ${selectedDateSummary}.`
+                                : "Select any future date to check availability."}
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <div className="coach-booking__section">
