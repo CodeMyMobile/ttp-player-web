@@ -126,6 +126,7 @@
 .fc-filter__search {
   position: relative;
   flex: 1 1 320px;
+  z-index: 0;
 }
 
 .fc-filter__search input {
@@ -163,6 +164,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .fc-select {
@@ -177,6 +180,8 @@
   color: var(--fc-color-text-primary);
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .fc-select:hover {
