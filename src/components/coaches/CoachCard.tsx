@@ -1,5 +1,5 @@
 import type { KeyboardEventHandler } from "react";
-import { Award, Calendar, MapPin, MessageCircle, Sparkles, Star, Users } from "lucide-react";
+import { Award, Calendar, MapPin, MessageCircle, Sparkles, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import type { Coach, CoachHighlight } from "../../data/mockCoaches";
@@ -60,7 +60,6 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
     >
       <div className="fc-card__top">
         <div className="fc-card__labels">
-          <TagPill tone="available">{coach.availabilityTag}</TagPill>
           {coach.featured && <TagPill tone="featured">Featured</TagPill>}
         </div>
         <div className="fc-card__price">
@@ -74,12 +73,9 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
         <div className="fc-card__identity">
           <h3 className="fc-card__name">{coach.name}</h3>
           <span className="fc-card__title">{coach.title}</span>
-          <div className="fc-card__rating">
-            <span className="fc-card__rating-badge">
-              <Star size={16} fill="#FDB022" stroke="none" />
-              {coach.rating.toFixed(1)}
-            </span>
-            {coach.certifications.length > 0 && (
+          {coach.certifications.length > 0 && (
+            <div className="fc-card__credentials">
+              <span className="fc-card__credentials-label">Certified</span>
               <div className="fc-card__certifications">
                 {coach.certifications.slice(0, 2).map((certification) => (
                   <span key={certification} className="fc-card__certification">
@@ -88,8 +84,8 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
                   </span>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

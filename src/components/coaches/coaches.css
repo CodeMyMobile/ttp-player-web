@@ -323,24 +323,22 @@
   color: var(--fc-color-text-muted);
 }
 
-.fc-card__rating {
+.fc-card__credentials {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 14px;
-  color: var(--fc-color-text-primary);
 }
 
-.fc-card__rating-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+.fc-card__credentials-label {
+  padding: 4px 10px;
   border-radius: 9999px;
-  background: #fff7e6;
-  color: #b54708;
-  font-weight: 600;
+  background: #eef4ff;
+  color: #155eef;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .fc-card__certifications {

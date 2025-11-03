@@ -73,8 +73,8 @@ export const mockCoaches: Coach[] = [
     },
     highlights: [
       { icon: "calendar", label: "Morning & Evening" },
-      { icon: "map", label: "Greenwich Tennis Center" },
-      { icon: "message", label: "Responds in 1 hour" },
+      { icon: "users", label: "High performance juniors" },
+      { icon: "spark", label: "Serve & return focus" },
     ],
     tags: ["Serve clinic", "Footwork", "Video review"],
     imageUrl:
@@ -110,8 +110,8 @@ export const mockCoaches: Coach[] = [
     },
     highlights: [
       { icon: "calendar", label: "Late afternoons" },
-      { icon: "map", label: "Vista Courts" },
-      { icon: "message", label: "Responds in 2 hours" },
+      { icon: "users", label: "Advanced singles" },
+      { icon: "spark", label: "Data-driven training" },
     ],
     tags: ["Topspin", "Singles tactics", "Match analysis"],
     imageUrl:
@@ -146,9 +146,9 @@ export const mockCoaches: Coach[] = [
       court: "Carlsbad Tennis Club · Stadium Court",
     },
     highlights: [
-      { icon: "calendar", label: "Weekend" },
-      { icon: "map", label: "Carlsbad Tennis Club" },
-      { icon: "message", label: "Responds in 3 hours" },
+      { icon: "calendar", label: "Weekend blocks" },
+      { icon: "users", label: "Elite juniors" },
+      { icon: "spark", label: "Mindset coaching" },
     ],
     tags: ["Junior focus", "Strength", "Tournament prep"],
     imageUrl:
@@ -183,9 +183,9 @@ export const mockCoaches: Coach[] = [
       court: "Exchange Tennis Centre · Court 7",
     },
     highlights: [
-      { icon: "calendar", label: "Weekday evenings" },
-      { icon: "map", label: "Exchange Tennis Centre" },
-      { icon: "message", label: "Responds in 1 hour" },
+      { icon: "calendar", label: "Weeknight sessions" },
+      { icon: "users", label: "Doubles specialists" },
+      { icon: "spark", label: "Transition play focus" },
     ],
     tags: ["Approach shots", "Doubles", "Serve +1"],
     imageUrl:
