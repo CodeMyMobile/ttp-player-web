@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ElementType } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Award,
+  Briefcase,
   CalendarDays,
   CheckCircle2,
+  ClipboardList,
+  GraduationCap,
+  Languages,
   MapPin,
   MessageCircle,
   Package,
   Sparkles,
-  Star,
-  Users,
   Wallet,
 } from "lucide-react";
 
@@ -18,12 +20,6 @@ import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
 
 import "./CoachProfilePage.css";
-
-const highlightIconMap = {
-  users: Users,
-  trophy: Award,
-  spark: Sparkles,
-};
 
 const dayNameMap: Record<string, string> = {
   Mon: "Monday",
@@ -284,6 +280,53 @@ const CoachProfilePage = () => {
   const lessonCreditSummary = playerLessonCredits
     .map((credit) => `${credit.lessonTypeLabel}: ${Math.max(credit.remaining, 0)} left`)
     .join(" • ");
+  const languagesLabel = profile?.languages?.join(", ");
+  const privateRate = profile?.lessonRates?.private;
+  const groupRate = profile?.lessonRates?.group;
+  const levelLabels = profile?.levels ?? [];
+  const biographyCopy = profile?.bio ?? profile?.about;
+  const hasAboutFacts = (profile?.yearsExperience ?? null) != null || Boolean(languagesLabel);
+  const heroFacts = useMemo(() => {
+    if (!profile) {
+      return [] as { icon: ElementType; label: string; value: string }[];
+    }
+
+    const facts: { icon: ElementType; label: string; value: string }[] = [];
+
+    if (profile.yearsExperience != null) {
+      facts.push({
+        icon: Briefcase,
+        label: "Experience",
+        value: `${profile.yearsExperience}+ years coaching`,
+      });
+    }
+
+    if (privateRate || groupRate) {
+      const rateParts = [] as string[];
+      if (privateRate) {
+        rateParts.push(`Private ${privateRate}`);
+      }
+      if (groupRate) {
+        rateParts.push(`Group ${groupRate}`);
+      }
+
+      facts.push({
+        icon: Wallet,
+        label: "Lesson rates",
+        value: rateParts.join(" • "),
+      });
+    }
+
+    if (languagesLabel) {
+      facts.push({
+        icon: Languages,
+        label: "Languages",
+        value: languagesLabel,
+      });
+    }
+
+    return facts;
+  }, [groupRate, languagesLabel, privateRate, profile]);
   const bestValueLessonPackage = useMemo(() => {
     if (!profile || profile.lessonPackages.length === 0) {
       return undefined;
@@ -429,38 +472,91 @@ const CoachProfilePage = () => {
                       <div className="coach-profile-identity__details">
                         <div className="coach-profile-identity__name-row">
                           <h1 className="coach-profile-identity__name">{profile.name}</h1>
-                          {profile.headlineBadge && (
-                            <span className="coach-profile-identity__badge">
-                              <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
-                              {profile.headlineBadge}
-                            </span>
-                          )}
                         </div>
                         <div className="coach-profile-identity__meta">
-                          <span className="coach-profile-identity__rating">
-                            <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
-                            {profile.rating.toFixed(1)}
-                          </span>
-                          <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
-                          <span className="coach-profile-identity__separator" aria-hidden="true">
-                            •
-                          </span>
                           <span className="coach-profile-identity__title">{profile.title}</span>
-                        </div>
-                        <div className="coach-profile-identity__chips">
-                          {profile.highlightChips.map((chip) => {
-                            const Icon = highlightIconMap[chip.icon];
-                            return (
-                              <span key={chip.label} className="coach-profile-identity__chip">
-                                <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
-                                {chip.label}
+                          {profile.location ? (
+                            <>
+                              <span className="coach-profile-identity__separator" aria-hidden="true">•</span>
+                              <span className="coach-profile-identity__location">
+                                <MapPin aria-hidden className="coach-profile-identity__location-icon" />
+                                {profile.location}
                               </span>
-                            );
-                          })}
+                            </>
+                          ) : null}
                         </div>
+                        {profile.summary ? (
+                          <p className="coach-profile-identity__summary">{profile.summary}</p>
+                        ) : null}
+                        {heroFacts.length > 0 ? (
+                          <ul className="coach-profile-identity__facts">
+                            {heroFacts.map(({ icon: Icon, label, value }) => (
+                              <li key={label} className="coach-profile-identity__fact">
+                                <span className="coach-profile-identity__fact-icon" aria-hidden>
+                                  <Icon />
+                                </span>
+                                <span className="coach-profile-identity__fact-body">
+                                  <span className="coach-profile-identity__fact-label">{label}</span>
+                                  <span className="coach-profile-identity__fact-value">{value}</span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </div>
                     </div>
                   </div>
+
+                  {hasLessonCredits ? (
+                    <aside
+                      className="coach-profile-hero__supplement"
+                      aria-label={`Lesson credits saved with ${coachFirstName}`}
+                    >
+                      <div className="coach-profile-hero-wallet">
+                        <div className="coach-profile-hero-wallet__body">
+                          <div className="coach-profile-hero-wallet__header">
+                            <div className="coach-profile-hero-wallet__icon" aria-hidden>
+                              <Wallet />
+                            </div>
+                            <div className="coach-profile-hero-wallet__text">
+                              <span className="coach-profile-hero-wallet__eyebrow">Lesson credits</span>
+                              <p className="coach-profile-hero-wallet__headline">
+                                {creditsRemaining} credit{creditsRemaining === 1 ? "" : "s"} ready with {coachFirstName}
+                              </p>
+                              <p className="coach-profile-hero-wallet__meta">
+                                Apply them instantly at checkout or top up a new package.
+                              </p>
+                            </div>
+                          </div>
+                          <ul className="coach-profile-hero-wallet__list">
+                            {playerLessonCredits.map((credit) => (
+                              <li key={credit.lessonTypeId} className="coach-profile-hero-wallet__item">
+                                <div className="coach-profile-hero-wallet__item-main">
+                                  <span className="coach-profile-hero-wallet__item-type">{credit.lessonTypeLabel}</span>
+                                  <span className="coach-profile-hero-wallet__item-remaining">
+                                    {credit.remaining} of {credit.totalPurchased ?? credit.remaining} left
+                                  </span>
+                                </div>
+                                {credit.upcomingExpiryLabel ? (
+                                  <span className="coach-profile-hero-wallet__item-meta">{credit.upcomingExpiryLabel}</span>
+                                ) : null}
+                                {credit.lastPurchasedLabel ? (
+                                  <span className="coach-profile-hero-wallet__item-meta">{credit.lastPurchasedLabel}</span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <button
+                          type="button"
+                          className="coach-profile-hero-wallet__action"
+                          onClick={handleOpenPurchaseModal}
+                        >
+                          Manage credits
+                        </button>
+                      </div>
+                    </aside>
+                  ) : null}
 
                 </div>
               </section>
@@ -475,7 +571,37 @@ const CoachProfilePage = () => {
                             <h2 className="coach-profile-panel__title">About {profile.name.split(" ")[0]}</h2>
                             <MessageCircle className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
-                          <p className="coach-profile-about__copy">{profile.about}</p>
+                          {biographyCopy ? (
+                            <p className="coach-profile-about__copy">{biographyCopy}</p>
+                          ) : null}
+                          {hasAboutFacts ? (
+                            <div className="coach-profile-about__facts">
+                              {profile.yearsExperience != null ? (
+                                <div className="coach-profile-about__fact">
+                                  <span className="coach-profile-about__fact-icon" aria-hidden>
+                                    <Briefcase />
+                                  </span>
+                                  <div className="coach-profile-about__fact-body">
+                                    <span className="coach-profile-about__fact-label">Years coaching</span>
+                                    <span className="coach-profile-about__fact-value">
+                                      {profile.yearsExperience}+ years guiding players
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : null}
+                              {languagesLabel ? (
+                                <div className="coach-profile-about__fact">
+                                  <span className="coach-profile-about__fact-icon" aria-hidden>
+                                    <Languages />
+                                  </span>
+                                  <div className="coach-profile-about__fact-body">
+                                    <span className="coach-profile-about__fact-label">Languages</span>
+                                    <span className="coach-profile-about__fact-value">{languagesLabel}</span>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {profile.certifications.length > 0 && (
                             <div className="coach-profile-certifications">
                               {profile.certifications.map((certification) => (
@@ -490,16 +616,33 @@ const CoachProfilePage = () => {
 
                         <div className="coach-profile-panel">
                           <div className="coach-profile-panel__header">
-                            <h2 className="coach-profile-panel__title">Specialties</h2>
+                            <h2 className="coach-profile-panel__title">Stroke specialties</h2>
                             <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
-                          <p className="coach-profile-panel__copy">Serve technique, match strategy, and tournament prep dialed for your game.</p>
+                          <p className="coach-profile-panel__copy">
+                            Targeted stroke work and tactical focuses that {coachFirstName} is known for.
+                          </p>
                           <div className="coach-profile-panel__chips">
                             {profile.specialties.map((specialty) => (
                               <Chip key={specialty} label={specialty} />
                             ))}
                           </div>
                         </div>
+
+                        {levelLabels.length > 0 ? (
+                          <div className="coach-profile-panel">
+                            <div className="coach-profile-panel__header">
+                              <h2 className="coach-profile-panel__title">Levels coached</h2>
+                              <GraduationCap className="coach-profile-panel__icon" strokeWidth={2.4} />
+                            </div>
+                            <p className="coach-profile-panel__copy">Programs tailored for players at these stages.</p>
+                            <div className="coach-profile-panel__chips">
+                              {levelLabels.map((level) => (
+                                <Chip key={level} label={level} />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
 
                         <div className="coach-profile-panel">
                           <div className="coach-profile-panel__header">
@@ -519,10 +662,10 @@ const CoachProfilePage = () => {
 
                         <div className="coach-profile-panel">
                         <div className="coach-profile-panel__header">
-                          <h2 className="coach-profile-panel__title">Lesson Types</h2>
-                          <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
+                          <h2 className="coach-profile-panel__title">Lesson pricing</h2>
+                          <ClipboardList className="coach-profile-panel__icon" strokeWidth={2.4} />
                         </div>
-                        <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
+                        <p className="coach-profile-panel__copy">Transparent private and group rates for every session.</p>
                         <ul className="coach-profile-lessons">
                           {profile.lessonDetails.map((lesson) => (
                             <li key={lesson.title} className="coach-profile-lesson">
