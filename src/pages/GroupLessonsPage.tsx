@@ -201,11 +201,11 @@ const GroupLessonsPage = () => {
                     </header>
                     <p className="lesson-card__focus">{lesson.focus}</p>
                     <div className="lesson-card__meta">
-                      <div>
+                      <div className="lesson-card__meta-item">
                         <CalendarDays size={18} aria-hidden="true" />
                         <span>{lesson.day}</span>
                       </div>
-                      <div>
+                      <div className="lesson-card__meta-item">
                         <Clock size={18} aria-hidden="true" />
                         <span>
                           {lesson.startTime}
@@ -215,11 +215,11 @@ const GroupLessonsPage = () => {
                           {lesson.durationMinutes} min
                         </span>
                       </div>
-                      <div>
+                      <div className="lesson-card__meta-item">
                         <Timer size={18} aria-hidden="true" />
                         <span>{lesson.skillLabel}</span>
                       </div>
-                      <div>
+                      <div className="lesson-card__meta-item">
                         <MapPin size={18} aria-hidden="true" />
                         <span>
                           {lesson.locationName}
@@ -229,7 +229,7 @@ const GroupLessonsPage = () => {
                           {lesson.distanceMiles.toFixed(1)} mi
                         </span>
                       </div>
-                      <div>
+                      <div className="lesson-card__meta-item lesson-card__meta-item--spots">
                         <Users size={18} aria-hidden="true" />
                         <span>{spotsLabel}</span>
                       </div>

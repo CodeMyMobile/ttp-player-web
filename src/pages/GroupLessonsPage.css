@@ -227,15 +227,16 @@
 
 .lessons-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 28px;
 }
 
 .lesson-card {
   background: #ffffff;
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -245,60 +246,71 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
 }
 
 .lesson-card__day {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(15, 23, 42, 0.55);
+  color: #94a3b8;
 }
 
 .lesson-card__header h3 {
-  font-size: 20px;
+  font-size: 22px;
   color: #0f172a;
-  margin-top: 4px;
+  margin-top: 6px;
+  font-weight: 700;
 }
 
 .lesson-card__level {
-  background: rgba(34, 197, 94, 0.15);
-  color: #047857;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-weight: 600;
+  background: linear-gradient(135deg, #bbf7d0, #22c55e);
+  color: #065f46;
+  border-radius: 14px;
+  padding: 6px 16px;
+  font-weight: 700;
   font-size: 13px;
   white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .lesson-card__focus {
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(15, 23, 42, 0.75);
+  color: #475569;
 }
 
 .lesson-card__meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 15px;
 }
 
-.lesson-card__meta div {
+.lesson-card__meta-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-weight: 600;
-  background: rgba(15, 23, 42, 0.04);
-  padding: 10px 12px;
-  border-radius: 14px;
 }
 
-.lesson-card__meta .bullet {
-  margin: 0 6px;
-  opacity: 0.5;
+.lesson-card__meta-item svg {
+  color: #16a34a;
+}
+
+.lesson-card__meta-item .bullet {
+  margin: 0 8px;
+  opacity: 0.45;
+}
+
+.lesson-card__meta-item--spots {
+  color: #047857;
+}
+
+.lesson-card__meta-item--spots svg {
+  color: #047857;
 }
 
 .lesson-card__footer {
@@ -307,32 +319,32 @@
   align-items: center;
   gap: 16px;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
-  padding-top: 16px;
+  padding-top: 18px;
 }
 
 .lesson-coach {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
 }
 
 .lesson-coach img {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 .coach-name {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: #0f172a;
 }
 
 .coach-location {
   font-size: 13px;
-  color: rgba(15, 23, 42, 0.6);
+  color: #64748b;
 }
 
 .lesson-actions {
@@ -342,35 +354,35 @@
 
 .primary-button {
   border: none;
-  padding: 10px 20px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #22c55e, #10b981);
+  padding: 10px 22px;
+  border-radius: 12px;
+  background: #22c55e;
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 18px 28px rgba(16, 185, 129, 0.22);
+  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.28);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 22px 36px rgba(16, 185, 129, 0.28);
+  box-shadow: 0 18px 32px rgba(34, 197, 94, 0.32);
 }
 
 .ghost-button {
-  border: none;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
-  font-weight: 600;
+  border: 1px solid #cbd5f5;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .ghost-button:hover {
-  background: rgba(15, 23, 42, 0.15);
-  transform: translateY(-1px);
+  background: rgba(59, 130, 246, 0.06);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
 }
 
 .empty-state {
