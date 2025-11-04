@@ -44,6 +44,24 @@ const extractDisplayName = (user: unknown): string => {
   return "Paul";
 };
 
+const getAvatarFromIdentity = (user: unknown): string | null => {
+  if (!user || typeof user !== "object") {
+    return null;
+  }
+
+  const profile = user as Record<string, unknown>;
+  const avatarFields = ["avatar_url", "avatar", "picture", "image", "photoURL", "photoUrl"] as const;
+
+  for (const field of avatarFields) {
+    const value = profile[field];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
 const usePlayerIdentity = () => {
   const auth = useAuth() as { user?: unknown } | undefined;
   const user = auth?.user;
@@ -54,8 +72,9 @@ const usePlayerIdentity = () => {
     () => getInitialsFromIdentity(displayName, email),
     [displayName, email],
   );
+  const avatarUrl = useMemo(() => getAvatarFromIdentity(user), [user]);
 
-  return { displayName, email, initials };
+  return { displayName, email, initials, avatarUrl };
 };
 
 export default usePlayerIdentity;
