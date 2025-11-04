@@ -112,6 +112,15 @@ const PurchaseLessonPackageExperience = ({
     return coach.playerLessonCredits?.find((credit) => credit.lessonTypeId === selectedLessonType?.id);
   }, [coach.playerLessonCredits, selectedLessonType?.id]);
 
+  const [durationLabel, formatLabel] = useMemo<[string, string]>(() => {
+    if (!selectedLessonType?.duration) {
+      return ["", ""];
+    }
+
+    const parts = selectedLessonType.duration.split("•").map((part) => part.trim());
+    return [parts[0] ?? "", parts[1] ?? ""];
+  }, [selectedLessonType?.duration]);
+
   const isUsingNewCard = paymentMethod === "new-card";
   const isUsingApplePay = paymentMethod === "apple-pay";
 
@@ -228,12 +237,7 @@ const PurchaseLessonPackageExperience = ({
               ) : null}
 
               {selectedLessonType ? (
-                <section className="purchase-package-experience__lesson-overview">
-                  <div className="purchase-package-experience__lesson-overview-header">
-                    <span className="purchase-package-experience__lesson-eyebrow">{selectedLessonType.description}</span>
-                    <h3>{selectedLessonType.tagline}</h3>
-                    <p>{selectedLessonType.duration}</p>
-                  </div>
+                <section className="purchase-package-experience__lesson-overview" aria-label="Lesson format details">
                   <div className="purchase-package-experience__lesson-overview-meta">
                     <div>
                       <span className="purchase-package-experience__lesson-meta-label">Rate</span>
@@ -242,12 +246,18 @@ const PurchaseLessonPackageExperience = ({
                         <span className="purchase-package-experience__lesson-meta-unit">{selectedLessonType.unit}</span>
                       </span>
                     </div>
-                    <div>
-                      <span className="purchase-package-experience__lesson-meta-label">Format</span>
-                      <span className="purchase-package-experience__lesson-meta-value">
-                        {selectedLessonType.duration.split("•")[1]?.trim() ?? "Single player"}
-                      </span>
-                    </div>
+                    {formatLabel ? (
+                      <div>
+                        <span className="purchase-package-experience__lesson-meta-label">Format</span>
+                        <span className="purchase-package-experience__lesson-meta-value">{formatLabel}</span>
+                      </div>
+                    ) : null}
+                    {durationLabel ? (
+                      <div>
+                        <span className="purchase-package-experience__lesson-meta-label">Duration</span>
+                        <span className="purchase-package-experience__lesson-meta-value">{durationLabel}</span>
+                      </div>
+                    ) : null}
                   </div>
                   {selectedLessonType.bullets?.length ? (
                     <ul className="purchase-package-experience__lesson-bullets">
@@ -432,6 +442,9 @@ const PurchaseLessonPackageExperience = ({
                       <span className="payment-method-card__title">Add a new credit card</span>
                       <span className="payment-method-card__subtitle">Securely save it for future packages.</span>
                     </span>
+                  </label>
+
+                  {isUsingNewCard ? (
                     <div className="payment-method-card__form" role="group" aria-label="New card details">
                       <div className="payment-method-card__form-row">
                         <label className="payment-method-card__form-field">
@@ -440,9 +453,9 @@ const PurchaseLessonPackageExperience = ({
                             name="name"
                             type="text"
                             autoComplete="cc-name"
+                            placeholder="Name on card"
                             value={newCardForm.name}
                             onChange={handleNewCardChange}
-                            disabled={!isUsingNewCard}
                           />
                         </label>
                       </div>
@@ -454,23 +467,23 @@ const PurchaseLessonPackageExperience = ({
                             type="text"
                             inputMode="numeric"
                             autoComplete="cc-number"
+                            placeholder="1234 1234 1234 1234"
                             value={newCardForm.number}
                             onChange={handleNewCardChange}
-                            disabled={!isUsingNewCard}
                           />
                         </label>
                       </div>
-                      <div className="payment-method-card__form-row payment-method-card__form-row--split">
+                      <div className="payment-method-card__form-row payment-method-card__form-row--grid">
                         <label className="payment-method-card__form-field">
                           <span>Expiry</span>
                           <input
                             name="expiry"
                             type="text"
+                            inputMode="numeric"
                             placeholder="MM/YY"
                             autoComplete="cc-exp"
                             value={newCardForm.expiry}
                             onChange={handleNewCardChange}
-                            disabled={!isUsingNewCard}
                           />
                         </label>
                         <label className="payment-method-card__form-field">
@@ -480,13 +493,11 @@ const PurchaseLessonPackageExperience = ({
                             type="text"
                             inputMode="numeric"
                             autoComplete="cc-csc"
+                            placeholder="123"
                             value={newCardForm.cvc}
                             onChange={handleNewCardChange}
-                            disabled={!isUsingNewCard}
                           />
                         </label>
-                      </div>
-                      <div className="payment-method-card__form-row">
                         <label className="payment-method-card__form-field">
                           <span>Billing ZIP</span>
                           <input
@@ -494,14 +505,14 @@ const PurchaseLessonPackageExperience = ({
                             type="text"
                             inputMode="numeric"
                             autoComplete="postal-code"
+                            placeholder="12345"
                             value={newCardForm.postalCode}
                             onChange={handleNewCardChange}
-                            disabled={!isUsingNewCard}
                           />
                         </label>
                       </div>
                     </div>
-                  </label>
+                  ) : null}
 
                   <div className="payment-methods__group">
                     <span className="payment-methods__group-label">Digital wallet</span>
