@@ -16,7 +16,6 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
-import PurchaseLessonPackageModal from "../components/coaches/PurchaseLessonPackageModal";
 
 import "./CoachProfilePage.css";
 
@@ -167,7 +166,6 @@ const CoachProfilePage = () => {
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
-  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && profile) {
@@ -240,11 +238,11 @@ const CoachProfilePage = () => {
   }, [profile, selection.dateId, selection.lessonType, selection.timeId]);
 
   const handleOpenPurchaseModal = () => {
-    setIsPurchaseModalOpen(true);
-  };
+    if (!profile) {
+      return;
+    }
 
-  const handleClosePurchaseModal = () => {
-    setIsPurchaseModalOpen(false);
+    navigate(`/coaches/${profile.id}/purchase`);
   };
 
   const handleLessonTypeChange = (id: string) => {
@@ -950,9 +948,6 @@ const CoachProfilePage = () => {
           )}
         </div>
       </div>
-      {isPurchaseModalOpen && profile ? (
-        <PurchaseLessonPackageModal coach={profile} onClose={handleClosePurchaseModal} />
-      ) : null}
     </MainLayout>
   );
 };
