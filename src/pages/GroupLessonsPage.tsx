@@ -6,7 +6,6 @@ import {
   Users,
   Timer,
   Target,
-  SlidersHorizontal,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -62,103 +61,95 @@ const GroupLessonsPage = () => {
   return (
     <MainLayout>
       <div className="group-lessons-page">
-        <section className="group-lessons-hero">
-          <div>
-            <p className="group-lessons-eyebrow">Group Lessons</p>
-            <h1>Train with players near you</h1>
-            <p className="group-lessons-subtitle">
-              Browse curated group sessions led by trusted Matchplay coaches. Dial in the skills you
-              need, match with players at your level, and secure a spot in minutes.
-            </p>
-          </div>
-          <div className="group-lessons-hero-card">
-            <div className="hero-stat">
-              <span className="hero-stat__value">{filteredLessons.length}</span>
-              <span className="hero-stat__label">Lessons near you</span>
+        <div className="group-lessons-page__inner">
+          <header className="group-lessons-header">
+            <div className="group-lessons-header__text">
+              <h1>Find Group Lessons</h1>
+              <p>
+                Discover curated sessions led by trusted Matchplay coaches. Dial in your skills,
+                match with players at your level, and secure a spot in minutes.
+              </p>
             </div>
-            <div className="hero-divider" aria-hidden="true" />
-            <div className="hero-location">
-              <MapPin size={18} aria-hidden="true" />
-              <div>
-                <p className="hero-location__label">Location</p>
-                <p className="hero-location__value">{location || DEFAULT_LOCATION}</p>
+            <div className="group-lessons-header__meta" aria-label="Search context">
+              <div className="group-lessons-header__stat">
+                <span className="label">Lessons nearby</span>
+                <span className="value">{filteredLessons.length}</span>
+              </div>
+              <div className="group-lessons-header__location">
+                <MapPin size={18} aria-hidden="true" />
+                <div>
+                  <span className="label">Location</span>
+                  <span className="value">{location || DEFAULT_LOCATION}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </header>
 
-        <section className="group-lessons-filters" aria-labelledby="group-lessons-filters-heading">
-          <div className="filters-header">
-            <div>
-              <p className="filters-eyebrow">Refine your search</p>
-              <h2 id="group-lessons-filters-heading">Find the right fit faster</h2>
-            </div>
-            <SlidersHorizontal aria-hidden="true" />
-          </div>
-          <div className="filters-grid">
-            <label className="filter-field">
-              <span>Coach</span>
-              <select value={coachFilter} onChange={(event) => setCoachFilter(event.target.value)}>
-                {coachOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-field">
-              <span>Level</span>
-              <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-                {levelOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option === "All levels" ? option : `${option} NTRP`}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="filter-field">
-              <span>Location</span>
-              <input
-                type="text"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="Enter a city or neighborhood"
-              />
-              <button
-                type="button"
-                className="use-location"
-                onClick={() => setLocation(DEFAULT_LOCATION)}
-              >
-                Use my location
-              </button>
-            </label>
-            <div className="filter-field">
-              <span>Radius</span>
-              <div className="radius-control">
-                <div className="radius-value">
-                  <Target size={16} aria-hidden="true" />
-                  <span>{radiusLabel(radius)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={25}
-                  step={5}
-                  value={radius}
-                  onChange={(event) => setRadius(Number.parseInt(event.target.value, 10))}
-                  aria-label="Search radius in miles"
-                />
-                <div className="radius-scale" aria-hidden="true">
-                  {[5, 10, 15, 20, 25].map((value) => (
-                    <span key={value}>{value}</span>
+          <section className="group-lessons-filters" aria-label="Filter group lessons">
+            <div className="filters-grid">
+              <label className="filter-field">
+                <span>Coach</span>
+                <select value={coachFilter} onChange={(event) => setCoachFilter(event.target.value)}>
+                  {coachOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Level</span>
+                <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                  {levelOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "All levels" ? option : `${option} NTRP`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="filter-field">
+                <span>Location</span>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  placeholder="Enter a city or neighborhood"
+                />
+                <button
+                  type="button"
+                  className="use-location"
+                  onClick={() => setLocation(DEFAULT_LOCATION)}
+                >
+                  Use my location
+                </button>
+              </label>
+              <div className="filter-field">
+                <span>Radius</span>
+                <div className="radius-control">
+                  <div className="radius-value">
+                    <Target size={16} aria-hidden="true" />
+                    <span>{radiusLabel(radius)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={25}
+                    step={5}
+                    value={radius}
+                    onChange={(event) => setRadius(Number.parseInt(event.target.value, 10))}
+                    aria-label="Search radius in miles"
+                  />
+                  <div className="radius-scale" aria-hidden="true">
+                    {[5, 10, 15, 20, 25].map((value) => (
+                      <span key={value}>{value}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
+          <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
           <div className="results-header">
             <div>
               <p className="results-eyebrow">Available sessions</p>

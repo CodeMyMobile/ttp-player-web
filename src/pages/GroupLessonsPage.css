@@ -1,125 +1,113 @@
 .group-lessons-page {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.group-lessons-page__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px 48px 64px;
   display: flex;
   flex-direction: column;
   gap: 32px;
-  padding: 0 16px 48px;
 }
 
-.group-lessons-hero {
+.group-lessons-header {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  align-items: stretch;
   gap: 32px;
-  background: linear-gradient(135deg, #22c55e 0%, #0ea5e9 100%);
-  border-radius: 28px;
-  padding: 36px 40px;
-  color: #ffffff;
-  box-shadow: 0 24px 48px rgba(14, 165, 233, 0.25);
 }
 
-.group-lessons-hero h1 {
-  font-size: 36px;
-  line-height: 1.2;
-  margin: 8px 0 16px;
-}
-
-.group-lessons-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-weight: 600;
-  opacity: 0.85;
-  font-size: 13px;
-}
-
-.group-lessons-subtitle {
-  font-size: 17px;
-  line-height: 1.6;
+.group-lessons-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   max-width: 520px;
-  opacity: 0.92;
 }
 
-.group-lessons-hero-card {
-  background: rgba(15, 23, 42, 0.16);
-  border-radius: 24px;
-  padding: 28px;
+.group-lessons-header__text h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.group-lessons-header__text p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.group-lessons-header__meta {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 20px;
-  min-width: 260px;
+  align-items: stretch;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.hero-stat {
+.group-lessons-header__stat,
+.group-lessons-header__location {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 18px 20px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
-.hero-stat__value {
-  font-size: 42px;
+.group-lessons-header__stat {
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 148px;
+}
+
+.group-lessons-header__stat .label,
+.group-lessons-header__location .label {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
   font-weight: 700;
 }
 
-.hero-stat__label {
+.group-lessons-header__stat .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.group-lessons-header__location {
+  min-width: 220px;
+}
+
+.group-lessons-header__location svg {
+  color: #10b981;
+}
+
+.group-lessons-header__location .value {
+  display: block;
   font-size: 15px;
   font-weight: 600;
-  opacity: 0.8;
-}
-
-.hero-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.24);
-}
-
-.hero-location {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.hero-location__label {
-  font-size: 13px;
-  opacity: 0.8;
-}
-
-.hero-location__value {
-  font-size: 16px;
-  font-weight: 600;
+  color: #0f172a;
 }
 
 .group-lessons-filters {
   background: #ffffff;
-  border-radius: 28px;
-  padding: 32px 36px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 24px 28px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 28px;
-}
-
-.filters-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.filters-eyebrow,
-.results-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
-  opacity: 0.6;
-}
-
-.filters-header h2,
-.results-header h2 {
-  font-size: 26px;
-  margin-top: 6px;
-  color: #0f172a;
+  gap: 20px;
 }
 
 .filters-grid {
@@ -143,37 +131,38 @@
 
 .filter-field select,
 .filter-field input {
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 14px;
   padding: 12px 14px;
   font-size: 15px;
   font-weight: 500;
-  background: rgba(248, 250, 252, 0.9);
+  background: #ffffff;
   color: #0f172a;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
 .filter-field select:focus,
 .filter-field input:focus {
   outline: none;
-  border-color: rgba(34, 197, 94, 0.65);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
 }
 
 .use-location {
   align-self: flex-start;
-  border: none;
-  background: rgba(34, 197, 94, 0.16);
-  color: #047857;
-  padding: 8px 16px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  padding: 6px 16px;
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
 
 .use-location:hover {
-  background: rgba(34, 197, 94, 0.28);
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.45);
   transform: translateY(-1px);
 }
 
@@ -213,11 +202,25 @@
   gap: 28px;
 }
 
+.results-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
 .results-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 16px;
+}
+
+.results-header h2 {
+  font-size: 26px;
+  margin: 6px 0 0;
+  color: #0f172a;
 }
 
 .results-count {
@@ -320,12 +323,15 @@
   gap: 16px;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
   padding-top: 18px;
+  flex-wrap: wrap;
 }
 
 .lesson-coach {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .lesson-coach img {
@@ -334,6 +340,7 @@
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  flex-shrink: 0;
 }
 
 .coach-name {
@@ -350,6 +357,8 @@
 .lesson-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .primary-button {
