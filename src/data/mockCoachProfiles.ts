@@ -567,6 +567,7 @@ export const mockCoachProfiles: CoachProfile[] = [
     lessonDetails: sharedProfileBase.lessonDetails,
     lessonPackages: sharedProfileBase.lessonPackages,
     booking: sharedProfileBase.booking,
+    levels: ["Beginner", "Intermediate", "Advanced", "Competitive"],
   },
   {
     ...mockCoaches[1],
