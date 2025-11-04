@@ -1,26 +1,37 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, Clock, MapPin, Users, Timer, Target } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Timer, Users } from "lucide-react";
 
+import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
+import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
 import { mockGroupLessons } from "../data/mockGroupLessons";
+import { colors, typography } from "../lib/theme";
 
+import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
-const DEFAULT_RADIUS = 10;
+const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+
+const parseRadius = (radius: string) => {
+  if (radius === "All") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const match = /^(\d+)/.exec(radius);
+  return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
+};
 
 const formatLevelRange = (level: number) => {
   const upperBound = (level + 0.5).toFixed(1);
   return `${level.toFixed(1)} - ${upperBound}`;
 };
 
-const radiusLabel = (radius: number) => `${radius} miles`;
-
 const GroupLessonsPage = () => {
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
-  const [radius, setRadius] = useState<number>(DEFAULT_RADIUS);
+  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const coachOptions = useMemo(
     () => ["All coaches", ...new Set(mockGroupLessons.map((lesson) => lesson.coachName))],
@@ -34,8 +45,53 @@ const GroupLessonsPage = () => {
     return ["All levels", ...uniqueLevels];
   }, []);
 
+  const themeVars = useMemo(
+    () => ({
+      "--fc-color-bg": colors.pageBackground,
+      "--fc-color-surface": colors.surface,
+      "--fc-color-text-primary": colors.primaryText,
+      "--fc-color-text-secondary": colors.secondaryText,
+      "--fc-color-text-muted": colors.mutedText,
+      "--fc-color-border": colors.border,
+      "--fc-color-icon": colors.icon,
+      "--fc-color-accent": colors.accentPurple,
+      "--fc-color-accent-light": colors.accentPurpleLight,
+      "--fc-color-accent-border": colors.accentPurpleBorder,
+      "--fc-chip-bg": colors.filterChipBg,
+      "--fc-chip-hover-bg": colors.filterChipHover,
+      "--fc-chip-text": colors.secondaryButtonText,
+      "--fc-color-secondary-border": colors.secondaryButtonBorder,
+      "--fc-color-secondary-text": colors.secondaryButtonText,
+      "--fc-color-secondary-hover": colors.secondaryButtonHover,
+      "--fc-color-success": colors.primarySuccess,
+      "--fc-color-success-hover": colors.primarySuccessHover,
+      "--fc-color-error-bg": colors.errorBg,
+      "--fc-color-error-border": colors.errorBorder,
+      "--fc-color-error-text": colors.errorText,
+      "--fc-color-empty-icon-bg": colors.emptyIconBg,
+      "--fc-color-skeleton-base": colors.skeletonBase,
+      "--fc-color-skeleton-highlight": colors.skeletonHighlight,
+      "--fc-font-family": typography.fontFamily,
+      "--fc-heading-size": typography.heading1.size,
+      "--fc-heading-line-height": typography.heading1.lineHeight,
+      "--fc-body-size": typography.body.size,
+      "--fc-body-line-height": typography.body.lineHeight,
+    }),
+    [],
+  );
+
+  const handleLocationClick = () => {
+    const nextLocation = window.prompt("Enter your city or neighborhood", location);
+    if (nextLocation !== null) {
+      const trimmed = nextLocation.trim();
+      setLocation(trimmed.length ? trimmed : DEFAULT_LOCATION);
+    }
+  };
+
   const filteredLessons = useMemo(() => {
     const normalizedLocation = location.trim().toLowerCase();
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const radiusLimit = parseRadius(selectedRadius);
 
     return mockGroupLessons.filter((lesson) => {
       const matchesCoach =
@@ -45,101 +101,64 @@ const GroupLessonsPage = () => {
       const matchesLocation =
         normalizedLocation.length === 0 ||
         lesson.locationCity.toLowerCase().includes(normalizedLocation);
-      const withinRadius = lesson.distanceMiles <= radius + 0.001;
+      const withinRadius = lesson.distanceMiles <= radiusLimit + 0.001;
+      const haystack = [
+        lesson.title,
+        lesson.focus,
+        lesson.coachName,
+        lesson.locationCity,
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch = normalizedSearch.length === 0 || haystack.includes(normalizedSearch);
 
-      return matchesCoach && matchesLevel && matchesLocation && withinRadius;
+      return matchesCoach && matchesLevel && matchesLocation && withinRadius && matchesSearch;
     });
-  }, [coachFilter, levelFilter, location, radius]);
+  }, [coachFilter, levelFilter, location, searchTerm, selectedRadius]);
+
+  const totalLessons = mockGroupLessons.length;
+  const resultsCountLabel = `${filteredLessons.length} ${
+    filteredLessons.length === 1 ? "group lesson" : "group lessons"
+  } found`;
 
   return (
     <MainLayout>
-      <div className="group-lessons-page">
-        <div className="group-lessons-page__inner">
-          <header className="group-lessons-hero">
-            <div className="group-lessons-hero__copy">
-              <p className="group-lessons-hero__eyebrow">Player experience</p>
-              <h1>Find Group Lessons Near You</h1>
-              <p className="group-lessons-hero__subtitle">
-                Discover curated sessions led by trusted Matchplay coaches. Dial in your skills,
-                match with players at your level, and secure a spot in minutes.
-              </p>
-            </div>
-          </header>
+      <div className="find-coaches-page group-lessons-page" style={themeVars}>
+        <div className="find-coaches-page__inner group-lessons-page__inner">
+          <ResultsHeader
+            title="Find Group Lessons"
+            description="Dial in your game with curated sessions led by trusted Matchplay coaches."
+          />
 
-          <section className="group-lessons-controls" aria-label="Filter group lessons">
-            <div className="group-lessons-controls__grid">
-              <label className="filter-field">
-                <span>Coach</span>
-                <select value={coachFilter} onChange={(event) => setCoachFilter(event.target.value)}>
-                  {coachOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-field">
-                <span>Level</span>
-                <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-                  {levelOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option === "All levels" ? option : `${option} NTRP`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="filter-field">
-                <span>Location</span>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  placeholder="Enter a city or neighborhood"
-                />
-                <button
-                  type="button"
-                  className="use-location"
-                  onClick={() => setLocation(DEFAULT_LOCATION)}
-                >
-                  Use my location
-                </button>
-              </label>
-              <div className="filter-field">
-                <span>Radius</span>
-                <div className="radius-control">
-                  <div className="radius-value">
-                    <Target size={16} aria-hidden="true" />
-                    <span>{radiusLabel(radius)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={5}
-                    max={25}
-                    step={5}
-                    value={radius}
-                    onChange={(event) => setRadius(Number.parseInt(event.target.value, 10))}
-                    aria-label="Search radius in miles"
-                  />
-                  <div className="radius-scale" aria-hidden="true">
-                    {[5, 10, 15, 20, 25].map((value) => (
-                      <span key={value}>{value}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+          <GroupLessonsFilterBar
+            coachOptions={coachOptions}
+            selectedCoach={coachFilter}
+            onCoachChange={setCoachFilter}
+            levelOptions={levelOptions}
+            selectedLevel={levelFilter}
+            onLevelChange={setLevelFilter}
+            location={location}
+            onLocationClick={handleLocationClick}
+            radiusOptions={radiusOptions}
+            selectedRadius={selectedRadius}
+            onRadiusChange={setSelectedRadius}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            onSearch={() => {
+              setSearchTerm((current) => current.trim());
+            }}
+          />
+
+          <span className="fc-results-count">{resultsCountLabel}</span>
 
           <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
-            <div className="results-header">
+            <div className="group-lessons-results__header">
               <div>
-                <p className="results-eyebrow">Available sessions</p>
-                <h2 id="group-lessons-results-heading">Snapshot of group lessons nearby</h2>
+                <h2 id="group-lessons-results-heading">Available sessions nearby</h2>
+                <p className="group-lessons-results__meta">
+                  Showing {filteredLessons.length} of {totalLessons} total sessions
+                </p>
               </div>
-              <p className="results-count">
-                Showing <strong>{filteredLessons.length}</strong>{" "}
-                {filteredLessons.length === 1 ? "lesson" : "lessons"}
-              </p>
             </div>
 
             {filteredLessons.length === 0 ? (
@@ -151,7 +170,8 @@ const GroupLessonsPage = () => {
                     setCoachFilter("All coaches");
                     setLevelFilter("All levels");
                     setLocation(DEFAULT_LOCATION);
-                    setRadius(DEFAULT_RADIUS);
+                    setSelectedRadius(radiusOptions[1]);
+                    setSearchTerm("");
                   }}
                 >
                   Reset filters
