@@ -27,6 +27,43 @@ const formatLevelRange = (level: number) => {
   return `${level.toFixed(1)} - ${upperBound}`;
 };
 
+const toIsoDate = (date: Date) => {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    .toISOString()
+    .slice(0, 10);
+};
+
+const parseLessonDateToIso = (label: string) => {
+  const currentYear = new Date().getFullYear();
+  const parsed = new Date(`${label}, ${currentYear} 12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return toIsoDate(parsed);
+};
+
+const addDays = (iso: string, amount: number) => {
+  const base = new Date(`${iso}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + amount);
+  return base;
+};
+
+const formatWeekday = (iso: string) => {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long" });
+};
+
+const formatMonthDay = (iso: string, options: "long" | "short" = "long") => {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: options === "long" ? "long" : "short",
+    day: "numeric",
+  });
+};
+
+type DateFilterState =
+  | { type: "all" }
+  | { type: "day"; iso: string }
+  | { type: "range"; start: string; end: string };
+
 const GroupLessonsPage = () => {
   const navigate = useNavigate();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
@@ -34,34 +71,65 @@ const GroupLessonsPage = () => {
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedDay, setSelectedDay] = useState<string>("All days");
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
+  const [isRangeOpen, setIsRangeOpen] = useState(false);
+  const [rangeStartValue, setRangeStartValue] = useState<string>("");
+  const [rangeEndValue, setRangeEndValue] = useState<string>("");
+  const [rangeError, setRangeError] = useState<string | undefined>();
 
-  const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(mockGroupLessons.map((lesson) => lesson.coachName))],
+  const lessons = useMemo(
+    () =>
+      mockGroupLessons.map((lesson) => ({
+        ...lesson,
+        isoDate: parseLessonDateToIso(lesson.date),
+      })),
     [],
   );
 
+  const coachOptions = useMemo(
+    () => ["All coaches", ...new Set(lessons.map((lesson) => lesson.coachName))],
+    [lessons],
+  );
+
   const levelOptions = useMemo(() => {
-    const uniqueLevels = Array.from(new Set(mockGroupLessons.map((lesson) => lesson.level)))
+    const uniqueLevels = Array.from(new Set(lessons.map((lesson) => lesson.level)))
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
-  }, []);
+  }, [lessons]);
+
+  const dateAnchors = useMemo(() => {
+    const validIsos = lessons
+      .map((lesson) => lesson.isoDate)
+      .filter((iso): iso is string => Boolean(iso))
+      .sort();
+
+    if (validIsos.length === 0) {
+      const todayIso = toIsoDate(new Date());
+      return { start: todayIso, end: toIsoDate(addDays(todayIso, 7)) };
+    }
+
+    const base = validIsos[0];
+    const last = validIsos[validIsos.length - 1];
+    const start = base;
+    const endAnchor = addDays(base, 7);
+    const computedEnd = toIsoDate(endAnchor);
+    const max = last > computedEnd ? last : computedEnd;
+    return { start, end: max };
+  }, [lessons]);
 
   const dayOptions = useMemo(() => {
-    const uniqueDates = new Map<string, { day: string; label: string }>();
-
-    mockGroupLessons.forEach((lesson) => {
-      if (!uniqueDates.has(lesson.date)) {
-        uniqueDates.set(lesson.date, { day: lesson.day, label: lesson.date });
-      }
+    const startDate = dateAnchors.start;
+    return Array.from({ length: 8 }, (_, index) => {
+      const date = addDays(startDate, index);
+      const iso = toIsoDate(date);
+      return {
+        iso,
+        day: formatWeekday(iso),
+        label: formatMonthDay(iso),
+      };
     });
-
-    return Array.from(uniqueDates.entries()).map(([value, info]) => ({
-      value,
-      ...info,
-    }));
-  }, []);
+  }, [dateAnchors.start]);
 
   const themeVars = useMemo(
     () => ({
@@ -111,7 +179,7 @@ const GroupLessonsPage = () => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const radiusLimit = parseRadius(selectedRadius);
 
-    return mockGroupLessons.filter((lesson) => {
+    return lessons.filter((lesson) => {
       const matchesCoach =
         coachFilter === "All coaches" || lesson.coachName === coachFilter;
       const matchesLevel =
@@ -119,7 +187,18 @@ const GroupLessonsPage = () => {
       const matchesLocation =
         normalizedLocation.length === 0 ||
         lesson.locationCity.toLowerCase().includes(normalizedLocation);
-      const matchesDay = selectedDay === "All days" || lesson.date === selectedDay;
+      const matchesDay = (() => {
+        if (!lesson.isoDate) {
+          return true;
+        }
+        if (dateFilter.type === "all") {
+          return true;
+        }
+        if (dateFilter.type === "day") {
+          return lesson.isoDate === dateFilter.iso;
+        }
+        return lesson.isoDate >= dateFilter.start && lesson.isoDate <= dateFilter.end;
+      })();
       const withinRadius = lesson.distanceMiles <= radiusLimit + 0.001;
       const haystack = [
         lesson.title,
@@ -140,17 +219,56 @@ const GroupLessonsPage = () => {
         matchesSearch
       );
     });
-  }, [coachFilter, levelFilter, location, searchTerm, selectedDay, selectedRadius]);
+  }, [coachFilter, levelFilter, location, searchTerm, dateFilter, lessons, selectedRadius]);
 
-  const totalLessons = mockGroupLessons.length;
+  const totalLessons = lessons.length;
+
+  const dateSummary = useMemo(() => {
+    if (dateFilter.type === "all") {
+      return "across all upcoming dates";
+    }
+    if (dateFilter.type === "day") {
+      const matchingOption = dayOptions.find((option) => option.iso === dateFilter.iso);
+      if (matchingOption) {
+        return `on ${matchingOption.day}, ${matchingOption.label}`;
+      }
+      return `on ${formatWeekday(dateFilter.iso)}, ${formatMonthDay(dateFilter.iso)}`;
+    }
+    return `from ${formatMonthDay(dateFilter.start, "short")} to ${formatMonthDay(dateFilter.end, "short")}`;
+  }, [dateFilter, dayOptions]);
+
   const resultsSummary =
     filteredLessons.length === totalLessons
       ? `${filteredLessons.length} ${
           filteredLessons.length === 1 ? "group lesson" : "group lessons"
-        } available`
+        } available ${dateSummary}`
       : `${filteredLessons.length} ${
           filteredLessons.length === 1 ? "group lesson" : "group lessons"
-        } match your filters (${totalLessons} total)`;
+        } match your filters ${dateSummary} (${totalLessons} total)`;
+
+  const maxSelectableDate = dateAnchors.end;
+
+  const handleApplyRange = () => {
+    if (!rangeStartValue || !rangeEndValue) {
+      setRangeError("Select both a start and end date.");
+      return;
+    }
+    if (rangeStartValue > rangeEndValue) {
+      setRangeError("Start date must be before the end date.");
+      return;
+    }
+    setRangeError(undefined);
+    setDateFilter({ type: "range", start: rangeStartValue, end: rangeEndValue });
+    setIsRangeOpen(false);
+  };
+
+  const handleClearRange = () => {
+    setRangeStartValue("");
+    setRangeEndValue("");
+    setRangeError(undefined);
+    setDateFilter({ type: "all" });
+    setIsRangeOpen(false);
+  };
 
   return (
     <MainLayout>
@@ -181,36 +299,126 @@ const GroupLessonsPage = () => {
           />
 
           <div className="group-lessons-day-filter" role="region" aria-label="Filter sessions by day">
-            <button
-              type="button"
-              className={`group-lessons-day-filter__pill${
-                selectedDay === "All days" ? " group-lessons-day-filter__pill--active" : ""
-              }`}
-              aria-pressed={selectedDay === "All days"}
-              onClick={() => setSelectedDay("All days")}
-            >
-              <span className="group-lessons-day-filter__day">All days</span>
-            </button>
-            {dayOptions.map((option) => {
-              const isActive = selectedDay === option.value;
-              const dateLabel = option.label.startsWith(`${option.day}, `)
-                ? option.label.slice(option.day.length + 2)
-                : option.label;
-              return (
+            <div className="group-lessons-day-filter__controls">
+              <div className="group-lessons-day-filter__quick">
                 <button
-                  key={option.value}
                   type="button"
                   className={`group-lessons-day-filter__pill${
-                    isActive ? " group-lessons-day-filter__pill--active" : ""
+                    dateFilter.type === "all" ? " group-lessons-day-filter__pill--active" : ""
                   }`}
-                  aria-pressed={isActive}
-                  onClick={() => setSelectedDay(option.value)}
+                  aria-pressed={dateFilter.type === "all"}
+                  onClick={() => {
+                    setDateFilter({ type: "all" });
+                    setRangeStartValue("");
+                    setRangeEndValue("");
+                    setRangeError(undefined);
+                    setIsRangeOpen(false);
+                  }}
                 >
-                  <span className="group-lessons-day-filter__day">{option.day}</span>
-                  <span className="group-lessons-day-filter__date">{dateLabel}</span>
+                  <span className="group-lessons-day-filter__day">All days</span>
                 </button>
-              );
-            })}
+                {dayOptions.map((option) => {
+                  const isActive = dateFilter.type === "day" && dateFilter.iso === option.iso;
+                  return (
+                    <button
+                      key={option.iso}
+                      type="button"
+                      className={`group-lessons-day-filter__pill${
+                        isActive ? " group-lessons-day-filter__pill--active" : ""
+                      }`}
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        setDateFilter({ type: "day", iso: option.iso });
+                        setRangeStartValue(option.iso);
+                        setRangeEndValue(option.iso);
+                        setRangeError(undefined);
+                        setIsRangeOpen(false);
+                      }}
+                    >
+                      <span className="group-lessons-day-filter__day">{option.day}</span>
+                      <span className="group-lessons-day-filter__date">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="group-lessons-day-filter__actions">
+                <button
+                  type="button"
+                  className={`group-lessons-day-filter__range-toggle${
+                    dateFilter.type === "range" ? " group-lessons-day-filter__range-toggle--active" : ""
+                  }`}
+                  aria-expanded={isRangeOpen}
+                  onClick={() => {
+                    if (!isRangeOpen) {
+                      if (dateFilter.type === "range") {
+                        setRangeStartValue(dateFilter.start);
+                        setRangeEndValue(dateFilter.end);
+                      } else {
+                        setRangeStartValue((current) => current || dateAnchors.start);
+                        setRangeEndValue((current) => current || dateAnchors.start);
+                      }
+                    }
+                    setIsRangeOpen((open) => !open);
+                  }}
+                >
+                  {dateFilter.type === "range"
+                    ? `Custom range: ${formatMonthDay(dateFilter.start, "short")} – ${formatMonthDay(
+                        dateFilter.end,
+                        "short",
+                      )}`
+                    : "Choose dates"}
+                </button>
+              </div>
+            </div>
+            {isRangeOpen ? (
+              <div className="group-lessons-date-range">
+                <div className="group-lessons-date-range__fields">
+                  <label className="group-lessons-date-range__field">
+                    <span>Start</span>
+                    <input
+                      type="date"
+                      value={rangeStartValue}
+                      min={dateAnchors.start}
+                      max={rangeEndValue || maxSelectableDate}
+                      onChange={(event) => {
+                        setRangeStartValue(event.target.value);
+                        setRangeError(undefined);
+                      }}
+                    />
+                  </label>
+                  <label className="group-lessons-date-range__field">
+                    <span>End</span>
+                    <input
+                      type="date"
+                      value={rangeEndValue}
+                      min={rangeStartValue || dateAnchors.start}
+                      max={maxSelectableDate}
+                      onChange={(event) => {
+                        setRangeEndValue(event.target.value);
+                        setRangeError(undefined);
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="group-lessons-date-range__hint">
+                  {rangeStartValue && rangeEndValue
+                    ? `Showing availability from ${formatMonthDay(rangeStartValue, "short")} to ${formatMonthDay(
+                        rangeEndValue,
+                        "short",
+                      )}.`
+                    : "Select a start and end date to filter sessions."}
+                </p>
+                {rangeError ? <p className="group-lessons-date-range__error">{rangeError}</p> : null}
+                <div className="group-lessons-date-range__actions">
+                  <button type="button" onClick={handleClearRange}>
+                    Clear
+                  </button>
+                  <button type="button" onClick={handleApplyRange}>
+                    Apply range
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
