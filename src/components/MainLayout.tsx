@@ -9,7 +9,7 @@ import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "Browse Matches", href: "#matches" },
-  { label: "Find Players", href: "#players" },
+  { label: "Find Players", to: "/find-players" },
   { label: "Group Lessons", to: "/group-lessons" },
   { label: "Find Coaches", to: "/find-coaches" },
   { label: "My Activity", href: "#activity" },
