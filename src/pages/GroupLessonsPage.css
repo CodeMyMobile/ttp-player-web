@@ -1,0 +1,447 @@
+.group-lessons-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 0 16px 48px;
+}
+
+.group-lessons-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 32px;
+  background: linear-gradient(135deg, #22c55e 0%, #0ea5e9 100%);
+  border-radius: 28px;
+  padding: 36px 40px;
+  color: #ffffff;
+  box-shadow: 0 24px 48px rgba(14, 165, 233, 0.25);
+}
+
+.group-lessons-hero h1 {
+  font-size: 36px;
+  line-height: 1.2;
+  margin: 8px 0 16px;
+}
+
+.group-lessons-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.group-lessons-subtitle {
+  font-size: 17px;
+  line-height: 1.6;
+  max-width: 520px;
+  opacity: 0.92;
+}
+
+.group-lessons-hero-card {
+  background: rgba(15, 23, 42, 0.16);
+  border-radius: 24px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 260px;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-stat__value {
+  font-size: 42px;
+  font-weight: 700;
+}
+
+.hero-stat__label {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.hero-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.hero-location {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hero-location__label {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.hero-location__value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.group-lessons-filters {
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 32px 36px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.filters-eyebrow,
+.results-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  opacity: 0.6;
+}
+
+.filters-header h2,
+.results-header h2 {
+  font-size: 26px;
+  margin-top: 6px;
+  color: #0f172a;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.filter-field span {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.filter-field select,
+.filter-field input {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  background: rgba(248, 250, 252, 0.9);
+  color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-field select:focus,
+.filter-field input:focus {
+  outline: none;
+  border-color: rgba(34, 197, 94, 0.65);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+}
+
+.use-location {
+  align-self: flex-start;
+  border: none;
+  background: rgba(34, 197, 94, 0.16);
+  color: #047857;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.use-location:hover {
+  background: rgba(34, 197, 94, 0.28);
+  transform: translateY(-1px);
+}
+
+.radius-control {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.radius-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 600;
+  color: #047857;
+  width: fit-content;
+}
+
+.radius-control input[type="range"] {
+  accent-color: #22c55e;
+}
+
+.radius-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.45);
+  padding: 0 4px;
+}
+
+.group-lessons-results {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.results-count {
+  font-size: 15px;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.lesson-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lesson-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.lesson-card__day {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.lesson-card__header h3 {
+  font-size: 20px;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.lesson-card__level {
+  background: rgba(34, 197, 94, 0.15);
+  color: #047857;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.lesson-card__focus {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(15, 23, 42, 0.75);
+}
+
+.lesson-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.lesson-card__meta div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.lesson-card__meta .bullet {
+  margin: 0 6px;
+  opacity: 0.5;
+}
+
+.lesson-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 16px;
+}
+
+.lesson-coach {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.lesson-coach img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.coach-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coach-location {
+  font-size: 13px;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.lesson-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.primary-button {
+  border: none;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 18px 28px rgba(16, 185, 129, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 36px rgba(16, 185, 129, 0.28);
+}
+
+.ghost-button {
+  border: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.ghost-button:hover {
+  background: rgba(15, 23, 42, 0.15);
+  transform: translateY(-1px);
+}
+
+.empty-state {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.empty-state p {
+  font-size: 16px;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.empty-state button {
+  border: none;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  color: #047857;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 960px) {
+  .group-lessons-hero {
+    flex-direction: column;
+  }
+
+  .group-lessons-hero-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .lessons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .group-lessons-page {
+    padding: 0 4px 32px;
+  }
+
+  .group-lessons-hero {
+    padding: 28px 24px;
+  }
+
+  .group-lessons-filters {
+    padding: 28px 24px;
+  }
+
+  .lesson-card {
+    padding: 20px;
+  }
+
+  .lesson-card__meta {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lesson-actions {
+    justify-content: space-between;
+  }
+}
