@@ -37,8 +37,45 @@ const GroupLessonsPage = () => {
   const levelOptions = useMemo(() => {
     const uniqueLevels = Array.from(new Set(mockGroupLessons.map((lesson) => lesson.level)))
       .sort((a, b) => a - b)
-      .map((level) => level.toFixed(1));
+      .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
+  }, []);
+
+  const heroStats = useMemo(() => {
+    if (mockGroupLessons.length === 0) {
+      return [
+        { label: "Weekly sessions", value: "0" },
+        { label: "Open spots", value: "0" },
+        { label: "Featured coaches", value: "0" },
+        { label: "Avg duration", value: "—" },
+      ];
+    }
+
+    const totalSessions = mockGroupLessons.length;
+    const openSpots = mockGroupLessons.reduce(
+      (total, lesson) => total + lesson.availableSpots,
+      0,
+    );
+    const uniqueCoachCount = new Set(
+      mockGroupLessons.map((lesson) => lesson.coachName),
+    ).size;
+    const totalDuration = mockGroupLessons.reduce(
+      (total, lesson) => total + lesson.durationMinutes,
+      0,
+    );
+    const averageDuration = Math.round(totalDuration / totalSessions);
+
+    return [
+      { label: "Weekly sessions", value: totalSessions.toLocaleString() },
+      { label: "Open spots", value: openSpots.toLocaleString() },
+      { label: "Featured coaches", value: uniqueCoachCount.toLocaleString() },
+      {
+        label: "Avg duration",
+        value: Number.isFinite(averageDuration)
+          ? `${averageDuration.toLocaleString()} min`
+          : "—",
+      },
+    ];
   }, []);
 
   const filteredLessons = useMemo(() => {
@@ -58,35 +95,43 @@ const GroupLessonsPage = () => {
     });
   }, [coachFilter, levelFilter, location, radius]);
 
+  const displayLocation = location.trim() || DEFAULT_LOCATION;
+
   return (
     <MainLayout>
       <div className="group-lessons-page">
         <div className="group-lessons-page__inner">
-          <header className="group-lessons-header">
-            <div className="group-lessons-header__text">
-              <h1>Find Group Lessons</h1>
-              <p>
+          <header className="group-lessons-hero">
+            <div className="group-lessons-hero__copy">
+              <p className="group-lessons-hero__eyebrow">Player experience</p>
+              <h1>Find Group Lessons Near You</h1>
+              <p className="group-lessons-hero__subtitle">
                 Discover curated sessions led by trusted Matchplay coaches. Dial in your skills,
                 match with players at your level, and secure a spot in minutes.
               </p>
-            </div>
-            <div className="group-lessons-header__meta" aria-label="Search context">
-              <div className="group-lessons-header__stat">
-                <span className="label">Lessons nearby</span>
-                <span className="value">{filteredLessons.length}</span>
-              </div>
-              <div className="group-lessons-header__location">
-                <MapPin size={18} aria-hidden="true" />
-                <div>
-                  <span className="label">Location</span>
-                  <span className="value">{location || DEFAULT_LOCATION}</span>
+              <div className="group-lessons-hero__context">
+                <div className="group-lessons-hero__location" aria-label="Current search location">
+                  <MapPin size={18} aria-hidden="true" />
+                  <span>{displayLocation}</span>
                 </div>
+                <p>
+                  Within {radiusLabel(radius)} • {filteredLessons.length}{" "}
+                  {filteredLessons.length === 1 ? "session" : "sessions"} available
+                </p>
               </div>
             </div>
+            <dl className="group-lessons-hero__stats">
+              {heroStats.map((stat) => (
+                <div key={stat.label} className="group-lessons-hero__stat">
+                  <dt>{stat.label}</dt>
+                  <dd>{stat.value}</dd>
+                </div>
+              ))}
+            </dl>
           </header>
 
-          <section className="group-lessons-filters" aria-label="Filter group lessons">
-            <div className="filters-grid">
+          <section className="group-lessons-controls" aria-label="Filter group lessons">
+            <div className="group-lessons-controls__grid">
               <label className="filter-field">
                 <span>Coach</span>
                 <select value={coachFilter} onChange={(event) => setCoachFilter(event.target.value)}>
@@ -150,104 +195,106 @@ const GroupLessonsPage = () => {
           </section>
 
           <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
-          <div className="results-header">
-            <div>
-              <p className="results-eyebrow">Available sessions</p>
-              <h2 id="group-lessons-results-heading">Snapshot of group lessons nearby</h2>
+            <div className="results-header">
+              <div>
+                <p className="results-eyebrow">Available sessions</p>
+                <h2 id="group-lessons-results-heading">Snapshot of group lessons nearby</h2>
+              </div>
+              <p className="results-count">
+                Showing <strong>{filteredLessons.length}</strong>{" "}
+                {filteredLessons.length === 1 ? "lesson" : "lessons"}
+              </p>
             </div>
-            <p className="results-count">
-              Showing <strong>{filteredLessons.length}</strong> {filteredLessons.length === 1 ? "lesson" : "lessons"}
-            </p>
-          </div>
 
-          {filteredLessons.length === 0 ? (
-            <div className="empty-state">
-              <p>No lessons match your current filters.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setCoachFilter("All coaches");
-                  setLevelFilter("All levels");
-                  setLocation(DEFAULT_LOCATION);
-                  setRadius(DEFAULT_RADIUS);
-                }}
-              >
-                Reset filters
-              </button>
-            </div>
-          ) : (
-            <div className="lessons-grid">
-              {filteredLessons.map((lesson) => {
-                const levelRange = formatLevelRange(lesson.level);
-                const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
+            {filteredLessons.length === 0 ? (
+              <div className="empty-state">
+                <p>No lessons match your current filters.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoachFilter("All coaches");
+                    setLevelFilter("All levels");
+                    setLocation(DEFAULT_LOCATION);
+                    setRadius(DEFAULT_RADIUS);
+                  }}
+                >
+                  Reset filters
+                </button>
+              </div>
+            ) : (
+              <div className="lessons-grid">
+                {filteredLessons.map((lesson) => {
+                  const levelRange = formatLevelRange(lesson.level);
+                  const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
 
-                return (
-                  <article key={lesson.id} className="lesson-card">
-                    <header className="lesson-card__header">
-                      <div>
-                        <p className="lesson-card__day">{lesson.day}</p>
-                        <h3>{lesson.title}</h3>
-                      </div>
-                      <span className="lesson-card__level">{levelRange} NTRP</span>
-                    </header>
-                    <p className="lesson-card__focus">{lesson.focus}</p>
-                    <div className="lesson-card__meta">
-                      <div className="lesson-card__meta-item">
-                        <CalendarDays size={18} aria-hidden="true" />
-                        <span>{lesson.day}</span>
-                      </div>
-                      <div className="lesson-card__meta-item">
-                        <Clock size={18} aria-hidden="true" />
-                        <span>
-                          {lesson.startTime}
-                          <span className="bullet" aria-hidden="true">
-                            •
-                          </span>
-                          {lesson.durationMinutes} min
-                        </span>
-                      </div>
-                      <div className="lesson-card__meta-item">
-                        <Timer size={18} aria-hidden="true" />
-                        <span>{lesson.skillLabel}</span>
-                      </div>
-                      <div className="lesson-card__meta-item">
-                        <MapPin size={18} aria-hidden="true" />
-                        <span>
-                          {lesson.locationName}
-                          <span className="bullet" aria-hidden="true">
-                            •
-                          </span>
-                          {lesson.distanceMiles.toFixed(1)} mi
-                        </span>
-                      </div>
-                      <div className="lesson-card__meta-item lesson-card__meta-item--spots">
-                        <Users size={18} aria-hidden="true" />
-                        <span>{spotsLabel}</span>
-                      </div>
-                    </div>
-                    <footer className="lesson-card__footer">
-                      <div className="lesson-coach">
-                        <img src={lesson.coachAvatarUrl} alt="" aria-hidden="true" />
+                  return (
+                    <article key={lesson.id} className="lesson-card">
+                      <header className="lesson-card__header">
                         <div>
-                          <p className="coach-name">{lesson.coachName}</p>
-                          <p className="coach-location">{lesson.locationCity}</p>
+                          <p className="lesson-card__day">{lesson.day}</p>
+                          <h3>{lesson.title}</h3>
+                        </div>
+                        <span className="lesson-card__level">{levelRange} NTRP</span>
+                      </header>
+                      <p className="lesson-card__focus">{lesson.focus}</p>
+                      <div className="lesson-card__meta">
+                        <div className="lesson-card__meta-item">
+                          <CalendarDays size={18} aria-hidden="true" />
+                          <span>{lesson.day}</span>
+                        </div>
+                        <div className="lesson-card__meta-item">
+                          <Clock size={18} aria-hidden="true" />
+                          <span>
+                            {lesson.startTime}
+                            <span className="bullet" aria-hidden="true">
+                              •
+                            </span>
+                            {lesson.durationMinutes} min
+                          </span>
+                        </div>
+                        <div className="lesson-card__meta-item">
+                          <Timer size={18} aria-hidden="true" />
+                          <span>{lesson.skillLabel}</span>
+                        </div>
+                        <div className="lesson-card__meta-item">
+                          <MapPin size={18} aria-hidden="true" />
+                          <span>
+                            {lesson.locationName}
+                            <span className="bullet" aria-hidden="true">
+                              •
+                            </span>
+                            {lesson.distanceMiles.toFixed(1)} mi
+                          </span>
+                        </div>
+                        <div className="lesson-card__meta-item lesson-card__meta-item--spots">
+                          <Users size={18} aria-hidden="true" />
+                          <span>{spotsLabel}</span>
                         </div>
                       </div>
-                      <div className="lesson-actions">
-                        <button type="button" className="ghost-button">
-                          View details
-                        </button>
-                        <button type="button" className="primary-button">
-                          Quick book
-                        </button>
-                      </div>
-                    </footer>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                      <footer className="lesson-card__footer">
+                        <div className="lesson-coach">
+                          <img src={lesson.coachAvatarUrl} alt="" aria-hidden="true" />
+                          <div>
+                            <p className="coach-name">{lesson.coachName}</p>
+                            <p className="coach-location">{lesson.locationCity}</p>
+                          </div>
+                        </div>
+                        <div className="lesson-actions">
+                          <button type="button" className="ghost-button">
+                            View details
+                          </button>
+                          <button type="button" className="primary-button">
+                            Quick book
+                          </button>
+                        </div>
+                      </footer>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </MainLayout>
   );
