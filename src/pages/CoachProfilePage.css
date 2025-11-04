@@ -116,6 +116,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 36px;
   align-items: stretch;
+  justify-items: start;
 }
 
 @media (min-width: 1024px) {
@@ -529,6 +530,7 @@
 .coach-profile-identity {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
 }
 
 @media (min-width: 1024px) {
@@ -542,6 +544,7 @@
   display: flex;
   gap: 28px;
   align-items: flex-start;
+  justify-content: flex-start;
 }
 
 @media (min-width: 1024px) {
@@ -550,6 +553,7 @@
     grid-template-columns: auto minmax(0, 1fr);
     gap: 36px;
     justify-content: flex-start;
+    justify-items: start;
     align-items: start;
     padding-right: 40px;
   }
@@ -593,6 +597,7 @@
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .coach-profile-identity__name {
