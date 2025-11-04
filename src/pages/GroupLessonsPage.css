@@ -6,13 +6,249 @@
 .group-lessons-page__inner {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 32px 24px 72px;
+  gap: 24px;
+  padding: 24px 24px 64px;
+}
+
+.group-lessons-page .fc-header__description {
+  max-width: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .group-lessons-page .fc-header__description {
+    white-space: normal;
+  }
 }
 
 @media (min-width: 1024px) {
   .group-lessons-page__inner {
-    padding: 40px 48px 96px;
+    padding: 32px 48px 88px;
+  }
+}
+
+.group-lessons-day-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.group-lessons-day-filter__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.group-lessons-day-filter__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
+.group-lessons-day-filter__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.group-lessons-day-filter__pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.group-lessons-day-filter__pill:hover {
+  border-color: var(--fc-color-accent);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.group-lessons-day-filter__pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__pill--active {
+  border-color: var(--fc-color-accent-border);
+  background: var(--fc-color-accent-light);
+  color: var(--fc-color-accent);
+  box-shadow: 0 12px 28px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__day {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.group-lessons-day-filter__date {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fc-color-text-secondary);
+}
+
+.group-lessons-day-filter__range-toggle {
+  border-radius: 14px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-primary);
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
+}
+
+.group-lessons-day-filter__range-toggle:hover {
+  border-color: var(--fc-color-accent);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.group-lessons-day-filter__range-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__range-toggle--active {
+  border-color: var(--fc-color-accent-border);
+  background: var(--fc-color-accent-light);
+  color: var(--fc-color-accent);
+  box-shadow: 0 12px 28px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-date-range {
+  border-radius: 16px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.group-lessons-date-range__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.group-lessons-date-range__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-color-text-secondary);
+}
+
+.group-lessons-date-range__field input {
+  border-radius: 12px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-bg);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fc-color-text-primary);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.group-lessons-date-range__field input:focus {
+  outline: none;
+  border-color: var(--fc-color-accent);
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.12);
+}
+
+.group-lessons-date-range__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fc-color-text-secondary);
+}
+
+.group-lessons-date-range__error {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--fc-color-error-text);
+}
+
+.group-lessons-date-range__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.group-lessons-date-range__actions button {
+  border-radius: 12px;
+  border: none;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.group-lessons-date-range__actions button:first-child {
+  background: rgba(127, 86, 217, 0.12);
+  color: var(--fc-color-accent);
+}
+
+.group-lessons-date-range__actions button:first-child:hover {
+  transform: translateY(-1px);
+}
+
+.group-lessons-date-range__actions button:last-child {
+  background: var(--fc-color-accent);
+  color: #ffffff;
+  box-shadow: 0 14px 30px -20px rgba(79, 70, 229, 0.6);
+}
+
+.group-lessons-date-range__actions button:last-child:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 38px -18px rgba(79, 70, 229, 0.64);
+}
+
+@media (max-width: 640px) {
+  .group-lessons-day-filter__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .group-lessons-day-filter__range-toggle {
+    width: 100%;
+    text-align: left;
+  }
+
+  .group-lessons-date-range {
+    padding: 16px;
+  }
+
+  .group-lessons-date-range__fields {
+    flex-direction: column;
+  }
+
+  .group-lessons-date-range__actions {
+  }
+
+  .group-lessons-date-range__actions button {
+    flex: 1 1 0;
+    text-align: center;
   }
 }
 
