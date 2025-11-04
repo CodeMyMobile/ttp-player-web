@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  CalendarDays,
-  Clock,
-  MapPin,
-  Users,
-  Timer,
-  Target,
-} from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users, Timer, Target } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { mockGroupLessons } from "../data/mockGroupLessons";
@@ -41,43 +34,6 @@ const GroupLessonsPage = () => {
     return ["All levels", ...uniqueLevels];
   }, []);
 
-  const heroStats = useMemo(() => {
-    if (mockGroupLessons.length === 0) {
-      return [
-        { label: "Weekly sessions", value: "0" },
-        { label: "Open spots", value: "0" },
-        { label: "Featured coaches", value: "0" },
-        { label: "Avg duration", value: "—" },
-      ];
-    }
-
-    const totalSessions = mockGroupLessons.length;
-    const openSpots = mockGroupLessons.reduce(
-      (total, lesson) => total + lesson.availableSpots,
-      0,
-    );
-    const uniqueCoachCount = new Set(
-      mockGroupLessons.map((lesson) => lesson.coachName),
-    ).size;
-    const totalDuration = mockGroupLessons.reduce(
-      (total, lesson) => total + lesson.durationMinutes,
-      0,
-    );
-    const averageDuration = Math.round(totalDuration / totalSessions);
-
-    return [
-      { label: "Weekly sessions", value: totalSessions.toLocaleString() },
-      { label: "Open spots", value: openSpots.toLocaleString() },
-      { label: "Featured coaches", value: uniqueCoachCount.toLocaleString() },
-      {
-        label: "Avg duration",
-        value: Number.isFinite(averageDuration)
-          ? `${averageDuration.toLocaleString()} min`
-          : "—",
-      },
-    ];
-  }, []);
-
   const filteredLessons = useMemo(() => {
     const normalizedLocation = location.trim().toLowerCase();
 
@@ -95,8 +51,6 @@ const GroupLessonsPage = () => {
     });
   }, [coachFilter, levelFilter, location, radius]);
 
-  const displayLocation = location.trim() || DEFAULT_LOCATION;
-
   return (
     <MainLayout>
       <div className="group-lessons-page">
@@ -109,25 +63,7 @@ const GroupLessonsPage = () => {
                 Discover curated sessions led by trusted Matchplay coaches. Dial in your skills,
                 match with players at your level, and secure a spot in minutes.
               </p>
-              <div className="group-lessons-hero__context">
-                <div className="group-lessons-hero__location" aria-label="Current search location">
-                  <MapPin size={18} aria-hidden="true" />
-                  <span>{displayLocation}</span>
-                </div>
-                <p>
-                  Within {radiusLabel(radius)} • {filteredLessons.length}{" "}
-                  {filteredLessons.length === 1 ? "session" : "sessions"} available
-                </p>
-              </div>
             </div>
-            <dl className="group-lessons-hero__stats">
-              {heroStats.map((stat) => (
-                <div key={stat.label} className="group-lessons-hero__stat">
-                  <dt>{stat.label}</dt>
-                  <dd>{stat.value}</dd>
-                </div>
-              ))}
-            </dl>
           </header>
 
           <section className="group-lessons-controls" aria-label="Filter group lessons">
