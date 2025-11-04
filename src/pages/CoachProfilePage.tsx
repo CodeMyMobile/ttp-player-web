@@ -9,7 +9,6 @@ import {
   MessageCircle,
   Package,
   Sparkles,
-  Star,
   Users,
   Wallet,
 } from "lucide-react";
@@ -352,6 +351,14 @@ const CoachProfilePage = () => {
     return profile.location ?? profile.coachingLocations[0];
   }, [profile]);
 
+  const highlightChips = useMemo(() => {
+    if (!profile) {
+      return [] as CoachProfile["highlightChips"];
+    }
+
+    return profile.highlightChips.filter((chip) => !/utr/i.test(chip.label));
+  }, [profile]);
+
   const navigateToCheckout = (dateId: string, slotId: string) => {
     if (!profile) {
       return;
@@ -429,26 +436,32 @@ const CoachProfilePage = () => {
                       <div className="coach-profile-identity__details">
                         <div className="coach-profile-identity__name-row">
                           <h1 className="coach-profile-identity__name">{profile.name}</h1>
-                          {profile.headlineBadge && (
-                            <span className="coach-profile-identity__badge">
-                              <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
-                              {profile.headlineBadge}
-                            </span>
-                          )}
                         </div>
                         <div className="coach-profile-identity__meta">
-                          <span className="coach-profile-identity__rating">
-                            <Star className="coach-profile-identity__rating-icon" fill="#FDB022" stroke="#FDB022" strokeWidth={1.6} />
-                            {profile.rating.toFixed(1)}
-                          </span>
-                          <span className="coach-profile-identity__reviews">({profile.reviewCount} reviews)</span>
-                          <span className="coach-profile-identity__separator" aria-hidden="true">
-                            •
-                          </span>
                           <span className="coach-profile-identity__title">{profile.title}</span>
+                          {profile.languages.length > 0 && (
+                            <>
+                              <span className="coach-profile-identity__separator" aria-hidden="true">
+                                •
+                              </span>
+                              <span className="coach-profile-identity__meta-item">
+                                Languages: {profile.languages.join(", ")}
+                              </span>
+                            </>
+                          )}
+                          {profile.levels.length > 0 && (
+                            <>
+                              <span className="coach-profile-identity__separator" aria-hidden="true">
+                                •
+                              </span>
+                              <span className="coach-profile-identity__meta-item">
+                                Levels: {profile.levels.join(", ")}
+                              </span>
+                            </>
+                          )}
                         </div>
                         <div className="coach-profile-identity__chips">
-                          {profile.highlightChips.map((chip) => {
+                          {highlightChips.map((chip) => {
                             const Icon = highlightIconMap[chip.icon];
                             return (
                               <span key={chip.label} className="coach-profile-identity__chip">

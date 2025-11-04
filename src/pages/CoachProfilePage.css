@@ -471,6 +471,11 @@
   align-items: center;
 }
 
+.coach-profile-identity__meta-item {
+  color: var(--profile-muted);
+  font-size: 15px;
+}
+
 .coach-profile-identity__rating {
   display: inline-flex;
   align-items: center;
