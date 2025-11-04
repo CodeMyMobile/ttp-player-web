@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, Clock, MapPin, Timer, Users } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
 import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -189,7 +189,7 @@ const GroupLessonsPage = () => {
                     <article key={lesson.id} className="lesson-card">
                       <header className="lesson-card__header">
                         <div>
-                          <p className="lesson-card__day">{lesson.day}</p>
+                          <p className="lesson-card__day">{lesson.date}</p>
                           <h3>{lesson.title}</h3>
                         </div>
                         <span className="lesson-card__level">{levelRange} NTRP</span>
@@ -198,7 +198,7 @@ const GroupLessonsPage = () => {
                       <div className="lesson-card__meta">
                         <div className="lesson-card__meta-item">
                           <CalendarDays size={18} aria-hidden="true" />
-                          <span>{lesson.day}</span>
+                          <span>{lesson.date}</span>
                         </div>
                         <div className="lesson-card__meta-item">
                           <Clock size={18} aria-hidden="true" />
@@ -209,10 +209,6 @@ const GroupLessonsPage = () => {
                             </span>
                             {lesson.durationMinutes} min
                           </span>
-                        </div>
-                        <div className="lesson-card__meta-item">
-                          <Timer size={18} aria-hidden="true" />
-                          <span>{lesson.skillLabel}</span>
                         </div>
                         <div className="lesson-card__meta-item">
                           <MapPin size={18} aria-hidden="true" />
