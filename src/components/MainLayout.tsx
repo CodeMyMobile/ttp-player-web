@@ -21,7 +21,7 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const { logout } = useAuth();
-  const { displayName, email, initials } = usePlayerIdentity();
+  const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -65,9 +65,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           )}
         </nav>
         <div className="header-actions">
-          <button type="button" className="play-now">
-            Play Now
-          </button>
           <button type="button" className="notification-button" aria-label="View notifications">
             <Bell size={20} aria-hidden="true" />
             <span className="notification-indicator" aria-hidden="true" />
@@ -79,11 +76,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               onClick={() => setUserMenuOpen((open) => !open)}
               aria-expanded={isUserMenuOpen}
               aria-haspopup="menu"
+              aria-label="Open profile menu"
             >
-              <div className="user-avatar">{initials}</div>
-              <div className="user-menu__details">
-                <span className="user-name">{displayName}</span>
-                <span className="user-email">{email}</span>
+              <div className={`user-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
+                ) : (
+                  initials
+                )}
               </div>
               <ChevronDown size={16} aria-hidden="true" />
             </button>
