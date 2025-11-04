@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
 import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
+import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
 import { mockGroupLessons } from "../data/mockGroupLessons";
+import type { GroupLesson } from "../data/mockGroupLessons";
 import { colors, typography } from "../lib/theme";
 
 import "../components/coaches/coaches.css";
@@ -65,7 +67,7 @@ type DateFilterState =
   | { type: "range"; start: string; end: string };
 
 const GroupLessonsPage = () => {
-  const navigate = useNavigate();
+  const [confirmationLesson, setConfirmationLesson] = useState<GroupLesson | undefined>();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
@@ -507,9 +509,7 @@ const GroupLessonsPage = () => {
                             type="button"
                             className="primary-button"
                             onClick={() => {
-                              navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                                state: { groupLessonId: lesson.id },
-                              });
+                              setConfirmationLesson(lesson);
                             }}
                             disabled={lesson.availableSpots === 0}
                           >
@@ -525,6 +525,12 @@ const GroupLessonsPage = () => {
           </section>
         </div>
       </div>
+      {confirmationLesson ? (
+        <GroupLessonConfirmationModal
+          lesson={confirmationLesson}
+          onClose={() => setConfirmationLesson(undefined)}
+        />
+      ) : null}
     </MainLayout>
   );
 };
