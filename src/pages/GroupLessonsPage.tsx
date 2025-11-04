@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Timer, Users } from "lucide-react";
 
 import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
@@ -27,6 +28,7 @@ const formatLevelRange = (level: number) => {
 };
 
 const GroupLessonsPage = () => {
+  const navigate = useNavigate();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
@@ -236,11 +238,20 @@ const GroupLessonsPage = () => {
                           </div>
                         </div>
                         <div className="lesson-actions">
-                          <button type="button" className="ghost-button">
+                          <Link to={`/group-lessons/${lesson.id}`} className="ghost-button">
                             View details
-                          </button>
-                          <button type="button" className="primary-button">
-                            Quick book
+                          </Link>
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() => {
+                              navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                                state: { groupLessonId: lesson.id },
+                              });
+                            }}
+                            disabled={lesson.availableSpots === 0}
+                          >
+                            {lesson.availableSpots === 0 ? "Join waitlist" : "Quick book"}
                           </button>
                         </div>
                       </footer>
