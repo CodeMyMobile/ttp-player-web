@@ -533,6 +533,57 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
 
+                  {hasLessonCredits ? (
+                    <aside
+                      className="coach-profile-hero__supplement"
+                      aria-label={`Lesson credits saved with ${coachFirstName}`}
+                    >
+                      <div className="coach-profile-hero-wallet">
+                        <div className="coach-profile-hero-wallet__body">
+                          <div className="coach-profile-hero-wallet__header">
+                            <div className="coach-profile-hero-wallet__icon" aria-hidden>
+                              <Wallet />
+                            </div>
+                            <div className="coach-profile-hero-wallet__text">
+                              <span className="coach-profile-hero-wallet__eyebrow">Lesson credits</span>
+                              <p className="coach-profile-hero-wallet__headline">
+                                {creditsRemaining} credit{creditsRemaining === 1 ? "" : "s"} ready with {coachFirstName}
+                              </p>
+                              <p className="coach-profile-hero-wallet__meta">
+                                Apply them instantly at checkout or top up a new package.
+                              </p>
+                            </div>
+                          </div>
+                          <ul className="coach-profile-hero-wallet__list">
+                            {playerLessonCredits.map((credit) => (
+                              <li key={credit.lessonTypeId} className="coach-profile-hero-wallet__item">
+                                <div className="coach-profile-hero-wallet__item-main">
+                                  <span className="coach-profile-hero-wallet__item-type">{credit.lessonTypeLabel}</span>
+                                  <span className="coach-profile-hero-wallet__item-remaining">
+                                    {credit.remaining} of {credit.totalPurchased ?? credit.remaining} left
+                                  </span>
+                                </div>
+                                {credit.upcomingExpiryLabel ? (
+                                  <span className="coach-profile-hero-wallet__item-meta">{credit.upcomingExpiryLabel}</span>
+                                ) : null}
+                                {credit.lastPurchasedLabel ? (
+                                  <span className="coach-profile-hero-wallet__item-meta">{credit.lastPurchasedLabel}</span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <button
+                          type="button"
+                          className="coach-profile-hero-wallet__action"
+                          onClick={handleOpenPurchaseModal}
+                        >
+                          Manage credits
+                        </button>
+                      </div>
+                    </aside>
+                  ) : null}
+
                 </div>
               </section>
 

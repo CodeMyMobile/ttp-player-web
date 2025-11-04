@@ -3,9 +3,9 @@
   box-sizing: border-box;
   padding: 0 0 96px;
   background: radial-gradient(140% 140% at 0% 0%, #f8faff 0%, #eef2ff 45%, #f7f9ff 100%);
-  --profile-surface: rgba(255, 255, 255, 0.74);
-  --profile-surface-strong: rgba(255, 255, 255, 0.88);
-  --profile-hero-gradient: linear-gradient(135deg, rgba(248, 250, 255, 0.92) 0%, rgba(232, 238, 255, 0.88) 55%, rgba(246, 249, 255, 0.95) 100%);
+  --profile-surface: linear-gradient(140deg, rgba(248, 250, 255, 0.78) 0%, rgba(234, 240, 255, 0.6) 100%);
+  --profile-surface-strong: linear-gradient(140deg, rgba(248, 250, 255, 0.92) 0%, rgba(235, 240, 255, 0.74) 100%);
+  --profile-hero-gradient: linear-gradient(135deg, rgba(248, 250, 255, 0.94) 0%, rgba(232, 238, 255, 0.88) 55%, rgba(246, 249, 255, 0.95) 100%);
   --profile-card-shadow: 0 24px 60px -40px rgba(15, 23, 42, 0.22), 0 12px 32px -28px rgba(79, 70, 229, 0.18);
   --profile-border: rgba(226, 232, 255, 0.6);
   --profile-soft-border: rgba(236, 240, 255, 0.55);
@@ -23,8 +23,8 @@
   --profile-badge-color: #047857;
   --profile-booking-border: #e4e9ff;
   --profile-booking-shadow: 0 32px 70px -36px rgba(79, 70, 229, 0.28);
-  --profile-booking-surface: var(--profile-surface-strong);
-  --profile-booking-subtle: rgba(236, 240, 255, 0.7);
+  --profile-booking-surface: linear-gradient(140deg, rgba(248, 250, 255, 0.95) 0%, rgba(236, 241, 255, 0.82) 100%);
+  --profile-booking-subtle: rgba(236, 240, 255, 0.58);
   --profile-slot-border: #e0e5ff;
   --profile-slot-active-border: #6366f1;
   --profile-slot-active-bg: rgba(99, 102, 241, 0.08);
@@ -112,10 +112,17 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 36px;
+  align-items: stretch;
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-hero__inner {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    gap: 40px;
+  }
 }
 
 @media (min-width: 1280px) {
@@ -136,6 +143,157 @@
     max-width: 760px;
     width: 100%;
   }
+}
+
+.coach-profile-hero__supplement {
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-hero__supplement {
+    align-self: stretch;
+    display: flex;
+  }
+}
+
+.coach-profile-hero-wallet {
+  border-radius: 28px;
+  border: 1px solid var(--profile-soft-border);
+  background: var(--profile-surface-strong);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 28px 60px -40px rgba(79, 70, 229, 0.3);
+  backdrop-filter: blur(18px);
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-hero-wallet {
+    padding: 26px 28px;
+  }
+}
+
+.coach-profile-hero-wallet__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.coach-profile-hero-wallet__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--profile-purple);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-profile-hero-wallet__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.coach-profile-hero-wallet__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.coach-profile-hero-wallet__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coach-profile-hero-wallet__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--profile-muted);
+}
+
+.coach-profile-hero-wallet__headline {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--profile-heading);
+}
+
+.coach-profile-hero-wallet__meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--profile-body);
+}
+
+.coach-profile-hero-wallet__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.coach-profile-hero-wallet__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--profile-soft-border);
+  background: var(--profile-surface);
+}
+
+.coach-profile-hero-wallet__item-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-profile-hero-wallet__item-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--profile-heading);
+}
+
+.coach-profile-hero-wallet__item-remaining {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--profile-purple);
+}
+
+.coach-profile-hero-wallet__item-meta {
+  font-size: 12px;
+  color: var(--profile-muted);
+}
+
+.coach-profile-hero-wallet__action {
+  align-self: flex-start;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--profile-border);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--profile-purple);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coach-profile-hero-wallet__action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -18px rgba(79, 70, 229, 0.35);
+}
+
+.coach-profile-hero-wallet__action:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .coach-profile-body {
@@ -520,12 +678,7 @@
 
 @media (max-width: 639px) {
   .coach-profile-identity__facts {
-    flex-direction: column;
-  }
-
-  .coach-profile-identity__fact {
-    min-width: 0;
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -549,22 +702,24 @@
   margin: 20px 0 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+  align-items: stretch;
 }
 
 .coach-profile-identity__fact {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 18px;
-  border: 1px solid var(--profile-border);
-  background: var(--profile-surface);
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--profile-soft-border);
+  background: var(--profile-surface-strong);
   backdrop-filter: blur(18px);
-  box-shadow: 0 18px 32px -30px rgba(15, 23, 42, 0.22);
-  min-width: 220px;
+  box-shadow: 0 22px 42px -34px rgba(79, 70, 229, 0.26);
+  min-height: 88px;
 }
 
 .coach-profile-identity__fact-icon {
@@ -958,7 +1113,7 @@
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(99, 102, 241, 0.18);
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--profile-surface);
 }
 
 .coach-profile-packages__status-item--active {
