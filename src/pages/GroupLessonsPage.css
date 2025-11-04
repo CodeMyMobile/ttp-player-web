@@ -6,14 +6,78 @@
 .group-lessons-page__inner {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 32px 24px 72px;
+  gap: 24px;
+  padding: 24px 24px 64px;
+}
+
+.group-lessons-page .fc-header__description {
+  max-width: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .group-lessons-page .fc-header__description {
+    white-space: normal;
+  }
 }
 
 @media (min-width: 1024px) {
   .group-lessons-page__inner {
-    padding: 40px 48px 96px;
+    padding: 32px 48px 88px;
   }
+}
+
+.group-lessons-day-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.group-lessons-day-filter__pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.group-lessons-day-filter__pill:hover {
+  border-color: var(--fc-color-accent);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.group-lessons-day-filter__pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__pill--active {
+  border-color: var(--fc-color-accent-border);
+  background: var(--fc-color-accent-light);
+  color: var(--fc-color-accent);
+  box-shadow: 0 12px 28px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__day {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.group-lessons-day-filter__date {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fc-color-text-secondary);
 }
 
 .group-lessons-filter__location {

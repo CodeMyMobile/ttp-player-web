@@ -34,6 +34,7 @@ const GroupLessonsPage = () => {
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [selectedDay, setSelectedDay] = useState<string>("All days");
 
   const coachOptions = useMemo(
     () => ["All coaches", ...new Set(mockGroupLessons.map((lesson) => lesson.coachName))],
@@ -45,6 +46,21 @@ const GroupLessonsPage = () => {
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
+  }, []);
+
+  const dayOptions = useMemo(() => {
+    const uniqueDates = new Map<string, { day: string; label: string }>();
+
+    mockGroupLessons.forEach((lesson) => {
+      if (!uniqueDates.has(lesson.date)) {
+        uniqueDates.set(lesson.date, { day: lesson.day, label: lesson.date });
+      }
+    });
+
+    return Array.from(uniqueDates.entries()).map(([value, info]) => ({
+      value,
+      ...info,
+    }));
   }, []);
 
   const themeVars = useMemo(
@@ -103,6 +119,7 @@ const GroupLessonsPage = () => {
       const matchesLocation =
         normalizedLocation.length === 0 ||
         lesson.locationCity.toLowerCase().includes(normalizedLocation);
+      const matchesDay = selectedDay === "All days" || lesson.date === selectedDay;
       const withinRadius = lesson.distanceMiles <= radiusLimit + 0.001;
       const haystack = [
         lesson.title,
@@ -114,14 +131,26 @@ const GroupLessonsPage = () => {
         .toLowerCase();
       const matchesSearch = normalizedSearch.length === 0 || haystack.includes(normalizedSearch);
 
-      return matchesCoach && matchesLevel && matchesLocation && withinRadius && matchesSearch;
+      return (
+        matchesCoach &&
+        matchesLevel &&
+        matchesLocation &&
+        matchesDay &&
+        withinRadius &&
+        matchesSearch
+      );
     });
-  }, [coachFilter, levelFilter, location, searchTerm, selectedRadius]);
+  }, [coachFilter, levelFilter, location, searchTerm, selectedDay, selectedRadius]);
 
   const totalLessons = mockGroupLessons.length;
-  const resultsCountLabel = `${filteredLessons.length} ${
-    filteredLessons.length === 1 ? "group lesson" : "group lessons"
-  } found`;
+  const resultsSummary =
+    filteredLessons.length === totalLessons
+      ? `${filteredLessons.length} ${
+          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+        } available`
+      : `${filteredLessons.length} ${
+          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+        } match your filters (${totalLessons} total)`;
 
   return (
     <MainLayout>
@@ -151,15 +180,44 @@ const GroupLessonsPage = () => {
             }}
           />
 
-          <span className="fc-results-count">{resultsCountLabel}</span>
+          <div className="group-lessons-day-filter" role="region" aria-label="Filter sessions by day">
+            <button
+              type="button"
+              className={`group-lessons-day-filter__pill${
+                selectedDay === "All days" ? " group-lessons-day-filter__pill--active" : ""
+              }`}
+              aria-pressed={selectedDay === "All days"}
+              onClick={() => setSelectedDay("All days")}
+            >
+              <span className="group-lessons-day-filter__day">All days</span>
+            </button>
+            {dayOptions.map((option) => {
+              const isActive = selectedDay === option.value;
+              const dateLabel = option.label.startsWith(`${option.day}, `)
+                ? option.label.slice(option.day.length + 2)
+                : option.label;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`group-lessons-day-filter__pill${
+                    isActive ? " group-lessons-day-filter__pill--active" : ""
+                  }`}
+                  aria-pressed={isActive}
+                  onClick={() => setSelectedDay(option.value)}
+                >
+                  <span className="group-lessons-day-filter__day">{option.day}</span>
+                  <span className="group-lessons-day-filter__date">{dateLabel}</span>
+                </button>
+              );
+            })}
+          </div>
 
           <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
             <div className="group-lessons-results__header">
               <div>
                 <h2 id="group-lessons-results-heading">Available sessions nearby</h2>
-                <p className="group-lessons-results__meta">
-                  Showing {filteredLessons.length} of {totalLessons} total sessions
-                </p>
+                <p className="group-lessons-results__meta">{resultsSummary}</p>
               </div>
             </div>
 
@@ -189,7 +247,7 @@ const GroupLessonsPage = () => {
                     <article key={lesson.id} className="lesson-card">
                       <header className="lesson-card__header">
                         <div>
-                          <p className="lesson-card__day">{lesson.date}</p>
+                          <p className="lesson-card__day">{lesson.day}</p>
                           <h3>{lesson.title}</h3>
                         </div>
                         <span className="lesson-card__level">{levelRange} NTRP</span>
