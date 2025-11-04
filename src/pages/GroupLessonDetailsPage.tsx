@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import { findGroupLessonById } from "../data/mockGroupLessons";
 import { colors, typography } from "../lib/theme";
 
@@ -75,7 +74,6 @@ const GroupLessonDetailsPage = () => {
   const navigate = useNavigate();
 
   const lesson = useMemo(() => (id ? findGroupLessonById(id) : undefined), [id]);
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
 
   const themeVars = useMemo(
     () => ({
@@ -267,7 +265,9 @@ const GroupLessonDetailsPage = () => {
                   className="group-lesson-details__checkout-action"
                   disabled={spotsRemaining === 0}
                   onClick={() => {
-                    setIsConfirmationOpen(true);
+                    navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                      state: { groupLessonId: lesson.id },
+                    });
                   }}
                 >
                   {spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
@@ -282,9 +282,6 @@ const GroupLessonDetailsPage = () => {
           </div>
         </div>
       </div>
-      {isConfirmationOpen ? (
-        <GroupLessonConfirmationModal lesson={lesson} onClose={() => setIsConfirmationOpen(false)} />
-      ) : null}
     </MainLayout>
   );
 };
