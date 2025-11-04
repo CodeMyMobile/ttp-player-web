@@ -12,6 +12,7 @@ import {
   MapPin,
   MessageCircle,
   Package,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 
