@@ -67,6 +67,7 @@ type LessonDetail = {
 };
 
 type LessonPackage = {
+  lessonTypeId: LessonTypeId;
   id: string;
   title: string;
   lessons: number;
@@ -139,6 +140,7 @@ const sharedProfileBase = {
   ],
   lessonPackages: [
     {
+      lessonTypeId: "private" as const,
       id: "private-5-pack",
       title: "5 lesson package",
       lessons: 5,
@@ -148,6 +150,7 @@ const sharedProfileBase = {
       pricePerLesson: "$76.50 per lesson",
     },
     {
+      lessonTypeId: "private" as const,
       id: "private-10-pack",
       title: "10 lesson package",
       lessons: 10,
@@ -155,6 +158,26 @@ const sharedProfileBase = {
       description: "Lock in a season of progress and priority court access.",
       totalPrice: "$722.50",
       pricePerLesson: "$72.25 per lesson",
+    },
+    {
+      lessonTypeId: "group" as const,
+      id: "group-5-pack",
+      title: "5 session package",
+      lessons: 5,
+      discount: "Save 10%",
+      description: "Reserve a block of high-energy squad trainings for your crew.",
+      totalPrice: "$225.00",
+      pricePerLesson: "$45.00 per player",
+    },
+    {
+      lessonTypeId: "group" as const,
+      id: "group-10-pack",
+      title: "10 session package",
+      lessons: 10,
+      discount: "Save 15%",
+      description: "Lock in weekly group reps with match-play add-ons included.",
+      totalPrice: "$425.00",
+      pricePerLesson: "$42.50 per player",
     },
   ],
   playerLessonCredits: [
@@ -579,6 +602,7 @@ export const mockCoachProfiles: CoachProfile[] = [
     ],
     lessonPackages: [
       {
+        lessonTypeId: "private" as const,
         id: "private-5-pack",
         title: "5 lesson package",
         lessons: 5,
@@ -588,6 +612,7 @@ export const mockCoachProfiles: CoachProfile[] = [
         pricePerLesson: "$67.50 per lesson",
       },
       {
+        lessonTypeId: "private" as const,
         id: "private-10-pack",
         title: "10 lesson package",
         lessons: 10,
@@ -595,6 +620,26 @@ export const mockCoachProfiles: CoachProfile[] = [
         description: "Season-long training block with match analysis bonuses.",
         totalPrice: "$637.50",
         pricePerLesson: "$63.75 per lesson",
+      },
+      {
+        lessonTypeId: "group" as const,
+        id: "group-5-pack",
+        title: "5 session package",
+        lessons: 5,
+        discount: "Save 10%",
+        description: "Keep the team locked in with recurring group match play.",
+        totalPrice: "$247.50",
+        pricePerLesson: "$49.50 per player",
+      },
+      {
+        lessonTypeId: "group" as const,
+        id: "group-10-pack",
+        title: "10 session package",
+        lessons: 10,
+        discount: "Save 15%",
+        description: "Commit to a full season of shared reps and shared wins.",
+        totalPrice: "$467.50",
+        pricePerLesson: "$46.75 per player",
       },
     ],
     playerLessonCredits: [

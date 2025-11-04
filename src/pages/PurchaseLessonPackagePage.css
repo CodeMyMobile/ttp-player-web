@@ -2,9 +2,9 @@
   min-height: calc(100vh - 72px);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 16px;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
   gap: 24px;
 }
 
@@ -16,6 +16,7 @@
   text-align: center;
   max-width: 420px;
   color: #475467;
+  margin: 96px auto 48px;
 }
 
 .purchase-package-page__status h2 {
