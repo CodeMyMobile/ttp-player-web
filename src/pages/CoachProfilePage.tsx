@@ -7,13 +7,16 @@ import {
   CheckCircle2,
   MapPin,
   MessageCircle,
+  Package,
   Sparkles,
   Star,
   Users,
+  Wallet,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
+import PurchaseLessonPackageModal from "../components/coaches/PurchaseLessonPackageModal";
 
 import "./CoachProfilePage.css";
 
@@ -164,6 +167,7 @@ const CoachProfilePage = () => {
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && profile) {
@@ -235,6 +239,14 @@ const CoachProfilePage = () => {
     }
   }, [profile, selection.dateId, selection.lessonType, selection.timeId]);
 
+  const handleOpenPurchaseModal = () => {
+    setIsPurchaseModalOpen(true);
+  };
+
+  const handleClosePurchaseModal = () => {
+    setIsPurchaseModalOpen(false);
+  };
+
   const handleLessonTypeChange = (id: string) => {
     setSelection((prev) => ({
       ...prev,
@@ -262,6 +274,31 @@ const CoachProfilePage = () => {
     { id: "private", label: "Privates", ariaLabel: "Private lessons" },
     { id: "group", label: "Groups", ariaLabel: "Group sessions" },
   ];
+
+  const playerLessonCredits = profile?.playerLessonCredits ?? [];
+  const hasLessonCredits = playerLessonCredits.length > 0;
+  const creditsRemaining = playerLessonCredits.reduce(
+    (sum, credit) => sum + Math.max(credit.remaining, 0),
+    0,
+  );
+  const hasCreditsRemaining = playerLessonCredits.some((credit) => credit.remaining > 0);
+  const coachFirstName = profile?.name?.split(" ")[0] ?? profile?.name ?? "the coach";
+  const lessonCreditSummary = playerLessonCredits
+    .map((credit) => `${credit.lessonTypeLabel}: ${Math.max(credit.remaining, 0)} left`)
+    .join(" • ");
+  const bestValueLessonPackage = useMemo(() => {
+    if (!profile || profile.lessonPackages.length === 0) {
+      return undefined;
+    }
+
+    return profile.lessonPackages.reduce((best, current) => {
+      if (!best) {
+        return current;
+      }
+
+      return current.lessons > best.lessons ? current : best;
+    }, profile.lessonPackages[0]);
+  }, [profile]);
 
   const isAllDatesSelected = selection.dateId === ALL_DATES_ID;
 
@@ -515,6 +552,54 @@ const CoachProfilePage = () => {
                               </div>
                               <span className="coach-profile-packages__badge">Best value</span>
                             </div>
+                            <div className="coach-profile-packages__status" role="status">
+                              <div className="coach-profile-packages__status-icon" aria-hidden>
+                                <Wallet />
+                              </div>
+                              <div className="coach-profile-packages__status-body">
+                                <span className="coach-profile-packages__status-eyebrow">
+                                  {hasLessonCredits ? "Your lesson credits" : "No credits yet"}
+                                </span>
+                                {hasLessonCredits ? (
+                                  <ul className="coach-profile-packages__status-list">
+                                    {playerLessonCredits.map((credit) => (
+                                      <li
+                                        key={credit.lessonTypeId}
+                                        className={`coach-profile-packages__status-item${
+                                          credit.remaining > 0
+                                            ? " coach-profile-packages__status-item--active"
+                                            : ""
+                                        }`}
+                                      >
+                                        <div className="coach-profile-packages__status-item-main">
+                                          <span className="coach-profile-packages__status-type">
+                                            {credit.lessonTypeLabel}
+                                          </span>
+                                          <span className="coach-profile-packages__status-remaining">
+                                            {credit.remaining} of {credit.totalPurchased ?? credit.remaining} left
+                                          </span>
+                                        </div>
+                                        {credit.upcomingExpiryLabel ? (
+                                          <span className="coach-profile-packages__status-meta">
+                                            {credit.upcomingExpiryLabel}
+                                          </span>
+                                        ) : null}
+                                        {credit.lastPurchasedLabel ? (
+                                          <span className="coach-profile-packages__status-meta">
+                                            {credit.lastPurchasedLabel}
+                                          </span>
+                                        ) : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="coach-profile-packages__status-empty">
+                                    Save up to {bestValueLessonPackage?.discount.toLowerCase() ?? "15%"} on lessons with {coachFirstName}
+                                    when you buy credits in advance.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                             <ul className="coach-profile-packages__list">
                               {profile.lessonPackages.map((lessonPackage) => (
                                 <li key={lessonPackage.id} className="coach-profile-package">
@@ -532,8 +617,13 @@ const CoachProfilePage = () => {
                                 </li>
                               ))}
                             </ul>
-                            <button type="button" className="coach-profile-packages__action">
-                              Purchase Package
+                            <button
+                              type="button"
+                              className="coach-profile-packages__action"
+                              onClick={handleOpenPurchaseModal}
+                            >
+                              <Package aria-hidden />
+                              <span>Purchase credits</span>
                             </button>
                           </div>
                         )}
@@ -549,6 +639,38 @@ const CoachProfilePage = () => {
                         <p className="coach-booking__subtitle">Select your preferred date and time</p>
                       </div>
                       <CalendarDays className="coach-booking__icon" strokeWidth={2.4} />
+                    </div>
+
+                    <div className="coach-booking__wallet">
+                      <div
+                        className={`coach-booking__wallet-card${
+                          hasCreditsRemaining ? " coach-booking__wallet-card--active" : ""
+                        }`}
+                      >
+                        <div className="coach-booking__wallet-icon" aria-hidden>
+                          <Wallet />
+                        </div>
+                        <div className="coach-booking__wallet-body">
+                          <span className="coach-booking__wallet-eyebrow">Lesson credits</span>
+                          <p className="coach-booking__wallet-copy">
+                            {hasLessonCredits
+                              ? hasCreditsRemaining
+                                ? `You have ${creditsRemaining} credit${creditsRemaining === 1 ? "" : "s"} ready to apply when you book.`
+                                : "All saved lesson credits have been used."
+                              : `Purchase credits to skip checkout and save on ${coachFirstName}'s lessons.`}
+                          </p>
+                          {lessonCreditSummary ? (
+                            <span className="coach-booking__wallet-detail">{lessonCreditSummary}</span>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="coach-booking__wallet-action"
+                          onClick={handleOpenPurchaseModal}
+                        >
+                          {hasCreditsRemaining ? "Add credits" : "Purchase credits"}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="coach-booking__controls">
@@ -828,6 +950,9 @@ const CoachProfilePage = () => {
           )}
         </div>
       </div>
+      {isPurchaseModalOpen && profile ? (
+        <PurchaseLessonPackageModal coach={profile} onClose={handleClosePurchaseModal} />
+      ) : null}
     </MainLayout>
   );
 };

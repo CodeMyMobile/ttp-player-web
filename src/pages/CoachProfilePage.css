@@ -756,6 +756,106 @@
   gap: 18px;
 }
 
+.coach-profile-packages__status {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  border: 1px dashed rgba(99, 102, 241, 0.3);
+  background: rgba(244, 247, 255, 0.9);
+}
+
+.coach-profile-packages__status-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--profile-purple);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-profile-packages__status-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.coach-profile-packages__status-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.coach-profile-packages__status-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--profile-muted);
+}
+
+.coach-profile-packages__status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coach-profile-packages__status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.coach-profile-packages__status-item--active {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(236, 253, 245, 0.86);
+}
+
+.coach-profile-packages__status-item-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-profile-packages__status-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--profile-heading);
+}
+
+.coach-profile-packages__status-remaining {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--profile-purple);
+}
+
+.coach-profile-packages__status-item--active .coach-profile-packages__status-remaining {
+  color: var(--profile-green-dark);
+}
+
+.coach-profile-packages__status-meta {
+  font-size: 12px;
+  color: var(--profile-muted);
+}
+
+.coach-profile-packages__status-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--profile-body);
+}
+
 .coach-profile-package {
   border-radius: 20px;
   border: 1px solid var(--profile-border);
@@ -835,6 +935,11 @@
   cursor: pointer;
   box-shadow: 0 18px 34px -26px rgba(79, 70, 229, 0.45);
   transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.coach-profile-packages__action svg {
+  width: 18px;
+  height: 18px;
 }
 
 .coach-profile-packages__action:hover {
@@ -947,6 +1052,95 @@
   background: var(--profile-purple-soft);
   color: var(--profile-purple);
   box-shadow: inset 0 -2px 0 rgba(99, 102, 241, 0.2);
+}
+
+.coach-booking__wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.coach-booking__wallet-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(248, 250, 255, 0.88);
+  padding: 16px 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coach-booking__wallet-card--active {
+  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: 0 22px 40px -32px rgba(34, 197, 94, 0.45);
+}
+
+.coach-booking__wallet-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--profile-purple);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coach-booking__wallet-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.coach-booking__wallet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.coach-booking__wallet-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--profile-muted);
+}
+
+.coach-booking__wallet-copy {
+  margin: 0;
+  font-size: 14px;
+  color: var(--profile-body);
+}
+
+.coach-booking__wallet-detail {
+  font-size: 12px;
+  color: var(--profile-muted);
+}
+
+.coach-booking__wallet-action {
+  align-self: stretch;
+  justify-self: flex-start;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--profile-purple);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.coach-booking__wallet-action:hover {
+  background: #4f46e5;
+}
+
+.coach-booking__wallet-action:active {
+  transform: translateY(1px);
 }
 
 .coach-booking__section {
@@ -1666,4 +1860,19 @@
   width: 18px;
   height: 18px;
   color: currentColor;
+}
+
+@media (max-width: 640px) {
+  .coach-booking__wallet-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .coach-booking__wallet-action {
+    align-self: flex-start;
+  }
+
+  .coach-profile-packages__status {
+    flex-direction: column;
+  }
 }

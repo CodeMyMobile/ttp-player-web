@@ -76,6 +76,15 @@ type LessonPackage = {
   pricePerLesson: string;
 };
 
+type PlayerLessonCredit = {
+  lessonTypeId: LessonTypeId;
+  lessonTypeLabel: string;
+  remaining: number;
+  totalPurchased?: number;
+  upcomingExpiryLabel?: string;
+  lastPurchasedLabel?: string;
+};
+
 export type CoachProfile = Coach & {
   about: string;
   headlineBadge?: string;
@@ -86,6 +95,7 @@ export type CoachProfile = Coach & {
   coachingLocations: string[];
   lessonDetails: LessonDetail[];
   lessonPackages: LessonPackage[];
+  playerLessonCredits?: PlayerLessonCredit[];
   booking: {
     headline: string;
     lessonTypes: BookingLessonType[];
@@ -145,6 +155,23 @@ const sharedProfileBase = {
       description: "Lock in a season of progress and priority court access.",
       totalPrice: "$722.50",
       pricePerLesson: "$72.25 per lesson",
+    },
+  ],
+  playerLessonCredits: [
+    {
+      lessonTypeId: "private" as const,
+      lessonTypeLabel: "Private lessons",
+      remaining: 2,
+      totalPurchased: 5,
+      upcomingExpiryLabel: "2 credits expire May 31",
+      lastPurchasedLabel: "Purchased April 12",
+    },
+    {
+      lessonTypeId: "group" as const,
+      lessonTypeLabel: "Group sessions",
+      remaining: 1,
+      totalPurchased: 3,
+      upcomingExpiryLabel: "1 credit expires June 18",
     },
   ],
   booking: {
@@ -568,6 +595,22 @@ export const mockCoachProfiles: CoachProfile[] = [
         description: "Season-long training block with match analysis bonuses.",
         totalPrice: "$637.50",
         pricePerLesson: "$63.75 per lesson",
+      },
+    ],
+    playerLessonCredits: [
+      {
+        lessonTypeId: "private",
+        lessonTypeLabel: "Private lessons",
+        remaining: 0,
+        totalPurchased: 0,
+        lastPurchasedLabel: "Starter pack available",
+      },
+      {
+        lessonTypeId: "group",
+        lessonTypeLabel: "Group sessions",
+        remaining: 3,
+        totalPurchased: 6,
+        upcomingExpiryLabel: "3 credits expire July 2",
       },
     ],
     booking: {
