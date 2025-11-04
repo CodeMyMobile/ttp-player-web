@@ -3,7 +3,6 @@ import type { ElementType } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Award,
   Briefcase,
   CalendarDays,
   CheckCircle2,
@@ -13,9 +12,6 @@ import {
   MapPin,
   MessageCircle,
   Package,
-  Sparkles,
-  Star,
-  Users,
   Wallet,
 } from "lucide-react";
 
@@ -23,12 +19,6 @@ import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
 
 import "./CoachProfilePage.css";
-
-const highlightIconMap = {
-  users: Users,
-  trophy: Award,
-  spark: Sparkles,
-};
 
 const dayNameMap: Record<string, string> = {
   Mon: "Monday",
@@ -481,12 +471,6 @@ const CoachProfilePage = () => {
                       <div className="coach-profile-identity__details">
                         <div className="coach-profile-identity__name-row">
                           <h1 className="coach-profile-identity__name">{profile.name}</h1>
-                          {profile.headlineBadge && (
-                            <span className="coach-profile-identity__badge">
-                              <Star className="coach-profile-identity__badge-icon" strokeWidth={2.5} />
-                              {profile.headlineBadge}
-                            </span>
-                          )}
                         </div>
                         <div className="coach-profile-identity__meta">
                           <span className="coach-profile-identity__title">{profile.title}</span>
@@ -518,17 +502,6 @@ const CoachProfilePage = () => {
                             ))}
                           </ul>
                         ) : null}
-                        <div className="coach-profile-identity__chips">
-                          {profile.highlightChips.map((chip) => {
-                            const Icon = highlightIconMap[chip.icon];
-                            return (
-                              <span key={chip.label} className="coach-profile-identity__chip">
-                                <Icon className="coach-profile-identity__chip-icon" strokeWidth={2.2} />
-                                {chip.label}
-                              </span>
-                            );
-                          })}
-                        </div>
                       </div>
                     </div>
                   </div>
