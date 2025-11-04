@@ -9,6 +9,7 @@ import CoachProfilePage from "./pages/CoachProfilePage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
+import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -105,6 +106,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <GroupLessonsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/group-lessons/:id"
+      element={(
+        <ProtectedRoute>
+          <GroupLessonDetailsPage />
         </ProtectedRoute>
       )}
     />

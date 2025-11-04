@@ -17,6 +17,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
+import { findGroupLessonById } from "../data/mockGroupLessons";
 
 import "./BookingConfirmationPage.css";
 
@@ -54,6 +55,7 @@ type LocationState = {
   coachId?: number;
   dateId?: string;
   slotId?: string;
+  groupLessonId?: string;
 };
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -167,33 +169,56 @@ const BookingConfirmationPage = () => {
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
   const slotIdFromState = state?.slotId;
+  const groupLessonIdFromState = state?.groupLessonId;
 
   const coachIdParam = searchParams.get("coach");
   const dateIdParam = searchParams.get("date");
   const slotIdParam = searchParams.get("slot");
+  const groupLessonParam = searchParams.get("groupLesson");
 
   const coachId = coachIdFromState ?? (coachIdParam ? Number.parseInt(coachIdParam, 10) : undefined);
   const dateId = dateIdFromState ?? dateIdParam ?? undefined;
   const slotId = slotIdFromState ?? slotIdParam ?? undefined;
+  const groupLessonId = groupLessonIdFromState ?? groupLessonParam ?? undefined;
 
   const profile = coachId != null ? findCoachProfile(coachId) : undefined;
+  const groupLesson = groupLessonId ? findGroupLessonById(groupLessonId) : undefined;
 
   const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
   const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
 
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
-  const timeRange = selectedSlot ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration) : undefined;
-  const locationLabel = profile?.location ?? profile?.coachingLocations[0];
-  const isGroupLesson = selectedSlot?.lessonType === "group";
-  const coachFirstName = profile?.name?.split(" ")[0] ?? profile?.name ?? "";
-  const lessonDateLabel = selectedDate
-    ? `${dayNameMap[selectedDate.day] ?? selectedDate.day}, ${selectedDate.label}`
-    : undefined;
+  const isProfileGroupLesson = selectedSlot?.lessonType === "group";
+  const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
 
-  const capacity = isGroupLesson ? extractPlayerCapacity(lessonDetails?.duration) : undefined;
+  const timeRange = groupLesson
+    ? buildTimeRangeLabel(groupLesson.startTime, `${groupLesson.durationMinutes} min`)
+    : selectedSlot
+      ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration)
+      : undefined;
+  const locationLabel = groupLesson?.locationName ?? profile?.location ?? profile?.coachingLocations[0];
+  const resolvedCoachName = groupLesson?.coachName ?? profile?.name ?? "your coach";
+  const coachName = resolvedCoachName;
+  const coachFirstName = resolvedCoachName.split(" ")[0] ?? resolvedCoachName;
+  const lessonDateLabel = groupLesson?.date
+    ? groupLesson.date
+    : selectedDate
+      ? `${dayNameMap[selectedDate.day] ?? selectedDate.day}, ${selectedDate.label}`
+      : undefined;
+
+  const capacity = groupLesson
+    ? groupLesson.totalSpots
+    : isProfileGroupLesson
+      ? extractPlayerCapacity(lessonDetails?.duration)
+      : undefined;
   const spotsLabel = useMemo(() => {
-    if (!selectedSlot || !isGroupLesson) {
+    if (groupLesson) {
+      const remaining = Math.max(groupLesson.availableSpots, 0);
+      return `${remaining} spot${remaining === 1 ? "" : "s"} available`;
+    }
+
+    if (!selectedSlot || !isProfileGroupLesson) {
       return undefined;
     }
 
@@ -203,19 +228,27 @@ const BookingConfirmationPage = () => {
     }
 
     return `${remaining} spot${remaining === 1 ? "" : "s"} available`;
-  }, [capacity, isGroupLesson, selectedSlot]);
+  }, [capacity, groupLesson, isProfileGroupLesson, selectedSlot]);
 
   const participants = useMemo<GroupParticipant[]>(() => {
-    if (!isGroupLesson) {
+    if (groupLesson) {
+      return groupLesson.participants;
+    }
+
+    if (!isProfileGroupLesson) {
       return [];
     }
 
     return selectedSlot?.participants ?? [];
-  }, [isGroupLesson, selectedSlot]);
+  }, [groupLesson, isProfileGroupLesson, selectedSlot]);
 
   const participantCount = participants.length;
   const openSpots = useMemo(() => {
-    if (!isGroupLesson) {
+    if (groupLesson) {
+      return Math.max(groupLesson.availableSpots, 0);
+    }
+
+    if (!isProfileGroupLesson) {
       return 0;
     }
 
@@ -224,10 +257,18 @@ const BookingConfirmationPage = () => {
     }
 
     return Math.max(selectedSlot?.spotsRemaining ?? 0, 0);
-  }, [capacity, isGroupLesson, participantCount, selectedSlot]);
+  }, [capacity, groupLesson, isProfileGroupLesson, participantCount, selectedSlot]);
 
   const rosterCaption = useMemo(() => {
-    if (!isGroupLesson) {
+    if (groupLesson) {
+      const base = `${participantCount}/${groupLesson.totalSpots} players confirmed`;
+      if (openSpots === 0) {
+        return `${base} • Full`;
+      }
+      return `${base} • ${openSpots} spot${openSpots === 1 ? "" : "s"} open`;
+    }
+
+    if (!isProfileGroupLesson) {
       return undefined;
     }
 
@@ -247,7 +288,7 @@ const BookingConfirmationPage = () => {
 
     const base = `${participantCount} player${participantCount === 1 ? "" : "s"} confirmed`;
     return openSpots > 0 ? `${base} • ${openSpots} spot${openSpots === 1 ? "" : "s"} open` : base;
-  }, [capacity, isGroupLesson, openSpots, participantCount]);
+  }, [capacity, groupLesson, isProfileGroupLesson, openSpots, participantCount]);
 
   const getInitials = (name: string) => {
     const trimmed = name.trim();
@@ -260,7 +301,29 @@ const BookingConfirmationPage = () => {
       .join("");
   };
 
-  const lessonLabel = lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
+  const lessonLabel = groupLesson
+    ? groupLesson.title
+    : lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
+  const coachAvatar = groupLesson?.coachAvatarUrl ?? profile?.imageUrl;
+  const coachTitle = profile?.title ?? (groupLesson ? `${groupLesson.skillLabel} • Group session` : undefined);
+  const coachRating = profile?.rating;
+  const coachReviewCount = profile?.reviewCount;
+  const durationLabel = groupLesson ? `${groupLesson.durationMinutes} min` : selectedSlot?.duration;
+  const confirmTitle = groupLesson ? `Confirm your spot in ${groupLesson.title}` : `Confirm your lesson with ${coachName}`;
+  const backButtonLabel = groupLesson ? "Back to lesson details" : "Back to availability";
+  const backButtonDestination = groupLesson ? `/group-lessons/${groupLesson.id}` : undefined;
+  const adjustCopy = groupLesson
+    ? "You can return to the lesson details to review what's included before confirming."
+    : "You can return to availability and pick a different time or lesson type at any point before submitting your request.";
+  const adjustButtonLabel = groupLesson ? "Back to lesson details" : "Choose a different slot";
+
+  const handleAdjustNavigation = () => {
+    if (groupLesson) {
+      navigate(`/group-lessons/${groupLesson.id}`);
+      return;
+    }
+    navigate(-1);
+  };
 
   const headlineSubtitle = isGroupLesson
     ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
@@ -283,7 +346,7 @@ const BookingConfirmationPage = () => {
 
   const priceValue = isUsingCredits
     ? `1 lesson credit${lessonCreditWallet.creditValue ? ` (${lessonCreditWallet.creditValue})` : ""}`
-    : selectedSlot?.price ?? "--";
+    : groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
 
   const priceCaption = (() => {
     if (isUsingCredits) {
@@ -546,23 +609,32 @@ const BookingConfirmationPage = () => {
         copy: `We've notified ${coachFirstName}. You'll hear from us as soon as they confirm—your payment will only process after approval.`,
       };
 
-  const shouldShowEmptyState = !profile || !selectedDate || !selectedSlot;
+  const shouldShowEmptyState = groupLessonId
+    ? !groupLesson
+    : !profile || !selectedDate || !selectedSlot;
 
   if (shouldShowEmptyState) {
+    const emptyTitle = groupLessonId
+      ? "We couldn't find that group lesson"
+      : "We couldn't load that booking";
+    const emptyCopy = groupLessonId
+      ? "The session may have filled or is no longer available. Explore other group lessons to keep the momentum going."
+      : "The booking details expired or were missing. Please return to the coach listings to choose an available lesson.";
+    const emptyActionLabel = groupLessonId ? "View group lessons" : "Browse coaches";
+    const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";
+
     return (
       <MainLayout>
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
-            <h1 className="booking-confirmation__empty-title">We couldn't load that booking</h1>
-            <p className="booking-confirmation__empty-copy">
-              The booking details expired or were missing. Please return to the coach listings to choose an available lesson.
-            </p>
+            <h1 className="booking-confirmation__empty-title">{emptyTitle}</h1>
+            <p className="booking-confirmation__empty-copy">{emptyCopy}</p>
             <button
               type="button"
               className="fc-button fc-button--primary booking-confirmation__empty-action"
-              onClick={() => navigate("/find-coaches")}
+              onClick={() => navigate(emptyActionDestination)}
             >
-              Browse coaches
+              {emptyActionLabel}
             </button>
           </div>
         </div>
@@ -577,15 +649,21 @@ const BookingConfirmationPage = () => {
           <button
             type="button"
             className="booking-confirmation__back"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              if (backButtonDestination) {
+                navigate(backButtonDestination);
+              } else {
+                navigate(-1);
+              }
+            }}
           >
-            <ArrowLeft aria-hidden className="booking-confirmation__back-icon" /> Back to availability
+            <ArrowLeft aria-hidden className="booking-confirmation__back-icon" /> {backButtonLabel}
           </button>
 
           <header className="booking-confirmation__header">
             <div className="booking-confirmation__headline">
               <span className="booking-confirmation__eyebrow">Review & confirm</span>
-              <h1 className="booking-confirmation__title">Confirm your lesson with {profile.name}</h1>
+              <h1 className="booking-confirmation__title">{confirmTitle}</h1>
               <p className="booking-confirmation__subtitle">{headlineSubtitle}</p>
             </div>
           </header>
@@ -593,15 +671,25 @@ const BookingConfirmationPage = () => {
           <div className="booking-confirmation__layout">
             <section className="booking-confirmation__card">
               <div className="booking-confirmation__coach">
-                <img className="booking-confirmation__coach-avatar" src={profile.imageUrl} alt="" />
+                {coachAvatar ? (
+                  <img className="booking-confirmation__coach-avatar" src={coachAvatar} alt="" />
+                ) : (
+                  <span className="booking-confirmation__coach-avatar booking-confirmation__coach-avatar--placeholder" aria-hidden>
+                    {coachFirstName.charAt(0)}
+                  </span>
+                )}
                 <div className="booking-confirmation__coach-meta">
-                  <h2 className="booking-confirmation__coach-name">{profile.name}</h2>
-                  <p className="booking-confirmation__coach-title">{profile.title}</p>
-                  <div className="booking-confirmation__coach-rating">
-                    <Star size={18} fill="#FDB022" stroke="none" aria-hidden />
-                    {profile.rating.toFixed(1)}
-                    <span className="booking-confirmation__coach-reviews">({profile.reviewCount} reviews)</span>
-                  </div>
+                  <h2 className="booking-confirmation__coach-name">{coachName}</h2>
+                  {coachTitle ? <p className="booking-confirmation__coach-title">{coachTitle}</p> : null}
+                  {coachRating != null ? (
+                    <div className="booking-confirmation__coach-rating">
+                      <Star size={18} fill="#FDB022" stroke="none" aria-hidden />
+                      {coachRating.toFixed(1)}
+                      {coachReviewCount != null ? (
+                        <span className="booking-confirmation__coach-reviews">({coachReviewCount} reviews)</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -610,10 +698,10 @@ const BookingConfirmationPage = () => {
                   <CalendarDays aria-hidden size={20} />
                   <div className="booking-confirmation__detail-copy">
                     <span className="booking-confirmation__detail-label">When</span>
-                    <span className="booking-confirmation__detail-primary">
-                      {dayNameMap[selectedDate.day] ?? selectedDate.day}, {selectedDate.label}
-                    </span>
-                    <span className="booking-confirmation__detail-secondary">{timeRange}</span>
+                    <span className="booking-confirmation__detail-primary">{lessonDateLabel ?? "To be scheduled"}</span>
+                    {timeRange ? (
+                      <span className="booking-confirmation__detail-secondary">{timeRange}</span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -622,7 +710,9 @@ const BookingConfirmationPage = () => {
                   <div className="booking-confirmation__detail-copy">
                     <span className="booking-confirmation__detail-label">Lesson</span>
                     <span className="booking-confirmation__detail-primary">{lessonLabel}</span>
-                    <span className="booking-confirmation__detail-secondary">{selectedSlot.duration}</span>
+                    {durationLabel ? (
+                      <span className="booking-confirmation__detail-secondary">{durationLabel}</span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -781,16 +871,13 @@ const BookingConfirmationPage = () => {
               </div>
               <div className="booking-confirmation__aside-card booking-confirmation__aside-card--muted">
                 <h3>Need to adjust?</h3>
-                <p>
-                  You can return to availability and pick a different time or lesson type at any point before submitting your
-                  request.
-                </p>
+                <p>{adjustCopy}</p>
                 <button
                   type="button"
                   className="booking-confirmation__aside-back"
-                  onClick={() => navigate(-1)}
+                  onClick={handleAdjustNavigation}
                 >
-                  Choose a different slot
+                  {adjustButtonLabel}
                 </button>
               </div>
             </aside>
