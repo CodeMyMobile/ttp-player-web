@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import { findGroupLessonById } from "../data/mockGroupLessons";
 
@@ -165,6 +166,7 @@ const BookingConfirmationPage = () => {
     cvc: "",
     postalCode: "",
   });
+  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -411,6 +413,13 @@ const BookingConfirmationPage = () => {
   }, [isUsingNewCard, newCardForm]);
 
   const isConfirmDisabled = isConfirmed || !isNewCardValid || (isUsingCredits && !canUseCredits);
+
+  const handleConfirm = () => {
+    setIsConfirmed(true);
+    if (groupLesson) {
+      setIsConfirmationModalOpen(true);
+    }
+  };
 
   const savedCardsSection = (
     <div className="payment-methods__group">
@@ -831,7 +840,7 @@ const BookingConfirmationPage = () => {
             <button
               type="button"
               className="fc-button fc-button--primary booking-confirmation__confirm"
-              onClick={() => setIsConfirmed(true)}
+              onClick={handleConfirm}
               disabled={isConfirmDisabled}
             >
               {confirmButtonLabel}
@@ -884,6 +893,12 @@ const BookingConfirmationPage = () => {
           </div>
         </div>
       </div>
+      {isConfirmationModalOpen && groupLesson ? (
+        <GroupLessonConfirmationModal
+          lesson={groupLesson}
+          onClose={() => setIsConfirmationModalOpen(false)}
+        />
+      ) : null}
     </MainLayout>
   );
 };
