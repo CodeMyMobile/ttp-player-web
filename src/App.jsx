@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
+import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +88,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CoachProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/coaches/:id/purchase"
+      element={(
+        <ProtectedRoute>
+          <PurchaseLessonPackagePage />
         </ProtectedRoute>
       )}
     />

@@ -1,0 +1,891 @@
+.purchase-package-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.purchase-package-modal-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.purchase-package-page {
+  min-height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 64px 24px 96px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 72%, #e0e7ff 100%);
+}
+
+.purchase-package-experience {
+  position: relative;
+  width: min(560px, 100%);
+  border-radius: 28px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(160deg, #ffffff 0%, #f8faff 82%);
+  box-shadow: 0 30px 100px -60px rgba(15, 23, 42, 0.45), 0 45px 90px -70px rgba(79, 70, 229, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.purchase-package-experience--page {
+  width: min(1160px, 100%);
+  border-radius: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: #ffffff;
+  box-shadow: 0 60px 120px -80px rgba(15, 23, 42, 0.5);
+}
+
+.purchase-package-experience__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 32px 36px 18px;
+}
+
+.purchase-package-experience--page .purchase-package-experience__header {
+  padding: 44px 52px 28px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  background: linear-gradient(180deg, rgba(248, 250, 255, 0.8) 0%, #ffffff 100%);
+}
+
+.purchase-package-experience__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.purchase-package-experience__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6366f1;
+}
+
+.purchase-package-experience__title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.purchase-package-experience__subtitle {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #475467;
+}
+
+.purchase-package-experience__dismiss {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: none;
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.purchase-package-experience__dismiss svg {
+  width: 20px;
+  height: 20px;
+}
+
+.purchase-package-experience__dismiss:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.purchase-package-experience__dismiss:active {
+  transform: translateY(1px);
+}
+
+.purchase-package-experience__dismiss--page {
+  width: auto;
+  height: auto;
+  padding: 10px 18px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  background: rgba(248, 250, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+}
+
+.purchase-package-experience__dismiss--page svg {
+  width: 18px;
+  height: 18px;
+}
+
+.purchase-package-experience__body {
+  padding: 0 36px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.purchase-package-experience--page .purchase-package-experience__body {
+  padding: 36px 52px 52px;
+  gap: 40px;
+}
+
+.purchase-package-experience__layout {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+  align-items: flex-start;
+}
+
+.purchase-package-experience__primary-panel,
+.purchase-package-experience__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.purchase-package-experience__section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.purchase-package-experience__section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.purchase-package-experience__section-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.purchase-package-experience__section-copy {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.purchase-package-experience__toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.purchase-package-experience__toggle-pill {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  background: rgba(248, 250, 255, 0.86);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.purchase-package-experience__toggle-pill:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.purchase-package-experience__toggle-pill--active {
+  border-color: #4f46e5;
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 16px 38px -24px rgba(79, 70, 229, 0.45);
+}
+
+.purchase-package-experience__toggle-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.purchase-package-experience__toggle-price {
+  font-size: 13px;
+  color: #4f46e5;
+}
+
+
+.purchase-package-experience__lesson-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.purchase-package-experience__lesson-overview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.purchase-package-experience__lesson-overview-meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.purchase-package-experience__lesson-meta-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.purchase-package-experience__lesson-meta-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.purchase-package-experience__lesson-meta-unit {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4f46e5;
+}
+
+.purchase-package-experience__lesson-bullets {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.purchase-package-experience__packages {
+  display: grid;
+  gap: 16px;
+}
+
+.purchase-package-experience__package {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  background: rgba(255, 255, 255, 0.94);
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.purchase-package-experience__package input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.purchase-package-experience__package--selected {
+  border-color: #4f46e5;
+  box-shadow: 0 24px 40px -32px rgba(79, 70, 229, 0.4);
+  transform: translateY(-2px);
+}
+
+.purchase-package-experience__package-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-package-experience__package-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.purchase-package-experience__package-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.purchase-package-experience__package-lessons {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.purchase-package-experience__package-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.purchase-package-experience__package-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #4b5563;
+}
+
+.purchase-package-experience__package-pricing {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.purchase-package-experience__package-total {
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.purchase-package-experience__package-per {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.purchase-package-experience__empty {
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  background: rgba(248, 250, 255, 0.7);
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.purchase-package-experience__summary-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(248, 250, 255, 0.88);
+  border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.purchase-package-experience__summary-icon {
+  width: 32px;
+  height: 32px;
+  color: #4f46e5;
+}
+
+.purchase-package-experience__summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.purchase-package-experience__summary-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4f46e5;
+}
+
+.purchase-package-experience__summary-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475467;
+}
+
+.purchase-package-experience__summary-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #475467;
+}
+
+.purchase-package-experience__summary-meta svg {
+  width: 16px;
+  height: 16px;
+  color: #4f46e5;
+}
+
+.purchase-package-experience__order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(209, 213, 219, 0.6);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, #f8fafc 100%);
+}
+
+.purchase-package-experience__order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.purchase-package-experience__order-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.purchase-package-experience__order-header span {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.purchase-package-experience__order-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.purchase-package-experience__order-line span:last-child {
+  color: #4338ca;
+}
+
+.purchase-package-experience__order-copy {
+  margin: 0;
+  font-size: 14px;
+  color: #475467;
+  line-height: 1.6;
+}
+
+.purchase-package-experience__summary-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #4338ca;
+  background: rgba(67, 56, 202, 0.08);
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+
+.purchase-package-experience__summary-highlight svg {
+  width: 18px;
+  height: 18px;
+}
+
+.purchase-package-experience__payment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(191, 219, 254, 0.6);
+  background: linear-gradient(180deg, rgba(248, 250, 255, 0.95) 0%, #ffffff 100%);
+  box-shadow: 0 35px 70px -60px rgba(30, 64, 175, 0.45);
+}
+
+.purchase-package-experience__payment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.purchase-package-experience__payment-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.purchase-package-experience__payment-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #475467;
+}
+
+.purchase-package-experience__payment-secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  padding: 6px 10px;
+  border-radius: 9999px;
+}
+
+.purchase-package-experience__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: 9999px;
+  border: none;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.purchase-package-experience__primary:hover {
+  box-shadow: 0 16px 40px -24px rgba(79, 70, 229, 0.55);
+}
+
+.purchase-package-experience__primary:active {
+  transform: translateY(1px);
+}
+
+.purchase-package-experience__primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.purchase-package-experience__primary--full {
+  width: 100%;
+  justify-content: center;
+}
+
+.purchase-package-experience__success {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.purchase-package-experience__success-icon {
+  width: 54px;
+  height: 54px;
+  color: #16a34a;
+  margin: 0 auto;
+}
+
+.purchase-package-experience__success-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.purchase-package-experience__success-copy {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.payment-methods__group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-methods__group-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(79, 70, 229, 0.85);
+}
+
+.payment-methods__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-method-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.payment-method-card:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 14px 32px -26px rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
+}
+
+.payment-method-card input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.payment-method-card__selector {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-method-card__selector::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-radius: 999px;
+  background: transparent;
+  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease;
+}
+
+.payment-method-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-method-card__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.payment-method-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-method-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.payment-method-card__subtitle {
+  font-size: 13px;
+  color: #475467;
+}
+
+.payment-method-card__tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.16);
+  color: rgba(79, 70, 229, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.payment-method-card--selected {
+  border-color: rgba(99, 102, 241, 0.7);
+  background: rgba(237, 242, 255, 0.9);
+  box-shadow: 0 18px 44px -30px rgba(99, 102, 241, 0.6);
+}
+
+.payment-method-card--selected .payment-method-card__selector {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+}
+
+.payment-method-card--selected .payment-method-card__selector::after {
+  width: 8px;
+  height: 8px;
+  background: #fff;
+}
+
+.payment-method-card--new .payment-method-card__icon {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.payment-method-card--wallet {
+  grid-template-columns: auto auto 1fr;
+  background: linear-gradient(135deg, #0f172a, #111827);
+  border-color: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+}
+
+.payment-method-card--wallet .payment-method-card__icon {
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+}
+
+.payment-method-card--wallet .payment-method-card__subtitle {
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.payment-method-card--wallet .payment-method-card__selector {
+  border-color: rgba(248, 250, 252, 0.6);
+}
+
+.payment-method-card--wallet.payment-method-card--selected {
+  border-color: rgba(191, 219, 254, 0.85);
+  box-shadow: 0 20px 48px -34px rgba(59, 130, 246, 0.65);
+}
+
+.payment-method-card__form {
+  margin-left: 58px;
+  margin-top: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(248, 250, 252, 0.92);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.payment-method-card__form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.payment-method-card__form-row--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.payment-method-card__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  font-size: 13px;
+  color: #475467;
+  font-weight: 600;
+}
+
+.payment-method-card__form-field span {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payment-method-card__form-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  font-size: 14px;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.payment-method-card__form-field input:focus {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+}
+
+@media (max-width: 1080px) {
+  .purchase-package-experience__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-package-experience__aside {
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 768px) {
+  .purchase-package-page {
+    padding: 48px 16px 72px;
+  }
+
+  .purchase-package-experience--page .purchase-package-experience__header {
+    padding: 32px 28px 20px;
+  }
+
+  .purchase-package-experience--page .purchase-package-experience__body {
+    padding: 28px;
+  }
+
+  .purchase-package-experience__lesson-overview-meta {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .purchase-package-modal-overlay {
+    padding: 12px;
+  }
+
+  .purchase-package-experience,
+  .purchase-package-experience--page {
+    width: 100%;
+    border-radius: 24px;
+  }
+
+  .purchase-package-experience__header {
+    padding: 24px 24px 14px;
+  }
+
+  .purchase-package-experience__body {
+    padding: 0 24px 24px;
+  }
+
+  .purchase-package-experience--page .purchase-package-experience__body {
+    padding: 24px;
+  }
+
+  .purchase-package-experience__dismiss--page {
+    padding: 8px 14px;
+  }
+
+  .purchase-package-page {
+    padding: 36px 12px 56px;
+  }
+}
