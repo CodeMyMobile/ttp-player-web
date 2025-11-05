@@ -317,35 +317,6 @@
   font-size: 1.05rem;
 }
 
-.player-profile-looking-for {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  background: linear-gradient(135deg, rgba(240, 249, 255, 0.85) 0%, rgba(236, 254, 255, 0.85) 100%);
-  border-radius: 20px;
-  padding: 18px 20px;
-}
-
-.player-profile-looking-for-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: rgba(59, 130, 246, 0.2);
-  color: #1d4ed8;
-}
-
-.player-profile-looking-for-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #1d4ed8;
-  margin-bottom: 4px;
-}
-
 .player-profile-grid {
   display: grid;
   grid-template-columns: 1fr;

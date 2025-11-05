@@ -11,7 +11,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Star,
-  UserPlus,
   UserX,
   X,
 } from "lucide-react";
@@ -177,15 +176,6 @@ const PlayerProfilePage = () => {
                 <p>Get a sense of this player&apos;s on-court vibe.</p>
               </header>
               <p className="player-profile-description">{player.bio}</p>
-              <div className="player-profile-looking-for">
-                <div className="player-profile-looking-for-icon">
-                  <UserPlus size={20} strokeWidth={2} aria-hidden="true" />
-                </div>
-                <div>
-                  <span className="player-profile-looking-for-label">Looking for</span>
-                  <p>{player.lookingFor}</p>
-                </div>
-              </div>
             </div>
           </section>
 
