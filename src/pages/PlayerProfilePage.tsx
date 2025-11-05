@@ -50,6 +50,19 @@ const PlayerProfilePage = () => {
     { label: "Weekends", value: "Weekends" },
   ];
 
+  const blockPlayer = () => {
+    window.alert(`You won't be matched with ${player.name}.`);
+  };
+
+  const verifyPlayerLevel = () => {
+    if (player.verified) {
+      window.alert(`${player.name}'s NTRP level has already been verified.`);
+      return;
+    }
+
+    window.alert(`Thanks! We'll review ${player.name}'s level and follow up.`);
+  };
+
   return (
     <MainLayout>
       <div className="player-profile-page">
@@ -66,53 +79,24 @@ const PlayerProfilePage = () => {
 
             <div className="player-profile-identity">
               <div className="player-profile-media">
-                <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
+                {player.profileImageUrl ? (
+                  <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
+                ) : (
+                  <span aria-hidden="true">{player.initials}</span>
+                )}
               </div>
               <div className="player-profile-heading">
                 <div className="player-profile-name-row">
                   <h1>{player.name}</h1>
                 </div>
-                <div className="player-profile-ntrp-row" role="status">
-                  <span className="player-profile-ntrp-value">{player.level} NTRP level</span>
-                  <span
-                    className={`player-profile-ntrp-status ${player.verified ? "is-verified" : "is-unverified"}`}
-                  >
-                    {player.verified ? (
-                      <>
-                        <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
-                        Level verified
-                      </>
-                    ) : (
-                      <>
-                        <ShieldAlert size={16} strokeWidth={2} aria-hidden="true" />
-                        Verification pending
-                      </>
-                    )}
-                  </span>
-                </div>
                 <div className="player-profile-actions">
                   <button
                     type="button"
                     className="player-profile-action player-profile-action--secondary"
-                    onClick={() => window.alert(`You won't be matched with ${player.name}.`)}
+                    onClick={blockPlayer}
                   >
                     <UserX size={16} strokeWidth={2} aria-hidden="true" />
                     Block player
-                  </button>
-                  <button
-                    type="button"
-                    className="player-profile-action player-profile-action--primary"
-                    disabled={player.verified}
-                    onClick={() =>
-                      window.alert(
-                        player.verified
-                          ? `${player.name}'s NTRP level has already been verified.`
-                          : `Thanks! We'll review ${player.name}'s level and follow up.`,
-                      )
-                    }
-                  >
-                    <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                    {player.verified ? "NTRP level verified" : "Verify NTRP level"}
                   </button>
                 </div>
               </div>
@@ -121,6 +105,55 @@ const PlayerProfilePage = () => {
         </div>
 
         <div className="player-profile-body">
+          <section className="player-profile-section">
+            <article className="player-profile-card player-profile-card--level">
+              <header className="player-profile-card-header">
+                <div>
+                  <p className="player-profile-card-eyebrow">Player level</p>
+                  <h2>{firstName}&apos;s verified skill level.</h2>
+                </div>
+                <span
+                  className={`player-profile-ntrp-status ${player.verified ? "is-verified" : "is-unverified"}`}
+                  role="status"
+                >
+                  {player.verified ? (
+                    <>
+                      <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
+                      Level verified
+                    </>
+                  ) : (
+                    <>
+                      <ShieldAlert size={16} strokeWidth={2} aria-hidden="true" />
+                      Verification pending
+                    </>
+                  )}
+                </span>
+              </header>
+              <div className="player-profile-level-content">
+                <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
+                  <span className="player-profile-level-value">{player.level}</span>
+                  <span className="player-profile-level-label">NTRP level</span>
+                </div>
+                <div className="player-profile-level-meta">
+                  <p className="player-profile-level-note">
+                    {player.verificationCount > 0
+                      ? `${player.verificationCount} ${player.verificationCount === 1 ? "player has" : "players have"} verified this level`
+                      : "Be the first to verify this level"}
+                  </p>
+                  <button
+                    type="button"
+                    className="player-profile-action player-profile-action--primary"
+                    onClick={verifyPlayerLevel}
+                    disabled={player.verified}
+                  >
+                    <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
+                    {player.verified ? "Level already verified" : `Verify ${firstName}'s level`}
+                  </button>
+                </div>
+              </div>
+            </article>
+          </section>
+
           <section className="player-profile-section">
             <div className="player-profile-card">
               <header>

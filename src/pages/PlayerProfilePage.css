@@ -1,10 +1,9 @@
 .player-profile-page {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  background: radial-gradient(140% 140% at 0% 0%, #f8f9ff 0%, #eef2ff 48%, #f8faff 100%);
-  color: #0f172a;
   min-height: 100%;
+  background: linear-gradient(180deg, #4f46e5 0%, #6366f1 40%, #eef2ff 100%);
+  color: #0f172a;
 }
 
 .player-profile-page--empty {
@@ -38,21 +37,19 @@
 }
 
 .player-profile-hero {
-  width: 100%;
   position: relative;
-  background: linear-gradient(135deg, rgba(248, 250, 255, 0.98) 0%, rgba(229, 231, 255, 0.92) 60%, rgba(248, 250, 255, 0.98) 100%);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
-  box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.45);
+  width: 100%;
+  padding-bottom: 96px;
 }
 
 .player-profile-hero__inner {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1020px;
   margin: 0 auto;
-  padding: 32px 20px 72px;
+  padding: 48px 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .player-profile-back {
@@ -60,37 +57,44 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(99, 102, 241, 0.22);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.48);
   border-radius: 999px;
   padding: 10px 18px;
-  color: #4338ca;
+  color: #e0e7ff;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
 }
 
 .player-profile-back:hover {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
   transform: translateX(-2px);
 }
 
 .player-profile-back:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid #fff;
   outline-offset: 2px;
 }
 
 .player-profile-identity {
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 32px 28px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 24px;
+  box-shadow: 0 40px 80px -60px rgba(15, 23, 42, 0.55);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .player-profile-identity {
     flex-direction: row;
     align-items: center;
-    gap: 32px;
+    justify-content: space-between;
+    padding: 40px;
   }
 }
 
@@ -99,9 +103,15 @@
   height: 132px;
   border-radius: 50%;
   overflow: hidden;
-  border: 4px solid rgba(99, 102, 241, 0.3);
+  border: 5px solid rgba(99, 102, 241, 0.35);
   box-shadow: 0 30px 70px -36px rgba(67, 56, 202, 0.45);
   background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e0e7ff;
+  font-size: 2.5rem;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -116,64 +126,48 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  flex: 1;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .player-profile-heading {
+    text-align: left;
+    align-items: flex-start;
+  }
 }
 
 .player-profile-name-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .player-profile-name-row {
+    justify-content: flex-start;
+  }
 }
 
 .player-profile-name-row h1 {
   margin: 0;
-  font-size: clamp(2rem, 2.6vw + 1rem, 2.75rem);
+  font-size: clamp(2rem, 2.8vw + 1rem, 2.85rem);
   font-weight: 800;
-}
-
-.player-profile-ntrp-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  font-weight: 600;
-  color: #312e81;
-}
-
-.player-profile-ntrp-value {
-  font-size: 1.05rem;
-  background: rgba(99, 102, 241, 0.12);
-  border-radius: 999px;
-  padding: 6px 14px;
-}
-
-.player-profile-ntrp-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.95rem;
-}
-
-.player-profile-ntrp-status.is-verified {
-  background: rgba(34, 197, 94, 0.15);
-  color: #166534;
-  border: 1px solid rgba(34, 197, 94, 0.4);
-}
-
-.player-profile-ntrp-status.is-unverified {
-  background: rgba(250, 204, 21, 0.18);
-  color: #92400e;
-  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #1f2937;
 }
 
 .player-profile-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 8px;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .player-profile-actions {
+    justify-content: flex-start;
+  }
 }
 
 .player-profile-action {
@@ -184,9 +178,13 @@
   padding: 10px 18px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   border: 1px solid transparent;
   font-size: 0.95rem;
+}
+
+.player-profile-action svg {
+  flex-shrink: 0;
 }
 
 .player-profile-action--primary {
@@ -198,95 +196,182 @@
 
 .player-profile-action--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 22px 44px -24px rgba(76, 29, 149, 0.7);
-}
-
-.player-profile-action--primary:focus-visible {
-  outline: 2px solid rgba(129, 140, 248, 0.9);
-  outline-offset: 2px;
-}
-
-.player-profile-action--primary:disabled,
-.player-profile-action--primary:disabled:hover {
-  cursor: not-allowed;
-  opacity: 0.6;
-  transform: none;
-  box-shadow: none;
+  box-shadow: 0 24px 44px -26px rgba(79, 70, 229, 0.72);
 }
 
 .player-profile-action--secondary {
-  background: rgba(15, 23, 42, 0.04);
-  color: #1e293b;
-  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+  border: 1px solid rgba(99, 102, 241, 0.24);
 }
 
 .player-profile-action--secondary:hover {
+  background: rgba(99, 102, 241, 0.18);
   transform: translateY(-1px);
-  background: rgba(15, 23, 42, 0.08);
-}
-
-.player-profile-action--secondary:focus-visible {
-  outline: 2px solid rgba(148, 163, 184, 0.9);
-  outline-offset: 2px;
 }
 
 .player-profile-body {
+  position: relative;
   width: 100%;
-  max-width: 1080px;
-  margin: -56px auto 80px;
-  padding: 0 20px;
+  max-width: 1020px;
+  margin: -70px auto 0;
+  padding: 0 20px 96px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  box-sizing: border-box;
-}
-
-@media (min-width: 1024px) {
-  .player-profile-body {
-    gap: 40px;
-    margin-bottom: 120px;
-  }
+  gap: 28px;
 }
 
 .player-profile-section {
-  display: flex;
-  flex-direction: column;
+  width: 100%;
 }
 
 .player-profile-card {
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffff;
   border-radius: 28px;
-  border: 1px solid rgba(99, 102, 241, 0.14);
-  box-shadow: 0 40px 80px -50px rgba(15, 23, 42, 0.45);
-  padding: 32px;
+  box-shadow: 0 30px 90px -64px rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(99, 102, 241, 0.08);
+  padding: 32px 28px;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
+@media (min-width: 640px) {
+  .player-profile-card {
+    padding: 40px 36px;
+  }
+}
+
+.player-profile-card header,
+.player-profile-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .player-profile-card header h2,
-.player-profile-card header h3 {
+.player-profile-card-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
+  color: #1f2937;
 }
 
 .player-profile-card header p {
-  margin: 4px 0 0;
-  color: #64748b;
-  line-height: 1.6;
+  margin: 0;
+  color: #475467;
+  line-height: 1.5;
+}
+
+.player-profile-card-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: #6366f1;
+}
+
+.player-profile-card-header {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.player-profile-card-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-profile-ntrp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.player-profile-ntrp-status.is-verified {
+  background: rgba(34, 197, 94, 0.15);
+  color: #166534;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.player-profile-ntrp-status.is-unverified {
+  background: rgba(250, 204, 21, 0.2);
+  color: #92400e;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+}
+
+.player-profile-level-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 640px) {
+  .player-profile-level-content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.player-profile-level-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 160px;
+  height: 160px;
+  border-radius: 24px;
+  background: radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.player-profile-level-value {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #312e81;
+  line-height: 1;
+}
+
+.player-profile-level-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6366f1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.player-profile-level-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.player-profile-level-note {
+  margin: 0;
+  font-size: 1rem;
+  color: #475467;
 }
 
 .player-profile-description {
   margin: 0;
   color: #1f2937;
-  line-height: 1.8;
   font-size: 1.05rem;
+  line-height: 1.75;
 }
 
 .player-profile-grid {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 24px;
 }
 
@@ -297,145 +382,139 @@
 }
 
 .player-profile-pill-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .player-profile-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 18px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.1);
   color: #4338ca;
+  border-radius: 999px;
+  padding: 10px 16px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 0.95rem;
 }
 
 .player-profile-availability-list {
   list-style: none;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.player-profile-availability {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 102, 241, 0.08);
+  background: rgba(248, 250, 255, 0.8);
+  box-shadow: 0 12px 32px -28px rgba(15, 23, 42, 0.6);
+}
+
+.player-profile-availability.is-available {
+  border-color: rgba(34, 197, 94, 0.2);
+  background: rgba(240, 253, 244, 0.9);
+}
+
+.player-profile-availability.is-unavailable {
+  border-color: rgba(248, 113, 113, 0.2);
+  background: rgba(254, 242, 242, 0.9);
+}
+
+.player-profile-availability-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: #22c55e;
+}
+
+.player-profile-availability.is-unavailable .player-profile-availability-icon {
+  background: #f87171;
+}
+
+.player-profile-availability-label {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.player-profile-availability-status {
+  margin-left: auto;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #475467;
+}
+
+.player-profile-court-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.player-profile-availability {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 14px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  background: rgba(248, 250, 255, 0.9);
-}
-
-.player-profile-availability.is-unavailable {
-  opacity: 0.72;
-  background: rgba(226, 232, 240, 0.4);
-}
-
-.player-profile-availability-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: rgba(74, 222, 128, 0.18);
-  color: #15803d;
-}
-
-.player-profile-availability.is-unavailable .player-profile-availability-icon {
-  background: rgba(248, 113, 113, 0.18);
-  color: #b91c1c;
-}
-
-.player-profile-availability-label {
-  font-weight: 700;
-  color: #1e1b4b;
-}
-
-.player-profile-availability-status {
-  grid-column: 2 / -1;
-  font-size: 0.9rem;
-  color: #475569;
-}
-
-.player-profile-court-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.player-profile-court-list li {
   font-weight: 600;
-  color: #1e293b;
+  color: #1f2937;
+  background: rgba(79, 70, 229, 0.06);
+  padding: 14px 16px;
+  border-radius: 16px;
 }
 
 .player-profile-connect-card {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  border-radius: 28px;
+  padding: 36px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16) 0%, rgba(79, 70, 229, 0.24) 100%);
-  border-radius: 28px;
-  border: 1px solid rgba(79, 70, 229, 0.25);
-  padding: 32px;
-  color: #1f2937;
-  box-shadow: 0 32px 64px -44px rgba(79, 70, 229, 0.55);
+  gap: 20px;
+  color: #f8faff;
+  box-shadow: 0 28px 70px -48px rgba(88, 28, 135, 0.65);
 }
 
-.player-profile-connect-copy h3 {
-  margin: 0;
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: #1e1b4b;
-}
-
-.player-profile-connect-copy p {
-  margin: 8px 0 0;
-  color: rgba(15, 23, 42, 0.78);
-  line-height: 1.6;
-}
-
-.player-profile-connect-button {
-  align-self: flex-start;
-  padding: 14px 28px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  box-shadow: 0 20px 40px -20px rgba(59, 130, 246, 0.55);
-}
-
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .player-profile-connect-card {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
-
-  .player-profile-connect-button {
-    align-self: center;
-  }
 }
 
-@media (max-width: 540px) {
-  .player-profile-card,
-  .player-profile-connect-card {
-    padding: 24px;
-  }
+.player-profile-connect-copy h3 {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
 
-  .player-profile-media {
-    width: 108px;
-    height: 108px;
-  }
+.player-profile-connect-copy p {
+  margin: 0;
+  color: rgba(248, 250, 255, 0.85);
+  line-height: 1.6;
+}
 
-  .player-profile-body {
-    padding: 0 16px;
-  }
+.player-profile-connect-button {
+  align-self: flex-start;
+  padding: 14px 26px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 999px;
+  box-shadow: 0 18px 46px -26px rgba(15, 23, 42, 0.65);
+}
+
+.player-profile-action:disabled {
+  pointer-events: none;
+  opacity: 0.72;
 }

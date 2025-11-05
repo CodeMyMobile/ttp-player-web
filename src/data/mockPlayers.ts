@@ -10,6 +10,7 @@ export type Player = {
   matchPreferences: string[];
   bio: string;
   verified: boolean;
+  verificationCount: number;
   lastActive: string;
   matchFrequency: string;
   rating: number;
@@ -33,6 +34,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Singles", "Competitive"],
     bio: "Former D3 player getting back into league play. Always down for a rematch and new hitting partners.",
     verified: true,
+    verificationCount: 7,
     lastActive: "Active today",
     matchFrequency: "2-3x per week",
     rating: 4.9,
@@ -54,6 +56,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Singles", "Doubles"],
     bio: "USTA 4.0 captain focused on match strategy and consistency. Happy to rally or play sets.",
     verified: true,
+    verificationCount: 5,
     lastActive: "Active 1h ago",
     matchFrequency: "3x per week",
     rating: 4.8,
@@ -75,6 +78,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Doubles", "Social"],
     bio: "Recently joined Matchplay. Looking for relaxed doubles and social mixers on the east side.",
     verified: false,
+    verificationCount: 2,
     lastActive: "Active yesterday",
     matchFrequency: "1-2x per week",
     rating: 4.6,
@@ -96,6 +100,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Singles", "Competitive"],
     bio: "Former college player commuting into the city. Focused on high-intensity drilling and practice sets.",
     verified: true,
+    verificationCount: 9,
     lastActive: "Active 3h ago",
     matchFrequency: "4x per week",
     rating: 5,
@@ -117,6 +122,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Doubles", "Competitive"],
     bio: "Captain of a 3.5 USTA women's team. Looking for doubles partners comfortable at the net.",
     verified: true,
+    verificationCount: 4,
     lastActive: "Active today",
     matchFrequency: "2x per week",
     rating: 4.7,
@@ -138,6 +144,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Singles", "Drills"],
     bio: "Tech professional working remote. Down for weekday drills and casual singles matches.",
     verified: false,
+    verificationCount: 1,
     lastActive: "Active 4h ago",
     matchFrequency: "1-2x per week",
     rating: 4.5,
@@ -159,6 +166,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Singles", "Competitive"],
     bio: "League player focusing on footwork and serve + volley patterns. Always ready for a tiebreaker.",
     verified: true,
+    verificationCount: 6,
     lastActive: "Active 2h ago",
     matchFrequency: "3x per week",
     rating: 4.9,
@@ -180,6 +188,7 @@ export const mockPlayers: Player[] = [
     matchPreferences: ["Drills", "Social"],
     bio: "New to the city and building confidence with consistent hitting. Open to coaching style hitting sessions.",
     verified: false,
+    verificationCount: 0,
     lastActive: "Active 2d ago",
     matchFrequency: "1x per week",
     rating: 4.4,
