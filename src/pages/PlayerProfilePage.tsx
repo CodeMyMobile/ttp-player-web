@@ -189,7 +189,7 @@ const PlayerProfilePage = () => {
             <div className="player-profile-grid">
               <article className="player-profile-card">
                 <header>
-                  <h3>Type of hit</h3>
+                  <h3>Play Style</h3>
                   <p>What kind of session {firstName} is looking for.</p>
                 </header>
                 <ul className="player-profile-pill-list">
