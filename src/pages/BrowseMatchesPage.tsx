@@ -17,8 +17,6 @@ import { mockMatches } from "../data/mockMatches";
 import "./BrowseMatchesPage.css";
 
 const distanceOptions = ["3 mi", "5 mi", "10 mi", "15 mi", "All"];
-const timeWindows = ["Today", "Tomorrow", "This week", "Weekend"];
-const formatFilters = ["Singles", "Doubles", "Mixed", "Flex", "Clinic"];
 const tabs = [
   "My Matches",
   "Hosting",
@@ -56,8 +54,6 @@ const activityFeed = [
 
 const BrowseMatchesPage = () => {
   const [selectedDistance, setSelectedDistance] = useState(distanceOptions[1]);
-  const [selectedTimeWindow, setSelectedTimeWindow] = useState(timeWindows[0]);
-  const [selectedFormats, setSelectedFormats] = useState<string[]>(["Doubles"]);
   const [selectedTab, setSelectedTab] = useState(tabs[2]);
 
   const themeVars = useMemo(
@@ -79,12 +75,6 @@ const BrowseMatchesPage = () => {
     [],
   );
 
-  const toggleFormat = (format: string) => {
-    setSelectedFormats((prev) =>
-      prev.includes(format) ? prev.filter((item) => item !== format) : [...prev, format],
-    );
-  };
-
   return (
     <MainLayout>
       <div className="matches-page" style={themeVars}>
@@ -105,60 +95,35 @@ const BrowseMatchesPage = () => {
         </header>
 
         <section className="location-panel">
-          <div className="location-panel__primary">
-            <button type="button" className="location-chip primary">
-              <MapPin size={16} aria-hidden="true" />
-              Current location
-            </button>
-            <div className="location-details">
-              <h2>Franklin Canyon Courts</h2>
-              <p>Using your verified club location</p>
+          <div className="location-panel__header">
+            <div className="location-panel__heading">
+              <button type="button" className="location-chip">
+                <MapPin size={16} aria-hidden="true" />
+                Current location
+              </button>
+              <div className="location-details">
+                <h2>Franklin Canyon Courts</h2>
+                <p>Using your verified club location</p>
+              </div>
             </div>
             <button type="button" className="location-secondary">Change location</button>
           </div>
-          <div className="location-panel__filters">
-            <div className="chip-group" role="group" aria-label="Distance">
-              {distanceOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`chip${selectedDistance === option ? " selected" : ""}`}
-                  onClick={() => setSelectedDistance(option)}
-                  aria-pressed={selectedDistance === option}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <div className="chip-group" role="group" aria-label="Time window">
-              {timeWindows.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`chip${selectedTimeWindow === option ? " selected" : ""}`}
-                  onClick={() => setSelectedTimeWindow(option)}
-                  aria-pressed={selectedTimeWindow === option}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <div className="chip-group" role="group" aria-label="Formats">
-              {formatFilters.map((option) => {
-                const selected = selectedFormats.includes(option);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`chip${selected ? " selected" : ""}`}
-                    onClick={() => toggleFormat(option)}
-                    aria-pressed={selected}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
+          <div
+            className="location-panel__filters"
+            role="group"
+            aria-label="Distance from your current location"
+          >
+            {distanceOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
+                onClick={() => setSelectedDistance(option)}
+                aria-pressed={selectedDistance === option}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         </section>
 
