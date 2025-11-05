@@ -85,10 +85,58 @@ type MatchProfileModalProps = {
 
 const DEFAULT_LEVEL = "3.0";
 
+type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
+
+let placesScriptPromise: Promise<void> | null = null;
+
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
+
+const loadGooglePlacesScript = () => {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Window is not available."));
+  }
+
+  const hasPlacesLibrary =
+    (window as typeof window & {
+      google?: { maps?: { places?: unknown } };
+    }).google?.maps?.places;
+
+  if (hasPlacesLibrary) {
+    return Promise.resolve();
+  }
+
+  if (!GOOGLE_PLACES_API_KEY) {
+    return Promise.reject(new Error("Missing Google Places API key."));
+  }
+
+  if (!placesScriptPromise) {
+    placesScriptPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_PLACES_API_KEY}&libraries=places&loading=async`;
+      script.async = true;
+      script.onerror = () => {
+        placesScriptPromise = null;
+        reject(new Error("Failed to load Google Places script."));
+      };
+      script.onload = () => {
+        resolve();
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return placesScriptPromise;
+};
+
 const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const courtsInputRef = useRef<HTMLInputElement | null>(null);
+  const autocompleteRef = useRef<{ remove(): void } | null>(null);
+  const autocompleteInstanceRef = useRef<{ getPlace: () => { place_id?: string; name?: string; formatted_address?: string } } | null>(
+    null,
+  );
 
   const [about, setAbout] = useState("");
   const [photoName, setPhotoName] = useState<string | null>(null);
@@ -96,8 +144,10 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
   const [playStyles, setPlayStyles] = useState<string[]>([]);
   const [gender, setGender] = useState("");
   const [localCourts, setLocalCourts] = useState("");
+  const [localCourtPlaceId, setLocalCourtPlaceId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<string[]>([]);
   const [touched, setTouched] = useState(false);
+  const [placesStatus, setPlacesStatus] = useState<PlacesStatus>("idle");
 
   useEffect(() => {
     if (!isOpen) {
@@ -134,6 +184,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
     setPlayStyles([]);
     setGender("");
     setLocalCourts("");
+    setLocalCourtPlaceId(null);
     setAvailability([]);
     setTouched(false);
   }, []);
@@ -168,10 +219,18 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
   const hasAboutError = touched && about.trim().length === 0;
   const hasGenderError = touched && gender.length === 0;
   const hasAvailabilityError = touched && availability.length === 0;
+  const requiresCourtVerification =
+    placesStatus === "ready" && localCourts.trim().length > 0 && !localCourtPlaceId;
+  const hasCourtsError = touched && requiresCourtVerification;
 
   const isSubmitDisabled = useMemo(() => {
-    return about.trim().length === 0 || gender.length === 0 || availability.length === 0;
-  }, [about, gender, availability]);
+    return (
+      about.trim().length === 0 ||
+      gender.length === 0 ||
+      availability.length === 0 ||
+      requiresCourtVerification
+    );
+  }, [about, gender, availability, requiresCourtVerification]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -183,6 +242,126 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
     resetForm();
     onComplete();
   };
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    if (!courtsInputRef.current) {
+      return undefined;
+    }
+
+    let isSubscribed = true;
+
+    const initializeAutocomplete = async () => {
+      if (!GOOGLE_PLACES_API_KEY) {
+        setPlacesStatus("unavailable");
+        return;
+      }
+
+      setPlacesStatus("loading");
+
+      try {
+        await loadGooglePlacesScript();
+
+        if (!isSubscribed || !courtsInputRef.current) {
+          return;
+        }
+
+        const googleMaps = (window as typeof window & {
+          google?: {
+            maps?: {
+              places?: {
+                Autocomplete: new (
+                  input: HTMLInputElement,
+                  options?: {
+                    fields?: Array<"place_id" | "name" | "formatted_address">;
+                    types?: string[];
+                  },
+                ) => {
+                  getPlace: () => {
+                    place_id?: string;
+                    name?: string;
+                    formatted_address?: string;
+                  };
+                  addListener: (eventName: string, handler: () => void) => { remove: () => void };
+                };
+              };
+            };
+            event?: {
+              removeListener: (listener: { remove(): void }) => void;
+              clearInstanceListeners: (instance: unknown) => void;
+            };
+          };
+        }).google?.maps;
+
+        if (!googleMaps?.places?.Autocomplete) {
+          setPlacesStatus("unavailable");
+          return;
+        }
+
+        const autocomplete = new googleMaps.places.Autocomplete(courtsInputRef.current, {
+          fields: ["place_id", "name", "formatted_address"],
+          types: ["establishment"],
+        });
+
+        autocompleteInstanceRef.current = autocomplete;
+
+        autocompleteRef.current = autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          const placeId = place?.place_id ?? null;
+          const placeLabel = place?.name ?? place?.formatted_address ?? "";
+
+          if (placeLabel) {
+            setLocalCourts(placeLabel);
+          }
+          setLocalCourtPlaceId(placeId);
+        });
+
+        setPlacesStatus("ready");
+      } catch (error) {
+        if (!isSubscribed) {
+          return;
+        }
+        setPlacesStatus("unavailable");
+      }
+    };
+
+    initializeAutocomplete();
+
+    return () => {
+      isSubscribed = false;
+      const googleMaps = (window as typeof window & {
+        google?: {
+          maps?: {
+            event?: {
+              removeListener: (listener: { remove(): void }) => void;
+              clearInstanceListeners: (instance: unknown) => void;
+            };
+          };
+        };
+      }).google?.maps;
+
+      if (autocompleteRef.current && googleMaps?.event?.removeListener) {
+        googleMaps.event.removeListener(autocompleteRef.current);
+      }
+
+      if (autocompleteInstanceRef.current && googleMaps?.event?.clearInstanceListeners) {
+        googleMaps.event.clearInstanceListeners(autocompleteInstanceRef.current);
+      }
+
+      autocompleteRef.current = null;
+      autocompleteInstanceRef.current = null;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPlacesStatus("idle");
+      setLocalCourtPlaceId(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
@@ -350,10 +529,34 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
                 id="match-profile-courts"
                 type="text"
                 value={localCourts}
-                onChange={(event) => setLocalCourts(event.target.value)}
+                onChange={(event) => {
+                  setLocalCourts(event.target.value);
+                  setLocalCourtPlaceId(null);
+                }}
                 placeholder="Start typing a court name or neighborhood"
-                className="match-profile-input"
+                className={`match-profile-input${hasCourtsError ? " match-profile-input--error" : ""}`}
+                ref={courtsInputRef}
+                autoComplete="off"
               />
+              {placesStatus === "loading" && (
+                <p className="match-profile-status">Loading Google Places suggestions…</p>
+              )}
+              {placesStatus === "ready" && !localCourtPlaceId && (
+                <p className="match-profile-status">Powered by Google Places. Select a result to confirm.</p>
+              )}
+              {placesStatus === "ready" && localCourtPlaceId && (
+                <p className="match-profile-status match-profile-status--success">Court verified with Google Places.</p>
+              )}
+              {placesStatus === "unavailable" && (
+                <p className="match-profile-status match-profile-status--warning">
+                  Autocomplete is unavailable right now, but you can still type your courts manually.
+                </p>
+              )}
+              {hasCourtsError && (
+                <p className="match-profile-error">
+                  Select a court from the suggestions to make sure we have the right location.
+                </p>
+              )}
             </div>
 
             <div className="match-profile-field">

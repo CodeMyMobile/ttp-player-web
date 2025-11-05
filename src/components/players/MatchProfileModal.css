@@ -127,10 +127,29 @@
   box-shadow: 0 0 0 3px rgba(240, 68, 56, 0.16);
 }
 
+.match-profile-input--error {
+  border-color: #f04438;
+  box-shadow: 0 0 0 3px rgba(240, 68, 56, 0.16);
+}
+
 .match-profile-error {
   margin: -4px 0 0;
   font-size: 13px;
   color: #d92d20;
+}
+
+.match-profile-status {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: var(--coach-color-body, #475467);
+}
+
+.match-profile-status--success {
+  color: #027a48;
+}
+
+.match-profile-status--warning {
+  color: #b54708;
 }
 
 .match-profile-upload {
@@ -272,6 +291,17 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.match-profile-modal__actions .fc-button--primary {
+  background: #7f56d9;
+  border-color: #7f56d9;
+  color: #ffffff;
+  box-shadow: 0 14px 26px -12px rgba(127, 86, 217, 0.45);
+}
+
+.match-profile-modal__actions .fc-button--primary:hover {
+  background: #6941c6;
 }
 
 @media (max-width: 640px) {
