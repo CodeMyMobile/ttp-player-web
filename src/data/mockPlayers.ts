@@ -5,6 +5,7 @@ export type Player = {
   profileImageUrl: string;
   location: string;
   distanceMiles: number;
+  gender: "Male" | "Female" | "Other";
   level: string;
   availability: string[];
   matchPreferences: string[];
@@ -33,6 +34,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1508780709619-79562169bc64?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Brooklyn, NY",
     distanceMiles: 2,
+    gender: "Female",
     level: "3.5",
     availability: ["Weekdays PM", "Weekends"],
     matchPreferences: ["Singles", "Competitive"],
@@ -77,6 +79,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Queens, NY",
     distanceMiles: 7,
+    gender: "Male",
     level: "4.0",
     availability: ["Weekdays AM", "Weekends"],
     matchPreferences: ["Singles", "Doubles"],
@@ -116,6 +119,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Manhattan, NY",
     distanceMiles: 1,
+    gender: "Female",
     level: "3.0",
     availability: ["Weekdays PM", "Weekends"],
     matchPreferences: ["Doubles", "Social"],
@@ -150,6 +154,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Jersey City, NJ",
     distanceMiles: 11,
+    gender: "Male",
     level: "4.5",
     availability: ["Weekdays AM", "Weekends"],
     matchPreferences: ["Singles", "Competitive"],
@@ -194,6 +199,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1504826260979-242151ee45b7?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Hoboken, NJ",
     distanceMiles: 8,
+    gender: "Female",
     level: "3.5",
     availability: ["Weekdays PM", "Weekends"],
     matchPreferences: ["Doubles", "Competitive"],
@@ -233,6 +239,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1594474665561-b12c41fb601f?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Long Island City, NY",
     distanceMiles: 6,
+    gender: "Male",
     level: "3.0",
     availability: ["Weekdays AM"],
     matchPreferences: ["Singles", "Drills"],
@@ -262,6 +269,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Harlem, NY",
     distanceMiles: 4,
+    gender: "Male",
     level: "4.0",
     availability: ["Weekdays PM", "Weekends"],
     matchPreferences: ["Singles", "Competitive"],
@@ -301,6 +309,7 @@ export const mockPlayers: Player[] = [
       "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
     location: "Upper West Side, NY",
     distanceMiles: 3,
+    gender: "Female",
     level: "2.5",
     availability: ["Weekdays AM"],
     matchPreferences: ["Drills", "Social"],

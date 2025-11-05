@@ -19,6 +19,7 @@ type Status = "loading" | "ready";
 
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
+const genderOptions = ["All genders", "Male", "Female", "Other"];
 const availabilityOptions = [
   "All availability",
   "Mornings",
@@ -44,6 +45,7 @@ const FindPlayersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
+  const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
   const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [mode, setMode] = useState<Mode>("normal");
@@ -144,6 +146,13 @@ const FindPlayersPage = () => {
     });
   };
 
+  const handleGenderChange = (gender: string) => {
+    setSelectedGender(gender);
+    beginLoading(() => {
+      setMode("normal");
+    });
+  };
+
   const handleVerifiedToggle = (next: boolean) => {
     setVerifiedOnly(next);
     beginLoading(() => {
@@ -155,6 +164,7 @@ const FindPlayersPage = () => {
     setSearchTerm("");
     setSelectedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
+    setSelectedGender(genderOptions[0]);
     setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
     beginLoading(() => {
@@ -202,12 +212,30 @@ const FindPlayersPage = () => {
         );
       })();
 
+      const matchesGender =
+        selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
+
       const matchesRadius = player.distanceMiles <= radiusLimit;
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return matchesSearch && matchesLevel && matchesAvailability && matchesRadius && matchesVerification;
+      return (
+        matchesSearch &&
+        matchesLevel &&
+        matchesAvailability &&
+        matchesGender &&
+        matchesRadius &&
+        matchesVerification
+      );
     });
-  }, [mode, searchTerm, selectedRadius, selectedLevel, selectedAvailability, verifiedOnly]);
+  }, [
+    mode,
+    searchTerm,
+    selectedRadius,
+    selectedLevel,
+    selectedGender,
+    selectedAvailability,
+    verifiedOnly,
+  ]);
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
@@ -275,6 +303,9 @@ const FindPlayersPage = () => {
             levelOptions={levelOptions}
             selectedLevel={selectedLevel}
             onLevelChange={handleLevelChange}
+            genderOptions={genderOptions}
+            selectedGender={selectedGender}
+            onGenderChange={handleGenderChange}
             availabilityOptions={availabilityOptions}
             selectedAvailability={selectedAvailability}
             onAvailabilityChange={handleAvailabilityChange}

@@ -1,5 +1,5 @@
-import { ShieldCheck, Star, UserPlus } from "lucide-react";
-import TagPill from "../coaches/TagPill";
+import { useMemo } from "react";
+import { ShieldCheck } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -13,6 +13,17 @@ type PlayerCardProps = {
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
+  const bioTeaser = useMemo(() => {
+    const teaserLimit = 160;
+    if (player.bio.length <= teaserLimit) {
+      return player.bio;
+    }
+    const truncated = player.bio.slice(0, teaserLimit).trimEnd();
+    const lastSpace = truncated.lastIndexOf(" ");
+    const safeSlice = lastSpace > teaserLimit * 0.6 ? truncated.slice(0, lastSpace) : truncated;
+    return `${safeSlice}…`;
+  }, [player.bio]);
+
   const handleViewProfile = () => {
     if (onViewProfile) {
       onViewProfile(player);
@@ -27,74 +38,60 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         </div>
         <div className="fc-card__identity fp-card__identity">
           <h3 className="fc-card__name">{player.name}</h3>
-          <div className="fp-card__metrics">
-            <span className="fp-card__level">{player.level} NTRP</span>
-            <span
-              className="fp-card__rating"
-              aria-label={`Rated ${player.rating.toFixed(1)} out of 5`}
-            >
-              <Star size={14} strokeWidth={2} className="fp-card__rating-icon" />
-              <span>{player.rating.toFixed(1)}</span>
+          <div className="fp-card__metrics" aria-label={`NTRP ${player.level}${player.verified ? ", verified player" : ""}`}>
+            <span className="fp-card__level">
+              <span className="fp-card__level-label">NTRP</span>
+              <span className="fp-card__level-value">{player.level}</span>
             </span>
             {player.verified && (
-              <div className="fp-card__verified-pill">
-                <TagPill tone="accent" icon={<ShieldCheck size={12} strokeWidth={2} />}>
-                  Verified player
-                </TagPill>
-              </div>
+              <span
+                className="fp-card__verified"
+                aria-label="Verified player"
+                title="Verified players have confirmed their identity and NTRP level through community reviews."
+              >
+                <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
+                <span>Verified player</span>
+              </span>
             )}
           </div>
         </div>
       </div>
 
-      <p className="fp-card__bio">{player.bio}</p>
+      <p className="fp-card__bio">{bioTeaser}</p>
 
       <div className="fc-card__meta fp-card__meta">
-        <div className="fc-card__meta-item">
+        <div className="fc-card__meta-item fp-card__meta-item">
           <span className="fc-card__meta-label">Availability</span>
-          <span className="fc-card__meta-value">{player.availability.join(", ")}</span>
+          <span className="fc-card__meta-value">{player.availability.join(" · ")}</span>
         </div>
-        <div className="fc-card__meta-item">
-          <span className="fc-card__meta-label">Favorite court</span>
-          <span className="fc-card__meta-value">{player.favoriteCourt}</span>
-        </div>
-      </div>
-
-      <div className="fp-card__looking-for">
-        <div className="fp-card__looking-for-icon">
-          <UserPlus size={18} strokeWidth={2} />
-        </div>
-        <div className="fp-card__looking-for-copy">
-          <span className="fp-card__looking-for-label">Looking for</span>
-          <span className="fp-card__looking-for-value">{player.lookingFor}</span>
+        <div className="fc-card__meta-item fp-card__meta-item">
+          <span className="fc-card__meta-label">Local courts</span>
+          <span className="fc-card__meta-value">{player.localCourts.join(" · ")}</span>
         </div>
       </div>
 
-      <div className="fp-card__footer">
-        <span className="fp-card__status">{player.lastActive}</span>
-        <div className="fc-card__actions fp-card__actions">
-          <button
-            type="button"
-            className="fc-button fc-button--secondary"
-            onClick={handleViewProfile}
-            disabled={!onViewProfile}
-          >
-            View profile
-          </button>
-          <button
-            type="button"
-            className="fc-button fc-button--primary"
-            disabled={!canConnect}
-            onClick={() => onConnect(player)}
-            title={
-              canConnect
-                ? `Connect with ${player.name}`
-                : "Create your player match profile to start connecting"
-            }
-          >
-            Connect
-          </button>
-        </div>
+      <div className="fp-card__actions">
+        <button
+          type="button"
+          className="fc-button fc-button--secondary fp-card__view-profile"
+          onClick={handleViewProfile}
+          disabled={!onViewProfile}
+        >
+          View profile
+        </button>
+        <button
+          type="button"
+          className="fc-button fc-button--primary fp-card__connect"
+          disabled={!canConnect}
+          onClick={() => onConnect(player)}
+          title={
+            canConnect
+              ? `Connect with ${player.name}`
+              : "Create your player match profile to start connecting"
+          }
+        >
+          Connect
+        </button>
       </div>
     </article>
   );
