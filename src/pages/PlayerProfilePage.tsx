@@ -246,6 +246,59 @@ const PlayerProfilePage = () => {
           </section>
 
           <section className="player-profile-section">
+            <article className="player-profile-card player-profile-card--level">
+              <header>
+                <h3>Player level</h3>
+                <p>See how {firstName}&apos;s rating is verified by the community.</p>
+              </header>
+              <div className="player-profile-level-shell">
+                <div className="player-profile-level-score-block">
+                  <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
+                    <span className="player-profile-level-value">{player.level}</span>
+                    <span className="player-profile-level-label">NTRP level</span>
+                  </div>
+                </div>
+                <div className="player-profile-level-meta">
+                  <header className="player-profile-card-header">
+                    <div>
+                      <h3>Verify player level</h3>
+                      <p>Help the community keep player ratings accurate.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
+                      onClick={verifyPlayerLevel}
+                      disabled={player.verified}
+                      aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
+                    >
+                      <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
+                      <span>{verificationLabel}</span>
+                    </button>
+                  </header>
+                  <p className="player-profile-level-note">{verificationNote}</p>
+                  {displayedSupporters.length > 0 && (
+                    <ul
+                      className="player-profile-level-supporters"
+                      aria-label={`Players who have verified ${player.name}'s level`}
+                    >
+                      {displayedSupporters.map((supporter) => (
+                        <li key={supporter.name}>
+                          <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
+                        </li>
+                      ))}
+                      {extraSupporters > 0 && (
+                        <li className="player-profile-level-supporters__extra" aria-hidden="true">
+                          +{extraSupporters}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section className="player-profile-section">
             <div className="player-profile-grid">
               <article className="player-profile-card">
                 <header>
@@ -327,56 +380,6 @@ const PlayerProfilePage = () => {
                 </dl>
               </article>
             </div>
-          </section>
-
-          <section className="player-profile-section">
-            <article className="player-profile-card player-profile-card--level">
-              <div className="player-profile-level-shell">
-                <div className="player-profile-level-score-block">
-                  <p className="player-profile-card-eyebrow">Player level</p>
-                  <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
-                    <span className="player-profile-level-value">{player.level}</span>
-                    <span className="player-profile-level-label">NTRP level</span>
-                  </div>
-                </div>
-                <div className="player-profile-level-meta">
-                  <header className="player-profile-card-header">
-                    <div>
-                      <h3>Verify player level</h3>
-                      <p>Help the community keep player ratings accurate.</p>
-                    </div>
-                    <button
-                      type="button"
-                      className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
-                      onClick={verifyPlayerLevel}
-                      disabled={player.verified}
-                      aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
-                    >
-                      <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                      <span>{verificationLabel}</span>
-                    </button>
-                  </header>
-                  <p className="player-profile-level-note">{verificationNote}</p>
-                  {displayedSupporters.length > 0 && (
-                    <ul
-                      className="player-profile-level-supporters"
-                      aria-label={`Players who have verified ${player.name}'s level`}
-                    >
-                      {displayedSupporters.map((supporter) => (
-                        <li key={supporter.name}>
-                          <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
-                        </li>
-                      ))}
-                      {extraSupporters > 0 && (
-                        <li className="player-profile-level-supporters__extra" aria-hidden="true">
-                          +{extraSupporters}
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </article>
           </section>
 
           <section className="player-profile-section">

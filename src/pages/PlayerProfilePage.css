@@ -414,15 +414,6 @@
   line-height: 1.5;
 }
 
-.player-profile-card-eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0;
-  color: var(--player-muted);
-}
-
 .player-profile-level-shell {
   display: flex;
   flex-direction: column;
@@ -432,8 +423,9 @@
 @media (min-width: 768px) {
   .player-profile-level-shell {
     flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 28px;
   }
 }
 
@@ -462,8 +454,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 168px;
-  height: 168px;
+  width: 148px;
+  height: 148px;
   border-radius: 20px;
   background: var(--player-surface-muted);
   border: 1px solid var(--player-border);
@@ -489,6 +481,7 @@
   flex-direction: column;
   gap: 16px;
   align-items: flex-start;
+  flex: 1;
   max-width: 520px;
 }
 
