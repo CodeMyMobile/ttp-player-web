@@ -101,12 +101,6 @@ const bottomActions = [
     accent: "#16a34a",
   },
   {
-    title: "Find Courts",
-    description: "Book the perfect court time at nearby clubs.",
-    action: "Explore",
-    accent: "#0ea5e9",
-  },
-  {
     title: "Get Gear",
     description: "Shop curated gear recommended by pros.",
     action: "Shop",
@@ -185,6 +179,10 @@ const DashboardPage = () => {
               <button
                 type="button"
                 onClick={() => {
+                  if (action.id === "matches") {
+                    navigate("/matches");
+                    return;
+                  }
                   if (action.id === "coaches") {
                     navigate("/find-coaches");
                   }
