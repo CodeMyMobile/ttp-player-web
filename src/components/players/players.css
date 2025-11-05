@@ -41,7 +41,7 @@
 
 .fp-card__profile {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
 }
 
@@ -62,46 +62,38 @@
 .fp-card__identity {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.fp-card__badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fp-card__meta-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--fc-color-text-secondary);
-  font-size: 14px;
-}
-
-.fp-card__location {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  color: var(--fc-color-text-secondary);
-  font-size: 14px;
-  flex-wrap: wrap;
 }
 
-.fp-card__location-copy {
+.fp-card__metrics {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.fp-card__location-label {
+.fp-card__level {
+  font-size: 14px;
+  color: var(--fc-color-text-secondary);
+}
+
+.fp-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--fc-color-text-primary);
 }
 
-.fp-card__location-distance {
-  font-size: 13px;
-  color: var(--fc-color-text-muted);
+.fp-card__rating-icon {
+  color: #fdb022;
+}
+
+.fp-card__verified-pill .tag-pill {
+  padding: 5px 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
 .fp-card__bio {
@@ -211,18 +203,6 @@
   border-radius: 12px;
 }
 
-.fp-skeleton--pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fp-skeleton--pill {
-  height: 28px;
-  width: 120px;
-  border-radius: 9999px;
-}
-
 .fp-card__profile-skeleton {
   flex: 1;
   display: flex;
@@ -242,6 +222,10 @@
 
 .fp-skeleton--line-lg {
   width: 60%;
+}
+
+.fp-skeleton--line-md {
+  width: 40%;
 }
 
 .fp-skeleton--paragraph {

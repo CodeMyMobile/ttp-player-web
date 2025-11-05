@@ -8,8 +8,7 @@ const PlayerCardSkeleton = () => {
         <span className="fp-skeleton fp-skeleton--avatar" />
         <div className="fp-card__profile-skeleton">
           <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
-          <span className="fp-skeleton fp-skeleton--pill" />
-          <span className="fp-skeleton fp-skeleton--line" />
+          <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-md" />
         </div>
       </div>
 
