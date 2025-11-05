@@ -8,6 +8,10 @@ import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
+import AccountProfilePage from "./pages/AccountProfilePage";
+import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
+import PaymentMethodsPage from "./pages/PaymentMethodsPage";
+import BlockedUsersPage from "./pages/BlockedUsersPage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
@@ -132,6 +136,38 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <GroupLessonDetailsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/profile"
+      element={(
+        <ProtectedRoute>
+          <AccountProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/match-profile"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/payment-methods"
+      element={(
+        <ProtectedRoute>
+          <PaymentMethodsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/blocked-users"
+      element={(
+        <ProtectedRoute>
+          <BlockedUsersPage />
         </ProtectedRoute>
       )}
     />

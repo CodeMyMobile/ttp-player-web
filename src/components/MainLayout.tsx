@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
-import ProfileManager from "./ProfileManager";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
-import { Bell, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -22,9 +21,15 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const { logout } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
-  const [isProfileManagerOpen, setProfileManagerOpen] = useState(false);
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const userMenuItems = [
+    { label: "Player profile", to: "/settings/profile", icon: UserRound },
+    { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+    { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
+    { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
+  ];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -89,18 +94,18 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             </button>
             {isUserMenuOpen && (
               <div className="user-menu__dropdown" role="menu">
-                <button
-                  type="button"
-                  className="user-menu__item"
-                  role="menuitem"
-                  onClick={() => {
-                    setProfileManagerOpen(true);
-                    setUserMenuOpen(false);
-                  }}
-                >
-                  <Settings size={16} aria-hidden="true" />
-                  Manage Profile
-                </button>
+                {userMenuItems.map(({ label, to, icon: Icon }) => (
+                  <Link
+                    key={label}
+                    to={to}
+                    className="user-menu__item"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    {label}
+                  </Link>
+                ))}
                 <button
                   type="button"
                   className="user-menu__item user-menu__item--danger"
@@ -119,7 +124,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         </div>
       </header>
       <main className="main-layout__content">{children}</main>
-      <ProfileManager isOpen={isProfileManagerOpen} onClose={() => setProfileManagerOpen(false)} />
     </div>
   );
 };
