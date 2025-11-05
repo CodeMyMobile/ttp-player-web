@@ -193,20 +193,6 @@ const PlayerProfilePage = () => {
             <div className="player-profile-grid">
               <article className="player-profile-card">
                 <header>
-                  <h3>Match preferences</h3>
-                  <p>How {firstName} likes to compete.</p>
-                </header>
-                <ul className="player-profile-pill-list">
-                  {player.matchPreferences.map((preference) => (
-                    <li key={preference} className="player-profile-pill">
-                      {preference}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-
-              <article className="player-profile-card">
-                <header>
                   <h3>Type of hit</h3>
                   <p>What kind of session {firstName} is looking for.</p>
                 </header>
