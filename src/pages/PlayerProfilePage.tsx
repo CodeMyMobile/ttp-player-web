@@ -1,6 +1,15 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, Check, ShieldAlert, ShieldCheck, UserX, X } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Check,
+  MessageCircle,
+  ShieldAlert,
+  ShieldCheck,
+  UserX,
+  X,
+} from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { findPlayerProfile } from "../data/mockPlayers";
@@ -54,6 +63,10 @@ const PlayerProfilePage = () => {
     window.alert(`You won't be matched with ${player.name}.`);
   };
 
+  const connectWithPlayer = () => {
+    window.alert(`Connection request sent to ${player.name}!`);
+  };
+
   const verifyPlayerLevel = () => {
     if (player.verified) {
       window.alert(`${player.name}'s NTRP level has already been verified.`);
@@ -90,6 +103,14 @@ const PlayerProfilePage = () => {
                   <h1>{player.name}</h1>
                 </div>
                 <div className="player-profile-actions">
+                  <button
+                    type="button"
+                    className="player-profile-action player-profile-action--primary"
+                    onClick={connectWithPlayer}
+                  >
+                    <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
+                    Connect with {firstName}
+                  </button>
                   <button
                     type="button"
                     className="player-profile-action player-profile-action--secondary"
@@ -240,7 +261,7 @@ const PlayerProfilePage = () => {
               <button
                 type="button"
                 className="fc-button fc-button--primary player-profile-connect-button"
-                onClick={() => window.alert(`Connection request sent to ${player.name}!`)}
+                onClick={connectWithPlayer}
               >
                 Connect with {firstName}
               </button>

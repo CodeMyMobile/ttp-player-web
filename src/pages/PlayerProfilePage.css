@@ -132,19 +132,17 @@
   box-shadow: var(--player-shadow);
   padding: 28px 24px;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
-  text-align: center;
+  justify-content: space-between;
+  gap: 20px 28px;
+  text-align: left;
 }
 
 @media (min-width: 768px) {
   .player-profile-identity {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    text-align: left;
     padding: 36px 40px;
+    gap: 24px 40px;
   }
 }
 
@@ -175,13 +173,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  align-items: center;
-}
-
-@media (min-width: 768px) {
-  .player-profile-heading {
-    align-items: flex-start;
-  }
+  align-items: flex-start;
+  flex: 1 1 240px;
+  min-width: 220px;
 }
 
 .player-profile-name-row {
@@ -189,13 +183,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  justify-content: center;
-}
-
-@media (min-width: 768px) {
-  .player-profile-name-row {
-    justify-content: flex-start;
-  }
 }
 
 .player-profile-name-row h1 {
@@ -210,13 +197,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  justify-content: center;
-}
-
-@media (min-width: 768px) {
-  .player-profile-actions {
-    justify-content: flex-start;
-  }
 }
 
 .player-profile-action {
