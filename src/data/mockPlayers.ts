@@ -23,6 +23,24 @@ export type Player = {
   lookingFor: string;
   localCourts: string[];
   hitTypes: string[];
+  matchesPlayed?: number;
+  reviewsCount?: number;
+  responseTime?: string;
+  memberSince?: string;
+  matchHistory?: {
+    opponent: string;
+    outcome: "Win" | "Loss";
+    score: string;
+    date: string;
+    type: string;
+  }[];
+  reviews?: {
+    reviewer: string;
+    rating: number;
+    date: string;
+    summary: string;
+    detail: string;
+  }[];
 };
 
 export const mockPlayers: Player[] = [
@@ -70,6 +88,59 @@ export const mockPlayers: Player[] = [
     lookingFor: "Intermediate women who like long rallies",
     localCourts: ["Prospect Park Courts", "McCarren Park"],
     hitTypes: ["Competitive", "Fun/Social"],
+    matchesPlayed: 47,
+    reviewsCount: 24,
+    responseTime: "Responds in under 4 hours",
+    memberSince: "Joined 2021",
+    matchHistory: [
+      {
+        opponent: "Lena Ortiz",
+        outcome: "Win",
+        score: "6-4, 6-3",
+        date: "Mar 12, 2024",
+        type: "League match",
+      },
+      {
+        opponent: "Priya Patel",
+        outcome: "Win",
+        score: "7-6, 7-5",
+        date: "Mar 5, 2024",
+        type: "Friendly match",
+      },
+      {
+        opponent: "Camille Lopez",
+        outcome: "Loss",
+        score: "4-6, 6-3, 8-10",
+        date: "Feb 27, 2024",
+        type: "League match",
+      },
+    ],
+    reviews: [
+      {
+        reviewer: "Priya Patel",
+        rating: 5,
+        date: "March 2024",
+        summary: "Great hitting partner",
+        detail:
+          "Sarah is consistent baseline game maker for practice rallies. Super prepared and friendly.",
+      },
+      {
+        reviewer: "Camille Lopez",
+        rating: 5,
+        date: "February 2024",
+        summary: "Incredible court energy",
+        detail:
+          "High energy and encouraging. Sarah has excellent court positioning and communication. Would definitely play again!",
+      },
+      {
+        reviewer: "Avery Brooks",
+        rating: 5,
+        date: "January 2024",
+        summary: "Uplifting teammate",
+        detail:
+          "Very encouraging and helpful during drills. Great sportsmanship and makes the game fun!",
+      },
+    ],
   },
   {
     id: "michael-johnson",
