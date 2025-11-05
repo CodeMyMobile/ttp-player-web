@@ -12,7 +12,6 @@ export type Player = {
   lastActive: string;
   matchFrequency: string;
   rating: number;
-  handedness: "Right" | "Left";
   favoriteCourt: string;
   lookingFor: string;
 };
@@ -32,7 +31,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active today",
     matchFrequency: "2-3x per week",
     rating: 4.9,
-    handedness: "Right",
     favoriteCourt: "Prospect Park Courts",
     lookingFor: "Intermediate women who like long rallies",
   },
@@ -50,7 +48,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active 1h ago",
     matchFrequency: "3x per week",
     rating: 4.8,
-    handedness: "Right",
     favoriteCourt: "USTA Billie Jean King",
     lookingFor: "Players prepping for tournaments",
   },
@@ -68,7 +65,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active yesterday",
     matchFrequency: "1-2x per week",
     rating: 4.6,
-    handedness: "Right",
     favoriteCourt: "East River Park",
     lookingFor: "Coed doubles partners",
   },
@@ -86,7 +82,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active 3h ago",
     matchFrequency: "4x per week",
     rating: 5,
-    handedness: "Left",
     favoriteCourt: "Newport Centre Courts",
     lookingFor: "High-performance training partners",
   },
@@ -104,7 +99,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active today",
     matchFrequency: "2x per week",
     rating: 4.7,
-    handedness: "Right",
     favoriteCourt: "Hoboken Tennis Club",
     lookingFor: "Aggressive doubles partners",
   },
@@ -122,7 +116,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active 4h ago",
     matchFrequency: "1-2x per week",
     rating: 4.5,
-    handedness: "Right",
     favoriteCourt: "LIC Indoor Courts",
     lookingFor: "Flexible hitting partners",
   },
@@ -140,7 +133,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active 2h ago",
     matchFrequency: "3x per week",
     rating: 4.9,
-    handedness: "Left",
     favoriteCourt: "Frederick Johnson Courts",
     lookingFor: "Aggressive baseliners",
   },
@@ -158,7 +150,6 @@ export const mockPlayers: Player[] = [
     lastActive: "Active 2d ago",
     matchFrequency: "1x per week",
     rating: 4.4,
-    handedness: "Right",
     favoriteCourt: "Riverside Park Courts",
     lookingFor: "Supportive practice partners",
   },

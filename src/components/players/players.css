@@ -65,17 +65,18 @@
   gap: 8px;
 }
 
+.fp-card__badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .fp-card__meta-line {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--fc-color-text-secondary);
   font-size: 14px;
-  flex-wrap: wrap;
-}
-
-.fp-card__separator {
-  opacity: 0.5;
 }
 
 .fp-card__location {

@@ -31,28 +31,21 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
 
   return (
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
-      {player.verified && (
-        <div className="fp-card__top">
-          <div className="fp-card__labels">
-            <TagPill tone="accent" icon={<ShieldCheck size={14} strokeWidth={2} />}>
-              Verified player
-            </TagPill>
-          </div>
-        </div>
-      )}
-
       <div className="fc-card__profile fp-card__profile">
         <div className="fp-card__avatar" aria-hidden="true">
           {player.initials}
         </div>
         <div className="fc-card__identity fp-card__identity">
           <h3 className="fc-card__name">{player.name}</h3>
+          {player.verified && (
+            <div className="fp-card__badge-row">
+              <TagPill tone="accent" icon={<ShieldCheck size={14} strokeWidth={2} />}>
+                Verified player
+              </TagPill>
+            </div>
+          )}
           <div className="fp-card__meta-line">
             <span>{player.level} NTRP</span>
-            <span className="fp-card__separator" aria-hidden="true">
-              •
-            </span>
-            <span>{player.handedness}-handed</span>
           </div>
           <div className="fp-card__location">
             <MapPin size={16} strokeWidth={2} />
