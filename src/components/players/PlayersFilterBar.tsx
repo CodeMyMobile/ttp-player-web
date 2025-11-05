@@ -14,6 +14,9 @@ type PlayersFilterBarProps = {
   levelOptions: string[];
   selectedLevel: string;
   onLevelChange: (value: string) => void;
+  genderOptions: string[];
+  selectedGender: string;
+  onGenderChange: (value: string) => void;
   availabilityOptions: string[];
   selectedAvailability: string;
   onAvailabilityChange: (value: string) => void;
@@ -31,6 +34,9 @@ const PlayersFilterBar = ({
   levelOptions,
   selectedLevel,
   onLevelChange,
+  genderOptions,
+  selectedGender,
+  onGenderChange,
   availabilityOptions,
   selectedAvailability,
   onAvailabilityChange,
@@ -82,6 +88,22 @@ const PlayersFilterBar = ({
               onChange={(event) => onLevelChange(event.target.value)}
             >
               {levelOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+          </div>
+
+          <div className="fc-select">
+            <select
+              aria-label="Filter by gender"
+              value={selectedGender}
+              className="fc-select__field"
+              onChange={(event) => onGenderChange(event.target.value)}
+            >
+              {genderOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
