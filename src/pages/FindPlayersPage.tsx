@@ -6,6 +6,7 @@ import ResultsHeader from "../components/coaches/ResultsHeader";
 import PlayersFilterBar from "../components/players/PlayersFilterBar";
 import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
+import MatchProfileModal from "../components/players/MatchProfileModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { mockPlayers, type Player } from "../data/mockPlayers";
 import { colors, typography } from "../lib/theme";
@@ -48,6 +49,7 @@ const FindPlayersPage = () => {
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [hasMatchProfile, setHasMatchProfile] = useState(false);
+  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const loadingTimer = useRef<number>();
 
   useEffect(() => {
@@ -239,14 +241,7 @@ const FindPlayersPage = () => {
               <button
                 type="button"
                 className="fc-button fc-button--secondary"
-                onClick={() => {
-                  if (hasMatchProfile) {
-                    window.alert("Match profile editing coming soon.");
-                  } else {
-                    setHasMatchProfile(true);
-                    window.alert("Match profile created! You can now connect with players.");
-                  }
-                }}
+                onClick={() => setProfileModalOpen(true)}
               >
                 {hasMatchProfile ? "Edit match profile" : "Create match profile"}
               </button>
@@ -262,10 +257,7 @@ const FindPlayersPage = () => {
                 <button
                   type="button"
                   className="fc-button fc-button--primary"
-                  onClick={() => {
-                    setHasMatchProfile(true);
-                    window.alert("Match profile created! You can now connect with players.");
-                  }}
+                  onClick={() => setProfileModalOpen(true)}
                 >
                   Build my match profile
                 </button>
@@ -349,6 +341,17 @@ const FindPlayersPage = () => {
           )}
         </div>
       </div>
+      <MatchProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        onComplete={() => {
+          setHasMatchProfile(true);
+          setProfileModalOpen(false);
+          window.alert(
+            "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
+          );
+        }}
+      />
     </MainLayout>
   );
 };

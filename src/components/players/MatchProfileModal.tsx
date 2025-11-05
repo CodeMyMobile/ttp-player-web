@@ -1,0 +1,629 @@
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
+import { Check, UploadCloud, X } from "lucide-react";
+
+import "./MatchProfileModal.css";
+
+const NTRP_LEVELS = [
+  {
+    value: "2.5",
+    label: "2.5",
+    description: "Beginner – just getting started with match play.",
+  },
+  {
+    value: "3.0",
+    label: "3.0",
+    description: "Advanced beginner – developing rally consistency.",
+  },
+  {
+    value: "3.5",
+    label: "3.5",
+    description: "Intermediate – comfortable with longer rallies and net play.",
+  },
+  {
+    value: "4.0",
+    label: "4.0",
+    description: "Advanced intermediate – confident with strategy and pace changes.",
+  },
+  {
+    value: "4.5",
+    label: "4.5",
+    description: "Advanced – strong tournament or league experience.",
+  },
+  {
+    value: "5.0+",
+    label: "5.0+",
+    description: "High performance – collegiate, open, or tournament ready.",
+  },
+];
+
+const PLAY_STYLE_OPTIONS = [
+  {
+    value: "Fun / Social",
+    label: "Fun / Social",
+    description: "Looking to enjoy the game and meet new people.",
+  },
+  {
+    value: "Casual Hitting",
+    label: "Casual Hitting",
+    description: "Interested in playing casually without any pressure.",
+  },
+  {
+    value: "Friendly Competition",
+    label: "Friendly Competition",
+    description: "Enjoy keeping score and a little competitive energy.",
+  },
+  {
+    value: "High Level Competition",
+    label: "High Level Competition",
+    description: "Focused on intense matches and performance training.",
+  },
+];
+
+const AVAILABILITY_OPTIONS = ["Weekdays AM", "Weekdays PM", "Weekends"];
+
+const GENDER_OPTIONS = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+  { value: "other", label: "Other" },
+];
+
+type MatchProfileModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: () => void;
+};
+
+const DEFAULT_LEVEL = "3.0";
+
+type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
+
+let placesScriptPromise: Promise<void> | null = null;
+
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
+
+const loadGooglePlacesScript = () => {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Window is not available."));
+  }
+
+  const hasPlacesLibrary =
+    (window as typeof window & {
+      google?: { maps?: { places?: unknown } };
+    }).google?.maps?.places;
+
+  if (hasPlacesLibrary) {
+    return Promise.resolve();
+  }
+
+  if (!GOOGLE_PLACES_API_KEY) {
+    return Promise.reject(new Error("Missing Google Places API key."));
+  }
+
+  if (!placesScriptPromise) {
+    placesScriptPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_PLACES_API_KEY}&libraries=places&loading=async`;
+      script.async = true;
+      script.onerror = () => {
+        placesScriptPromise = null;
+        reject(new Error("Failed to load Google Places script."));
+      };
+      script.onload = () => {
+        resolve();
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return placesScriptPromise;
+};
+
+const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalProps) => {
+  const titleId = useId();
+  const descriptionId = useId();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const courtsInputRef = useRef<HTMLInputElement | null>(null);
+  const autocompleteRef = useRef<{ remove(): void } | null>(null);
+  const autocompleteInstanceRef = useRef<{ getPlace: () => { place_id?: string; name?: string; formatted_address?: string } } | null>(
+    null,
+  );
+
+  const [about, setAbout] = useState("");
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
+  const [playStyles, setPlayStyles] = useState<string[]>([]);
+  const [gender, setGender] = useState("");
+  const [localCourts, setLocalCourts] = useState("");
+  const [localCourtPlaceId, setLocalCourtPlaceId] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<string[]>([]);
+  const [touched, setTouched] = useState(false);
+  const [placesStatus, setPlacesStatus] = useState<PlacesStatus>("idle");
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTouched(false);
+    }
+  }, [isOpen]);
+
+  const resetForm = useCallback(() => {
+    setAbout("");
+    setPhotoName(null);
+    setSelectedLevel(DEFAULT_LEVEL);
+    setPlayStyles([]);
+    setGender("");
+    setLocalCourts("");
+    setLocalCourtPlaceId(null);
+    setAvailability([]);
+    setTouched(false);
+  }, []);
+
+  const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
+  const togglePlayStyle = (value: string) => {
+    setPlayStyles((previous) =>
+      previous.includes(value) ? previous.filter((option) => option !== value) : [...previous, value],
+    );
+  };
+
+  const toggleAvailability = (value: string) => {
+    setAvailability((previous) =>
+      previous.includes(value) ? previous.filter((option) => option !== value) : [...previous, value],
+    );
+  };
+
+  const handleFilePick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setPhotoName(file ? file.name : null);
+  };
+
+  const hasAboutError = touched && about.trim().length === 0;
+  const hasGenderError = touched && gender.length === 0;
+  const hasAvailabilityError = touched && availability.length === 0;
+  const requiresCourtVerification =
+    placesStatus === "ready" && localCourts.trim().length > 0 && !localCourtPlaceId;
+  const hasCourtsError = touched && requiresCourtVerification;
+
+  const isSubmitDisabled = useMemo(() => {
+    return (
+      about.trim().length === 0 ||
+      gender.length === 0 ||
+      availability.length === 0 ||
+      requiresCourtVerification
+    );
+  }, [about, gender, availability, requiresCourtVerification]);
+
+  const showCompletionError = touched && isSubmitDisabled;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setTouched(true);
+    if (isSubmitDisabled) {
+      return;
+    }
+
+    resetForm();
+    onComplete();
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    if (!courtsInputRef.current) {
+      return undefined;
+    }
+
+    let isSubscribed = true;
+
+    const initializeAutocomplete = async () => {
+      if (!GOOGLE_PLACES_API_KEY) {
+        setPlacesStatus("unavailable");
+        return;
+      }
+
+      setPlacesStatus("loading");
+
+      try {
+        await loadGooglePlacesScript();
+
+        if (!isSubscribed || !courtsInputRef.current) {
+          return;
+        }
+
+        const googleMaps = (window as typeof window & {
+          google?: {
+            maps?: {
+              places?: {
+                Autocomplete: new (
+                  input: HTMLInputElement,
+                  options?: {
+                    fields?: Array<"place_id" | "name" | "formatted_address">;
+                    types?: string[];
+                  },
+                ) => {
+                  getPlace: () => {
+                    place_id?: string;
+                    name?: string;
+                    formatted_address?: string;
+                  };
+                  addListener: (eventName: string, handler: () => void) => { remove: () => void };
+                };
+              };
+            };
+            event?: {
+              removeListener: (listener: { remove(): void }) => void;
+              clearInstanceListeners: (instance: unknown) => void;
+            };
+          };
+        }).google?.maps;
+
+        if (!googleMaps?.places?.Autocomplete) {
+          setPlacesStatus("unavailable");
+          return;
+        }
+
+        const autocomplete = new googleMaps.places.Autocomplete(courtsInputRef.current, {
+          fields: ["place_id", "name", "formatted_address"],
+          types: ["establishment"],
+        });
+
+        autocompleteInstanceRef.current = autocomplete;
+
+        autocompleteRef.current = autocomplete.addListener("place_changed", () => {
+          const place = autocomplete.getPlace();
+          const placeId = place?.place_id ?? null;
+          const placeLabel = place?.name ?? place?.formatted_address ?? "";
+
+          if (placeLabel) {
+            setLocalCourts(placeLabel);
+          }
+          setLocalCourtPlaceId(placeId);
+        });
+
+        setPlacesStatus("ready");
+      } catch (error) {
+        if (!isSubscribed) {
+          return;
+        }
+        setPlacesStatus("unavailable");
+      }
+    };
+
+    initializeAutocomplete();
+
+    return () => {
+      isSubscribed = false;
+      const googleMaps = (window as typeof window & {
+        google?: {
+          maps?: {
+            event?: {
+              removeListener: (listener: { remove(): void }) => void;
+              clearInstanceListeners: (instance: unknown) => void;
+            };
+          };
+        };
+      }).google?.maps;
+
+      if (autocompleteRef.current && googleMaps?.event?.removeListener) {
+        googleMaps.event.removeListener(autocompleteRef.current);
+      }
+
+      if (autocompleteInstanceRef.current && googleMaps?.event?.clearInstanceListeners) {
+        googleMaps.event.clearInstanceListeners(autocompleteInstanceRef.current);
+      }
+
+      autocompleteRef.current = null;
+      autocompleteInstanceRef.current = null;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPlacesStatus("idle");
+      setLocalCourtPlaceId(null);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div
+      className="match-profile-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onMouseDown={handleOverlayClick}
+    >
+      <div className="match-profile-modal" role="document">
+        <header className="match-profile-modal__header">
+          <div className="match-profile-modal__heading">
+            <h2 id={titleId}>Build your player match profile</h2>
+            <p id={descriptionId}>
+              Share a few details to help local players understand your vibe, level, and availability.
+            </p>
+          </div>
+          <button type="button" className="match-profile-modal__close" onClick={onClose} aria-label="Close profile form">
+            <X size={20} strokeWidth={2} />
+          </button>
+        </header>
+
+        <form className="match-profile-modal__form" onSubmit={handleSubmit}>
+          <div className="match-profile-modal__body">
+            <div className="match-profile-field">
+              <label htmlFor="match-profile-about" className="match-profile-label">
+                About me
+              </label>
+              <p className="match-profile-helper">Tell us more about yourself.</p>
+              <textarea
+                id="match-profile-about"
+                value={about}
+                onChange={(event) => setAbout(event.target.value)}
+                rows={4}
+                className={`match-profile-textarea${hasAboutError ? " match-profile-textarea--error" : ""}`}
+                placeholder="Share your tennis background, goals, and what you&apos;re looking for."
+              />
+              {hasAboutError && <p className="match-profile-error">Please add a short description.</p>}
+            </div>
+
+            <div className="match-profile-field">
+              <span className="match-profile-label">Profile photo</span>
+              <p className="match-profile-helper">Upload a profile picture so other players recognize you.</p>
+              <div className="match-profile-upload">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="match-profile-upload__input"
+                  onChange={handleFileChange}
+                />
+                <button type="button" className="match-profile-upload__button" onClick={handleFilePick}
+                  aria-label="Upload a profile photo"
+                >
+                  <UploadCloud size={18} strokeWidth={2} />
+                  <span>{photoName ?? "Upload a photo"}</span>
+                </button>
+                <p className="match-profile-upload__note">PNG or JPG up to 5MB.</p>
+              </div>
+            </div>
+
+            <div className="match-profile-field">
+              <span className="match-profile-label">NTRP level</span>
+              <p className="match-profile-helper">Choose the level that best describes your current play.</p>
+              <div className="match-profile-choice-grid">
+                {NTRP_LEVELS.map((level) => {
+                  const isSelected = selectedLevel === level.value;
+                  return (
+                    <label key={level.value} className={`match-profile-choice${isSelected ? " match-profile-choice--selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="match-profile-level"
+                        value={level.value}
+                        checked={isSelected}
+                        onChange={() => setSelectedLevel(level.value)}
+                      />
+                      <div className="match-profile-choice__content">
+                        <span className="match-profile-choice__label">{level.label}</span>
+                        <span className="match-profile-choice__description">{level.description}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="match-profile-choice__check" aria-hidden="true">
+                          <Check size={16} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="match-profile-field">
+              <span className="match-profile-label">Play style</span>
+              <p className="match-profile-helper">Select the vibes that match what you&apos;re looking for.</p>
+              <div className="match-profile-choice-grid">
+                {PLAY_STYLE_OPTIONS.map((style) => {
+                  const isSelected = playStyles.includes(style.value);
+                  return (
+                    <label key={style.value} className={`match-profile-choice match-profile-choice--checkbox${
+                      isSelected ? " match-profile-choice--selected" : ""
+                    }`}>
+                      <input
+                        type="checkbox"
+                        name="match-profile-style"
+                        value={style.value}
+                        checked={isSelected}
+                        onChange={() => togglePlayStyle(style.value)}
+                      />
+                      <div className="match-profile-choice__content">
+                        <span className="match-profile-choice__label">{style.label}</span>
+                        <span className="match-profile-choice__description">{style.description}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="match-profile-choice__check" aria-hidden="true">
+                          <Check size={16} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="match-profile-field">
+              <span className="match-profile-label">Gender</span>
+              <p className="match-profile-helper">Choose the option that best fits.</p>
+              <div className="match-profile-choice-grid match-profile-choice-grid--columns">
+                {GENDER_OPTIONS.map((option) => {
+                  const isSelected = gender === option.value;
+                  return (
+                    <label key={option.value} className={`match-profile-choice${isSelected ? " match-profile-choice--selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="match-profile-gender"
+                        value={option.value}
+                        checked={isSelected}
+                        onChange={() => setGender(option.value)}
+                      />
+                      <div className="match-profile-choice__content">
+                        <span className="match-profile-choice__label">{option.label}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="match-profile-choice__check" aria-hidden="true">
+                          <Check size={16} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              {hasGenderError && <p className="match-profile-error">Please select a gender option.</p>}
+            </div>
+
+            <div className="match-profile-field match-profile-field--narrow">
+              <label htmlFor="match-profile-courts" className="match-profile-label">
+                My local courts
+              </label>
+              <p className="match-profile-helper">Search for your go-to courts so players know where to meet.</p>
+              <input
+                id="match-profile-courts"
+                type="text"
+                value={localCourts}
+                onChange={(event) => {
+                  setLocalCourts(event.target.value);
+                  setLocalCourtPlaceId(null);
+                }}
+                placeholder="Start typing a court name or neighborhood"
+                className={`match-profile-input${hasCourtsError ? " match-profile-input--error" : ""}`}
+                ref={courtsInputRef}
+                autoComplete="off"
+              />
+              {placesStatus === "loading" && (
+                <p className="match-profile-status">Loading Google Places suggestions…</p>
+              )}
+              {placesStatus === "ready" && !localCourtPlaceId && (
+                <p className="match-profile-status">Powered by Google Places. Select a result to confirm.</p>
+              )}
+              {placesStatus === "ready" && localCourtPlaceId && (
+                <p className="match-profile-status match-profile-status--success">Court verified with Google Places.</p>
+              )}
+              {placesStatus === "unavailable" && (
+                <p className="match-profile-status match-profile-status--warning">
+                  Autocomplete is unavailable right now, but you can still type your courts manually.
+                </p>
+              )}
+              {hasCourtsError && (
+                <p className="match-profile-error">
+                  Select a court from the suggestions to make sure we have the right location.
+                </p>
+              )}
+            </div>
+
+            <div className="match-profile-field">
+              <span className="match-profile-label">General availability</span>
+              <p className="match-profile-helper">Pick the time windows that usually work for you.</p>
+              <div className="match-profile-choice-grid match-profile-choice-grid--columns">
+                {AVAILABILITY_OPTIONS.map((option) => {
+                  const isSelected = availability.includes(option);
+                  return (
+                    <label key={option} className={`match-profile-choice match-profile-choice--checkbox${
+                      isSelected ? " match-profile-choice--selected" : ""
+                    }`}>
+                      <input
+                        type="checkbox"
+                        name="match-profile-availability"
+                        value={option}
+                        checked={isSelected}
+                        onChange={() => toggleAvailability(option)}
+                      />
+                      <div className="match-profile-choice__content">
+                        <span className="match-profile-choice__label">{option}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="match-profile-choice__check" aria-hidden="true">
+                          <Check size={16} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              {hasAvailabilityError && <p className="match-profile-error">Select at least one availability window.</p>}
+            </div>
+          </div>
+
+          <footer className="match-profile-modal__footer">
+            <p className="match-profile-modal__disclaimer">
+              By completing your profile you agree to share your contact details with other Matchplay members and
+              accept our terms of use. You can remove yourself from player matching anytime from the settings menu.
+            </p>
+            <div className="match-profile-modal__actions">
+              {showCompletionError && (
+                <p className="match-profile-modal__submit-error" role="alert">
+                  Please complete your full profile before saving.
+                </p>
+              )}
+              <div className="match-profile-modal__buttons">
+                <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="fc-button fc-button--primary"
+                  disabled={isSubmitDisabled}
+                  aria-disabled={isSubmitDisabled}
+                >
+                  Save profile
+                </button>
+              </div>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default MatchProfileModal;

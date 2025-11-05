@@ -198,7 +198,7 @@ const scoreCandidateString = (text, options = {}) => {
   if (text.startsWith("data:")) score -= 250;
   if (/^\d{5}(?:-\d{4})?$/.test(text)) score -= 120;
   if (/^zip\s*\d+/i.test(text)) score -= 120;
-  if (/^[\d.,\-\/\s]+$/.test(text)) score -= 150;
+  if (/^[\d.,/\s-]+$/.test(text)) score -= 150;
   if (/^n\/?a$/i.test(text)) score -= 80;
   if (length <= 3) score -= 60;
   return score;
@@ -332,7 +332,7 @@ const normalizeAssetUrl = (value) => {
   }
   try {
     return new URL(trimmed, API_BASE_URL).href;
-  } catch (error) {
+  } catch {
     return trimmed;
   }
 };
@@ -1712,13 +1712,7 @@ const PlayerCoachListPage = () => {
         setAddedMiniLoader(false);
       }
     },
-    [
-      buildFilterQueryParam,
-      locationFilter?.address,
-      locationFilter?.isCurrentLocation,
-      myCoachesFilterText,
-      normalizeListResponse,
-    ],
+    [buildFilterQueryParam, locationFilter, myCoachesFilterText, normalizeListResponse],
   );
 
   useEffect(() => {
