@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -38,6 +39,7 @@ const parseRadius = (radius: string) => {
 };
 
 const FindPlayersPage = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
@@ -339,7 +341,7 @@ const FindPlayersPage = () => {
                     window.alert(`Connection request sent to ${nextPlayer.name}`);
                   }}
                   onViewProfile={(nextPlayer) => {
-                    window.alert(`Previewing ${nextPlayer.name}'s profile.`);
+                    navigate(`/players/${nextPlayer.id}`);
                   }}
                 />
               ))}

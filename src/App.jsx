@@ -7,6 +7,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
+import PlayerProfilePage from "./pages/PlayerProfilePage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
@@ -91,6 +92,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <FindPlayersPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/players/:id"
+      element={(
+        <ProtectedRoute>
+          <PlayerProfilePage />
         </ProtectedRoute>
       )}
     />
