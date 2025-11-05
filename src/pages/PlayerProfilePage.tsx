@@ -67,6 +67,17 @@ const PlayerProfilePage = () => {
     window.alert(`Thanks! We'll review ${player.name}'s level and follow up.`);
   };
 
+  const displayedSupporters = player.verificationSupporters.slice(0, 4);
+  const extraSupporters = Math.max(0, player.verificationCount - displayedSupporters.length);
+  const verificationLabel = player.verified ? "Level verified" : "Verify this level";
+  const verificationStatus = player.verified
+    ? `${player.name}'s level is verified`
+    : `${player.name}'s level verification is pending`;
+  const verificationNote =
+    player.verificationCount > 0
+      ? `${player.verificationCount} ${player.verificationCount === 1 ? "player has" : "players have"} verified this level`
+      : "Be the first to verify this level";
+
   return (
     <MainLayout>
       <div className="player-profile-page">
@@ -119,34 +130,46 @@ const PlayerProfilePage = () => {
         <div className="player-profile-body">
           <section className="player-profile-section">
             <article className="player-profile-card player-profile-card--level">
-              <div className="player-profile-level-content">
-                <div className="player-profile-level-heading">
+              <div className="player-profile-level-shell">
+                <div className="player-profile-level-score-block">
                   <p className="player-profile-card-eyebrow">Player level</p>
-                  <span className="sr-only" role="status">
-                    {player.verified
-                      ? `${player.name}'s level is verified`
-                      : `${player.name}'s level verification is pending`}
-                  </span>
                   <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
                     <span className="player-profile-level-value">{player.level}</span>
                     <span className="player-profile-level-label">NTRP level</span>
                   </div>
                 </div>
                 <div className="player-profile-level-meta">
-                  <p className="player-profile-level-note">
-                    {player.verificationCount > 0
-                      ? `${player.verificationCount} ${player.verificationCount === 1 ? "player has" : "players have"} verified this level`
-                      : "Be the first to verify this level"}
-                  </p>
+                  <span className="sr-only" role="status">
+                    {verificationStatus}
+                  </span>
                   <button
                     type="button"
-                    className="player-profile-action player-profile-action--primary"
+                    className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
                     onClick={verifyPlayerLevel}
                     disabled={player.verified}
+                    aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
                   >
                     <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                    {player.verified ? "Level already verified" : `Verify ${firstName}'s level`}
+                    <span>{verificationLabel}</span>
                   </button>
+                  <p className="player-profile-level-note">{verificationNote}</p>
+                  {displayedSupporters.length > 0 && (
+                    <ul
+                      className="player-profile-level-supporters"
+                      aria-label={`Players who have verified ${player.name}'s level`}
+                    >
+                      {displayedSupporters.map((supporter) => (
+                        <li key={supporter.name}>
+                          <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
+                        </li>
+                      ))}
+                      {extraSupporters > 0 && (
+                        <li className="player-profile-level-supporters__extra" aria-hidden="true">
+                          +{extraSupporters}
+                        </li>
+                      )}
+                    </ul>
+                  )}
                 </div>
               </div>
             </article>

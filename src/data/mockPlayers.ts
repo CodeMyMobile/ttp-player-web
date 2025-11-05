@@ -11,6 +11,10 @@ export type Player = {
   bio: string;
   verified: boolean;
   verificationCount: number;
+  verificationSupporters: {
+    name: string;
+    avatarUrl: string;
+  }[];
   lastActive: string;
   matchFrequency: string;
   rating: number;
@@ -35,6 +39,28 @@ export const mockPlayers: Player[] = [
     bio: "Former D3 player getting back into league play. Always down for a rematch and new hitting partners.",
     verified: true,
     verificationCount: 7,
+    verificationSupporters: [
+      {
+        name: "Priya Patel",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Camille Lopez",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Avery Brooks",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Nina Fields",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1544723795-ed6f99cd1fdb?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active today",
     matchFrequency: "2-3x per week",
     rating: 4.9,
@@ -57,6 +83,23 @@ export const mockPlayers: Player[] = [
     bio: "USTA 4.0 captain focused on match strategy and consistency. Happy to rally or play sets.",
     verified: true,
     verificationCount: 5,
+    verificationSupporters: [
+      {
+        name: "Jordan Miles",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Luis Romero",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Mateo Silva",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1528892952291-009c663ce843?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active 1h ago",
     matchFrequency: "3x per week",
     rating: 4.8,
@@ -79,6 +122,18 @@ export const mockPlayers: Player[] = [
     bio: "Recently joined Matchplay. Looking for relaxed doubles and social mixers on the east side.",
     verified: false,
     verificationCount: 2,
+    verificationSupporters: [
+      {
+        name: "Laura Kim",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Dani Rivera",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active yesterday",
     matchFrequency: "1-2x per week",
     rating: 4.6,
@@ -101,6 +156,28 @@ export const mockPlayers: Player[] = [
     bio: "Former college player commuting into the city. Focused on high-intensity drilling and practice sets.",
     verified: true,
     verificationCount: 9,
+    verificationSupporters: [
+      {
+        name: "Chris Walsh",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Jared Hoffman",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Amy Stone",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Lila Carter",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active 3h ago",
     matchFrequency: "4x per week",
     rating: 5,
@@ -123,6 +200,23 @@ export const mockPlayers: Player[] = [
     bio: "Captain of a 3.5 USTA women's team. Looking for doubles partners comfortable at the net.",
     verified: true,
     verificationCount: 4,
+    verificationSupporters: [
+      {
+        name: "Erica Johns",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Tamika Rose",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Olivia Hart",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active today",
     matchFrequency: "2x per week",
     rating: 4.7,
@@ -145,6 +239,13 @@ export const mockPlayers: Player[] = [
     bio: "Tech professional working remote. Down for weekday drills and casual singles matches.",
     verified: false,
     verificationCount: 1,
+    verificationSupporters: [
+      {
+        name: "Isaac Moore",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active 4h ago",
     matchFrequency: "1-2x per week",
     rating: 4.5,
@@ -167,6 +268,23 @@ export const mockPlayers: Player[] = [
     bio: "League player focusing on footwork and serve + volley patterns. Always ready for a tiebreaker.",
     verified: true,
     verificationCount: 6,
+    verificationSupporters: [
+      {
+        name: "Abby Flores",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Gina Torres",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+      {
+        name: "Wes Grant",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1528892952291-009c663ce843?auto=format&fit=facearea&facepad=3&w=200&h=200&q=80",
+      },
+    ],
     lastActive: "Active 2h ago",
     matchFrequency: "3x per week",
     rating: 4.9,
@@ -189,6 +307,7 @@ export const mockPlayers: Player[] = [
     bio: "New to the city and building confidence with consistent hitting. Open to coaching style hitting sessions.",
     verified: false,
     verificationCount: 0,
+    verificationSupporters: [],
     lastActive: "Active 2d ago",
     matchFrequency: "1x per week",
     rating: 4.4,

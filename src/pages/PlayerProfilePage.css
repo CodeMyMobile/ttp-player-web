@@ -319,31 +319,25 @@
   color: var(--player-muted);
 }
 
-.player-profile-level-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.player-profile-card-header div {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.player-profile-level-content {
+.player-profile-level-shell {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
 @media (min-width: 768px) {
-  .player-profile-level-content {
+  .player-profile-level-shell {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
+}
+
+.player-profile-level-score-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .sr-only {
@@ -389,9 +383,57 @@
 .player-profile-level-meta {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   align-items: flex-start;
   max-width: 520px;
+}
+
+.player-profile-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.32);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--player-accent-strong);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.player-profile-verify-badge svg {
+  color: currentColor;
+}
+
+.player-profile-verify-badge:hover:not(:disabled) {
+  background: rgba(79, 70, 229, 0.14);
+  border-color: rgba(79, 70, 229, 0.4);
+  color: var(--player-accent);
+  transform: translateY(-1px);
+}
+
+.player-profile-verify-badge:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.6);
+  outline-offset: 2px;
+}
+
+.player-profile-verify-badge:disabled {
+  cursor: default;
+  transform: none;
+}
+
+.player-profile-verify-badge.is-verified {
+  background: rgba(21, 128, 61, 0.12);
+  border-color: rgba(21, 128, 61, 0.35);
+  color: var(--player-green-dark);
+}
+
+.player-profile-verify-badge.is-verified:hover {
+  background: rgba(21, 128, 61, 0.12);
+  border-color: rgba(21, 128, 61, 0.35);
+  color: var(--player-green-dark);
 }
 
 .player-profile-level-note {
@@ -399,6 +441,44 @@
   font-size: 0.98rem;
   color: var(--player-body);
   line-height: 1.55;
+}
+
+.player-profile-level-supporters {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.player-profile-level-supporters li {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--player-surface);
+  box-shadow: 0 10px 18px -12px rgba(15, 23, 42, 0.28);
+  background: var(--player-surface-muted);
+}
+
+.player-profile-level-supporters li + li {
+  margin-left: -12px;
+}
+
+.player-profile-level-supporters img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.player-profile-level-supporters__extra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--player-accent-strong);
 }
 
 .player-profile-description {
