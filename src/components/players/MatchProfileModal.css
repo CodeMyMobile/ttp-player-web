@@ -85,6 +85,11 @@
   gap: 12px;
 }
 
+.match-profile-field--narrow {
+  max-width: 520px;
+  width: 100%;
+}
+
 .match-profile-label {
   font-size: 15px;
   font-weight: 600;
@@ -288,6 +293,12 @@
 
 .match-profile-modal__actions {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.match-profile-modal__buttons {
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
@@ -302,6 +313,12 @@
 
 .match-profile-modal__actions .fc-button--primary:hover {
   background: #6941c6;
+}
+
+.match-profile-modal__submit-error {
+  margin: 0;
+  font-size: 13px;
+  color: #d92d20;
 }
 
 @media (max-width: 640px) {
@@ -323,5 +340,20 @@
 
   .match-profile-choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .match-profile-modal__buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .match-profile-modal__buttons .fc-button {
+    width: 100%;
+  }
+
+  .match-profile-field--narrow {
+    max-width: none;
   }
 }

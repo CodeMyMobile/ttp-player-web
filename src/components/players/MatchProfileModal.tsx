@@ -232,6 +232,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
     );
   }, [about, gender, availability, requiresCourtVerification]);
 
+  const showCompletionError = touched && isSubmitDisabled;
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setTouched(true);
@@ -520,7 +522,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
               {hasGenderError && <p className="match-profile-error">Please select a gender option.</p>}
             </div>
 
-            <div className="match-profile-field">
+            <div className="match-profile-field match-profile-field--narrow">
               <label htmlFor="match-profile-courts" className="match-profile-label">
                 My local courts
               </label>
@@ -598,12 +600,24 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
               accept our terms of use. You can remove yourself from player matching anytime from the settings menu.
             </p>
             <div className="match-profile-modal__actions">
-              <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="submit" className="fc-button fc-button--primary" disabled={isSubmitDisabled}>
-                Save profile
-              </button>
+              {showCompletionError && (
+                <p className="match-profile-modal__submit-error" role="alert">
+                  Please complete your full profile before saving.
+                </p>
+              )}
+              <div className="match-profile-modal__buttons">
+                <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="fc-button fc-button--primary"
+                  disabled={isSubmitDisabled}
+                  aria-disabled={isSubmitDisabled}
+                >
+                  Save profile
+                </button>
+              </div>
             </div>
           </footer>
         </form>
