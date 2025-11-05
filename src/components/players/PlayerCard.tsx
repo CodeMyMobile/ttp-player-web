@@ -1,4 +1,5 @@
-import { ShieldCheck, User, Zap } from "lucide-react";
+import { MapPin, ShieldCheck, UserPlus, Zap } from "lucide-react";
+import TagPill from "../coaches/TagPill";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -22,70 +23,94 @@ const formatDistance = (distanceMiles: number) => {
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
+  const handleViewProfile = () => {
+    if (onViewProfile) {
+      onViewProfile(player);
+    }
+  };
+
   return (
-    <article className="fp-card" aria-label={`View ${player.name}'s match profile`}>
-      <div className="fp-card__header">
-        <div className="fp-card__identity">
-          <div className="fp-card__avatar" aria-hidden="true">
-            {player.initials}
-          </div>
-          <div className="fp-card__identity-text">
-            <div className="fp-card__identity-row">
-              <h3 className="fp-card__name">{player.name}</h3>
-              {player.verified && (
-                <span className="fp-card__verified" role="img" aria-label="Verified player">
-                  <ShieldCheck size={14} />
-                  Verified
-                </span>
-              )}
-            </div>
-            <div className="fp-card__meta-line">
-              <span>{player.level} NTRP</span>
-              <span className="fp-card__separator" aria-hidden="true">
-                •
-              </span>
-              <span>{player.matchFrequency}</span>
-            </div>
-          </div>
+    <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
+      <div className="fp-card__top">
+        <div className="fp-card__labels">
+          {player.verified && (
+            <TagPill tone="accent" icon={<ShieldCheck size={14} strokeWidth={2} />}>
+              Verified player
+            </TagPill>
+          )}
+          <TagPill tone="available">{player.matchFrequency}</TagPill>
         </div>
-        <div className="fp-card__rating" aria-label={`Player rating ${player.rating} out of 5`}>
-          <Zap size={16} />
-          {player.rating.toFixed(1)}
+
+        <div
+          className="fp-card__rating"
+          aria-label={`Match rating ${player.rating.toFixed(1)} out of 5`}
+        >
+          <div className="fp-card__rating-icon">
+            <Zap size={18} strokeWidth={2} />
+          </div>
+          <span className="fp-card__rating-score">{player.rating.toFixed(1)}</span>
+          <span className="fp-card__rating-caption">Match rating</span>
         </div>
       </div>
 
-      <div className="fp-card__location">
-        <User size={16} />
-        <span>
-          {player.location}
-          <span className="fp-card__distance"> · {formatDistance(player.distanceMiles)}</span>
-        </span>
+      <div className="fc-card__profile fp-card__profile">
+        <div className="fp-card__avatar" aria-hidden="true">
+          {player.initials}
+        </div>
+        <div className="fc-card__identity fp-card__identity">
+          <h3 className="fc-card__name">{player.name}</h3>
+          <div className="fp-card__meta-line">
+            <span>{player.level} NTRP</span>
+            <span className="fp-card__separator" aria-hidden="true">
+              •
+            </span>
+            <span>{player.handedness}-handed</span>
+          </div>
+          <div className="fp-card__location">
+            <MapPin size={16} strokeWidth={2} />
+            <div className="fp-card__location-copy">
+              <span className="fp-card__location-label">{player.location}</span>
+              <span className="fp-card__location-distance">{formatDistance(player.distanceMiles)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <p className="fp-card__bio">{player.bio}</p>
 
-      <dl className="fp-card__details">
-        <div className="fp-card__detail">
-          <dt>Availability</dt>
-          <dd>{player.availability.join(", ")}</dd>
+      <div className="fc-card__meta fp-card__meta">
+        <div className="fc-card__meta-item">
+          <span className="fc-card__meta-label">Availability</span>
+          <span className="fc-card__meta-value">{player.availability.join(", ")}</span>
         </div>
-        <div className="fp-card__detail">
-          <dt>Match style</dt>
-          <dd>{player.matchPreferences.join(", ")}</dd>
+        <div className="fc-card__meta-item">
+          <span className="fc-card__meta-label">Match style</span>
+          <span className="fc-card__meta-value">{player.matchPreferences.join(", ")}</span>
         </div>
-        <div className="fp-card__detail">
-          <dt>Looking for</dt>
-          <dd>{player.lookingFor}</dd>
+        <div className="fc-card__meta-item">
+          <span className="fc-card__meta-label">Favorite court</span>
+          <span className="fc-card__meta-value">{player.favoriteCourt}</span>
         </div>
-      </dl>
+      </div>
+
+      <div className="fp-card__looking-for">
+        <div className="fp-card__looking-for-icon">
+          <UserPlus size={18} strokeWidth={2} />
+        </div>
+        <div className="fp-card__looking-for-copy">
+          <span className="fp-card__looking-for-label">Looking for</span>
+          <span className="fp-card__looking-for-value">{player.lookingFor}</span>
+        </div>
+      </div>
 
       <div className="fp-card__footer">
-        <div className="fp-card__status">{player.lastActive}</div>
-        <div className="fp-card__actions">
+        <span className="fp-card__status">{player.lastActive}</span>
+        <div className="fc-card__actions fp-card__actions">
           <button
             type="button"
             className="fc-button fc-button--secondary"
-            onClick={() => onViewProfile?.(player)}
+            onClick={handleViewProfile}
+            disabled={!onViewProfile}
           >
             View profile
           </button>
