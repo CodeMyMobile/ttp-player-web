@@ -319,11 +319,6 @@
   color: var(--player-muted);
 }
 
-.player-profile-level-status {
-  align-self: flex-end;
-  display: flex;
-}
-
 .player-profile-level-heading {
   display: flex;
   flex-direction: column;
@@ -335,29 +330,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.player-profile-ntrp-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: 1px solid transparent;
-}
-
-.player-profile-ntrp-status.is-verified {
-  background: rgba(34, 197, 94, 0.14);
-  color: var(--player-green-dark);
-  border-color: rgba(34, 197, 94, 0.28);
-}
-
-.player-profile-ntrp-status.is-unverified {
-  background: rgba(251, 191, 36, 0.18);
-  color: var(--player-amber-dark);
-  border-color: rgba(251, 191, 36, 0.3);
 }
 
 .player-profile-level-content {

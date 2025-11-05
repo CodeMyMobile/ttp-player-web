@@ -1,15 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  ArrowLeft,
-  BadgeCheck,
-  Check,
-  MessageCircle,
-  ShieldAlert,
-  ShieldCheck,
-  UserX,
-  X,
-} from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, MessageCircle, UserX, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { findPlayerProfile } from "../data/mockPlayers";
@@ -128,27 +119,14 @@ const PlayerProfilePage = () => {
         <div className="player-profile-body">
           <section className="player-profile-section">
             <article className="player-profile-card player-profile-card--level">
-              <div className="player-profile-level-status">
-                <span
-                  className={`player-profile-ntrp-status ${player.verified ? "is-verified" : "is-unverified"}`}
-                  role="status"
-                >
-                  {player.verified ? (
-                    <>
-                      <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
-                      <span className="sr-only">{`${player.name}'s level is verified`}</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShieldAlert size={16} strokeWidth={2} aria-hidden="true" />
-                      <span className="sr-only">{`${player.name}'s level verification is pending`}</span>
-                    </>
-                  )}
-                </span>
-              </div>
               <div className="player-profile-level-content">
                 <div className="player-profile-level-heading">
                   <p className="player-profile-card-eyebrow">Player level</p>
+                  <span className="sr-only" role="status">
+                    {player.verified
+                      ? `${player.name}'s level is verified`
+                      : `${player.name}'s level verification is pending`}
+                  </span>
                   <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
                     <span className="player-profile-level-value">{player.level}</span>
                     <span className="player-profile-level-label">NTRP level</span>
