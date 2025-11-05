@@ -1,34 +1,11 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Activity,
-  ArrowLeft,
-  BadgeCheck,
-  CalendarCheck,
-  Check,
-  Clock,
-  MapPin,
-  ShieldAlert,
-  ShieldCheck,
-  Star,
-  UserX,
-  X,
-} from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, ShieldAlert, ShieldCheck, UserX, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { findPlayerProfile } from "../data/mockPlayers";
 
 import "./PlayerProfilePage.css";
-
-const formatDistance = (distanceMiles: number) => {
-  if (distanceMiles < 0.25) {
-    return "Less than 0.25 mi away";
-  }
-  if (distanceMiles % 1 === 0) {
-    return `${distanceMiles} mi away`;
-  }
-  return `${distanceMiles.toFixed(1)} mi away`;
-};
 
 const PlayerProfilePage = () => {
   const { id } = useParams();
@@ -112,31 +89,6 @@ const PlayerProfilePage = () => {
                       </>
                     )}
                   </span>
-                </div>
-                <p className="player-profile-subtitle">
-                  <MapPin size={18} strokeWidth={2} aria-hidden="true" />
-                  <span>
-                    {player.location}
-                    {player.distanceMiles ? ` • ${formatDistance(player.distanceMiles)}` : ""}
-                  </span>
-                </p>
-                <div className="player-profile-metrics" aria-label="Player highlights">
-                  <div className="player-profile-metric">
-                    <Star size={18} strokeWidth={2} aria-hidden="true" />
-                    <span>{player.rating.toFixed(1)} match rating</span>
-                  </div>
-                  <div className="player-profile-metric">
-                    <Activity size={18} strokeWidth={2} aria-hidden="true" />
-                    <span>{player.matchFrequency}</span>
-                  </div>
-                  <div className="player-profile-metric">
-                    <Clock size={18} strokeWidth={2} aria-hidden="true" />
-                    <span>{player.lastActive}</span>
-                  </div>
-                  <div className="player-profile-metric">
-                    <CalendarCheck size={18} strokeWidth={2} aria-hidden="true" />
-                    <span>{player.availability.join(" · ")}</span>
-                  </div>
                 </div>
                 <div className="player-profile-actions">
                   <button

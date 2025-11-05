@@ -169,39 +169,6 @@
   border: 1px solid rgba(251, 191, 36, 0.4);
 }
 
-.player-profile-subtitle {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #475467;
-  font-size: 1.05rem;
-}
-
-.player-profile-subtitle span {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.player-profile-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
-.player-profile-metric {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  color: #1f2937;
-  font-weight: 600;
-}
-
 .player-profile-actions {
   display: flex;
   flex-wrap: wrap;
