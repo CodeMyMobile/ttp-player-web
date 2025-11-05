@@ -128,11 +128,7 @@ const PlayerProfilePage = () => {
         <div className="player-profile-body">
           <section className="player-profile-section">
             <article className="player-profile-card player-profile-card--level">
-              <header className="player-profile-card-header">
-                <div>
-                  <p className="player-profile-card-eyebrow">Player level</p>
-                  <h2>{firstName}&apos;s verified skill level.</h2>
-                </div>
+              <div className="player-profile-level-status">
                 <span
                   className={`player-profile-ntrp-status ${player.verified ? "is-verified" : "is-unverified"}`}
                   role="status"
@@ -140,20 +136,23 @@ const PlayerProfilePage = () => {
                   {player.verified ? (
                     <>
                       <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
-                      Level verified
+                      <span className="sr-only">{`${player.name}'s level is verified`}</span>
                     </>
                   ) : (
                     <>
                       <ShieldAlert size={16} strokeWidth={2} aria-hidden="true" />
-                      Verification pending
+                      <span className="sr-only">{`${player.name}'s level verification is pending`}</span>
                     </>
                   )}
                 </span>
-              </header>
+              </div>
               <div className="player-profile-level-content">
-                <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
-                  <span className="player-profile-level-value">{player.level}</span>
-                  <span className="player-profile-level-label">NTRP level</span>
+                <div className="player-profile-level-heading">
+                  <p className="player-profile-card-eyebrow">Player level</p>
+                  <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
+                    <span className="player-profile-level-value">{player.level}</span>
+                    <span className="player-profile-level-label">NTRP level</span>
+                  </div>
                 </div>
                 <div className="player-profile-level-meta">
                   <p className="player-profile-level-note">
