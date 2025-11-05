@@ -154,3 +154,6 @@ export const mockPlayers: Player[] = [
     lookingFor: "Supportive practice partners",
   },
 ];
+
+export const findPlayerProfile = (playerId: string): Player | undefined =>
+  mockPlayers.find((player) => player.id === playerId);
