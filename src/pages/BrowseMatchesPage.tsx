@@ -60,9 +60,16 @@ const BrowseMatchesPage = () => {
     () => ({
       "--matches-chip-bg": colors.filterChipBg,
       "--matches-chip-hover": colors.filterChipHover,
-      "--matches-chip-selected-bg": colors.filterChipSelectedBg,
-      "--matches-chip-selected-border": colors.filterChipSelectedBorder,
-      "--matches-chip-selected-text": colors.filterChipSelectedText,
+      "--matches-distance-text": colors.secondaryText,
+      "--matches-distance-selected-bg": colors.availableBg,
+      "--matches-distance-selected-border": colors.primarySuccess,
+      "--matches-distance-selected-text": colors.availableText,
+      "--matches-distance-selected-shadow": "rgba(18, 183, 106, 0.18)",
+      "--matches-location-bg": colors.accentPurpleLight,
+      "--matches-location-border": colors.accentPurpleBorder,
+      "--matches-location-text": colors.accentPurple,
+      "--matches-distance-bg": colors.filterChipBg,
+      "--matches-distance-hover": colors.filterChipHover,
       "--matches-surface": colors.surface,
       "--matches-border": colors.border,
       "--matches-text": colors.primaryText,
@@ -95,36 +102,35 @@ const BrowseMatchesPage = () => {
         </header>
 
         <section className="location-panel">
-          <div className="location-panel__header">
-            <div className="location-panel__heading">
-              <button type="button" className="location-chip">
-                <MapPin size={16} aria-hidden="true" />
-                Current location
-              </button>
-              <div className="location-details">
-                <h2>Franklin Canyon Courts</h2>
-                <p>Using your verified club location</p>
-              </div>
-            </div>
-            <button type="button" className="location-secondary">Change location</button>
-          </div>
-          <div
-            className="location-panel__filters"
-            role="group"
-            aria-label="Distance from your current location"
-          >
-            {distanceOptions.map((option) => (
+          <div className="location-panel__bar">
+            <div
+              className="location-panel__chips"
+              role="group"
+              aria-label="Distance from your current location"
+            >
               <button
-                key={option}
                 type="button"
-                className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
-                onClick={() => setSelectedDistance(option)}
-                aria-pressed={selectedDistance === option}
+                className="distance-chip distance-chip--location"
+                aria-label="Selected location"
               >
-                {option}
+                <MapPin size={16} aria-hidden="true" />
+                Franklin Canyon Courts
               </button>
-            ))}
+              {distanceOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
+                  onClick={() => setSelectedDistance(option)}
+                  aria-pressed={selectedDistance === option}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="location-secondary">Change</button>
           </div>
+          <p className="location-panel__helper">Using your verified club location</p>
         </section>
 
         <section className="matches-main">
