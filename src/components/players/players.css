@@ -1,0 +1,361 @@
+.find-players-page {
+  min-height: 100vh;
+  background-color: var(--fc-color-bg);
+}
+
+.find-players-page__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px 48px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-family: var(--fc-font-family);
+  color: var(--fc-color-text-primary);
+}
+
+.players-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.fp-card {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.fp-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.fp-card__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fp-card__profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.fp-card__avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f4f0ff, #ece9ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 26px;
+  color: #7f56d9;
+  box-shadow: 0 10px 18px rgba(127, 86, 217, 0.2);
+}
+
+.fp-card__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fp-card__metrics {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fp-card__level {
+  font-size: 14px;
+  color: var(--fc-color-text-secondary);
+}
+
+.fp-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-card__rating-icon {
+  color: #fdb022;
+}
+
+.fp-card__verified-pill .tag-pill {
+  padding: 5px 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.fp-card__bio {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fc-color-text-secondary);
+  word-break: break-word;
+}
+
+.fp-card__meta {
+  gap: 16px;
+  padding: 16px;
+}
+
+.fp-card__meta .fc-card__meta-item {
+  min-width: 0;
+}
+
+.fp-card__meta .fc-card__meta-value {
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.fp-card__looking-for {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(127, 86, 217, 0.5);
+  background: rgba(127, 86, 217, 0.05);
+}
+
+.fp-card__looking-for-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 86, 217, 0.12);
+  color: var(--fc-color-accent);
+}
+
+.fp-card__looking-for-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fp-card__looking-for-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-card__looking-for-value {
+  font-size: 14px;
+  color: var(--fc-color-text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.fp-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fp-card__status {
+  font-size: 13px;
+  color: var(--fc-color-text-secondary);
+}
+
+.fp-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fp-card__actions .fc-button {
+  flex-shrink: 0;
+}
+
+.fp-card .fc-button--primary[disabled] {
+  background: var(--fc-color-secondary-hover);
+  border-color: var(--fc-color-secondary-border);
+  color: var(--fc-color-secondary-text);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.fp-card--skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.fp-skeleton {
+  background: linear-gradient(90deg, var(--fc-color-skeleton-base), var(--fc-color-skeleton-highlight), var(--fc-color-skeleton-base));
+  background-size: 200% 100%;
+  animation: fp-skeleton-loading 1.4s ease-in-out infinite;
+  border-radius: 12px;
+}
+
+.fp-card__profile-skeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fp-skeleton--avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+}
+
+.fp-skeleton--line {
+  height: 14px;
+}
+
+.fp-skeleton--line-lg {
+  width: 60%;
+}
+
+.fp-skeleton--line-md {
+  width: 40%;
+}
+
+.fp-skeleton--paragraph {
+  height: 60px;
+  border-radius: 16px;
+}
+
+.fp-skeleton--meta {
+  height: 96px;
+  border-radius: 16px;
+}
+
+.fp-skeleton--banner {
+  height: 70px;
+  border-radius: 16px;
+}
+
+.fp-skeleton--actions {
+  height: 44px;
+  width: 100%;
+  border-radius: 12px;
+}
+
+@keyframes fp-skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.fp-filter__toggles {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fp-verified-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  border: 1px solid var(--fc-color-border);
+  background: #fff;
+  font-size: 13px;
+  color: var(--fc-color-text-secondary);
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.fp-verified-toggle input {
+  display: none;
+}
+
+.fp-verified-toggle__pill {
+  width: 36px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--fc-color-border);
+  position: relative;
+  transition: background 0.18s ease;
+}
+
+.fp-verified-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  transition: transform 0.18s ease;
+}
+
+.fp-verified-toggle--active {
+  border-color: var(--fc-color-accent);
+  color: var(--fc-color-accent);
+  background: rgba(127, 86, 217, 0.08);
+}
+
+.fp-verified-toggle--active .fp-verified-toggle__pill {
+  background: var(--fc-color-accent);
+}
+
+.fp-verified-toggle--active .fp-verified-toggle__thumb {
+  transform: translateX(16px);
+}
+
+@media (max-width: 768px) {
+  .find-players-page__inner {
+    padding: 32px 20px 48px;
+  }
+
+  .fp-card {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .fp-card__top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .fp-card__profile {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .fp-card__meta {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .fp-card__footer {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .fp-card__actions {
+    width: 100%;
+    justify-content: stretch;
+    gap: 10px;
+  }
+
+  .fp-card__actions .fc-button {
+    flex: 1;
+  }
+}

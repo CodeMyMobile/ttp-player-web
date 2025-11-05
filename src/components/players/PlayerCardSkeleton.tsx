@@ -1,0 +1,23 @@
+import "../coaches/coaches.css";
+import "./players.css";
+
+const PlayerCardSkeleton = () => {
+  return (
+    <div className="fc-card fp-card fp-card--skeleton" aria-hidden="true">
+      <div className="fp-card__profile">
+        <span className="fp-skeleton fp-skeleton--avatar" />
+        <div className="fp-card__profile-skeleton">
+          <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
+          <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-md" />
+        </div>
+      </div>
+
+      <span className="fp-skeleton fp-skeleton--paragraph" />
+      <span className="fp-skeleton fp-skeleton--meta" />
+      <span className="fp-skeleton fp-skeleton--banner" />
+      <span className="fp-skeleton fp-skeleton--actions" />
+    </div>
+  );
+};
+
+export default PlayerCardSkeleton;
