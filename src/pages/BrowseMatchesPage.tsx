@@ -89,9 +89,9 @@ const BrowseMatchesPage = () => {
     <MainLayout>
       <div className="matches-page" style={themeVars}>
         <header className="matches-hero">
-          <div>
-            <p className="matches-subtitle">See what's nearby and jump back in.</p>
-            <h1>Browse Local Matches</h1>
+          <div className="matches-hero__text">
+            <h1 className="matches-hero__title">Browse Local Matches</h1>
+            <p className="matches-hero__subtitle">See what's nearby and jump back in.</p>
           </div>
           <div className="matches-hero__actions">
             <button type="button" className="matches-create-btn">

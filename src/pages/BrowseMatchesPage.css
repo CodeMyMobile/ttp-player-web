@@ -7,26 +7,29 @@
 
 .matches-hero {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  background: var(--matches-surface);
-  border-radius: 20px;
-  padding: 28px 32px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-  gap: 24px;
+  gap: 32px;
 }
 
-.matches-hero h1 {
+.matches-hero__text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.matches-hero__title {
+  margin: 0;
   font-size: 32px;
   line-height: 1.2;
-  margin: 4px 0 0;
   color: var(--matches-text);
 }
 
-.matches-subtitle {
-  font-size: 16px;
-  color: var(--matches-muted);
+.matches-hero__subtitle {
   margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--matches-muted);
 }
 
 .matches-hero__actions {
