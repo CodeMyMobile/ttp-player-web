@@ -7,9 +7,7 @@ const PlayerCardSkeleton = () => {
       <div className="fp-card__top">
         <div className="fp-skeleton fp-skeleton--pill-row">
           <span className="fp-skeleton fp-skeleton--pill" />
-          <span className="fp-skeleton fp-skeleton--pill" />
         </div>
-        <span className="fp-skeleton fp-skeleton--rating" />
       </div>
 
       <div className="fp-card__profile">

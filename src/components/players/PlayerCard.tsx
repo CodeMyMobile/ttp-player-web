@@ -1,4 +1,4 @@
-import { MapPin, ShieldCheck, UserPlus, Zap } from "lucide-react";
+import { MapPin, ShieldCheck, UserPlus } from "lucide-react";
 import TagPill from "../coaches/TagPill";
 import type { Player } from "../../data/mockPlayers";
 
@@ -31,27 +31,15 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
 
   return (
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
-      <div className="fp-card__top">
-        <div className="fp-card__labels">
-          {player.verified && (
+      {player.verified && (
+        <div className="fp-card__top">
+          <div className="fp-card__labels">
             <TagPill tone="accent" icon={<ShieldCheck size={14} strokeWidth={2} />}>
               Verified player
             </TagPill>
-          )}
-          <TagPill tone="available">{player.matchFrequency}</TagPill>
-        </div>
-
-        <div
-          className="fp-card__rating"
-          aria-label={`Match rating ${player.rating.toFixed(1)} out of 5`}
-        >
-          <div className="fp-card__rating-icon">
-            <Zap size={18} strokeWidth={2} />
           </div>
-          <span className="fp-card__rating-score">{player.rating.toFixed(1)}</span>
-          <span className="fp-card__rating-caption">Match rating</span>
         </div>
-      </div>
+      )}
 
       <div className="fc-card__profile fp-card__profile">
         <div className="fp-card__avatar" aria-hidden="true">
@@ -82,10 +70,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         <div className="fc-card__meta-item">
           <span className="fc-card__meta-label">Availability</span>
           <span className="fc-card__meta-value">{player.availability.join(", ")}</span>
-        </div>
-        <div className="fc-card__meta-item">
-          <span className="fc-card__meta-label">Match style</span>
-          <span className="fc-card__meta-value">{player.matchPreferences.join(", ")}</span>
         </div>
         <div className="fc-card__meta-item">
           <span className="fc-card__meta-label">Favorite court</span>

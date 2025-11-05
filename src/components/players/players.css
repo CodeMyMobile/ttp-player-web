@@ -29,7 +29,6 @@
 
 .fp-card__top {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
 }
@@ -38,40 +37,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.fp-card__rating {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  text-align: right;
-}
-
-.fp-card__rating-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: rgba(255, 196, 34, 0.22);
-  color: #a15c00;
-}
-
-.fp-card__rating-score {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--fc-color-text-primary);
-}
-
-.fp-card__rating-caption {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-  color: var(--fc-color-text-muted);
 }
 
 .fp-card__profile {
@@ -257,12 +222,6 @@
   border-radius: 9999px;
 }
 
-.fp-skeleton--rating {
-  width: 96px;
-  height: 72px;
-  border-radius: 18px;
-}
-
 .fp-card__profile-skeleton {
   flex: 1;
   display: flex;
@@ -387,11 +346,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
-  }
-
-  .fp-card__rating {
-    align-items: flex-start;
-    text-align: left;
   }
 
   .fp-card__profile {
