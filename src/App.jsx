@@ -6,6 +6,7 @@ import CreateMatchPage from "./pages/CreateMatchPage";
 import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
 import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
 import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
+import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -97,6 +98,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CreateMatchSettingsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create/private/invite"
+      element={(
+        <ProtectedRoute>
+          <CreatePrivateMatchInvitePage />
         </ProtectedRoute>
       )}
     />
