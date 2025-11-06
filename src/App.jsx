@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
+import BrowseMatchesPage from "./pages/BrowseMatchesPage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -68,6 +69,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <DashboardPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches"
+      element={(
+        <ProtectedRoute>
+          <BrowseMatchesPage />
         </ProtectedRoute>
       )}
     />
