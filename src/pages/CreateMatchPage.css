@@ -81,6 +81,16 @@
   color: var(--coach-color-heading);
 }
 
+.progress-step--complete .progress-step__number {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+  box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.35);
+}
+
+.progress-step--complete .progress-step__label {
+  color: var(--coach-color-heading);
+}
+
 .progress-step--upcoming .progress-step__number {
   background: var(--coach-color-highlight);
   color: var(--coach-color-subtle);
@@ -271,6 +281,12 @@
   font-weight: 600;
 }
 
+.input-field__hint {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--coach-color-subtle);
+}
+
 .input-wrapper {
   display: flex;
   align-items: center;
@@ -295,6 +311,69 @@
   color: var(--coach-color-heading);
   width: 100%;
   background: transparent;
+}
+
+.textarea-wrapper {
+  border: 1px solid var(--coach-color-border);
+  border-radius: 18px;
+  background: var(--coach-color-surface);
+  padding: 16px 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.textarea-wrapper:focus-within {
+  border-color: #15803d;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.textarea-wrapper textarea {
+  border: none;
+  outline: none;
+  font: inherit;
+  color: var(--coach-color-heading);
+  width: 100%;
+  background: transparent;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.create-match-settings-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.skill-description {
+  margin: -6px 0 0;
+  color: var(--coach-color-subtle);
+  font-size: 14px;
+}
+
+.match-format-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.visibility-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.settings-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: rgba(30, 64, 175, 0.08);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.settings-highlight svg {
+  color: #1d4ed8;
 }
 
 .location-pills {
@@ -454,6 +533,13 @@
   box-shadow: 0 24px 44px rgba(22, 163, 74, 0.4);
 }
 
+.create-match-actions__primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 @media (max-width: 960px) {
   .create-match-page__header {
     flex-direction: column;
@@ -487,6 +573,11 @@
     justify-content: center;
   }
 
+  .match-format-options,
+  .visibility-options {
+    grid-template-columns: 1fr;
+  }
+
   .create-match-actions {
     flex-direction: column-reverse;
     align-items: stretch;
@@ -497,26 +588,4 @@
     width: 100%;
     text-align: center;
   }
-}
-
-.create-match-settings-placeholder {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 48px;
-  margin-top: 32px;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
-  text-align: center;
-}
-
-.create-match-settings-placeholder h1 {
-  margin: 0 0 12px;
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--coach-color-heading);
-}
-
-.create-match-settings-placeholder p {
-  margin: 0;
-  font-size: 16px;
-  color: var(--coach-color-body);
 }
