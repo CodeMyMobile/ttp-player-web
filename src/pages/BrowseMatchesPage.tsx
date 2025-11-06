@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
@@ -15,6 +16,7 @@ const relationshipLabel: Record<string, string> = {
 };
 
 const BrowseMatchesPage = () => {
+  const navigate = useNavigate();
   const [selectedDistance, setSelectedDistance] = useState(distanceOptions[1]);
   const [selectedTab, setSelectedTab] = useState(tabs[0]);
 
@@ -45,7 +47,11 @@ const BrowseMatchesPage = () => {
             <p className="matches-hero__subtitle">See what's nearby and jump back in.</p>
           </div>
           <div className="matches-hero__actions">
-            <button type="button" className="matches-create-btn">
+            <button
+              type="button"
+              className="matches-create-btn"
+              onClick={() => navigate("/matches/create")}
+            >
               + Create Match
             </button>
             <button type="button" className="matches-filter-btn">

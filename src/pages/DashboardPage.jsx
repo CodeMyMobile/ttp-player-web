@@ -201,7 +201,11 @@ const DashboardPage = () => {
             <h2 className="section-title">Matches Near You</h2>
             <p className="section-subtitle">Join competitive and social matches happening soon.</p>
           </div>
-          <button type="button" className="section-cta">
+          <button
+            type="button"
+            className="section-cta"
+            onClick={() => navigate("/matches/create")}
+          >
             + Create Match
           </button>
         </div>
