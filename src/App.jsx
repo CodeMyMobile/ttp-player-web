@@ -5,6 +5,7 @@ import BrowseMatchesPage from "./pages/BrowseMatchesPage";
 import CreateMatchPage from "./pages/CreateMatchPage";
 import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
 import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
+import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -104,6 +105,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CreateMatchReviewPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create/published"
+      element={(
+        <ProtectedRoute>
+          <CreateMatchPublishConfirmationPage />
         </ProtectedRoute>
       )}
     />

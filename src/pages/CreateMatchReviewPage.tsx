@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
-  CheckCircle2,
   Clock,
   Copy,
   Gauge,
@@ -13,31 +12,13 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import { createdMatchSummary } from "../data/mockCreateMatch";
 
 import "./CreateMatchPage.css";
-
-const reviewSummary = {
-  title: "Sunset rally at Penmar",
-  matchType: "Open match",
-  date: "Fri, Apr 26",
-  time: "6:00 PM – 8:00 PM",
-  location: "Penmar Recreation Center",
-  locationDetail: "Venice, CA",
-  playersNeeded: "You + 3 players",
-  skillLevel: "3.0 – 3.5 NTRP",
-  skillDescription: "Consistent baseline play",
-  format: "Doubles",
-  court: "Court 4",
-  notes: "Bring a new can of balls and arrive 10 minutes early.",
-  visibility: "Public link",
-  visibilityDescription: "Appears in match search and accepts requests.",
-  shareLink: "ttp.tennis/matches/sunset-rally",
-};
 
 const CreateMatchReviewPage = () => {
   const navigate = useNavigate();
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
 
   const handleEditDetails = () => {
     navigate("/matches/create");
@@ -48,7 +29,7 @@ const CreateMatchReviewPage = () => {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(reviewSummary.shareLink).catch(() => {
+    navigator.clipboard.writeText(createdMatchSummary.shareLink).catch(() => {
       /* no-op */
     });
   };
@@ -57,12 +38,8 @@ const CreateMatchReviewPage = () => {
     setIsPublishing(true);
     window.setTimeout(() => {
       setIsPublishing(false);
-      setIsPublished(true);
+      navigate("/matches/create/published");
     }, 900);
-  };
-
-  const handleViewMatch = () => {
-    navigate("/matches");
   };
 
   return (
@@ -95,22 +72,6 @@ const CreateMatchReviewPage = () => {
           </div>
         </div>
 
-        {isPublished && (
-          <section className="create-match-card create-match-card--success" aria-live="polite">
-            <div className="create-match-success">
-              <div className="create-match-success__icon" aria-hidden="true">
-                <CheckCircle2 size={28} />
-              </div>
-              <div className="create-match-success__content">
-                <h2>Match published</h2>
-                <p className="create-match-card__subtitle">
-                  Players can now request to join. Share the link or keep building momentum with another match.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
         <section className="create-match-card" aria-labelledby="review-overview-heading">
           <div className="review-summary__header">
             <div>
@@ -124,8 +85,8 @@ const CreateMatchReviewPage = () => {
 
           <div className="review-summary__intro">
             <div>
-              <p className="review-summary__eyebrow">{reviewSummary.matchType}</p>
-              <h3 className="review-summary__title">{reviewSummary.title}</h3>
+              <p className="review-summary__eyebrow">{createdMatchSummary.matchType}</p>
+              <h3 className="review-summary__title">{createdMatchSummary.title}</h3>
             </div>
           </div>
 
@@ -136,7 +97,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Date</span>
-                <span className="review-summary__value">{reviewSummary.date}</span>
+                <span className="review-summary__value">{createdMatchSummary.dateLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -145,7 +106,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Time &amp; duration</span>
-                <span className="review-summary__value">{reviewSummary.time}</span>
+                <span className="review-summary__value">{createdMatchSummary.timeLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -154,8 +115,8 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Location</span>
-                <span className="review-summary__value">{reviewSummary.location}</span>
-                <span className="review-summary__hint">{reviewSummary.locationDetail}</span>
+                <span className="review-summary__value">{createdMatchSummary.locationName}</span>
+                <span className="review-summary__hint">{createdMatchSummary.locationDetail}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -164,7 +125,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Players needed</span>
-                <span className="review-summary__value">{reviewSummary.playersNeeded}</span>
+                <span className="review-summary__value">{createdMatchSummary.playersNeededLabel}</span>
                 <span className="review-summary__hint">Total includes you as host</span>
               </div>
             </div>
@@ -189,8 +150,8 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Skill level</span>
-                <span className="review-summary__value">{reviewSummary.skillLevel}</span>
-                <span className="review-summary__hint">{reviewSummary.skillDescription}</span>
+                <span className="review-summary__value">{createdMatchSummary.skillLevelLabel}</span>
+                <span className="review-summary__hint">{createdMatchSummary.skillDescription}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -200,9 +161,9 @@ const CreateMatchReviewPage = () => {
               <div className="review-summary__content">
                 <span className="review-summary__label">Format &amp; court</span>
                 <span className="review-summary__value">
-                  {reviewSummary.format} • {reviewSummary.court}
+                  {createdMatchSummary.formatLabel} • {createdMatchSummary.courtLabel}
                 </span>
-                <span className="review-summary__hint">{reviewSummary.notes}</span>
+                <span className="review-summary__hint">{createdMatchSummary.notes}</span>
               </div>
             </div>
           </div>
@@ -223,15 +184,15 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Visibility</span>
-                <span className="review-summary__value">{reviewSummary.visibility}</span>
-                <span className="review-summary__hint">{reviewSummary.visibilityDescription}</span>
+                <span className="review-summary__value">{createdMatchSummary.visibilityLabel}</span>
+                <span className="review-summary__hint">{createdMatchSummary.visibilityDescription}</span>
               </div>
             </div>
             <div className="review-summary__item review-summary__item--link" role="listitem">
               <div className="review-summary__content">
                 <span className="review-summary__label">Share link</span>
                 <div className="review-summary__link">
-                  <code>{reviewSummary.shareLink}</code>
+                  <code>{createdMatchSummary.shareLink}</code>
                   <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
                     <Copy size={16} aria-hidden="true" />
                     Copy
@@ -243,30 +204,17 @@ const CreateMatchReviewPage = () => {
         </section>
 
         <div className="create-match-actions">
-          {!isPublished ? (
-            <>
-              <button type="button" className="create-match-actions__secondary" onClick={handleEditSettings}>
-                Back to settings
-              </button>
-              <button
-                type="button"
-                className="create-match-actions__primary"
-                onClick={handlePublish}
-                disabled={isPublishing}
-              >
-                {isPublishing ? "Publishing…" : "Publish match"}
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className="create-match-actions__secondary" onClick={handleEditDetails}>
-                Create another match
-              </button>
-              <button type="button" className="create-match-actions__primary" onClick={handleViewMatch}>
-                View match
-              </button>
-            </>
-          )}
+          <button type="button" className="create-match-actions__secondary" onClick={handleEditSettings}>
+            Back to settings
+          </button>
+          <button
+            type="button"
+            className="create-match-actions__primary"
+            onClick={handlePublish}
+            disabled={isPublishing}
+          >
+            {isPublishing ? "Publishing…" : "Publish match"}
+          </button>
         </div>
       </div>
     </MainLayout>
