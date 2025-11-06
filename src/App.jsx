@@ -2,6 +2,10 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-d
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import BrowseMatchesPage from "./pages/BrowseMatchesPage";
+import CreateMatchPage from "./pages/CreateMatchPage";
+import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
+import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
+import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -77,6 +81,38 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <BrowseMatchesPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create"
+      element={(
+        <ProtectedRoute>
+          <CreateMatchPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create/settings"
+      element={(
+        <ProtectedRoute>
+          <CreateMatchSettingsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create/review"
+      element={(
+        <ProtectedRoute>
+          <CreateMatchReviewPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/matches/create/published"
+      element={(
+        <ProtectedRoute>
+          <CreateMatchPublishConfirmationPage />
         </ProtectedRoute>
       )}
     />
