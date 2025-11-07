@@ -5,6 +5,8 @@ import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { updatePlayerPersonalDetails } from "../services/player";
 
+import "./ProfileManager.css";
+
 const emptyDetails = {
   id: null,
   full_name: "",
@@ -16,16 +18,29 @@ const emptyDetails = {
   about_me: "",
 };
 
-const ProfileManager = ({ isOpen, onClose }) => {
+const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
   const [details, setDetails] = useState(emptyDetails);
   const [phoneInput, setPhoneInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [imagePreview, setImagePreview] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const accessToken = localStorage.getItem("authToken");
+  const isPage = variant === "page";
 
   useEffect(() => {
+    if (isPage) {
+      fetchDetails();
+      return () => {
+        setDetails(emptyDetails);
+        setPhoneInput("");
+        setError("");
+        setImagePreview("");
+        setSuccessMessage("");
+      };
+    }
+
     if (isOpen) {
       fetchDetails();
     } else {
@@ -33,8 +48,9 @@ const ProfileManager = ({ isOpen, onClose }) => {
       setPhoneInput("");
       setError("");
       setImagePreview("");
+      setSuccessMessage("");
     }
-  }, [isOpen]);
+  }, [isOpen, isPage]);
 
   const fetchDetails = async ({ showLoader = true } = {}) => {
     try {
@@ -83,6 +99,7 @@ const ProfileManager = ({ isOpen, onClose }) => {
   const handleUpdate = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
     setSaving(true);
     if (!details.id) {
       setSaving(false);
@@ -115,7 +132,12 @@ const ProfileManager = ({ isOpen, onClose }) => {
         mobile: sanitizedPhone ? sanitizedPhone : null,
         about_me: aboutMe || null,
       });
-      onClose();
+      if (isPage) {
+        setSuccessMessage("Profile updated successfully.");
+        fetchDetails({ showLoader: false });
+      } else {
+        onClose?.();
+      }
     } catch (err) {
       console.error(err);
       setError(
@@ -128,205 +150,228 @@ const ProfileManager = ({ isOpen, onClose }) => {
     }
   };
 
-  if (!isOpen) return null;
+  if (!isPage && !isOpen) return null;
+
+  const HeaderContent = (
+    <div className="profile-manager__header">
+      <div className="profile-manager__title-group">
+        <div className="profile-manager__avatar">
+          <UserRound className="profile-manager__avatar-icon" aria-hidden="true" />
+        </div>
+        <div>
+          <h2 className="profile-manager__title">Player profile</h2>
+          <p className="profile-manager__subtitle">Keep your personal information up to date</p>
+        </div>
+      </div>
+      {!isPage && (
+        <button
+          onClick={onClose}
+          type="button"
+          className="profile-manager__close"
+          aria-label="Close profile manager"
+        >
+          <X aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+
+  const FormContent = (
+    <form onSubmit={handleUpdate} className="profile-manager__form">
+      {loading ? (
+        <div className="profile-manager__loading">
+          <Loader2 className="profile-manager__spinner" aria-hidden="true" />
+        </div>
+      ) : (
+        <>
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-full-name">
+              Full name
+            </label>
+            <input
+              id="profile-full-name"
+              className="profile-manager__input"
+              type="text"
+              placeholder="Jane Doe"
+              value={details.full_name}
+              onChange={(e) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  full_name: e.target.value,
+                }))
+              }
+              autoFocus
+            />
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-mobile">
+              Mobile number
+            </label>
+            <input
+              id="profile-mobile"
+              className="profile-manager__input"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phoneInput}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              maxLength={14}
+              inputMode="tel"
+            />
+            <p className="profile-manager__helper">We&apos;ll use this number to share match reminders.</p>
+          </div>
+
+          <div className="profile-manager__field profile-manager__field--photo">
+            <label className="profile-manager__label" htmlFor="profile-photo">
+              Profile photo
+            </label>
+            <div className="profile-manager__photo-row">
+              <div className="profile-manager__photo-preview" aria-hidden={!imagePreview}>
+                <div className="profile-manager__photo-frame">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Profile preview" />
+                  ) : (
+                    <UserRound className="profile-manager__photo-fallback" aria-hidden="true" />
+                  )}
+                </div>
+              </div>
+              <div className="profile-manager__photo-actions">
+                <ProfilePhotoUploader
+                  accessToken={accessToken}
+                  onUploaded={() => fetchDetails({ showLoader: false })}
+                  className="profile-manager__upload"
+                  disabledLabel="Uploading…"
+                  label="Upload from device"
+                  errorClassName="profile-manager__upload-error"
+                />
+                <p className="profile-manager__helper">JPG or PNG, up to 5MB. We&apos;ll resize it for your profile.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-dob">
+              Date of birth
+            </label>
+            <input
+              id="profile-dob"
+              className="profile-manager__input"
+              type="date"
+              value={details.date_of_birth}
+              onChange={(e) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  date_of_birth: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          <div className="profile-manager__rating-grid">
+            <div className="profile-manager__field">
+              <label className="profile-manager__label" htmlFor="profile-usta">
+                USTA rating
+              </label>
+              <input
+                id="profile-usta"
+                className="profile-manager__input"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                placeholder="e.g. 3.5"
+                value={details.usta_rating}
+                onChange={(e) =>
+                  setDetails((prev) => ({
+                    ...prev,
+                    usta_rating: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="profile-manager__field">
+              <label className="profile-manager__label" htmlFor="profile-uta">
+                UTA rating
+              </label>
+              <input
+                id="profile-uta"
+                className="profile-manager__input"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                placeholder="e.g. 7.0"
+                value={details.uta_rating}
+                onChange={(e) =>
+                  setDetails((prev) => ({
+                    ...prev,
+                    uta_rating: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-about">
+              About me
+            </label>
+            <textarea
+              id="profile-about"
+              className="profile-manager__textarea"
+              rows={4}
+              placeholder="Share a quick introduction for other players"
+              value={details.about_me}
+              onChange={(e) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  about_me: e.target.value,
+                }))
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {error && <div className="profile-manager__alert profile-manager__alert--error">{error}</div>}
+
+      <div className="profile-manager__actions">
+        {!isPage && (
+          <button type="button" onClick={onClose} className="profile-manager__secondary">
+            Cancel
+          </button>
+        )}
+        <button type="submit" disabled={saving || loading} className="profile-manager__primary">
+          {saving ? (
+            <>
+              <Loader2 className="profile-manager__primary-spinner" aria-hidden="true" />
+              Saving
+            </>
+          ) : (
+            "Save"
+          )}
+        </button>
+      </div>
+    </form>
+  );
+
+  if (isPage) {
+    return (
+      <div className="profile-manager profile-manager--page">
+        {successMessage && <div className="profile-manager__alert profile-manager__alert--success">{successMessage}</div>}
+        <div className="profile-manager__card">
+          {HeaderContent}
+          {FormContent}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 sm:p-6">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-4rem)]">
-        <div className="flex items-start justify-between px-4 py-4 sm:px-6 sm:py-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center shadow-lg">
-              <UserRound className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-gray-900">Player Profile</h2>
-              <p className="text-sm font-medium text-gray-500">
-                Keep your personal information up to date
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
-            aria-label="Close profile manager"
-          >
-            <X className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
-
-        <form
-          onSubmit={handleUpdate}
-          className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 space-y-5"
-        >
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                  Full Name
-                </label>
-                <input
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-semibold text-gray-800"
-                  type="text"
-                  placeholder="Jane Doe"
-                  value={details.full_name}
-                  onChange={(e) =>
-                    setDetails((prev) => ({
-                      ...prev,
-                      full_name: e.target.value,
-                    }))
-                  }
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                  Mobile Number
-                </label>
-                <input
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-semibold text-gray-800"
-                  type="tel"
-                  placeholder="(555) 123-4567"
-                  value={phoneInput}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  maxLength={14}
-                  inputMode="tel"
-                />
-                <p className="text-xs font-semibold text-gray-500">
-                  We'll use this number to share match reminders.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                  Profile Photo
-                </label>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-                  <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 p-[3px]">
-                    <div className="w-full h-full rounded-[14px] bg-white flex items-center justify-center overflow-hidden">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Profile preview"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <UserRound className="w-8 h-8 text-emerald-500" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2 w-full">
-                    <ProfilePhotoUploader
-                      accessToken={accessToken}
-                      onUploaded={() => fetchDetails({ showLoader: false })}
-                      className="px-4 py-2 rounded-xl font-bold text-white bg-gradient-to-r from-emerald-500 to-green-500 shadow hover:shadow-md transition-shadow inline-flex items-center justify-center cursor-pointer"
-                      disabledLabel="Uploading…"
-                      label="Upload from device"
-                      errorClassName="text-sm font-semibold text-red-600"
-                    />
-                    <p className="text-xs font-semibold text-gray-500">
-                      JPG or PNG, up to 5MB. We'll resize it to fit nicely in the app.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                  Date of Birth
-                </label>
-                <input
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-semibold text-gray-800"
-                  type="date"
-                  value={details.date_of_birth}
-                  onChange={(e) =>
-                    setDetails((prev) => ({
-                      ...prev,
-                      date_of_birth: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                    USTA Rating
-                  </label>
-                  <input
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-semibold text-gray-800"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    min="0"
-                    placeholder="e.g. 3.5"
-                    value={details.usta_rating}
-                    onChange={(e) =>
-                      setDetails((prev) => ({
-                        ...prev,
-                        usta_rating: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-gray-700 uppercase tracking-wider">
-                    UTA Rating
-                  </label>
-                  <input
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-semibold text-gray-800"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    min="0"
-                    placeholder="e.g. 7.0"
-                    value={details.uta_rating}
-                    onChange={(e) =>
-                      setDetails((prev) => ({
-                        ...prev,
-                        uta_rating: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-              {error}
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || loading}
-              className="px-5 py-2.5 rounded-xl font-black text-white bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving
-                </>
-              ) : (
-                "Save"
-              )}
-            </button>
-          </div>
-        </form>
+    <div className="profile-manager__modal" role="dialog" aria-modal="true">
+      <div className="profile-manager__modal-card">
+        {HeaderContent}
+        {FormContent}
       </div>
     </div>
   );
