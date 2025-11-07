@@ -1,17 +1,19 @@
 .find-players-page {
   min-height: 100vh;
   background-color: var(--fc-color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
 .find-players-page__inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 48px 48px 72px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   font-family: var(--fc-font-family);
   color: var(--fc-color-text-primary);
+  padding: 0 0 72px;
 }
 
 .players-results-grid {
@@ -308,7 +310,7 @@
 
 @media (max-width: 768px) {
   .find-players-page__inner {
-    padding: 32px 20px 48px;
+    padding: 0 20px 48px;
   }
 
   .fp-card {
