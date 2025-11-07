@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Apple,
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   ExternalLink,
   MapPin,
   MessageCircle,
+  Phone,
   Share2,
   Users,
 } from "lucide-react";
@@ -18,6 +20,7 @@ import MainLayout from "../components/MainLayout";
 import { createdMatchSummary } from "../data/mockCreateMatch";
 
 import "./CreateMatchPage.css";
+import "./CreatePrivateMatchInvitePage.css";
 
 const formatDateForCalendar = (isoString: string) => {
   const normalized = new Date(isoString);
@@ -30,6 +33,7 @@ const CreateMatchPublishConfirmationPage = () => {
   const eventLocation = `${createdMatchSummary.locationName}, ${createdMatchSummary.locationDetail}`;
   const calendarDetails = `Hosted by ${createdMatchSummary.hostName}. ${createdMatchSummary.formatLabel} • ${createdMatchSummary.skillLevelLabel}. ${createdMatchSummary.notes} RSVP: ${createdMatchSummary.shareLink}`;
   const shareMessage = `Join me for ${createdMatchSummary.title} on ${createdMatchSummary.dateLabel} at ${createdMatchSummary.timeLabel} at ${createdMatchSummary.locationName}. RSVP: ${createdMatchSummary.shareLink}`;
+  const rosterInvitees = [createdMatchSummary.hostInvitee, ...createdMatchSummary.invitedPlayers];
 
   const googleCalendarUrl = useMemo(() => {
     const start = formatDateForCalendar(createdMatchSummary.startDateTime);
@@ -95,9 +99,168 @@ const CreateMatchPublishConfirmationPage = () => {
     navigate("/matches/create");
   };
 
+  const handleGoHome = () => {
+    navigate("/");
+  };
+
+  const handleViewMatchDetails = () => {
+    navigate(`/matches/${createdMatchSummary.id}`);
+  };
+
   const handleViewMatches = () => {
     navigate("/matches");
   };
+
+  if (createdMatchSummary.isPrivate) {
+    return (
+      <MainLayout>
+        <div className="create-match-page">
+          <div className="create-match-page__header create-match-page__header--centered">
+            <div className="private-success-hero" aria-live="polite">
+              <span className="private-success-hero__icon" aria-hidden="true">
+                <CheckCircle2 size={36} />
+              </span>
+              <h1>Private match created!</h1>
+              <p>Invitations have been sent to your selected players.</p>
+            </div>
+          </div>
+
+          <section className="create-match-card private-summary-card" aria-labelledby="private-summary-heading">
+            <div className="private-summary-card__header">
+              <div>
+                <p className="private-summary-card__eyebrow">{createdMatchSummary.title}</p>
+                <h2 id="private-summary-heading">{createdMatchSummary.formatLabel}</h2>
+              </div>
+              <span className="private-summary-card__badge">Private</span>
+            </div>
+            <div className="private-summary-card__schedule">
+              <div className="private-summary-card__schedule-item">
+                <CalendarDays size={18} aria-hidden="true" />
+                <span>{createdMatchSummary.dateLabel}</span>
+              </div>
+              <div className="private-summary-card__schedule-item">
+                <Clock size={18} aria-hidden="true" />
+                <span>{createdMatchSummary.timeLabel}</span>
+              </div>
+            </div>
+            <div className="private-summary-card__meta">
+              <div className="private-summary-card__detail">
+                <MapPin size={18} aria-hidden="true" />
+                <div>
+                  <span className="private-summary-card__detail-label">{createdMatchSummary.locationName}</span>
+                  <span className="private-summary-card__detail-hint">{createdMatchSummary.locationDetail}</span>
+                </div>
+              </div>
+              <div className="private-summary-card__detail">
+                <Users size={18} aria-hidden="true" />
+                <div>
+                  <span className="private-summary-card__detail-label">{createdMatchSummary.inviteSummaryLabel}</span>
+                  <span className="private-summary-card__detail-hint">{createdMatchSummary.inviteNeedsLabel}</span>
+                </div>
+              </div>
+            </div>
+            <div className="private-summary-card__notice">
+              <div className="private-summary-card__notice-icon" aria-hidden="true">
+                <Phone size={18} />
+              </div>
+              <div>
+                <span className="private-summary-card__notice-title">Invites sent via SMS</span>
+                <p className="private-summary-card__notice-copy">
+                  Selected players receive a private link in their text message. No shared link is available for private matches.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="create-match-card" aria-labelledby="private-roster-heading">
+            <div className="create-match-card__header">
+              <div>
+                <h2 id="private-roster-heading">Invited players</h2>
+                <p className="create-match-card__subtitle">Keep tabs on who has confirmed so you can fill any remaining spots.</p>
+              </div>
+              <div className="invite-summary" aria-live="polite">
+                <span className="invite-summary__count">{createdMatchSummary.inviteSummaryLabel}</span>
+                <span className="invite-summary__helper">{createdMatchSummary.inviteNeedsLabel}</span>
+              </div>
+            </div>
+
+            <div className="invitee-list">
+              {rosterInvitees.map((player) => (
+                <div key={player.id} className="invitee-row">
+                  <div className="invitee-row__details">
+                    <div
+                      className={`invitee-avatar${player.avatarUrl ? " invitee-avatar--image" : ""}`}
+                      aria-hidden="true"
+                    >
+                      {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                    </div>
+                    <div className="invitee-row__text">
+                      <span className="invitee-row__name">{player.name}</span>
+                      <span className="invitee-row__meta">{player.relationshipLabel}</span>
+                    </div>
+                  </div>
+                  <div className="invitee-row__actions">
+                    <span className={`invitee-status invitee-status--${player.statusTone}`}>{player.statusLabel}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="create-match-card private-calendar-card" aria-labelledby="private-calendar-heading">
+            <div>
+              <h2 id="private-calendar-heading">Add to calendar</h2>
+              <p className="create-match-card__subtitle">Keep the court time on everyone&apos;s radar.</p>
+            </div>
+            <div className="private-calendar-grid" role="list">
+              <a className="private-calendar-button" href={googleCalendarUrl} target="_blank" rel="noreferrer">
+                <div className="private-calendar-button__icon" aria-hidden="true">
+                  <CalendarPlus size={18} />
+                </div>
+                <div className="private-calendar-button__content">
+                  <span className="private-calendar-button__label">Google</span>
+                  <span className="private-calendar-button__hint">Create a Google Calendar event</span>
+                </div>
+                <ExternalLink size={16} aria-hidden="true" />
+              </a>
+              <a className="private-calendar-button" href={icsDownloadUrl} download={`${createdMatchSummary.id}.ics`}>
+                <div className="private-calendar-button__icon" aria-hidden="true">
+                  <Apple size={18} />
+                </div>
+                <div className="private-calendar-button__content">
+                  <span className="private-calendar-button__label">Apple</span>
+                  <span className="private-calendar-button__hint">Download an .ics file</span>
+                </div>
+                <Download size={16} aria-hidden="true" />
+              </a>
+              <a className="private-calendar-button" href={outlookCalendarUrl} target="_blank" rel="noreferrer">
+                <div className="private-calendar-button__icon" aria-hidden="true">
+                  <CalendarDays size={18} />
+                </div>
+                <div className="private-calendar-button__content">
+                  <span className="private-calendar-button__label">Outlook</span>
+                  <span className="private-calendar-button__hint">Schedule from Outlook on web</span>
+                </div>
+                <ExternalLink size={16} aria-hidden="true" />
+              </a>
+            </div>
+            <button type="button" className="private-calendar-primary" onClick={handleViewMatchDetails}>
+              View match details
+            </button>
+          </section>
+
+          <div className="create-match-actions">
+            <button type="button" className="create-match-actions__secondary" onClick={handleGoHome}>
+              Back to home
+            </button>
+            <button type="button" className="create-match-actions__primary" onClick={handleCreateAnother}>
+              Create another match
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

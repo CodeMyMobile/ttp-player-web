@@ -1,3 +1,13 @@
+export type MatchInvitee = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  initials: string;
+  relationshipLabel: string;
+  statusLabel: string;
+  statusTone: "host" | "sms" | "pending" | "guest" | "confirmed";
+};
+
 export type CreatedMatchSummary = {
   id: string;
   title: string;
@@ -19,27 +29,67 @@ export type CreatedMatchSummary = {
   startDateTime: string;
   endDateTime: string;
   timezone: string;
+  isPrivate: boolean;
+  hostInvitee: MatchInvitee;
+  inviteSummaryLabel: string;
+  inviteNeedsLabel: string;
+  invitedPlayers: MatchInvitee[];
 };
 
 export const createdMatchSummary: CreatedMatchSummary = {
   id: "sunset-rally-penmar",
   title: "Sunset rally at Penmar",
-  matchType: "Open match",
+  matchType: "Private match",
   hostName: "Jordan Lee",
-  dateLabel: "Fri, Apr 26",
+  dateLabel: "Fri, Nov 7",
   timeLabel: "6:00 PM – 8:00 PM",
   locationName: "Penmar Recreation Center",
   locationDetail: "Venice, CA",
-  playersNeededLabel: "You + 3 players",
-  skillLevelLabel: "3.0 – 3.5 NTRP",
-  skillDescription: "Consistent baseline play",
-  formatLabel: "Doubles",
+  playersNeededLabel: "4 players needed",
+  skillLevelLabel: "All levels welcome",
+  skillDescription: "Private roster only",
+  formatLabel: "Doubles Match",
   courtLabel: "Court 4",
   notes: "Bring a new can of balls and arrive 10 minutes early.",
-  visibilityLabel: "Public link",
-  visibilityDescription: "Appears in match search and accepts requests.",
+  visibilityLabel: "Private invitations",
+  visibilityDescription: "Invites are delivered with unique SMS links.",
   shareLink: "https://ttp.tennis/matches/sunset-rally",
   startDateTime: "2024-04-27T01:00:00.000Z",
   endDateTime: "2024-04-27T03:00:00.000Z",
   timezone: "America/Los_Angeles",
+  isPrivate: true,
+  hostInvitee: {
+    id: "host",
+    name: "Jordan Lee",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1604187351465-a63f69b47032?auto=format&fit=facearea&facepad=2&w=400&h=400&q=80",
+    initials: "JL",
+    relationshipLabel: "Organizer",
+    statusLabel: "Confirmed",
+    statusTone: "host",
+  },
+  inviteSummaryLabel: "2 players invited",
+  inviteNeedsLabel: "4 needed",
+  invitedPlayers: [
+    {
+      id: "grant-hawkins",
+      name: "Grant Hawkins",
+      avatarUrl:
+        "https://images.unsplash.com/photo-1618005198919-d3d4b5a92eee?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
+      initials: "GH",
+      relationshipLabel: "Frequent teammate • 4.0 NTRP",
+      statusLabel: "SMS sent",
+      statusTone: "sms",
+    },
+    {
+      id: "lena-kim",
+      name: "Lena Kim",
+      avatarUrl:
+        "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
+      initials: "LK",
+      relationshipLabel: "Played last week",
+      statusLabel: "Awaiting RSVP",
+      statusTone: "pending",
+    },
+  ],
 };

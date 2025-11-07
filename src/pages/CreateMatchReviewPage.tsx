@@ -15,10 +15,13 @@ import MainLayout from "../components/MainLayout";
 import { createdMatchSummary } from "../data/mockCreateMatch";
 
 import "./CreateMatchPage.css";
+import "./CreatePrivateMatchInvitePage.css";
 
 const CreateMatchReviewPage = () => {
   const navigate = useNavigate();
   const [isPublishing, setIsPublishing] = useState(false);
+  const inviteRoster = [createdMatchSummary.hostInvitee, ...createdMatchSummary.invitedPlayers];
+  const showInvitedPlayers = createdMatchSummary.invitedPlayers.length > 0;
 
   const handleEditDetails = () => {
     navigate("/matches/create");
@@ -42,6 +45,10 @@ const CreateMatchReviewPage = () => {
     }, 900);
   };
 
+  const pageSubtitle = createdMatchSummary.isPrivate
+    ? "Review your private roster, confirm the essentials, and publish when everything looks good."
+    : "Confirm the essentials, share the match link, and publish when you're ready. You can always edit the details after publishing.";
+
   return (
     <MainLayout>
       <div className="create-match-page">
@@ -49,10 +56,7 @@ const CreateMatchReviewPage = () => {
           <div>
             <p className="create-match-page__eyebrow">Create a Match</p>
             <h1 className="create-match-page__title">Review &amp; publish</h1>
-            <p className="create-match-page__subtitle">
-              Confirm the essentials, share the match link, and publish when you&apos;re ready. You can always edit the
-              details after publishing.
-            </p>
+            <p className="create-match-page__subtitle">{pageSubtitle}</p>
           </div>
           <div className="create-match-page__progress" aria-label="Match creation progress">
             <div className="progress-step progress-step--complete">
@@ -62,7 +66,9 @@ const CreateMatchReviewPage = () => {
             <div className="progress-connector" aria-hidden="true" />
             <div className="progress-step progress-step--complete">
               <span className="progress-step__number">2</span>
-              <span className="progress-step__label">Match settings</span>
+              <span className="progress-step__label">
+                {createdMatchSummary.isPrivate ? "Invite players" : "Match settings"}
+              </span>
             </div>
             <div className="progress-connector" aria-hidden="true" />
             <div className="progress-step progress-step--active">
@@ -169,6 +175,45 @@ const CreateMatchReviewPage = () => {
           </div>
         </section>
 
+        {showInvitedPlayers && (
+          <section className="create-match-card" aria-labelledby="review-invitees-heading">
+            <div className="create-match-card__header">
+              <div>
+                <h2 id="review-invitees-heading">Invited players</h2>
+                <p className="create-match-card__subtitle">
+                  SMS invites are on their way. Track responses here before you send any updates.
+                </p>
+              </div>
+              <div className="invite-summary" aria-live="polite">
+                <span className="invite-summary__count">{createdMatchSummary.inviteSummaryLabel}</span>
+                <span className="invite-summary__helper">{createdMatchSummary.inviteNeedsLabel}</span>
+              </div>
+            </div>
+
+            <div className="invitee-list">
+              {inviteRoster.map((player) => (
+                <div key={player.id} className="invitee-row">
+                  <div className="invitee-row__details">
+                    <div
+                      className={`invitee-avatar${player.avatarUrl ? " invitee-avatar--image" : ""}`}
+                      aria-hidden="true"
+                    >
+                      {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                    </div>
+                    <div className="invitee-row__text">
+                      <span className="invitee-row__name">{player.name}</span>
+                      <span className="invitee-row__meta">{player.relationshipLabel}</span>
+                    </div>
+                  </div>
+                  <div className="invitee-row__actions">
+                    <span className={`invitee-status invitee-status--${player.statusTone}`}>{player.statusLabel}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="create-match-card" aria-labelledby="review-share-heading">
           <div className="review-summary__header">
             <div>
@@ -188,18 +233,20 @@ const CreateMatchReviewPage = () => {
                 <span className="review-summary__hint">{createdMatchSummary.visibilityDescription}</span>
               </div>
             </div>
-            <div className="review-summary__item review-summary__item--link" role="listitem">
-              <div className="review-summary__content">
-                <span className="review-summary__label">Share link</span>
-                <div className="review-summary__link">
-                  <code>{createdMatchSummary.shareLink}</code>
-                  <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
-                    <Copy size={16} aria-hidden="true" />
-                    Copy
-                  </button>
+            {!createdMatchSummary.isPrivate && (
+              <div className="review-summary__item review-summary__item--link" role="listitem">
+                <div className="review-summary__content">
+                  <span className="review-summary__label">Share link</span>
+                  <div className="review-summary__link">
+                    <code>{createdMatchSummary.shareLink}</code>
+                    <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
+                      <Copy size={16} aria-hidden="true" />
+                      Copy
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 
