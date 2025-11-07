@@ -5,9 +5,19 @@ export type MatchInvitee = {
   initials: string;
   relationshipLabel: string;
   statusLabel: string;
-  statusTone: "host" | "sms" | "pending" | "guest" | "confirmed";
+  statusTone: "host" | "sms" | "pending" | "guest" | "confirmed" | "declined";
   phoneNumber?: string;
   statusDescription?: string;
+};
+
+export type RecommendedPlayer = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  initials: string;
+  relationshipLabel: string;
+  availabilityLabel: string;
+  phoneNumber: string;
 };
 
 export type CreatedMatchSummary = {
@@ -42,6 +52,7 @@ export type CreatedMatchSummary = {
   rosterRemainingLabel: string;
   manageCopy: string;
   manageHelper: string;
+  recommendedPlayers: RecommendedPlayer[];
 };
 
 export const createdMatchSummary: CreatedMatchSummary = {
@@ -105,6 +116,17 @@ export const createdMatchSummary: CreatedMatchSummary = {
       phoneNumber: "(626) 555-0196",
       statusDescription: "Waiting for confirmation",
     },
+    {
+      id: "brandon-lowe",
+      name: "Brandon Lowe",
+      avatarUrl: null,
+      initials: "BL",
+      relationshipLabel: "Last played 2 weeks ago",
+      statusLabel: "Declined",
+      statusTone: "declined",
+      phoneNumber: "(323) 555-0143",
+      statusDescription: "Can't make this match",
+    },
   ],
   rosterHeaderLabel: "Players (4 max)",
   rosterCapacity: 4,
@@ -112,4 +134,35 @@ export const createdMatchSummary: CreatedMatchSummary = {
   rosterRemainingLabel: "3 spots remaining",
   manageCopy: "Review the schedule and match information before your players arrive.",
   manageHelper: "Edit match details to adjust timing, notes, or court assignments.",
+  recommendedPlayers: [
+    {
+      id: "maya-chen",
+      name: "Maya Chen",
+      avatarUrl:
+        "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=facearea&facepad=3&w=300&h=300&q=80",
+      initials: "MC",
+      relationshipLabel: "Played doubles with you last month",
+      availabilityLabel: "Usually free weeknights",
+      phoneNumber: "(424) 555-0177",
+    },
+    {
+      id: "darius-evans",
+      name: "Darius Evans",
+      avatarUrl:
+        "https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=facearea&facepad=2&w=300&h=300&q=80",
+      initials: "DE",
+      relationshipLabel: "Suggested by Jordan Lee",
+      availabilityLabel: "Open this Friday",
+      phoneNumber: "(818) 555-0132",
+    },
+    {
+      id: "nina-ruiz",
+      name: "Nina Ruiz",
+      avatarUrl: null,
+      initials: "NR",
+      relationshipLabel: "Frequent rally partner",
+      availabilityLabel: "Typically responds same day",
+      phoneNumber: "(562) 555-0184",
+    },
+  ],
 };
