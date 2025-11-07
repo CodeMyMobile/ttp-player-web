@@ -162,7 +162,11 @@ const BrowseMatchesPage = () => {
                   <footer className="match-card__footer">
                     {isHost ? (
                       <>
-                        <button type="button" className="match-action primary">
+                        <button
+                          type="button"
+                          className="match-action primary"
+                          onClick={() => navigate(`/matches/${match.id}`)}
+                        >
                           View &amp; manage
                         </button>
                         <button type="button" className="match-action" disabled>
@@ -172,7 +176,11 @@ const BrowseMatchesPage = () => {
                       </>
                     ) : isParticipant ? (
                       <>
-                        <button type="button" className="match-action">
+                        <button
+                          type="button"
+                          className="match-action"
+                          onClick={() => navigate(`/matches/${match.id}`)}
+                        >
                           View match
                         </button>
                         <button type="button" className="match-action primary">
@@ -181,7 +189,11 @@ const BrowseMatchesPage = () => {
                         </button>
                       </>
                     ) : (
-                      <button type="button" className="match-action primary">
+                      <button
+                        type="button"
+                        className="match-action primary"
+                        onClick={() => navigate(`/matches/${match.id}`)}
+                      >
                         View match
                       </button>
                     )}
