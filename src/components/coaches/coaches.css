@@ -4,9 +4,8 @@
 }
 
 .find-coaches-page__inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 48px 48px 72px;
+  width: 100%;
+  padding: 0 0 72px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -678,17 +677,15 @@
   }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .find-coaches-page__inner {
-    padding: 48px 40px 72px;
+    padding: 0 24px 64px;
   }
 
   .coach-grid {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   }
-}
 
-@media (max-width: 900px) {
   .fc-header {
     flex-direction: column;
     gap: 32px;
@@ -719,7 +716,7 @@
 
 @media (max-width: 640px) {
   .find-coaches-page__inner {
-    padding: 40px 24px 64px;
+    padding: 0 20px 56px;
   }
 
   .fc-filter {
