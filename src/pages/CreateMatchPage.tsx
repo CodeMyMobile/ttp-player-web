@@ -105,13 +105,17 @@ const CreateMatchPage = () => {
     navigate(-1);
   };
 
+  const isPrivateMatch = matchType === "private";
+
   return (
     <MainLayout>
       <div className="create-match-page">
         <div className="create-match-page__header">
           <div>
             <p className="create-match-page__eyebrow">Create a Match</p>
-            <h1 className="create-match-page__title">Open match details</h1>
+            <h1 className="create-match-page__title">
+              {isPrivateMatch ? "Private match details" : "Open match details"}
+            </h1>
             <p className="create-match-page__subtitle">
               Set the basics for your match. You can fine-tune the rest before publishing.
             </p>
@@ -124,7 +128,9 @@ const CreateMatchPage = () => {
             <div className="progress-connector" aria-hidden="true" />
             <div className="progress-step progress-step--upcoming">
               <span className="progress-step__number">2</span>
-              <span className="progress-step__label">Match settings</span>
+              <span className="progress-step__label">
+                {isPrivateMatch ? "Invite players" : "Match settings"}
+              </span>
             </div>
             <div className="progress-connector" aria-hidden="true" />
             <div className="progress-step progress-step--upcoming">
@@ -344,7 +350,9 @@ const CreateMatchPage = () => {
           <button
             type="button"
             className="create-match-actions__primary"
-            onClick={() => navigate("/matches/create/settings")}
+            onClick={() =>
+              navigate(isPrivateMatch ? "/matches/create/private/invite" : "/matches/create/settings")
+            }
           >
             Next
           </button>
