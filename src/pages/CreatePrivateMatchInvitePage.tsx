@@ -1,17 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Check,
-  Mail,
-  Phone,
-  Plus,
-  Search,
-  Trophy,
-  User,
-  UserPlus,
-  Users,
-  X,
-} from "lucide-react";
+import { Check, Phone, Plus, Search, Trophy, User, UserPlus, Users, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -36,7 +25,6 @@ type GuestFormState = {
   firstName: string;
   lastName: string;
   phone: string;
-  email: string;
 };
 
 type FormatOption = {
@@ -64,7 +52,6 @@ const guestFormInitialState: GuestFormState = {
   firstName: "",
   lastName: "",
   phone: "",
-  email: "",
 };
 
 const quickAddPlayers = mockPlayers.slice(0, 5);
@@ -87,6 +74,18 @@ const formatOptions: FormatOption[] = [
     title: "Round robin",
     description: "Rotate partners across mini-sets.",
     icon: <Trophy size={22} />,
+  },
+  {
+    value: "dingles",
+    title: "Dingles",
+    description: "Rotate single players on two courts.",
+    icon: <UserPlus size={22} />,
+  },
+  {
+    value: "other",
+    title: "Other",
+    description: "Share your custom match setup.",
+    icon: <Plus size={22} />,
   },
 ];
 
@@ -448,29 +447,16 @@ const CreatePrivateMatchInvitePage = () => {
                   />
                 </div>
               </label>
-              <label className="input-field" htmlFor="guest-email">
-                <span className="input-field__label">Email <span aria-hidden="true">(optional)</span></span>
-                <div className="input-wrapper">
-                  <Mail size={18} aria-hidden />
-                  <input
-                    id="guest-email"
-                    type="email"
-                    placeholder="Add email if available"
-                    value={guestForm.email}
-                    onChange={(event) => handleGuestInputChange("email", event.target.value)}
-                  />
-                </div>
-              </label>
             </div>
             <div className="guest-invite__footer">
-              <p>New players without email will still receive an SMS invite instantly.</p>
+              <p>New players will receive an SMS invite instantly.</p>
               <button
                 type="button"
                 className="guest-invite__submit"
                 onClick={handleAddGuest}
                 disabled={!canSubmitGuest}
               >
-                Create invite link
+                Send invite
               </button>
             </div>
           </div>
