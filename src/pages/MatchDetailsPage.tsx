@@ -53,12 +53,12 @@ const MatchDetailsPage = () => {
       <div className="match-details-page">
         <header className="match-details-page__header">
           <div className="match-details-page__header-content">
-            <p className="match-details-page__eyebrow">{createdMatchSummary.title}</p>
+            <p className="match-details-page__eyebrow">{createdMatchSummary.locationName}</p>
             <h1>{createdMatchSummary.matchType}</h1>
             <div className="match-details-page__meta" aria-live="polite">
               <span className="match-details-page__chip">
                 <ShieldCheck size={14} aria-hidden="true" />
-                {createdMatchSummary.matchType}
+                {createdMatchSummary.visibilityLabel}
               </span>
               <span className="match-details-page__meta-item">
                 Hosted by {createdMatchSummary.hostName}
@@ -202,6 +202,12 @@ const MatchDetailsPage = () => {
                       <div className="match-details-roster__body">
                         <p className="match-details-roster__name">{player.name}</p>
                         <p className="match-details-roster__detail">{player.statusDescription ?? player.statusLabel}</p>
+                        {player.phoneNumber && (
+                          <p className="match-details-roster__contact">
+                            <Phone size={14} aria-hidden="true" />
+                            <span>{player.phoneNumber}</span>
+                          </p>
+                        )}
                       </div>
                       <span
                         className={`match-details-roster__status match-details-roster__status--${player.statusTone}`}
@@ -236,6 +242,12 @@ const MatchDetailsPage = () => {
                       <div className="match-details-roster__body">
                         <p className="match-details-roster__name">{player.name}</p>
                         <p className="match-details-roster__detail">{player.statusDescription ?? player.statusLabel}</p>
+                        {player.phoneNumber && (
+                          <p className="match-details-roster__contact">
+                            <Phone size={14} aria-hidden="true" />
+                            <span>{player.phoneNumber}</span>
+                          </p>
+                        )}
                       </div>
                       <span className="match-details-roster__status match-details-roster__status--declined">
                         {player.statusLabel}
@@ -253,7 +265,7 @@ const MatchDetailsPage = () => {
               <div className="match-details-panel__content">
                 <p className="match-details-panel__eyebrow">Need more players?</p>
                 <h2 id="match-invite-heading">Send a direct invite</h2>
-                <p>Share the private invite link or text players individually to round out your roster.</p>
+                <p>Reach out directly to fill spots with teammates you already know.</p>
               </div>
               <button
                 type="button"
@@ -292,17 +304,40 @@ const MatchDetailsPage = () => {
               </button>
             </section>
 
-            <section className="match-details-sidebar" aria-labelledby="match-visibility-heading">
-              <div className="match-details-sidebar__header">
-                <p className="match-details-sidebar__eyebrow">Visibility</p>
-                <h2 id="match-visibility-heading">Private match link</h2>
-              </div>
-              <p>{createdMatchSummary.visibilityDescription}</p>
-              <div className="match-details-sidebar__link">
-                <span>{createdMatchSummary.shareLink}</span>
-                <button type="button">Copy link</button>
-              </div>
-            </section>
+            {createdMatchSummary.recommendedPlayers.length > 0 && (
+              <section className="match-details-sidebar" aria-labelledby="match-recommendations-heading">
+                <div className="match-details-sidebar__header">
+                  <p className="match-details-sidebar__eyebrow">Recommendations</p>
+                  <h2 id="match-recommendations-heading">Players to consider</h2>
+                </div>
+                <ul className="match-details-recommendations" aria-live="polite">
+                  {createdMatchSummary.recommendedPlayers.map((player) => (
+                    <li key={player.id} className="match-details-recommendations__item">
+                      <div
+                        className={`match-details-recommendations__avatar${
+                          player.avatarUrl ? " match-details-recommendations__avatar--image" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                      </div>
+                      <div className="match-details-recommendations__body">
+                        <p className="match-details-recommendations__name">{player.name}</p>
+                        <p className="match-details-recommendations__detail">{player.relationshipLabel}</p>
+                        <p className="match-details-recommendations__detail">{player.availabilityLabel}</p>
+                        <p className="match-details-recommendations__contact">
+                          <Phone size={14} aria-hidden="true" />
+                          <span>{player.phoneNumber}</span>
+                        </p>
+                      </div>
+                      <button type="button" className="match-details-recommendations__action">
+                        Add to invite
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             <section className="match-details-sidebar" aria-labelledby="match-notes-heading">
               <div className="match-details-sidebar__header">
