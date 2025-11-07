@@ -6,6 +6,8 @@ export type MatchInvitee = {
   relationshipLabel: string;
   statusLabel: string;
   statusTone: "host" | "sms" | "pending" | "guest" | "confirmed";
+  phoneNumber?: string;
+  statusDescription?: string;
 };
 
 export type CreatedMatchSummary = {
@@ -34,6 +36,12 @@ export type CreatedMatchSummary = {
   inviteSummaryLabel: string;
   inviteNeedsLabel: string;
   invitedPlayers: MatchInvitee[];
+  rosterHeaderLabel: string;
+  rosterCapacity: number;
+  rosterRemaining: number;
+  rosterRemainingLabel: string;
+  manageCopy: string;
+  manageHelper: string;
 };
 
 export const createdMatchSummary: CreatedMatchSummary = {
@@ -67,6 +75,8 @@ export const createdMatchSummary: CreatedMatchSummary = {
     relationshipLabel: "Organizer",
     statusLabel: "Confirmed",
     statusTone: "host",
+    phoneNumber: "(310) 555-0118",
+    statusDescription: "Primary contact",
   },
   inviteSummaryLabel: "2 players invited",
   inviteNeedsLabel: "4 needed",
@@ -80,6 +90,8 @@ export const createdMatchSummary: CreatedMatchSummary = {
       relationshipLabel: "Frequent teammate • 4.0 NTRP",
       statusLabel: "SMS sent",
       statusTone: "sms",
+      phoneNumber: "(213) 555-0189",
+      statusDescription: "Invitation delivered via SMS",
     },
     {
       id: "lena-kim",
@@ -90,6 +102,14 @@ export const createdMatchSummary: CreatedMatchSummary = {
       relationshipLabel: "Played last week",
       statusLabel: "Awaiting RSVP",
       statusTone: "pending",
+      phoneNumber: "(626) 555-0196",
+      statusDescription: "Waiting for confirmation",
     },
   ],
+  rosterHeaderLabel: "Players (4 max)",
+  rosterCapacity: 4,
+  rosterRemaining: 3,
+  rosterRemainingLabel: "3 spots remaining",
+  manageCopy: "Review the schedule and match information before your players arrive.",
+  manageHelper: "Edit match details to adjust timing, notes, or court assignments.",
 };
