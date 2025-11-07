@@ -5,7 +5,7 @@ export type MatchInvitee = {
   initials: string;
   relationshipLabel: string;
   statusLabel: string;
-  statusTone: "host" | "sms" | "pending" | "guest" | "confirmed";
+  statusTone: "host" | "sms" | "pending" | "guest" | "confirmed" | "declined";
   phoneNumber?: string;
   statusDescription?: string;
 };
@@ -104,6 +104,17 @@ export const createdMatchSummary: CreatedMatchSummary = {
       statusTone: "pending",
       phoneNumber: "(626) 555-0196",
       statusDescription: "Waiting for confirmation",
+    },
+    {
+      id: "brandon-lowe",
+      name: "Brandon Lowe",
+      avatarUrl: null,
+      initials: "BL",
+      relationshipLabel: "Last played 2 weeks ago",
+      statusLabel: "Declined",
+      statusTone: "declined",
+      phoneNumber: "(323) 555-0143",
+      statusDescription: "Can't make this match",
     },
   ],
   rosterHeaderLabel: "Players (4 max)",

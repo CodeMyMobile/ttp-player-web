@@ -25,13 +25,20 @@ const MatchDetailsPage = () => {
     [],
   );
 
-  const waitingInvitees = createdMatchSummary.invitedPlayers.filter(
-    (player) => player.statusTone === "pending",
+  const confirmedInvitees = rosterInvitees.filter((player) =>
+    ["host", "confirmed"].includes(player.statusTone),
   );
 
-  const smsInvitees = createdMatchSummary.invitedPlayers.filter(
-    (player) => player.statusTone === "sms",
+  const pendingInvitees = createdMatchSummary.invitedPlayers.filter((player) =>
+    ["pending", "sms"].includes(player.statusTone),
   );
+
+  const declinedInvitees = createdMatchSummary.invitedPlayers.filter(
+    (player) => player.statusTone === "declined",
+  );
+
+  const spotsFilled = confirmedInvitees.length;
+  const totalSpots = createdMatchSummary.rosterCapacity;
 
   const handleEditMatch = () => {
     navigate("/matches/create/settings", { state: { fromMatchId: id } });
@@ -45,38 +52,40 @@ const MatchDetailsPage = () => {
     <MainLayout>
       <div className="match-details-page">
         <header className="match-details-page__header">
-          <div>
-            <p className="match-details-page__eyebrow">Match details</p>
-            <h1>{createdMatchSummary.title}</h1>
+          <div className="match-details-page__header-content">
+            <p className="match-details-page__eyebrow">{createdMatchSummary.title}</p>
+            <h1>{createdMatchSummary.matchType}</h1>
             <div className="match-details-page__meta" aria-live="polite">
-              <span className="match-details-page__badge">
-                <ShieldCheck size={16} aria-hidden="true" />
-                Private match
+              <span className="match-details-page__chip">
+                <ShieldCheck size={14} aria-hidden="true" />
+                {createdMatchSummary.matchType}
               </span>
-              <span className="match-details-page__host">Hosted by {createdMatchSummary.hostName}</span>
-              <span className="match-details-page__players">
-                {createdMatchSummary.inviteSummaryLabel}
+              <span className="match-details-page__meta-item">
+                Hosted by {createdMatchSummary.hostName}
+              </span>
+              <span className="match-details-page__meta-item">
+                {spotsFilled} of {totalSpots} spots filled
               </span>
             </div>
             <dl className="match-details-page__schedule">
               <div>
                 <dt className="visually-hidden">Date</dt>
                 <dd>
-                  <CalendarDays size={18} aria-hidden="true" />
+                  <CalendarDays size={16} aria-hidden="true" />
                   <span>{createdMatchSummary.dateLabel}</span>
                 </dd>
               </div>
               <div>
                 <dt className="visually-hidden">Time</dt>
                 <dd>
-                  <Clock size={18} aria-hidden="true" />
+                  <Clock size={16} aria-hidden="true" />
                   <span>{createdMatchSummary.timeLabel}</span>
                 </dd>
               </div>
               <div>
                 <dt className="visually-hidden">Location</dt>
                 <dd>
-                  <MapPin size={18} aria-hidden="true" />
+                  <MapPin size={16} aria-hidden="true" />
                   <span>
                     {createdMatchSummary.locationName}
                     {" · "}
@@ -85,6 +94,11 @@ const MatchDetailsPage = () => {
                 </dd>
               </div>
             </dl>
+            <div className="match-details-page__tags" aria-hidden="true">
+              <span>{createdMatchSummary.formatLabel}</span>
+              <span>{createdMatchSummary.skillLevelLabel}</span>
+              <span>{createdMatchSummary.courtLabel}</span>
+            </div>
           </div>
           <div className="match-details-page__header-actions">
             <button
@@ -92,7 +106,7 @@ const MatchDetailsPage = () => {
               className="match-details-page__action match-details-page__action--secondary"
               onClick={handleEditMatch}
             >
-              <PencilLine size={18} aria-hidden="true" />
+              <PencilLine size={16} aria-hidden="true" />
               Edit match
             </button>
             <button
@@ -100,189 +114,204 @@ const MatchDetailsPage = () => {
               className="match-details-page__action"
               onClick={handleInvitePlayers}
             >
-              <UserPlus size={18} aria-hidden="true" />
+              <UserPlus size={16} aria-hidden="true" />
               Invite players
             </button>
           </div>
         </header>
 
-        <div className="match-details-page__grid">
-          <section className="match-details-card" aria-labelledby="match-manage-heading">
-            <div className="match-details-card__header">
-              <div>
-                <p className="match-details-card__eyebrow">Manage match details</p>
-                <h2 id="match-manage-heading">Stay in control of your match</h2>
+        <div className="match-details-page__layout">
+          <div className="match-details-page__primary">
+            <section
+              className="match-details-panel match-details-panel--message"
+              aria-labelledby="match-message-heading"
+            >
+              <div className="match-details-panel__icon" aria-hidden="true">
+                <MessageCircle size={18} />
               </div>
-              <button
-                type="button"
-                className="match-details-card__inline-action"
-                onClick={handleEditMatch}
-              >
-                <PencilLine size={16} aria-hidden="true" />
-                Edit match
+              <div className="match-details-panel__content">
+                <p className="match-details-panel__eyebrow">Message group</p>
+                <h2 id="match-message-heading">Send updates to all confirmed players</h2>
+                <p>Keep everyone in the loop with quick texts about weather, timing, or last-minute notes.</p>
+              </div>
+              <button type="button" className="match-details-panel__action">
+                Message group
               </button>
-            </div>
-            <p className="match-details-card__body">{createdMatchSummary.manageCopy}</p>
-            <p className="match-details-card__hint">{createdMatchSummary.manageHelper}</p>
-          </section>
+            </section>
 
-          <section className="match-details-card" aria-labelledby="match-location-heading">
-            <div className="match-details-card__header">
-              <div>
-                <p className="match-details-card__eyebrow">Location</p>
-                <h2 id="match-location-heading">{createdMatchSummary.locationName}</h2>
+            <section className="match-details-panel" aria-labelledby="match-confirmed-heading">
+              <div className="match-details-panel__header">
+                <div>
+                  <p className="match-details-panel__eyebrow">Confirmed players</p>
+                  <h2 id="match-confirmed-heading">
+                    {spotsFilled} of {totalSpots} spots filled
+                  </h2>
+                </div>
+                <span className="match-details-panel__status">{createdMatchSummary.rosterRemainingLabel}</span>
               </div>
-            </div>
-            <p className="match-details-card__body">{createdMatchSummary.locationDetail}</p>
-          </section>
-
-          <section className="match-details-card" aria-labelledby="match-format-heading">
-            <div className="match-details-card__header">
-              <div>
-                <p className="match-details-card__eyebrow">Match type</p>
-                <h2 id="match-format-heading">{createdMatchSummary.formatLabel}</h2>
-              </div>
-            </div>
-            <dl className="match-details-card__meta">
-              <div>
-                <dt>Skill level</dt>
-                <dd>{createdMatchSummary.skillLevelLabel}</dd>
-              </div>
-              <div>
-                <dt>Notes for players</dt>
-                <dd>{createdMatchSummary.notes}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="match-details-card" aria-labelledby="match-roster-heading">
-            <div className="match-details-card__header">
-              <div>
-                <p className="match-details-card__eyebrow">Players</p>
-                <h2 id="match-roster-heading">{createdMatchSummary.rosterHeaderLabel}</h2>
-              </div>
-              <span className="match-details-card__status">{createdMatchSummary.rosterRemainingLabel}</span>
-            </div>
-
-            <div className="match-details-roster">
-              {rosterInvitees.map((player) => (
-                <article key={player.id} className="match-details-roster__player">
-                  <div
-                    className={`match-details-roster__avatar${
-                      player.avatarUrl ? " match-details-roster__avatar--image" : ""
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
-                  </div>
-                  <div className="match-details-roster__content">
-                    <div className="match-details-roster__heading">
+              <ul className="match-details-roster" aria-live="polite">
+                {confirmedInvitees.map((player) => (
+                  <li key={player.id} className="match-details-roster__item">
+                    <div
+                      className={`match-details-roster__avatar${
+                        player.avatarUrl ? " match-details-roster__avatar--image" : ""
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                    </div>
+                    <div className="match-details-roster__body">
                       <p className="match-details-roster__name">{player.name}</p>
+                      <p className="match-details-roster__detail">{player.relationshipLabel}</p>
+                      {player.phoneNumber && (
+                        <p className="match-details-roster__contact">
+                          <Phone size={14} aria-hidden="true" />
+                          <span>{player.phoneNumber}</span>
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`match-details-roster__status match-details-roster__status--${player.statusTone}`}
+                    >
+                      {player.statusLabel}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {pendingInvitees.length > 0 && (
+              <section className="match-details-panel" aria-labelledby="match-pending-heading">
+                <div className="match-details-panel__header">
+                  <div>
+                    <p className="match-details-panel__eyebrow">Pending invites</p>
+                    <h2 id="match-pending-heading">Waiting on {pendingInvitees.length} responses</h2>
+                  </div>
+                </div>
+                <ul className="match-details-roster match-details-roster--compact" aria-live="polite">
+                  {pendingInvitees.map((player) => (
+                    <li key={player.id} className="match-details-roster__item">
+                      <div
+                        className={`match-details-roster__avatar match-details-roster__avatar--small${
+                          player.avatarUrl ? " match-details-roster__avatar--image" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                      </div>
+                      <div className="match-details-roster__body">
+                        <p className="match-details-roster__name">{player.name}</p>
+                        <p className="match-details-roster__detail">{player.statusDescription ?? player.statusLabel}</p>
+                      </div>
                       <span
-                        className={`match-details-roster__chip match-details-roster__chip--${player.statusTone}`}
+                        className={`match-details-roster__status match-details-roster__status--${player.statusTone}`}
                       >
                         {player.statusLabel}
                       </span>
-                    </div>
-                    <p className="match-details-roster__relationship">{player.relationshipLabel}</p>
-                    {player.statusDescription && (
-                      <p className="match-details-roster__status-description">{player.statusDescription}</p>
-                    )}
-                    {player.phoneNumber && (
-                      <p className="match-details-roster__contact">
-                        <Phone size={16} aria-hidden="true" />
-                        <span>{player.phoneNumber}</span>
-                      </p>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
-            <div className="match-details-roster__actions">
-              <div className="match-details-roster__action" aria-labelledby="match-message-heading">
-                <div className="match-details-roster__action-icon" aria-hidden="true">
-                  <MessageCircle size={18} />
+            {declinedInvitees.length > 0 && (
+              <section className="match-details-panel" aria-labelledby="match-declined-heading">
+                <div className="match-details-panel__header">
+                  <div>
+                    <p className="match-details-panel__eyebrow">Declined invites</p>
+                    <h2 id="match-declined-heading">{declinedInvitees.length} players can't make it</h2>
+                  </div>
+                </div>
+                <ul className="match-details-roster match-details-roster--compact" aria-live="polite">
+                  {declinedInvitees.map((player) => (
+                    <li key={player.id} className="match-details-roster__item">
+                      <div
+                        className={`match-details-roster__avatar match-details-roster__avatar--small${
+                          player.avatarUrl ? " match-details-roster__avatar--image" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
+                      </div>
+                      <div className="match-details-roster__body">
+                        <p className="match-details-roster__name">{player.name}</p>
+                        <p className="match-details-roster__detail">{player.statusDescription ?? player.statusLabel}</p>
+                      </div>
+                      <span className="match-details-roster__status match-details-roster__status--declined">
+                        {player.statusLabel}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section
+              className="match-details-panel match-details-panel--invite"
+              aria-labelledby="match-invite-heading"
+            >
+              <div className="match-details-panel__content">
+                <p className="match-details-panel__eyebrow">Need more players?</p>
+                <h2 id="match-invite-heading">Send a direct invite</h2>
+                <p>Share the private invite link or text players individually to round out your roster.</p>
+              </div>
+              <button
+                type="button"
+                className="match-details-panel__action match-details-panel__action--primary"
+                onClick={handleInvitePlayers}
+              >
+                Invite players
+              </button>
+            </section>
+          </div>
+
+          <aside className="match-details-page__secondary">
+            <section className="match-details-sidebar" aria-labelledby="match-invite-summary-heading">
+              <div className="match-details-sidebar__header">
+                <p className="match-details-sidebar__eyebrow">Invites overview</p>
+                <h2 id="match-invite-summary-heading">Keep tabs on responses</h2>
+              </div>
+              <dl className="match-details-sidebar__stats">
+                <div>
+                  <dt>Confirmed</dt>
+                  <dd>{confirmedInvitees.length}</dd>
                 </div>
                 <div>
-                  <h3 id="match-message-heading">Message participants</h3>
-                  <p>Add player phone numbers to enable group texts.</p>
-                </div>
-                <button type="button" className="match-details-roster__action-button">
-                  Message group
-                </button>
-              </div>
-
-              {waitingInvitees.length > 0 && (
-                <div className="match-details-roster__section" aria-live="polite">
-                  <div className="match-details-roster__section-header">
-                    <h3>Waiting on responses ({waitingInvitees.length})</h3>
-                  </div>
-                  <div className="match-details-roster__list">
-                    {waitingInvitees.map((player) => (
-                      <div key={player.id} className="match-details-roster__list-item">
-                        <div
-                          className={`match-details-roster__avatar match-details-roster__avatar--small${
-                            player.avatarUrl ? " match-details-roster__avatar--image" : ""
-                          }`}
-                          aria-hidden="true"
-                        >
-                          {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
-                        </div>
-                        <div className="match-details-roster__list-content">
-                          <p>{player.name}</p>
-                          <span>{player.statusLabel}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {smsInvitees.length > 0 && (
-                <div className="match-details-roster__section" aria-live="polite">
-                  <div className="match-details-roster__section-header">
-                    <h3>Invites delivered ({smsInvitees.length})</h3>
-                  </div>
-                  <div className="match-details-roster__list">
-                    {smsInvitees.map((player) => (
-                      <div key={player.id} className="match-details-roster__list-item">
-                        <div
-                          className={`match-details-roster__avatar match-details-roster__avatar--small${
-                            player.avatarUrl ? " match-details-roster__avatar--image" : ""
-                          }`}
-                          aria-hidden="true"
-                        >
-                          {player.avatarUrl ? <img src={player.avatarUrl} alt="" /> : <span>{player.initials}</span>}
-                        </div>
-                        <div className="match-details-roster__list-content">
-                          <p>{player.name}</p>
-                          <span>{player.statusLabel}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="match-details-roster__action" aria-labelledby="match-invite-heading">
-                <div className="match-details-roster__action-icon" aria-hidden="true">
-                  <UserPlus size={18} />
+                  <dt>Pending</dt>
+                  <dd>{pendingInvitees.length}</dd>
                 </div>
                 <div>
-                  <h3 id="match-invite-heading">Invite players directly</h3>
-                  <p>Send invites to specific players using their phone number.</p>
+                  <dt>Declined</dt>
+                  <dd>{declinedInvitees.length}</dd>
                 </div>
-                <button
-                  type="button"
-                  className="match-details-roster__action-button match-details-roster__action-button--primary"
-                  onClick={handleInvitePlayers}
-                >
-                  Invite players
-                </button>
+              </dl>
+              <p>{createdMatchSummary.inviteSummaryLabel}</p>
+              <button type="button" onClick={handleInvitePlayers} className="match-details-sidebar__action">
+                <UserPlus size={16} aria-hidden="true" />
+                Send another invite
+              </button>
+            </section>
+
+            <section className="match-details-sidebar" aria-labelledby="match-visibility-heading">
+              <div className="match-details-sidebar__header">
+                <p className="match-details-sidebar__eyebrow">Visibility</p>
+                <h2 id="match-visibility-heading">Private match link</h2>
               </div>
-            </div>
-          </section>
+              <p>{createdMatchSummary.visibilityDescription}</p>
+              <div className="match-details-sidebar__link">
+                <span>{createdMatchSummary.shareLink}</span>
+                <button type="button">Copy link</button>
+              </div>
+            </section>
+
+            <section className="match-details-sidebar" aria-labelledby="match-notes-heading">
+              <div className="match-details-sidebar__header">
+                <p className="match-details-sidebar__eyebrow">Notes</p>
+                <h2 id="match-notes-heading">Reminders for players</h2>
+              </div>
+              <p>{createdMatchSummary.notes}</p>
+            </section>
+          </aside>
         </div>
       </div>
     </MainLayout>
