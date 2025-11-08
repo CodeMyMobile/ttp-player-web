@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -196,6 +197,70 @@ const bottomActions = [
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { displayName } = usePlayerIdentity();
+  const [locationState, setLocationState] = useState({
+    status: "idle",
+    coords: null,
+    error: null,
+    accuracyMiles: null,
+  });
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const detectLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationState({
+        status: "error",
+        coords: null,
+        error: "Location services are not supported in this browser.",
+        accuracyMiles: null,
+      });
+      setLastUpdated(null);
+      return;
+    }
+
+    setLocationState((previous) => ({
+      ...previous,
+      status: "loading",
+      error: null,
+    }));
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { coords } = position;
+        const accuracyMiles = coords.accuracy
+          ? Math.max(1, Math.round(coords.accuracy / 1609.34))
+          : null;
+
+        setLocationState({
+          status: "ready",
+          coords,
+          error: null,
+          accuracyMiles,
+        });
+        setLastUpdated(new Date());
+      },
+      (error) => {
+        setLocationState({
+          status: "error",
+          coords: null,
+          error: error.message || "We couldn't determine your location.",
+          accuracyMiles: null,
+        });
+        setLastUpdated(null);
+      }
+    );
+  };
+
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
+  const locationRadiusCopy = () => {
+    if (!locationState.accuracyMiles) {
+      return "your area";
+    }
+
+    return `a ${locationState.accuracyMiles}-mile radius`;
+  };
 
   return (
     <MainLayout>
@@ -214,6 +279,72 @@ const DashboardPage = () => {
               <span className="play-hero__status-label">Next booking</span>
               <span className="play-hero__status-value">Today · 5:30 PM</span>
               <span className="play-hero__status-meta">Court 4 with Jamie</span>
+            </div>
+            <div
+              className={`play-hero__location-card play-hero__location-card--${locationState.status}`}
+            >
+              <div className="play-hero__location-header">
+                <div className="play-hero__location-label">Nearby opportunities</div>
+                <button
+                  type="button"
+                  className="play-hero__location-button"
+                  onClick={detectLocation}
+                  disabled={locationState.status === "loading"}
+                >
+                  {locationState.status === "loading" ? "Locating…" : "Update location"}
+                </button>
+              </div>
+              <div className="play-hero__location-body">
+                {locationState.status === "ready" ? (
+                  <>
+                    <div className="play-hero__location-value">
+                      Tuned to {locationRadiusCopy()} near you
+                    </div>
+                    {locationState.coords ? (
+                      <div className="play-hero__location-meta">
+                        Lat {locationState.coords.latitude.toFixed(2)}°, Lon {" "}
+                        {locationState.coords.longitude.toFixed(2)}°
+                      </div>
+                    ) : null}
+                    {lastUpdated ? (
+                      <div className="play-hero__location-meta">
+                        Updated at {lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {locationState.status === "idle" ? (
+                  <>
+                    <div className="play-hero__location-value">
+                      Use your location to prioritize courts and sessions nearby.
+                    </div>
+                    <div className="play-hero__location-meta">
+                      We only use your approximate area to tailor recommendations.
+                    </div>
+                  </>
+                ) : null}
+
+                {locationState.status === "loading" ? (
+                  <>
+                    <div className="play-hero__location-value">Checking your area…</div>
+                    <div className="play-hero__location-meta">
+                      This helps surface matches and events within reach.
+                    </div>
+                  </>
+                ) : null}
+
+                {locationState.status === "error" ? (
+                  <>
+                    <div className="play-hero__location-value play-hero__location-value--error">
+                      We couldn't confirm your location.
+                    </div>
+                    {locationState.error ? (
+                      <div className="play-hero__location-meta">{locationState.error}</div>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
