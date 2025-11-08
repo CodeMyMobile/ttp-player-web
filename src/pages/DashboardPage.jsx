@@ -206,7 +206,6 @@ const DashboardPage = () => {
     locationName: null,
     lookupFailed: false,
   });
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedRadius, setSelectedRadius] = useState("10 mi");
 
   const distanceOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
@@ -291,34 +290,6 @@ const DashboardPage = () => {
     }
   };
 
-  const locationMessageTarget = () => {
-    if (locationState.locationName) {
-      return locationState.locationName;
-    }
-
-    if (locationState.coords) {
-      return formatCoordinatesLabel(locationState.coords);
-    }
-
-    return "your area";
-  };
-
-  const readyLocationMessage = () => {
-    const target = locationMessageTarget();
-
-    if (selectedRadius === "All") {
-      const radiusDescription = locationRadiusBodyCopy();
-
-      if (radiusDescription === "your area") {
-        return `Showing nearby opportunities around ${target}.`;
-      }
-
-      return `Showing opportunities within ${radiusDescription} of ${target}.`;
-    }
-
-    return `Showing opportunities within ${selectedRadius} of ${target}.`;
-  };
-
   const detectLocation = () => {
     if (!("geolocation" in navigator)) {
       setLocationState({
@@ -329,7 +300,6 @@ const DashboardPage = () => {
         locationName: null,
         lookupFailed: false,
       });
-      setLastUpdated(null);
       return;
     }
 
@@ -355,7 +325,6 @@ const DashboardPage = () => {
           locationName: null,
           lookupFailed: false,
         });
-        setLastUpdated(new Date());
         resolveLocationName(coords);
       },
       (error) => {
@@ -367,7 +336,6 @@ const DashboardPage = () => {
           locationName: null,
           lookupFailed: false,
         });
-        setLastUpdated(null);
       }
     );
   };
@@ -375,18 +343,6 @@ const DashboardPage = () => {
   useEffect(() => {
     detectLocation();
   }, []);
-
-  const locationRadiusBodyCopy = () => {
-    if (!locationState.accuracyMiles) {
-      return "your area";
-    }
-
-    if (locationState.accuracyMiles === 1) {
-      return "a 1-mile radius";
-    }
-
-    return `a ${locationState.accuracyMiles}-mile radius`;
-  };
 
   const locationChipLabel = () => {
     if (locationState.status === "ready") {
@@ -416,89 +372,51 @@ const DashboardPage = () => {
     <MainLayout>
       <section className="play-hero">
         <div className="play-hero__intro">
-          <div className="play-hero__text">
-            <p className="play-hero__eyebrow">Ready to Play?</p>
-            <h1>Welcome back, {displayName}. Let&rsquo;s get you on court.</h1>
-            <p className="play-hero__subtitle">
-              Discover curated matches, lessons, and group sessions tailored to your level and
-              schedule.
-            </p>
+          <div className="play-hero__lead">
+            <div className="play-hero__text">
+              <p className="play-hero__eyebrow">Ready to Play?</p>
+              <h1>Welcome back, {displayName}. Let&rsquo;s get you on court.</h1>
+              <p className="play-hero__subtitle">
+                Discover curated matches, lessons, and group sessions tailored to your level and
+                schedule.
+              </p>
+            </div>
+            <div
+              className={`play-hero__location-surface play-hero__location-surface--${locationState.status}`}
+            >
+              <div className="play-hero__location-row">
+                <div className="play-hero__location-group">
+                  <button
+                    type="button"
+                    className={`play-hero__distance-chip play-hero__distance-chip--location play-hero__distance-chip--${locationState.status}`}
+                    aria-label="Current location"
+                    onClick={detectLocation}
+                    disabled={locationState.status === "loading"}
+                  >
+                    <MapPin size={16} strokeWidth={2} />
+                    <span>{locationChipLabel()}</span>
+                  </button>
+                  {distanceOptions.map((radius) => (
+                    <button
+                      key={radius}
+                      type="button"
+                      className={`play-hero__distance-chip${
+                        selectedRadius === radius ? " play-hero__distance-chip--active" : ""
+                      }`}
+                      onClick={() => setSelectedRadius(radius)}
+                    >
+                      {radius}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <div className="play-hero__status">
             <div className="play-hero__status-card">
               <span className="play-hero__status-label">Next booking</span>
               <span className="play-hero__status-value">Today · 5:30 PM</span>
               <span className="play-hero__status-meta">Court 4 with Jamie</span>
-            </div>
-          </div>
-          <div className={`play-hero__location-surface play-hero__location-surface--${locationState.status}`}>
-            <div className="play-hero__location-row">
-              <div className="play-hero__location-group">
-                <button
-                  type="button"
-                  className={`play-hero__distance-chip play-hero__distance-chip--location play-hero__distance-chip--${locationState.status}`}
-                  aria-label="Current location"
-                  onClick={detectLocation}
-                  disabled={locationState.status === "loading"}
-                >
-                  <MapPin size={16} strokeWidth={2} />
-                  <span>{locationChipLabel()}</span>
-                </button>
-                {distanceOptions.map((radius) => (
-                  <button
-                    key={radius}
-                    type="button"
-                    className={`play-hero__distance-chip${
-                      selectedRadius === radius ? " play-hero__distance-chip--active" : ""
-                    }`}
-                    onClick={() => setSelectedRadius(radius)}
-                  >
-                    {radius}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="play-hero__location-refresh"
-                onClick={detectLocation}
-                disabled={locationState.status === "loading"}
-              >
-                {locationState.status === "loading" ? "Locating…" : "Update location"}
-              </button>
-            </div>
-            <div className="play-hero__location-notes">
-              {locationState.status === "ready" ? (
-                <>
-                  <span>{readyLocationMessage()}</span>
-                  {lastUpdated ? (
-                    <span>
-                      Updated at
-                      {" "}
-                      {lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                    </span>
-                  ) : null}
-                  {locationState.lookupFailed ? (
-                    <span>
-                      We couldn't determine your exact city, so we're using your GPS coordinates.
-                    </span>
-                  ) : null}
-                </>
-              ) : null}
-
-              {locationState.status === "idle" ? (
-                <span>Enable location to tailor opportunities to courts and events near you.</span>
-              ) : null}
-
-              {locationState.status === "loading" ? (
-                <span>Checking your area to surface the closest matches and lessons…</span>
-              ) : null}
-
-              {locationState.status === "error" ? (
-                <>
-                  <span className="play-hero__location-error">We couldn't confirm your location.</span>
-                  {locationState.error ? <span>{locationState.error}</span> : null}
-                </>
-              ) : null}
             </div>
           </div>
         </div>
