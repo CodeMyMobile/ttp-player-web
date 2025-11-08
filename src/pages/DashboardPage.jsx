@@ -203,8 +203,121 @@ const DashboardPage = () => {
     coords: null,
     error: null,
     accuracyMiles: null,
+    locationName: null,
+    lookupFailed: false,
   });
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedRadius, setSelectedRadius] = useState("10 mi");
+
+  const distanceOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+
+  const formatCoordinatesLabel = (coords) => {
+    if (!coords) {
+      return "Your area";
+    }
+
+    const latitude = Math.abs(coords.latitude).toFixed(2);
+    const longitude = Math.abs(coords.longitude).toFixed(2);
+    const latHemisphere = coords.latitude >= 0 ? "N" : "S";
+    const lonHemisphere = coords.longitude >= 0 ? "E" : "W";
+
+    return `${latitude}° ${latHemisphere}, ${longitude}° ${lonHemisphere}`;
+  };
+
+  const resolveLocationName = async (coords) => {
+    if (!coords) {
+      return;
+    }
+
+    try {
+      const query = new URLSearchParams({
+        format: "jsonv2",
+        lat: coords.latitude.toString(),
+        lon: coords.longitude.toString(),
+      });
+
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query.toString()}`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to lookup location");
+      }
+
+      const data = await response.json();
+      const address = data?.address ?? {};
+
+      const locality =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.hamlet ||
+        address.suburb ||
+        address.county;
+      const region = address.state || address.region;
+      const countryCode = address.country_code ? address.country_code.toUpperCase() : null;
+
+      const labelParts = [locality, region, countryCode].filter(Boolean);
+      const locationLabel = labelParts.length
+        ? labelParts.join(", ")
+        : data?.display_name?.split(",").slice(0, 2).join(", ") || null;
+
+      setLocationState((previous) => {
+        if (previous.status !== "ready") {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          locationName: locationLabel,
+          lookupFailed: !locationLabel,
+        };
+      });
+    } catch (error) {
+      console.error("Failed to resolve location", error);
+      setLocationState((previous) => {
+        if (previous.status !== "ready") {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          locationName: null,
+          lookupFailed: true,
+        };
+      });
+    }
+  };
+
+  const locationMessageTarget = () => {
+    if (locationState.locationName) {
+      return locationState.locationName;
+    }
+
+    if (locationState.coords) {
+      return formatCoordinatesLabel(locationState.coords);
+    }
+
+    return "your area";
+  };
+
+  const readyLocationMessage = () => {
+    const target = locationMessageTarget();
+
+    if (selectedRadius === "All") {
+      const radiusDescription = locationRadiusBodyCopy();
+
+      if (radiusDescription === "your area") {
+        return `Showing nearby opportunities around ${target}.`;
+      }
+
+      return `Showing opportunities within ${radiusDescription} of ${target}.`;
+    }
+
+    return `Showing opportunities within ${selectedRadius} of ${target}.`;
+  };
 
   const detectLocation = () => {
     if (!("geolocation" in navigator)) {
@@ -213,6 +326,8 @@ const DashboardPage = () => {
         coords: null,
         error: "Location services are not supported in this browser.",
         accuracyMiles: null,
+        locationName: null,
+        lookupFailed: false,
       });
       setLastUpdated(null);
       return;
@@ -222,6 +337,7 @@ const DashboardPage = () => {
       ...previous,
       status: "loading",
       error: null,
+      lookupFailed: false,
     }));
 
     navigator.geolocation.getCurrentPosition(
@@ -236,8 +352,11 @@ const DashboardPage = () => {
           coords,
           error: null,
           accuracyMiles,
+          locationName: null,
+          lookupFailed: false,
         });
         setLastUpdated(new Date());
+        resolveLocationName(coords);
       },
       (error) => {
         setLocationState({
@@ -245,6 +364,8 @@ const DashboardPage = () => {
           coords: null,
           error: error.message || "We couldn't determine your location.",
           accuracyMiles: null,
+          locationName: null,
+          lookupFailed: false,
         });
         setLastUpdated(null);
       }
@@ -269,9 +390,14 @@ const DashboardPage = () => {
 
   const locationChipLabel = () => {
     if (locationState.status === "ready") {
-      if (locationState.accuracyMiles) {
-        return `${locationState.accuracyMiles}-mile radius`;
+      if (locationState.locationName) {
+        return locationState.locationName;
       }
+
+      if (locationState.coords) {
+        return formatCoordinatesLabel(locationState.coords);
+      }
+
       return "Your area";
     }
 
@@ -304,79 +430,75 @@ const DashboardPage = () => {
               <span className="play-hero__status-value">Today · 5:30 PM</span>
               <span className="play-hero__status-meta">Court 4 with Jamie</span>
             </div>
-            <div
-              className={`play-hero__location-card play-hero__location-card--${locationState.status}`}
-            >
-              <div className="play-hero__location-header">
-                <div className="play-hero__location-heading">
-                  <div className="play-hero__location-label">Nearby opportunities</div>
-                  <div
-                    className={`play-hero__location-chip play-hero__location-chip--${locationState.status}`}
-                  >
-                    <MapPin size={16} strokeWidth={2} />
-                    <span>{locationChipLabel()}</span>
-                  </div>
-                </div>
+          </div>
+          <div className={`play-hero__location-surface play-hero__location-surface--${locationState.status}`}>
+            <div className="play-hero__location-row">
+              <div className="play-hero__location-group">
                 <button
                   type="button"
-                  className="play-hero__location-button"
+                  className={`play-hero__distance-chip play-hero__distance-chip--location play-hero__distance-chip--${locationState.status}`}
+                  aria-label="Current location"
                   onClick={detectLocation}
                   disabled={locationState.status === "loading"}
                 >
-                  {locationState.status === "loading" ? "Locating…" : "Update location"}
+                  <MapPin size={16} strokeWidth={2} />
+                  <span>{locationChipLabel()}</span>
                 </button>
+                {distanceOptions.map((radius) => (
+                  <button
+                    key={radius}
+                    type="button"
+                    className={`play-hero__distance-chip${
+                      selectedRadius === radius ? " play-hero__distance-chip--active" : ""
+                    }`}
+                    onClick={() => setSelectedRadius(radius)}
+                  >
+                    {radius}
+                  </button>
+                ))}
               </div>
-              <div className="play-hero__location-body">
-                {locationState.status === "ready" ? (
-                  <>
-                    <div className="play-hero__location-value">
-                      Tuned to {locationRadiusBodyCopy()} near you
-                    </div>
-                    {locationState.coords ? (
-                      <div className="play-hero__location-meta">
-                        Lat {locationState.coords.latitude.toFixed(2)}°, Lon {" "}
-                        {locationState.coords.longitude.toFixed(2)}°
-                      </div>
-                    ) : null}
-                    {lastUpdated ? (
-                      <div className="play-hero__location-meta">
-                        Updated at {lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
+              <button
+                type="button"
+                className="play-hero__location-refresh"
+                onClick={detectLocation}
+                disabled={locationState.status === "loading"}
+              >
+                {locationState.status === "loading" ? "Locating…" : "Update location"}
+              </button>
+            </div>
+            <div className="play-hero__location-notes">
+              {locationState.status === "ready" ? (
+                <>
+                  <span>{readyLocationMessage()}</span>
+                  {lastUpdated ? (
+                    <span>
+                      Updated at
+                      {" "}
+                      {lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                    </span>
+                  ) : null}
+                  {locationState.lookupFailed ? (
+                    <span>
+                      We couldn't determine your exact city, so we're using your GPS coordinates.
+                    </span>
+                  ) : null}
+                </>
+              ) : null}
 
-                {locationState.status === "idle" ? (
-                  <>
-                    <div className="play-hero__location-value">
-                      Use your location to prioritize courts and sessions nearby.
-                    </div>
-                    <div className="play-hero__location-meta">
-                      We only use your approximate area to tailor recommendations.
-                    </div>
-                  </>
-                ) : null}
+              {locationState.status === "idle" ? (
+                <span>Enable location to tailor opportunities to courts and events near you.</span>
+              ) : null}
 
-                {locationState.status === "loading" ? (
-                  <>
-                    <div className="play-hero__location-value">Checking your area…</div>
-                    <div className="play-hero__location-meta">
-                      This helps surface matches and events within reach.
-                    </div>
-                  </>
-                ) : null}
+              {locationState.status === "loading" ? (
+                <span>Checking your area to surface the closest matches and lessons…</span>
+              ) : null}
 
-                {locationState.status === "error" ? (
-                  <>
-                    <div className="play-hero__location-value play-hero__location-value--error">
-                      We couldn't confirm your location.
-                    </div>
-                    {locationState.error ? (
-                      <div className="play-hero__location-meta">{locationState.error}</div>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
+              {locationState.status === "error" ? (
+                <>
+                  <span className="play-hero__location-error">We couldn't confirm your location.</span>
+                  {locationState.error ? <span>{locationState.error}</span> : null}
+                </>
+              ) : null}
             </div>
           </div>
         </div>
