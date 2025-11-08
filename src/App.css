@@ -272,68 +272,11 @@
   color: #475569;
 }
 
-.play-hero__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.play-hero__filter {
-  border: none;
-  background: rgba(15, 23, 42, 0.05);
-  color: #0f172a;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.play-hero__filter:is(:hover, :focus-visible) {
-  background: rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-.play-hero__filter.is-active {
-  background: #16a34a;
-  color: #ffffff;
-  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.28);
-}
-
-.play-hero__filter-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  padding: 0 8px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.play-hero__filter.is-active .play-hero__filter-count {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
-
 .play-hero__status {
   display: flex;
   flex-direction: column;
   gap: 14px;
   align-items: flex-end;
-}
-
-.play-hero .tag {
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
 }
 
 .play-hero__status-card {

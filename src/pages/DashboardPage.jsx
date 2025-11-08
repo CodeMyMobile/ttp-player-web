@@ -30,14 +30,6 @@ const schedule = [
   },
 ];
 
-const playFilters = [
-  { id: "all", label: "All Opportunities", count: 26 },
-  { id: "matches", label: "Matches" },
-  { id: "lessons", label: "Private Lessons" },
-  { id: "groups", label: "Group Sessions" },
-  { id: "clinics", label: "Clinics & Programs" },
-];
-
 const playColumns = [
   {
     id: "matches",
@@ -216,21 +208,8 @@ const DashboardPage = () => {
               Discover curated matches, lessons, and group sessions tailored to your level and
               schedule.
             </p>
-            <div className="play-hero__filters">
-              {playFilters.map((filter, index) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={`play-hero__filter${index === 0 ? " is-active" : ""}`}
-                >
-                  {filter.label}
-                  {filter.count ? <span className="play-hero__filter-count">{filter.count}</span> : null}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="play-hero__status">
-            <div className="tag">Season Pass Active</div>
             <div className="play-hero__status-card">
               <span className="play-hero__status-label">Next booking</span>
               <span className="play-hero__status-value">Today · 5:30 PM</span>
