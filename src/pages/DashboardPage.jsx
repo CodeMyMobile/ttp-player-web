@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -254,12 +255,35 @@ const DashboardPage = () => {
     detectLocation();
   }, []);
 
-  const locationRadiusCopy = () => {
+  const locationRadiusBodyCopy = () => {
     if (!locationState.accuracyMiles) {
       return "your area";
     }
 
+    if (locationState.accuracyMiles === 1) {
+      return "a 1-mile radius";
+    }
+
     return `a ${locationState.accuracyMiles}-mile radius`;
+  };
+
+  const locationChipLabel = () => {
+    if (locationState.status === "ready") {
+      if (locationState.accuracyMiles) {
+        return `${locationState.accuracyMiles}-mile radius`;
+      }
+      return "Your area";
+    }
+
+    if (locationState.status === "loading") {
+      return "Locating…";
+    }
+
+    if (locationState.status === "error") {
+      return "Location unavailable";
+    }
+
+    return "Use my location";
   };
 
   return (
@@ -284,7 +308,15 @@ const DashboardPage = () => {
               className={`play-hero__location-card play-hero__location-card--${locationState.status}`}
             >
               <div className="play-hero__location-header">
-                <div className="play-hero__location-label">Nearby opportunities</div>
+                <div className="play-hero__location-heading">
+                  <div className="play-hero__location-label">Nearby opportunities</div>
+                  <div
+                    className={`play-hero__location-chip play-hero__location-chip--${locationState.status}`}
+                  >
+                    <MapPin size={16} strokeWidth={2} />
+                    <span>{locationChipLabel()}</span>
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="play-hero__location-button"
@@ -298,7 +330,7 @@ const DashboardPage = () => {
                 {locationState.status === "ready" ? (
                   <>
                     <div className="play-hero__location-value">
-                      Tuned to {locationRadiusCopy()} near you
+                      Tuned to {locationRadiusBodyCopy()} near you
                     </div>
                     {locationState.coords ? (
                       <div className="play-hero__location-meta">
