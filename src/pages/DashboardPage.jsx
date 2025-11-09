@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { trainingCollections } from "../data/trainingPlaylists";
 
 const schedule = [
   {
@@ -195,74 +196,7 @@ const bottomActions = [
   },
 ];
 
-const trainingPlaylists = [
-  {
-    id: "all",
-    title: "Complete Training Library",
-    focus: "All skills",
-    description:
-      "Work through curated sessions that layer technique, footwork, and decision-making for every part of your game.",
-    playlistId: "PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF",
-    playlistUrl: "https://youtube.com/playlist?list=PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF&si=1Qq2aVIen7n5724W",
-    featuredIndex: 0,
-    featuredVideoTitle: "Matchplay onboarding workout",
-  },
-  {
-    id: "forehand",
-    title: "Forehand Fundamentals",
-    focus: "Groundstrokes",
-    description:
-      "Dial in repeatable contact by pairing movement patterns with tempo drills that groove your swing path.",
-    playlistId: "PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF",
-    playlistUrl: "https://youtube.com/playlist?list=PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF&si=1Qq2aVIen7n5724W",
-    featuredIndex: 2,
-    featuredVideoTitle: "Live forehand timing checkpoints",
-  },
-  {
-    id: "backhand",
-    title: "Backhand Confidence",
-    focus: "Groundstrokes",
-    description:
-      "Build stability on both topspin and slice by drilling shoulder rotation, spacing, and recovery footwork.",
-    playlistId: "PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF",
-    playlistUrl: "https://youtube.com/playlist?list=PLKffdR1pHOgVEZMCGpHkrVF_b67YUZYmF&si=1Qq2aVIen7n5724W",
-    featuredIndex: 4,
-    featuredVideoTitle: "Two-ball crosscourt progression",
-  },
-  {
-    id: "transition",
-    title: "Transition & Net Play",
-    focus: "Net game",
-    description:
-      "Upgrade your approach patterns and finishing instincts with hand-speed challenges and volley combos.",
-    playlistId: "PLKffdR1pHOgVwaejfsQlLNGn6ZgmtPidG",
-    playlistUrl: "https://youtube.com/playlist?list=PLKffdR1pHOgVwaejfsQlLNGn6ZgmtPidG&si=lYDOS93QwmGz4T7f",
-    featuredIndex: 1,
-    featuredVideoTitle: "First volley reaction reps",
-  },
-  {
-    id: "serve",
-    title: "Serve Blueprint",
-    focus: "Serve",
-    description:
-      "Lock in toss placement, rhythm, and spin variety with progressions you can drop into any practice block.",
-    playlistId: "PLKffdR1pHOgXwIW_2Bx4c2h7EQF0DemcA",
-    playlistUrl: "https://youtube.com/playlist?list=PLKffdR1pHOgXwIW_2Bx4c2h7EQF0DemcA&si=Ybnp1L1KGu1HQjih",
-    featuredIndex: 0,
-    featuredVideoTitle: "Serve rhythm build-up drills",
-  },
-  {
-    id: "strategy",
-    title: "Match Strategy Lab",
-    focus: "Tactics",
-    description:
-      "Study point construction and in-match adjustments so you can make smarter decisions under pressure.",
-    playlistId: "PLKffdR1pHOgVmroqI0kD7EnfuoGf-sddd",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLKffdR1pHOgVmroqI0kD7EnfuoGf-sddd",
-    featuredIndex: 0,
-    featuredVideoTitle: "Pattern play walkthrough",
-  },
-];
+const trainingPlaylists = trainingCollections;
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -661,9 +595,13 @@ const DashboardPage = () => {
               Stream featured drills from our Matchplay playlists without leaving your dashboard.
             </p>
           </div>
-          <a className="section-cta" href={trainingPlaylists[0].playlistUrl} target="_blank" rel="noreferrer">
-            View all playlists
-          </a>
+          <button
+            type="button"
+            className="section-cta"
+            onClick={() => navigate("/training-library")}
+          >
+            Open training library
+          </button>
         </div>
         <div className="training-grid">
           {trainingPlaylists.map((playlist) => (
@@ -682,17 +620,15 @@ const DashboardPage = () => {
                 <h3>{playlist.title}</h3>
                 <p>{playlist.description}</p>
                 <div className="training-card__footer">
-                  <a
+                  <Link
                     className="primary-link"
-                    href={`${playlist.playlistUrl}&index=${playlist.featuredIndex + 1}`}
-                    target="_blank"
-                    rel="noreferrer"
+                    to={`/training-library?playlist=${playlist.id}&video=${playlist.featuredIndex}`}
                   >
                     Watch featured session
-                  </a>
-                  <a className="secondary-link" href={playlist.playlistUrl} target="_blank" rel="noreferrer">
+                  </Link>
+                  <Link className="secondary-link" to={`/training-library?playlist=${playlist.id}`}>
                     Full playlist
-                  </a>
+                  </Link>
                 </div>
               </div>
             </article>

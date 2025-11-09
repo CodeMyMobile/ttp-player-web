@@ -23,6 +23,7 @@ import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
+import TrainingLibraryPage from "./pages/TrainingLibraryPage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -199,6 +200,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <GroupLessonDetailsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/training-library"
+      element={(
+        <ProtectedRoute>
+          <TrainingLibraryPage />
         </ProtectedRoute>
       )}
     />
