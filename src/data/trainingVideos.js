@@ -105,23 +105,56 @@ const transformEntryToVideo = (entry, playlist, index) => {
 
 const buildPlaylistFeedUrl = (playlistId) => `${feedBaseUrl}${playlistId}`;
 
-const buildProxiedFeedUrl = (playlistId) => {
+const buildPlaylistFeedCandidates = (playlistId) => {
   const targetUrl = buildPlaylistFeedUrl(playlistId);
 
   if (!corsProxyBaseUrl) {
-    return targetUrl;
+    return [targetUrl];
   }
+
+  const candidates = [];
 
   if (corsProxyBaseUrl.includes("{{ENCODED_URL}}")) {
-    return corsProxyBaseUrl.replace("{{ENCODED_URL}}", encodeURIComponent(targetUrl));
+    candidates.push(corsProxyBaseUrl.replace("{{ENCODED_URL}}", encodeURIComponent(targetUrl)));
+  } else if (corsProxyBaseUrl.includes("{{URL}}")) {
+    candidates.push(corsProxyBaseUrl.replace("{{URL}}", targetUrl));
+  } else {
+    const encodedVariant = `${corsProxyBaseUrl}${encodeURIComponent(targetUrl)}`;
+    candidates.push(encodedVariant);
+
+    const rawVariant = `${corsProxyBaseUrl}${targetUrl}`;
+
+    if (rawVariant !== encodedVariant) {
+      candidates.push(rawVariant);
+    }
   }
 
-  if (corsProxyBaseUrl.includes("{{URL}}")) {
-    return corsProxyBaseUrl.replace("{{URL}}", targetUrl);
+  candidates.push(targetUrl);
+
+  return Array.from(new Set(candidates));
+};
+
+const parsePlaylistFeed = (text) => {
+  if (!text || text.trim().length === 0) {
+    throw new Error("Playlist feed returned no data");
   }
 
-  const shouldEncode = /[=&]$/.test(corsProxyBaseUrl);
-  return `${corsProxyBaseUrl}${shouldEncode ? encodeURIComponent(targetUrl) : targetUrl}`;
+  const parser = new window.DOMParser();
+  const document = parser.parseFromString(text, "application/xml");
+  const parserError = document.querySelector("parsererror");
+
+  if (parserError) {
+    const message = parserError.textContent?.replace(/\s+/g, " ").trim();
+    throw new Error(message || "Unable to parse playlist feed");
+  }
+
+  const entries = Array.from(document.getElementsByTagName("entry"));
+
+  if (entries.length === 0) {
+    throw new Error("Playlist did not include any videos");
+  }
+
+  return entries;
 };
 
 export const fetchTrainingPlaylistVideos = async (playlist) => {
@@ -133,20 +166,30 @@ export const fetchTrainingPlaylistVideos = async (playlist) => {
     throw new Error("Cannot parse playlist feeds in the current environment");
   }
 
-  const response = await fetch(buildProxiedFeedUrl(playlist.playlistId));
+  const candidateUrls = buildPlaylistFeedCandidates(playlist.playlistId);
+  let lastError = null;
 
-  if (!response.ok) {
-    throw new Error(`Failed to load playlist: ${playlist.title ?? playlist.id}`);
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const entries = parsePlaylistFeed(await response.text());
+
+      return entries
+        .map((entry, index) => transformEntryToVideo(entry, playlist, index))
+        .filter((video) => video !== null);
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  const text = await response.text();
-  const parser = new window.DOMParser();
-  const document = parser.parseFromString(text, "application/xml");
-  const entries = Array.from(document.getElementsByTagName("entry"));
-
-  return entries
-    .map((entry, index) => transformEntryToVideo(entry, playlist, index))
-    .filter((video) => video !== null);
+  throw new Error(
+    lastError?.message || `Unable to load playlist: ${playlist.title ?? playlist.id}`,
+  );
 };
 
 export const trainingVideoFilters = [
