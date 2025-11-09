@@ -1,5 +1,5 @@
-import { Check, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, Loader2, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import "./coaches.css";
 
@@ -113,9 +113,25 @@ const getInitialAnswers = (): QuestionnaireAnswers =>
   }, {} as QuestionnaireAnswers);
 
 const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>(() => getInitialAnswers());
   const [isComplete, setIsComplete] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const analysisTimer = useRef<number>();
+  const answersRef = useRef(answers);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    return () => {
+      if (analysisTimer.current) {
+        window.clearTimeout(analysisTimer.current);
+      }
+    };
+  }, []);
 
   const currentStep = steps[currentStepIndex];
   const isLastStep = currentStepIndex === steps.length - 1;
@@ -163,86 +179,120 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
 
   const goToNextStep = () => {
     if (isLastStep) {
-      setIsComplete(true);
-      onComplete?.(answers);
+      setIsAnalyzing(true);
+      analysisTimer.current = window.setTimeout(() => {
+        setIsAnalyzing(false);
+        setIsComplete(true);
+        onComplete?.(answersRef.current);
+      }, 1400);
       return;
     }
     setCurrentStepIndex((index) => Math.min(steps.length - 1, index + 1));
   };
 
   const resetQuestionnaire = () => {
+    if (analysisTimer.current) {
+      window.clearTimeout(analysisTimer.current);
+    }
+    setIsAnalyzing(false);
     setIsComplete(false);
     setCurrentStepIndex(0);
   };
 
   const startOver = () => {
+    if (analysisTimer.current) {
+      window.clearTimeout(analysisTimer.current);
+    }
     setAnswers(getInitialAnswers());
     setCurrentStepIndex(0);
     setIsComplete(false);
+    setIsAnalyzing(false);
   };
 
   const canAdvance = currentStep ? answers[currentStep.id]?.length > 0 : false;
 
-  if (isComplete) {
-    return (
-      <section className="coach-questionnaire" aria-label="Coach match questionnaire summary">
-        <div className="coach-questionnaire__progress" role="status" aria-live="polite">
-          <div className="coach-questionnaire__progress-meta">
-            <span>Preferences saved</span>
-            <span>100% complete</span>
+  const closeModal = () => {
+    if (isAnalyzing) {
+      return;
+    }
+    if (analysisTimer.current) {
+      window.clearTimeout(analysisTimer.current);
+    }
+    setIsAnalyzing(false);
+    setIsOpen(false);
+  };
+
+  const openModal = () => {
+    setIsOpen(true);
+  };
+
+  const renderSummary = () => (
+    <div className="coach-questionnaire__modal-content" aria-live="polite">
+      <div className="coach-questionnaire__progress" role="status" aria-live="polite">
+        <div className="coach-questionnaire__progress-meta">
+          <span>Preferences saved</span>
+          <span>100% complete</span>
+        </div>
+        <div className="coach-questionnaire__progress-track">
+          <div className="coach-questionnaire__progress-bar" style={{ width: "100%" }} />
+        </div>
+      </div>
+      <div className="coach-questionnaire__card coach-questionnaire__card--complete">
+        <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
+          <div className="coach-questionnaire__badge" aria-hidden="true">
+            <Sparkles size={20} />
           </div>
-          <div className="coach-questionnaire__progress-track">
-            <div className="coach-questionnaire__progress-bar" style={{ width: "100%" }} />
+          <div>
+            <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
+              Your AI coach scout has a plan
+            </h2>
+            <p className="coach-questionnaire__subtitle">
+              We’ll use these insights to fine-tune recommendations and power your upcoming AI
+              assistant.
+            </p>
           </div>
         </div>
-        <div className="coach-questionnaire__card coach-questionnaire__card--complete">
-          <div className="coach-questionnaire__intro">
-            <div className="coach-questionnaire__badge" aria-hidden="true">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <h2 className="coach-questionnaire__title">You're all set!</h2>
-              <p className="coach-questionnaire__subtitle">
-                We'll use these details to tailor coach recommendations and power our upcoming AI
-                assistant.
-              </p>
-            </div>
-          </div>
 
-          <dl className="coach-questionnaire__summary">
-            {steps.map((step) => {
-              const selections = answers[step.id];
-              if (!selections || selections.length === 0) {
-                return null;
-              }
-              return (
-                <div key={step.id} className="coach-questionnaire__summary-item">
-                  <dt>{step.summaryLabel}</dt>
-                  <dd>
-                    {selections
-                      .map((selection) => optionLookup.get(selection)?.label ?? selection)
-                      .join(", ")}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
+        <dl className="coach-questionnaire__summary">
+          {steps.map((step) => {
+            const selections = answers[step.id];
+            if (!selections || selections.length === 0) {
+              return null;
+            }
+            return (
+              <div key={step.id} className="coach-questionnaire__summary-item">
+                <dt>{step.summaryLabel}</dt>
+                <dd>
+                  {selections
+                    .map((selection) => optionLookup.get(selection)?.label ?? selection)
+                    .join(", ")}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
 
-          <div className="coach-questionnaire__actions">
-            <button type="button" className="fc-button fc-button--secondary" onClick={resetQuestionnaire}>
-              Update responses
-            </button>
-            <button type="button" className="fc-button fc-button--tertiary" onClick={startOver}>
-              Clear all
-            </button>
-          </div>
+        <div className="coach-questionnaire__actions">
+          <button
+            type="button"
+            className="fc-button fc-button--secondary"
+            onClick={resetQuestionnaire}
+          >
+            Update responses
+          </button>
+          <button type="button" className="fc-button fc-button--tertiary" onClick={startOver}>
+            Clear all
+          </button>
+          <button type="button" className="fc-button fc-button--primary" onClick={closeModal}>
+            View matches
+          </button>
         </div>
-      </section>
-    );
-  }
+      </div>
+    </div>
+  );
 
-  return (
-    <section className="coach-questionnaire" aria-label="Coach match questionnaire">
+  const renderQuestionStep = () => (
+    <div className="coach-questionnaire__modal-content">
       <div className="coach-questionnaire__progress" role="status" aria-live="polite">
         <div className="coach-questionnaire__progress-meta">
           <span>
@@ -256,12 +306,14 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
       </div>
 
       <div className="coach-questionnaire__card">
-        <div className="coach-questionnaire__intro">
+        <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
           <div className="coach-questionnaire__badge" aria-hidden="true">
             <Sparkles size={20} />
           </div>
           <div>
-            <h2 className="coach-questionnaire__title">Find Your Perfect Coach</h2>
+            <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
+              AI Match Assistant
+            </h2>
             <p className="coach-questionnaire__subtitle">{currentStep.prompt}</p>
           </div>
         </div>
@@ -277,7 +329,9 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
               <button
                 key={option.value}
                 type="button"
-                className={`coach-questionnaire__option${selected ? " coach-questionnaire__option--selected" : ""}`}
+                className={`coach-questionnaire__option${
+                  selected ? " coach-questionnaire__option--selected" : ""
+                }`}
                 onClick={() => handleOptionSelect(option.value)}
                 aria-pressed={selected}
               >
@@ -317,10 +371,91 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
             onClick={goToNextStep}
             disabled={!canAdvance}
           >
-            {isLastStep ? "See My Matches" : "Next"}
+            {isLastStep ? "Analyze Matches" : "Next"}
           </button>
         </div>
       </div>
+    </div>
+  );
+
+  const renderAnalysis = () => (
+    <div className="coach-questionnaire__modal-content coach-questionnaire__modal-content--analysis">
+      <div className="coach-questionnaire__card coach-questionnaire__card--analysis" role="status">
+        <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
+          <div className="coach-questionnaire__badge" aria-hidden="true">
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
+              Calibrating your coach match
+            </h2>
+            <p className="coach-questionnaire__subtitle">
+              Our assistant is crunching the numbers and mapping the best-fit coaches for you.
+            </p>
+          </div>
+        </div>
+
+        <div className="coach-questionnaire__analysis-panel">
+          <div className="coach-questionnaire__analysis-orb" aria-hidden="true">
+            <div className="coach-questionnaire__analysis-orb-inner" />
+          </div>
+          <div className="coach-questionnaire__analysis-copy">
+            <p>Reading player profile…</p>
+            <p>Scanning local availability…</p>
+            <p>Preparing tailored recommendations…</p>
+          </div>
+        </div>
+
+        <div className="coach-questionnaire__analysis-footer">
+          <Loader2 className="coach-questionnaire__analysis-spinner" aria-hidden="true" />
+          <span>Generating matches</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section className="coach-questionnaire" aria-label="Coach match questionnaire launcher">
+      <div className="coach-questionnaire__launch">
+        <div className="coach-questionnaire__launch-copy">
+          <span className="coach-questionnaire__launch-badge">AI assist</span>
+          <h2 className="coach-questionnaire__launch-title">Get smarter coach matches</h2>
+          <p className="coach-questionnaire__launch-subtitle">
+            Answer a few quick prompts and let our AI agent fine-tune recommendations before you
+            browse.
+          </p>
+        </div>
+        <button type="button" className="fc-button fc-button--primary" onClick={openModal}>
+          Launch match assistant
+        </button>
+      </div>
+
+      {isOpen ? (
+        <>
+          <div
+            className="coach-questionnaire__overlay"
+            onClick={isAnalyzing ? undefined : closeModal}
+            aria-hidden="true"
+          />
+          <div
+            className="coach-questionnaire__modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coach-questionnaire-title"
+          >
+            <button
+              type="button"
+              className="coach-questionnaire__close"
+              onClick={closeModal}
+              aria-label="Close questionnaire"
+              disabled={isAnalyzing}
+            >
+              <X size={20} />
+            </button>
+            {isAnalyzing ? renderAnalysis() : isComplete ? renderSummary() : renderQuestionStep()}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 };
