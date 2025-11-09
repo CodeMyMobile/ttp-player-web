@@ -1,4 +1,4 @@
-import { Check, Loader2, Sparkles, X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import "./coaches.css";
@@ -25,6 +25,13 @@ type CoachMatchQuestionnaireProps = {
   onComplete?: (answers: QuestionnaireAnswers) => void;
 };
 
+const AILogo = () => (
+  <span className="coach-questionnaire__ai-logo" aria-hidden="true">
+    <span className="coach-questionnaire__ai-logo-ring" />
+    <span className="coach-questionnaire__ai-logo-core">AI</span>
+  </span>
+);
+
 const steps: QuestionnaireStep[] = [
   {
     id: "playingLevel",
@@ -40,6 +47,17 @@ const steps: QuestionnaireStep[] = [
       { value: "3_5_intermediate", label: "3.5 – Intermediate", description: "Consistent on medium pace" },
       { value: "4_0_advanced", label: "4.0 – Advanced", description: "Dependable strokes" },
       { value: "4_5_expert", label: "4.5+ – Expert", description: "Tournament level" },
+    ],
+  },
+  {
+    id: "playerType",
+    prompt: "Who is this coaching for?",
+    summaryLabel: "Player",
+    options: [
+      { value: "adult", label: "Adult", description: "18+ player" },
+      { value: "teen", label: "Teen", description: "13 – 17 years" },
+      { value: "junior", label: "Junior", description: "12 and under" },
+      { value: "family", label: "Family", description: "Mix of ages" },
     ],
   },
   {
@@ -116,7 +134,7 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
   const [isOpen, setIsOpen] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>(() => getInitialAnswers());
-  const [isComplete, setIsComplete] = useState(false);
+  const [completedAnswers, setCompletedAnswers] = useState<QuestionnaireAnswers | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analysisTimer = useRef<number>();
   const answersRef = useRef(answers);
@@ -182,31 +200,45 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
       setIsAnalyzing(true);
       analysisTimer.current = window.setTimeout(() => {
         setIsAnalyzing(false);
-        setIsComplete(true);
-        onComplete?.(answersRef.current);
+        const finalized = Object.keys(answersRef.current).reduce((acc, key) => {
+          acc[key] = [...(answersRef.current[key] ?? [])];
+          return acc;
+        }, {} as QuestionnaireAnswers);
+        setCompletedAnswers(finalized);
+        setCurrentStepIndex(0);
+        setIsOpen(false);
+        onComplete?.(finalized);
+        analysisTimer.current = undefined;
       }, 1400);
       return;
     }
     setCurrentStepIndex((index) => Math.min(steps.length - 1, index + 1));
   };
 
-  const resetQuestionnaire = () => {
+  const clearQuestionnaire = () => {
     if (analysisTimer.current) {
       window.clearTimeout(analysisTimer.current);
-    }
-    setIsAnalyzing(false);
-    setIsComplete(false);
-    setCurrentStepIndex(0);
-  };
-
-  const startOver = () => {
-    if (analysisTimer.current) {
-      window.clearTimeout(analysisTimer.current);
+      analysisTimer.current = undefined;
     }
     setAnswers(getInitialAnswers());
     setCurrentStepIndex(0);
-    setIsComplete(false);
     setIsAnalyzing(false);
+    setCompletedAnswers(null);
+    setIsOpen(false);
+  };
+
+  const handleEditPreferences = () => {
+    if (analysisTimer.current) {
+      window.clearTimeout(analysisTimer.current);
+      analysisTimer.current = undefined;
+    }
+    setIsAnalyzing(false);
+    setCurrentStepIndex(0);
+    setIsOpen(true);
+  };
+
+  const handleClearPreferences = () => {
+    clearQuestionnaire();
   };
 
   const canAdvance = currentStep ? answers[currentStep.id]?.length > 0 : false;
@@ -217,79 +249,16 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
     }
     if (analysisTimer.current) {
       window.clearTimeout(analysisTimer.current);
+      analysisTimer.current = undefined;
     }
     setIsAnalyzing(false);
     setIsOpen(false);
   };
 
   const openModal = () => {
+    setCurrentStepIndex(0);
     setIsOpen(true);
   };
-
-  const renderSummary = () => (
-    <div className="coach-questionnaire__modal-content" aria-live="polite">
-      <div className="coach-questionnaire__progress" role="status" aria-live="polite">
-        <div className="coach-questionnaire__progress-meta">
-          <span>Preferences saved</span>
-          <span>100% complete</span>
-        </div>
-        <div className="coach-questionnaire__progress-track">
-          <div className="coach-questionnaire__progress-bar" style={{ width: "100%" }} />
-        </div>
-      </div>
-      <div className="coach-questionnaire__card coach-questionnaire__card--complete">
-        <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
-          <div className="coach-questionnaire__badge" aria-hidden="true">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
-              Your AI coach scout has a plan
-            </h2>
-            <p className="coach-questionnaire__subtitle">
-              We’ll use these insights to fine-tune recommendations and power your upcoming AI
-              assistant.
-            </p>
-          </div>
-        </div>
-
-        <dl className="coach-questionnaire__summary">
-          {steps.map((step) => {
-            const selections = answers[step.id];
-            if (!selections || selections.length === 0) {
-              return null;
-            }
-            return (
-              <div key={step.id} className="coach-questionnaire__summary-item">
-                <dt>{step.summaryLabel}</dt>
-                <dd>
-                  {selections
-                    .map((selection) => optionLookup.get(selection)?.label ?? selection)
-                    .join(", ")}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-
-        <div className="coach-questionnaire__actions">
-          <button
-            type="button"
-            className="fc-button fc-button--secondary"
-            onClick={resetQuestionnaire}
-          >
-            Update responses
-          </button>
-          <button type="button" className="fc-button fc-button--tertiary" onClick={startOver}>
-            Clear all
-          </button>
-          <button type="button" className="fc-button fc-button--primary" onClick={closeModal}>
-            View matches
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderQuestionStep = () => (
     <div className="coach-questionnaire__modal-content">
@@ -308,7 +277,7 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
       <div className="coach-questionnaire__card">
         <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
           <div className="coach-questionnaire__badge" aria-hidden="true">
-            <Sparkles size={20} />
+            <AILogo />
           </div>
           <div>
             <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
@@ -383,7 +352,7 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
       <div className="coach-questionnaire__card coach-questionnaire__card--analysis" role="status">
         <div className="coach-questionnaire__intro coach-questionnaire__intro--ai">
           <div className="coach-questionnaire__badge" aria-hidden="true">
-            <Sparkles size={20} />
+            <AILogo />
           </div>
           <div>
             <h2 id="coach-questionnaire-title" className="coach-questionnaire__title">
@@ -418,7 +387,10 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
     <section className="coach-questionnaire" aria-label="Coach match questionnaire launcher">
       <div className="coach-questionnaire__launch">
         <div className="coach-questionnaire__launch-copy">
-          <span className="coach-questionnaire__launch-badge">AI coach scout</span>
+          <div className="coach-questionnaire__launch-badge">
+            <AILogo />
+            <span>AI coach scout</span>
+          </div>
           <h2 className="coach-questionnaire__launch-title">Meet your AI matchmaker</h2>
           <p className="coach-questionnaire__launch-subtitle">
             Share a few preferences and let our AI-powered assistant prepare a personalized
@@ -433,6 +405,58 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
           Open AI coach finder
         </button>
       </div>
+
+      {completedAnswers ? (
+        <div className="coach-questionnaire__summary-card" aria-live="polite">
+          <div className="coach-questionnaire__summary-top">
+            <div className="coach-questionnaire__summary-brand">
+              <AILogo />
+              <div>
+                <span className="coach-questionnaire__summary-eyebrow">AI recommendations ready</span>
+                <h3 className="coach-questionnaire__summary-title">Your coach match profile</h3>
+              </div>
+            </div>
+            <div className="coach-questionnaire__summary-actions">
+              <button
+                type="button"
+                className="fc-button fc-button--secondary"
+                onClick={handleEditPreferences}
+              >
+                Edit preferences
+              </button>
+              <button
+                type="button"
+                className="fc-button fc-button--tertiary"
+                onClick={handleClearPreferences}
+              >
+                Clear profile
+              </button>
+            </div>
+          </div>
+          <p className="coach-questionnaire__summary-subtitle">
+            These selections are guiding the recommendations shown below. Adjust them anytime to
+            refine your results.
+          </p>
+          <dl className="coach-questionnaire__summary-list">
+            {steps.map((step) => {
+              const selections = completedAnswers[step.id];
+              if (!selections || selections.length === 0) {
+                return null;
+              }
+              return (
+                <div key={step.id} className="coach-questionnaire__summary-item">
+                  <dt>{step.summaryLabel}</dt>
+                  <dd>
+                    {selections
+                      .map((selection) => optionLookup.get(selection)?.label ?? selection)
+                      .join(", ")}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      ) : null}
 
       {isOpen ? (
         <>
@@ -456,7 +480,7 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
             >
               <X size={20} />
             </button>
-            {isAnalyzing ? renderAnalysis() : isComplete ? renderSummary() : renderQuestionStep()}
+            {isAnalyzing ? renderAnalysis() : renderQuestionStep()}
           </div>
         </>
       ) : null}
