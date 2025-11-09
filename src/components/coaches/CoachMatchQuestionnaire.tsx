@@ -425,7 +425,11 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
             shortlist of coaches to explore.
           </p>
         </div>
-        <button type="button" className="fc-button fc-button--primary" onClick={openModal}>
+        <button
+          type="button"
+          className="fc-button fc-button--primary coach-questionnaire__launch-cta"
+          onClick={openModal}
+        >
           Open AI coach finder
         </button>
       </div>

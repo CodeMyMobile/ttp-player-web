@@ -818,6 +818,19 @@
   color: var(--fc-color-text-secondary);
 }
 
+.coach-questionnaire__launch-cta {
+  position: relative;
+  z-index: 1;
+  background: #0f9d58;
+  border-color: #0f9d58;
+  box-shadow: 0 20px 40px -20px rgba(15, 157, 88, 0.5);
+}
+
+.coach-questionnaire__launch-cta:hover {
+  background: #0b7a44;
+  border-color: #0b7a44;
+}
+
 .coach-questionnaire__overlay {
   position: fixed;
   inset: 0;
