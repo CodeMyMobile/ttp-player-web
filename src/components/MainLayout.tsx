@@ -11,6 +11,7 @@ const navLinks = [
   { label: "Find Players", to: "/find-players" },
   { label: "Group Lessons", to: "/group-lessons" },
   { label: "Find Coaches", to: "/find-coaches" },
+  { label: "Training Hub", to: "/training" },
   { label: "My Activity", href: "#activity" },
 ];
 
