@@ -112,7 +112,16 @@ const buildProxiedFeedUrl = (playlistId) => {
     return targetUrl;
   }
 
-  return `${corsProxyBaseUrl}${encodeURIComponent(targetUrl)}`;
+  if (corsProxyBaseUrl.includes("{{ENCODED_URL}}")) {
+    return corsProxyBaseUrl.replace("{{ENCODED_URL}}", encodeURIComponent(targetUrl));
+  }
+
+  if (corsProxyBaseUrl.includes("{{URL}}")) {
+    return corsProxyBaseUrl.replace("{{URL}}", targetUrl);
+  }
+
+  const shouldEncode = /[=&]$/.test(corsProxyBaseUrl);
+  return `${corsProxyBaseUrl}${shouldEncode ? encodeURIComponent(targetUrl) : targetUrl}`;
 };
 
 export const fetchTrainingPlaylistVideos = async (playlist) => {
