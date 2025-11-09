@@ -818,6 +818,116 @@
   text-align: center;
 }
 
+.training-section {
+  background: #f8fafc;
+  border-radius: 24px;
+  padding: 32px;
+  margin-top: 48px;
+}
+
+.training-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.training-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.training-card__video {
+  position: relative;
+  padding-top: 56.25%;
+  background: #0f172a;
+}
+
+.training-card__video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+}
+
+.training-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.training-card__focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  width: fit-content;
+}
+
+.training-card h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.training-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.training-card__footer {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary-link,
+.secondary-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.primary-link {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 12px 18px rgba(34, 197, 94, 0.25);
+}
+
+.primary-link:hover,
+.primary-link:focus-visible {
+  filter: brightness(0.95);
+}
+
+.secondary-link {
+  color: #0f172a;
+  padding: 8px 0;
+}
+
+.secondary-link::after {
+  content: "→";
+  font-size: 14px;
+}
+
 .coach-avatar {
   width: 72px;
   height: 72px;
@@ -1018,6 +1128,7 @@
   .quick-actions-grid,
   .matches-grid,
   .coaches-grid,
+  .training-grid,
   .bottom-actions {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
