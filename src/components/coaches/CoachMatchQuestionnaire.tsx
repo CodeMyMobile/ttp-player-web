@@ -418,15 +418,15 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
     <section className="coach-questionnaire" aria-label="Coach match questionnaire launcher">
       <div className="coach-questionnaire__launch">
         <div className="coach-questionnaire__launch-copy">
-          <span className="coach-questionnaire__launch-badge">AI assist</span>
-          <h2 className="coach-questionnaire__launch-title">Get smarter coach matches</h2>
+          <span className="coach-questionnaire__launch-badge">AI coach scout</span>
+          <h2 className="coach-questionnaire__launch-title">Meet your AI matchmaker</h2>
           <p className="coach-questionnaire__launch-subtitle">
-            Answer a few quick prompts and let our AI agent fine-tune recommendations before you
-            browse.
+            Share a few preferences and let our AI-powered assistant prepare a personalized
+            shortlist of coaches to explore.
           </p>
         </div>
         <button type="button" className="fc-button fc-button--primary" onClick={openModal}>
-          Launch match assistant
+          Open AI coach finder
         </button>
       </div>
 
