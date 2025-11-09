@@ -1,151 +1,132 @@
-import { trainingCollections } from "./trainingPlaylists";
+const feedBaseUrl = "https://www.youtube.com/feeds/videos.xml?playlist_id=";
 
-const playlistLookup = trainingCollections.reduce((accumulator, playlist) => {
-  accumulator[playlist.id] = playlist;
-  return accumulator;
-}, {});
-
-export const trainingVideos = [
-  {
-    id: "all-0",
-    title: "Matchplay onboarding workout",
-    description: "Full-body activation that pairs dynamic footwork with rally tempo to prep for any session.",
-    focus: ["Movement", "Consistency"],
-    skillLevel: "All levels",
-    duration: "12:08",
-    playlistKey: "all",
-    playlistIndex: 0,
-  },
-  {
-    id: "all-1",
-    title: "Baseline rhythm builder",
-    description: "Groove timing on both wings by alternating controlled drives with high-margin rally balls.",
-    focus: ["Timing", "Rally Patterns"],
-    skillLevel: "Intermediate",
-    duration: "14:36",
-    playlistKey: "all",
-    playlistIndex: 1,
-  },
-  {
-    id: "forehand-0",
-    title: "Live forehand timing checkpoints",
-    description: "Progress through rhythm, spacing, and acceleration checkpoints to dial in a dependable forehand.",
-    focus: ["Forehand", "Spacing"],
-    skillLevel: "Intermediate",
-    duration: "10:22",
-    playlistKey: "forehand",
-    playlistIndex: 2,
-  },
-  {
-    id: "forehand-1",
-    title: "Inside-out drive builder",
-    description: "Use inside-out patterns to create court position and finish with aggressive forehand holds.",
-    focus: ["Forehand", "Patterns"],
-    skillLevel: "Advanced",
-    duration: "11:51",
-    playlistKey: "forehand",
-    playlistIndex: 3,
-  },
-  {
-    id: "backhand-0",
-    title: "Two-ball crosscourt progression",
-    description: "Link your unit turn to recovery with alternating topspin and neutralizing slices crosscourt.",
-    focus: ["Backhand", "Footwork"],
-    skillLevel: "Intermediate",
-    duration: "13:04",
-    playlistKey: "backhand",
-    playlistIndex: 4,
-  },
-  {
-    id: "backhand-1",
-    title: "Backhand transition starter",
-    description: "Blend approach footwork with compact swing paths to take time away from your opponent.",
-    focus: ["Backhand", "Transition"],
-    skillLevel: "Advanced Beginner",
-    duration: "9:57",
-    playlistKey: "backhand",
-    playlistIndex: 5,
-  },
-  {
-    id: "transition-0",
-    title: "First volley reaction reps",
-    description: "Accelerate your split step and volley reaction with rapid-fire feeds and balanced recoveries.",
-    focus: ["Net Play", "Reflexes"],
-    skillLevel: "All levels",
-    duration: "8:41",
-    playlistKey: "transition",
-    playlistIndex: 1,
-  },
-  {
-    id: "transition-1",
-    title: "Approach plus cover pattern",
-    description: "Practice driving through approach shots and sealing the net with confident finishing targets.",
-    focus: ["Transition", "Finishing"],
-    skillLevel: "Intermediate",
-    duration: "12:29",
-    playlistKey: "transition",
-    playlistIndex: 3,
-  },
-  {
-    id: "serve-0",
-    title: "Serve rhythm build-up drills",
-    description: "Stack tempo drills that connect your toss height with knee drive for a smooth, powerful service motion.",
-    focus: ["Serve", "Rhythm"],
-    skillLevel: "All levels",
-    duration: "11:13",
-    playlistKey: "serve",
-    playlistIndex: 0,
-  },
-  {
-    id: "serve-1",
-    title: "Second serve spin challenge",
-    description: "Dial in kick and slice variations by progressing from box targets to live point starts.",
-    focus: ["Serve", "Spin"],
-    skillLevel: "Intermediate",
-    duration: "9:35",
-    playlistKey: "serve",
-    playlistIndex: 2,
-  },
-  {
-    id: "strategy-0",
-    title: "Pattern play walkthrough",
-    description: "Break down serve +1 and return +1 patterns so you can dictate rallies under pressure.",
-    focus: ["Strategy", "Patterns"],
-    skillLevel: "Competitive",
-    duration: "15:18",
-    playlistKey: "strategy",
-    playlistIndex: 0,
-  },
-  {
-    id: "strategy-1",
-    title: "Momentum reset toolkit",
-    description: "Identify tactical resets and momentum breakers to regain control of tight matches.",
-    focus: ["Strategy", "Mindset"],
-    skillLevel: "All levels",
-    duration: "10:45",
-    playlistKey: "strategy",
-    playlistIndex: 2,
-  },
-];
-
-export const resolveEmbedUrl = (video) => {
-  const playlist = playlistLookup[video.playlistKey];
-
-  if (!playlist) {
+const formatDurationFromSeconds = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
     return null;
   }
 
-  const baseUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlist.playlistId}`;
-  return `${baseUrl}&index=${video.playlistIndex}`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}:${`${remaining}`.padStart(2, "0")}`;
+};
+
+const deriveSkillLevel = (keywords) => {
+  const keywordMatch = keywords.find((keyword) =>
+    /beginner|intermediate|advanced/i.test(keyword),
+  );
+
+  if (!keywordMatch) {
+    return "All levels";
+  }
+
+  const normalized = keywordMatch.trim().toLowerCase();
+
+  if (normalized.includes("beginner")) {
+    return "Beginner";
+  }
+
+  if (normalized.includes("intermediate")) {
+    return "Intermediate";
+  }
+
+  if (normalized.includes("advanced")) {
+    return "Advanced";
+  }
+
+  return "All levels";
+};
+
+const extractKeywords = (entry) => {
+  const keywordsNode = entry.querySelector("media\\:keywords");
+
+  if (!keywordsNode) {
+    return [];
+  }
+
+  return keywordsNode.textContent
+    .split(",")
+    .map((keyword) => keyword.trim())
+    .filter(Boolean);
+};
+
+const parseDurationSeconds = (entry) => {
+  const durationNode = entry.querySelector("yt\\:duration");
+
+  if (!durationNode) {
+    return null;
+  }
+
+  const secondsValue = Number.parseInt(durationNode.getAttribute("seconds"), 10);
+  return Number.isFinite(secondsValue) ? secondsValue : null;
+};
+
+const transformEntryToVideo = (entry, playlist, index) => {
+  const videoId = entry.querySelector("yt\\:videoId")?.textContent?.trim();
+
+  if (!videoId) {
+    return null;
+  }
+
+  const keywords = extractKeywords(entry);
+  const focusTags = keywords.length > 0 ? keywords : playlist.focus ? [playlist.focus] : [];
+  const durationSeconds = parseDurationSeconds(entry);
+  const description = entry.querySelector("media\\:description")?.textContent?.trim() ?? "";
+
+  const publishedAt = entry.querySelector("published")?.textContent ?? null;
+
+  return {
+    id: `${playlist.id}::${videoId}`,
+    videoId,
+    title: entry.querySelector("title")?.textContent?.trim() ?? "Untitled session",
+    description,
+    focus: focusTags,
+    skillLevel: deriveSkillLevel(keywords),
+    durationSeconds,
+    durationLabel: formatDurationFromSeconds(durationSeconds) ?? "—",
+    playlistKey: playlist.id,
+    playlistIndex: index,
+    playlistTitle: playlist.title,
+    embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?list=${playlist.playlistId}&index=${index}`,
+    publishedAt,
+  };
+};
+
+export const fetchTrainingPlaylistVideos = async (playlist) => {
+  if (!playlist?.playlistId) {
+    throw new Error("Playlist metadata is missing an identifier");
+  }
+
+  if (typeof window === "undefined" || typeof window.DOMParser === "undefined") {
+    throw new Error("Cannot parse playlist feeds in the current environment");
+  }
+
+  const response = await fetch(`${feedBaseUrl}${playlist.playlistId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to load playlist: ${playlist.title ?? playlist.id}`);
+  }
+
+  const text = await response.text();
+  const parser = new window.DOMParser();
+  const document = parser.parseFromString(text, "application/xml");
+  const entries = Array.from(document.getElementsByTagName("entry"));
+
+  return entries
+    .map((entry, index) => transformEntryToVideo(entry, playlist, index))
+    .filter((video) => video !== null);
 };
 
 export const trainingVideoFilters = [
   { id: "all", label: "All content" },
   { id: "saved", label: "Saved sessions" },
-  { id: "quick", label: "Under 12 min", predicate: (video) => parseFloat(video.duration) < 12 },
+  {
+    id: "quick",
+    label: "Under 12 min",
+    predicate: (video) => typeof video.durationSeconds === "number" && video.durationSeconds < 12 * 60,
+  },
   {
     id: "intermediate",
     label: "Intermediate focus",
-    predicate: (video) => video.skillLevel.toLowerCase().includes("intermediate"),
+    predicate: (video) => video.skillLevel?.toLowerCase().includes("intermediate"),
   },
 ];

@@ -3,9 +3,46 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Bookmark, BookmarkCheck, ExternalLink, Share2, Search, SlidersHorizontal } from "lucide-react";
 import MainLayout from "../components/MainLayout";
 import { trainingCollections } from "../data/trainingPlaylists";
-import { resolveEmbedUrl, trainingVideoFilters, trainingVideos } from "../data/trainingVideos";
+import { fetchTrainingPlaylistVideos, trainingVideoFilters } from "../data/trainingVideos";
 
 const STORAGE_KEY = "ttp-training-saved";
+
+const sortVideos = (videos) => {
+  return [...videos].sort((a, b) => {
+    const dateA = a.publishedAt ? Date.parse(a.publishedAt) : Number.NaN;
+    const dateB = b.publishedAt ? Date.parse(b.publishedAt) : Number.NaN;
+
+    const hasDateA = Number.isFinite(dateA);
+    const hasDateB = Number.isFinite(dateB);
+
+    if (hasDateA && hasDateB) {
+      return dateB - dateA;
+    }
+
+    if (hasDateB) {
+      return 1;
+    }
+
+    if (hasDateA) {
+      return -1;
+    }
+
+    if (a.playlistKey === b.playlistKey) {
+      return a.playlistIndex - b.playlistIndex;
+    }
+
+    return a.playlistKey.localeCompare(b.playlistKey);
+  });
+};
+
+const getPlaylistKeyFromSavedId = (savedId) => {
+  if (!savedId) {
+    return null;
+  }
+
+  const [playlistKey] = savedId.split("::");
+  return playlistKey ?? null;
+};
 
 const TrainingLibraryPage = () => {
   const location = useLocation();
@@ -25,6 +62,7 @@ const TrainingLibraryPage = () => {
       return [];
     }
   });
+  const [playlistVideos, setPlaylistVideos] = useState({});
   const [feedback, setFeedback] = useState(null);
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -49,6 +87,16 @@ const TrainingLibraryPage = () => {
     );
   }, []);
 
+  const playlistLookup = useMemo(() => {
+    const lookup = new Map();
+
+    trainingCollections.forEach((collection) => {
+      lookup.set(collection.id, collection);
+    });
+
+    return lookup;
+  }, []);
+
   const activePlaylist = useMemo(() => {
     const candidate = searchParams.get("playlist");
     const validIds = new Set(playlistOptions.map((option) => option.id));
@@ -62,12 +110,16 @@ const TrainingLibraryPage = () => {
       return null;
     }
 
-    const target = trainingVideos.find(
-      (video) => video.playlistKey === activePlaylist && `${video.playlistIndex}` === requestedIndex,
-    );
+    const requestedPlaylist = searchParams.get("playlist") ?? activePlaylist;
+    const playlistState = playlistVideos[requestedPlaylist];
 
+    if (!playlistState?.videos) {
+      return null;
+    }
+
+    const target = playlistState.videos.find((video) => `${video.playlistIndex}` === requestedIndex);
     return target ? target.id : null;
-  }, [activePlaylist, searchParams]);
+  }, [activePlaylist, playlistVideos, searchParams]);
 
   const savedVideoSet = useMemo(() => new Set(savedVideos), [savedVideos]);
 
@@ -76,13 +128,44 @@ const TrainingLibraryPage = () => {
     return filter?.predicate ?? null;
   }, [activeRefinement]);
 
-  const visibleVideos = useMemo(() => {
-    const playlistFiltered =
-      activePlaylist === "all"
-        ? trainingVideos
-        : trainingVideos.filter((video) => video.playlistKey === activePlaylist);
+  const aggregatedVideos = useMemo(() => {
+    const playlistIds = playlistOptions
+      .map((option) => option.id)
+      .filter((id) => id !== "all");
 
-    let refined = playlistFiltered;
+    const videos = [];
+
+    playlistIds.forEach((playlistId) => {
+      const state = playlistVideos[playlistId];
+
+      if (state?.status === "success" && Array.isArray(state.videos)) {
+        videos.push(...state.videos);
+      }
+    });
+
+    return sortVideos(videos);
+  }, [playlistOptions, playlistVideos]);
+
+  const baseVideos = useMemo(() => {
+    if (activePlaylist === "all") {
+      return aggregatedVideos;
+    }
+
+    const state = playlistVideos[activePlaylist];
+
+    if (state?.status === "success" && Array.isArray(state.videos)) {
+      return state.videos;
+    }
+
+    if (Array.isArray(state?.videos)) {
+      return state.videos;
+    }
+
+    return [];
+  }, [activePlaylist, aggregatedVideos, playlistVideos]);
+
+  const visibleVideos = useMemo(() => {
+    let refined = baseVideos;
 
     if (activeRefinement === "saved") {
       refined = refined.filter((video) => savedVideoSet.has(video.id));
@@ -101,8 +184,78 @@ const TrainingLibraryPage = () => {
         )
       : refined;
 
-    return [...searched].sort((a, b) => a.playlistIndex - b.playlistIndex);
-  }, [activePlaylist, activeRefinement, refinementPredicate, savedVideoSet, searchTerm]);
+    return sortVideos(searched);
+  }, [activeRefinement, baseVideos, refinementPredicate, savedVideoSet, searchTerm]);
+
+  const ensurePlaylistLoaded = useCallback(
+    (playlistId) => {
+      if (!playlistId || playlistId === "all") {
+        return Promise.resolve();
+      }
+
+      let shouldFetch = false;
+
+      setPlaylistVideos((previous) => {
+        const current = previous[playlistId];
+
+        if (current?.status === "loading" || current?.status === "success") {
+          return previous;
+        }
+
+        shouldFetch = true;
+
+        return {
+          ...previous,
+          [playlistId]: {
+            status: "loading",
+            videos: Array.isArray(current?.videos) ? current.videos : [],
+          },
+        };
+      });
+
+      if (!shouldFetch) {
+        return Promise.resolve();
+      }
+
+      const playlistMeta = playlistLookup.get(playlistId);
+
+      if (!playlistMeta) {
+        setPlaylistVideos((previous) => ({
+          ...previous,
+          [playlistId]: {
+            status: "error",
+            videos: [],
+            error: "Playlist not found.",
+          },
+        }));
+
+        return Promise.resolve();
+      }
+
+      return fetchTrainingPlaylistVideos(playlistMeta)
+        .then((videos) => {
+          setPlaylistVideos((previous) => ({
+            ...previous,
+            [playlistId]: {
+              status: "success",
+              videos,
+            },
+          }));
+        })
+        .catch((error) => {
+          console.error("Unable to load training playlist", playlistId, error);
+          setPlaylistVideos((previous) => ({
+            ...previous,
+            [playlistId]: {
+              status: "error",
+              videos: [],
+              error: error?.message ?? "Unable to load playlist videos.",
+            },
+          }));
+        });
+    },
+    [playlistLookup],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -111,6 +264,62 @@ const TrainingLibraryPage = () => {
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedVideos));
   }, [savedVideos]);
+
+  useEffect(() => {
+    if (activePlaylist === "all") {
+      playlistOptions
+        .map((option) => option.id)
+        .filter((id) => id !== "all")
+        .forEach((playlistId) => {
+          ensurePlaylistLoaded(playlistId);
+        });
+      return;
+    }
+
+    ensurePlaylistLoaded(activePlaylist);
+  }, [activePlaylist, ensurePlaylistLoaded, playlistOptions]);
+
+  useEffect(() => {
+    const playlistIds = new Set();
+
+    savedVideos.forEach((videoId) => {
+      const playlistKey = getPlaylistKeyFromSavedId(videoId);
+
+      if (playlistKey && playlistKey !== "all") {
+        playlistIds.add(playlistKey);
+      }
+    });
+
+    playlistIds.forEach((playlistId) => {
+      ensurePlaylistLoaded(playlistId);
+    });
+  }, [ensurePlaylistLoaded, savedVideos]);
+
+  const relevantPlaylistIds = useMemo(() => {
+    if (activePlaylist === "all") {
+      return playlistOptions.map((option) => option.id).filter((id) => id !== "all");
+    }
+
+    return activePlaylist ? [activePlaylist] : [];
+  }, [activePlaylist, playlistOptions]);
+
+  const isLoadingPlaylists = useMemo(
+    () =>
+      relevantPlaylistIds.some((playlistId) => {
+        const state = playlistVideos[playlistId];
+        return !state || state.status === "loading";
+      }),
+    [playlistVideos, relevantPlaylistIds],
+  );
+
+  const playlistErrorMessage = useMemo(() => {
+    const errors = relevantPlaylistIds
+      .map((playlistId) => playlistVideos[playlistId])
+      .filter((state) => state?.status === "error" && state.error)
+      .map((state) => state.error);
+
+    return errors.length > 0 ? errors[0] : null;
+  }, [playlistVideos, relevantPlaylistIds]);
 
   const focusVideoCard = useCallback((videoId) => {
     const element = document.getElementById(`training-video-${videoId}`);
@@ -283,14 +492,22 @@ const TrainingLibraryPage = () => {
         {feedback && <div className="training-library__feedback">{feedback.message}</div>}
 
         <div className="training-library__grid">
-          {visibleVideos.length === 0 && (
+          {isLoadingPlaylists && visibleVideos.length === 0 && (
+            <div className="training-library__loading">Loading playlist videos…</div>
+          )}
+
+          {!isLoadingPlaylists && playlistErrorMessage && visibleVideos.length === 0 && (
+            <div className="training-library__error">{playlistErrorMessage}</div>
+          )}
+
+          {!isLoadingPlaylists && !playlistErrorMessage && visibleVideos.length === 0 && (
             <div className="training-library__empty">
               <p>No sessions match your filters yet. Adjust the filters or search to see more drills.</p>
             </div>
           )}
 
           {visibleVideos.map((video) => {
-            const embedUrl = resolveEmbedUrl(video);
+            const embedUrl = video.embedUrl ?? null;
             const isSaved = savedVideoSet.has(video.id);
 
             return (
@@ -314,18 +531,20 @@ const TrainingLibraryPage = () => {
                 </div>
                 <div className="training-video-card__body">
                   <div className="training-video-card__meta">
-                    <span className="training-video-card__duration">{video.duration}</span>
-                    <span className="training-video-card__level">{video.skillLevel}</span>
+                    <span className="training-video-card__duration">{video.durationLabel ?? "—"}</span>
+                    <span className="training-video-card__level">{video.skillLevel ?? "All levels"}</span>
                   </div>
                   <h2>{video.title}</h2>
                   <p>{video.description}</p>
-                  <div className="training-video-card__tags">
-                    {video.focus.map((tag) => (
-                      <span key={tag} className="training-video-card__tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  {video.focus?.length > 0 && (
+                    <div className="training-video-card__tags">
+                      {video.focus.map((tag) => (
+                        <span key={tag} className="training-video-card__tag">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="training-video-card__actions">
                   <button

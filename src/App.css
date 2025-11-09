@@ -1092,6 +1092,26 @@
   font-weight: 500;
 }
 
+.training-library__loading,
+.training-library__error {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px;
+  text-align: center;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.training-library__loading {
+  color: #2563eb;
+}
+
+.training-library__error {
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
+
 .training-library__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
