@@ -995,6 +995,13 @@
   gap: 12px;
 }
 
+.training-library__chip-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
 .training-library__chip {
   border: none;
   background: #f1f5f9;
@@ -1030,6 +1037,28 @@
 .training-library__chip-focus {
   font-size: 12px;
   opacity: 0.8;
+}
+
+.training-library__chip-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  transition: color 0.2s ease;
+}
+
+.training-library__chip-link:hover,
+.training-library__chip-link:focus-visible {
+  color: #15803d;
+}
+
+.training-library__chip.is-active + .training-library__chip-link {
+  color: #16a34a;
 }
 
 .training-library__search {

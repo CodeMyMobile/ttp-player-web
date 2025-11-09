@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bookmark, BookmarkCheck, Share2, Search, SlidersHorizontal } from "lucide-react";
+import { Bookmark, BookmarkCheck, ExternalLink, Share2, Search, SlidersHorizontal } from "lucide-react";
 import MainLayout from "../components/MainLayout";
 import { trainingCollections } from "../data/trainingPlaylists";
 import { resolveEmbedUrl, trainingVideoFilters, trainingVideos } from "../data/trainingVideos";
@@ -31,11 +31,16 @@ const TrainingLibraryPage = () => {
 
   const playlistOptions = useMemo(() => {
     const options = [
-      { id: "all", label: "All content" },
+      {
+        id: "all",
+        label: "All content",
+        playlistUrl: trainingCollections.find((collection) => collection.id === "all")?.playlistUrl,
+      },
       ...trainingCollections.map((collection) => ({
         id: collection.id,
         label: collection.title,
         focus: collection.focus,
+        playlistUrl: collection.playlistUrl,
       })),
     ];
 
@@ -219,17 +224,28 @@ const TrainingLibraryPage = () => {
             <span className="training-library__control-label">Playlists</span>
             <div className="training-library__chip-row">
               {playlistOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`training-library__chip${activePlaylist === option.id ? " is-active" : ""}`}
-                  onClick={() => handlePlaylistChange(option.id)}
-                >
-                  <span className="training-library__chip-title">{option.label}</span>
-                  {option.focus && option.id !== "all" && (
-                    <span className="training-library__chip-focus">{option.focus}</span>
+                <div key={option.id} className="training-library__chip-wrapper">
+                  <button
+                    type="button"
+                    className={`training-library__chip${activePlaylist === option.id ? " is-active" : ""}`}
+                    onClick={() => handlePlaylistChange(option.id)}
+                  >
+                    <span className="training-library__chip-title">{option.label}</span>
+                    {option.focus && option.id !== "all" && (
+                      <span className="training-library__chip-focus">{option.focus}</span>
+                    )}
+                  </button>
+                  {option.playlistUrl && (
+                    <a
+                      className="training-library__chip-link"
+                      href={option.playlistUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink size={14} /> View playlist
+                    </a>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
