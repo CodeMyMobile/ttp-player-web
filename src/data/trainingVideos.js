@@ -1,5 +1,17 @@
 const feedBaseUrl = "https://www.youtube.com/feeds/videos.xml?playlist_id=";
 
+const normaliseProxyBase = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  return value.endsWith("?") ? value : `${value}?`;
+};
+
+const corsProxyBaseUrl = normaliseProxyBase(
+  import.meta?.env?.VITE_YOUTUBE_FEED_PROXY ?? "https://corsproxy.io/?",
+);
+
 const formatDurationFromSeconds = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return null;
@@ -91,6 +103,18 @@ const transformEntryToVideo = (entry, playlist, index) => {
   };
 };
 
+const buildPlaylistFeedUrl = (playlistId) => `${feedBaseUrl}${playlistId}`;
+
+const buildProxiedFeedUrl = (playlistId) => {
+  const targetUrl = buildPlaylistFeedUrl(playlistId);
+
+  if (!corsProxyBaseUrl) {
+    return targetUrl;
+  }
+
+  return `${corsProxyBaseUrl}${encodeURIComponent(targetUrl)}`;
+};
+
 export const fetchTrainingPlaylistVideos = async (playlist) => {
   if (!playlist?.playlistId) {
     throw new Error("Playlist metadata is missing an identifier");
@@ -100,7 +124,7 @@ export const fetchTrainingPlaylistVideos = async (playlist) => {
     throw new Error("Cannot parse playlist feeds in the current environment");
   }
 
-  const response = await fetch(`${feedBaseUrl}${playlist.playlistId}`);
+  const response = await fetch(buildProxiedFeedUrl(playlist.playlistId));
 
   if (!response.ok) {
     throw new Error(`Failed to load playlist: ${playlist.title ?? playlist.id}`);
