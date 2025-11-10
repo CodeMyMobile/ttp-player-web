@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Autocomplete from "react-google-autocomplete";
 
 import MainLayout from "../components/MainLayout";
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -8,14 +9,42 @@ import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import StateBanner from "../components/coaches/StateBanner";
-import { mockPlayers, type Player } from "../data/mockPlayers";
 import { colors, typography } from "../lib/theme";
+import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
+import { getStoredAuthToken } from "../services/authToken";
+import type { Player } from "../data/mockPlayers";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
 
 type Mode = "normal" | "empty" | "error";
 type Status = "loading" | "ready";
+
+type Coordinates = { latitude: number; longitude: number };
+
+type SelectedLocation = Coordinates & { label: string };
+
+type SuggestedPlayerRecord = {
+  userId: number;
+  email?: string;
+  phone?: string;
+  full_name?: string;
+  profile_picture?: string;
+  skillLevel?: string;
+  availability?: string[] | string;
+  playerLocations?: string[] | string;
+  playerCourtLocations?: string[] | string;
+  lookingFor?: string[] | string;
+  gender?: string;
+  about_me?: string;
+  genderAdditionalText?: string;
+  isLevelConfirmed?: boolean;
+  verifiedLevelCount?: string | number;
+  is_favorite?: boolean;
+  [key: string]: unknown;
+};
+
+type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
@@ -30,6 +59,9 @@ const availabilityOptions = [
   "Weekends",
 ];
 
+const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+const DEFAULT_POSITION: Coordinates = { latitude: 34.0549076, longitude: -118.242643 };
+
 const normalize = (value: string) => value.trim().toLowerCase();
 
 const parseRadius = (radius: string) => {
@@ -40,31 +72,314 @@ const parseRadius = (radius: string) => {
   return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
 };
 
+const DEFAULT_LOCATION: SelectedLocation = {
+  label: "Current location",
+  latitude: DEFAULT_POSITION.latitude,
+  longitude: DEFAULT_POSITION.longitude,
+};
+
+const getStoredLocation = (): SelectedLocation | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SelectedLocation> | null;
+    if (!parsed) return null;
+    const { latitude, longitude, label } = parsed;
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      return null;
+    }
+    if (typeof label !== "string" || label.trim().length === 0) {
+      return {
+        label: DEFAULT_LOCATION.label,
+        latitude,
+        longitude,
+      };
+    }
+    return {
+      label: label.trim(),
+      latitude,
+      longitude,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const storeLocation = (location: SelectedLocation | null) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (!location) {
+      window.localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(location));
+  } catch {
+    /* noop */
+  }
+};
+
+const toInitials = (name: string) => {
+  const segments = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (segments.length === 0) {
+    return "TP";
+  }
+  if (segments.length === 1) {
+    return segments[0].slice(0, 2).toUpperCase();
+  }
+  return `${segments[0][0]}${segments[segments.length - 1][0]}`.toUpperCase();
+};
+
+const ensureStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item): item is string => item.length > 0);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return [];
+};
+
+const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
+  const availability = ensureStringArray(record.availability);
+  const playerLocations = ensureStringArray(record.playerLocations);
+  const courtLocations = ensureStringArray(record.playerCourtLocations);
+  const lookingFor = ensureStringArray(record.lookingFor);
+  const location = playerLocations[0] ?? courtLocations[0] ?? "Location unavailable";
+  const initialsSource = record.full_name ?? record.email ?? "TTP Player";
+  const skillLabel = typeof record.skillLevel === "string" ? record.skillLevel.trim() : "";
+  const levelMatch = skillLabel.match(/NTRP\s*([0-9.]+)/i);
+  const normalizedLevel = levelMatch?.[1] ?? (skillLabel || "Unknown");
+  const verificationCount = Number.parseInt(String(record.verifiedLevelCount ?? "0"), 10) || 0;
+  const normalizedGender = (() => {
+    const rawGender = typeof record.gender === "string" ? record.gender.trim().toLowerCase() : "";
+    if (rawGender === "male") return "Male" as const;
+    if (rawGender === "female") return "Female" as const;
+    return "Other" as const;
+  })();
+  const courts = courtLocations.length > 0 ? courtLocations : playerLocations;
+  const bio = typeof record.about_me === "string" && record.about_me.trim().length > 0
+    ? record.about_me.trim()
+    : "This player hasn\'t added a bio yet.";
+
+  return {
+    id: String(record.userId ?? initialsSource.toLowerCase()),
+    name: record.full_name?.trim() || record.email || "TTP Player",
+    initials: toInitials(initialsSource),
+    profileImageUrl: record.profile_picture ?? "",
+    location,
+    distanceMiles: 0,
+    gender: normalizedGender,
+    level: normalizedLevel,
+    availability,
+    matchPreferences: lookingFor,
+    bio,
+    verified: Boolean(record.isLevelConfirmed),
+    verificationCount,
+    verificationSupporters: [],
+    lastActive: "Active recently",
+    matchFrequency: "Match frequency unavailable",
+    rating: 0,
+    favoriteCourt: courts[0] ?? location,
+    lookingFor: lookingFor.join(", ") || "Not specified",
+    localCourts: courts,
+    hitTypes: lookingFor,
+    matchesPlayed: undefined,
+    reviewsCount: undefined,
+    responseTime: undefined,
+    memberSince: undefined,
+    matchHistory: undefined,
+    reviews: undefined,
+    raw: record,
+  };
+};
+
+const extractSuggestedPlayers = (payload: unknown): SuggestedPlayerRecord[] => {
+  if (Array.isArray(payload)) {
+    return payload as SuggestedPlayerRecord[];
+  }
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.data)) {
+      return record.data as SuggestedPlayerRecord[];
+    }
+    if (Array.isArray(record.players)) {
+      return record.players as SuggestedPlayerRecord[];
+    }
+    if (Array.isArray(record.results)) {
+      return record.results as SuggestedPlayerRecord[];
+    }
+  }
+  return [];
+};
+
 const FindPlayersPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
+  const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
   const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
+  const [error, setError] = useState<string | null>(null);
   const [hasMatchProfile, setHasMatchProfile] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
-  const loadingTimer = useRef<number>();
+  const [playerToken] = useState(() =>
+    getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
+  );
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => getStoredLocation());
+  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [geoError, setGeoError] = useState<string>("");
+
+  const effectiveLocation = locationFilter ?? DEFAULT_LOCATION;
+  const position: Coordinates = {
+    latitude: effectiveLocation.latitude,
+    longitude: effectiveLocation.longitude,
+  };
+  const positionKey = `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}`;
+  const locationLabel = effectiveLocation.label;
+  const hasLocationFilter = Boolean(locationFilter);
+
+  const applyLocationFilter = (nextLocation: SelectedLocation) => {
+    console.log("Filter change", { type: "location", location: nextLocation });
+    setLocationFilter(nextLocation);
+    setLocationSearchTerm(nextLocation.label);
+    storeLocation(nextLocation);
+    setShowLocationPicker(false);
+    setGeoError("");
+    setMode("normal");
+  };
+
+  const clearLocationFilter = () => {
+    console.log("Filter change", { type: "clear-location" });
+    setLocationFilter(null);
+    setLocationSearchTerm("");
+    storeLocation(null);
+    setShowLocationPicker(false);
+    setGeoError("");
+    setMode("normal");
+  };
+
+  const detectCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoError("Geolocation is unavailable in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (result) => {
+        const { latitude, longitude } = result.coords;
+        const nextLocation: SelectedLocation = {
+          label: "Current location",
+          latitude,
+          longitude,
+        };
+        applyLocationFilter(nextLocation);
+        setIsDetectingLocation(false);
+      },
+      (geoLocationError) => {
+        console.error("Failed to detect current location", geoLocationError);
+        setIsDetectingLocation(false);
+        switch (geoLocationError.code) {
+          case geoLocationError.PERMISSION_DENIED:
+            setGeoError("Location access was denied. Please allow access and try again.");
+            break;
+          case geoLocationError.POSITION_UNAVAILABLE:
+            setGeoError("We couldn't determine your location. Try searching manually.");
+            break;
+          case geoLocationError.TIMEOUT:
+            setGeoError("We couldn't detect your location in time. Try again.");
+            break;
+          default:
+            setGeoError("We couldn't detect your location. Please try again.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  };
 
   useEffect(() => {
-    loadingTimer.current = window.setTimeout(() => {
-      setStatus("ready");
-    }, 540);
+    let isCancelled = false;
 
-    return () => {
-      if (loadingTimer.current) {
-        window.clearTimeout(loadingTimer.current);
+    if (!playerToken) {
+      setPlayers([]);
+      setStatus("ready");
+      setMode("error");
+      setError("Please sign in to search for players.");
+      return undefined;
+    }
+
+    const fetchPlayers = async () => {
+      setStatus("loading");
+      setError(null);
+      try {
+        const radiusValue = parseRadius(appliedRadius);
+        const response = await getSuggestedPlayerCheckLocation({
+          token: playerToken,
+          perPage: 20,
+          page: 1,
+          search: appliedSearchTerm,
+          location: locationLabel,
+          radius: Number.isFinite(radiusValue) ? radiusValue : undefined,
+          position: {
+            latitude: position.latitude,
+            longitude: position.longitude,
+          },
+        });
+        if (isCancelled) {
+          return;
+        }
+        const suggestedPlayers = extractSuggestedPlayers(response);
+        const mapped = suggestedPlayers.map(mapSuggestedPlayer);
+        setPlayers(mapped);
+        setMode(mapped.length > 0 ? "normal" : "empty");
+      } catch (requestError) {
+        if (isCancelled) {
+          return;
+        }
+        setPlayers([]);
+        setMode("error");
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "We couldn\'t load suggested players right now.",
+        );
+      } finally {
+        if (!isCancelled) {
+          setStatus("ready");
+        }
       }
     };
-  }, []);
+
+    fetchPlayers();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [playerToken, appliedSearchTerm, appliedRadius, locationLabel, positionKey]);
 
   const themeVars = useMemo(
     () => ({
@@ -101,75 +416,44 @@ const FindPlayersPage = () => {
     [],
   );
 
-  const beginLoading = (callback?: () => void) => {
-    if (loadingTimer.current) {
-      window.clearTimeout(loadingTimer.current);
-    }
-    setStatus("loading");
-    loadingTimer.current = window.setTimeout(() => {
-      callback?.();
-      setStatus("ready");
-    }, 420);
-  };
-
   const handleSearch = () => {
-    const trimmed = normalize(searchTerm);
-    beginLoading(() => {
-      if (trimmed === "error") {
-        setMode("error");
-      } else if (trimmed === "empty") {
-        setMode("empty");
-      } else {
-        setMode("normal");
-      }
-    });
+    setAppliedSearchTerm(normalize(searchTerm));
+    setMode("normal");
   };
 
   const handleRadiusChange = (radius: string) => {
     setSelectedRadius(radius);
-    beginLoading(() => {
-      setMode("normal");
-    });
+    setAppliedRadius(radius);
+    setMode("normal");
   };
 
   const handleLevelChange = (level: string) => {
     setSelectedLevel(level);
-    beginLoading(() => {
-      setMode("normal");
-    });
   };
 
   const handleAvailabilityChange = (availability: string) => {
     setSelectedAvailability(availability);
-    beginLoading(() => {
-      setMode("normal");
-    });
   };
 
   const handleGenderChange = (gender: string) => {
     setSelectedGender(gender);
-    beginLoading(() => {
-      setMode("normal");
-    });
   };
 
   const handleVerifiedToggle = (next: boolean) => {
     setVerifiedOnly(next);
-    beginLoading(() => {
-      setMode("normal");
-    });
   };
 
   const resetFilters = () => {
     setSearchTerm("");
+    setAppliedSearchTerm("");
     setSelectedRadius(radiusOptions[1]);
+    setAppliedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
     setSelectedGender(genderOptions[0]);
     setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
-    beginLoading(() => {
-      setMode("normal");
-    });
+    clearLocationFilter();
+    setMode("normal");
   };
 
   const filteredPlayers = useMemo(() => {
@@ -177,10 +461,9 @@ const FindPlayersPage = () => {
       return [];
     }
 
-    const normalizedTerm = normalize(searchTerm);
-    const radiusLimit = parseRadius(selectedRadius);
+    const normalizedTerm = normalize(appliedSearchTerm);
 
-    return mockPlayers.filter((player) => {
+    return players.filter((player) => {
       const matchesSearch = (() => {
         if (!normalizedTerm) {
           return true;
@@ -192,6 +475,7 @@ const FindPlayersPage = () => {
           player.lookingFor,
           ...player.availability,
           ...player.matchPreferences,
+          ...player.localCourts,
         ]
           .join(" ")
           .toLowerCase();
@@ -200,22 +484,21 @@ const FindPlayersPage = () => {
 
       const matchesLevel =
         selectedLevel === "All levels" ||
-        (selectedLevel === "4.5+" ? Number.parseFloat(player.level) >= 4.5 : player.level === selectedLevel);
+        (selectedLevel === "4.5+"
+          ? Number.parseFloat(player.level) >= 4.5
+          : player.level === selectedLevel);
 
       const matchesAvailability = (() => {
         if (selectedAvailability === "All availability") {
           return true;
         }
         const normalizedAvailability = normalize(selectedAvailability);
-        return player.availability.some((option) =>
-          option.toLowerCase().includes(normalizedAvailability),
-        );
+        return player.availability.some((option) => option.toLowerCase().includes(normalizedAvailability));
       })();
 
       const matchesGender =
         selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
 
-      const matchesRadius = player.distanceMiles <= radiusLimit;
       const matchesVerification = !verifiedOnly || player.verified;
 
       return (
@@ -223,17 +506,16 @@ const FindPlayersPage = () => {
         matchesLevel &&
         matchesAvailability &&
         matchesGender &&
-        matchesRadius &&
         matchesVerification
       );
     });
   }, [
     mode,
-    searchTerm,
-    selectedRadius,
-    selectedLevel,
-    selectedGender,
+    appliedSearchTerm,
+    players,
     selectedAvailability,
+    selectedGender,
+    selectedLevel,
     verifiedOnly,
   ]);
 
@@ -276,7 +558,7 @@ const FindPlayersPage = () => {
             }
           />
 
-          {!hasMatchProfile && status === "ready" && (
+          {!hasMatchProfile && status === "ready" && mode !== "error" && (
             <StateBanner
               tone="empty"
               title="Create your player match profile"
@@ -311,7 +593,92 @@ const FindPlayersPage = () => {
             onAvailabilityChange={handleAvailabilityChange}
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
+            locationLabel={locationLabel}
+            onLocationButtonClick={() => {
+              setShowLocationPicker((previous) => !previous);
+              setLocationSearchTerm(locationFilter?.label ?? "");
+              setGeoError("");
+            }}
+            hasLocationFilter={hasLocationFilter}
           />
+
+          {showLocationPicker && (
+            <div className="fp-location-panel">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY}
+                placeholder="Search for a city, club, or court"
+                className="fp-location-panel__input"
+                value={locationSearchTerm}
+                onChange={(event) => setLocationSearchTerm(event.target.value)}
+                onPlaceSelected={(place) => {
+                  if (!place) {
+                    setGeoError("Please choose a location from the suggestions.");
+                    return;
+                  }
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label =
+                    place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                  if (
+                    typeof lat === "number" &&
+                    !Number.isNaN(lat) &&
+                    typeof lng === "number" &&
+                    !Number.isNaN(lng)
+                  ) {
+                    applyLocationFilter({ label, latitude: lat, longitude: lng });
+                  } else {
+                    setGeoError("We couldn't read that location's coordinates. Try another search.");
+                  }
+                }}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+
+              <div className="fp-location-panel__actions">
+                <button
+                  type="button"
+                  onClick={detectCurrentLocation}
+                  disabled={isDetectingLocation}
+                  className="fc-button fc-button--secondary"
+                >
+                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+                </button>
+                <div className="fp-location-panel__secondary">
+                  {hasLocationFilter && (
+                    <button
+                      type="button"
+                      onClick={clearLocationFilter}
+                      className="fc-button fc-button--tertiary"
+                    >
+                      Clear location
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLocationPicker(false);
+                      setGeoError("");
+                      setLocationSearchTerm(locationFilter?.label ?? "");
+                    }}
+                    className="fc-button fc-button--primary"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              {geoError ? <p className="fp-location-panel__error">{geoError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY && (
+                <p className="fp-location-panel__tip">
+                  Tip: Provide a Google Places API key to enable location search suggestions.
+                </p>
+              )}
+            </div>
+          )}
 
           <span className="fc-results-count">{resultsCountLabel}</span>
 
@@ -327,7 +694,7 @@ const FindPlayersPage = () => {
             <StateBanner
               tone="error"
               title="We couldn't load players right now"
-              message="Please try again in a few minutes or adjust your filters."
+              message={error ?? "Please try again in a few minutes or adjust your filters."}
               action={
                 <button type="button" className="fc-button fc-button--primary" onClick={resetFilters}>
                   Retry search
@@ -351,7 +718,7 @@ const FindPlayersPage = () => {
 
           {shouldShowResults && (
             <div className="players-results-grid">
-              {filteredPlayers.map((player: Player) => (
+              {filteredPlayers.map((player) => (
                 <PlayerCard
                   key={player.id}
                   player={player}
@@ -364,7 +731,9 @@ const FindPlayersPage = () => {
                     window.alert(`Connection request sent to ${nextPlayer.name}`);
                   }}
                   onViewProfile={(nextPlayer) => {
-                    navigate(`/players/${nextPlayer.id}`);
+                    navigate(`/players/${nextPlayer.id}`, {
+                      state: { player: nextPlayer as DirectoryPlayer },
+                    });
                   }}
                 />
               ))}

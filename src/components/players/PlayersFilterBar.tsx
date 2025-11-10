@@ -22,6 +22,9 @@ type PlayersFilterBarProps = {
   onAvailabilityChange: (value: string) => void;
   verifiedOnly: boolean;
   onVerifiedOnlyChange: (value: boolean) => void;
+  locationLabel: string;
+  onLocationButtonClick: () => void;
+  hasLocationFilter: boolean;
 };
 
 const PlayersFilterBar = ({
@@ -42,6 +45,9 @@ const PlayersFilterBar = ({
   onAvailabilityChange,
   verifiedOnly,
   onVerifiedOnlyChange,
+  locationLabel,
+  onLocationButtonClick,
+  hasLocationFilter,
 }: PlayersFilterBarProps) => {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,9 +58,15 @@ const PlayersFilterBar = ({
     <div className="fc-filter">
       <div className="fc-filter__distance-row">
         <div className="fc-filter__distance-group">
-          <button type="button" className="fc-distance-chip fc-distance-chip--location" aria-label="Selected location">
+          <button
+            type="button"
+            className={`fc-distance-chip fc-distance-chip--location${hasLocationFilter ? " fc-distance-chip--active" : ""}`}
+            aria-label={`Selected location: ${locationLabel}. Click to change location.`}
+            title={locationLabel}
+            onClick={onLocationButtonClick}
+          >
             <MapPin size={18} />
-            New York City, NY
+            {locationLabel}
           </button>
           {radiusOptions.map((radius) => (
             <button
