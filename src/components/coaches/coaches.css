@@ -124,8 +124,8 @@
 
 .fc-filter__search {
   position: relative;
-  flex: 0 1 360px;
-  width: min(100%, 360px);
+  flex: 0 1 300px;
+  width: min(100%, 300px);
   z-index: 0;
 }
 

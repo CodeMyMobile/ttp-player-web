@@ -30,16 +30,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     }
   };
 
-  const distanceLabel = useMemo(() => {
-    if (typeof player.distanceMiles === "number" && Number.isFinite(player.distanceMiles)) {
-      return `${player.distanceMiles.toFixed(1)} mi away`;
-    }
-    if (player.location?.length) {
-      return player.location;
-    }
-    return "";
-  }, [player.distanceMiles, player.location]);
-
   const localCourts = useMemo(() => {
     if (player.localCourts?.length) {
       return player.localCourts;
@@ -60,7 +50,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           <div className="fp-card__identity">
             <div className="fp-card__name-row">
               <h3 className="fp-card__name">{player.name}</h3>
-              {distanceLabel ? <span className="fp-card__distance">{distanceLabel}</span> : null}
             </div>
             <div
               className="fp-card__badges"
@@ -86,13 +75,21 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
       </header>
 
       <div className="fp-card__sections">
-        <section className="fp-card__section" aria-label="Availability">
+        <section className="fp-card__section fp-card__section--availability" aria-label="Availability">
           <span className="fp-card__section-label">Availability</span>
-          <span className="fp-card__section-value">
-            {player.availability.length
-              ? player.availability.join(" · ")
-              : "Share when you're free to help others match faster"}
-          </span>
+          {player.availability.length ? (
+            <div className="fp-card__availability-chips">
+              {player.availability.map((slot, index) => (
+                <span className="fp-card__availability-chip" key={`${slot}-${index}`}>
+                  {slot}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="fp-card__availability-empty">
+              Share when you're free to help others match faster
+            </span>
+          )}
         </section>
         <section className="fp-card__section" aria-label="Local courts">
           <span className="fp-card__section-label">Local courts</span>

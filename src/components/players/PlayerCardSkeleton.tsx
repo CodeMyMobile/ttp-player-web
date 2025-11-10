@@ -9,15 +9,28 @@ const PlayerCardSkeleton = () => {
           <span className="fp-skeleton fp-skeleton--avatar" />
           <div className="fp-card__profile-skeleton">
             <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
-            <span className="fp-skeleton fp-skeleton--pill" />
+            <div className="fp-card__badge-skeleton-row">
+              <span className="fp-skeleton fp-skeleton--pill" />
+              <span className="fp-skeleton fp-skeleton--pill fp-skeleton--pill-sm" />
+            </div>
           </div>
         </div>
         <span className="fp-skeleton fp-skeleton--paragraph" />
       </div>
 
       <div className="fp-card__sections fp-card__sections--skeleton">
-        <span className="fp-skeleton fp-skeleton--section" />
-        <span className="fp-skeleton fp-skeleton--section" />
+        <div className="fp-card__section fp-card__section--availability fp-card__availability-skeleton">
+          <span className="fp-skeleton fp-skeleton--section-label" />
+          <div className="fp-card__availability-skeleton-row">
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+          </div>
+        </div>
+        <div className="fp-card__section fp-card__section--skeleton">
+          <span className="fp-skeleton fp-skeleton--section-label" />
+          <span className="fp-skeleton fp-skeleton--section-line" />
+        </div>
       </div>
 
       <div className="fp-card__actions fp-card__actions--skeleton">
