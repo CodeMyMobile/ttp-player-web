@@ -1,7 +1,7 @@
 import { ChevronDown, MapPin, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { getGoogleMaps, loadGooglePlacesLibrary } from "../../lib/googlePlaces";
+import { searchLocations, type LocationSuggestion } from "../../lib/locationSearch";
 
 import "./coaches.css";
 
@@ -21,14 +21,9 @@ type FilterSelect = {
   options: { value: string; label: string }[];
 };
 
-type LocationPrediction = {
-  description: string;
-  placeId: string;
-};
-
 export type LocationSelection = {
   label: string;
-  placeId: string | null;
+  locationId: string | null;
   coords: { lat: number; lng: number } | null;
   isCurrent: boolean;
 };
@@ -68,18 +63,18 @@ const FilterBar = ({
 }: FilterBarProps) => {
   const [selectedLocation, setSelectedLocation] = useState<LocationSelection>({
     label: "Detecting location…",
-    placeId: null,
+    locationId: null,
     coords: null,
     isCurrent: true,
   });
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [locationInput, setLocationInput] = useState("");
-  const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
 
   const locationPickerRef = useRef<HTMLDivElement | null>(null);
-  const autocompleteServiceRef = useRef<unknown>(null);
 
   const updateSelectedLocation = useCallback(
     (nextLocation: LocationSelection) => {
@@ -92,93 +87,15 @@ const FilterBar = ({
   const closeLocationPicker = useCallback(() => {
     setIsLocationPickerOpen(false);
     setLocationInput("");
-    setLocationPredictions([]);
+    setLocationSuggestions([]);
+    setIsFetchingSuggestions(false);
   }, []);
-
-  const resolveLocationFromPlaceId = useCallback(
-    async (prediction: LocationPrediction, isCurrent: boolean) => {
-      try {
-        await loadGooglePlacesLibrary();
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "We couldn't connect to Google Places. Try again.";
-        updateSelectedLocation({
-          label: prediction.description,
-          placeId: prediction.placeId,
-          coords: null,
-          isCurrent,
-        });
-        setLocationError(message);
-        setIsResolvingLocation(false);
-        return;
-      }
-
-      const googleMaps = getGoogleMaps() as
-        | (Record<string, unknown> & {
-            Geocoder?: new () => {
-              geocode: (
-                request: { location?: { lat: number; lng: number }; placeId?: string },
-                callback: (results: { formatted_address?: string; place_id?: string; geometry?: { location?: { lat: () => number; lng: () => number } } }[] | null, status: string) => void
-              ) => void;
-            };
-            places?: { PlacesServiceStatus?: { OK?: string } };
-          })
-        | undefined;
-
-      if (!googleMaps?.Geocoder) {
-        updateSelectedLocation({
-          label: prediction.description,
-          placeId: prediction.placeId,
-          coords: null,
-          isCurrent,
-        });
-        setLocationError("Google Maps geocoding is unavailable right now.");
-        setIsResolvingLocation(false);
-        return;
-      }
-
-      const geocoder = new googleMaps.Geocoder();
-      geocoder.geocode(
-        { placeId: prediction.placeId },
-        (results, status) => {
-          const nextLocation: LocationSelection = {
-            label: prediction.description,
-            placeId: prediction.placeId,
-            coords: null,
-            isCurrent,
-          };
-
-          if (status === "OK" && results && results[0]) {
-            const { formatted_address: formattedAddress, place_id: placeId, geometry } = results[0];
-            const lat = geometry?.location?.lat?.();
-            const lng = geometry?.location?.lng?.();
-
-            nextLocation.label = formattedAddress ?? prediction.description;
-            nextLocation.placeId = placeId ?? prediction.placeId;
-            nextLocation.coords =
-              typeof lat === "number" && typeof lng === "number" ? { lat, lng } : null;
-            setLocationError(null);
-          } else if (status !== "ZERO_RESULTS") {
-            setLocationError("We couldn't verify that location. Try another search.");
-          } else {
-            setLocationError(null);
-          }
-
-          updateSelectedLocation(nextLocation);
-          setIsResolvingLocation(false);
-        }
-      );
-    },
-    [updateSelectedLocation]
-  );
 
   const resolveCurrentLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       updateSelectedLocation({
         label: "Current location",
-        placeId: null,
+        locationId: null,
         coords: null,
         isCurrent: true,
       });
@@ -190,78 +107,19 @@ const FilterBar = ({
     setLocationError(null);
 
     navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          await loadGooglePlacesLibrary();
-        } catch (error) {
-          updateSelectedLocation({
-            label: "Current location",
-            placeId: null,
-            coords: { lat: coords.latitude, lng: coords.longitude },
-            isCurrent: true,
-          });
-          setLocationError(
-            error instanceof Error
-              ? error.message
-              : "We couldn't connect to Google Places. Try again."
-          );
-          setIsResolvingLocation(false);
-          return;
-        }
-
-        const googleMaps = getGoogleMaps() as
-          | (Record<string, unknown> & {
-              Geocoder?: new () => {
-                geocode: (
-                  request: { location?: { lat: number; lng: number }; placeId?: string },
-                  callback: (results: { formatted_address?: string; place_id?: string; geometry?: { location?: { lat: () => number; lng: () => number } } }[] | null, status: string) => void
-                ) => void;
-              };
-            })
-          | undefined;
-
-        if (!googleMaps?.Geocoder) {
-          updateSelectedLocation({
-            label: "Current location",
-            placeId: null,
-            coords: { lat: coords.latitude, lng: coords.longitude },
-            isCurrent: true,
-          });
-          setLocationError("Google Maps geocoding is unavailable right now.");
-          setIsResolvingLocation(false);
-          return;
-        }
-
-        const geocoder = new googleMaps.Geocoder();
-        geocoder.geocode(
-          { location: { lat: coords.latitude, lng: coords.longitude } },
-          (results, status) => {
-            const nextLocation: LocationSelection = {
-              label: "Current location",
-              placeId: null,
-              coords: { lat: coords.latitude, lng: coords.longitude },
-              isCurrent: true,
-            };
-
-            if (status === "OK" && results && results[0]) {
-              nextLocation.label = results[0].formatted_address ?? "Current location";
-              nextLocation.placeId = results[0].place_id ?? null;
-              setLocationError(null);
-            } else if (status !== "ZERO_RESULTS") {
-              setLocationError("We couldn't verify your location. Try searching manually.");
-            } else {
-              setLocationError(null);
-            }
-
-            updateSelectedLocation(nextLocation);
-            setIsResolvingLocation(false);
-          }
-        );
+      ({ coords }) => {
+        updateSelectedLocation({
+          label: "Current location",
+          locationId: null,
+          coords: { lat: coords.latitude, lng: coords.longitude },
+          isCurrent: true,
+        });
+        setIsResolvingLocation(false);
       },
       (error) => {
         updateSelectedLocation({
           label: "Current location",
-          placeId: null,
+          locationId: null,
           coords: null,
           isCurrent: true,
         });
@@ -273,7 +131,8 @@ const FilterBar = ({
         }
 
         setIsResolvingLocation(false);
-      }
+      },
+      { enableHighAccuracy: true, maximumAge: 1000 * 60 * 5, timeout: 1000 * 20 }
     );
   }, [updateSelectedLocation]);
 
@@ -313,131 +172,82 @@ const FilterBar = ({
   }, [closeLocationPicker, isLocationPickerOpen]);
 
   useEffect(() => {
-    if (!isLocationPickerOpen || !locationInput.trim()) {
-      if (!locationInput.trim()) {
-        setLocationPredictions([]);
-      }
+    if (!isLocationPickerOpen) {
+      return undefined;
+    }
+
+    const trimmed = locationInput.trim();
+
+    if (trimmed.length < 3) {
+      setLocationSuggestions([]);
+      setIsFetchingSuggestions(false);
       return undefined;
     }
 
     let isActive = true;
+    const controller = new AbortController();
+    setIsFetchingSuggestions(true);
 
-    const fetchPredictions = async () => {
+    const fetchSuggestions = async () => {
       try {
-        await loadGooglePlacesLibrary();
-      } catch (error) {
-        if (!isActive) {
-          return;
-        }
-        const message =
-          error instanceof Error
-            ? error.message
-            : "We couldn't connect to Google Places. Try again.";
-        setLocationError(message);
-        setLocationPredictions([]);
-        return;
-      }
+        const suggestions = await searchLocations({
+          search: trimmed,
+          limit: 6,
+          signal: controller.signal,
+        });
 
-      const googleMaps = getGoogleMaps() as
-        | (Record<string, unknown> & {
-            places?: {
-              AutocompleteService?: new () => {
-                getPlacePredictions: (
-                  request: Record<string, unknown>,
-                  callback: (predictions: { description: string; place_id: string }[] | null, status: string) => void
-                ) => void;
-              };
-              PlacesServiceStatus?: { OK?: string; ZERO_RESULTS?: string };
-            };
-          })
-        | undefined;
-
-      const placesNamespace = googleMaps?.places;
-
-      if (!placesNamespace?.AutocompleteService) {
-        if (isActive) {
-          setLocationError("Google Places suggestions are unavailable right now.");
-          setLocationPredictions([]);
-        }
-        return;
-      }
-
-      if (!autocompleteServiceRef.current) {
-        autocompleteServiceRef.current = new placesNamespace.AutocompleteService();
-      }
-
-      const request: Record<string, unknown> = {
-        input: locationInput.trim(),
-      };
-
-      if (selectedLocation.coords) {
-        request.locationBias = {
-          lat: selectedLocation.coords.lat,
-          lng: selectedLocation.coords.lng,
-        };
-      }
-
-      (autocompleteServiceRef.current as {
-        getPlacePredictions: (
-          input: Record<string, unknown>,
-          callback: (
-            predictions: { description: string; place_id: string }[] | null,
-            status: string
-          ) => void
-        ) => void;
-      }).getPlacePredictions(request, (predictions, status) => {
         if (!isActive) {
           return;
         }
 
-        const okStatus = placesNamespace.PlacesServiceStatus?.OK ?? "OK";
-        const zeroStatus = placesNamespace.PlacesServiceStatus?.ZERO_RESULTS ?? "ZERO_RESULTS";
-
-        if (status !== okStatus) {
-          if (status === zeroStatus) {
-            setLocationPredictions([]);
-            setLocationError(null);
-            return;
-          }
-
-          setLocationPredictions([]);
-          setLocationError("We couldn't load suggestions. Try again in a moment.");
-          return;
-        }
-
+        setLocationSuggestions(suggestions);
         setLocationError(null);
-        setLocationPredictions(
-          predictions?.map((prediction) => ({
-            description: prediction.description,
-            placeId: prediction.place_id,
-          })) ?? []
-        );
-      });
+      } catch (error) {
+        if (!isActive || (error instanceof DOMException && error.name === "AbortError")) {
+          return;
+        }
+
+        setLocationSuggestions([]);
+        setLocationError("We couldn't load locations. Try again in a moment.");
+      } finally {
+        if (isActive) {
+          setIsFetchingSuggestions(false);
+        }
+      }
     };
 
-    const timeoutId = window.setTimeout(fetchPredictions, 220);
+    const timeoutId = window.setTimeout(fetchSuggestions, 220);
 
     return () => {
       isActive = false;
+      controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [isLocationPickerOpen, locationInput, selectedLocation.coords]);
+  }, [isLocationPickerOpen, locationInput]);
 
   const handleLocationButtonClick = () => {
     setIsLocationPickerOpen((previous) => !previous);
     setLocationError(null);
   };
 
-  const handleSelectPrediction = (prediction: LocationPrediction) => {
-    setIsResolvingLocation(true);
+  const handleSelectSuggestion = (suggestion: LocationSuggestion) => {
     closeLocationPicker();
-    resolveLocationFromPlaceId(prediction, false);
+    updateSelectedLocation({
+      label: suggestion.label,
+      locationId: suggestion.id,
+      coords: suggestion.coords,
+      isCurrent: false,
+    });
+    setLocationError(null);
   };
 
   const handleUseCurrentLocation = () => {
     closeLocationPicker();
+    setLocationError(null);
     resolveCurrentLocation();
   };
+
+  const trimmedLocationInput = locationInput.trim();
 
   const locationButtonLabel = useMemo(() => {
     if (isResolvingLocation && selectedLocation.isCurrent) {
@@ -489,20 +299,23 @@ const FilterBar = ({
                   Use current location
                 </button>
                 <div className="fc-location-popover__options" role="listbox">
-                  {locationPredictions.map((prediction) => (
+                  {locationSuggestions.map((suggestion) => (
                     <button
                       type="button"
-                      key={prediction.placeId}
+                      key={suggestion.id}
                       className="fc-location-popover__option"
-                      onClick={() => handleSelectPrediction(prediction)}
+                      onClick={() => handleSelectSuggestion(suggestion)}
                     >
-                      {prediction.description}
+                      {suggestion.label}
                     </button>
                   ))}
-                  {locationPredictions.length === 0 && !locationInput.trim() ? (
-                    <p className="fc-location-popover__hint">Start typing to search for a new location.</p>
+                  {isFetchingSuggestions ? (
+                    <p className="fc-location-popover__hint">Searching for locations…</p>
                   ) : null}
-                  {locationPredictions.length === 0 && locationInput.trim() && !locationError ? (
+                  {locationSuggestions.length === 0 && !isFetchingSuggestions && trimmedLocationInput.length < 3 ? (
+                    <p className="fc-location-popover__hint">Enter at least 3 characters to search.</p>
+                  ) : null}
+                  {locationSuggestions.length === 0 && trimmedLocationInput.length >= 3 && !isFetchingSuggestions && !locationError ? (
                     <p className="fc-location-popover__hint">No matches yet. Try a different search.</p>
                   ) : null}
                 </div>
