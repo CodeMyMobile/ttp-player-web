@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ShieldCheck } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -30,50 +30,83 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     }
   };
 
+  const distanceLabel = useMemo(() => {
+    if (typeof player.distanceMiles === "number" && Number.isFinite(player.distanceMiles)) {
+      return `${player.distanceMiles.toFixed(1)} mi away`;
+    }
+    if (player.location?.length) {
+      return player.location;
+    }
+    return "";
+  }, [player.distanceMiles, player.location]);
+
+  const localCourts = useMemo(() => {
+    if (player.localCourts?.length) {
+      return player.localCourts;
+    }
+    const fallback = [player.favoriteCourt, player.location].filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+    return fallback.length ? fallback : [];
+  }, [player.favoriteCourt, player.localCourts, player.location]);
+
   return (
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
-      <div className="fc-card__profile fp-card__profile">
-        <div className="fp-card__avatar" aria-hidden="true">
-          {player.initials}
-        </div>
-        <div className="fc-card__identity fp-card__identity">
-          <h3 className="fc-card__name">{player.name}</h3>
-          <div className="fp-card__metrics" aria-label={`NTRP ${player.level}${player.verified ? ", verified player" : ""}`}>
-            <span className="fp-card__level">
-              <span className="fp-card__level-label">NTRP</span>
-              <span className="fp-card__level-value">{player.level}</span>
-            </span>
-            {player.verified && (
-              <span
-                className="fp-card__verified"
-                aria-label="Verified player"
-                title="Verified players have confirmed their identity and NTRP level through community reviews."
-              >
-                <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
-                <span>Verified player</span>
+      <header className="fp-card__header">
+        <div className="fp-card__identity-block">
+          <div className="fp-card__avatar" aria-hidden="true">
+            {player.initials}
+          </div>
+          <div className="fp-card__identity">
+            <div className="fp-card__name-row">
+              <h3 className="fp-card__name">{player.name}</h3>
+              {distanceLabel ? <span className="fp-card__distance">{distanceLabel}</span> : null}
+            </div>
+            <div
+              className="fp-card__badges"
+              aria-label={`NTRP ${player.level}${player.verified ? ", verified player" : ""}`}
+            >
+              <span className="fp-card__badge fp-card__badge--level">
+                NTRP <strong>{player.level}</strong>
               </span>
-            )}
+              {player.verified ? (
+                <span
+                  className="fp-card__badge fp-card__badge--verified"
+                  aria-label="Verified player"
+                  title="Verified players have confirmed their identity and NTRP level through community reviews."
+                >
+                  <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
+                  Verified player
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+        <p className="fp-card__bio">{bioTeaser}</p>
+      </header>
 
-      <p className="fp-card__bio">{bioTeaser}</p>
-
-      <div className="fc-card__meta fp-card__meta">
-        <div className="fc-card__meta-item fp-card__meta-item">
-          <span className="fc-card__meta-label">Availability</span>
-          <span className="fc-card__meta-value">{player.availability.join(" · ")}</span>
-        </div>
-        <div className="fc-card__meta-item fp-card__meta-item">
-          <span className="fc-card__meta-label">Local courts</span>
-          <span className="fc-card__meta-value">{player.localCourts.join(" · ")}</span>
-        </div>
+      <div className="fp-card__sections">
+        <section className="fp-card__section" aria-label="Availability">
+          <span className="fp-card__section-label">Availability</span>
+          <span className="fp-card__section-value">
+            {player.availability.length
+              ? player.availability.join(" · ")
+              : "Share when you're free to help others match faster"}
+          </span>
+        </section>
+        <section className="fp-card__section" aria-label="Local courts">
+          <span className="fp-card__section-label">Local courts</span>
+          <span className="fp-card__section-value fp-card__section-value--location">
+            <MapPin size={16} aria-hidden="true" />
+            {localCourts.length ? localCourts.join(" · ") : "Flexible on courts"}
+          </span>
+        </section>
       </div>
 
       <div className="fp-card__actions">
         <button
           type="button"
-          className="fc-button fc-button--secondary fp-card__view-profile"
+          className="fc-button fp-card__view-profile"
           onClick={handleViewProfile}
           disabled={!onViewProfile}
         >
@@ -81,7 +114,7 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         </button>
         <button
           type="button"
-          className="fc-button fc-button--primary fp-card__connect"
+          className="fc-button fp-card__connect"
           disabled={!canConnect}
           onClick={() => onConnect(player)}
           title={
