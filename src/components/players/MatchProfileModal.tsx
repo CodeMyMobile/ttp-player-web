@@ -89,7 +89,9 @@ type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
 
 let placesScriptPromise: Promise<void> | null = null;
 
-const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
+const GOOGLE_PLACES_API_KEY = (
+  import.meta.env.VITE_GOOGLE_API_KEY as string | undefined
+) ?? (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined);
 
 const loadGooglePlacesScript = () => {
   if (typeof window === "undefined") {
