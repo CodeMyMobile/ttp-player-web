@@ -385,26 +385,28 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
 
   return (
     <section className="coach-questionnaire" aria-label="Coach match questionnaire launcher">
-      <div className="coach-questionnaire__launch">
-        <div className="coach-questionnaire__launch-copy">
-          <div className="coach-questionnaire__launch-badge">
-            <AILogo />
-            <span>AI coach scout</span>
+      {!completedAnswers ? (
+        <div className="coach-questionnaire__launch">
+          <div className="coach-questionnaire__launch-copy">
+            <div className="coach-questionnaire__launch-badge">
+              <AILogo />
+              <span>AI coach scout</span>
+            </div>
+            <h2 className="coach-questionnaire__launch-title">Meet your AI matchmaker</h2>
+            <p className="coach-questionnaire__launch-subtitle">
+              Share a few preferences and let our AI-powered assistant prepare a personalized
+              shortlist of coaches to explore.
+            </p>
           </div>
-          <h2 className="coach-questionnaire__launch-title">Meet your AI matchmaker</h2>
-          <p className="coach-questionnaire__launch-subtitle">
-            Share a few preferences and let our AI-powered assistant prepare a personalized
-            shortlist of coaches to explore.
-          </p>
+          <button
+            type="button"
+            className="fc-button fc-button--primary coach-questionnaire__launch-cta"
+            onClick={openModal}
+          >
+            Open AI coach finder
+          </button>
         </div>
-        <button
-          type="button"
-          className="fc-button fc-button--primary coach-questionnaire__launch-cta"
-          onClick={openModal}
-        >
-          Open AI coach finder
-        </button>
-      </div>
+      ) : null}
 
       {completedAnswers ? (
         <div className="coach-questionnaire__summary-card" aria-live="polite">
