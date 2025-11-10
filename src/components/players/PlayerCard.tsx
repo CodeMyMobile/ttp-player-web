@@ -93,10 +93,20 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         </section>
         <section className="fp-card__section" aria-label="Local courts">
           <span className="fp-card__section-label">Local courts</span>
-          <span className="fp-card__section-value fp-card__section-value--location">
+          <div className="fp-card__section-value fp-card__section-value--location">
             <MapPin size={16} aria-hidden="true" />
-            {localCourts.length ? localCourts.join(" · ") : "Flexible on courts"}
-          </span>
+            {localCourts.length ? (
+              <div className="fp-card__location-list">
+                {localCourts.map((court, index) => (
+                  <span className="fp-card__location-item" key={`${court}-${index}`}>
+                    {court}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="fp-card__location-item">Flexible on courts</span>
+            )}
+          </div>
         </section>
       </div>
 
