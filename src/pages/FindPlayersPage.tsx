@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+/// <reference types="google.maps" />
+
+import Autocomplete from "react-google-autocomplete";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
@@ -20,6 +23,13 @@ type Mode = "normal" | "empty" | "error";
 type Status = "loading" | "ready";
 
 type Coordinates = { latitude: number; longitude: number };
+
+type SelectedLocation = {
+  label: string;
+  latitude: number;
+  longitude: number;
+  isCurrentLocation?: boolean;
+};
 
 type SuggestedPlayerRecord = {
   userId: number;
@@ -81,6 +91,18 @@ const getStoredLocation = (): Coordinates | null => {
     return parsed;
   } catch {
     return null;
+  }
+};
+
+const storeLocation = (coords: Coordinates | null) => {
+  try {
+    if (!coords) {
+      localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
+  } catch {
+    // ignore
   }
 };
 
@@ -203,10 +225,91 @@ const FindPlayersPage = () => {
   const [playerToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
-  const [position] = useState<Coordinates | null>(() => getStoredLocation() ?? DEFAULT_POSITION);
+  const [position, setPosition] = useState<Coordinates | null>(() => getStoredLocation() ?? DEFAULT_POSITION);
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => {
+    const stored = getStoredLocation();
+    if (stored) {
+      return {
+        label: "Current location",
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        isCurrentLocation: true,
+      };
+    }
+    return null;
+  });
+  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
-  const locationLabel = position ? "Current location" : "";
+  const locationLabel = locationFilter?.label ?? (position ? "Current location" : "");
+
+  const applyLocationFilter = useCallback(
+    (nextLocation: SelectedLocation | null) => {
+      if (nextLocation && typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number") {
+        const coords: Coordinates = {
+          latitude: nextLocation.latitude,
+          longitude: nextLocation.longitude,
+        };
+        setPosition(coords);
+        storeLocation(coords);
+        setLocationFilter(nextLocation);
+        setLocationSearchTerm(nextLocation.label);
+        setGeoError("");
+        setShowLocationPicker(false);
+        setMode("normal");
+        return;
+      }
+
+      setLocationFilter(null);
+      setLocationSearchTerm("");
+      setGeoError("");
+      setShowLocationPicker(false);
+      setMode("normal");
+      setPosition({ ...DEFAULT_POSITION });
+      storeLocation(null);
+    },
+    [setMode],
+  );
+
+  const detectCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError("Location detection is not supported in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (nextPosition) => {
+        setIsDetectingLocation(false);
+        const coords: Coordinates = {
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+        };
+        applyLocationFilter({
+          label: "Current location",
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          isCurrentLocation: true,
+        });
+      },
+      (error) => {
+        setIsDetectingLocation(false);
+        console.error("Failed to detect current location", error);
+        setGeoError(error.message || "We couldn't detect your location. Please allow access and try again.");
+      },
+    );
+  }, [applyLocationFilter]);
+
+  const hasLocationFilter = Boolean(locationFilter);
+
+  const closeLocationPicker = useCallback(() => {
+    setShowLocationPicker(false);
+    setGeoError("");
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -464,6 +567,17 @@ const FindPlayersPage = () => {
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
             onSearch={handleSearch}
+            locationLabel={locationLabel || "Select location"}
+            onLocationClick={() => {
+              setGeoError("");
+              setShowLocationPicker((prev) => {
+                if (!prev) {
+                  setLocationSearchTerm(locationFilter?.label ?? "");
+                }
+                return !prev;
+              });
+            }}
+            isLocationPickerOpen={showLocationPicker}
             radiusOptions={radiusOptions}
             selectedRadius={selectedRadius}
             onRadiusChange={handleRadiusChange}
@@ -479,6 +593,89 @@ const FindPlayersPage = () => {
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
+
+          {showLocationPicker ? (
+            <section className="fp-location-panel" id="player-location-picker" aria-label="Location picker">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="Search for a city, club, or court"
+                className="fp-autocomplete-input"
+                value={locationSearchTerm}
+                onChange={(event) => setLocationSearchTerm(event.target.value)}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) {
+                    setGeoError("Please choose a location from the suggestions.");
+                    return;
+                  }
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label =
+                    place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                  if (
+                    typeof lat === "number" &&
+                    !Number.isNaN(lat) &&
+                    typeof lng === "number" &&
+                    !Number.isNaN(lng)
+                  ) {
+                    applyLocationFilter({ label, latitude: lat, longitude: lng });
+                  } else {
+                    setGeoError("We couldn't read that location's coordinates. Try another search.");
+                  }
+                }}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+
+              <div className="fp-location-actions">
+                <button
+                  type="button"
+                  className="fp-location-detect"
+                  onClick={detectCurrentLocation}
+                  disabled={isDetectingLocation}
+                >
+                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+                </button>
+                <div className="fp-location-secondary-actions">
+                  {hasLocationFilter ? (
+                    <button
+                      type="button"
+                      className="fp-location-secondary"
+                      onClick={() => applyLocationFilter(null)}
+                    >
+                      Clear location
+                    </button>
+                  ) : null}
+                  <button type="button" className="fp-location-secondary" onClick={closeLocationPicker}>
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="fp-location-summary">
+                <h4>Selected location</h4>
+                {locationFilter ? (
+                  <p>{locationFilter.label}</p>
+                ) : position ? (
+                  <p>
+                    Lat {position.latitude.toFixed(4)}, Lng {position.longitude.toFixed(4)}
+                  </p>
+                ) : (
+                  <p>No location selected yet.</p>
+                )}
+              </div>
+
+              {geoError ? <p className="fp-location-error">{geoError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="fp-location-tip">
+                  Tip: Provide a Google Places API key to enable location search suggestions.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <span className="fc-results-count">{resultsCountLabel}</span>
 
