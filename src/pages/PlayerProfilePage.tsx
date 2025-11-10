@@ -1,16 +1,65 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, Check, MessageCircle, Star, UserPlus, UserX, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { findPlayerProfile } from "../data/mockPlayers";
+import type { Player } from "../data/mockPlayers";
 
 import "./PlayerProfilePage.css";
 
+type SuggestedPlayerRecord = {
+  userId: number;
+  email?: string;
+  phone?: string;
+  full_name?: string;
+  profile_picture?: string;
+  skillLevel?: string;
+  availability?: string[] | string;
+  playerLocations?: string[] | string;
+  playerCourtLocations?: string[] | string;
+  lookingFor?: string[] | string;
+  gender?: string;
+  about_me?: string;
+  genderAdditionalText?: string;
+  isLevelConfirmed?: boolean;
+  verifiedLevelCount?: string | number;
+  is_favorite?: boolean;
+  [key: string]: unknown;
+};
+
+type DirectoryPlayer = Player & { raw?: SuggestedPlayerRecord };
+
+type QuickStat = { label: string; value: string };
+
+type ProfileInfoItem = { label: string; value: string };
+
+const normalizeStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item): item is string => item.length > 0);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return [];
+};
+
 const PlayerProfilePage = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const player = useMemo(() => (id ? findPlayerProfile(id) : undefined), [id]);
+  const locationState = location.state as { player?: DirectoryPlayer } | undefined;
+  const player = useMemo(() => {
+    if (!locationState?.player) {
+      return undefined;
+    }
+    if (!id || locationState.player.id === id) {
+      return locationState.player;
+    }
+    return undefined;
+  }, [id, locationState?.player]);
 
   const goBackToResults = () => {
     if (typeof window !== "undefined" && window.history.length <= 2) {
@@ -31,8 +80,8 @@ const PlayerProfilePage = () => {
           <div className="player-profile-empty-card">
             <h1>Player profile not found</h1>
             <p>
-              We couldn&apos;t find the player you were looking for. Try heading back to the
-              player directory to explore other match partners.
+              We couldn&apos;t find the player you were looking for. Try heading back to the player directory to explore other
+              match partners.
             </p>
             <button type="button" className="fc-button fc-button--primary" onClick={goToPlayers}>
               Back to players
@@ -49,49 +98,70 @@ const PlayerProfilePage = () => {
     { label: "Weekdays PM", value: "Weekdays PM" },
     { label: "Weekends", value: "Weekends" },
   ];
-  const quickStats = [
+
+  const availability = player.availability.length
+    ? player.availability
+    : normalizeStringArray(player.raw?.availability);
+  const lookingFor = player.matchPreferences.length
+    ? player.matchPreferences
+    : normalizeStringArray(player.raw?.lookingFor);
+  const courts = player.localCourts.length
+    ? player.localCourts
+    : normalizeStringArray(player.raw?.playerCourtLocations);
+  const primaryLocation = player.location || normalizeStringArray(player.raw?.playerLocations)[0] || "Location unavailable";
+
+  const ratingDisplay = player.rating > 0 ? player.rating.toFixed(1) : "New";
+  const ratingLabel = player.rating > 0 ? "Player rating" : "New to TTP";
+
+  const quickStats: QuickStat[] = [
+    { label: "Availability slots", value: availability.length.toString() },
+    { label: "Saved courts", value: courts.length.toString() },
+    { label: "Level verifications", value: player.verificationCount.toString() },
+  ];
+
+  const profileInfo: ProfileInfoItem[] = [
+    { label: "Skill level", value: player.raw?.skillLevel ?? player.level ?? "Not specified" },
     {
-      label: "Matches",
-      value: (player.matchesPlayed ?? 0).toString(),
+      label: "Looking for",
+      value: lookingFor.length ? lookingFor.join(", ") : "Not specified",
     },
     {
-      label: "Reviews",
-      value: (player.reviewsCount ?? 0).toString(),
+      label: "Availability",
+      value: availability.length ? availability.join(", ") : "Not specified",
     },
     {
-      label: "Distance",
-      value: `${player.distanceMiles.toFixed(1)} mi`,
+      label: "Primary location",
+      value: primaryLocation,
+    },
+    {
+      label: "Preferred courts",
+      value: courts.length ? courts.join(", ") : "Not specified",
+    },
+    {
+      label: "Contact",
+      value: player.raw?.email ?? player.raw?.phone ?? "Not shared",
     },
   ];
-  const profileInfo = [
-    { label: "NTRP level", value: player.level },
-    { label: "Match frequency", value: player.matchFrequency },
-    { label: "Looking for", value: player.lookingFor },
-    { label: "Session preferences", value: player.matchPreferences.join(", ") },
-    { label: "Favorite court", value: player.favoriteCourt },
-    { label: "Member since", value: player.memberSince ?? "Joined 2022" },
-    { label: "Response time", value: player.responseTime ?? "Usually replies within a day" },
-    { label: "Last active", value: player.lastActive },
-  ];
+
   const matchHistory =
     player.matchHistory ?? [
       {
         opponent: "Local player",
-        outcome: "Win",
+        outcome: "Win" as const,
         score: "6-4, 6-4",
         date: "Mar 8, 2024",
         type: "Friendly match",
       },
       {
         opponent: "Community player",
-        outcome: "Win",
+        outcome: "Win" as const,
         score: "7-5, 6-3",
         date: "Mar 1, 2024",
         type: "League match",
       },
       {
         opponent: "Visiting player",
-        outcome: "Loss",
+        outcome: "Loss" as const,
         score: "4-6, 6-2, 8-10",
         date: "Feb 20, 2024",
         type: "Friendly match",
@@ -152,11 +222,7 @@ const PlayerProfilePage = () => {
       <div className="player-profile-page">
         <div className="player-profile-hero">
           <div className="player-profile-hero__inner">
-            <button
-              type="button"
-              className="player-profile-back"
-              onClick={goBackToResults}
-            >
+            <button type="button" className="player-profile-back" onClick={goBackToResults}>
               <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
               Back to search results
             </button>
@@ -181,19 +247,27 @@ const PlayerProfilePage = () => {
                     )}
                   </div>
                   <p className="player-profile-hero-location">
-                    {player.location} • {player.distanceMiles.toFixed(1)} mi away
+                    {primaryLocation}
+                    {player.distanceMiles > 0 ? ` • ${player.distanceMiles.toFixed(1)} mi away` : ""}
                   </p>
                   <p className="player-profile-hero-meta">
                     {(player.responseTime ?? "Typically responds within a day")}
                     {player.lastActive ? ` • ${player.lastActive}` : ""}
                   </p>
                   <ul className="player-profile-hero-stats">
-                    <li className="player-profile-hero-stat" aria-label={`Player rating ${player.rating.toFixed(1)} out of 5`}>
+                    <li
+                      className="player-profile-hero-stat"
+                      aria-label={
+                        player.rating > 0
+                          ? `Player rating ${ratingDisplay} out of 5`
+                          : "New player"
+                      }
+                    >
                       <span className="player-profile-hero-stat__value">
                         <Star size={18} strokeWidth={2} aria-hidden="true" />
-                        {player.rating.toFixed(1)}
+                        {ratingDisplay}
                       </span>
-                      <span className="player-profile-hero-stat__label">Player rating</span>
+                      <span className="player-profile-hero-stat__label">{ratingLabel}</span>
                     </li>
                     {quickStats.map((stat) => (
                       <li key={stat.label} className="player-profile-hero-stat">
@@ -306,11 +380,15 @@ const PlayerProfilePage = () => {
                   <p>What kind of session {firstName} is looking for.</p>
                 </header>
                 <ul className="player-profile-pill-list">
-                  {player.hitTypes.map((type) => (
-                    <li key={type} className="player-profile-pill">
-                      {type}
-                    </li>
-                  ))}
+                  {lookingFor.length > 0 ? (
+                    lookingFor.map((type) => (
+                      <li key={type} className="player-profile-pill">
+                        {type}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="player-profile-pill">Open to any session type</li>
+                  )}
                 </ul>
               </article>
               <article className="player-profile-card">
@@ -319,11 +397,15 @@ const PlayerProfilePage = () => {
                   <p>Courts {firstName} plays at most often.</p>
                 </header>
                 <ul className="player-profile-pill-list">
-                  {player.localCourts.map((court) => (
-                    <li key={court} className="player-profile-pill">
-                      {court}
-                    </li>
-                  ))}
+                  {courts.length > 0 ? (
+                    courts.map((court) => (
+                      <li key={court} className="player-profile-pill">
+                        {court}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="player-profile-pill">Courts not listed</li>
+                  )}
                 </ul>
               </article>
             </div>
@@ -338,7 +420,7 @@ const PlayerProfilePage = () => {
                 </header>
                 <ul className="player-profile-availability-list">
                   {availabilitySlots.map((slot) => {
-                    const available = player.availability.some((option) =>
+                    const available = availability.some((option) =>
                       option.toLowerCase().includes(slot.value.toLowerCase()),
                     );
 
@@ -392,7 +474,9 @@ const PlayerProfilePage = () => {
                 {matchHistory.map((match) => (
                   <li key={`${match.date}-${match.opponent}`} className="player-profile-history-item">
                     <div className="player-profile-history-main">
-                      <span className={`player-profile-history-outcome player-profile-history-outcome--${match.outcome.toLowerCase()}`}>
+                      <span
+                        className={`player-profile-history-outcome player-profile-history-outcome--${match.outcome.toLowerCase()}`}
+                      >
                         {match.outcome}
                       </span>
                       <div className="player-profile-history-details">
