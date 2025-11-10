@@ -1,19 +1,11 @@
 import type { KeyboardEventHandler } from "react";
-import { Award, Calendar, MapPin, MessageCircle, Sparkles, Users } from "lucide-react";
+import { Award, Calendar, Sparkles, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import type { Coach, CoachHighlight } from "../../data/mockCoaches";
+import type { Coach } from "../../data/mockCoaches";
 import TagPill from "./TagPill";
 
 import "./coaches.css";
-
-const highlightIconMap: Record<CoachHighlight["icon"], JSX.Element> = {
-  calendar: <Calendar size={18} strokeWidth={2} />,
-  map: <MapPin size={18} strokeWidth={2} />,
-  message: <MessageCircle size={18} strokeWidth={2} />,
-  users: <Users size={18} strokeWidth={2} />,
-  spark: <Sparkles size={18} strokeWidth={2} />,
-};
 
 const summarizeList = (items: string[], maxVisible = 2) => {
   if (items.length === 0) {
@@ -48,6 +40,20 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
       goToProfile();
     }
   };
+
+  const availabilityHighlight = coach.highlights.find((highlight) => highlight.icon === "calendar");
+  const callouts = [
+    {
+      key: "group-lessons",
+      icon: <Users size={18} strokeWidth={2} />,
+      text: `Group lessons available · ${coach.lessonRates.group}`,
+    },
+    {
+      key: "package-discounts",
+      icon: <Sparkles size={18} strokeWidth={2} />,
+      text: "Package discounts offered",
+    },
+  ];
 
   return (
     <article
@@ -95,48 +101,48 @@ const CoachCard = ({ coach, onBook }: CoachCardProps) => {
 
       <p className="fc-card__summary">{coach.summary}</p>
 
-      <div className="fc-card__meta">
-        <div className="fc-card__meta-item">
-          <span className="fc-card__meta-label">Experience</span>
-          <span className="fc-card__meta-value">{coach.yearsExperience}+ yrs coaching</span>
+      <div className="fc-card__quick-stats">
+        <div className="fc-card__quick-stat">
+          <span className="fc-card__quick-stat-label">Experience</span>
+          <span className="fc-card__quick-stat-value">{coach.yearsExperience}+ yrs coaching</span>
         </div>
-        <div className="fc-card__meta-item">
-          <span className="fc-card__meta-label">Focus levels</span>
-          <span className="fc-card__meta-value">{summarizeList(coach.levels)}</span>
+        <div className="fc-card__quick-stat">
+          <span className="fc-card__quick-stat-label">Focus levels</span>
+          <span className="fc-card__quick-stat-value">{summarizeList(coach.levels, 2)}</span>
         </div>
-        <div className="fc-card__meta-item">
-          <span className="fc-card__meta-label">Languages</span>
-          <span className="fc-card__meta-value">{summarizeList(coach.languages)}</span>
+        <div className="fc-card__quick-stat">
+          <span className="fc-card__quick-stat-label">Languages</span>
+          <span className="fc-card__quick-stat-value">{summarizeList(coach.languages, 3)}</span>
+        </div>
+        <div className="fc-card__quick-stat">
+          <span className="fc-card__quick-stat-label">Availability</span>
+          <span className="fc-card__quick-stat-value">
+            {availabilityHighlight?.label ?? coach.availability}
+          </span>
         </div>
       </div>
 
-      <div className="fc-card__next-availability">
-        <div className="fc-card__next-availability-icon">
+      <div className="fc-card__lesson">
+        <div className="fc-card__lesson-icon">
           <Calendar size={18} strokeWidth={2} />
         </div>
-        <div className="fc-card__next-availability-copy">
-          <span className="fc-card__next-availability-label">Next lesson</span>
-          <span className="fc-card__next-availability-time">
+        <div className="fc-card__lesson-copy">
+          <span className="fc-card__lesson-label">Next lesson</span>
+          <span className="fc-card__lesson-time">
             {coach.nextAvailableLesson.day} · {coach.nextAvailableLesson.time}
           </span>
-          <span className="fc-card__next-availability-court">{coach.nextAvailableLesson.court}</span>
+          <span className="fc-card__lesson-court">{coach.nextAvailableLesson.court}</span>
         </div>
       </div>
 
-      <ul className="fc-card__highlights">
-        {coach.highlights.map((highlight) => (
-          <li key={highlight.label} className="fc-card__highlight">
-            {highlightIconMap[highlight.icon]}
-            <span>{highlight.label}</span>
+      <ul className="fc-card__callouts">
+        {callouts.map((callout) => (
+          <li key={callout.key} className="fc-card__callout">
+            <span className="fc-card__callout-icon">{callout.icon}</span>
+            <span className="fc-card__callout-text">{callout.text}</span>
           </li>
         ))}
       </ul>
-
-      <div className="fc-card__tags">
-        {coach.tags.map((tag) => (
-          <TagPill key={tag}>{tag}</TagPill>
-        ))}
-      </div>
 
       <div className="fc-card__actions">
         <button
