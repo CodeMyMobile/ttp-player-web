@@ -923,6 +923,19 @@
   outline: none;
 }
 
+.autocomplete-input {
+  border: none;
+  flex: 1;
+  font-size: 15px;
+  outline: none;
+  background: transparent;
+}
+
+.autocomplete-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 .use-my-location {
   align-self: flex-start;
   border: none;
@@ -930,6 +943,12 @@
   color: #0ea5e9;
   font-weight: 600;
   cursor: pointer;
+}
+
+.location-tip {
+  font-size: 12px;
+  color: #b45309;
+  font-weight: 600;
 }
 
 .location-suggestions {

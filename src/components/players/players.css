@@ -16,6 +16,121 @@
   padding: 0 0 72px;
 }
 
+.fp-location-panel {
+  margin-top: -8px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--fc-color-border);
+  background-color: var(--fc-color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.fp-autocomplete-input {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 2px solid var(--fc-color-border);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-autocomplete-input:focus {
+  outline: none;
+  border-color: var(--fc-color-accent-border);
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.18);
+}
+
+.fp-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.fp-location-detect {
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(2, 122, 72, 0.24);
+  background-color: rgba(2, 122, 72, 0.1);
+  color: #027a48;
+  font-weight: 700;
+  font-size: 14px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.fp-location-detect:hover:not(:disabled),
+.fp-location-detect:focus-visible:not(:disabled) {
+  background-color: rgba(2, 122, 72, 0.16);
+  border-color: rgba(2, 122, 72, 0.32);
+}
+
+.fp-location-detect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fp-location-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fp-location-secondary {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--fc-color-border);
+  background-color: var(--fc-color-bg);
+  color: var(--fc-color-text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.fp-location-secondary:hover,
+.fp-location-secondary:focus-visible {
+  background-color: var(--fc-chip-hover-bg);
+  border-color: var(--fc-color-accent-border);
+}
+
+.fp-location-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fp-location-summary h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fc-color-text-secondary);
+  margin: 0;
+}
+
+.fp-location-summary p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-location-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-color-error-text);
+}
+
+.fp-location-tip {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fc-color-text-muted);
+}
+
 .players-results-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

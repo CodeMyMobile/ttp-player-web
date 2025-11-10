@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Autocomplete from "react-google-autocomplete";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
@@ -1226,8 +1227,6 @@ const PlayerCoachListPage = () => {
   const [dynamicFilters, setDynamicFilters] = useState([]);
   const [selectedFilters, setSelectedFilters] = useState({});
   const [locationQuery, setLocationQuery] = useState("");
-  const [locationSuggestions, setLocationSuggestions] = useState([]);
-  const [locationSuggestionLoading, setLocationSuggestionLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [locationPreview, setLocationPreview] = useState(null);
@@ -1280,6 +1279,8 @@ const PlayerCoachListPage = () => {
                 isCurrentLocation: true,
               },
         );
+        setLocationQuery((prev) => prev || "Current location");
+        setLocationError("");
         setLocationLoader(false);
       },
       (error) => {
@@ -1488,76 +1489,6 @@ const PlayerCoachListPage = () => {
     myCoachesFilterText,
     openFilter,
   ]);
-
-  useEffect(() => {
-    if (openFilter !== "filters") {
-      setLocationSuggestions([]);
-    }
-  }, [openFilter]);
-
-  useEffect(() => {
-    if (openFilter !== "filters") return;
-    const trimmed = locationQuery.trim();
-    if (trimmed.length < 3) {
-      setLocationSuggestions([]);
-      return;
-    }
-    let cancelled = false;
-    setLocationSuggestionLoading(true);
-    unwrap(
-      api(
-        `/player/locations-geojson?search=${encodeURIComponent(trimmed)}`,
-        {
-          method: "GET",
-        },
-      ),
-    )
-      .then((data) => {
-        if (cancelled) return;
-        const features = Array.isArray(data?.features)
-          ? data.features
-          : Array.isArray(data?.data)
-            ? data.data
-            : [];
-        const mapped = features
-          .map((feature) => {
-            const properties = feature.properties ?? feature;
-            const geometry = feature.geometry ?? {};
-            const coordinates = geometry.coordinates ?? [];
-            const latitude = coordinates[1] ?? properties.latitude ?? null;
-            const longitude = coordinates[0] ?? properties.longitude ?? null;
-            const label =
-              properties.label ??
-              properties.title ??
-              properties.name ??
-              feature.label ??
-              feature.name ??
-              "";
-            if (!label) return null;
-            return {
-              id: feature.id ?? properties.id ?? label,
-              label,
-              latitude,
-              longitude,
-            };
-          })
-          .filter(Boolean);
-        setLocationSuggestions(mapped);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("Location search failed", error);
-        setLocationSuggestions([]);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLocationSuggestionLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [locationQuery, openFilter]);
 
   useEffect(() => {
     if (openFilter === "filters") return;
@@ -1786,20 +1717,37 @@ const PlayerCoachListPage = () => {
     };
   }, [activeTab, addedCoachPlayers.length, loadMoreMyCoaches]);
 
-  const handleLocationSelect = useCallback((suggestion) => {
-    setLocationFilter({
-      address: suggestion.label,
-      latitude: suggestion.latitude,
-      longitude: suggestion.longitude,
-      isCurrentLocation: false,
-    });
-    if (suggestion.latitude && suggestion.longitude) {
-      setLocationPreview({
-        latitude: suggestion.latitude,
-        longitude: suggestion.longitude,
-      });
-    }
-  }, []);
+  const handlePlaceSelected = useCallback(
+    (place) => {
+      if (!place) {
+        setLocationError("Please choose a location from the suggestions.");
+        return;
+      }
+      const lat = place.geometry?.location?.lat?.();
+      const lng = place.geometry?.location?.lng?.();
+      const label =
+        place.formatted_address || place.name || locationQuery || "Custom location";
+      if (
+        typeof lat === "number" &&
+        !Number.isNaN(lat) &&
+        typeof lng === "number" &&
+        !Number.isNaN(lng)
+      ) {
+        setLocationFilter({
+          address: label,
+          latitude: lat,
+          longitude: lng,
+          isCurrentLocation: false,
+        });
+        setLocationPreview({ latitude: lat, longitude: lng });
+        setLocationQuery(label);
+        setLocationError("");
+      } else {
+        setLocationError("We couldn't read that location's coordinates. Try another search.");
+      }
+    },
+    [locationQuery],
+  );
 
   const commitNameFilter = useCallback(() => {
     if (activeTab === "all") {
@@ -1847,7 +1795,6 @@ const PlayerCoachListPage = () => {
       setLocationPreview(null);
     }
     setLocationQuery("");
-    setLocationSuggestions([]);
     setLocationError("");
     setRadius(DEFAULT_RADIUS);
     setNameDraft("");
@@ -2288,40 +2235,33 @@ const PlayerCoachListPage = () => {
             </label>
             <div className="field-with-icon">
               <Search size={16} aria-hidden />
-              <input
+              <Autocomplete
                 id="coach-location-search"
                 ref={locationInputRef}
-                type="text"
-                value={locationQuery}
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
                 placeholder="Search for a city, club, or court"
+                className="autocomplete-input"
+                value={locationQuery}
                 onChange={(event) => setLocationQuery(event.target.value)}
+                onPlaceSelected={handlePlaceSelected}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: [
+                    "formatted_address",
+                    "geometry",
+                    "name",
+                    "address_components",
+                  ],
+                }}
               />
             </div>
             <button type="button" className="use-my-location" onClick={requestLocation}>
               Use my current location
             </button>
-            {locationSuggestionLoading ? (
-              <div className="location-suggestions loading">
-                <Loader2 className="spin" size={16} aria-hidden /> Searching…
-              </div>
-            ) : null}
-            {locationSuggestions.length ? (
-              <ul className="location-suggestions">
-                {locationSuggestions.map((suggestion) => (
-                  <li key={suggestion.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleLocationSelect(suggestion);
-                        setLocationQuery(suggestion.label);
-                      }}
-                    >
-                      <MapPin size={16} aria-hidden />
-                      <span>{suggestion.label}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+              <p className="location-tip">
+                Tip: Provide a Google Places API key to enable location search suggestions.
+              </p>
             ) : null}
             <div className="location-preview">
               <h4>Selected location</h4>
