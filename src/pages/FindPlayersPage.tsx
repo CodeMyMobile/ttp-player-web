@@ -1,388 +1,554 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Loader2, RefreshCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
-import ResultsHeader from "../components/coaches/ResultsHeader";
-import PlayersFilterBar from "../components/players/PlayersFilterBar";
-import PlayerCard from "../components/players/PlayerCard";
-import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
-import MatchProfileModal from "../components/players/MatchProfileModal";
-import StateBanner from "../components/coaches/StateBanner";
-import { mockPlayers, type Player } from "../data/mockPlayers";
-import { colors, typography } from "../lib/theme";
+import FilterMenu, {
+  type FilterMenuEvent,
+  type SelectedLocation,
+} from "../components/findPlayers/FilterMenu";
+import SuggestedPlayerCard, {
+  type SuggestedPlayer,
+} from "../components/findPlayers/SuggestedPlayerCard";
+import { useAuth } from "../context/AuthContext";
+import useDebouncedValue from "../hooks/useDebouncedValue";
+import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
+import { getStoredAuthToken } from "../services/authToken";
+import ensureForScreen from "../utils/ensureForScreen";
 
-import "../components/coaches/coaches.css";
-import "../components/players/players.css";
+import styles from "./FindPlayersPage.module.css";
 
-type Mode = "normal" | "empty" | "error";
-type Status = "loading" | "ready";
+const PER_PAGE = 10;
+const DEFAULT_RADIUS = 10;
+const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+const SUGGEST_PLAYER_DETAIL_LIST = "/players/suggested/detail";
 
-const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
-const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
-const genderOptions = ["All genders", "Male", "Female", "Other"];
-const availabilityOptions = [
-  "All availability",
-  "Mornings",
-  "Early mornings",
-  "Lunch",
-  "Weekdays",
-  "Weeknights",
-  "Weekends",
-];
+type Coordinates = { latitude: number; longitude: number };
 
-const normalize = (value: string) => value.trim().toLowerCase();
+interface FetchOptions {
+  page: number;
+  append: boolean;
+  search: string;
+  locationLabel: string;
+  radiusValue: number;
+  filters: Record<string, unknown>;
+  position?: Coordinates;
+}
 
-const parseRadius = (radius: string) => {
-  if (radius === "All") {
-    return Number.POSITIVE_INFINITY;
+const parsePlayers = (payload: unknown): SuggestedPlayer[] => {
+  if (Array.isArray(payload)) {
+    return payload as SuggestedPlayer[];
   }
-  const match = /^(\d+)/.exec(radius);
-  return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    if (Array.isArray(record.data)) {
+      return record.data as SuggestedPlayer[];
+    }
+    if (Array.isArray(record.players)) {
+      return record.players as SuggestedPlayer[];
+    }
+    if (Array.isArray(record.results)) {
+      return record.results as SuggestedPlayer[];
+    }
+  }
+  return [];
+};
+
+const extractPagination = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") return undefined;
+  const record = payload as Record<string, unknown>;
+  const meta = record.meta as { pagination?: Record<string, unknown> } | undefined;
+  if (meta?.pagination) {
+    return meta.pagination;
+  }
+  if (record.pagination && typeof record.pagination === "object") {
+    return record.pagination as Record<string, unknown>;
+  }
+  return undefined;
+};
+
+const getStoredLocation = (): Coordinates | null => {
+  try {
+    const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Coordinates | null;
+    if (!parsed || typeof parsed.latitude !== "number" || typeof parsed.longitude !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 };
 
 const FindPlayersPage = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
-  const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
-  const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
-  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [mode, setMode] = useState<Mode>("normal");
-  const [status, setStatus] = useState<Status>("loading");
-  const [hasMatchProfile, setHasMatchProfile] = useState(false);
-  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
-  const loadingTimer = useRef<number>();
+  const auth = useAuth() as { user?: { name?: string | null } } | undefined;
+  const [playerToken] = useState(() => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined);
+  const [allSuggestedPlayers, setAllSuggestedPlayers] = useState<SuggestedPlayer[]>([]);
+  const [filteredPlayers, setFilteredPlayers] = useState<SuggestedPlayer[]>([]);
+  const [searchName, setSearchName] = useState("");
+  const [radius, setRadius] = useState(DEFAULT_RADIUS);
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, unknown>>({});
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
+  const [userLocation, setUserLocation] = useState<Coordinates | null>(() => getStoredLocation());
+  const [userPos, setUserPos] = useState<Coordinates | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [page, setPage] = useState(1);
+  const [positionSet, setPositionSet] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const isMountedRef = useRef(true);
+
+  const debouncedUserPos = useDebouncedValue(userPos, 500);
+
+  const activePosition = useMemo(() => {
+    if (selectedLocation?.latitude && selectedLocation?.longitude) {
+      return { latitude: selectedLocation.latitude, longitude: selectedLocation.longitude };
+    }
+    return debouncedUserPos ?? undefined;
+  }, [selectedLocation, debouncedUserPos]);
+
+  const filtersKey = useMemo(() => JSON.stringify(selectedFilters), [selectedFilters]);
+  const locationLabel = selectedLocation?.label ?? "";
+  const positionKey = activePosition ? `${activePosition.latitude.toFixed(4)}:${activePosition.longitude.toFixed(4)}` : "";
+  const hasDynamicFilters = useMemo(() => Object.keys(selectedFilters).length > 0, [selectedFilters]);
 
   useEffect(() => {
-    loadingTimer.current = window.setTimeout(() => {
-      setStatus("ready");
-    }, 540);
+    ensureForScreen({ featureLabel: "nearby players" });
+  }, []);
 
+  useEffect(() => {
+    if (!playerToken) {
+      setError("Please sign in to search for players.");
+      setInitialLoadComplete(true);
+    }
+  }, [playerToken]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      if (loadingTimer.current) {
-        window.clearTimeout(loadingTimer.current);
-      }
+      isMountedRef.current = false;
     };
   }, []);
 
-  const themeVars = useMemo(
-    () => ({
-      "--fc-color-bg": colors.pageBackground,
-      "--fc-color-surface": colors.surface,
-      "--fc-color-text-primary": colors.primaryText,
-      "--fc-color-text-secondary": colors.secondaryText,
-      "--fc-color-text-muted": colors.mutedText,
-      "--fc-color-border": colors.border,
-      "--fc-color-icon": colors.icon,
-      "--fc-color-accent": colors.accentPurple,
-      "--fc-color-accent-light": colors.accentPurpleLight,
-      "--fc-color-accent-border": colors.accentPurpleBorder,
-      "--fc-chip-bg": colors.filterChipBg,
-      "--fc-chip-hover-bg": colors.filterChipHover,
-      "--fc-chip-text": colors.secondaryButtonText,
-      "--fc-color-secondary-border": colors.secondaryButtonBorder,
-      "--fc-color-secondary-text": colors.secondaryButtonText,
-      "--fc-color-secondary-hover": colors.secondaryButtonHover,
-      "--fc-color-success": colors.primarySuccess,
-      "--fc-color-success-hover": colors.primarySuccessHover,
-      "--fc-color-error-bg": colors.errorBg,
-      "--fc-color-error-border": colors.errorBorder,
-      "--fc-color-error-text": colors.errorText,
-      "--fc-color-empty-icon-bg": colors.emptyIconBg,
-      "--fc-color-skeleton-base": colors.skeletonBase,
-      "--fc-color-skeleton-highlight": colors.skeletonHighlight,
-      "--fc-font-family": typography.fontFamily,
-      "--fc-heading-size": typography.heading1.size,
-      "--fc-heading-line-height": typography.heading1.lineHeight,
-      "--fc-body-size": typography.body.size,
-      "--fc-body-line-height": typography.body.lineHeight,
-    }),
-    [],
+  useEffect(() => {
+    if (userLocation) {
+      setUserPos(userLocation);
+      setSelectedLocation((previous) => {
+        if (previous?.isCurrentLocation) {
+          return {
+            label: previous.label ?? "Current location",
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            isCurrentLocation: true,
+          };
+        }
+        if (!previous) {
+          return {
+            label: "Current location",
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            isCurrentLocation: true,
+          };
+        }
+        return previous;
+      });
+    }
+  }, [userLocation]);
+
+  useEffect(() => {
+    if (userLocation) return;
+    if (!navigator.geolocation) {
+      console.warn("Geolocation not available in this browser");
+      return;
+    }
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) return;
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setUserLocation(coords);
+        try {
+          localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
+        } catch (storageError) {
+          console.warn("Failed to persist user location", storageError);
+        }
+      },
+      (geoError) => {
+        console.error("Failed to obtain location", geoError);
+      },
+      { enableHighAccuracy: true, maximumAge: 1000 * 60 * 10, timeout: 1000 * 15 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation]);
+
+  useEffect(() => {
+    const ready = Boolean(activePosition) || Boolean(locationLabel);
+    if (ready !== positionSet) {
+      setPositionSet(ready);
+    }
+  }, [activePosition, locationLabel, positionSet]);
+
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+  }, [filtersKey, searchName, radius, locationLabel, positionKey]);
+
+  const fetchPlayers = useCallback(
+    async ({ page: pageToLoad, append, search, locationLabel: locationSearch, radiusValue, filters, position }: FetchOptions) => {
+      if (!playerToken) {
+        setError("Missing authentication token");
+        return [] as SuggestedPlayer[];
+      }
+      if (!isMountedRef.current) {
+        return [] as SuggestedPlayer[];
+      }
+
+      setIsFetching(true);
+      // eslint-disable-next-line no-console
+      console.log("Fetching players within radius", { radius: radiusValue, search, page: pageToLoad, locationSearch, filters, position });
+
+      try {
+        const response = await getSuggestedPlayerCheckLocation({
+          token: playerToken,
+          perPage: PER_PAGE,
+          page: pageToLoad,
+          search,
+          location: locationSearch,
+          position,
+          radius: radiusValue === 0 ? 0 : radiusValue,
+          filters,
+        });
+        const players = parsePlayers(response);
+        const pagination = extractPagination(response);
+        if (!isMountedRef.current) {
+          return players;
+        }
+
+        setError(null);
+        setInitialLoadComplete(true);
+        setAllSuggestedPlayers((prev) => (append ? [...prev, ...players] : players));
+        setFilteredPlayers((prev) => (append ? [...prev, ...players] : players));
+
+        if (pagination) {
+          const totalPages = Number(pagination.total_pages ?? pagination.totalPages ?? pagination.total);
+          const currentPage = Number(pagination.current_page ?? pagination.currentPage ?? pageToLoad);
+          if (Number.isFinite(totalPages) && Number.isFinite(currentPage) && totalPages > 0) {
+            setHasMore(currentPage < totalPages);
+          } else if (Array.isArray(players)) {
+            setHasMore(players.length >= PER_PAGE);
+          }
+        } else {
+          setHasMore(players.length >= PER_PAGE);
+        }
+
+        return players;
+      } catch (err) {
+        console.error("Failed to fetch suggested players", err);
+        if (!isMountedRef.current) {
+          return [] as SuggestedPlayer[];
+        }
+        setInitialLoadComplete(true);
+        setHasMore(false);
+        setAllSuggestedPlayers((prev) => (append ? prev : []));
+        setFilteredPlayers((prev) => (append ? prev : []));
+        setError((err as Error)?.message ?? "We couldn't load players");
+        return [] as SuggestedPlayer[];
+      } finally {
+        if (isMountedRef.current) {
+          setIsFetching(false);
+        }
+      }
+    },
+    [playerToken],
   );
 
-  const beginLoading = (callback?: () => void) => {
-    if (loadingTimer.current) {
-      window.clearTimeout(loadingTimer.current);
+  useEffect(() => {
+    if (!playerToken) return;
+    if (!positionSet && !searchName && !hasDynamicFilters && !locationLabel) {
+      return;
     }
-    setStatus("loading");
-    loadingTimer.current = window.setTimeout(() => {
-      callback?.();
-      setStatus("ready");
-    }, 420);
-  };
-
-  const handleSearch = () => {
-    const trimmed = normalize(searchTerm);
-    beginLoading(() => {
-      if (trimmed === "error") {
-        setMode("error");
-      } else if (trimmed === "empty") {
-        setMode("empty");
-      } else {
-        setMode("normal");
-      }
-    });
-  };
-
-  const handleRadiusChange = (radius: string) => {
-    setSelectedRadius(radius);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const handleLevelChange = (level: string) => {
-    setSelectedLevel(level);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const handleAvailabilityChange = (availability: string) => {
-    setSelectedAvailability(availability);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const handleGenderChange = (gender: string) => {
-    setSelectedGender(gender);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const handleVerifiedToggle = (next: boolean) => {
-    setVerifiedOnly(next);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const resetFilters = () => {
-    setSearchTerm("");
-    setSelectedRadius(radiusOptions[1]);
-    setSelectedLevel(levelOptions[0]);
-    setSelectedGender(genderOptions[0]);
-    setSelectedAvailability(availabilityOptions[0]);
-    setVerifiedOnly(false);
-    beginLoading(() => {
-      setMode("normal");
-    });
-  };
-
-  const filteredPlayers = useMemo(() => {
-    if (mode !== "normal") {
-      return [];
-    }
-
-    const normalizedTerm = normalize(searchTerm);
-    const radiusLimit = parseRadius(selectedRadius);
-
-    return mockPlayers.filter((player) => {
-      const matchesSearch = (() => {
-        if (!normalizedTerm) {
-          return true;
-        }
-        const haystack = [
-          player.name,
-          player.location,
-          player.bio,
-          player.lookingFor,
-          ...player.availability,
-          ...player.matchPreferences,
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(normalizedTerm);
-      })();
-
-      const matchesLevel =
-        selectedLevel === "All levels" ||
-        (selectedLevel === "4.5+" ? Number.parseFloat(player.level) >= 4.5 : player.level === selectedLevel);
-
-      const matchesAvailability = (() => {
-        if (selectedAvailability === "All availability") {
-          return true;
-        }
-        const normalizedAvailability = normalize(selectedAvailability);
-        return player.availability.some((option) =>
-          option.toLowerCase().includes(normalizedAvailability),
-        );
-      })();
-
-      const matchesGender =
-        selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
-
-      const matchesRadius = player.distanceMiles <= radiusLimit;
-      const matchesVerification = !verifiedOnly || player.verified;
-
-      return (
-        matchesSearch &&
-        matchesLevel &&
-        matchesAvailability &&
-        matchesGender &&
-        matchesRadius &&
-        matchesVerification
-      );
+    void fetchPlayers({
+      page,
+      append: page > 1,
+      search: searchName,
+      locationLabel,
+      radiusValue: radius,
+      filters: selectedFilters,
+      position: activePosition,
     });
   }, [
-    mode,
-    searchTerm,
-    selectedRadius,
-    selectedLevel,
-    selectedGender,
-    selectedAvailability,
-    verifiedOnly,
+    activePosition,
+    fetchPlayers,
+    hasDynamicFilters,
+    locationLabel,
+    page,
+    playerToken,
+    positionSet,
+    radius,
+    searchName,
+    selectedFilters,
   ]);
 
-  const shouldShowError = status === "ready" && mode === "error";
-  const shouldShowEmpty =
-    status === "ready" && (mode === "empty" || (mode === "normal" && filteredPlayers.length === 0));
-  const shouldShowResults = status === "ready" && mode === "normal" && filteredPlayers.length > 0;
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && hasMore && !isFetching) {
+            setPage((prev) => prev + 1);
+          }
+        });
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isFetching]);
 
-  const resultsCountLabel = (() => {
-    if (status === "loading") {
-      return "Matching you with players…";
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!initialLoadComplete) return;
+      // eslint-disable-next-line no-console
+      console.log("Screen regained focus, refreshing suggested players");
+      void fetchPlayers({
+        page: 1,
+        append: false,
+        search: searchName,
+        locationLabel,
+        radiusValue: radius,
+        filters: selectedFilters,
+        position: activePosition,
+      });
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [
+    activePosition,
+    fetchPlayers,
+    initialLoadComplete,
+    locationLabel,
+    radius,
+    searchName,
+    selectedFilters,
+  ]);
+
+  const clearFilters = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log("Clearing all filters to defaults");
+    setSearchName("");
+    setRadius(DEFAULT_RADIUS);
+    setSelectedFilters({});
+    setSelectedLocation((prev) => {
+      if (userLocation) {
+        return {
+          label: "Current location",
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          isCurrentLocation: true,
+        };
+      }
+      if (prev?.isCurrentLocation) {
+        return prev;
+      }
+      return null;
+    });
+    setUserPos(userLocation);
+    setPage(1);
+    setHasMore(true);
+    setError(null);
+    setAllSuggestedPlayers([]);
+    setFilteredPlayers([]);
+    setInitialLoadComplete(false);
+  }, [userLocation]);
+
+  const handleFilterChange = useCallback(
+    (event: FilterMenuEvent) => {
+      switch (event.type) {
+        case "name":
+          setSearchName(event.value);
+          break;
+        case "location":
+          setSelectedLocation(event.location);
+          if (event.location?.latitude && event.location?.longitude) {
+            const coords = { latitude: event.location.latitude, longitude: event.location.longitude };
+            setUserPos(coords);
+            setUserLocation(coords);
+            try {
+              localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
+            } catch (storageError) {
+              console.warn("Failed to persist user location", storageError);
+            }
+          } else if (!event.location) {
+            setUserPos(null);
+          }
+          break;
+        case "dynamic":
+          if ("filters" in event) {
+            setSelectedFilters(event.filters);
+          } else {
+            const nextValue = event.value;
+            const shouldRemove =
+              nextValue === null ||
+              nextValue === undefined ||
+              (typeof nextValue === "string" && !nextValue.trim()) ||
+              (Array.isArray(nextValue) && nextValue.length === 0);
+
+            if (shouldRemove) {
+              setSelectedFilters((prev) => {
+                const next = { ...prev };
+                delete next[event.key];
+                return next;
+              });
+            } else {
+              setSelectedFilters((prev) => ({ ...prev, [event.key]: nextValue }));
+            }
+          }
+          break;
+        case "clear":
+          clearFilters();
+          break;
+        default:
+          break;
+      }
+    },
+    [clearFilters],
+  );
+
+  const handleRadiusChange = useCallback((value: number) => {
+    setRadius(value);
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    // eslint-disable-next-line no-console
+    console.log("Pull-to-refresh triggered for suggested players");
+    try {
+      await fetchPlayers({
+        page: 1,
+        append: false,
+        search: searchName,
+        locationLabel,
+        radiusValue: radius,
+        filters: selectedFilters,
+        position: activePosition,
+      });
+      setPage(1);
+    } finally {
+      if (isMountedRef.current) {
+        setIsRefreshing(false);
+      }
     }
-    if (shouldShowError) {
-      return "Unable to load players";
-    }
-    if (shouldShowEmpty) {
-      return "No players found";
-    }
-    if (shouldShowResults) {
-      return `${filteredPlayers.length} ${filteredPlayers.length === 1 ? "player" : "players"} found`;
-    }
-    return "Matching you with players…";
-  })();
+  }, [activePosition, fetchPlayers, locationLabel, radius, searchName, selectedFilters]);
+
+  const handleViewDetails = useCallback(
+    (player: SuggestedPlayer) => {
+      navigate(SUGGEST_PLAYER_DETAIL_LIST, { state: { player } });
+    },
+    [navigate],
+  );
+
+  const handleContact = useCallback((player: SuggestedPlayer) => {
+    if (!player.phone_number) return;
+    const sanitized = String(player.phone_number).replace(/[^\d+]/g, "");
+    window.open(`tel:${sanitized}`);
+  }, []);
+
+  const radiusLabel = radius ? `${radius} miles` : "All";
+  const metricsLabel = `Radius: ${radiusLabel} & player found: ${filteredPlayers.length}`;
+  const isEmpty = !isFetching && initialLoadComplete && filteredPlayers.length === 0 && !error;
 
   return (
     <MainLayout>
-      <div className="find-players-page" style={themeVars}>
-        <div className="find-players-page__inner">
-          <ResultsHeader
-            title="Find Players"
-            description="Connect with local players who match your level and style."
-            actionSlot={
-              <button
-                type="button"
-                className="fc-button fc-button--secondary"
-                onClick={() => setProfileModalOpen(true)}
-              >
-                {hasMatchProfile ? "Edit match profile" : "Create match profile"}
-              </button>
-            }
-          />
+      <div className={styles.page}>
+        <header className={styles.topBar}>
+          <div className={styles.actions}>
+            <button type="button" className={styles.backButton} onClick={() => navigate(-1)}>
+              <ArrowLeft size={18} aria-hidden /> Back
+            </button>
+            <button type="button" className={styles.refreshButton} onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCcw size={16} aria-hidden />
+              {isRefreshing ? "Refreshing" : "Pull to refresh"}
+            </button>
+          </div>
+          <div className={styles.titleGroup}>
+            <h1 className={styles.title}>Search for a player</h1>
+            <p className={styles.subtitle}>Discover nearby partners that match your playing style.</p>
+          </div>
+        </header>
 
-          {!hasMatchProfile && status === "ready" && (
-            <StateBanner
-              tone="empty"
-              title="Create your player match profile"
-              message="Share your playing style and availability to unlock player connections."
-              action={
-                <button
-                  type="button"
-                  className="fc-button fc-button--primary"
-                  onClick={() => setProfileModalOpen(true)}
-                >
-                  Build my match profile
-                </button>
-              }
-            />
-          )}
+        <FilterMenu
+          onFilterChange={handleFilterChange}
+          userPos={userLocation ?? userPos ?? null}
+          showName
+          user={auth?.user ?? null}
+          radius={radius}
+          onRadiusChange={handleRadiusChange}
+          searchValue={searchName}
+          selectedLocation={selectedLocation}
+          selectedFilters={selectedFilters}
+        />
 
-          <PlayersFilterBar
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearch={handleSearch}
-            radiusOptions={radiusOptions}
-            selectedRadius={selectedRadius}
-            onRadiusChange={handleRadiusChange}
-            levelOptions={levelOptions}
-            selectedLevel={selectedLevel}
-            onLevelChange={handleLevelChange}
-            genderOptions={genderOptions}
-            selectedGender={selectedGender}
-            onGenderChange={handleGenderChange}
-            availabilityOptions={availabilityOptions}
-            selectedAvailability={selectedAvailability}
-            onAvailabilityChange={handleAvailabilityChange}
-            verifiedOnly={verifiedOnly}
-            onVerifiedOnlyChange={handleVerifiedToggle}
-          />
-
-          <span className="fc-results-count">{resultsCountLabel}</span>
-
-          {status === "loading" && (
-            <div className="players-results-grid">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <PlayerCardSkeleton key={index} />
-              ))}
-            </div>
-          )}
-
-          {shouldShowError && (
-            <StateBanner
-              tone="error"
-              title="We couldn't load players right now"
-              message="Please try again in a few minutes or adjust your filters."
-              action={
-                <button type="button" className="fc-button fc-button--primary" onClick={resetFilters}>
-                  Retry search
-                </button>
-              }
-            />
-          )}
-
-          {shouldShowEmpty && !shouldShowError && (
-            <StateBanner
-              tone="empty"
-              title="No players match these filters"
-              message="Broaden your distance, clear filters, or try searching by a different playing style."
-              action={
-                <button type="button" className="fc-button fc-button--secondary" onClick={resetFilters}>
-                  Reset filters
-                </button>
-              }
-            />
-          )}
-
-          {shouldShowResults && (
-            <div className="players-results-grid">
-              {filteredPlayers.map((player: Player) => (
-                <PlayerCard
-                  key={player.id}
-                  player={player}
-                  canConnect={hasMatchProfile}
-                  onConnect={(nextPlayer) => {
-                    if (!hasMatchProfile) {
-                      window.alert("Create your match profile to connect.");
-                      return;
-                    }
-                    window.alert(`Connection request sent to ${nextPlayer.name}`);
-                  }}
-                  onViewProfile={(nextPlayer) => {
-                    navigate(`/players/${nextPlayer.id}`);
-                  }}
-                />
-              ))}
-            </div>
-          )}
+        <div className={styles.metrics}>
+          <span>{metricsLabel}</span>
+          {error ? <strong>{error}</strong> : null}
         </div>
+
+        {isFetching && !allSuggestedPlayers.length ? (
+          <div className={styles.loader}>
+            <Loader2 className={styles.spinner} size={24} aria-hidden />
+          </div>
+        ) : null}
+
+        {error && !isFetching ? (
+          <div className={styles.error} role="alert">
+            <p>{error}</p>
+            <button type="button" className={styles.refreshButton} onClick={handleRefresh}>
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {isEmpty ? (
+          <div className={styles.empty}>
+            <p>No players found. Try widening your radius or clearing filters.</p>
+            <button type="button" className={styles.refreshButton} onClick={clearFilters}>
+              Reset filters
+            </button>
+          </div>
+        ) : null}
+
+        <section className={styles.list} aria-live="polite">
+          {filteredPlayers.map((player) => (
+            <SuggestedPlayerCard
+              key={player.user_id ?? player.id ?? `${player.full_name}-${player.name}`}
+              player={player}
+              onViewDetails={handleViewDetails}
+              onContact={handleContact}
+            />
+          ))}
+        </section>
+
+        <div ref={loadMoreRef} className={styles.sentinel} aria-hidden />
+
+        {isFetching && allSuggestedPlayers.length ? (
+          <div className={styles.loader}>
+            <Loader2 className={styles.spinner} size={24} aria-hidden />
+          </div>
+        ) : null}
       </div>
-      <MatchProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        onComplete={() => {
-          setHasMatchProfile(true);
-          setProfileModalOpen(false);
-          window.alert(
-            "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
-          );
-        }}
-      />
     </MainLayout>
   );
 };
