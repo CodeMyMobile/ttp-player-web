@@ -333,8 +333,10 @@
 
 .fp-card__location-item {
   display: block;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+  line-height: 1.35;
 }
 
 .fp-card__actions {

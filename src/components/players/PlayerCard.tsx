@@ -12,6 +12,19 @@ type PlayerCardProps = {
   onViewProfile?: (player: Player) => void;
 };
 
+const formatCourtLocation = (court: string) => {
+  const segments = court
+    .split(",")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (segments.length >= 2) {
+    return `${segments[0]}, ${segments[1]}`;
+  }
+
+  return court.trim();
+};
+
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
   const bioTeaser = useMemo(() => {
     const teaserLimit = 160;
@@ -31,13 +44,13 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
   };
 
   const localCourts = useMemo(() => {
-    if (player.localCourts?.length) {
-      return player.localCourts;
-    }
     const fallback = [player.favoriteCourt, player.location].filter(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
     );
-    return fallback.length ? fallback : [];
+
+    const courts = player.localCourts?.length ? player.localCourts : fallback;
+
+    return courts.map(formatCourtLocation);
   }, [player.favoriteCourt, player.localCourts, player.location]);
 
   return (
