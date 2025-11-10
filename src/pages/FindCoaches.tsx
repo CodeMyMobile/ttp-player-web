@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import CoachCard from "../components/coaches/CoachCard";
 import CoachCardSkeleton from "../components/coaches/CoachCardSkeleton";
+import CoachMatchQuestionnaire from "../components/coaches/CoachMatchQuestionnaire";
 import FilterBar from "../components/coaches/FilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import StateBanner from "../components/coaches/StateBanner";
@@ -162,6 +163,14 @@ const FindCoaches = () => {
     <MainLayout>
       <div className="find-coaches-page" style={themeVars}>
         <div className="find-coaches-page__inner">
+          <CoachMatchQuestionnaire
+            onComplete={() => {
+              beginLoading(() => {
+                setMode("normal");
+              });
+            }}
+          />
+
           <ResultsHeader
             title="Find Coaches"
             description="Connect with certified tennis professionals in your area."
