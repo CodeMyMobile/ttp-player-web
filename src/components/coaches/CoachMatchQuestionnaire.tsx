@@ -413,48 +413,44 @@ const CoachMatchQuestionnaire = ({ onComplete }: CoachMatchQuestionnaireProps) =
               <AILogo />
               <div>
                 <span className="coach-questionnaire__summary-eyebrow">AI recommendations ready</span>
-                <h3 className="coach-questionnaire__summary-title">Your coach match profile</h3>
+                <p className="coach-questionnaire__summary-title">Coach match profile</p>
               </div>
             </div>
             <div className="coach-questionnaire__summary-actions">
               <button
                 type="button"
-                className="fc-button fc-button--secondary"
+                className="coach-questionnaire__summary-action"
                 onClick={handleEditPreferences}
               >
-                Edit preferences
+                Edit
               </button>
               <button
                 type="button"
-                className="fc-button fc-button--tertiary"
+                className="coach-questionnaire__summary-action coach-questionnaire__summary-action--clear"
                 onClick={handleClearPreferences}
               >
-                Clear profile
+                Clear
               </button>
             </div>
           </div>
-          <p className="coach-questionnaire__summary-subtitle">
-            These selections are guiding the recommendations shown below. Adjust them anytime to
-            refine your results.
-          </p>
-          <dl className="coach-questionnaire__summary-list">
+          <div className="coach-questionnaire__summary-tags">
             {steps.map((step) => {
               const selections = completedAnswers[step.id];
               if (!selections || selections.length === 0) {
                 return null;
               }
               return (
-                <div key={step.id} className="coach-questionnaire__summary-item">
-                  <dt>{step.summaryLabel}</dt>
-                  <dd>
+                <div key={step.id} className="coach-questionnaire__summary-chip">
+                  <span className="coach-questionnaire__summary-chip-label">{step.summaryLabel}</span>
+                  <span className="coach-questionnaire__summary-chip-value">
                     {selections
                       .map((selection) => optionLookup.get(selection)?.label ?? selection)
                       .join(", ")}
-                  </dd>
+                  </span>
                 </div>
               );
             })}
-          </dl>
+          </div>
         </div>
       ) : null}
 
