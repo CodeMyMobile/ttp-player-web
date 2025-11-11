@@ -159,7 +159,8 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
     id: String(record.userId ?? initialsSource.toLowerCase()),
     name: record.full_name?.trim() || record.email || "TTP Player",
     initials: toInitials(initialsSource),
-    profileImageUrl: record.profile_picture ?? "",
+    profileImageUrl:
+      typeof record.profile_picture === "string" ? record.profile_picture.trim() : "",
     location,
     distanceMiles: 0,
     gender: normalizedGender,

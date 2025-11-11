@@ -37,6 +37,9 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     return `${safeSlice}…`;
   }, [player.bio]);
 
+  const hasProfileImage =
+    typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
+
   const handleViewProfile = () => {
     if (onViewProfile) {
       onViewProfile(player);
@@ -57,8 +60,18 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
-          <div className="fp-card__avatar" aria-hidden="true">
-            {player.initials}
+          <div className="fp-card__avatar" aria-hidden={hasProfileImage ? undefined : true}>
+            {hasProfileImage ? (
+              <img
+                className="fp-card__avatar-image"
+                src={player.profileImageUrl}
+                alt={`${player.name}'s profile picture`}
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              player.initials
+            )}
           </div>
           <div className="fp-card__identity">
             <div className="fp-card__name-row">
