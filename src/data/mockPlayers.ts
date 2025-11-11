@@ -3,6 +3,7 @@ export type Player = {
   name: string;
   initials: string;
   profileImageUrl: string;
+  avatarUrl?: string | null;
   location: string;
   distanceMiles: number;
   gender: "Male" | "Female" | "Other";

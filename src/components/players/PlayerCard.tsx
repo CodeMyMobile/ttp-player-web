@@ -58,9 +58,9 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
           <div className="fp-card__avatar" aria-hidden="true">
-            {player.profileImageUrl ? (
+            {player.profileImageUrl || player.avatarUrl ? (
               <img
-                src={player.profileImageUrl}
+                src={player.profileImageUrl || player.avatarUrl || ""}
                 alt=""
                 className="fp-card__avatar-image"
                 loading="lazy"
