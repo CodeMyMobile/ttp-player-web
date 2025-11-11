@@ -90,9 +90,35 @@ const PlayerProfilePage = () => {
 
   const firstName = player.name.split(" ")[0];
   const primaryLocation = player.location || normalizeStringArray(player.raw?.playerLocations)[0] || "Location unavailable";
+  const playerLevel = player.level || (typeof player.raw?.skillLevel === "string" ? player.raw.skillLevel : undefined);
+  const isLevelConfirmed = player.verified || Boolean(player.raw?.isLevelConfirmed);
+  const verificationCountRaw = player.verificationCount ?? player.raw?.verifiedLevelCount;
+  const verificationCount =
+    typeof verificationCountRaw === "number"
+      ? verificationCountRaw
+      : typeof verificationCountRaw === "string"
+        ? Number.parseInt(verificationCountRaw, 10)
+        : undefined;
+  const matchPreferences =
+    (Array.isArray(player.matchPreferences) && player.matchPreferences.length > 0
+      ? player.matchPreferences
+      : normalizeStringArray(player.raw?.lookingFor)) || [];
+  const availabilityOptions =
+    (Array.isArray(player.availability) && player.availability.length > 0
+      ? player.availability
+      : normalizeStringArray(player.raw?.availability)) || [];
+  const preferredCourts =
+    (Array.isArray(player.localCourts) && player.localCourts.length > 0
+      ? player.localCourts
+      : normalizeStringArray(player.raw?.playerCourtLocations)) || [];
+  const favoriteCourt = typeof player.favoriteCourt === "string" ? player.favoriteCourt : undefined;
 
   const messagePlayer = () => {
     window.alert(`Opening a new conversation with ${player.name}.`);
+  };
+
+  const blockPlayer = () => {
+    window.alert(`You blocked ${player.name}.`);
   };
 
   return (
@@ -134,6 +160,101 @@ const PlayerProfilePage = () => {
               <MessageCircle size={18} strokeWidth={2} aria-hidden="true" />
               <span>Contact {firstName}</span>
             </button>
+
+            <div className="player-profile-sections">
+              <section className="player-profile-section">
+                <div className="player-profile-section-heading">
+                  <h2>Player level</h2>
+                  <span className={isLevelConfirmed ? "player-profile-pill player-profile-pill--verified" : "player-profile-pill"}>
+                    {isLevelConfirmed && <BadgeCheck size={14} strokeWidth={2} aria-hidden="true" />}
+                    {isLevelConfirmed ? "Verified player" : "Level unverified"}
+                  </span>
+                </div>
+                <p className="player-profile-section-subhead">
+                  {isLevelConfirmed
+                    ? "This player's rating is verified by the community."
+                    : "This player's level hasn't been confirmed yet."}
+                </p>
+                <div className="player-profile-level-card">
+                  <div className="player-profile-level-value">
+                    <span>{playerLevel ?? "Level unavailable"}</span>
+                    <small>NTRP level</small>
+                  </div>
+                  <p>
+                    {verificationCount && verificationCount > 0
+                      ? `${verificationCount} ${verificationCount === 1 ? "player has" : "players have"} verified this level.`
+                      : "Be the first to confirm this player's level."}
+                  </p>
+                </div>
+                <div className="player-profile-level-support">
+                  <h3>Verify player level</h3>
+                  <p>Help the community keep player ratings accurate.</p>
+                </div>
+              </section>
+
+              <section className="player-profile-section">
+                <div className="player-profile-section-heading">
+                  <h2>Play style</h2>
+                </div>
+                <p className="player-profile-section-subhead">What kind of session {firstName} is looking for.</p>
+                {matchPreferences.length > 0 ? (
+                  <div className="player-profile-chips">
+                    {matchPreferences.map((preference) => (
+                      <span key={preference} className="player-profile-chip">
+                        {preference}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="player-profile-empty-state">No play preferences shared yet.</p>
+                )}
+              </section>
+
+              <section className="player-profile-section">
+                <div className="player-profile-section-heading">
+                  <h2>Weekly availability</h2>
+                </div>
+                <p className="player-profile-section-subhead">Times that typically work best.</p>
+                {availabilityOptions.length > 0 ? (
+                  <ul className="player-profile-list">
+                    {availabilityOptions.map((slot) => (
+                      <li key={slot}>{slot}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="player-profile-empty-state">No availability shared yet.</p>
+                )}
+              </section>
+
+              <section className="player-profile-section">
+                <div className="player-profile-section-heading">
+                  <h2>Preferred courts</h2>
+                </div>
+                <p className="player-profile-section-subhead">Courts {firstName} can usually play on.</p>
+                {favoriteCourt || preferredCourts.length > 0 ? (
+                  <ul className="player-profile-list">
+                    {favoriteCourt && <li key={favoriteCourt}>{favoriteCourt}</li>}
+                    {preferredCourts.map((court) => (
+                      <li key={court}>{court}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="player-profile-empty-state">No preferred courts listed yet.</p>
+                )}
+              </section>
+
+              <section className="player-profile-section player-profile-section--alert">
+                <div className="player-profile-section-heading">
+                  <h2>Report or block this player</h2>
+                </div>
+                <p className="player-profile-section-subhead">
+                  Block this player if you no longer want to match or receive messages from them.
+                </p>
+                <button type="button" className="player-profile-block" onClick={blockPlayer}>
+                  Block player
+                </button>
+              </section>
+            </div>
           </article>
         </div>
       </div>
