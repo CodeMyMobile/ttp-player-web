@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Elements, CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import type { StripeCardElementChangeEvent } from "@stripe/stripe-js";
+import type { StripePaymentElementChangeEvent } from "@stripe/stripe-js";
 import { AlertCircle, CreditCard, Loader2, Plus, ShieldCheck, Wallet } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -107,6 +107,10 @@ const PaymentMethodsPage = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null);
+  const [setupIntentLoading, setSetupIntentLoading] = useState(false);
+  const [setupIntentError, setSetupIntentError] = useState<string | null>(null);
+  const stripeEnabled = Boolean(stripePromise);
 
   const fetchPaymentMethods = useCallback(async () => {
     const authToken = getStoredAuthToken({ preferScheme: "token" });
@@ -135,11 +139,58 @@ const PaymentMethodsPage = () => {
     }
   }, []);
 
+  const refreshSetupIntent = useCallback(async () => {
+    if (!stripeEnabled) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(null);
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    const authToken = getStoredAuthToken({ preferScheme: "token" });
+    if (!authToken) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError("You need to be signed in to add a payment method.");
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    setSetupIntentLoading(true);
+    setSetupIntentError(null);
+    setSetupIntentClientSecret(null);
+
+    try {
+      const { client_secret: clientSecret } = await getPlayerStripeSetupIntent(authToken as string);
+      if (!clientSecret) {
+        throw new Error("Missing Stripe setup intent. Please try again.");
+      }
+      setSetupIntentClientSecret(clientSecret);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to start a secure card session.";
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(message);
+    } finally {
+      setSetupIntentLoading(false);
+    }
+  }, [stripeEnabled]);
+
   useEffect(() => {
     void fetchPaymentMethods();
   }, [fetchPaymentMethods]);
 
+  useEffect(() => {
+    if (!stripeEnabled) {
+      return;
+    }
+    void refreshSetupIntent();
+  }, [refreshSetupIntent, stripeEnabled]);
+
   const defaultMethod = useMemo(() => methods.find((method) => method.isDefault) ?? null, [methods]);
+
+  const handleCardAdded = useCallback(async () => {
+    await fetchPaymentMethods();
+    await refreshSetupIntent();
+  }, [fetchPaymentMethods, refreshSetupIntent]);
 
   const handleSetDefault = useCallback(
     async (id: string) => {
@@ -306,10 +357,43 @@ const PaymentMethodsPage = () => {
                 <p className="settings-card__subtitle">
                   We support major credit and debit cards. You can safely store more than one method.
                 </p>
-                {stripePromise ? (
-                  <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
-                    <AddCardForm onCardAdded={fetchPaymentMethods} />
-                  </Elements>
+                {stripeEnabled ? (
+                  setupIntentError ? (
+                    <div className="payment-form__status payment-form__status--error payment-form__status--stacked" role="alert">
+                      <span>{setupIntentError}</span>
+                      <button
+                        type="button"
+                        className="payment-methods__cta"
+                        onClick={() => void refreshSetupIntent()}
+                        disabled={setupIntentLoading}
+                      >
+                        {setupIntentLoading ? (
+                          <>
+                            <Loader2 className="payment-form__spinner" aria-hidden />
+                            Retrying…
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} aria-hidden />
+                            Try again
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : setupIntentLoading && !setupIntentClientSecret ? (
+                    <div className="payment-form__status payment-form__status--inline" role="status">
+                      <Loader2 className="payment-form__spinner" aria-hidden />
+                      Preparing secure payment form…
+                    </div>
+                  ) : setupIntentClientSecret ? (
+                    <Elements
+                      stripe={stripePromise}
+                      options={{ appearance: { theme: "stripe" }, clientSecret: setupIntentClientSecret }}
+                      key={setupIntentClientSecret}
+                    >
+                      <AddCardForm onCardAdded={handleCardAdded} />
+                    </Elements>
+                  ) : null
                 ) : (
                   <div className="payment-form__status payment-form__status--error" role="alert">
                     <AlertCircle aria-hidden />
@@ -343,8 +427,11 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"success" | "error" | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
+  const [paymentElementLoaded, setPaymentElementLoaded] = useState(false);
+  const [paymentDetailsComplete, setPaymentDetailsComplete] = useState(false);
 
-  const handleCardChange = (event: StripeCardElementChangeEvent) => {
+  const handlePaymentChange = (event: StripePaymentElementChangeEvent) => {
+    setPaymentDetailsComplete(event.complete);
     if (event.error) {
       setCardError(event.error.message ?? "Invalid card details. Check and try again.");
     } else {
@@ -357,6 +444,11 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
     if (!stripe || !elements) {
       setStatusTone("error");
       setStatusMessage("Stripe is still loading. Please try again.");
+      return;
+    }
+
+    if (!paymentDetailsComplete) {
+      setCardError("Enter your card details to continue.");
       return;
     }
 
@@ -373,17 +465,16 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
     setCardError(null);
 
     try {
-      const { client_secret: clientSecret } = await getPlayerStripeSetupIntent(authToken as string);
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error("Unable to access card input.");
-      }
-
-      const result = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: cardholderName ? { name: cardholderName } : undefined,
+      const result = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          payment_method_data: cardholderName
+            ? {
+                billing_details: { name: cardholderName },
+              }
+            : undefined,
         },
+        redirect: "if_required",
       });
 
       if (result.error) {
@@ -393,10 +484,16 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
         throw new Error(result.error.message ?? "Unable to save your card. Please try again.");
       }
 
-      cardElement.clear();
+      if (!result.setupIntent || result.setupIntent.status !== "succeeded") {
+        throw new Error("Unable to verify your card with Stripe. Please try again.");
+      }
+
       setCardholderName("");
       setStatusTone("success");
       setStatusMessage("Card saved successfully.");
+      setCardError(null);
+      setPaymentDetailsComplete(false);
+      setPaymentElementLoaded(false);
       await onCardAdded();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to save your card.";
@@ -407,7 +504,9 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
     }
   };
 
-  const stripeFieldClassName = cardError ? "payment-form__stripe payment-form__stripe--invalid" : "payment-form__stripe";
+  const stripeFieldClassName = cardError
+    ? "payment-form__stripe payment-form__stripe--invalid"
+    : "payment-form__stripe";
 
   return (
     <form className="payment-form" onSubmit={handleSubmit}>
@@ -431,31 +530,22 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
           Card details
         </label>
         <div className={stripeFieldClassName} id="card-element">
-          <CardElement
+          <PaymentElement
             className="payment-form__element"
-            options={{
-              hidePostalCode: true,
-              style: {
-                base: {
-                  fontSize: "16px",
-                  color: "#0f172a",
-                  fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                  '::placeholder': {
-                    color: "#94a3b8",
-                  },
-                },
-                invalid: {
-                  color: "#b91c1c",
-                },
-              },
-            }}
-            onChange={handleCardChange}
+            onReady={() => setPaymentElementLoaded(true)}
+            onChange={handlePaymentChange}
           />
         </div>
       </div>
       {cardError ? (
         <p className="payment-form__status payment-form__status--error" role="alert">
           {cardError}
+        </p>
+      ) : null}
+      {!paymentElementLoaded ? (
+        <p className="payment-form__status payment-form__status--inline" role="status">
+          <Loader2 className="payment-form__spinner" aria-hidden />
+          Preparing Stripe secure fields…
         </p>
       ) : null}
       {statusMessage ? (
@@ -466,7 +556,11 @@ const AddCardForm = ({ onCardAdded }: AddCardFormProps) => {
           {statusMessage}
         </p>
       ) : null}
-      <button type="submit" className="payment-form__submit" disabled={submitting || !stripe}>
+      <button
+        type="submit"
+        className="payment-form__submit"
+        disabled={submitting || !stripe || !paymentElementLoaded || !paymentDetailsComplete}
+      >
         {submitting ? "Saving…" : "Save card"}
       </button>
     </form>
