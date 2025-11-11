@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --coach-color-page: #f5f7fb;
   --coach-color-surface: #ffffff;
