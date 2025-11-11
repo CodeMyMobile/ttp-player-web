@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import type { ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, Check, MessageCircle, Star, UserX, X } from "lucide-react";
+import { ArrowLeft, BadgeCheck, MessageCircle } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import type { Player } from "../data/mockPlayers";
@@ -29,16 +28,6 @@ type SuggestedPlayerRecord = {
 };
 
 type DirectoryPlayer = Player & { raw?: SuggestedPlayerRecord };
-
-type QuickStat = {
-  label: string;
-  value: string;
-  icon?: ReactNode;
-  tone?: "highlight" | "default";
-  ariaLabel?: string;
-};
-
-type ProfileInfoItem = { label: string; value: string };
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -100,466 +89,52 @@ const PlayerProfilePage = () => {
   }
 
   const firstName = player.name.split(" ")[0];
-  const availabilitySlots = [
-    { label: "Weekdays AM", value: "Weekdays AM" },
-    { label: "Weekdays PM", value: "Weekdays PM" },
-    { label: "Weekends", value: "Weekends" },
-  ];
-
-  const availability = player.availability.length
-    ? player.availability
-    : normalizeStringArray(player.raw?.availability);
-  const lookingFor = player.matchPreferences.length
-    ? player.matchPreferences
-    : normalizeStringArray(player.raw?.lookingFor);
-  const courts = player.localCourts.length
-    ? player.localCourts
-    : normalizeStringArray(player.raw?.playerCourtLocations);
   const primaryLocation = player.location || normalizeStringArray(player.raw?.playerLocations)[0] || "Location unavailable";
-
-  const ratingDisplay = player.rating > 0 ? player.rating.toFixed(1) : "New";
-  const ratingLabel = player.rating > 0 ? "Player rating" : "New to TTP";
-
-  const quickStats: QuickStat[] = [
-    { label: "Availability slots", value: availability.length.toString() },
-    { label: "Saved courts", value: courts.length.toString() },
-    { label: "Level verifications", value: player.verificationCount.toString() },
-  ];
-
-  const heroStats: QuickStat[] = [
-    {
-      label: ratingLabel,
-      value: ratingDisplay,
-      icon: <Star size={18} strokeWidth={2} aria-hidden="true" />,
-      tone: "highlight",
-      ariaLabel:
-        player.rating > 0 ? `Player rating ${ratingDisplay} out of 5` : `${player.name} is new to TTP and has not been rated`,
-    },
-    ...quickStats,
-  ];
-
-  const profileInfo: ProfileInfoItem[] = [
-    { label: "Skill level", value: player.raw?.skillLevel ?? player.level ?? "Not specified" },
-    {
-      label: "Looking for",
-      value: lookingFor.length ? lookingFor.join(", ") : "Not specified",
-    },
-    {
-      label: "Availability",
-      value: availability.length ? availability.join(", ") : "Not specified",
-    },
-    {
-      label: "Primary location",
-      value: primaryLocation,
-    },
-    {
-      label: "Preferred courts",
-      value: courts.length ? courts.join(", ") : "Not specified",
-    },
-    {
-      label: "Contact",
-      value: player.raw?.email ?? player.raw?.phone ?? "Not shared",
-    },
-  ];
-
-  const matchHistory =
-    player.matchHistory ?? [
-      {
-        opponent: "Local player",
-        outcome: "Win" as const,
-        score: "6-4, 6-4",
-        date: "Mar 8, 2024",
-        type: "Friendly match",
-      },
-      {
-        opponent: "Community player",
-        outcome: "Win" as const,
-        score: "7-5, 6-3",
-        date: "Mar 1, 2024",
-        type: "League match",
-      },
-      {
-        opponent: "Visiting player",
-        outcome: "Loss" as const,
-        score: "4-6, 6-2, 8-10",
-        date: "Feb 20, 2024",
-        type: "Friendly match",
-      },
-    ];
-  const reviews =
-    player.reviews ?? [
-      {
-        reviewer: "Match partner",
-        rating: 5,
-        date: "March 2024",
-        summary: "Solid baseliner",
-        detail: "Very consistent from the backcourt and easy to coordinate with.",
-      },
-      {
-        reviewer: "League teammate",
-        rating: 5,
-        date: "February 2024",
-        summary: "Great communicator",
-        detail: "Helpful with scheduling and brings great energy to every session.",
-      },
-    ];
-
-  const blockPlayer = () => {
-    window.alert(`You won't be matched with ${player.name}.`);
-  };
 
   const messagePlayer = () => {
     window.alert(`Opening a new conversation with ${player.name}.`);
   };
 
-  const reportPlayer = () => {
-    window.alert(`Thanks for letting us know about ${player.name}. Our support team will follow up shortly.`);
-  };
-
-  const verifyPlayerLevel = () => {
-    if (player.verified) {
-      window.alert(`${player.name}'s NTRP level has already been verified.`);
-      return;
-    }
-
-    window.alert(`Thanks! We'll review ${player.name}'s level and follow up.`);
-  };
-
-  const displayedSupporters = player.verificationSupporters.slice(0, 4);
-  const extraSupporters = Math.max(0, player.verificationCount - displayedSupporters.length);
-  const verificationLabel = player.verified ? "Level verified" : "Verify this level";
-  const verificationStatus = player.verified
-    ? `${player.name}'s level is verified`
-    : `${player.name}'s level verification is pending`;
-  const verificationNote =
-    player.verificationCount > 0
-      ? `${player.verificationCount} ${player.verificationCount === 1 ? "player has" : "players have"} verified this level`
-      : "Be the first to verify this level";
-
   return (
     <MainLayout>
       <div className="player-profile-page">
-        <div className="player-profile-hero">
-          <div className="player-profile-hero__inner">
-            <button type="button" className="player-profile-back" onClick={goBackToResults}>
-              <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
-              Back to search results
-            </button>
+        <div className="player-profile-wrapper">
+          <button type="button" className="player-profile-back" onClick={goBackToResults}>
+            <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
+            Back to search results
+          </button>
 
-            <article className="player-profile-hero-card">
-              <div className="player-profile-hero-top">
-                <div className="player-profile-hero-main">
-                  <div className="player-profile-media">
-                    {player.profileImageUrl ? (
-                      <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
-                    ) : (
-                      <span aria-hidden="true">{player.initials}</span>
-                    )}
-                  </div>
-                  <div className="player-profile-hero-content">
-                    <div className="player-profile-hero-heading">
-                      <h1>{player.name}</h1>
-                      {player.verified && (
-                        <span className="player-profile-hero-badge">
-                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                          Verified player
-                        </span>
-                      )}
-                    </div>
-                    <p className="player-profile-hero-location">
-                      {primaryLocation}
-                      {player.distanceMiles > 0 ? ` • ${player.distanceMiles.toFixed(1)} mi away` : ""}
-                    </p>
-                    <p className="player-profile-hero-meta">
-                      {(player.responseTime ?? "Typically responds within a day")}
-                      {player.lastActive ? ` • ${player.lastActive}` : ""}
-                    </p>
-                    <div className="player-profile-actions">
-                      <button
-                        type="button"
-                        className="player-profile-action player-profile-action--primary"
-                        onClick={messagePlayer}
-                      >
-                        <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
-                        Send message
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <ul className="player-profile-hero-stats">
-                  {heroStats.map((stat) => (
-                    <li
-                      key={stat.label}
-                      className={`player-profile-hero-stat${stat.tone === "highlight" ? " is-highlight" : ""}`}
-                      aria-label={stat.ariaLabel}
-                    >
-                      <span className="player-profile-hero-stat__value">
-                        {stat.icon && <span className="player-profile-hero-stat__icon">{stat.icon}</span>}
-                        {stat.value}
-                      </span>
-                      <span className="player-profile-hero-stat__label">{stat.label}</span>
-                    </li>
-                  ))}
-                </ul>
+          <article className="player-profile-card">
+            <div className="player-profile-header">
+              <div className="player-profile-media">
+                {player.profileImageUrl ? (
+                  <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
+                ) : (
+                  <span aria-hidden="true">{player.initials}</span>
+                )}
               </div>
-            </article>
-          </div>
-        </div>
 
-        <div className="player-profile-body">
-          <div className="player-profile-columns">
-            <div className="player-profile-column player-profile-column--primary">
-              <section className="player-profile-section">
-                <div className="player-profile-card">
-                  <header>
-                    <h2>About {firstName}</h2>
-                    <p>Get a sense of this player&apos;s on-court vibe.</p>
-                  </header>
-                  <p className="player-profile-description">{player.bio}</p>
+              <div className="player-profile-summary">
+                <div className="player-profile-heading">
+                  <h1>{player.name}</h1>
+                  {player.verified && (
+                    <span className="player-profile-verified">
+                      <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
+                      Verified player
+                    </span>
+                  )}
                 </div>
-              </section>
-
-              <section className="player-profile-section">
-                <article className="player-profile-card player-profile-card--level">
-                  <header>
-                    <h3>Player level</h3>
-                    <p>See how {firstName}&apos;s rating is verified by the community.</p>
-                  </header>
-                  <div className="player-profile-level-shell">
-                    <div className="player-profile-level-score-block">
-                      <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
-                        <span className="player-profile-level-value">{player.level}</span>
-                        <span className="player-profile-level-label">NTRP level</span>
-                      </div>
-                      {player.verified && (
-                        <span className="player-profile-level-status">
-                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" /> Level verified
-                        </span>
-                      )}
-                    </div>
-                    <div className="player-profile-level-meta">
-                      <header className="player-profile-card-header">
-                        <div>
-                          <h3>Verify player level</h3>
-                          <p>Help the community keep player ratings accurate.</p>
-                        </div>
-                        <button
-                          type="button"
-                          className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
-                          onClick={verifyPlayerLevel}
-                          disabled={player.verified}
-                          aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
-                        >
-                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                          <span>{verificationLabel}</span>
-                        </button>
-                      </header>
-                      <p className="player-profile-level-note">{verificationNote}</p>
-                      {displayedSupporters.length > 0 && (
-                        <ul
-                          className="player-profile-level-supporters"
-                          aria-label={`Players who have verified ${player.name}'s level`}
-                        >
-                          {displayedSupporters.map((supporter) => (
-                            <li key={supporter.name}>
-                              <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
-                            </li>
-                          ))}
-                          {extraSupporters > 0 && (
-                            <li className="player-profile-level-supporters__extra" aria-hidden="true">
-                              +{extraSupporters}
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              </section>
-
-              <section className="player-profile-section">
-                <article className="player-profile-card">
-                  <header>
-                    <h3>Weekly availability</h3>
-                    <p>Times that typically work best.</p>
-                  </header>
-                  <ul className="player-profile-availability-list">
-                    {availabilitySlots.map((slot) => {
-                      const available = availability.some((option) =>
-                        option.toLowerCase().includes(slot.value.toLowerCase()),
-                      );
-
-                      return (
-                        <li
-                          key={slot.value}
-                          className={`player-profile-availability ${available ? "is-available" : "is-unavailable"}`}
-                        >
-                          <span className="player-profile-availability-icon" aria-hidden="true">
-                            {available ? (
-                              <Check size={18} strokeWidth={2.5} />
-                            ) : (
-                              <X size={18} strokeWidth={2.5} />
-                            )}
-                          </span>
-                          <div className="player-profile-availability-copy">
-                            <span className="player-profile-availability-label">{slot.label}</span>
-                            <span className="player-profile-availability-status">
-                              {available ? "Usually available" : "Not typically available"}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </article>
-              </section>
-
-              <section className="player-profile-section player-profile-section--report">
-                <article className="player-profile-card player-profile-card--alert">
-                  <header>
-                    <h3>Report or block this player</h3>
-                    <p>
-                      If this player violates community guidelines or you wish to prevent future contact, you can block
-                      them or reach out to our team.
-                    </p>
-                  </header>
-                  <div className="player-profile-card-actions">
-                    <button
-                      type="button"
-                      className="player-profile-action player-profile-action--danger"
-                      onClick={blockPlayer}
-                    >
-                      <UserX size={16} strokeWidth={2} aria-hidden="true" />
-                      Block player
-                    </button>
-                    <button
-                      type="button"
-                      className="player-profile-action player-profile-action--link"
-                      onClick={reportPlayer}
-                    >
-                      Contact support
-                    </button>
-                  </div>
-                </article>
-              </section>
+                <p className="player-profile-location">{primaryLocation}</p>
+              </div>
             </div>
 
-            <div className="player-profile-column player-profile-column--secondary">
-              <section className="player-profile-section">
-                <article className="player-profile-card">
-                  <header>
-                    <h3>Play Style</h3>
-                    <p>What kind of session {firstName} is looking for.</p>
-                  </header>
-                  <ul className="player-profile-pill-list">
-                    {lookingFor.length > 0 ? (
-                      lookingFor.map((type) => (
-                        <li key={type} className="player-profile-pill">
-                          {type}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="player-profile-pill">Open to any session type</li>
-                    )}
-                  </ul>
-                </article>
-              </section>
+            {player.bio && <p className="player-profile-bio">{player.bio}</p>}
 
-              <section className="player-profile-section">
-                <article className="player-profile-card">
-                  <header>
-                    <h3>Preferred courts</h3>
-                    <p>Courts {firstName} plays at most often.</p>
-                  </header>
-                  <ul className="player-profile-pill-list player-profile-pill-list--stacked">
-                    {courts.length > 0 ? (
-                      courts.map((court) => (
-                        <li key={court} className="player-profile-pill player-profile-pill--wide">
-                          {court}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="player-profile-pill">Courts not listed</li>
-                    )}
-                  </ul>
-                </article>
-              </section>
-
-              <section className="player-profile-section">
-                <article className="player-profile-card">
-                  <header>
-                    <h3>Player information</h3>
-                    <p>Key details to help plan your next hit.</p>
-                  </header>
-                  <dl className="player-profile-info-grid">
-                    {profileInfo.map((item) => (
-                      <div key={item.label} className="player-profile-info-item">
-                        <dt>{item.label}</dt>
-                        <dd>{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </article>
-              </section>
-            </div>
-          </div>
-
-          <section className="player-profile-section player-profile-section--full">
-            <article className="player-profile-card">
-              <header>
-                <h3>Match history</h3>
-                <p>Recent results logged by {firstName}.</p>
-              </header>
-              <ul className="player-profile-history-list">
-                {matchHistory.map((match) => (
-                  <li key={`${match.date}-${match.opponent}`} className="player-profile-history-item">
-                    <div className="player-profile-history-main">
-                      <span
-                        className={`player-profile-history-outcome player-profile-history-outcome--${match.outcome.toLowerCase()}`}
-                      >
-                        {match.outcome}
-                      </span>
-                      <div className="player-profile-history-details">
-                        <p>vs {match.opponent}</p>
-                        <span>{match.score}</span>
-                      </div>
-                    </div>
-                    <p className="player-profile-history-meta">
-                      {match.date} • {match.type}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </section>
-
-          <section className="player-profile-section player-profile-section--full">
-            <article className="player-profile-card player-profile-card--reviews">
-              <header>
-                <h3>Reviews &amp; feedback</h3>
-                <p>What partners have shared after playing with {firstName}.</p>
-              </header>
-              <ul className="player-profile-review-list">
-                {reviews.map((review) => (
-                  <li key={`${review.reviewer}-${review.date}`} className="player-profile-review">
-                    <div className="player-profile-review-heading">
-                      <div>
-                        <p className="player-profile-review-author">{review.reviewer}</p>
-                        <span className="player-profile-review-date">{review.date}</span>
-                      </div>
-                      <div className="player-profile-review-rating" aria-label={`${review.rating} star review`}>
-                        {Array.from({ length: review.rating }).map((_, index) => (
-                          <Star key={index} size={16} strokeWidth={2} aria-hidden="true" />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="player-profile-review-summary">{review.summary}</p>
-                    <p className="player-profile-review-body">{review.detail}</p>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </section>
+            <button type="button" className="player-profile-contact" onClick={messagePlayer}>
+              <MessageCircle size={18} strokeWidth={2} aria-hidden="true" />
+              <span>Contact {firstName}</span>
+            </button>
+          </article>
         </div>
       </div>
     </MainLayout>
