@@ -602,20 +602,44 @@ const PlayerCalendar = () => {
     if (event.type === "availability") {
       return {
         className: "player-calendar__event--availability",
+        style: {
+          backgroundColor: "#8ecae6",
+          borderColor: "#5a99b3",
+          color: "#0f172a",
+          borderRadius: "8px",
+        },
       };
     }
     if (event.type === "booked") {
       return {
         className: "player-calendar__event--booked",
+        style: {
+          backgroundColor: "#457b9d",
+          borderColor: "#2c5c77",
+          color: "#ffffff",
+          borderRadius: "8px",
+        },
       };
     }
     if (event.type === "full") {
       return {
         className: "player-calendar__event--full",
+        style: {
+          backgroundColor: "#e76f51",
+          borderColor: "#c8543a",
+          color: "#ffffff",
+          borderRadius: "8px",
+        },
       };
     }
     return {
       className: "player-calendar__event--available",
+      style: {
+        backgroundColor: "#2a9d8f",
+        borderColor: "#1d6f65",
+        color: "#ffffff",
+        borderRadius: "8px",
+      },
     };
   }, []);
 
