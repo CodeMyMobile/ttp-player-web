@@ -1,6 +1,7 @@
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, Check, MessageCircle, Star, UserPlus, UserX, X } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, MessageCircle, Star, UserX, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import type { Player } from "../data/mockPlayers";
@@ -29,7 +30,13 @@ type SuggestedPlayerRecord = {
 
 type DirectoryPlayer = Player & { raw?: SuggestedPlayerRecord };
 
-type QuickStat = { label: string; value: string };
+type QuickStat = {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+  tone?: "highlight" | "default";
+  ariaLabel?: string;
+};
 
 type ProfileInfoItem = { label: string; value: string };
 
@@ -119,6 +126,18 @@ const PlayerProfilePage = () => {
     { label: "Level verifications", value: player.verificationCount.toString() },
   ];
 
+  const heroStats: QuickStat[] = [
+    {
+      label: ratingLabel,
+      value: ratingDisplay,
+      icon: <Star size={18} strokeWidth={2} aria-hidden="true" />,
+      tone: "highlight",
+      ariaLabel:
+        player.rating > 0 ? `Player rating ${ratingDisplay} out of 5` : `${player.name} is new to TTP and has not been rated`,
+    },
+    ...quickStats,
+  ];
+
   const profileInfo: ProfileInfoItem[] = [
     { label: "Skill level", value: player.raw?.skillLevel ?? player.level ?? "Not specified" },
     {
@@ -193,8 +212,8 @@ const PlayerProfilePage = () => {
     window.alert(`Opening a new conversation with ${player.name}.`);
   };
 
-  const connectWithPlayer = () => {
-    window.alert(`Match request sent to ${player.name}!`);
+  const reportPlayer = () => {
+    window.alert(`Thanks for letting us know about ${player.name}. Our support team will follow up shortly.`);
   };
 
   const verifyPlayerLevel = () => {
@@ -228,243 +247,264 @@ const PlayerProfilePage = () => {
             </button>
 
             <article className="player-profile-hero-card">
-              <div className="player-profile-hero-main">
-                <div className="player-profile-media">
-                  {player.profileImageUrl ? (
-                    <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
-                  ) : (
-                    <span aria-hidden="true">{player.initials}</span>
-                  )}
-                </div>
-                <div className="player-profile-hero-content">
-                  <div className="player-profile-hero-heading">
-                    <h1>{player.name}</h1>
-                    {player.verified && (
-                      <span className="player-profile-hero-badge">
-                        <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                        Verified player
-                      </span>
+              <div className="player-profile-hero-top">
+                <div className="player-profile-hero-main">
+                  <div className="player-profile-media">
+                    {player.profileImageUrl ? (
+                      <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
+                    ) : (
+                      <span aria-hidden="true">{player.initials}</span>
                     )}
                   </div>
-                  <p className="player-profile-hero-location">
-                    {primaryLocation}
-                    {player.distanceMiles > 0 ? ` • ${player.distanceMiles.toFixed(1)} mi away` : ""}
-                  </p>
-                  <p className="player-profile-hero-meta">
-                    {(player.responseTime ?? "Typically responds within a day")}
-                    {player.lastActive ? ` • ${player.lastActive}` : ""}
-                  </p>
-                  <ul className="player-profile-hero-stats">
+                  <div className="player-profile-hero-content">
+                    <div className="player-profile-hero-heading">
+                      <h1>{player.name}</h1>
+                      {player.verified && (
+                        <span className="player-profile-hero-badge">
+                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
+                          Verified player
+                        </span>
+                      )}
+                    </div>
+                    <p className="player-profile-hero-location">
+                      {primaryLocation}
+                      {player.distanceMiles > 0 ? ` • ${player.distanceMiles.toFixed(1)} mi away` : ""}
+                    </p>
+                    <p className="player-profile-hero-meta">
+                      {(player.responseTime ?? "Typically responds within a day")}
+                      {player.lastActive ? ` • ${player.lastActive}` : ""}
+                    </p>
+                    <div className="player-profile-actions">
+                      <button
+                        type="button"
+                        className="player-profile-action player-profile-action--primary"
+                        onClick={messagePlayer}
+                      >
+                        <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
+                        Send message
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <ul className="player-profile-hero-stats">
+                  {heroStats.map((stat) => (
                     <li
-                      className="player-profile-hero-stat"
-                      aria-label={
-                        player.rating > 0
-                          ? `Player rating ${ratingDisplay} out of 5`
-                          : "New player"
-                      }
+                      key={stat.label}
+                      className={`player-profile-hero-stat${stat.tone === "highlight" ? " is-highlight" : ""}`}
+                      aria-label={stat.ariaLabel}
                     >
                       <span className="player-profile-hero-stat__value">
-                        <Star size={18} strokeWidth={2} aria-hidden="true" />
-                        {ratingDisplay}
+                        {stat.icon && <span className="player-profile-hero-stat__icon">{stat.icon}</span>}
+                        {stat.value}
                       </span>
-                      <span className="player-profile-hero-stat__label">{ratingLabel}</span>
+                      <span className="player-profile-hero-stat__label">{stat.label}</span>
                     </li>
-                    {quickStats.map((stat) => (
-                      <li key={stat.label} className="player-profile-hero-stat">
-                        <span className="player-profile-hero-stat__value">{stat.value}</span>
-                        <span className="player-profile-hero-stat__label">{stat.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              <div className="player-profile-actions">
-                <button
-                  type="button"
-                  className="player-profile-action player-profile-action--ghost"
-                  onClick={messagePlayer}
-                >
-                  <MessageCircle size={16} strokeWidth={2} aria-hidden="true" />
-                  Send message
-                </button>
-                <button
-                  type="button"
-                  className="player-profile-action player-profile-action--primary"
-                  onClick={connectWithPlayer}
-                >
-                  <UserPlus size={16} strokeWidth={2} aria-hidden="true" />
-                  Request match
-                </button>
-                <button
-                  type="button"
-                  className="player-profile-action player-profile-action--danger"
-                  onClick={blockPlayer}
-                >
-                  <UserX size={16} strokeWidth={2} aria-hidden="true" />
-                  Block
-                </button>
+                  ))}
+                </ul>
               </div>
             </article>
           </div>
         </div>
 
         <div className="player-profile-body">
-          <section className="player-profile-section">
-            <div className="player-profile-card">
-              <header>
-                <h2>About {firstName}</h2>
-                <p>Get a sense of this player&apos;s on-court vibe.</p>
-              </header>
-              <p className="player-profile-description">{player.bio}</p>
-            </div>
-          </section>
-
-          <section className="player-profile-section">
-            <article className="player-profile-card player-profile-card--level">
-              <header>
-                <h3>Player level</h3>
-                <p>See how {firstName}&apos;s rating is verified by the community.</p>
-              </header>
-              <div className="player-profile-level-shell">
-                <div className="player-profile-level-score-block">
-                  <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
-                    <span className="player-profile-level-value">{player.level}</span>
-                    <span className="player-profile-level-label">NTRP level</span>
-                  </div>
+          <div className="player-profile-columns">
+            <div className="player-profile-column player-profile-column--primary">
+              <section className="player-profile-section">
+                <div className="player-profile-card">
+                  <header>
+                    <h2>About {firstName}</h2>
+                    <p>Get a sense of this player&apos;s on-court vibe.</p>
+                  </header>
+                  <p className="player-profile-description">{player.bio}</p>
                 </div>
-                <div className="player-profile-level-meta">
-                  <header className="player-profile-card-header">
-                    <div>
-                      <h3>Verify player level</h3>
-                      <p>Help the community keep player ratings accurate.</p>
+              </section>
+
+              <section className="player-profile-section">
+                <article className="player-profile-card player-profile-card--level">
+                  <header>
+                    <h3>Player level</h3>
+                    <p>See how {firstName}&apos;s rating is verified by the community.</p>
+                  </header>
+                  <div className="player-profile-level-shell">
+                    <div className="player-profile-level-score-block">
+                      <div className="player-profile-level-score" aria-label={`${player.level} NTRP level`}>
+                        <span className="player-profile-level-value">{player.level}</span>
+                        <span className="player-profile-level-label">NTRP level</span>
+                      </div>
+                      {player.verified && (
+                        <span className="player-profile-level-status">
+                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" /> Level verified
+                        </span>
+                      )}
                     </div>
+                    <div className="player-profile-level-meta">
+                      <header className="player-profile-card-header">
+                        <div>
+                          <h3>Verify player level</h3>
+                          <p>Help the community keep player ratings accurate.</p>
+                        </div>
+                        <button
+                          type="button"
+                          className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
+                          onClick={verifyPlayerLevel}
+                          disabled={player.verified}
+                          aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
+                        >
+                          <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
+                          <span>{verificationLabel}</span>
+                        </button>
+                      </header>
+                      <p className="player-profile-level-note">{verificationNote}</p>
+                      {displayedSupporters.length > 0 && (
+                        <ul
+                          className="player-profile-level-supporters"
+                          aria-label={`Players who have verified ${player.name}'s level`}
+                        >
+                          {displayedSupporters.map((supporter) => (
+                            <li key={supporter.name}>
+                              <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
+                            </li>
+                          ))}
+                          {extraSupporters > 0 && (
+                            <li className="player-profile-level-supporters__extra" aria-hidden="true">
+                              +{extraSupporters}
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              </section>
+
+              <section className="player-profile-section">
+                <article className="player-profile-card">
+                  <header>
+                    <h3>Weekly availability</h3>
+                    <p>Times that typically work best.</p>
+                  </header>
+                  <ul className="player-profile-availability-list">
+                    {availabilitySlots.map((slot) => {
+                      const available = availability.some((option) =>
+                        option.toLowerCase().includes(slot.value.toLowerCase()),
+                      );
+
+                      return (
+                        <li
+                          key={slot.value}
+                          className={`player-profile-availability ${available ? "is-available" : "is-unavailable"}`}
+                        >
+                          <span className="player-profile-availability-icon" aria-hidden="true">
+                            {available ? (
+                              <Check size={18} strokeWidth={2.5} />
+                            ) : (
+                              <X size={18} strokeWidth={2.5} />
+                            )}
+                          </span>
+                          <div className="player-profile-availability-copy">
+                            <span className="player-profile-availability-label">{slot.label}</span>
+                            <span className="player-profile-availability-status">
+                              {available ? "Usually available" : "Not typically available"}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </article>
+              </section>
+
+              <section className="player-profile-section player-profile-section--report">
+                <article className="player-profile-card player-profile-card--alert">
+                  <header>
+                    <h3>Report or block this player</h3>
+                    <p>
+                      If this player violates community guidelines or you wish to prevent future contact, you can block
+                      them or reach out to our team.
+                    </p>
+                  </header>
+                  <div className="player-profile-card-actions">
                     <button
                       type="button"
-                      className={`player-profile-verify-badge${player.verified ? " is-verified" : ""}`}
-                      onClick={verifyPlayerLevel}
-                      disabled={player.verified}
-                      aria-label={player.verified ? verificationStatus : `Verify ${player.name}'s level`}
+                      className="player-profile-action player-profile-action--danger"
+                      onClick={blockPlayer}
                     >
-                      <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                      <span>{verificationLabel}</span>
+                      <UserX size={16} strokeWidth={2} aria-hidden="true" />
+                      Block player
                     </button>
-                  </header>
-                  <p className="player-profile-level-note">{verificationNote}</p>
-                  {displayedSupporters.length > 0 && (
-                    <ul
-                      className="player-profile-level-supporters"
-                      aria-label={`Players who have verified ${player.name}'s level`}
+                    <button
+                      type="button"
+                      className="player-profile-action player-profile-action--link"
+                      onClick={reportPlayer}
                     >
-                      {displayedSupporters.map((supporter) => (
-                        <li key={supporter.name}>
-                          <img src={supporter.avatarUrl} alt={`${supporter.name} avatar`} />
-                        </li>
-                      ))}
-                      {extraSupporters > 0 && (
-                        <li className="player-profile-level-supporters__extra" aria-hidden="true">
-                          +{extraSupporters}
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <section className="player-profile-section">
-            <div className="player-profile-grid">
-              <article className="player-profile-card">
-                <header>
-                  <h3>Play Style</h3>
-                  <p>What kind of session {firstName} is looking for.</p>
-                </header>
-                <ul className="player-profile-pill-list">
-                  {lookingFor.length > 0 ? (
-                    lookingFor.map((type) => (
-                      <li key={type} className="player-profile-pill">
-                        {type}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="player-profile-pill">Open to any session type</li>
-                  )}
-                </ul>
-              </article>
-              <article className="player-profile-card">
-                <header>
-                  <h3>Preferred courts</h3>
-                  <p>Courts {firstName} plays at most often.</p>
-                </header>
-                <ul className="player-profile-pill-list">
-                  {courts.length > 0 ? (
-                    courts.map((court) => (
-                      <li key={court} className="player-profile-pill">
-                        {court}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="player-profile-pill">Courts not listed</li>
-                  )}
-                </ul>
-              </article>
+                      Contact support
+                    </button>
+                  </div>
+                </article>
+              </section>
             </div>
-          </section>
 
-          <section className="player-profile-section">
-            <div className="player-profile-grid">
-              <article className="player-profile-card">
-                <header>
-                  <h3>Weekly availability</h3>
-                  <p>Times that typically work best.</p>
-                </header>
-                <ul className="player-profile-availability-list">
-                  {availabilitySlots.map((slot) => {
-                    const available = availability.some((option) =>
-                      option.toLowerCase().includes(slot.value.toLowerCase()),
-                    );
+            <div className="player-profile-column player-profile-column--secondary">
+              <section className="player-profile-section">
+                <article className="player-profile-card">
+                  <header>
+                    <h3>Play Style</h3>
+                    <p>What kind of session {firstName} is looking for.</p>
+                  </header>
+                  <ul className="player-profile-pill-list">
+                    {lookingFor.length > 0 ? (
+                      lookingFor.map((type) => (
+                        <li key={type} className="player-profile-pill">
+                          {type}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="player-profile-pill">Open to any session type</li>
+                    )}
+                  </ul>
+                </article>
+              </section>
 
-                    return (
-                      <li
-                        key={slot.value}
-                        className={`player-profile-availability ${available ? "is-available" : "is-unavailable"}`}
-                      >
-                        <span className="player-profile-availability-icon" aria-hidden="true">
-                          {available ? (
-                            <Check size={18} strokeWidth={2.5} />
-                          ) : (
-                            <X size={18} strokeWidth={2.5} />
-                          )}
-                        </span>
-                        <div className="player-profile-availability-copy">
-                          <span className="player-profile-availability-label">{slot.label}</span>
-                          <span className="player-profile-availability-status">
-                            {available ? "Usually available" : "Not typically available"}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </article>
-              <article className="player-profile-card">
-                <header>
-                  <h3>Player information</h3>
-                  <p>Key details to help plan your next hit.</p>
-                </header>
-                <dl className="player-profile-info-grid">
-                  {profileInfo.map((item) => (
-                    <div key={item.label} className="player-profile-info-item">
-                      <dt>{item.label}</dt>
-                      <dd>{item.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </article>
+              <section className="player-profile-section">
+                <article className="player-profile-card">
+                  <header>
+                    <h3>Preferred courts</h3>
+                    <p>Courts {firstName} plays at most often.</p>
+                  </header>
+                  <ul className="player-profile-pill-list player-profile-pill-list--stacked">
+                    {courts.length > 0 ? (
+                      courts.map((court) => (
+                        <li key={court} className="player-profile-pill player-profile-pill--wide">
+                          {court}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="player-profile-pill">Courts not listed</li>
+                    )}
+                  </ul>
+                </article>
+              </section>
+
+              <section className="player-profile-section">
+                <article className="player-profile-card">
+                  <header>
+                    <h3>Player information</h3>
+                    <p>Key details to help plan your next hit.</p>
+                  </header>
+                  <dl className="player-profile-info-grid">
+                    {profileInfo.map((item) => (
+                      <div key={item.label} className="player-profile-info-item">
+                        <dt>{item.label}</dt>
+                        <dd>{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </article>
+              </section>
             </div>
-          </section>
+          </div>
 
-          <section className="player-profile-section">
+          <section className="player-profile-section player-profile-section--full">
             <article className="player-profile-card">
               <header>
                 <h3>Match history</h3>
@@ -493,7 +533,7 @@ const PlayerProfilePage = () => {
             </article>
           </section>
 
-          <section className="player-profile-section">
+          <section className="player-profile-section player-profile-section--full">
             <article className="player-profile-card player-profile-card--reviews">
               <header>
                 <h3>Reviews &amp; feedback</h3>
