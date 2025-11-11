@@ -4,18 +4,39 @@ import "./players.css";
 const PlayerCardSkeleton = () => {
   return (
     <div className="fc-card fp-card fp-card--skeleton" aria-hidden="true">
-      <div className="fp-card__profile">
-        <span className="fp-skeleton fp-skeleton--avatar" />
-        <div className="fp-card__profile-skeleton">
-          <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
-          <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-md" />
+      <div className="fp-card__header">
+        <div className="fp-card__identity-block">
+          <span className="fp-skeleton fp-skeleton--avatar" />
+          <div className="fp-card__profile-skeleton">
+            <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
+            <div className="fp-card__badge-skeleton-row">
+              <span className="fp-skeleton fp-skeleton--pill" />
+              <span className="fp-skeleton fp-skeleton--pill fp-skeleton--pill-sm" />
+            </div>
+          </div>
+        </div>
+        <span className="fp-skeleton fp-skeleton--paragraph" />
+      </div>
+
+      <div className="fp-card__sections fp-card__sections--skeleton">
+        <div className="fp-card__section fp-card__section--availability fp-card__availability-skeleton">
+          <span className="fp-skeleton fp-skeleton--section-label" />
+          <div className="fp-card__availability-skeleton-row">
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+            <span className="fp-skeleton fp-skeleton--availability-chip" />
+          </div>
+        </div>
+        <div className="fp-card__section fp-card__section--skeleton">
+          <span className="fp-skeleton fp-skeleton--section-label" />
+          <span className="fp-skeleton fp-skeleton--section-line" />
         </div>
       </div>
 
-      <span className="fp-skeleton fp-skeleton--paragraph" />
-      <span className="fp-skeleton fp-skeleton--meta" />
-      <span className="fp-skeleton fp-skeleton--banner" />
-      <span className="fp-skeleton fp-skeleton--actions" />
+      <div className="fp-card__actions fp-card__actions--skeleton">
+        <span className="fp-skeleton fp-skeleton--action" />
+        <span className="fp-skeleton fp-skeleton--action" />
+      </div>
     </div>
   );
 };
