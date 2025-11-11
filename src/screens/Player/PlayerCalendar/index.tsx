@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
-import {
-  CalendarRange,
-  ChevronDown,
-  Clock,
-  Filter as FilterIcon,
-  LocateFixed,
-  MapPin,
-  RefreshCw,
-  Search as SearchIcon,
-  Users,
-} from "lucide-react";
+import { ChevronDown, Clock, Filter as FilterIcon, MapPin, RefreshCw, Search as SearchIcon, Users } from "lucide-react";
 import "./index.css";
 
 import {
@@ -26,8 +16,25 @@ import {
   type PlayerCoach,
   type CoachLocation,
 } from "../../../api/playerCalendar";
+import ResultsHeader from "../../../components/coaches/ResultsHeader";
+import MainLayout from "../../../components/MainLayout";
+import { colors, typography } from "../../../lib/theme";
 import { useAuth } from "../../../context/AuthContext";
 import { getStoredAuthToken } from "../../../services/authToken";
+
+const DISTANCE_OPTIONS = [
+  { value: "5", label: "5 mi" },
+  { value: "10", label: "10 mi" },
+  { value: "15", label: "15 mi" },
+  { value: "20", label: "20 mi" },
+  { value: "any", label: "All" },
+] as const;
+
+const LESSON_TYPE_OPTIONS = [
+  { value: "all", label: "All session types" },
+  { value: "private", label: "Private lessons" },
+  { value: "group", label: "Group sessions" },
+] as const;
 
 const LESSON_LEVELS = [
   { id: 0, name: "All", description: "" },
@@ -138,7 +145,6 @@ const PlayerCalendar = () => {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [distanceFilter, setDistanceFilter] = useState<string>("10");
-  const [priceFilter, setPriceFilter] = useState<string>("any");
   const [datePreset, setDatePreset] = useState<string>(DATE_PRESETS[1]?.id ?? "14");
   const [dateRange, setDateRange] = useState<DateRange>(DATE_PRESETS[1]?.range() ?? DATE_PRESETS[0].range());
   const [playerBookings, setPlayerBookings] = useState<number[]>([]);
@@ -151,10 +157,47 @@ const PlayerCalendar = () => {
   const [coachOptionsLoading, setCoachOptionsLoading] = useState(false);
   const [locationOptions, setLocationOptions] = useState<Array<{ id: number; name: string }>>([]);
   const [locationOptionsLoading, setLocationOptionsLoading] = useState(false);
+  const [lessonTypeFilter, setLessonTypeFilter] = useState<string>("all");
+  const [selectedDay, setSelectedDay] = useState<string>("all");
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
     [user],
+  );
+
+  const themeVars = useMemo(
+    () => ({
+      "--fc-color-bg": colors.pageBackground,
+      "--fc-color-surface": colors.surface,
+      "--fc-color-text-primary": colors.primaryText,
+      "--fc-color-text-secondary": colors.secondaryText,
+      "--fc-color-text-muted": colors.mutedText,
+      "--fc-color-border": colors.border,
+      "--fc-color-icon": colors.icon,
+      "--fc-color-accent": colors.accentPurple,
+      "--fc-color-accent-light": colors.accentPurpleLight,
+      "--fc-color-accent-border": colors.accentPurpleBorder,
+      "--fc-chip-bg": colors.filterChipBg,
+      "--fc-chip-hover-bg": colors.filterChipHover,
+      "--fc-chip-text": colors.secondaryButtonText,
+      "--fc-color-secondary-border": colors.secondaryButtonBorder,
+      "--fc-color-secondary-text": colors.secondaryButtonText,
+      "--fc-color-secondary-hover": colors.secondaryButtonHover,
+      "--fc-color-success": colors.primarySuccess,
+      "--fc-color-success-hover": colors.primarySuccessHover,
+      "--fc-color-error-bg": colors.errorBg,
+      "--fc-color-error-border": colors.errorBorder,
+      "--fc-color-error-text": colors.errorText,
+      "--fc-color-empty-icon-bg": colors.emptyIconBg,
+      "--fc-color-skeleton-base": colors.skeletonBase,
+      "--fc-color-skeleton-highlight": colors.skeletonHighlight,
+      "--fc-font-family": typography.fontFamily,
+      "--fc-heading-size": typography.heading1.size,
+      "--fc-heading-line-height": typography.heading1.lineHeight,
+      "--fc-body-size": typography.body.size,
+      "--fc-body-line-height": typography.body.lineHeight,
+    }),
+    [],
   );
 
   useEffect(() => {
@@ -306,6 +349,27 @@ const PlayerCalendar = () => {
 
   const bookingSet = useMemo(() => new Set(playerBookings), [playerBookings]);
 
+  const dayOptions = useMemo(() => {
+    const start = dateRange.start.clone();
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = start.clone().add(index, "days");
+      return {
+        iso: date.format("YYYY-MM-DD"),
+        weekday: date.format("dddd"),
+        label: date.format("MMM D"),
+      };
+    });
+  }, [dateRange.start]);
+
+  const fullRangeLabel = useMemo(
+    () => `${dateRange.start.format("MMM D")} – ${dateRange.end.format("MMM D")}`,
+    [dateRange.end, dateRange.start],
+  );
+
+  useEffect(() => {
+    setSelectedDay("all");
+  }, [dateRange.start, dateRange.end]);
+
   const filteredLessons = useMemo(() => {
     const coachId = coachFilter === "all" ? null : Number(coachFilter);
     const locationId = locationFilter === "all" ? null : Number(locationFilter);
@@ -322,6 +386,21 @@ const PlayerCalendar = () => {
         if (levelFilter && levelFilter !== "All") {
           const lessonLevel = lesson.metadata?.level || lesson.metadata_level || "All";
           if (lessonLevel !== levelFilter) {
+            return false;
+          }
+        }
+        if (lessonTypeFilter !== "all") {
+          const normalizedType = (lesson.lesson_type_name || "").toLowerCase();
+          if (lessonTypeFilter === "private" && !normalizedType.includes("private")) {
+            return false;
+          }
+          if (lessonTypeFilter === "group" && !normalizedType.includes("group")) {
+            return false;
+          }
+        }
+        if (selectedDay !== "all") {
+          const lessonDayKey = moment(lesson.start_date_time).format("YYYY-MM-DD");
+          if (lessonDayKey !== selectedDay) {
             return false;
           }
         }
@@ -342,7 +421,7 @@ const PlayerCalendar = () => {
         return true;
       })
       .sort((a, b) => moment(a.start_date_time).diff(moment(b.start_date_time)));
-  }, [coachFilter, levelFilter, locationFilter, rawLessons, searchQuery]);
+  }, [coachFilter, lessonTypeFilter, levelFilter, locationFilter, rawLessons, searchQuery, selectedDay]);
 
   const lessonsByDate = useMemo(() => {
     const grouped = new Map<string, Lesson[]>();
@@ -423,8 +502,9 @@ const PlayerCalendar = () => {
     setLocationFilter("all");
     setSearchQuery("");
     setDistanceFilter("10");
-    setPriceFilter("any");
     setDatePreset(DATE_PRESETS[1]?.id ?? "14");
+    setLessonTypeFilter("all");
+    setSelectedDay("all");
   };
 
   const renderLessonCard = (lesson: Lesson) => {
@@ -510,200 +590,235 @@ const PlayerCalendar = () => {
   };
 
   return (
-    <div className="player-calendar-page">
-      <div className="player-calendar__layout">
-        <header className="player-calendar__hero">
-          <div>
-            <h1>Calendar</h1>
-            <p>Discover group lessons, matches, and coaching sessions near you.</p>
-          </div>
-          <div className="player-calendar__hero-actions">
-            <button type="button" className="player-calendar__hero-link" onClick={handleResetFilters}>
-              <RefreshCw aria-hidden /> Reset filters
-            </button>
-          </div>
-        </header>
-
-        <section className="player-calendar__filters" aria-label="Primary filters">
-          <div className="player-calendar__filters-grid">
-            <label className="player-calendar__field">
-              <span className="player-calendar__field-label">Location</span>
-              <div className="player-calendar__select">
-                <select
-                  value={locationFilter}
-                  onChange={(event) => setLocationFilter(event.target.value)}
-                  disabled={locationOptionsLoading && !displayedLocationOptions.length}
-                >
-                  <option value="all">All locations</option>
-                  {displayedLocationOptions.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                  {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
-                    <option value="" disabled>
-                      Loading locations…
-                    </option>
-                  ) : null}
-                </select>
-                <ChevronDown aria-hidden />
-              </div>
-            </label>
-
-            <label className="player-calendar__field">
-              <span className="player-calendar__field-label">Distance</span>
-              <div className="player-calendar__select">
-                <select value={distanceFilter} onChange={(event) => setDistanceFilter(event.target.value)}>
-                  <option value="5">Within 5 miles</option>
-                  <option value="10">Within 10 miles</option>
-                  <option value="25">Within 25 miles</option>
-                  <option value="any">Any distance</option>
-                </select>
-                <ChevronDown aria-hidden />
-              </div>
-            </label>
-
-            <label className="player-calendar__field">
-              <span className="player-calendar__field-label">Date range</span>
-              <div className="player-calendar__select">
-                <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
-                  {DATE_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
-                <CalendarRange aria-hidden />
-              </div>
-            </label>
-
-            <label className="player-calendar__field">
-              <span className="player-calendar__field-label">Price</span>
-              <div className="player-calendar__select">
-                <select value={priceFilter} onChange={(event) => setPriceFilter(event.target.value)}>
-                  <option value="any">Any price</option>
-                  <option value="25">Under $25</option>
-                  <option value="50">Under $50</option>
-                  <option value="premium">Premium sessions</option>
-                </select>
-                <ChevronDown aria-hidden />
-              </div>
-            </label>
-          </div>
-
-          <div className="player-calendar__filters-actions">
-            <button type="button" className="player-calendar__ghost-button">
-              <LocateFixed aria-hidden /> View map
-            </button>
-            <button type="button" className="player-calendar__ghost-button">
-              <FilterIcon aria-hidden /> Actions
-            </button>
-          </div>
-        </section>
-
-        <section className="player-calendar__secondary" aria-label="Refine results">
-          <div className="player-calendar__search">
-            <SearchIcon aria-hidden />
-            <input
-              type="search"
-              placeholder="Search for sessions, coaches, or locations"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </div>
-          <label className="player-calendar__field player-calendar__field--small">
-            <span className="player-calendar__field-label">Coach</span>
-            <div className="player-calendar__select">
-              <select
-                value={coachFilter}
-                onChange={(event) => setCoachFilter(event.target.value)}
-                disabled={coachOptionsLoading && !displayedCoachOptions.length}
-              >
-                <option value="all">All coaches</option>
-                {displayedCoachOptions.map((coach) => (
-                  <option key={coach.id} value={coach.id}>
-                    {coach.name}
-                  </option>
-                ))}
-                {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
-                  <option value="" disabled>
-                    Loading coaches…
-                  </option>
-                ) : null}
-              </select>
-              <ChevronDown aria-hidden />
-            </div>
-          </label>
-          <label className="player-calendar__field player-calendar__field--small">
-            <span className="player-calendar__field-label">Level</span>
-            <div className="player-calendar__select">
-              <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-                {LESSON_LEVELS.map((level) => (
-                  <option key={level.id} value={level.name}>
-                    {level.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown aria-hidden />
-            </div>
-          </label>
-        </section>
-
-        {error ? (
-          <div className="player-calendar__alert" role="status">
-            {error}
-          </div>
-        ) : null}
-
-        <section className="player-calendar__summary" aria-live="polite">
-          <div>
-            <h2>Available sessions nearby</h2>
-            <p>
-              {loading
-                ? "Loading sessions…"
-                : `${filteredLessons.length} session${filteredLessons.length === 1 ? "" : "s"} match your filters.`}
-            </p>
-          </div>
-          <div className="player-calendar__legend" aria-label="Session status legend">
-            <span>
-              <span className="player-calendar__legend-dot player-calendar__legend-dot--success" /> Available
-            </span>
-            <span>
-              <span className="player-calendar__legend-dot player-calendar__legend-dot--info" /> Booked
-            </span>
-            <span>
-              <span className="player-calendar__legend-dot player-calendar__legend-dot--danger" /> Waitlist
-            </span>
-          </div>
-        </section>
-
-        <div className="player-calendar__days">
-          {loading ? (
-            <div className="player-calendar__loading">Loading lessons…</div>
-          ) : lessonsByDate.length === 0 ? (
-            <div className="player-calendar__empty">
-              <p>No sessions match your filters in this date range.</p>
-              <button type="button" onClick={handleResetFilters}>
-                Reset filters
+    <MainLayout>
+      <div className="find-coaches-page player-calendar-page" style={themeVars}>
+        <div className="find-coaches-page__inner player-calendar-page__inner">
+          <ResultsHeader
+            title="Calendar"
+            description="Browse upcoming tennis matches, lessons, and group sessions near you."
+            actionSlot={
+              <button type="button" className="player-calendar__reset" onClick={handleResetFilters}>
+                <RefreshCw aria-hidden /> Reset filters
               </button>
+            }
+          />
+
+          <section className="fc-filter player-calendar__filter-card" aria-label="Filter upcoming sessions">
+            <div className="fc-filter__distance-row player-calendar__distance-row">
+              <div className="fc-filter__distance-group player-calendar__distance-group">
+                <label className="player-calendar__location-chip">
+                  <MapPin size={18} aria-hidden />
+                  <select
+                    aria-label="Filter by location"
+                    value={locationFilter}
+                    onChange={(event) => setLocationFilter(event.target.value)}
+                    disabled={locationOptionsLoading && !displayedLocationOptions.length}
+                    className="player-calendar__location-select"
+                  >
+                    <option value="all">All locations</option>
+                    {displayedLocationOptions.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                    {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
+                      <option value="" disabled>
+                        Loading locations…
+                      </option>
+                    ) : null}
+                  </select>
+                  <ChevronDown size={14} aria-hidden className="player-calendar__location-caret" />
+                </label>
+                {DISTANCE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`fc-distance-chip${distanceFilter === option.value ? " fc-distance-chip--active" : ""}`}
+                    onClick={() => setDistanceFilter(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          ) : (
-            lessonsByDate.map((entry) => (
-              <section key={entry.key} className="player-calendar__day">
-                <header className="player-calendar__day-header">
-                  <div>
-                    <h3>{moment(entry.date).format("dddd, MMMM D, YYYY")}</h3>
-                    <p>
-                      {entry.lessons.length} session{entry.lessons.length === 1 ? "" : "s"} within your filters
-                    </p>
-                  </div>
-                </header>
-                <div className="player-calendar__sessions-list">
-                  {entry.lessons.map((lesson) => renderLessonCard(lesson))}
+
+            <form
+              className="fc-filter__form player-calendar__filter-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearchQuery((current) => current.trim());
+              }}
+            >
+              <div className="fc-filter__search player-calendar__search">
+                <SearchIcon className="fc-filter__search-icon" size={18} strokeWidth={2} />
+                <input
+                  type="search"
+                  placeholder="Search calendar events..."
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  aria-label="Search calendar"
+                />
+              </div>
+              <div className="player-calendar__selects">
+                <div className="fc-select player-calendar__select">
+                  <select
+                    className="fc-select__field"
+                    value={lessonTypeFilter}
+                    onChange={(event) => setLessonTypeFilter(event.target.value)}
+                    aria-label="Filter by session type"
+                  >
+                    {LESSON_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
                 </div>
-              </section>
-            ))
-          )}
+                <div className="fc-select player-calendar__select">
+                  <select
+                    className="fc-select__field"
+                    value={coachFilter}
+                    onChange={(event) => setCoachFilter(event.target.value)}
+                    disabled={coachOptionsLoading && !displayedCoachOptions.length}
+                    aria-label="Filter by coach"
+                  >
+                    <option value="all">All coaches</option>
+                    {displayedCoachOptions.map((coach) => (
+                      <option key={coach.id} value={coach.id}>
+                        {coach.name}
+                      </option>
+                    ))}
+                    {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
+                      <option value="" disabled>
+                        Loading coaches…
+                      </option>
+                    ) : null}
+                  </select>
+                  <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+                </div>
+                <div className="fc-select player-calendar__select">
+                  <select
+                    className="fc-select__field"
+                    value={levelFilter}
+                    onChange={(event) => setLevelFilter(event.target.value)}
+                    aria-label="Filter by level"
+                  >
+                    {LESSON_LEVELS.map((level) => (
+                      <option key={level.id} value={level.name}>
+                        {level.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section className="player-calendar__day-filter" role="region" aria-label="Filter sessions by day">
+            <div className="player-calendar__day-filter-controls">
+              <div className="player-calendar__day-filter-pills">
+                <button
+                  type="button"
+                  className={`player-calendar__day-pill${selectedDay === "all" ? " player-calendar__day-pill--active" : ""}`}
+                  aria-pressed={selectedDay === "all"}
+                  onClick={() => setSelectedDay("all")}
+                >
+                  <span className="player-calendar__day-pill-day">All days</span>
+                  <span className="player-calendar__day-pill-date">{fullRangeLabel}</span>
+                </button>
+                {dayOptions.map((option) => (
+                  <button
+                    key={option.iso}
+                    type="button"
+                    className={`player-calendar__day-pill${selectedDay === option.iso ? " player-calendar__day-pill--active" : ""}`}
+                    aria-pressed={selectedDay === option.iso}
+                    onClick={() => setSelectedDay(option.iso)}
+                  >
+                    <span className="player-calendar__day-pill-day">{option.weekday}</span>
+                    <span className="player-calendar__day-pill-date">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="player-calendar__day-filter-actions">
+                <div className="fc-select player-calendar__select">
+                  <select
+                    className="fc-select__field"
+                    value={datePreset}
+                    onChange={(event) => setDatePreset(event.target.value)}
+                    aria-label="Select date range"
+                  >
+                    {DATE_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="player-calendar__content">
+            {error ? (
+              <div className="player-calendar__alert" role="status">
+                {error}
+              </div>
+            ) : null}
+
+            <section className="player-calendar__summary" aria-live="polite">
+              <div>
+                <h2>Available sessions nearby</h2>
+                <p>
+                  {loading
+                    ? "Loading sessions…"
+                    : `${filteredLessons.length} session${filteredLessons.length === 1 ? "" : "s"} match your filters.`}
+                </p>
+              </div>
+              <div className="player-calendar__legend" aria-label="Session status legend">
+                <span>
+                  <span className="player-calendar__legend-dot player-calendar__legend-dot--success" /> Available
+                </span>
+                <span>
+                  <span className="player-calendar__legend-dot player-calendar__legend-dot--info" /> Booked
+                </span>
+                <span>
+                  <span className="player-calendar__legend-dot player-calendar__legend-dot--danger" /> Waitlist
+                </span>
+              </div>
+            </section>
+
+            <div className="player-calendar__days">
+              {loading ? (
+                <div className="player-calendar__loading">Loading lessons…</div>
+              ) : lessonsByDate.length === 0 ? (
+                <div className="player-calendar__empty">
+                  <p>No sessions match your filters in this date range.</p>
+                  <button type="button" onClick={handleResetFilters}>
+                    Reset filters
+                  </button>
+                </div>
+              ) : (
+                lessonsByDate.map((entry) => (
+                  <section key={entry.key} className="player-calendar__day">
+                    <header className="player-calendar__day-header">
+                      <div>
+                        <h3>{moment(entry.date).format("dddd, MMMM D, YYYY")}</h3>
+                        <p>
+                          {entry.lessons.length} session{entry.lessons.length === 1 ? "" : "s"} within your filters
+                        </p>
+                      </div>
+                    </header>
+                    <div className="player-calendar__sessions-list">
+                      {entry.lessons.map((lesson) => renderLessonCard(lesson))}
+                    </div>
+                  </section>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -789,7 +904,7 @@ const PlayerCalendar = () => {
           </div>
         </div>
       ) : null}
-    </div>
+    </MainLayout>
   );
 };
 
