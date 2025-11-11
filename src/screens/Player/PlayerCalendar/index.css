@@ -89,6 +89,7 @@
   gap: 0.15rem;
   font-size: 0.85rem;
   line-height: 1.2;
+  word-break: break-word;
 }
 
 .player-calendar__event-label {
@@ -97,11 +98,17 @@
 
 .player-calendar__event-meta {
   font-size: 0.75rem;
-  color: #edf2f7;
+  color: inherit;
+  opacity: 0.85;
 }
 
 .player-calendar__event--availability .player-calendar__event-meta {
-  color: rgba(15, 23, 42, 0.75);
+  color: rgba(15, 23, 42, 0.8);
+  opacity: 1;
+}
+
+.player-calendar .rbc-event-content {
+  white-space: normal;
 }
 
 .rbc-event.player-calendar__event--availability,

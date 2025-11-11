@@ -50,8 +50,14 @@ export interface LessonEvent extends Omit<RBCEvent, "resource"> {
   type: EventType;
 }
 
+interface AvailabilityColors {
+  background: string;
+  border: string;
+  text: string;
+}
+
 export interface AvailabilityEvent extends Omit<RBCEvent, "resource"> {
-  resource: CoachScheduleEntry & { occurrenceDate: string };
+  resource: CoachScheduleEntry & { occurrenceDate: string; availabilityColors: AvailabilityColors };
   type: "availability";
 }
 
@@ -103,6 +109,15 @@ const colorDot = (color: string) => ({
   backgroundColor: color,
   border: "1px solid rgba(0,0,0,0.1)",
 });
+
+const AVAILABILITY_COLOR_PALETTE: AvailabilityColors[] = [
+  { background: "#8ecae6", border: "#5a99b3", text: "#0f172a" },
+  { background: "#fde68a", border: "#fbbf24", text: "#78350f" },
+  { background: "#fbcfe8", border: "#f472b6", text: "#831843" },
+  { background: "#c7d2fe", border: "#818cf8", text: "#312e81" },
+  { background: "#bbf7d0", border: "#4ade80", text: "#14532d" },
+  { background: "#fed7aa", border: "#fb923c", text: "#7c2d12" },
+];
 
 const buildWeekDates = (referenceDate: Date) => {
   const start = moment(referenceDate).startOf("week");
@@ -468,6 +483,26 @@ const PlayerCalendar = () => {
     }
 
     const events: AvailabilityEvent[] = [];
+    const colorAssignments = new Map<string, AvailabilityColors>();
+    let colorIndex = 0;
+
+    const resolveColor = (slot: CoachScheduleEntry): AvailabilityColors => {
+      const key =
+        (slot.location_id != null && String(slot.location_id)) ||
+        slot.location_name ||
+        slot.location ||
+        slot.day ||
+        String(colorIndex);
+
+      if (!colorAssignments.has(key)) {
+        const paletteColor = AVAILABILITY_COLOR_PALETTE[colorIndex % AVAILABILITY_COLOR_PALETTE.length];
+        colorAssignments.set(key, paletteColor);
+        colorIndex += 1;
+      }
+
+      return colorAssignments.get(key) ?? AVAILABILITY_COLOR_PALETTE[0];
+    };
+
     for (let weekOffset = -4; weekOffset <= 4; weekOffset++) {
       const weekStart = moment(currentDate).add(weekOffset, "weeks").startOf("isoWeek");
       WEEK_DAYS.forEach((day, dayIndex) => {
@@ -478,9 +513,10 @@ const PlayerCalendar = () => {
           if (!slot.from || !slot.to) return;
           const [fromH = "0", fromM = "0"] = slot.from.split(":");
           const [toH = "0", toM = "0"] = slot.to.split(":");
-          const start = eventDate.clone().hour(Number(fromH)).minute(Number(fromM)).toDate();
-          const end = eventDate.clone().hour(Number(toH)).minute(Number(toM)).toDate();
+          const start = eventDate.clone().hour(Number(fromH)).minute(Number(fromM)).second(0).toDate();
+          const end = eventDate.clone().hour(Number(toH)).minute(Number(toM)).second(0).toDate();
           const locationLabel = slot.location_name || slot.location || "Coach availability";
+          const availabilityColors = resolveColor(slot);
           events.push({
             title: locationLabel,
             start,
@@ -489,6 +525,7 @@ const PlayerCalendar = () => {
             resource: {
               ...slot,
               occurrenceDate: eventDate.format("YYYY-MM-DD"),
+              availabilityColors,
             },
             type: "availability",
           });
@@ -600,12 +637,13 @@ const PlayerCalendar = () => {
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
     if (event.type === "availability") {
+      const colors = event.resource.availabilityColors ?? AVAILABILITY_COLOR_PALETTE[0];
       return {
         className: "player-calendar__event--availability",
         style: {
-          backgroundColor: "#8ecae6",
-          borderColor: "#5a99b3",
-          color: "#0f172a",
+          backgroundColor: colors.background,
+          borderColor: colors.border,
+          color: colors.text,
           borderRadius: "8px",
         },
       };
@@ -655,11 +693,12 @@ const PlayerCalendar = () => {
       if (isAvailabilityEvent(event)) {
         const label = event.title;
         const courtLabel = event.resource.court ? `Court ${event.resource.court}` : null;
+        const dayLabel = moment(event.start as Date).format("dddd");
         return (
           <div className="player-calendar__event-content">
             <div className="player-calendar__event-label">{label}</div>
             <div className="player-calendar__event-meta">
-              Availability · {formatTimeRange(event.start as Date, event.end as Date)}
+              Availability · {dayLabel} · {formatTimeRange(event.start as Date, event.end as Date)}
             </div>
             {courtLabel ? <div className="player-calendar__event-meta">{courtLabel}</div> : null}
           </div>
@@ -834,7 +873,7 @@ const PlayerCalendar = () => {
         </span>
         <span className="inline-flex items-center gap-2">
           <span className="inline-block h-3 w-3 rounded-full border border-slate-200" style={colorDot("#8ecae6")} />
-          Coach availability
+          Coach availability (color-coded by location)
         </span>
       </div>
 
