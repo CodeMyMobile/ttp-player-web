@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
@@ -39,6 +39,13 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
 
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
+  const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
+
+  useEffect(() => {
+    setImageFailedToLoad(false);
+  }, [player.profileImageUrl]);
+
+  const shouldDisplayProfileImage = hasProfileImage && !imageFailedToLoad;
 
   const handleViewProfile = () => {
     if (onViewProfile) {
@@ -60,14 +67,15 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
-          <div className="fp-card__avatar" aria-hidden={hasProfileImage ? undefined : true}>
-            {hasProfileImage ? (
+          <div className="fp-card__avatar" aria-hidden={shouldDisplayProfileImage ? undefined : true}>
+            {shouldDisplayProfileImage ? (
               <img
                 className="fp-card__avatar-image"
                 src={player.profileImageUrl}
                 alt={`${player.name}'s profile picture`}
                 loading="lazy"
                 decoding="async"
+                onError={() => setImageFailedToLoad(true)}
               />
             ) : (
               player.initials
