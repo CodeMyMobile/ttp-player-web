@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import {
-  Calendar,
-  momentLocalizer,
-  type Event as RBCEvent,
-  type EventProps as RBEventProps,
-} from "react-big-calendar";
-import "react-big-calendar/lib/css/react-big-calendar.css";
+  CalendarRange,
+  ChevronDown,
+  Clock,
+  Filter as FilterIcon,
+  LocateFixed,
+  MapPin,
+  RefreshCw,
+  Search as SearchIcon,
+  Users,
+} from "lucide-react";
 import "./index.css";
 
 import {
@@ -19,17 +23,11 @@ import {
 import {
   getPlayerCoaches,
   getCoachLocation,
-  getCoachLessonsById,
-  getCoachScheduleById,
-  getCoachScheduleByIdAndLocation,
   type PlayerCoach,
   type CoachLocation,
-  type CoachScheduleEntry,
 } from "../../../api/playerCalendar";
 import { useAuth } from "../../../context/AuthContext";
 import { getStoredAuthToken } from "../../../services/authToken";
-
-const localizer = momentLocalizer(moment);
 
 const LESSON_LEVELS = [
   { id: 0, name: "All", description: "" },
@@ -41,44 +39,47 @@ const LESSON_LEVELS = [
   { id: 6, name: "Expert (NTRP 5.0)", description: "I have competitive experience and advanced skill levels" },
 ] as const;
 
+const DATE_PRESETS = [
+  {
+    id: "7",
+    label: "Next 7 days",
+    range: () => ({
+      start: moment().startOf("day"),
+      end: moment().add(6, "days").endOf("day"),
+    }),
+  },
+  {
+    id: "14",
+    label: "Next 14 days",
+    range: () => ({
+      start: moment().startOf("day"),
+      end: moment().add(13, "days").endOf("day"),
+    }),
+  },
+  {
+    id: "30",
+    label: "Next 30 days",
+    range: () => ({
+      start: moment().startOf("day"),
+      end: moment().add(29, "days").endOf("day"),
+    }),
+  },
+] as const;
+
 export interface Lesson extends ApiLesson {}
 
-export type EventType = "available" | "booked" | "full";
+export type LessonStatus = "available" | "booked" | "full";
 
-export interface LessonEvent extends Omit<RBCEvent, "resource"> {
-  resource: Lesson;
-  type: EventType;
-}
+type DateRange = {
+  start: moment.Moment;
+  end: moment.Moment;
+};
 
-interface AvailabilityColors {
-  background: string;
-  border: string;
-  text: string;
-}
-
-export interface AvailabilityEvent extends Omit<RBCEvent, "resource"> {
-  resource: CoachScheduleEntry & { occurrenceDate: string; availabilityColors: AvailabilityColors };
-  type: "availability";
-}
-
-type CalendarEvent = LessonEvent | AvailabilityEvent;
-
-const isAvailabilityEvent = (event: CalendarEvent): event is AvailabilityEvent => event.type === "availability";
-
-const WEEK_DAYS: Array<"MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY"> = [
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-  "SUNDAY",
-];
-
-const determineEventType = (lesson: Lesson, bookings: Set<number>): EventType => {
+const determineLessonStatus = (lesson: Lesson, bookings: Set<number>): LessonStatus => {
   if (lesson.player_has_booking || bookings.has(lesson.id)) {
     return "booked";
   }
+
   if (
     typeof lesson.player_limit === "number" &&
     lesson.player_limit > 0 &&
@@ -87,6 +88,7 @@ const determineEventType = (lesson: Lesson, bookings: Set<number>): EventType =>
   ) {
     return "full";
   }
+
   return "available";
 };
 
@@ -102,71 +104,69 @@ const formatLessonTitle = (lesson: Lesson) => {
   return `Lesson with ${lesson.coach_name}`;
 };
 
-const colorDot = (color: string) => ({
-  width: "12px",
-  height: "12px",
-  borderRadius: "999px",
-  backgroundColor: color,
-  border: "1px solid rgba(0,0,0,0.1)",
-});
+const formatTimeRange = (start: Date, end: Date) => {
+  const startText = moment(start).format("h:mm A");
+  const endText = moment(end).format("h:mm A");
+  return `${startText} – ${endText}`;
+};
 
-const AVAILABILITY_COLOR_PALETTE: AvailabilityColors[] = [
-  { background: "#8ecae6", border: "#5a99b3", text: "#0f172a" },
-  { background: "#fde68a", border: "#fbbf24", text: "#78350f" },
-  { background: "#fbcfe8", border: "#f472b6", text: "#831843" },
-  { background: "#c7d2fe", border: "#818cf8", text: "#312e81" },
-  { background: "#bbf7d0", border: "#4ade80", text: "#14532d" },
-  { background: "#fed7aa", border: "#fb923c", text: "#7c2d12" },
-];
+const formatDuration = (start: Date, end: Date) => {
+  const minutes = Math.max(moment(end).diff(moment(start), "minutes"), 0);
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours} hr${hours > 1 ? "s" : ""}`;
+    }
+    return `${hours} hr ${remainingMinutes} min`;
+  }
+  return `${minutes} min`;
+};
 
-const buildWeekDates = (referenceDate: Date) => {
-  const start = moment(referenceDate).startOf("week");
-  return Array.from({ length: 7 }, (_, index) => start.clone().add(index, "days").toDate());
+const statusCopy: Record<LessonStatus, { label: string; tone: "success" | "info" | "danger" }> = {
+  available: { label: "Available", tone: "success" },
+  booked: { label: "Booked", tone: "info" },
+  full: { label: "Waitlist", tone: "danger" },
 };
 
 const PlayerCalendar = () => {
   const { user } = useAuth();
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+
   const [rawLessons, setRawLessons] = useState<Lesson[]>([]);
-  const [lessonEvents, setLessonEvents] = useState<LessonEvent[]>([]);
   const [levelFilter, setLevelFilter] = useState<string>("All");
   const [coachFilter, setCoachFilter] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [distanceFilter, setDistanceFilter] = useState<string>("10");
+  const [priceFilter, setPriceFilter] = useState<string>("any");
+  const [datePreset, setDatePreset] = useState<string>(DATE_PRESETS[1]?.id ?? "14");
+  const [dateRange, setDateRange] = useState<DateRange>(DATE_PRESETS[1]?.range() ?? DATE_PRESETS[0].range());
+  const [playerBookings, setPlayerBookings] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
-  const [playerBookings, setPlayerBookings] = useState<number[]>([]);
   const [mutationLoading, setMutationLoading] = useState(false);
   const [coachOptions, setCoachOptions] = useState<Array<{ id: number; name: string }>>([]);
   const [coachOptionsLoading, setCoachOptionsLoading] = useState(false);
   const [locationOptions, setLocationOptions] = useState<Array<{ id: number; name: string }>>([]);
   const [locationOptionsLoading, setLocationOptionsLoading] = useState(false);
-  const [coachSpecificLessons, setCoachSpecificLessons] = useState<Lesson[]>([]);
-  const [availabilityEvents, setAvailabilityEvents] = useState<AvailabilityEvent[]>([]);
-  const [coachScheduleByDay, setCoachScheduleByDay] = useState<Record<string, CoachScheduleEntry[]>>({});
-  const [coachScheduleLoading, setCoachScheduleLoading] = useState(false);
-  const [coachLessonLoading, setCoachLessonLoading] = useState(false);
-  const [visibleDates, setVisibleDates] = useState<Date[]>(() => buildWeekDates(new Date()));
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
     [user],
   );
 
-  const startRange = useMemo(
-    () => moment(currentDate).startOf("week").subtract(1, "weeks"),
-    [currentDate],
-  );
-  const endRange = useMemo(
-    () => startRange.clone().add(3, "weeks"),
-    [startRange],
-  );
-  const normalizedVisibleDates = useMemo(() => (visibleDates.length ? visibleDates : [currentDate]), [currentDate, visibleDates]);
+  useEffect(() => {
+    const preset = DATE_PRESETS.find((option) => option.id === datePreset);
+    if (preset) {
+      setDateRange(preset.range());
+    }
+  }, [datePreset]);
 
   useEffect(() => {
     let cancelled = false;
+
     const fetchCoaches = async () => {
       setCoachOptionsLoading(true);
       try {
@@ -205,6 +205,7 @@ const PlayerCalendar = () => {
 
   useEffect(() => {
     let cancelled = false;
+
     const fetchLocations = async () => {
       setLocationOptionsLoading(true);
       try {
@@ -240,122 +241,6 @@ const PlayerCalendar = () => {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!coachFilter || coachFilter === "all") {
-      setCoachScheduleByDay({});
-      setCoachScheduleLoading(false);
-      return;
-    }
-
-    const coachId = Number(coachFilter);
-    if (Number.isNaN(coachId)) {
-      setCoachScheduleByDay({});
-      setCoachScheduleLoading(false);
-      return;
-    }
-
-    const parsedLocationId = locationFilter === "all" ? null : Number(locationFilter);
-    const selectedLocationId =
-      parsedLocationId !== null && Number.isFinite(parsedLocationId) ? parsedLocationId : null;
-
-    const fetchSchedules = async () => {
-      setCoachScheduleLoading(true);
-      try {
-        const responses = await Promise.all(
-          WEEK_DAYS.map((day) =>
-            selectedLocationId
-              ? getCoachScheduleByIdAndLocation({ coachId, day, locationId: selectedLocationId })
-              : getCoachScheduleById({ coachId, day }),
-          ),
-        );
-        if (cancelled) return;
-        const map: Record<string, CoachScheduleEntry[]> = {};
-        responses.forEach((entries, index) => {
-          map[WEEK_DAYS[index]] = entries ?? [];
-        });
-        setCoachScheduleByDay(map);
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load weekly coach schedule", err);
-          setCoachScheduleByDay({});
-        }
-      } finally {
-        if (!cancelled) {
-          setCoachScheduleLoading(false);
-        }
-      }
-    };
-
-    fetchSchedules();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [coachFilter, locationFilter]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!authToken || !coachFilter || coachFilter === "all") {
-      setCoachSpecificLessons([]);
-      setCoachLessonLoading(false);
-      return;
-    }
-
-    const coachId = Number(coachFilter);
-    if (Number.isNaN(coachId)) {
-      setCoachSpecificLessons([]);
-      setCoachLessonLoading(false);
-      return;
-    }
-
-    const parsedLocationId = locationFilter === "all" ? null : Number(locationFilter);
-    const selectedLocationId =
-      parsedLocationId !== null && Number.isFinite(parsedLocationId) ? parsedLocationId : null;
-    const dayMoments = normalizedVisibleDates.map((date) => moment(date));
-    const uniqueDayMoments = Array.from(
-      new Map(dayMoments.map((momentDay) => [momentDay.format("YYYY-MM-DD"), momentDay])).values(),
-    );
-
-    const fetchLessons = async () => {
-      setCoachLessonLoading(true);
-      try {
-        const responses = await Promise.all(
-          uniqueDayMoments.map((dayMoment) =>
-            getCoachLessonsById({
-              coachId,
-              date: dayMoment.format("YYYY-MM-DD"),
-            }),
-          ),
-        );
-        if (cancelled) return;
-        const lessonList = responses.flat().filter(Boolean) as Lesson[];
-        const filteredLessons =
-          selectedLocationId !== null
-            ? lessonList.filter((lesson) => Number(lesson.location_id) === selectedLocationId)
-            : lessonList;
-        setCoachSpecificLessons(filteredLessons);
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load coach lessons", err);
-          setCoachSpecificLessons([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setCoachLessonLoading(false);
-        }
-      }
-    };
-
-    fetchLessons();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authToken, coachFilter, locationFilter, normalizedVisibleDates]);
-
   const loadLessons = useCallback(async () => {
     if (!authToken) {
       setError("You need to be logged in to view lessons.");
@@ -370,8 +255,8 @@ const PlayerCalendar = () => {
       const [lessonsResponse, bookingsResponse] = await Promise.all([
         fetchAvailableLessons({
           token: authToken,
-          start_date: startRange.format("YYYY-MM-DD"),
-          end_date: endRange.format("YYYY-MM-DD"),
+          start_date: dateRange.start.format("YYYY-MM-DD"),
+          end_date: dateRange.end.format("YYYY-MM-DD"),
           search: searchQuery.trim() || undefined,
         }),
         fetchPlayerBookings({ token: authToken }),
@@ -380,186 +265,16 @@ const PlayerCalendar = () => {
       setRawLessons(lessonsResponse?.data ?? []);
       setPlayerBookings(bookingsResponse?.data ?? []);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong while loading lessons.";
+      const message = err instanceof Error ? err.message : "Something went wrong while loading lessons.";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [authToken, endRange, searchQuery, startRange]);
+  }, [authToken, dateRange.end, dateRange.start, searchQuery]);
 
   useEffect(() => {
     loadLessons();
   }, [loadLessons]);
-
-  const bookingSet = useMemo(() => new Set(playerBookings), [playerBookings]);
-
-  const combinedLessons = useMemo(() => {
-    const merged = new Map<number, Lesson>();
-    rawLessons.forEach((lesson) => {
-      if (lesson?.id) {
-        merged.set(lesson.id, lesson);
-      }
-    });
-    coachSpecificLessons.forEach((lesson) => {
-      if (lesson?.id) {
-        merged.set(lesson.id, lesson);
-      }
-    });
-    return Array.from(merged.values());
-  }, [coachSpecificLessons, rawLessons]);
-
-  const filteredLessons = useMemo(() => {
-    const coachId = coachFilter === "all" ? null : Number(coachFilter);
-    const locationId = locationFilter === "all" ? null : Number(locationFilter);
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-
-    return combinedLessons.filter((lesson) => {
-      if (coachId && Number(lesson.coach_id) !== coachId) {
-        return false;
-      }
-      if (locationId && Number(lesson.location_id) !== locationId) {
-        return false;
-      }
-      if (levelFilter && levelFilter !== "All") {
-        const lessonLevel = lesson.metadata?.level || lesson.metadata_level || "All";
-        if (lessonLevel !== levelFilter) {
-          return false;
-        }
-      }
-      if (normalizedSearch) {
-        const haystack = [
-          formatLessonTitle(lesson),
-          lesson.coach_name,
-          lesson.location_name,
-          lesson.metadata?.description,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(normalizedSearch)) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [coachFilter, combinedLessons, levelFilter, locationFilter, searchQuery]);
-
-  const derivedEvents = useMemo(
-    () =>
-      filteredLessons.map<LessonEvent>((lesson) => ({
-        title: formatLessonTitle(lesson),
-        start: moment(lesson.start_date_time).toDate(),
-        end: moment(lesson.end_date_time).toDate(),
-        resource: lesson,
-        type: determineEventType(lesson, bookingSet),
-        allDay: false,
-      })),
-    [bookingSet, filteredLessons],
-  );
-
-  useEffect(() => {
-    setLessonEvents(derivedEvents);
-  }, [derivedEvents]);
-
-  const calendarEvents = useMemo(
-    () => [...availabilityEvents, ...lessonEvents],
-    [availabilityEvents, lessonEvents],
-  );
-
-  const calendarBusy = loading || coachScheduleLoading || coachLessonLoading;
-  const busyMessage = loading
-    ? "Loading lessons..."
-    : coachScheduleLoading
-      ? "Loading coach availability..."
-      : coachLessonLoading
-        ? "Loading coach lessons..."
-        : "";
-
-  useEffect(() => {
-    if (!coachFilter || coachFilter === "all") {
-      setAvailabilityEvents([]);
-      return;
-    }
-
-    const events: AvailabilityEvent[] = [];
-    const colorAssignments = new Map<string, AvailabilityColors>();
-    let colorIndex = 0;
-
-    const resolveColor = (slot: CoachScheduleEntry): AvailabilityColors => {
-      const key =
-        (slot.location_id != null && String(slot.location_id)) ||
-        slot.location_name ||
-        slot.location ||
-        slot.day ||
-        String(colorIndex);
-
-      if (!colorAssignments.has(key)) {
-        const paletteColor = AVAILABILITY_COLOR_PALETTE[colorIndex % AVAILABILITY_COLOR_PALETTE.length];
-        colorAssignments.set(key, paletteColor);
-        colorIndex += 1;
-      }
-
-      return colorAssignments.get(key) ?? AVAILABILITY_COLOR_PALETTE[0];
-    };
-
-    for (let weekOffset = -4; weekOffset <= 4; weekOffset++) {
-      const weekStart = moment(currentDate).add(weekOffset, "weeks").startOf("isoWeek");
-      WEEK_DAYS.forEach((day, dayIndex) => {
-        const schedules = coachScheduleByDay[day] ?? [];
-        if (!schedules.length) return;
-        const eventDate = weekStart.clone().add(dayIndex, "days");
-        schedules.forEach((slot) => {
-          if (!slot.from || !slot.to) return;
-          const [fromH = "0", fromM = "0"] = slot.from.split(":");
-          const [toH = "0", toM = "0"] = slot.to.split(":");
-          const start = eventDate.clone().hour(Number(fromH)).minute(Number(fromM)).second(0).toDate();
-          const end = eventDate.clone().hour(Number(toH)).minute(Number(toM)).second(0).toDate();
-          const locationLabel = slot.location_name || slot.location || "Coach availability";
-          const availabilityColors = resolveColor(slot);
-          events.push({
-            title: locationLabel,
-            start,
-            end,
-            allDay: false,
-            resource: {
-              ...slot,
-              occurrenceDate: eventDate.format("YYYY-MM-DD"),
-              availabilityColors,
-            },
-            type: "availability",
-          });
-        });
-      });
-    }
-    setAvailabilityEvents(events);
-  }, [coachFilter, coachScheduleByDay, currentDate]);
-
-  const handleRangeChange = useCallback(
-    (range: Date[] | { start: Date; end: Date } | Date) => {
-      if (!range) return;
-      if (Array.isArray(range)) {
-        setVisibleDates(range.map((date) => new Date(date)));
-        return;
-      }
-      if (range instanceof Date) {
-        setVisibleDates([new Date(range)]);
-        return;
-      }
-      if ("start" in range && "end" in range && range.start && range.end) {
-        const start = moment(range.start);
-        const end = moment(range.end);
-        const dates: Date[] = [];
-        const cursor = start.clone();
-        while (cursor.isSameOrBefore(end, "day")) {
-          dates.push(cursor.toDate());
-          cursor.add(1, "day");
-        }
-        setVisibleDates(dates);
-      }
-    },
-    [],
-  );
 
   const fallbackCoachOptions = useMemo(() => {
     const seen = new Map<number, string>();
@@ -589,11 +304,68 @@ const PlayerCalendar = () => {
 
   const displayedLocationOptions = locationOptions.length ? locationOptions : fallbackLocationOptions;
 
-  const handleSelectEvent = (event: CalendarEvent) => {
-    if (event.type === "availability") {
-      return;
-    }
-    setSelectedLesson(event.resource);
+  const bookingSet = useMemo(() => new Set(playerBookings), [playerBookings]);
+
+  const filteredLessons = useMemo(() => {
+    const coachId = coachFilter === "all" ? null : Number(coachFilter);
+    const locationId = locationFilter === "all" ? null : Number(locationFilter);
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return rawLessons
+      .filter((lesson) => {
+        if (coachId && Number(lesson.coach_id) !== coachId) {
+          return false;
+        }
+        if (locationId && Number(lesson.location_id) !== locationId) {
+          return false;
+        }
+        if (levelFilter && levelFilter !== "All") {
+          const lessonLevel = lesson.metadata?.level || lesson.metadata_level || "All";
+          if (lessonLevel !== levelFilter) {
+            return false;
+          }
+        }
+        if (normalizedSearch) {
+          const haystack = [
+            formatLessonTitle(lesson),
+            lesson.coach_name,
+            lesson.location_name,
+            lesson.metadata?.description,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(normalizedSearch)) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .sort((a, b) => moment(a.start_date_time).diff(moment(b.start_date_time)));
+  }, [coachFilter, levelFilter, locationFilter, rawLessons, searchQuery]);
+
+  const lessonsByDate = useMemo(() => {
+    const grouped = new Map<string, Lesson[]>();
+
+    filteredLessons.forEach((lesson) => {
+      const key = moment(lesson.start_date_time).format("YYYY-MM-DD");
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)?.push(lesson);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([key, lessons]) => ({
+        key,
+        date: moment(key, "YYYY-MM-DD").toDate(),
+        lessons: lessons.sort((a, b) => moment(a.start_date_time).diff(moment(b.start_date_time))),
+      }))
+      .sort((a, b) => moment(a.date).diff(moment(b.date)));
+  }, [filteredLessons]);
+
+  const openLessonModal = (lesson: Lesson) => {
+    setSelectedLesson(lesson);
     setBookingModalOpen(true);
   };
 
@@ -635,95 +407,6 @@ const PlayerCalendar = () => {
     }
   };
 
-  const eventPropGetter = useCallback((event: CalendarEvent) => {
-    if (event.type === "availability") {
-      const colors = event.resource.availabilityColors ?? AVAILABILITY_COLOR_PALETTE[0];
-      return {
-        className: "player-calendar__event--availability",
-        style: {
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-          color: colors.text,
-          borderRadius: "8px",
-        },
-      };
-    }
-    if (event.type === "booked") {
-      return {
-        className: "player-calendar__event--booked",
-        style: {
-          backgroundColor: "#457b9d",
-          borderColor: "#2c5c77",
-          color: "#ffffff",
-          borderRadius: "8px",
-        },
-      };
-    }
-    if (event.type === "full") {
-      return {
-        className: "player-calendar__event--full",
-        style: {
-          backgroundColor: "#e76f51",
-          borderColor: "#c8543a",
-          color: "#ffffff",
-          borderRadius: "8px",
-        },
-      };
-    }
-    return {
-      className: "player-calendar__event--available",
-      style: {
-        backgroundColor: "#2a9d8f",
-        borderColor: "#1d6f65",
-        color: "#ffffff",
-        borderRadius: "8px",
-      },
-    };
-  }, []);
-
-  const formatTimeRange = useCallback((start: Date, end: Date) => {
-    const startText = moment(start).format("h:mm A");
-    const endText = moment(end).format("h:mm A");
-    return `${startText} – ${endText}`;
-  }, []);
-
-  const CalendarEventContent = useCallback(
-    ({ event }: RBEventProps<CalendarEvent>) => {
-      if (!event) return null;
-      if (isAvailabilityEvent(event)) {
-        const label = event.title;
-        const courtLabel = event.resource.court ? `Court ${event.resource.court}` : null;
-        const dayLabel = moment(event.start as Date).format("dddd");
-        return (
-          <div className="player-calendar__event-content">
-            <div className="player-calendar__event-label">{label}</div>
-            <div className="player-calendar__event-meta">
-              Availability · {dayLabel} · {formatTimeRange(event.start as Date, event.end as Date)}
-            </div>
-            {courtLabel ? <div className="player-calendar__event-meta">{courtLabel}</div> : null}
-          </div>
-        );
-      }
-
-      const lesson = event.resource;
-      const locationLabel = lesson.location_name || (lesson as { location?: string }).location || "Location TBD";
-      const levelLabel =
-        lesson.metadata?.level && lesson.metadata.level !== "All" ? `${lesson.metadata.level} level` : null;
-      return (
-        <div className="player-calendar__event-content">
-          <div className="player-calendar__event-label">{event.title}</div>
-          <div className="player-calendar__event-meta">{locationLabel}</div>
-          {lesson.coach_name ? (
-            <div className="player-calendar__event-meta">Coach {lesson.coach_name}</div>
-          ) : null}
-          {levelLabel ? <div className="player-calendar__event-meta">{levelLabel}</div> : null}
-          <div className="player-calendar__event-meta">{formatTimeRange(event.start as Date, event.end as Date)}</div>
-        </div>
-      );
-    },
-    [formatTimeRange],
-  );
-
   const spotsRemaining = useMemo(() => {
     if (!selectedLesson || typeof selectedLesson.player_limit !== "number") {
       return null;
@@ -732,224 +415,357 @@ const PlayerCalendar = () => {
     return Math.max(selectedLesson.player_limit - taken, 0);
   }, [selectedLesson]);
 
-  const modalLessonType =
-    selectedLesson && determineEventType(selectedLesson, bookingSet);
+  const modalLessonStatus = selectedLesson ? determineLessonStatus(selectedLesson, bookingSet) : null;
+
+  const handleResetFilters = () => {
+    setCoachFilter("all");
+    setLevelFilter("All");
+    setLocationFilter("all");
+    setSearchQuery("");
+    setDistanceFilter("10");
+    setPriceFilter("any");
+    setDatePreset(DATE_PRESETS[1]?.id ?? "14");
+  };
+
+  const renderLessonCard = (lesson: Lesson) => {
+    const status = determineLessonStatus(lesson, bookingSet);
+    const statusInfo = statusCopy[status];
+    const start = moment(lesson.start_date_time).toDate();
+    const end = moment(lesson.end_date_time).toDate();
+    const duration = formatDuration(start, end);
+    const locationLabel = lesson.location_name || (lesson as { location?: string }).location || "Location TBD";
+    const levelLabel = lesson.metadata?.level || lesson.metadata_level || "All";
+    const spots =
+      typeof lesson.player_limit === "number"
+        ? Math.max((lesson.player_limit ?? 0) - (lesson.current_player_count ?? 0), 0)
+        : null;
+
+    return (
+      <div key={lesson.id} className="player-calendar__session">
+        <div className="player-calendar__session-time">
+          <span className="player-calendar__session-time-label">{moment(start).format("h:mm A")}</span>
+          <span className="player-calendar__session-duration">{duration}</span>
+        </div>
+        <article className="player-calendar__session-card">
+          <header className="player-calendar__session-card-header">
+            <div className="player-calendar__session-card-heading">
+              <p className="player-calendar__session-location">
+                <MapPin aria-hidden className="player-calendar__session-location-icon" />
+                {locationLabel}
+              </p>
+              <h3 className="player-calendar__session-title">{formatLessonTitle(lesson)}</h3>
+              {lesson.metadata?.description ? (
+                <p className="player-calendar__session-description">{lesson.metadata.description}</p>
+              ) : null}
+            </div>
+            <div className={`player-calendar__status player-calendar__status--${statusInfo.tone}`}>
+              {statusInfo.label}
+            </div>
+          </header>
+          <div className="player-calendar__session-body">
+            <ul className="player-calendar__session-details">
+              <li>
+                <Clock aria-hidden />
+                {formatTimeRange(start, end)}
+              </li>
+              {lesson.coach_name ? (
+                <li>
+                  <Users aria-hidden />
+                  Coach {lesson.coach_name}
+                </li>
+              ) : null}
+              {levelLabel ? (
+                <li>
+                  <FilterIcon aria-hidden />
+                  {levelLabel === "All" ? "All levels" : `${levelLabel} level`}
+                </li>
+              ) : null}
+              {spots !== null ? (
+                <li>
+                  <Users aria-hidden />
+                  {spots > 0 ? `${spots} spot${spots === 1 ? "" : "s"} left` : "No spots remaining"}
+                </li>
+              ) : null}
+            </ul>
+            <div className="player-calendar__session-cta">
+              {typeof lesson.price_per_person === "number" ? (
+                <p className="player-calendar__session-price">
+                  ${lesson.price_per_person.toFixed(2)}
+                  <span>per player</span>
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="player-calendar__session-button"
+                onClick={() => openLessonModal(lesson)}
+                disabled={status === "full"}
+              >
+                {status === "booked" ? "Manage booking" : status === "full" ? "Join waitlist" : "Reserve spot"}
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+    );
+  };
 
   return (
-    <div className="player-calendar space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="player-calendar__header space-y-2">
-        <h1 className="player-calendar__title text-3xl font-semibold tracking-tight text-slate-900">
-          Find a Lesson
-        </h1>
-        <p className="player-calendar__subtitle text-base text-slate-600">
-          Browse open lesson times, see your bookings, and reserve a spot directly from the calendar.
-        </p>
-      </header>
+    <div className="player-calendar-page">
+      <div className="player-calendar__layout">
+        <header className="player-calendar__hero">
+          <div>
+            <h1>Calendar</h1>
+            <p>Discover group lessons, matches, and coaching sessions near you.</p>
+          </div>
+          <div className="player-calendar__hero-actions">
+            <button type="button" className="player-calendar__hero-link" onClick={handleResetFilters}>
+              <RefreshCw aria-hidden /> Reset filters
+            </button>
+          </div>
+        </header>
 
-      <section className="flex flex-wrap items-end gap-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm shadow-slate-100">
-        <div className="flex min-w-[200px] flex-col gap-1">
-          <label htmlFor="coachFilter" className="text-sm font-medium text-slate-600">
-            Coach
-          </label>
-          <select
-            id="coachFilter"
-            value={coachFilter}
-            onChange={(event) => setCoachFilter(event.target.value)}
-            disabled={coachOptionsLoading && !displayedCoachOptions.length}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <option value="all">All coaches</option>
-            {displayedCoachOptions.map((coach) => (
-              <option key={coach.id} value={coach.id}>
-                {coach.name}
-              </option>
-            ))}
-            {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
-              <option value="" disabled>
-                Loading coaches…
-              </option>
-            ) : null}
-          </select>
-        </div>
-        <div className="flex min-w-[180px] flex-col gap-1">
-          <label htmlFor="levelFilter" className="text-sm font-medium text-slate-600">
-            Level
-          </label>
-          <select
-            id="levelFilter"
-            value={levelFilter}
-            onChange={(event) => setLevelFilter(event.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          >
-            {LESSON_LEVELS.map((level) => (
-              <option key={level.id} value={level.name}>
-                {level.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex min-w-[200px] flex-col gap-1">
-          <label htmlFor="locationFilter" className="text-sm font-medium text-slate-600">
-            Location
-          </label>
-          <select
-            id="locationFilter"
-            value={locationFilter}
-            onChange={(event) => setLocationFilter(event.target.value)}
-            disabled={locationOptionsLoading && !displayedLocationOptions.length}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <option value="all">All locations</option>
-            {displayedLocationOptions.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-            {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
-              <option value="" disabled>
-                Loading locations…
-              </option>
-            ) : null}
-          </select>
-        </div>
-        <div className="flex min-w-[220px] flex-1 flex-col gap-1">
-          <label htmlFor="searchLessons" className="text-sm font-medium text-slate-600">
-            Search
-          </label>
-          <input
-            id="searchLessons"
-            type="search"
-            placeholder="Search by coach, title, or location"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
-      </section>
+        <section className="player-calendar__filters" aria-label="Primary filters">
+          <div className="player-calendar__filters-grid">
+            <label className="player-calendar__field">
+              <span className="player-calendar__field-label">Location</span>
+              <div className="player-calendar__select">
+                <select
+                  value={locationFilter}
+                  onChange={(event) => setLocationFilter(event.target.value)}
+                  disabled={locationOptionsLoading && !displayedLocationOptions.length}
+                >
+                  <option value="all">All locations</option>
+                  {displayedLocationOptions.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                  {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
+                    <option value="" disabled>
+                      Loading locations…
+                    </option>
+                  ) : null}
+                </select>
+                <ChevronDown aria-hidden />
+              </div>
+            </label>
 
-      {error ? (
-        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-          {error}
-        </div>
-      ) : null}
+            <label className="player-calendar__field">
+              <span className="player-calendar__field-label">Distance</span>
+              <div className="player-calendar__select">
+                <select value={distanceFilter} onChange={(event) => setDistanceFilter(event.target.value)}>
+                  <option value="5">Within 5 miles</option>
+                  <option value="10">Within 10 miles</option>
+                  <option value="25">Within 25 miles</option>
+                  <option value="any">Any distance</option>
+                </select>
+                <ChevronDown aria-hidden />
+              </div>
+            </label>
 
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-200">
-        <Calendar
-          localizer={localizer}
-          events={calendarEvents}
-          startAccessor="start"
-          endAccessor="end"
-          views={["week", "day"]}
-          defaultView="week"
-          selectable={false}
-          step={30}
-          timeslots={2}
-          date={currentDate}
-          onNavigate={setCurrentDate}
-          onSelectEvent={handleSelectEvent}
-          onRangeChange={handleRangeChange}
-          style={{ height: "620px" }}
-          eventPropGetter={eventPropGetter}
-          components={{ event: CalendarEventContent }}
-        />
-        {calendarBusy ? (
-          <div className="absolute inset-0 grid place-items-center bg-white/80 text-base font-semibold text-slate-700">
-            {busyMessage}
+            <label className="player-calendar__field">
+              <span className="player-calendar__field-label">Date range</span>
+              <div className="player-calendar__select">
+                <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
+                  {DATE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+                <CalendarRange aria-hidden />
+              </div>
+            </label>
+
+            <label className="player-calendar__field">
+              <span className="player-calendar__field-label">Price</span>
+              <div className="player-calendar__select">
+                <select value={priceFilter} onChange={(event) => setPriceFilter(event.target.value)}>
+                  <option value="any">Any price</option>
+                  <option value="25">Under $25</option>
+                  <option value="50">Under $50</option>
+                  <option value="premium">Premium sessions</option>
+                </select>
+                <ChevronDown aria-hidden />
+              </div>
+            </label>
+          </div>
+
+          <div className="player-calendar__filters-actions">
+            <button type="button" className="player-calendar__ghost-button">
+              <LocateFixed aria-hidden /> View map
+            </button>
+            <button type="button" className="player-calendar__ghost-button">
+              <FilterIcon aria-hidden /> Actions
+            </button>
+          </div>
+        </section>
+
+        <section className="player-calendar__secondary" aria-label="Refine results">
+          <div className="player-calendar__search">
+            <SearchIcon aria-hidden />
+            <input
+              type="search"
+              placeholder="Search for sessions, coaches, or locations"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
+          <label className="player-calendar__field player-calendar__field--small">
+            <span className="player-calendar__field-label">Coach</span>
+            <div className="player-calendar__select">
+              <select
+                value={coachFilter}
+                onChange={(event) => setCoachFilter(event.target.value)}
+                disabled={coachOptionsLoading && !displayedCoachOptions.length}
+              >
+                <option value="all">All coaches</option>
+                {displayedCoachOptions.map((coach) => (
+                  <option key={coach.id} value={coach.id}>
+                    {coach.name}
+                  </option>
+                ))}
+                {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
+                  <option value="" disabled>
+                    Loading coaches…
+                  </option>
+                ) : null}
+              </select>
+              <ChevronDown aria-hidden />
+            </div>
+          </label>
+          <label className="player-calendar__field player-calendar__field--small">
+            <span className="player-calendar__field-label">Level</span>
+            <div className="player-calendar__select">
+              <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                {LESSON_LEVELS.map((level) => (
+                  <option key={level.id} value={level.name}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden />
+            </div>
+          </label>
+        </section>
+
+        {error ? (
+          <div className="player-calendar__alert" role="status">
+            {error}
           </div>
         ) : null}
-      </div>
-      <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-600" aria-label="Lesson legend">
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full border border-slate-200" style={colorDot("#2a9d8f")} />
-          Available
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full border border-slate-200" style={colorDot("#457b9d")} />
-          Booked
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full border border-slate-200" style={colorDot("#e76f51")} />
-          Full
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-full border border-slate-200" style={colorDot("#8ecae6")} />
-          Coach availability (color-coded by location)
-        </span>
+
+        <section className="player-calendar__summary" aria-live="polite">
+          <div>
+            <h2>Available sessions nearby</h2>
+            <p>
+              {loading
+                ? "Loading sessions…"
+                : `${filteredLessons.length} session${filteredLessons.length === 1 ? "" : "s"} match your filters.`}
+            </p>
+          </div>
+          <div className="player-calendar__legend" aria-label="Session status legend">
+            <span>
+              <span className="player-calendar__legend-dot player-calendar__legend-dot--success" /> Available
+            </span>
+            <span>
+              <span className="player-calendar__legend-dot player-calendar__legend-dot--info" /> Booked
+            </span>
+            <span>
+              <span className="player-calendar__legend-dot player-calendar__legend-dot--danger" /> Waitlist
+            </span>
+          </div>
+        </section>
+
+        <div className="player-calendar__days">
+          {loading ? (
+            <div className="player-calendar__loading">Loading lessons…</div>
+          ) : lessonsByDate.length === 0 ? (
+            <div className="player-calendar__empty">
+              <p>No sessions match your filters in this date range.</p>
+              <button type="button" onClick={handleResetFilters}>
+                Reset filters
+              </button>
+            </div>
+          ) : (
+            lessonsByDate.map((entry) => (
+              <section key={entry.key} className="player-calendar__day">
+                <header className="player-calendar__day-header">
+                  <div>
+                    <h3>{moment(entry.date).format("dddd, MMMM D, YYYY")}</h3>
+                    <p>
+                      {entry.lessons.length} session{entry.lessons.length === 1 ? "" : "s"} within your filters
+                    </p>
+                  </div>
+                </header>
+                <div className="player-calendar__sessions-list">
+                  {entry.lessons.map((lesson) => renderLessonCard(lesson))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
       </div>
 
       {bookingModalOpen && selectedLesson ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-4"
-        >
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-900/20">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">{formatLessonTitle(selectedLesson)}</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  {moment(selectedLesson.start_date_time).format("dddd, MMM D • h:mm A")} –{" "}
-                  {moment(selectedLesson.end_date_time).format("h:mm A")}
-                </p>
+        <div role="dialog" aria-modal="true" className="player-calendar__modal">
+          <div className="player-calendar__modal-card">
+            <div className="player-calendar__modal-header">
+              <div className="player-calendar__modal-header-row">
+                <div>
+                  <h2>{formatLessonTitle(selectedLesson)}</h2>
+                  <p>
+                    {moment(selectedLesson.start_date_time).format("dddd, MMM D • h:mm A")} –{" "}
+                    {moment(selectedLesson.end_date_time).format("h:mm A")}
+                  </p>
+                </div>
+                <button type="button" onClick={closeModal} aria-label="Close booking modal" className="player-calendar__close-btn">
+                  ×
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                aria-label="Close booking modal"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 transition hover:bg-slate-200"
-              >
-                ×
-              </button>
             </div>
-            <div className="flex flex-col gap-3 px-6 py-5 text-sm text-slate-700">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-500">Coach</span>
-                <span className="font-semibold text-slate-900">{selectedLesson.coach_name}</span>
+            <div className="player-calendar__modal-body">
+              <div className="player-calendar__modal-row">
+                <span>Coach</span>
+                <span>{selectedLesson.coach_name}</span>
               </div>
               {selectedLesson.location_name ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-500">Location</span>
-                  <span className="font-semibold text-slate-900">{selectedLesson.location_name}</span>
+                <div className="player-calendar__modal-row">
+                  <span>Location</span>
+                  <span>{selectedLesson.location_name}</span>
                 </div>
               ) : null}
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-500">Level</span>
-                <span className="font-semibold text-slate-900">
-                  {selectedLesson.metadata?.level || selectedLesson.metadata_level || "All"}
-                </span>
+              <div className="player-calendar__modal-row">
+                <span>Level</span>
+                <span>{selectedLesson.metadata?.level || selectedLesson.metadata_level || "All"}</span>
               </div>
               {selectedLesson.metadata?.description ? (
-                <div>
-                  <span className="font-medium text-slate-500">About this session</span>
-                  <p className="mt-1 text-slate-700">{selectedLesson.metadata.description}</p>
+                <div className="player-calendar__modal-description">
+                  <span>About this session</span>
+                  <p>{selectedLesson.metadata.description}</p>
                 </div>
               ) : null}
               {typeof selectedLesson.price_per_person === "number" ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-500">Price</span>
-                  <span className="font-semibold text-slate-900">${selectedLesson.price_per_person.toFixed(2)}</span>
+                <div className="player-calendar__modal-row">
+                  <span>Price</span>
+                  <span>${selectedLesson.price_per_person.toFixed(2)}</span>
                 </div>
               ) : null}
               {spotsRemaining !== null ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-500">Spots remaining</span>
-                  <span className="font-semibold text-slate-900">{spotsRemaining}</span>
+                <div className="player-calendar__modal-row">
+                  <span>Spots remaining</span>
+                  <span>{spotsRemaining}</span>
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-70"
-                onClick={closeModal}
-                disabled={mutationLoading}
-              >
+            <div className="player-calendar__modal-footer">
+              <button type="button" className="player-calendar__modal-secondary" onClick={closeModal} disabled={mutationLoading}>
                 Close
               </button>
-              {modalLessonType === "booked" ? (
+              {modalLessonStatus === "booked" ? (
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-70"
+                  className="player-calendar__modal-danger"
                   onClick={handleCancelLesson}
                   disabled={mutationLoading}
                 >
@@ -958,15 +774,11 @@ const PlayerCalendar = () => {
               ) : (
                 <button
                   type="button"
-                  className={`inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition ${
-                    modalLessonType === "full"
-                      ? "bg-slate-400"
-                      : "bg-emerald-600 hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-200"
-                  } disabled:opacity-70`}
+                  className={`player-calendar__modal-primary player-calendar__modal-primary--${modalLessonStatus ?? "available"}`}
                   onClick={handleBookLesson}
-                  disabled={mutationLoading || modalLessonType === "full"}
+                  disabled={mutationLoading || modalLessonStatus === "full"}
                 >
-                  {modalLessonType === "full"
+                  {modalLessonStatus === "full"
                     ? "Lesson Full"
                     : mutationLoading
                       ? "Booking..."
