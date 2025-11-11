@@ -37,6 +37,14 @@ type SuggestedPlayerRecord = {
   phone?: string;
   full_name?: string;
   profile_picture?: string;
+  profile_image?: string;
+  profileImageUrl?: string;
+  profile_photo?: string;
+  profilePhoto?: string;
+  avatar?: string;
+  avatar_url?: string;
+  avatarUrl?: string;
+  avatarURL?: string;
   skillLevel?: string;
   availability?: string[] | string;
   playerLocations?: string[] | string;
@@ -133,6 +141,30 @@ const ensureStringArray = (value: unknown): string[] => {
   return [];
 };
 
+const pickFirstAsset = (values: Array<string | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+  }
+  return "";
+};
+
+const getProfileImageUrl = (record: SuggestedPlayerRecord) =>
+  pickFirstAsset([
+    record.profile_picture,
+    record.profile_image,
+    record.profileImageUrl,
+    record.profile_photo,
+    record.profilePhoto,
+  ]);
+
+const getAvatarUrl = (record: SuggestedPlayerRecord) =>
+  pickFirstAsset([record.avatar, record.avatar_url, record.avatarUrl, record.avatarURL]);
+
 const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability);
   const playerLocations = ensureStringArray(record.playerLocations);
@@ -144,6 +176,8 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const levelMatch = skillLabel.match(/NTRP\s*([0-9.]+)/i);
   const normalizedLevel = levelMatch?.[1] ?? (skillLabel || "Unknown");
   const verificationCount = Number.parseInt(String(record.verifiedLevelCount ?? "0"), 10) || 0;
+  const profileImageUrl = getProfileImageUrl(record);
+  const avatarUrl = getAvatarUrl(record);
   const normalizedGender = (() => {
     const rawGender = typeof record.gender === "string" ? record.gender.trim().toLowerCase() : "";
     if (rawGender === "male") return "Male" as const;
@@ -159,7 +193,8 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
     id: String(record.userId ?? initialsSource.toLowerCase()),
     name: record.full_name?.trim() || record.email || "TTP Player",
     initials: toInitials(initialsSource),
-    profileImageUrl: record.profile_picture ?? "",
+    profileImageUrl,
+    avatarUrl: avatarUrl || undefined,
     location,
     distanceMiles: 0,
     gender: normalizedGender,
