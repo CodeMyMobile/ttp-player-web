@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { trainingCollections } from "../data/trainingPlaylists";
 
 const schedule = [
   {
@@ -194,6 +195,8 @@ const bottomActions = [
     accent: "#f97316",
   },
 ];
+
+const trainingPlaylists = trainingCollections;
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -579,6 +582,55 @@ const DashboardPage = () => {
               <button type="button" className="coach-btn">
                 Book Session
               </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section training-section" id="training">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Training Hub</h2>
+            <p className="section-subtitle">
+              Stream featured drills from our Matchplay playlists without leaving your dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="section-cta"
+            onClick={() => navigate("/training-library")}
+          >
+            Open training library
+          </button>
+        </div>
+        <div className="training-grid">
+          {trainingPlaylists.map((playlist) => (
+            <article key={playlist.id} className="training-card">
+              <div className="training-card__video">
+                <iframe
+                  title={`${playlist.title} — ${playlist.featuredVideoTitle}`}
+                  src={`https://www.youtube-nocookie.com/embed/videoseries?list=${playlist.playlistId}&index=${playlist.featuredIndex}`}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              <div className="training-card__body">
+                <span className="training-card__focus">{playlist.focus}</span>
+                <h3>{playlist.title}</h3>
+                <p>{playlist.description}</p>
+                <div className="training-card__footer">
+                  <Link
+                    className="primary-link"
+                    to={`/training-library?playlist=${playlist.id}&video=${playlist.featuredIndex}`}
+                  >
+                    Watch featured session
+                  </Link>
+                  <Link className="secondary-link" to={`/training-library?playlist=${playlist.id}`}>
+                    Full playlist
+                  </Link>
+                </div>
+              </div>
             </article>
           ))}
         </div>
