@@ -470,7 +470,11 @@ const DashboardPage = () => {
             <h2 className="section-title">My Schedule</h2>
             <p className="section-subtitle">Your upcoming matches and coaching sessions for the day.</p>
           </div>
-          <button type="button" className="section-cta">
+          <button
+            type="button"
+            className="section-cta"
+            onClick={() => navigate("/player/calendar")}
+          >
             View Calendar
           </button>
         </div>
