@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
@@ -223,7 +223,7 @@ const DashboardPage = () => {
     return `${latitude}° ${latHemisphere}, ${longitude}° ${lonHemisphere}`;
   };
 
-  const resolveLocationName = async (coords) => {
+  const resolveLocationName = useCallback(async (coords) => {
     if (!coords) {
       return;
     }
@@ -288,9 +288,9 @@ const DashboardPage = () => {
         };
       });
     }
-  };
+  }, []);
 
-  const detectLocation = () => {
+  const detectLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
       setLocationState({
         status: "error",
@@ -338,11 +338,11 @@ const DashboardPage = () => {
         });
       }
     );
-  };
+  }, [resolveLocationName]);
 
   useEffect(() => {
     detectLocation();
-  }, []);
+  }, [detectLocation]);
 
   const locationChipLabel = () => {
     if (locationState.status === "ready") {

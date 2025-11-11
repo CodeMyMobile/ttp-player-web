@@ -58,7 +58,17 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
           <div className="fp-card__avatar" aria-hidden="true">
-            {player.initials}
+            {player.profileImageUrl ? (
+              <img
+                src={player.profileImageUrl}
+                alt=""
+                className="fp-card__avatar-image"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              player.initials
+            )}
           </div>
           <div className="fp-card__identity">
             <div className="fp-card__name-row">
