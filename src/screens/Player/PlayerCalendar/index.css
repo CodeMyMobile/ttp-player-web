@@ -201,7 +201,13 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.player-calendar__summary-copy {
+  flex: 1 1 320px;
+  display: grid;
+  gap: 0.4rem;
 }
 
 .player-calendar__summary h2 {
@@ -215,6 +221,21 @@
   margin: 0.3rem 0 0;
   color: #475569;
   font-weight: 500;
+}
+
+.player-calendar__summary-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.player-calendar__summary-sort {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
 }
 
 .player-calendar__legend {
@@ -294,6 +315,7 @@
   grid-template-columns: 120px 1fr;
   gap: 1.5rem;
   align-items: stretch;
+  position: relative;
 }
 
 .player-calendar__session-time {
@@ -302,6 +324,8 @@
   align-items: flex-start;
   gap: 0.35rem;
   padding-top: 0.4rem;
+  padding-right: 1rem;
+  border-right: 1px solid rgba(148, 163, 184, 0.24);
 }
 
 .player-calendar__session-time-label {
@@ -347,6 +371,13 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: #0f172a;
+}
+
+.player-calendar__session-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #6366f1;
 }
 
 .player-calendar__session-location {
@@ -485,6 +516,24 @@
   background: linear-gradient(135deg, #cbd5f5, #a5b4fc);
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.player-calendar__session-button--booked {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 12px 25px rgba(37, 99, 235, 0.35);
+}
+
+.player-calendar__session-button--booked:hover:not(:disabled) {
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.35);
+}
+
+.player-calendar__session-button--full {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  box-shadow: 0 12px 25px rgba(124, 58, 237, 0.35);
+}
+
+.player-calendar__session-button--full:hover:not(:disabled) {
+  box-shadow: 0 18px 40px rgba(124, 58, 237, 0.35);
 }
 
 .player-calendar__loading {

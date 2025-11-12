@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
-import { ChevronDown, Clock, Filter as FilterIcon, MapPin, RefreshCw, Search as SearchIcon, Users } from "lucide-react";
+import {
+  ChevronDown,
+  Clock,
+  Layers,
+  MapPin,
+  RefreshCw,
+  Search as SearchIcon,
+  User,
+  UserCheck,
+} from "lucide-react";
 import "./index.css";
 
 import {
@@ -82,6 +91,123 @@ type DateRange = {
   end: moment.Moment;
 };
 
+const SHOWCASE_DATE_RANGE: DateRange = {
+  start: moment("2025-11-11T00:00:00-06:00"),
+  end: moment("2025-11-12T23:59:59-06:00"),
+};
+
+const SHOWCASE_LESSONS: Lesson[] = [
+  {
+    id: 1101,
+    coach_id: 501,
+    coach_name: "Rafael O'Neill",
+    location_id: 301,
+    location_name: "Royal Oaks Country Club",
+    start_date_time: "2025-11-11T09:00:00-06:00",
+    end_date_time: "2025-11-11T10:00:00-06:00",
+    player_limit: 8,
+    current_player_count: 4,
+    metadata: {
+      title: "Junior Group Clinic",
+      level: "3.0 – 3.5",
+      description: "For players age 13-15 focusing on strategy and match play.",
+    },
+    lesson_type_name: "Group session",
+    price_per_person: 45,
+  },
+  {
+    id: 1102,
+    coach_id: 502,
+    coach_name: "Lena Martinez",
+    location_id: 302,
+    location_name: "Austin Tennis Academy",
+    start_date_time: "2025-11-11T12:30:00-06:00",
+    end_date_time: "2025-11-11T14:00:00-06:00",
+    player_limit: 6,
+    current_player_count: 4,
+    metadata: {
+      title: "Doubles Strategy Workshop",
+      level: "4.0 – 4.5",
+      description: "Sharpen your net play and transition game in match scenarios.",
+    },
+    lesson_type_name: "Group session",
+    price_per_person: 60,
+  },
+  {
+    id: 1103,
+    coach_id: 503,
+    coach_name: "Ava Thompson",
+    location_id: 303,
+    location_name: "Southwest Family YMCA",
+    start_date_time: "2025-11-11T15:00:00-06:00",
+    end_date_time: "2025-11-11T16:30:00-06:00",
+    player_limit: 1,
+    current_player_count: 1,
+    metadata: {
+      title: "Private Lesson with Coach Ava",
+      level: "3.0",
+      description: "Focus on serve consistency and match strategy with personalized drills.",
+    },
+    lesson_type_name: "Private lesson",
+    price_per_person: 85,
+    player_has_booking: true,
+  },
+  {
+    id: 2101,
+    coach_id: 601,
+    coach_name: "Marcus Lin",
+    location_id: 401,
+    location_name: "Lost Creek Country Club",
+    start_date_time: "2025-11-12T08:00:00-06:00",
+    end_date_time: "2025-11-12T10:00:00-06:00",
+    player_limit: 12,
+    current_player_count: 6,
+    metadata: {
+      title: "Adult Live Ball Mixer",
+      level: "3.0 – 4.0",
+      description: "Fast-paced doubles-style drills with rotation and live ball points.",
+    },
+    lesson_type_name: "Group session",
+    price_per_person: 55,
+  },
+  {
+    id: 2102,
+    coach_id: 602,
+    coach_name: "Priya Desai",
+    location_id: 402,
+    location_name: "Westlake Athletic Club",
+    start_date_time: "2025-11-12T11:00:00-06:00",
+    end_date_time: "2025-11-12T12:00:00-06:00",
+    player_limit: 14,
+    current_player_count: 14,
+    metadata: {
+      title: "Cardio Tennis Blast",
+      level: "All",
+      description: "High-energy workout with music and point-based cardio drills.",
+    },
+    lesson_type_name: "Cardio tennis",
+    price_per_person: 30,
+  },
+  {
+    id: 2103,
+    coach_id: 603,
+    coach_name: "Daniel Harper",
+    location_id: 403,
+    location_name: "Mueller Lake Park Courts",
+    start_date_time: "2025-11-12T18:30:00-06:00",
+    end_date_time: "2025-11-12T20:00:00-06:00",
+    player_limit: 10,
+    current_player_count: 5,
+    metadata: {
+      title: "Beginner Skills & Drills",
+      level: "2.5",
+      description: "Build fundamentals with footwork, rally skills, and serve practice.",
+    },
+    lesson_type_name: "Group session",
+    price_per_person: 40,
+  },
+];
+
 const determineLessonStatus = (lesson: Lesson, bookings: Set<number>): LessonStatus => {
   if (lesson.player_has_booking || bookings.has(lesson.id)) {
     return "booked";
@@ -125,7 +251,7 @@ const formatDuration = (start: Date, end: Date) => {
     if (remainingMinutes === 0) {
       return `${hours} hr${hours > 1 ? "s" : ""}`;
     }
-    return `${hours} hr ${remainingMinutes} min`;
+    return `${minutes} min`;
   }
   return `${minutes} min`;
 };
@@ -159,6 +285,7 @@ const PlayerCalendar = () => {
   const [locationOptionsLoading, setLocationOptionsLoading] = useState(false);
   const [lessonTypeFilter, setLessonTypeFilter] = useState<string>("all");
   const [selectedDay, setSelectedDay] = useState<string>("all");
+  const [isShowcaseMode, setIsShowcaseMode] = useState(false);
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
@@ -201,11 +328,14 @@ const PlayerCalendar = () => {
   );
 
   useEffect(() => {
+    if (isShowcaseMode) {
+      return;
+    }
     const preset = DATE_PRESETS.find((option) => option.id === datePreset);
     if (preset) {
       setDateRange(preset.range());
     }
-  }, [datePreset]);
+  }, [datePreset, isShowcaseMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,15 +415,28 @@ const PlayerCalendar = () => {
   }, []);
 
   const loadLessons = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     if (!authToken) {
-      setError("You need to be logged in to view lessons.");
-      setRawLessons([]);
-      setPlayerBookings([]);
+      setIsShowcaseMode(true);
+      setRawLessons(SHOWCASE_LESSONS);
+      setPlayerBookings(
+        SHOWCASE_LESSONS.filter((lesson) => lesson.player_has_booking).map((lesson) => lesson.id),
+      );
+      const shouldSyncRange =
+        !dateRange.start.isSame(SHOWCASE_DATE_RANGE.start, "day") ||
+        !dateRange.end.isSame(SHOWCASE_DATE_RANGE.end, "day");
+      if (shouldSyncRange) {
+        setDateRange({
+          start: SHOWCASE_DATE_RANGE.start.clone(),
+          end: SHOWCASE_DATE_RANGE.end.clone(),
+        });
+      }
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
     try {
       const [lessonsResponse, bookingsResponse] = await Promise.all([
         fetchAvailableLessons({
@@ -305,6 +448,7 @@ const PlayerCalendar = () => {
         fetchPlayerBookings({ token: authToken }),
       ]);
 
+      setIsShowcaseMode(false);
       setRawLessons(lessonsResponse?.data ?? []);
       setPlayerBookings(bookingsResponse?.data ?? []);
     } catch (err) {
@@ -514,11 +658,24 @@ const PlayerCalendar = () => {
     const end = moment(lesson.end_date_time).toDate();
     const duration = formatDuration(start, end);
     const locationLabel = lesson.location_name || (lesson as { location?: string }).location || "Location TBD";
-    const levelLabel = lesson.metadata?.level || lesson.metadata_level || "All";
+    const levelValue = lesson.metadata?.level || lesson.metadata_level || "All";
+    const normalizedLevelLabel = (() => {
+      const trimmed = levelValue?.trim();
+      if (!trimmed) return "";
+      if (/^all$/i.test(trimmed)) return "All levels";
+      return trimmed.toLowerCase().startsWith("level") ? trimmed : `Level ${trimmed}`;
+    })();
+    const sessionTypeLabel = lesson.lesson_type_name
+      ? lesson.lesson_type_name.charAt(0).toUpperCase() + lesson.lesson_type_name.slice(1)
+      : "";
     const spots =
       typeof lesson.player_limit === "number"
         ? Math.max((lesson.player_limit ?? 0) - (lesson.current_player_count ?? 0), 0)
         : null;
+    const spotsLabel =
+      spots === null ? null : spots > 0 ? `${spots} spot${spots === 1 ? "" : "s"} left` : "Waitlist available";
+    const buttonCopy =
+      status === "booked" ? "Manage booking" : status === "full" ? "Join waitlist" : "Reserve spot";
 
     return (
       <div key={lesson.id} className="player-calendar__session">
@@ -534,6 +691,9 @@ const PlayerCalendar = () => {
                 {locationLabel}
               </p>
               <h3 className="player-calendar__session-title">{formatLessonTitle(lesson)}</h3>
+              {normalizedLevelLabel ? (
+                <p className="player-calendar__session-subtitle">{normalizedLevelLabel}</p>
+              ) : null}
               {lesson.metadata?.description ? (
                 <p className="player-calendar__session-description">{lesson.metadata.description}</p>
               ) : null}
@@ -550,20 +710,20 @@ const PlayerCalendar = () => {
               </li>
               {lesson.coach_name ? (
                 <li>
-                  <Users aria-hidden />
+                  <User aria-hidden />
                   Coach {lesson.coach_name}
                 </li>
               ) : null}
-              {levelLabel ? (
+              {sessionTypeLabel ? (
                 <li>
-                  <FilterIcon aria-hidden />
-                  {levelLabel === "All" ? "All levels" : `${levelLabel} level`}
+                  <Layers aria-hidden />
+                  {sessionTypeLabel}
                 </li>
               ) : null}
-              {spots !== null ? (
+              {spotsLabel ? (
                 <li>
-                  <Users aria-hidden />
-                  {spots > 0 ? `${spots} spot${spots === 1 ? "" : "s"} left` : "No spots remaining"}
+                  <UserCheck aria-hidden />
+                  {spotsLabel}
                 </li>
               ) : null}
             </ul>
@@ -576,11 +736,10 @@ const PlayerCalendar = () => {
               ) : null}
               <button
                 type="button"
-                className="player-calendar__session-button"
+                className={`player-calendar__session-button player-calendar__session-button--${status}`}
                 onClick={() => openLessonModal(lesson)}
-                disabled={status === "full"}
               >
-                {status === "booked" ? "Manage booking" : status === "full" ? "Join waitlist" : "Reserve spot"}
+                {buttonCopy}
               </button>
             </div>
           </div>
@@ -769,7 +928,7 @@ const PlayerCalendar = () => {
             ) : null}
 
             <section className="player-calendar__summary" aria-live="polite">
-              <div>
+              <div className="player-calendar__summary-copy">
                 <h2>Available sessions nearby</h2>
                 <p>
                   {loading
@@ -777,16 +936,19 @@ const PlayerCalendar = () => {
                     : `${filteredLessons.length} session${filteredLessons.length === 1 ? "" : "s"} match your filters.`}
                 </p>
               </div>
-              <div className="player-calendar__legend" aria-label="Session status legend">
-                <span>
-                  <span className="player-calendar__legend-dot player-calendar__legend-dot--success" /> Available
-                </span>
-                <span>
-                  <span className="player-calendar__legend-dot player-calendar__legend-dot--info" /> Booked
-                </span>
-                <span>
-                  <span className="player-calendar__legend-dot player-calendar__legend-dot--danger" /> Waitlist
-                </span>
+              <div className="player-calendar__summary-meta">
+                <span className="player-calendar__summary-sort">Sorted by soonest start time</span>
+                <div className="player-calendar__legend" aria-label="Session status legend">
+                  <span>
+                    <span className="player-calendar__legend-dot player-calendar__legend-dot--success" /> Available
+                  </span>
+                  <span>
+                    <span className="player-calendar__legend-dot player-calendar__legend-dot--info" /> Booked
+                  </span>
+                  <span>
+                    <span className="player-calendar__legend-dot player-calendar__legend-dot--danger" /> Waitlist
+                  </span>
+                </div>
               </div>
             </section>
 
