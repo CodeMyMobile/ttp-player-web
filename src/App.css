@@ -640,6 +640,20 @@
   gap: 20px;
 }
 
+.schedule-feedback {
+  border-radius: 18px;
+  padding: 24px;
+  background: #f8fafc;
+  color: #475569;
+  text-align: center;
+  font-weight: 500;
+}
+
+.schedule-feedback--error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .schedule-card {
   border-radius: 18px;
   padding: 20px;

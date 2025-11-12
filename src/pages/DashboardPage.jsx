@@ -1,36 +1,194 @@
+import moment from "moment";
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getPlayerFutureGroupLessons, getPlayerFutureLessons } from "../api/playerHome";
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { getStoredAuthToken } from "../services/authToken";
 
-const schedule = [
-  {
-    time: "8:00 AM",
-    duration: "60 min",
-    title: "Morning Training",
-    coach: "Coach Maria",
-    location: "Court 3",
-    highlight: true,
-    badge: "Performance Focus",
-  },
-  {
-    time: "11:30 AM",
-    duration: "45 min",
-    title: "Doubles Match",
-    coach: "With Alex & Jamie",
-    location: "Court 6",
-    status: "Confirmed",
-  },
-  {
-    time: "2:00 PM",
-    duration: "30 min",
-    title: "Strategy Session",
-    coach: "Coach David",
-    location: "Clubhouse",
-    status: "Reminder",
-  },
-];
+const pickString = (...values) => {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
+};
+
+const parseDate = (value) => {
+  if (!value) return null;
+  const date = moment(value);
+  if (!date.isValid()) {
+    return null;
+  }
+  return date.toDate();
+};
+
+const formatDurationLabel = (startAt, endAt) => {
+  if (!startAt || !endAt) return null;
+  const minutes = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours && remainingMinutes) {
+    return `${hours} hr ${remainingMinutes} min`;
+  }
+  if (hours) {
+    return `${hours} hr${hours > 1 ? "s" : ""}`;
+  }
+  return `${minutes} min`;
+};
+
+const formatStatusLabel = (value) => {
+  if (!value) return null;
+  return value
+    .toString()
+    .replace(/[_]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const extractLessons = (response) => {
+  if (!response) return [];
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.results)) return response.results;
+  if (Array.isArray(response.items)) return response.items;
+  return [];
+};
+
+const buildScheduleItems = (lessons = [], type) =>
+  lessons
+    .map((lesson) => {
+      const startAt = parseDate(
+        lesson.startTime ??
+          lesson.start_time ??
+          lesson.start_at ??
+          lesson.start ??
+          lesson.startDate ??
+          lesson.starts_at,
+      );
+      const endAt = parseDate(
+        lesson.endTime ??
+          lesson.end_time ??
+          lesson.end_at ??
+          lesson.end ??
+          lesson.endDate ??
+          lesson.ends_at,
+      );
+
+      const idSource =
+        lesson.id ??
+        lesson.lesson_id ??
+        lesson.lessonId ??
+        lesson.booking_id ??
+        lesson.uuid ??
+        lesson.slug ??
+        (startAt ? `${type}-${startAt.toISOString()}` : null);
+      const id = `${type}-${idSource ?? Math.random().toString(36).slice(2)}`;
+
+      const coach = lesson.coach ?? lesson.instructor ?? lesson.pro ?? {};
+      const coachFullName = [coach.firstName ?? coach.first_name, coach.lastName ?? coach.last_name]
+        .filter((part) => typeof part === "string" && part.trim())
+        .join(" ");
+      const coachName =
+        pickString(
+          lesson.coach_name,
+          lesson.coachName,
+          lesson.instructor_name,
+          coachFullName,
+          coach.name,
+          coach.full_name,
+          coach.fullName,
+        ) || null;
+      const coachLabel =
+        coachName && /^coach\s+/i.test(coachName)
+          ? coachName
+          : coachName
+            ? `Coach ${coachName}`
+            : null;
+
+      const locationLabel =
+        pickString(
+          lesson.location_name,
+          lesson.locationName,
+          lesson.location,
+          lesson.location_label,
+          lesson.locationLabel,
+          lesson.court_name,
+          lesson.court,
+          lesson.facility_name,
+          lesson.facility,
+          lesson.address,
+          lesson.venue_name,
+          lesson.venueName,
+        ) ||
+        pickString(
+          lesson?.location?.name,
+          lesson?.location?.title,
+          lesson?.location?.label,
+          lesson?.venue?.name,
+          lesson?.venue?.title,
+          lesson?.coach_location?.name,
+        );
+
+      const rawStatus =
+        pickString(lesson.status, lesson.registration_status, lesson.booking_status, lesson.lesson_status) ||
+        null;
+      const statusLabel = rawStatus ? formatStatusLabel(rawStatus) : null;
+
+      const title =
+        pickString(
+          lesson.title,
+          lesson.lesson_title,
+          lesson.name,
+          lesson.lesson_name,
+          lesson.program_name,
+          lesson.series_name,
+          lesson.description,
+        ) || (type === "group" ? "Group Session" : "Private Lesson");
+
+      const badgeLabel =
+        type === "group"
+          ? "Group Session"
+          : pickString(
+              lesson.program_type,
+              lesson.programName,
+              lesson.program_label,
+              lesson.category,
+              lesson.type,
+            );
+
+      const durationLabel = formatDurationLabel(startAt, endAt);
+      const dayLabel = startAt ? moment(startAt).format("ddd, MMM D") : null;
+      const timeRangeLabel =
+        startAt && endAt
+          ? `${moment(startAt).format("h:mm A")} – ${moment(endAt).format("h:mm A")}`
+          : startAt
+            ? moment(startAt).format("h:mm A")
+            : null;
+
+      return {
+        id,
+        title,
+        coachLabel,
+        locationLabel: locationLabel ?? "Location TBD",
+        statusLabel,
+        badgeLabel,
+        startAt,
+        endAt,
+        timeLabel: dayLabel ?? "Date TBD",
+        secondaryLabel: timeRangeLabel ?? "Time TBD",
+        durationLabel,
+        type,
+      };
+    })
+    .filter(Boolean);
 
 const playColumns = [
   {
@@ -207,6 +365,11 @@ const DashboardPage = () => {
     lookupFailed: false,
   });
   const [selectedRadius, setSelectedRadius] = useState("10 mi");
+  const [scheduleState, setScheduleState] = useState({
+    status: "idle",
+    items: [],
+    error: null,
+  });
 
   const distanceOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 
@@ -344,6 +507,71 @@ const DashboardPage = () => {
     detectLocation();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadSchedule = async () => {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setScheduleState({ status: "unauthenticated", items: [], error: null });
+        return;
+      }
+
+      setScheduleState((previous) => ({
+        ...previous,
+        status: "loading",
+        error: null,
+      }));
+
+      try {
+        const [lessonsResponse, groupLessonsResponse] = await Promise.all([
+          getPlayerFutureLessons({ token, perPage: 5, signal: controller.signal }),
+          getPlayerFutureGroupLessons({ token, perPage: 5, signal: controller.signal }),
+        ]);
+
+        if (cancelled) return;
+
+        const privateLessons = buildScheduleItems(extractLessons(lessonsResponse), "lesson");
+        const groupLessons = buildScheduleItems(extractLessons(groupLessonsResponse), "group");
+        const combined = [...privateLessons, ...groupLessons].sort((a, b) => {
+          if (a.startAt && b.startAt) {
+            return a.startAt.getTime() - b.startAt.getTime();
+          }
+          if (a.startAt) return -1;
+          if (b.startAt) return 1;
+          return 0;
+        });
+
+        const annotated = combined.map((item, index) => ({
+          ...item,
+          highlight: index === 0 && !!item.startAt,
+        }));
+
+        setScheduleState({
+          status: "ready",
+          items: annotated,
+          error: null,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to load upcoming lessons", error);
+        setScheduleState({
+          status: "error",
+          items: [],
+          error: error instanceof Error ? error.message : "Unable to load schedule.",
+        });
+      }
+    };
+
+    loadSchedule();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
   const locationChipLabel = () => {
     if (locationState.status === "ready") {
       if (locationState.locationName) {
@@ -478,23 +706,38 @@ const DashboardPage = () => {
             View Calendar
           </button>
         </div>
-        <div className="schedule-grid">
-          {schedule.map((item) => (
-            <article key={item.title} className={`schedule-card${item.highlight ? " primary" : ""}`}>
-              <div className="schedule-time">
-                <span>{item.time}</span>
-                <span>{item.duration}</span>
-              </div>
-              <div>
-                <div className="schedule-title">{item.title}</div>
-                <div className="schedule-meta">{item.coach}</div>
-                <div className="schedule-meta">{item.location}</div>
-              </div>
-              {item.badge ? <div className="tag">{item.badge}</div> : null}
-              {item.status ? <div className="status-badge">{item.status}</div> : null}
-            </article>
-          ))}
-        </div>
+        {scheduleState.status === "loading" || scheduleState.status === "idle" ? (
+          <div className="schedule-feedback">Loading your schedule…</div>
+        ) : scheduleState.status === "error" ? (
+          <div className="schedule-feedback schedule-feedback--error">
+            We couldn&rsquo;t load your upcoming lessons. Please try again.
+          </div>
+        ) : scheduleState.status === "unauthenticated" ? (
+          <div className="schedule-feedback">Sign in to view your upcoming lessons.</div>
+        ) : scheduleState.items.length === 0 ? (
+          <div className="schedule-feedback">
+            You don&rsquo;t have any upcoming lessons yet. Book a session to get started!
+          </div>
+        ) : (
+          <div className="schedule-grid">
+            {scheduleState.items.map((item) => (
+              <article key={item.id} className={`schedule-card${item.highlight ? " primary" : ""}`}>
+                <div className="schedule-time">
+                  <span>{item.timeLabel}</span>
+                  <span>{item.secondaryLabel}</span>
+                </div>
+                <div>
+                  <div className="schedule-title">{item.title}</div>
+                  {item.coachLabel ? <div className="schedule-meta">{item.coachLabel}</div> : null}
+                  {item.locationLabel ? <div className="schedule-meta">{item.locationLabel}</div> : null}
+                  {item.durationLabel ? <div className="schedule-meta">⏱ {item.durationLabel}</div> : null}
+                </div>
+                {item.badgeLabel ? <div className="tag">{item.badgeLabel}</div> : null}
+                {item.statusLabel ? <div className="status-badge">{item.statusLabel}</div> : null}
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section" id="quick-actions">
