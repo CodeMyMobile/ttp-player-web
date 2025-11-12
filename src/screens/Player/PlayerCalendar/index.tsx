@@ -1,16 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
-import {
-  ChevronDown,
-  Clock,
-  Layers,
-  MapPin,
-  RefreshCw,
-  Search as SearchIcon,
-  User,
-  UserCheck,
-} from "lucide-react";
+import { ChevronDown, Clock, Layers, MapPin, Search as SearchIcon, User, UserCheck } from "lucide-react";
 import "./index.css";
+import "../../../pages/GroupLessonsPage.css";
 
 import {
   bookLesson,
@@ -55,32 +47,10 @@ const LESSON_LEVELS = [
   { id: 6, name: "Expert (NTRP 5.0)", description: "I have competitive experience and advanced skill levels" },
 ] as const;
 
-const DATE_PRESETS = [
-  {
-    id: "7",
-    label: "Next 7 days",
-    range: () => ({
-      start: moment().startOf("day"),
-      end: moment().add(6, "days").endOf("day"),
-    }),
-  },
-  {
-    id: "14",
-    label: "Next 14 days",
-    range: () => ({
-      start: moment().startOf("day"),
-      end: moment().add(13, "days").endOf("day"),
-    }),
-  },
-  {
-    id: "30",
-    label: "Next 30 days",
-    range: () => ({
-      start: moment().startOf("day"),
-      end: moment().add(29, "days").endOf("day"),
-    }),
-  },
-] as const;
+const getDefaultDateRange = (): DateRange => ({
+  start: moment().startOf("day"),
+  end: moment().add(13, "days").endOf("day"),
+});
 
 export interface Lesson extends ApiLesson {}
 
@@ -271,8 +241,7 @@ const PlayerCalendar = () => {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [distanceFilter, setDistanceFilter] = useState<string>("10");
-  const [datePreset, setDatePreset] = useState<string>(DATE_PRESETS[1]?.id ?? "14");
-  const [dateRange, setDateRange] = useState<DateRange>(DATE_PRESETS[1]?.range() ?? DATE_PRESETS[0].range());
+  const [dateRange, setDateRange] = useState<DateRange>(() => getDefaultDateRange());
   const [playerBookings, setPlayerBookings] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -285,6 +254,11 @@ const PlayerCalendar = () => {
   const [locationOptionsLoading, setLocationOptionsLoading] = useState(false);
   const [lessonTypeFilter, setLessonTypeFilter] = useState<string>("all");
   const [selectedDay, setSelectedDay] = useState<string>("all");
+  const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string } | null>(null);
+  const [isRangeOpen, setIsRangeOpen] = useState(false);
+  const [rangeStartValue, setRangeStartValue] = useState("");
+  const [rangeEndValue, setRangeEndValue] = useState("");
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [isShowcaseMode, setIsShowcaseMode] = useState(false);
 
   const authToken = useMemo(
@@ -298,6 +272,13 @@ const PlayerCalendar = () => {
     setPlayerBookings(
       SHOWCASE_LESSONS.filter((lesson) => Boolean(lesson.player_has_booking)).map((lesson) => lesson.id),
     );
+    const showcaseStartIso = SHOWCASE_DATE_RANGE.start.format("YYYY-MM-DD");
+    const showcaseEndIso = SHOWCASE_DATE_RANGE.end.format("YYYY-MM-DD");
+    setCustomDateRange({ start: showcaseStartIso, end: showcaseEndIso });
+    setRangeStartValue(showcaseStartIso);
+    setRangeEndValue(showcaseEndIso);
+    setRangeError(null);
+    setIsRangeOpen(false);
     setDateRange((current) => {
       const isStartAligned = current.start.isSame(SHOWCASE_DATE_RANGE.start, "day");
       const isEndAligned = current.end.isSame(SHOWCASE_DATE_RANGE.end, "day");
@@ -347,16 +328,6 @@ const PlayerCalendar = () => {
     }),
     [],
   );
-
-  useEffect(() => {
-    if (isShowcaseMode) {
-      return;
-    }
-    const preset = DATE_PRESETS.find((option) => option.id === datePreset);
-    if (preset) {
-      setDateRange(preset.range());
-    }
-  }, [datePreset, isShowcaseMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -511,6 +482,17 @@ const PlayerCalendar = () => {
 
   const displayedLocationOptions = locationOptions.length ? locationOptions : fallbackLocationOptions;
 
+  const selectedLocationLabel = useMemo(() => {
+    if (locationOptionsLoading && displayedLocationOptions.length === 0) {
+      return "Loading locations…";
+    }
+    if (locationFilter === "all") {
+      return "All locations";
+    }
+    const match = displayedLocationOptions.find((option) => String(option.id) === locationFilter);
+    return match?.name ?? "All locations";
+  }, [displayedLocationOptions, locationFilter, locationOptionsLoading]);
+
   const bookingSet = useMemo(() => new Set(playerBookings), [playerBookings]);
 
   const dayOptions = useMemo(() => {
@@ -525,14 +507,75 @@ const PlayerCalendar = () => {
     });
   }, [dateRange.start]);
 
-  const fullRangeLabel = useMemo(
-    () => `${dateRange.start.format("MMM D")} – ${dateRange.end.format("MMM D")}`,
-    [dateRange.end, dateRange.start],
-  );
+  const dateAnchors = useMemo(() => {
+    const isoDates = rawLessons
+      .map((lesson) => moment(lesson.start_date_time).format("YYYY-MM-DD"))
+      .filter(Boolean)
+      .sort();
+
+    if (isoDates.length === 0) {
+      const today = moment().startOf("day");
+      return {
+        start: today.format("YYYY-MM-DD"),
+        end: today.clone().add(7, "days").format("YYYY-MM-DD"),
+      };
+    }
+
+    const base = isoDates[0];
+    const last = isoDates[isoDates.length - 1];
+    const computedEnd = moment(base).add(7, "days").format("YYYY-MM-DD");
+    const max = last > computedEnd ? last : computedEnd;
+
+    return { start: base, end: max };
+  }, [rawLessons]);
+
+  const maxSelectableDate = dateAnchors.end;
+
+  const customRangeSummary = useMemo(() => {
+    if (!customDateRange) {
+      return null;
+    }
+    const startLabel = moment(customDateRange.start).format("MMM D");
+    const endLabel = moment(customDateRange.end).format("MMM D");
+    return `${startLabel} – ${endLabel}`;
+  }, [customDateRange]);
+
+  const isCustomRangeActive = Boolean(customDateRange);
 
   useEffect(() => {
     setSelectedDay("all");
   }, [dateRange.start, dateRange.end]);
+
+  const handleApplyRange = () => {
+    if (!rangeStartValue || !rangeEndValue) {
+      setRangeError("Select both a start and end date.");
+      return;
+    }
+
+    if (rangeStartValue > rangeEndValue) {
+      setRangeError("Start date must be before the end date.");
+      return;
+    }
+
+    const startMoment = moment(rangeStartValue).startOf("day");
+    const endMoment = moment(rangeEndValue).endOf("day");
+
+    setRangeError(null);
+    setCustomDateRange({ start: rangeStartValue, end: rangeEndValue });
+    setDateRange({ start: startMoment, end: endMoment });
+    setSelectedDay("all");
+    setIsRangeOpen(false);
+  };
+
+  const handleClearRange = () => {
+    setRangeStartValue("");
+    setRangeEndValue("");
+    setRangeError(null);
+    setCustomDateRange(null);
+    setDateRange(getDefaultDateRange());
+    setSelectedDay("all");
+    setIsRangeOpen(false);
+  };
 
   const filteredLessons = useMemo(() => {
     const coachId = coachFilter === "all" ? null : Number(coachFilter);
@@ -660,17 +703,6 @@ const PlayerCalendar = () => {
 
   const modalLessonStatus = selectedLesson ? determineLessonStatus(selectedLesson, bookingSet) : null;
 
-  const handleResetFilters = () => {
-    setCoachFilter("all");
-    setLevelFilter("All");
-    setLocationFilter("all");
-    setSearchQuery("");
-    setDistanceFilter("10");
-    setDatePreset(DATE_PRESETS[1]?.id ?? "14");
-    setLessonTypeFilter("all");
-    setSelectedDay("all");
-  };
-
   const renderLessonCard = (lesson: Lesson) => {
     const status = determineLessonStatus(lesson, bookingSet);
     const statusInfo = statusCopy[status];
@@ -775,24 +807,25 @@ const PlayerCalendar = () => {
           <ResultsHeader
             title="Calendar"
             description="Browse upcoming tennis matches, lessons, and group sessions near you."
-            actionSlot={
-              <button type="button" className="player-calendar__reset" onClick={handleResetFilters}>
-                <RefreshCw aria-hidden /> Reset filters
-              </button>
-            }
           />
 
           <section className="fc-filter player-calendar__filter-card" aria-label="Filter upcoming sessions">
             <div className="fc-filter__distance-row player-calendar__distance-row">
               <div className="fc-filter__distance-group player-calendar__distance-group">
-                <label className="player-calendar__location-chip">
-                  <MapPin size={18} aria-hidden />
+                <label
+                  className="player-calendar__location-control"
+                  title={selectedLocationLabel}
+                >
+                  <span className="fc-distance-chip fc-distance-chip--location group-lessons-filter__location player-calendar__location-chip">
+                    <MapPin size={18} aria-hidden />
+                    <span>{selectedLocationLabel}</span>
+                  </span>
                   <select
                     aria-label="Filter by location"
                     value={locationFilter}
                     onChange={(event) => setLocationFilter(event.target.value)}
                     disabled={locationOptionsLoading && !displayedLocationOptions.length}
-                    className="player-calendar__location-select"
+                    className="player-calendar__location-native"
                   >
                     <option value="all">All locations</option>
                     {displayedLocationOptions.map((location) => (
@@ -806,7 +839,6 @@ const PlayerCalendar = () => {
                       </option>
                     ) : null}
                   </select>
-                  <ChevronDown size={14} aria-hidden className="player-calendar__location-caret" />
                 </label>
                 {DISTANCE_OPTIONS.map((option) => (
                   <button
@@ -895,49 +927,116 @@ const PlayerCalendar = () => {
             </form>
           </section>
 
-          <section className="player-calendar__day-filter" role="region" aria-label="Filter sessions by day">
-            <div className="player-calendar__day-filter-controls">
-              <div className="player-calendar__day-filter-pills">
+          <section className="group-lessons-day-filter player-calendar__day-filter" role="region" aria-label="Filter sessions by day">
+            <div className="group-lessons-day-filter__controls">
+              <div className="group-lessons-day-filter__quick">
                 <button
                   type="button"
-                  className={`player-calendar__day-pill${selectedDay === "all" ? " player-calendar__day-pill--active" : ""}`}
+                  className={`group-lessons-day-filter__pill${
+                    selectedDay === "all" ? " group-lessons-day-filter__pill--active" : ""
+                  }`}
                   aria-pressed={selectedDay === "all"}
-                  onClick={() => setSelectedDay("all")}
+                  onClick={() => {
+                    setSelectedDay("all");
+                    setCustomDateRange(null);
+                    setRangeStartValue("");
+                    setRangeEndValue("");
+                    setRangeError(null);
+                    setIsRangeOpen(false);
+                  }}
                 >
-                  <span className="player-calendar__day-pill-day">All days</span>
-                  <span className="player-calendar__day-pill-date">{fullRangeLabel}</span>
+                  <span className="group-lessons-day-filter__day">All days</span>
                 </button>
                 {dayOptions.map((option) => (
                   <button
                     key={option.iso}
                     type="button"
-                    className={`player-calendar__day-pill${selectedDay === option.iso ? " player-calendar__day-pill--active" : ""}`}
+                    className={`group-lessons-day-filter__pill${
+                      selectedDay === option.iso ? " group-lessons-day-filter__pill--active" : ""
+                    }`}
                     aria-pressed={selectedDay === option.iso}
-                    onClick={() => setSelectedDay(option.iso)}
+                    onClick={() => {
+                      setSelectedDay(option.iso);
+                      setCustomDateRange(null);
+                      setRangeStartValue(option.iso);
+                      setRangeEndValue(option.iso);
+                      setRangeError(null);
+                      setIsRangeOpen(false);
+                    }}
                   >
-                    <span className="player-calendar__day-pill-day">{option.weekday}</span>
-                    <span className="player-calendar__day-pill-date">{option.label}</span>
+                    <span className="group-lessons-day-filter__day">{option.weekday}</span>
+                    <span className="group-lessons-day-filter__date">{option.label}</span>
                   </button>
                 ))}
               </div>
-              <div className="player-calendar__day-filter-actions">
-                <div className="fc-select player-calendar__select">
-                  <select
-                    className="fc-select__field"
-                    value={datePreset}
-                    onChange={(event) => setDatePreset(event.target.value)}
-                    aria-label="Select date range"
-                  >
-                    {DATE_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
-                </div>
+              <div className="group-lessons-day-filter__actions">
+                <button
+                  type="button"
+                  className={`group-lessons-day-filter__range-toggle${
+                    isRangeOpen || isCustomRangeActive ? " group-lessons-day-filter__range-toggle--active" : ""
+                  }`}
+                  aria-expanded={isRangeOpen}
+                  onClick={() => {
+                    if (!isRangeOpen) {
+                      const startIso = customDateRange?.start ?? dateRange.start.format("YYYY-MM-DD");
+                      const endIso = customDateRange?.end ?? dateRange.end.format("YYYY-MM-DD");
+                      setRangeStartValue(startIso);
+                      setRangeEndValue(endIso);
+                      setRangeError(null);
+                    }
+                    setIsRangeOpen((open) => !open);
+                  }}
+                >
+                  {customRangeSummary ? `Custom range: ${customRangeSummary}` : "Choose dates"}
+                </button>
               </div>
             </div>
+            {isRangeOpen ? (
+              <div className="group-lessons-date-range">
+                <div className="group-lessons-date-range__fields">
+                  <label className="group-lessons-date-range__field">
+                    <span>Start</span>
+                    <input
+                      type="date"
+                      value={rangeStartValue}
+                      min={dateAnchors.start}
+                      max={rangeEndValue || maxSelectableDate}
+                      onChange={(event) => {
+                        setRangeStartValue(event.target.value);
+                        setRangeError(null);
+                      }}
+                    />
+                  </label>
+                  <label className="group-lessons-date-range__field">
+                    <span>End</span>
+                    <input
+                      type="date"
+                      value={rangeEndValue}
+                      min={rangeStartValue || dateAnchors.start}
+                      max={maxSelectableDate}
+                      onChange={(event) => {
+                        setRangeEndValue(event.target.value);
+                        setRangeError(null);
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="group-lessons-date-range__hint">
+                  {rangeStartValue && rangeEndValue
+                    ? `Showing availability from ${moment(rangeStartValue).format("MMM D")} to ${moment(rangeEndValue).format("MMM D")}.`
+                    : "Select a start and end date to filter sessions."}
+                </p>
+                {rangeError ? <p className="group-lessons-date-range__error">{rangeError}</p> : null}
+                <div className="group-lessons-date-range__actions">
+                  <button type="button" onClick={handleClearRange}>
+                    Clear
+                  </button>
+                  <button type="button" onClick={handleApplyRange}>
+                    Apply range
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <div className="player-calendar__content">
@@ -978,9 +1077,6 @@ const PlayerCalendar = () => {
               ) : lessonsByDate.length === 0 ? (
                 <div className="player-calendar__empty">
                   <p>No sessions match your filters in this date range.</p>
-                  <button type="button" onClick={handleResetFilters}>
-                    Reset filters
-                  </button>
                 </div>
               ) : (
                 lessonsByDate.map((entry) => (
