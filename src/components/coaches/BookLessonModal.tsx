@@ -154,10 +154,12 @@ const getDateDisplayMeta = (isoDate: string) => {
 
 type BookLessonModalProps = {
   coach: Coach;
+  coachOptions?: Coach[];
+  onCoachChange?: (coachId: number) => void;
   onClose: () => void;
 };
 
-const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
+const BookLessonModal = ({ coach, coachOptions, onCoachChange, onClose }: BookLessonModalProps) => {
   const [profile, setProfile] = useState<CoachProfile | undefined>();
   const [selection, setSelection] = useState<SelectionState>({
     day: ALL_DAYS_ID,
@@ -331,6 +333,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   const dateMenuId = useMemo(() => `book-lesson-date-menu-${coach.id}`, [coach.id]);
   const dateRangeHintId = useMemo(() => `book-lesson-date-hint-${coach.id}`, [coach.id]);
   const rangeErrorId = useMemo(() => `book-lesson-date-error-${coach.id}`, [coach.id]);
+  const coachSelectorId = useMemo(() => `book-lesson-coach-${coach.id}`, [coach.id]);
 
   useEffect(() => {
     if (!isDateMenuOpen) {
@@ -557,6 +560,32 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         </header>
 
         <div className="book-lesson-modal__body">
+          {coachOptions?.length ? (
+            <div className="book-lesson-modal__coach-picker">
+              <label className="book-lesson-modal__coach-label" htmlFor={coachSelectorId}>
+                Coach
+              </label>
+              <div className="book-lesson-modal__coach-select">
+                <select
+                  id={coachSelectorId}
+                  value={coach.id}
+                  onChange={(event) => {
+                    const nextId = Number.parseInt(event.target.value, 10);
+                    if (!Number.isNaN(nextId) && onCoachChange) {
+                      onCoachChange(nextId);
+                    }
+                  }}
+                >
+                  {coachOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} aria-hidden />
+              </div>
+            </div>
+          ) : null}
           {profile ? (
             <div className="book-lesson-modal__booking-surface">
               <div className="coach-booking__controls book-lesson-modal__controls">
