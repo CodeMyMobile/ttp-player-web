@@ -169,6 +169,47 @@
   min-height: 0;
 }
 
+.book-lesson-modal__coach-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.book-lesson-modal__coach-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fc-color-text-secondary, #4b5563);
+}
+
+.book-lesson-modal__coach-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--fc-color-surface, #ffffff);
+  border: 1px solid var(--fc-color-border-strong, rgba(148, 163, 184, 0.45));
+  border-radius: 12px;
+  padding: 0 12px;
+  min-height: 44px;
+  color: var(--fc-color-text-primary, #111827);
+}
+
+.book-lesson-modal__coach-select select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 500;
+  color: inherit;
+  width: 100%;
+  padding: 10px 0;
+  outline: none;
+}
+
+.book-lesson-modal__coach-select svg {
+  flex-shrink: 0;
+  color: var(--fc-color-icon, #475569);
+}
+
 .book-lesson-modal__booking-surface {
   display: flex;
   flex-direction: column;

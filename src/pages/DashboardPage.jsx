@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import BookLessonModal from "../components/coaches/BookLessonModal";
 import MainLayout from "../components/MainLayout";
+import { mockCoaches } from "../data/mockCoaches";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 
 const schedule = [
@@ -153,6 +155,13 @@ const quickActions = [
     action: "View Coaches",
     className: "coaches",
   },
+  {
+    id: "quick-book",
+    title: "Quick Book Lesson",
+    description: "Pick a coach and grab an open slot without leaving the dashboard.",
+    action: "Quick Book",
+    className: "quick-book",
+  },
 ];
 
 const matches = [
@@ -173,13 +182,6 @@ const matches = [
   },
 ];
 
-const coaches = [
-  { name: "Mia Roberts", speciality: "USTA Certified", rating: "4.9", sessions: "32 lessons" },
-  { name: "David Park", speciality: "High Performance", rating: "4.8", sessions: "28 lessons" },
-  { name: "Jamie Lee", speciality: "Junior Development", rating: "4.9", sessions: "19 lessons" },
-  { name: "Carlos Ramirez", speciality: "Serve Specialist", rating: "4.7", sessions: "24 lessons" },
-];
-
 const bottomActions = [
   {
     title: "AI Match Me",
@@ -198,6 +200,8 @@ const bottomActions = [
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { displayName } = usePlayerIdentity();
+  const [isQuickBookOpen, setIsQuickBookOpen] = useState(false);
+  const [selectedCoach, setSelectedCoach] = useState(null);
   const [locationState, setLocationState] = useState({
     status: "idle",
     coords: null,
@@ -209,6 +213,34 @@ const DashboardPage = () => {
   const [selectedRadius, setSelectedRadius] = useState("10 mi");
 
   const distanceOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+
+  const featuredCoaches = mockCoaches.slice(0, 4);
+
+  const defaultQuickBookCoach = featuredCoaches[0] ?? mockCoaches[0] ?? null;
+
+  const handleOpenQuickBook = (coachOverride = null) => {
+    const nextCoach = coachOverride ?? selectedCoach ?? defaultQuickBookCoach;
+    if (!nextCoach) {
+      return;
+    }
+
+    setSelectedCoach(nextCoach);
+    setIsQuickBookOpen(true);
+  };
+
+  const handleCloseQuickBook = () => {
+    setIsQuickBookOpen(false);
+    setSelectedCoach(null);
+  };
+
+  const handleCoachChange = (coachId) => {
+    const nextCoach = mockCoaches.find((coach) => coach.id === coachId);
+    if (!nextCoach) {
+      return;
+    }
+
+    setSelectedCoach(nextCoach);
+  };
 
   const formatCoordinatesLabel = (coords) => {
     if (!coords) {
@@ -223,7 +255,7 @@ const DashboardPage = () => {
     return `${latitude}° ${latHemisphere}, ${longitude}° ${lonHemisphere}`;
   };
 
-  const resolveLocationName = async (coords) => {
+  const resolveLocationName = useCallback(async (coords) => {
     if (!coords) {
       return;
     }
@@ -288,9 +320,9 @@ const DashboardPage = () => {
         };
       });
     }
-  };
+  }, []);
 
-  const detectLocation = () => {
+  const detectLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
       setLocationState({
         status: "error",
@@ -338,11 +370,11 @@ const DashboardPage = () => {
         });
       }
     );
-  };
+  }, [resolveLocationName]);
 
   useEffect(() => {
     detectLocation();
-  }, []);
+  }, [detectLocation]);
 
   const locationChipLabel = () => {
     if (locationState.status === "ready") {
@@ -514,16 +546,32 @@ const DashboardPage = () => {
               <button
                 type="button"
                 onClick={() => {
-                  if (action.id === "matches") {
-                    navigate("/matches");
-                    return;
-                  }
-                  if (action.id === "coaches") {
-                    navigate("/find-coaches");
+                  switch (action.id) {
+                    case "matches":
+                      navigate("/matches");
+                      break;
+                    case "players":
+                      navigate("/community");
+                      break;
+                    case "lessons":
+                      navigate("/group-lessons");
+                      break;
+                    case "coaches":
+                      navigate("/find-coaches");
+                      break;
+                    case "quick-book":
+                      if (isQuickBookOpen) {
+                        handleCloseQuickBook();
+                      } else {
+                        handleOpenQuickBook();
+                      }
+                      break;
+                    default:
+                      break;
                   }
                 }}
               >
-                {action.action}
+                {action.id === "quick-book" && isQuickBookOpen ? "Close" : action.action}
               </button>
             </article>
           ))}
@@ -573,14 +621,20 @@ const DashboardPage = () => {
           </button>
         </div>
         <div className="coaches-grid">
-          {coaches.map((coach) => (
-            <article key={coach.name} className="coach-card">
+          {featuredCoaches.map((coach) => (
+            <article key={coach.id} className="coach-card">
               <div className="coach-avatar">{coach.name.split(" ").map((part) => part[0]).join("")}</div>
               <div className="coach-name">{coach.name}</div>
-              <div className="coach-speciality">{coach.speciality}</div>
-              <div className="coach-speciality">{coach.sessions}</div>
-              <div className="rating">⭐ {coach.rating}</div>
-              <button type="button" className="coach-btn">
+              <div className="coach-speciality">{coach.title}</div>
+              <div className="coach-speciality">{coach.availability}</div>
+              <div className="rating">⭐ {coach.rating.toFixed(1)}</div>
+              <button
+                type="button"
+                className="coach-btn"
+                onClick={() => {
+                  handleOpenQuickBook(coach);
+                }}
+              >
                 Book Session
               </button>
             </article>
@@ -599,6 +653,14 @@ const DashboardPage = () => {
           </article>
         ))}
       </section>
+      {selectedCoach && isQuickBookOpen ? (
+        <BookLessonModal
+          coach={selectedCoach}
+          coachOptions={mockCoaches}
+          onCoachChange={handleCoachChange}
+          onClose={handleCloseQuickBook}
+        />
+      ) : null}
     </MainLayout>
   );
 };
