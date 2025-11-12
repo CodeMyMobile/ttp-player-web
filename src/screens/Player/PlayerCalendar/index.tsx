@@ -292,6 +292,27 @@ const PlayerCalendar = () => {
     [user],
   );
 
+  const applyShowcaseLessons = useCallback(() => {
+    setIsShowcaseMode(true);
+    setRawLessons(SHOWCASE_LESSONS);
+    setPlayerBookings(
+      SHOWCASE_LESSONS.filter((lesson) => Boolean(lesson.player_has_booking)).map((lesson) => lesson.id),
+    );
+    setDateRange((current) => {
+      const isStartAligned = current.start.isSame(SHOWCASE_DATE_RANGE.start, "day");
+      const isEndAligned = current.end.isSame(SHOWCASE_DATE_RANGE.end, "day");
+
+      if (isStartAligned && isEndAligned) {
+        return current;
+      }
+
+      return {
+        start: SHOWCASE_DATE_RANGE.start.clone(),
+        end: SHOWCASE_DATE_RANGE.end.clone(),
+      };
+    });
+  }, []);
+
   const themeVars = useMemo(
     () => ({
       "--fc-color-bg": colors.pageBackground,
@@ -419,20 +440,8 @@ const PlayerCalendar = () => {
     setError(null);
 
     if (!authToken) {
-      setIsShowcaseMode(true);
-      setRawLessons(SHOWCASE_LESSONS);
-      setPlayerBookings(
-        SHOWCASE_LESSONS.filter((lesson) => lesson.player_has_booking).map((lesson) => lesson.id),
-      );
-      const shouldSyncRange =
-        !dateRange.start.isSame(SHOWCASE_DATE_RANGE.start, "day") ||
-        !dateRange.end.isSame(SHOWCASE_DATE_RANGE.end, "day");
-      if (shouldSyncRange) {
-        setDateRange({
-          start: SHOWCASE_DATE_RANGE.start.clone(),
-          end: SHOWCASE_DATE_RANGE.end.clone(),
-        });
-      }
+      applyShowcaseLessons();
+      setError(null);
       setLoading(false);
       return;
     }
@@ -448,16 +457,27 @@ const PlayerCalendar = () => {
         fetchPlayerBookings({ token: authToken }),
       ]);
 
+      const fetchedLessons = lessonsResponse?.data ?? [];
+      const fetchedBookings = bookingsResponse?.data ?? [];
+
+      if (!fetchedLessons.length) {
+        applyShowcaseLessons();
+        setError("We couldn’t load live availability just yet, so here’s a sample schedule.");
+        return;
+      }
+
       setIsShowcaseMode(false);
-      setRawLessons(lessonsResponse?.data ?? []);
-      setPlayerBookings(bookingsResponse?.data ?? []);
+      setRawLessons(fetchedLessons);
+      setPlayerBookings(fetchedBookings);
+      setError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong while loading lessons.";
-      setError(message);
+      console.error("Failed to load player calendar", err);
+      applyShowcaseLessons();
+      setError("We couldn’t load live availability right now, so here’s a sample schedule.");
     } finally {
       setLoading(false);
     }
-  }, [authToken, dateRange.end, dateRange.start, searchQuery]);
+  }, [applyShowcaseLessons, authToken, dateRange.end, dateRange.start, searchQuery]);
 
   useEffect(() => {
     loadLessons();
