@@ -755,6 +755,10 @@
   background: linear-gradient(135deg, #facc15, #f97316);
 }
 
+.quick-card.quick-book {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+}
+
 .matches-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
