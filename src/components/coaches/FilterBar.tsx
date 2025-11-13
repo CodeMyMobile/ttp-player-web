@@ -7,6 +7,9 @@ type FilterBarProps = {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   onSearch: () => void;
+  locationLabel: string;
+  onLocationClick: () => void;
+  isLocationPickerOpen: boolean;
   radiusOptions: string[];
   selectedRadius: string;
   onRadiusChange: (value: string) => void;
@@ -46,6 +49,9 @@ const FilterBar = ({
   searchTerm,
   onSearchTermChange,
   onSearch,
+  locationLabel,
+  onLocationClick,
+  isLocationPickerOpen,
   radiusOptions,
   selectedRadius,
   onRadiusChange,
@@ -59,9 +65,18 @@ const FilterBar = ({
     <div className="fc-filter">
       <div className="fc-filter__distance-row">
         <div className="fc-filter__distance-group">
-          <button type="button" className="fc-distance-chip fc-distance-chip--location" aria-label="Selected location">
+          <button
+            type="button"
+            className={`fc-distance-chip fc-distance-chip--location${
+              isLocationPickerOpen ? " fc-distance-chip--active" : ""
+            }`}
+            aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
+            aria-expanded={isLocationPickerOpen}
+            aria-controls="coach-location-picker"
+            onClick={onLocationClick}
+          >
             <MapPin size={18} />
-            London, UK
+            {locationLabel || "Select location"}
           </button>
           {radiusOptions.map((radius) => (
             <button
