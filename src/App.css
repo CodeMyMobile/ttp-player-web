@@ -270,6 +270,7 @@
   margin: 0;
   font-size: 34px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .play-hero__subtitle {
@@ -277,6 +278,20 @@
   font-size: 17px;
   line-height: 1.5;
   color: #475569;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .play-hero__text {
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .play-hero__text h1,
+  .play-hero__subtitle {
+    white-space: normal;
+  }
 }
 
 .play-hero__status {
@@ -413,13 +428,19 @@
   gap: 12px;
 }
 
+.day-selector__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .day-selector__scroller {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  padding: 4px;
   margin: 0 -4px;
-  padding-left: 4px;
+  flex: 1 1 auto;
   scrollbar-width: thin;
 }
 
@@ -434,47 +455,50 @@
 
 .day-selector__day {
   flex: 0 0 auto;
-  min-width: 98px;
+  min-width: 136px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
-  padding: 12px 14px;
+  padding: 12px 18px;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: #f8fafc;
+  background: #ffffff;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 
 .day-selector__day:hover,
 .day-selector__day:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
   outline: none;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .day-selector__day.is-active {
   border-color: #12b76a;
   background: #ecfdf3;
-  color: #027a48;
+  color: #047857;
   box-shadow: 0 16px 32px rgba(16, 185, 129, 0.18);
 }
 
 .day-selector__day.is-empty {
-  background: #f1f5f9;
+  background: #f8fafc;
   border-color: rgba(148, 163, 184, 0.28);
   color: #94a3b8;
   box-shadow: none;
   transform: none;
 }
 
-.day-selector__day.is-empty.is-active {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  color: #475569;
+.day-selector__day.is-empty:hover,
+.day-selector__day.is-empty:focus-visible {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(148, 163, 184, 0.28);
 }
 
 .day-selector__label {
@@ -485,8 +509,12 @@
   color: #64748b;
 }
 
+.day-selector__day.is-active .day-selector__label {
+  color: #047857;
+}
+
 .day-selector__date {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: #0f172a;
 }
@@ -495,6 +523,51 @@
   font-size: 12px;
   font-weight: 500;
   color: #475569;
+}
+
+.day-selector__day.is-active .day-selector__events {
+  color: #047857;
+}
+
+.day-selector__view-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  color: #047857;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, color 0.18s ease;
+}
+
+.day-selector__view-all:hover {
+  border-color: #12b76a;
+  color: #065f46;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.18);
+  transform: translateY(-1px);
+}
+
+.day-selector__view-all:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+@media (max-width: 768px) {
+  .day-selector__controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .day-selector__view-all {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 .type-filter-bar {
@@ -553,6 +626,34 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.activity-feed__more {
+  display: flex;
+  justify-content: center;
+}
+
+.activity-feed__more-button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 28px;
+  background: #ecfdf3;
+  color: #047857;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.activity-feed__more-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(16, 185, 129, 0.18);
+  color: #065f46;
+}
+
+.activity-feed__more-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
 }
 
 .activity-card {

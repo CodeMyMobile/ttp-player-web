@@ -560,6 +560,7 @@ const DashboardPage = () => {
   });
   const [selectedDay, setSelectedDay] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [showAllActivities, setShowAllActivities] = useState(false);
   const [showQuickBook, setShowQuickBook] = useState(false);
 
   const distanceOptions = ["5", "10", "15", "20", "all"];
@@ -628,6 +629,15 @@ const DashboardPage = () => {
         moment(first.startTime).valueOf() - moment(second.startTime).valueOf(),
       );
   }, [activeFilter, selectedDay]);
+
+  useEffect(() => {
+    setShowAllActivities(false);
+  }, [activeFilter, selectedDay]);
+
+  const displayedActivities = showAllActivities
+    ? filteredActivities
+    : filteredActivities.slice(0, 3);
+  const remainingActivityCount = filteredActivities.length - displayedActivities.length;
 
   const selectedDayMeta = selectedDay === "all"
     ? null
@@ -909,38 +919,51 @@ const DashboardPage = () => {
                 </div>
               </div>
               <div className="day-selector">
-                <div className="day-selector__scroller">
+                <div className="day-selector__controls">
+                  <div
+                    className="day-selector__scroller"
+                    role="group"
+                    aria-label="Filter activities by day"
+                  >
+                    <button
+                      type="button"
+                      className={`day-selector__day${selectedDay === "all" ? " is-active" : ""}`}
+                      onClick={() => setSelectedDay("all")}
+                    >
+                      <span className="day-selector__label">All</span>
+                      <span className="day-selector__events">{activities.length} events</span>
+                    </button>
+                    {dayOptions.map((day) => {
+                      const classes = ["day-selector__day"];
+                      if (selectedDay === day.value) {
+                        classes.push("is-active");
+                      }
+                      if (day.events === 0) {
+                        classes.push("is-empty");
+                      }
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          className={classes.join(" ")}
+                          onClick={() => setSelectedDay(day.value)}
+                        >
+                          <span className="day-selector__label">{day.label}</span>
+                          <span className="day-selector__date">{day.date}</span>
+                          <span className="day-selector__events">
+                            {day.events} event{day.events === 1 ? "" : "s"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <button
                     type="button"
-                    className={`day-selector__day${selectedDay === "all" ? " is-active" : ""}`}
-                    onClick={() => setSelectedDay("all")}
+                    className="day-selector__view-all"
+                    onClick={() => navigate("/player/calendar")}
                   >
-                    <span className="day-selector__label">All</span>
-                    <span className="day-selector__events">{activities.length} events</span>
+                    View All
                   </button>
-                  {dayOptions.map((day) => {
-                    const classes = ["day-selector__day"];
-                    if (selectedDay === day.value) {
-                      classes.push("is-active");
-                    }
-                    if (day.events === 0) {
-                      classes.push("is-empty");
-                    }
-                    return (
-                      <button
-                        key={day.value}
-                        type="button"
-                        className={classes.join(" ")}
-                        onClick={() => setSelectedDay(day.value)}
-                      >
-                        <span className="day-selector__label">{day.label}</span>
-                        <span className="day-selector__date">{day.date}</span>
-                        <span className="day-selector__events">
-                          {day.events} event{day.events === 1 ? "" : "s"}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
               <div className="type-filter-bar">
@@ -1018,11 +1041,26 @@ const DashboardPage = () => {
             </div>
           </div>
         ) : (
-          <div className="activity-feed">
-            {filteredActivities.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} />
-            ))}
-          </div>
+          <>
+            <div className="activity-feed">
+              {displayedActivities.map((activity) => (
+                <ActivityCard key={activity.id} activity={activity} />
+              ))}
+            </div>
+            {filteredActivities.length > 3 ? (
+              <div className="activity-feed__more">
+                <button
+                  type="button"
+                  className="activity-feed__more-button"
+                  onClick={() => setShowAllActivities((previous) => !previous)}
+                >
+                  {showAllActivities
+                    ? "Show Less"
+                    : `Show More${remainingActivityCount > 0 ? ` (${remainingActivityCount})` : ""}`}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 
