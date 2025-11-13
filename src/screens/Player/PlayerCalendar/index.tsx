@@ -149,6 +149,8 @@ const PlayerCalendar = () => {
   const [coachScheduleLoading, setCoachScheduleLoading] = useState(false);
   const [coachLessonLoading, setCoachLessonLoading] = useState(false);
   const [visibleDates, setVisibleDates] = useState<Date[]>(() => buildWeekDates(new Date()));
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "next3" | "week">("all");
+  const [activityFilter, setActivityFilter] = useState<"all" | "lessons" | "booked" | "availability">("all");
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
@@ -467,6 +469,117 @@ const PlayerCalendar = () => {
     [availabilityEvents, lessonEvents],
   );
 
+  const timeFilterStats = useMemo(() => {
+    const now = moment();
+    const startOfToday = now.clone().startOf("day");
+    const endOfToday = now.clone().endOf("day");
+    const endOfNext3Days = now.clone().add(2, "days").endOf("day");
+    const startOfWeek = now.clone().startOf("isoWeek");
+    const endOfWeek = now.clone().endOf("isoWeek");
+
+    let today = 0;
+    let next3 = 0;
+    let week = 0;
+
+    calendarEvents.forEach((event) => {
+      const start = moment(event.start as Date);
+      if (start.isBetween(startOfToday, endOfToday, undefined, "[]")) {
+        today += 1;
+      }
+      if (start.isBetween(startOfToday, endOfNext3Days, undefined, "[]")) {
+        next3 += 1;
+      }
+      if (start.isBetween(startOfWeek, endOfWeek, undefined, "[]")) {
+        week += 1;
+      }
+    });
+
+    return {
+      total: calendarEvents.length,
+      today,
+      next3,
+      week,
+    };
+  }, [calendarEvents]);
+
+  const timeFilterOptions = useMemo(
+    () => [
+      { id: "all" as const, label: "All Activities", count: timeFilterStats.total },
+      { id: "today" as const, label: "Today", count: timeFilterStats.today },
+      { id: "next3" as const, label: "Next 3 Days", count: timeFilterStats.next3 },
+      { id: "week" as const, label: "This Week", count: timeFilterStats.week },
+    ],
+    [timeFilterStats],
+  );
+
+  const bookedLessonCount = useMemo(
+    () => lessonEvents.filter((event) => event.type === "booked").length,
+    [lessonEvents],
+  );
+
+  const activityFilterOptions = useMemo(
+    () => [
+      { id: "all" as const, label: "All Types", count: calendarEvents.length },
+      { id: "lessons" as const, label: "Lessons", count: lessonEvents.length },
+      { id: "booked" as const, label: "My Bookings", count: bookedLessonCount },
+      { id: "availability" as const, label: "Coach Availability", count: availabilityEvents.length },
+    ],
+    [availabilityEvents.length, bookedLessonCount, calendarEvents.length, lessonEvents.length],
+  );
+
+  const nextBookedLesson = useMemo(() => {
+    const now = moment();
+    const upcoming = lessonEvents
+      .filter((event) => event.type === "booked" && moment(event.start as Date).isSameOrAfter(now))
+      .sort((a, b) => moment(a.start as Date).diff(moment(b.start as Date)));
+    return upcoming[0] ?? null;
+  }, [lessonEvents]);
+
+  const filteredCalendarEvents = useMemo(() => {
+    const now = moment();
+    const startOfToday = now.clone().startOf("day");
+    const endOfToday = now.clone().endOf("day");
+    const endOfNext3Days = now.clone().add(2, "days").endOf("day");
+    const startOfWeek = now.clone().startOf("isoWeek");
+    const endOfWeek = now.clone().endOf("isoWeek");
+
+    return calendarEvents.filter((event) => {
+      const eventStart = moment(event.start as Date);
+
+      if (timeFilter === "today" && !eventStart.isBetween(startOfToday, endOfToday, undefined, "[]")) {
+        return false;
+      }
+
+      if (timeFilter === "next3" && !eventStart.isBetween(startOfToday, endOfNext3Days, undefined, "[]")) {
+        return false;
+      }
+
+      if (timeFilter === "week" && !eventStart.isBetween(startOfWeek, endOfWeek, undefined, "[]")) {
+        return false;
+      }
+
+      if (activityFilter === "lessons" && isAvailabilityEvent(event)) {
+        return false;
+      }
+
+      if (activityFilter === "availability" && !isAvailabilityEvent(event)) {
+        return false;
+      }
+
+      if (activityFilter === "booked") {
+        if (isAvailabilityEvent(event)) {
+          return false;
+        }
+        const lessonEvent = event as LessonEvent;
+        if (lessonEvent.type !== "booked") {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [activityFilter, calendarEvents, timeFilter]);
+
   const calendarBusy = loading || coachScheduleLoading || coachLessonLoading;
   const busyMessage = loading
     ? "Loading lessons..."
@@ -560,6 +673,18 @@ const PlayerCalendar = () => {
     },
     [],
   );
+
+  const handlePreviousDay = useCallback(
+    () => setCurrentDate((prevDate) => moment(prevDate).subtract(1, "day").toDate()),
+    [],
+  );
+
+  const handleNextDay = useCallback(
+    () => setCurrentDate((prevDate) => moment(prevDate).add(1, "day").toDate()),
+    [],
+  );
+
+  const handleResetToToday = useCallback(() => setCurrentDate(new Date()), []);
 
   const fallbackCoachOptions = useMemo(() => {
     const seen = new Map<number, string>();
@@ -736,94 +861,229 @@ const PlayerCalendar = () => {
     selectedLesson && determineEventType(selectedLesson, bookingSet);
 
   return (
-    <div className="player-calendar space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="player-calendar__header space-y-2">
-        <h1 className="player-calendar__title text-3xl font-semibold tracking-tight text-slate-900">
-          Find a Lesson
-        </h1>
-        <p className="player-calendar__subtitle text-base text-slate-600">
-          Browse open lesson times, see your bookings, and reserve a spot directly from the calendar.
-        </p>
-      </header>
+    <div className="player-calendar space-y-8 px-4 py-8 sm:px-6 lg:px-10">
+      <section className="player-calendar__hero space-y-6">
+        <div className="flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-indigo-50 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl space-y-4">
+            <span className="inline-flex w-max items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              Ready to play?
+            </span>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                What do you want to play today?
+              </h1>
+              <p className="text-base text-slate-600">
+                Find your next match, lesson, or workout. Filter by coach, location, or time and book in just a few clicks.
+              </p>
+            </div>
+          </div>
+          <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-white/60 bg-white/80 p-5 shadow-md shadow-emerald-100 backdrop-blur">
+            <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Next booking</span>
+            {nextBookedLesson ? (
+              <>
+                <p className="text-lg font-semibold text-slate-900">
+                  {formatLessonTitle(nextBookedLesson.resource)}
+                </p>
+                <div className="text-sm text-slate-600">
+                  {moment(nextBookedLesson.start as Date).format("dddd • MMM D, h:mm A")} –{" "}
+                  {moment(nextBookedLesson.end as Date).format("h:mm A")}
+                </div>
+                {nextBookedLesson.resource.location_name ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />
+                    {nextBookedLesson.resource.location_name}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-sm text-slate-600">
+                You don't have any upcoming bookings. Explore the schedule and reserve your next activity.
+              </p>
+            )}
+          </div>
+        </div>
 
-      <section className="flex flex-wrap items-end gap-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm shadow-slate-100">
-        <div className="flex min-w-[200px] flex-col gap-1">
-          <label htmlFor="coachFilter" className="text-sm font-medium text-slate-600">
-            Coach
-          </label>
-          <select
-            id="coachFilter"
-            value={coachFilter}
-            onChange={(event) => setCoachFilter(event.target.value)}
-            disabled={coachOptionsLoading && !displayedCoachOptions.length}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <option value="all">All coaches</option>
-            {displayedCoachOptions.map((coach) => (
-              <option key={coach.id} value={coach.id}>
-                {coach.name}
-              </option>
-            ))}
-            {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
-              <option value="" disabled>
-                Loading coaches…
-              </option>
-            ) : null}
-          </select>
-        </div>
-        <div className="flex min-w-[180px] flex-col gap-1">
-          <label htmlFor="levelFilter" className="text-sm font-medium text-slate-600">
-            Level
-          </label>
-          <select
-            id="levelFilter"
-            value={levelFilter}
-            onChange={(event) => setLevelFilter(event.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          >
-            {LESSON_LEVELS.map((level) => (
-              <option key={level.id} value={level.name}>
-                {level.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex min-w-[200px] flex-col gap-1">
-          <label htmlFor="locationFilter" className="text-sm font-medium text-slate-600">
-            Location
-          </label>
-          <select
-            id="locationFilter"
-            value={locationFilter}
-            onChange={(event) => setLocationFilter(event.target.value)}
-            disabled={locationOptionsLoading && !displayedLocationOptions.length}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <option value="all">All locations</option>
-            {displayedLocationOptions.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-            {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
-              <option value="" disabled>
-                Loading locations…
-              </option>
-            ) : null}
-          </select>
-        </div>
-        <div className="flex min-w-[220px] flex-1 flex-col gap-1">
-          <label htmlFor="searchLessons" className="text-sm font-medium text-slate-600">
-            Search
-          </label>
-          <input
-            id="searchLessons"
-            type="search"
-            placeholder="Search by coach, title, or location"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          />
+        <div className="grid gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-1 flex-col gap-2 sm:max-w-xs">
+                <label htmlFor="locationFilter" className="text-sm font-medium text-slate-600">
+                  Location
+                </label>
+                <select
+                  id="locationFilter"
+                  value={locationFilter}
+                  onChange={(event) => setLocationFilter(event.target.value)}
+                  disabled={locationOptionsLoading && !displayedLocationOptions.length}
+                  className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <option value="all">All locations</option>
+                  {displayedLocationOptions.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                  {locationOptionsLoading && displayedLocationOptions.length === 0 ? (
+                    <option value="" disabled>
+                      Loading locations…
+                    </option>
+                  ) : null}
+                </select>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-slate-600">Select day</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePreviousDay}
+                      aria-label="View previous day"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-500 transition hover:border-emerald-200 hover:text-emerald-600"
+                    >
+                      ‹
+                    </button>
+                    <div className="min-w-[160px] rounded-xl bg-slate-900/5 px-3 py-2 text-center text-sm font-semibold text-slate-900">
+                      {moment(currentDate).format("dddd, MMM D")}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleNextDay}
+                      aria-label="View next day"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-500 transition hover:border-emerald-200 hover:text-emerald-600"
+                    >
+                      ›
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetToToday}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-600"
+                    >
+                      Today
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-5 border-t border-slate-100 pt-5">
+              <div className="flex flex-col gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Timeframe</span>
+                <div className="flex flex-wrap gap-2">
+                  {timeFilterOptions.map((option) => {
+                    const isActive = timeFilter === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setTimeFilter(option.id)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          isActive
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-600"
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Activity type</span>
+                <div className="flex flex-wrap gap-2">
+                  {activityFilterOptions.map((option) => {
+                    const isActive = activityFilter === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setActivityFilter(option.id)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          isActive
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            isActive ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="coachFilter" className="text-sm font-medium text-slate-600">
+                Coach
+              </label>
+              <select
+                id="coachFilter"
+                value={coachFilter}
+                onChange={(event) => setCoachFilter(event.target.value)}
+                disabled={coachOptionsLoading && !displayedCoachOptions.length}
+                className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="all">All coaches</option>
+                {displayedCoachOptions.map((coach) => (
+                  <option key={coach.id} value={coach.id}>
+                    {coach.name}
+                  </option>
+                ))}
+                {coachOptionsLoading && displayedCoachOptions.length === 0 ? (
+                  <option value="" disabled>
+                    Loading coaches…
+                  </option>
+                ) : null}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="levelFilter" className="text-sm font-medium text-slate-600">
+                Level
+              </label>
+              <select
+                id="levelFilter"
+                value={levelFilter}
+                onChange={(event) => setLevelFilter(event.target.value)}
+                className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              >
+                {LESSON_LEVELS.map((level) => (
+                  <option key={level.id} value={level.name}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-1">
+              <label htmlFor="searchLessons" className="text-sm font-medium text-slate-600">
+                Search
+              </label>
+              <input
+                id="searchLessons"
+                type="search"
+                placeholder="Search by coach, title, or location"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -836,7 +1096,7 @@ const PlayerCalendar = () => {
       <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-200">
         <Calendar
           localizer={localizer}
-          events={calendarEvents}
+          events={filteredCalendarEvents}
           startAccessor="start"
           endAccessor="end"
           views={["week", "day"]}
