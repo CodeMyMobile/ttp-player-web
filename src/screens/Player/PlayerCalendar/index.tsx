@@ -90,6 +90,14 @@ const determineEventType = (lesson: Lesson, bookings: Set<number>): EventType =>
   return "available";
 };
 
+const parseFilterId = (value: string) => {
+  if (!value || value === "all") {
+    return undefined;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
 const formatLessonTitle = (lesson: Lesson) => {
   if (lesson.metadata?.title) return lesson.metadata.title;
   if (lesson.metadata_title) return lesson.metadata_title;
@@ -367,12 +375,18 @@ const PlayerCalendar = () => {
     setLoading(true);
     setError(null);
     try {
+      const coachIdParam = parseFilterId(coachFilter);
+      const locationIdParam = parseFilterId(locationFilter);
+      const levelParam = levelFilter && levelFilter !== "All" ? levelFilter : undefined;
       const [lessonsResponse, bookingsResponse] = await Promise.all([
         fetchAvailableLessons({
           token: authToken,
           start_date: startRange.format("YYYY-MM-DD"),
           end_date: endRange.format("YYYY-MM-DD"),
           search: searchQuery.trim() || undefined,
+          coach_id: coachIdParam,
+          location_id: locationIdParam,
+          level: levelParam,
         }),
         fetchPlayerBookings({ token: authToken }),
       ]);
@@ -386,7 +400,7 @@ const PlayerCalendar = () => {
     } finally {
       setLoading(false);
     }
-  }, [authToken, endRange, searchQuery, startRange]);
+  }, [authToken, coachFilter, endRange, levelFilter, locationFilter, searchQuery, startRange]);
 
   useEffect(() => {
     loadLessons();
