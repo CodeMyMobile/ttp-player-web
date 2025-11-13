@@ -921,10 +921,10 @@ const DashboardPage = () => {
                   {dayOptions.map((day) => {
                     const classes = ["day-selector__day"];
                     if (selectedDay === day.value) {
-                      classes.append("is-active");
+                      classes.push("is-active");
                     }
                     if (day.events === 0) {
-                      classes.append("is-empty");
+                      classes.push("is-empty");
                     }
                     return (
                       <button
