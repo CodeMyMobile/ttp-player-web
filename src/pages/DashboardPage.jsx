@@ -558,12 +558,22 @@ const DashboardPage = () => {
     items: [],
     error: null,
   });
-  const [selectedDay, setSelectedDay] = useState("all");
+  const [dateFilter, setDateFilter] = useState({ type: "all" });
+  const [isCustomRangeOpen, setIsCustomRangeOpen] = useState(false);
+  const [customRangeStart, setCustomRangeStart] = useState("");
+  const [customRangeEnd, setCustomRangeEnd] = useState("");
+  const [customRangeError, setCustomRangeError] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showQuickBook, setShowQuickBook] = useState(false);
 
   const distanceOptions = ["5", "10", "15", "20", "all"];
+  const todayAnchor = useMemo(() => moment().startOf("day"), []);
+  const todayIso = useMemo(() => todayAnchor.format("YYYY-MM-DD"), [todayAnchor]);
+  const maxSelectableDate = useMemo(
+    () => todayAnchor.clone().add(30, "days").format("YYYY-MM-DD"),
+    [todayAnchor],
+  );
 
   const dayOptions = useMemo(() => {
     const countsByDay = activities.reduce((accumulator, activity) => {
@@ -572,9 +582,8 @@ const DashboardPage = () => {
       return accumulator;
     }, {});
 
-    const today = moment().startOf("day");
     return Array.from({ length: 14 }).map((_, index) => {
-      const dayMoment = today.clone().add(index, "days");
+      const dayMoment = todayAnchor.clone().add(index, "days");
       const key = dayMoment.format("YYYY-MM-DD");
       const isToday = index === 0;
       const isTomorrow = index === 1;
@@ -587,17 +596,25 @@ const DashboardPage = () => {
         fullLabel: `${dayMoment.format("ddd, MMM D")}`,
       };
     });
-  }, []);
+  }, [todayAnchor]);
 
   const scopedActivities = useMemo(() => {
-    if (selectedDay === "all") {
-      return activities;
-    }
+    return activities.filter((activity) => {
+      if (dateFilter.type === "all") {
+        return true;
+      }
 
-    return activities.filter((activity) =>
-      moment(activity.startTime).startOf("day").format("YYYY-MM-DD") === selectedDay,
-    );
-  }, [selectedDay]);
+      const activityDay = moment(activity.startTime).startOf("day");
+
+      if (dateFilter.type === "day") {
+        return activityDay.format("YYYY-MM-DD") === dateFilter.iso;
+      }
+
+      const rangeStart = moment(dateFilter.start).startOf("day");
+      const rangeEnd = moment(dateFilter.end).endOf("day");
+      return activityDay.isBetween(rangeStart, rangeEnd, undefined, "[]");
+    });
+  }, [dateFilter]);
 
   const typeCounts = useMemo(() => {
     const base = scopedActivities;
@@ -617,40 +634,124 @@ const DashboardPage = () => {
   ];
 
   const filteredActivities = useMemo(() => {
-    return activities
-      .filter((activity) => {
-        const matchesType = activeFilter === "all" || activity.type === activeFilter;
-        const matchesDay =
-          selectedDay === "all" ||
-          moment(activity.startTime).startOf("day").format("YYYY-MM-DD") === selectedDay;
-        return matchesType && matchesDay;
-      })
+    return scopedActivities
+      .filter((activity) => activeFilter === "all" || activity.type === activeFilter)
       .sort((first, second) =>
         moment(first.startTime).valueOf() - moment(second.startTime).valueOf(),
       );
-  }, [activeFilter, selectedDay]);
+  }, [activeFilter, scopedActivities]);
 
   useEffect(() => {
     setShowAllActivities(false);
-  }, [activeFilter, selectedDay]);
+  }, [activeFilter, dateFilter]);
 
   const displayedActivities = showAllActivities
     ? filteredActivities
     : filteredActivities.slice(0, 3);
   const remainingActivityCount = filteredActivities.length - displayedActivities.length;
 
-  const selectedDayMeta = selectedDay === "all"
-    ? null
-    : dayOptions.find((option) => option.value === selectedDay) ?? null;
+  const selectedDayMeta =
+    dateFilter.type === "day"
+      ? dayOptions.find((option) => option.value === dateFilter.iso) ?? null
+      : null;
+
+  const dateFilterChipLabel = (() => {
+    if (dateFilter.type === "all") {
+      return "All Days";
+    }
+    if (dateFilter.type === "day") {
+      return selectedDayMeta?.fullLabel ?? "Selected Day";
+    }
+    const startLabel = moment(dateFilter.start).format("ddd, MMM D");
+    const endLabel = moment(dateFilter.end).format("ddd, MMM D");
+    return startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+  })();
+
+  const customRangeButtonLabel = (() => {
+    if (dateFilter.type !== "range") {
+      return "Choose dates";
+    }
+    const startLabel = moment(dateFilter.start).format("MMM D");
+    const endLabel = moment(dateFilter.end).format("MMM D");
+    const summary = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+    return `Custom: ${summary}`;
+  })();
+
+  const emptyStateMessage = (() => {
+    if (dateFilter.type === "all") {
+      return "Try adjusting your filters to discover more sessions.";
+    }
+    if (dateFilter.type === "day") {
+      const label = selectedDayMeta?.fullLabel ?? "this day";
+      return `Nothing is scheduled for ${label} with these filters. Try expanding your search.`;
+    }
+    const startFull = moment(dateFilter.start).format("ddd, MMM D");
+    const endFull = moment(dateFilter.end).format("ddd, MMM D");
+    if (dateFilter.start === dateFilter.end) {
+      return `Nothing is scheduled for ${startFull} with these filters. Try expanding your search.`;
+    }
+    return `Nothing is scheduled from ${startFull} to ${endFull} with these filters. Try expanding your search.`;
+  })();
 
   const activeFilterLabel =
-    activeFilter === "all" ? "All Activities" : activityTypeMeta[activeFilter]?.label ?? "All Activities";
+    activeFilter === "all"
+      ? "All Activities"
+      : activityTypeMeta[activeFilter]?.label ?? "All Activities";
 
-  const hasActiveFilters = selectedDay !== "all" || activeFilter !== "all";
+  const hasActiveFilters = dateFilter.type !== "all" || activeFilter !== "all";
 
   const clearFilters = () => {
-    setSelectedDay("all");
+    setDateFilter({ type: "all" });
     setActiveFilter("all");
+    setIsCustomRangeOpen(false);
+    setCustomRangeStart("");
+    setCustomRangeEnd("");
+    setCustomRangeError(null);
+  };
+
+  const handleToggleCustomRange = () => {
+    setIsCustomRangeOpen((open) => {
+      if (open) {
+        setCustomRangeError(null);
+        return false;
+      }
+
+      if (dateFilter.type === "range") {
+        setCustomRangeStart(dateFilter.start);
+        setCustomRangeEnd(dateFilter.end);
+      } else if (dateFilter.type === "day") {
+        setCustomRangeStart(dateFilter.iso);
+        setCustomRangeEnd(dateFilter.iso);
+      } else {
+        setCustomRangeStart(todayIso);
+        setCustomRangeEnd(todayIso);
+      }
+
+      setCustomRangeError(null);
+      return true;
+    });
+  };
+
+  const handleApplyCustomRange = () => {
+    if (!customRangeStart || !customRangeEnd) {
+      setCustomRangeError("Select both a start and end date.");
+      return;
+    }
+    if (customRangeStart > customRangeEnd) {
+      setCustomRangeError("Start date must be before the end date.");
+      return;
+    }
+    setCustomRangeError(null);
+    setDateFilter({ type: "range", start: customRangeStart, end: customRangeEnd });
+    setIsCustomRangeOpen(false);
+  };
+
+  const handleClearCustomRange = () => {
+    setCustomRangeStart("");
+    setCustomRangeEnd("");
+    setCustomRangeError(null);
+    setDateFilter({ type: "all" });
+    setIsCustomRangeOpen(false);
   };
 
   const formatDistanceLabel = (value) => (value === "all" ? "All" : `${value} mi`);
@@ -927,15 +1028,21 @@ const DashboardPage = () => {
                   >
                     <button
                       type="button"
-                      className={`day-selector__day${selectedDay === "all" ? " is-active" : ""}`}
-                      onClick={() => setSelectedDay("all")}
+                      className={`day-selector__day${dateFilter.type === "all" ? " is-active" : ""}`}
+                      onClick={() => {
+                        setDateFilter({ type: "all" });
+                        setIsCustomRangeOpen(false);
+                        setCustomRangeStart("");
+                        setCustomRangeEnd("");
+                        setCustomRangeError(null);
+                      }}
                     >
                       <span className="day-selector__label">All</span>
                       <span className="day-selector__events">{activities.length} events</span>
                     </button>
                     {dayOptions.map((day) => {
                       const classes = ["day-selector__day"];
-                      if (selectedDay === day.value) {
+                      if (dateFilter.type === "day" && dateFilter.iso === day.value) {
                         classes.push("is-active");
                       }
                       if (day.events === 0) {
@@ -946,7 +1053,13 @@ const DashboardPage = () => {
                           key={day.value}
                           type="button"
                           className={classes.join(" ")}
-                          onClick={() => setSelectedDay(day.value)}
+                          onClick={() => {
+                            setDateFilter({ type: "day", iso: day.value });
+                            setIsCustomRangeOpen(false);
+                            setCustomRangeStart(day.value);
+                            setCustomRangeEnd(day.value);
+                            setCustomRangeError(null);
+                          }}
                         >
                           <span className="day-selector__label">{day.label}</span>
                           <span className="day-selector__date">{day.date}</span>
@@ -957,14 +1070,74 @@ const DashboardPage = () => {
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
-                    className="day-selector__view-all"
-                    onClick={() => navigate("/player/calendar")}
-                  >
-                    View All
-                  </button>
+                  <div className="day-selector__actions">
+                    <button
+                      type="button"
+                      className={`day-selector__action${dateFilter.type === "range" ? " is-active" : ""}`}
+                      aria-expanded={isCustomRangeOpen}
+                      onClick={handleToggleCustomRange}
+                    >
+                      {customRangeButtonLabel}
+                    </button>
+                    <button
+                      type="button"
+                      className="day-selector__view-all"
+                      onClick={() => navigate("/player/calendar")}
+                    >
+                      View All
+                    </button>
+                  </div>
                 </div>
+                {isCustomRangeOpen ? (
+                  <div className="day-selector__range">
+                    <div className="day-selector__range-fields">
+                      <label className="day-selector__range-field">
+                        <span>Start</span>
+                        <input
+                          type="date"
+                          value={customRangeStart}
+                          min={todayIso}
+                          max={customRangeEnd || maxSelectableDate}
+                          onChange={(event) => {
+                            setCustomRangeStart(event.target.value);
+                            setCustomRangeError(null);
+                          }}
+                        />
+                      </label>
+                      <label className="day-selector__range-field">
+                        <span>End</span>
+                        <input
+                          type="date"
+                          value={customRangeEnd}
+                          min={customRangeStart || todayIso}
+                          max={maxSelectableDate}
+                          onChange={(event) => {
+                            setCustomRangeEnd(event.target.value);
+                            setCustomRangeError(null);
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <p className="day-selector__range-hint">
+                      {customRangeStart && customRangeEnd
+                        ? customRangeStart === customRangeEnd
+                          ? `Showing activities for ${moment(customRangeStart).format("MMM D")}.`
+                          : `Showing activities from ${moment(customRangeStart).format("MMM D")} to ${moment(customRangeEnd).format("MMM D")}.`
+                        : "Select a start and end date to filter activities."}
+                    </p>
+                    {customRangeError ? (
+                      <p className="day-selector__range-error">{customRangeError}</p>
+                    ) : null}
+                    <div className="day-selector__range-actions">
+                      <button type="button" onClick={handleClearCustomRange}>
+                        Clear
+                      </button>
+                      <button type="button" onClick={handleApplyCustomRange}>
+                        Apply range
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="type-filter-bar">
                 {typeFilterOptions.map((option) => (
@@ -992,21 +1165,26 @@ const DashboardPage = () => {
       </section>
 
       <section className="section activity-section" id="activities">
-        <div className="section-header">
+        <div className="section-header activity-section__header">
           <div>
             <h2 className="section-title">Available Activities</h2>
             <p className="section-subtitle">
               Browse matches, lessons, and group sessions starting soon near you.
             </p>
           </div>
+          <button
+            type="button"
+            className="section-cta activity-section__cta"
+            onClick={() => navigate("/player/calendar")}
+          >
+            See All
+          </button>
         </div>
         {hasActiveFilters ? (
           <div className="activity-active-filters">
             <span className="activity-active-filters__label">Showing:</span>
             <div className="activity-active-filters__chips">
-              <span className="activity-active-filters__chip">
-                {selectedDayMeta ? selectedDayMeta.fullLabel : "All Days"}
-              </span>
+              <span className="activity-active-filters__chip">{dateFilterChipLabel}</span>
               {activeFilter !== "all" ? (
                 <span className="activity-active-filters__chip">{activeFilterLabel}</span>
               ) : null}
@@ -1022,11 +1200,7 @@ const DashboardPage = () => {
               🎾
             </div>
             <h3>No activities scheduled</h3>
-            <p>
-              {selectedDayMeta
-                ? `Nothing is scheduled for ${selectedDayMeta.fullLabel} with these filters. Try expanding your search.`
-                : `Try adjusting your filters to discover more sessions.`}
-            </p>
+            <p>{emptyStateMessage}</p>
             <div className="activity-empty-state__actions">
               <button type="button" className="activity-empty-state__primary" onClick={clearFilters}>
                 View All Activities
@@ -1070,13 +1244,6 @@ const DashboardPage = () => {
             <h2 className="section-title">My Schedule</h2>
             <p className="section-subtitle">Your upcoming matches and coaching sessions for the day.</p>
           </div>
-          <button
-            type="button"
-            className="section-cta"
-            onClick={() => navigate("/player/calendar")}
-          >
-            View Calendar
-          </button>
         </div>
         {scheduleState.status === "loading" || scheduleState.status === "idle" ? (
           <div className="schedule-feedback">Loading your schedule…</div>

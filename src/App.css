@@ -430,8 +430,10 @@
 
 .day-selector__controls {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
 }
 
 .day-selector__scroller {
@@ -440,7 +442,8 @@
   overflow-x: auto;
   padding: 4px;
   margin: 0 -4px;
-  flex: 1 1 auto;
+  flex: 1 1 320px;
+  min-width: 0;
   scrollbar-width: thin;
 }
 
@@ -557,16 +560,170 @@
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
+.day-selector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.day-selector__action {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  color: #0f172a;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
+}
+
+.day-selector__action:hover,
+.day-selector__action:focus-visible {
+  border-color: #12b76a;
+  color: #047857;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.day-selector__action.is-active {
+  border-color: #12b76a;
+  background: #ecfdf3;
+  color: #047857;
+  box-shadow: 0 16px 32px rgba(16, 185, 129, 0.18);
+}
+
+.day-selector__range {
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: #f8fafc;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.day-selector__range-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.day-selector__range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.day-selector__range-field input {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: #ffffff;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.day-selector__range-field input:focus {
+  outline: none;
+  border-color: #12b76a;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+.day-selector__range-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.day-selector__range-error {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: #b42318;
+}
+
+.day-selector__range-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.day-selector__range-actions button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.day-selector__range-actions button:first-child {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.day-selector__range-actions button:first-child:hover,
+.day-selector__range-actions button:first-child:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.day-selector__range-actions button:last-child {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff;
+  box-shadow: 0 18px 34px -16px rgba(34, 197, 94, 0.55);
+}
+
+.day-selector__range-actions button:last-child:hover,
+.day-selector__range-actions button:last-child:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 40px -18px rgba(34, 197, 94, 0.6);
+  outline: none;
+}
+
 @media (max-width: 768px) {
   .day-selector__controls {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+  }
+
+  .day-selector__actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .day-selector__action {
+    width: 100%;
+    text-align: left;
   }
 
   .day-selector__view-all {
     width: 100%;
     justify-content: center;
     text-align: center;
+  }
+
+  .day-selector__range-actions {
+    justify-content: stretch;
+  }
+
+  .day-selector__range-actions button {
+    flex: 1 1 0;
   }
 }
 
@@ -614,6 +771,16 @@
   background: rgba(15, 23, 42, 0.08);
   font-size: 12px;
   font-weight: 600;
+}
+
+.activity-section__header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.activity-section__cta {
+  align-self: flex-start;
+  white-space: nowrap;
 }
 
 .activity-section {
