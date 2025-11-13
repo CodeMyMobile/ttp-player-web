@@ -1,9 +1,7 @@
+import { API_BASE_URL } from "../api/config";
 import { getStoredAuthToken, normalizeAuthToken } from "./authToken";
 
-const baseURL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "https://ttp-api.codemymobile.com/api";
+const baseURL = API_BASE_URL.replace(/\/+$/, "");
 
 const api = (path, options = {}) => {
   const {
@@ -47,7 +45,9 @@ const api = (path, options = {}) => {
 
   if (token) headers.Authorization = token;
   // Allow absolute URLs by not prefixing baseURL when path looks absolute
-  const url = /^https?:\/\//i.test(path) ? path : baseURL + path;
+  const isAbsolute = /^https?:\/\//i.test(path);
+  const relativePath = path.startsWith("/") ? path : `/${path}`;
+  const url = isAbsolute ? path : `${baseURL}${relativePath}`;
   // Default to no cookies to avoid CORS credential restrictions unless explicitly requested
   const credentials = providedCredentials ?? "omit";
   return fetch(url, {
