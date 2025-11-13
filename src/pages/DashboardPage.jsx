@@ -1,6 +1,6 @@
 import moment from "moment";
-import { useEffect, useState } from "react";
-import { MapPin } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, MapPin, Users, Zap, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getPlayerFutureGroupLessons, getPlayerFutureLessons } from "../api/playerHome";
 import MainLayout from "../components/MainLayout";
@@ -190,128 +190,316 @@ const buildScheduleItems = (lessons = [], type) =>
     })
     .filter(Boolean);
 
-const playColumns = [
+const activityTypeMeta = {
+  match: { label: "Match", emoji: "🎾", action: "Join Match" },
+  private: { label: "Private Lesson", emoji: "👤", action: "Book Now" },
+  group: { label: "Group Session", emoji: "👥", action: "Book Now" },
+};
+
+const activities = [
   {
-    id: "matches",
-    title: "Open Matches",
-    subtitle: "Competitive and social play near you.",
-    available: "12 available",
-    cta: "Browse Matches",
-    ctaPath: "/matches",
-    items: [
-      {
-        id: "match-1",
-        label: "Today · 5:30 PM",
-        title: "Sunset Rally at Riverside Courts",
-        meta: ["Advanced Doubles", "2 spots left"],
-        highlight: "Starting Soon",
-      },
-      {
-        id: "match-2",
-        label: "Sat · 10:00 AM",
-        title: "Competitive Singles at Beverly Hills Club",
-        meta: ["USTA 4.0", "90 min"],
-        spots: "4 spots left",
-      },
-      {
-        id: "match-3",
-        label: "Tomorrow · 7:15 PM",
-        title: "Mixed Doubles Ladder Night",
-        meta: ["City Center Courts", "Level 3.5 - 4.0"],
-      },
-    ],
+    id: "activity-match-1",
+    type: "match",
+    title: "Sunset Rally at Riverside Courts",
+    venue: "Riverside Courts",
+    distance: "2.4 mi",
+    level: "USTA 4.0",
+    durationMinutes: 90,
+    spotsRemaining: 2,
+    price: "$18",
+    badge: "Starting Soon",
+    startTime: moment().startOf("hour").add(2, "hours").toISOString(),
   },
   {
-    id: "lessons",
-    title: "Private Lessons",
-    subtitle: "One-on-one coaching with trusted pros.",
-    available: "8 available",
-    cta: "Book a Lesson",
-    ctaPath: "/find-coaches",
-    items: [
-      {
-        id: "lesson-1",
-        label: "Today · 4:30 PM",
-        title: "Coach Maria — Serve Technique",
-        meta: ["LA Tennis Complex", "60 min"],
-        highlight: "Featured",
-      },
-      {
-        id: "lesson-2",
-        label: "Tomorrow · 9:00 AM",
-        title: "Coach David — Match Strategy",
-        meta: ["Downtown Racquet Club", "90 min"],
-        spots: "1 spot open",
-      },
-      {
-        id: "lesson-3",
-        label: "Mon · 6:15 PM",
-        title: "Coach Jamie — Footwork Foundations",
-        meta: ["Westside Courts", "60 min"],
-      },
-    ],
+    id: "activity-private-1",
+    type: "private",
+    title: "Coach Maria — Serve Technique",
+    venue: "LA Tennis Complex",
+    distance: "3.1 mi",
+    level: "All Levels",
+    durationMinutes: 60,
+    spotsRemaining: 1,
+    price: "$95",
+    badge: "Featured",
+    startTime: moment().add(1, "day").startOf("hour").add(9, "hours").toISOString(),
   },
   {
-    id: "groups",
-    title: "Group Sessions",
-    subtitle: "High-energy clinics and programs.",
-    available: "7 available",
-    cta: "View Group Sessions",
-    ctaPath: "/group-lessons",
-    items: [
-      {
-        id: "group-1",
-        label: "Today · 7:00 PM",
-        title: "Cardio Tennis Workout",
-        meta: ["Fitness Center Courts", "All levels"],
-        highlight: "Popular",
-      },
-      {
-        id: "group-2",
-        label: "Tomorrow · 6:30 PM",
-        title: "Doubles Strategy Clinic",
-        meta: ["Harbor Point Club", "4 spots left"],
-      },
-      {
-        id: "group-3",
-        label: "Sun · 8:30 AM",
-        title: "Junior Development Squad",
-        meta: ["Meadowbrook Courts", "Ages 12-15"],
-      },
-    ],
+    id: "activity-group-1",
+    type: "group",
+    title: "Cardio Tennis Workout",
+    venue: "Fitness Center Courts",
+    distance: "1.8 mi",
+    level: "All Levels",
+    durationMinutes: 60,
+    spotsRemaining: 5,
+    price: "$25",
+    badge: "Popular",
+    startTime: moment().add(1, "day").hour(19).minute(0).toISOString(),
+  },
+  {
+    id: "activity-match-2",
+    type: "match",
+    title: "Mixed Doubles Ladder Night",
+    venue: "City Center Courts",
+    distance: "5.2 mi",
+    level: "Level 3.5 - 4.0",
+    durationMinutes: 120,
+    spotsRemaining: 4,
+    price: "$20",
+    startTime: moment().add(2, "days").hour(19).minute(30).toISOString(),
+  },
+  {
+    id: "activity-private-2",
+    type: "private",
+    title: "Coach David — Match Strategy",
+    venue: "Downtown Racquet Club",
+    distance: "4.0 mi",
+    level: "USTA 3.5+",
+    durationMinutes: 90,
+    spotsRemaining: 1,
+    price: "$110",
+    startTime: moment().add(3, "days").hour(9).minute(0).toISOString(),
+  },
+  {
+    id: "activity-group-2",
+    type: "group",
+    title: "Doubles Strategy Clinic",
+    venue: "Harbor Point Club",
+    distance: "7.4 mi",
+    level: "Intermediate",
+    durationMinutes: 75,
+    spotsRemaining: 3,
+    price: "$32",
+    startTime: moment().add(4, "days").hour(18).minute(30).toISOString(),
+  },
+  {
+    id: "activity-group-3",
+    type: "group",
+    title: "Junior Development Squad",
+    venue: "Meadowbrook Courts",
+    distance: "9.2 mi",
+    level: "Ages 12-15",
+    durationMinutes: 90,
+    spotsRemaining: 6,
+    price: "$28",
+    startTime: moment().add(5, "days").hour(8).minute(30).toISOString(),
+  },
+  {
+    id: "activity-match-3",
+    type: "match",
+    title: "Competitive Singles at Beverly Hills Club",
+    venue: "Beverly Hills Club",
+    distance: "6.5 mi",
+    level: "USTA 4.5",
+    durationMinutes: 90,
+    spotsRemaining: 1,
+    price: "$22",
+    badge: "Last Spots",
+    startTime: moment().add(6, "days").hour(10).minute(0).toISOString(),
   },
 ];
 
-const quickActions = [
+const quickBookCoaches = [
   {
-    id: "matches",
-    title: "Browse Matches",
-    description: "See upcoming matches and find the perfect competition.",
-    action: "Join Match",
-    className: "matches",
+    id: "quick-book-1",
+    name: "Mia Roberts",
+    rating: "4.9",
+    specialty: "Serve & Return",
+    nextAvailable: "Today · 6:00 PM",
+    price: "$95",
   },
   {
-    id: "players",
-    title: "Find Players",
-    description: "Connect with partners that match your skill level.",
-    action: "Find Players",
-    className: "players",
+    id: "quick-book-2",
+    name: "David Park",
+    rating: "4.8",
+    specialty: "High Performance",
+    nextAvailable: "Today · 7:30 PM",
+    price: "$105",
   },
   {
-    id: "lessons",
-    title: "Group Lessons",
-    description: "Level up your skills with small-group coaching.",
-    action: "View Lessons",
-    className: "groups",
+    id: "quick-book-3",
+    name: "Jamie Lee",
+    rating: "4.9",
+    specialty: "Junior Development",
+    nextAvailable: "Tomorrow · 8:00 AM",
+    price: "$90",
   },
   {
-    id: "coaches",
-    title: "Find Coaches",
-    description: "Explore top-rated coaches near you.",
-    action: "View Coaches",
-    className: "coaches",
+    id: "quick-book-4",
+    name: "Carlos Ramirez",
+    rating: "4.7",
+    specialty: "Serve Specialist",
+    nextAvailable: "Tomorrow · 4:45 PM",
+    price: "$88",
+  },
+  {
+    id: "quick-book-5",
+    name: "Ava Patel",
+    rating: "5.0",
+    specialty: "Doubles Strategy",
+    nextAvailable: "Friday · 5:15 PM",
+    price: "$120",
   },
 ];
+
+const formatRelativeStartLabel = (startTime) => {
+  const startMoment = moment(startTime);
+  const now = moment();
+  const diffMinutes = Math.max(0, startMoment.diff(now, "minutes"));
+
+  if (diffMinutes === 0) {
+    return "Starting now";
+  }
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  if (hours && minutes) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (hours) {
+    return `${hours}h`;
+  }
+
+  return `${minutes}m`;
+};
+
+const ActivityCard = ({ activity }) => {
+  const meta = activityTypeMeta[activity.type];
+  const startMoment = moment(activity.startTime);
+  const today = moment();
+  const isToday = startMoment.isSame(today, "day");
+  const isTomorrow = startMoment.isSame(today.clone().add(1, "day"), "day");
+  const dayLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : startMoment.format("ddd");
+  const relativeLabel = formatRelativeStartLabel(activity.startTime);
+  const spotsLabel =
+    typeof activity.spotsRemaining === "number"
+      ? `${activity.spotsRemaining} spot${activity.spotsRemaining === 1 ? "" : "s"} left`
+      : null;
+
+  return (
+    <article className={`activity-card activity-card--${activity.type}`}>
+      <header className="activity-card__header">
+        <div className="activity-card__type">
+          <span className="activity-card__type-icon" aria-hidden="true">
+            {meta.emoji}
+          </span>
+          <span>{meta.label}</span>
+        </div>
+        {activity.badge ? <span className="activity-card__badge">{activity.badge}</span> : null}
+      </header>
+      <h3 className="activity-card__title">{activity.title}</h3>
+      <div className="activity-card__info">
+        <div className="activity-card__info-row">
+          <Clock size={16} strokeWidth={2} />
+          <span>
+            {dayLabel} · {startMoment.format("h:mm A")}
+          </span>
+          <span className="activity-card__dot" aria-hidden="true">
+            •
+          </span>
+          <span>{relativeLabel}</span>
+        </div>
+        <div className="activity-card__info-row">
+          <MapPin size={16} strokeWidth={2} />
+          <span>{activity.venue}</span>
+          {activity.distance ? (
+            <>
+              <span className="activity-card__dot" aria-hidden="true">
+                •
+              </span>
+              <span>{activity.distance}</span>
+            </>
+          ) : null}
+        </div>
+        <div className="activity-card__info-row">
+          <Users size={16} strokeWidth={2} />
+          <span>{activity.level}</span>
+          {activity.durationMinutes ? (
+            <>
+              <span className="activity-card__dot" aria-hidden="true">
+                •
+              </span>
+              <span>{`${activity.durationMinutes} min`}</span>
+            </>
+          ) : null}
+        </div>
+      </div>
+      <footer className="activity-card__footer">
+        <div className="activity-card__footer-details">
+          {spotsLabel ? <span className="activity-card__spots">{spotsLabel}</span> : null}
+          {activity.price ? <span className="activity-card__price">{activity.price}</span> : null}
+        </div>
+        <button type="button" className="activity-card__action">
+          {meta.action}
+        </button>
+      </footer>
+    </article>
+  );
+};
+
+const QuickBookButton = ({ onClick, isOpen }) => (
+  <button
+    type="button"
+    className={`quick-book-button${isOpen ? " is-active" : ""}`}
+    onClick={onClick}
+    aria-label="Quick Book"
+  >
+    <Zap size={22} strokeWidth={2} />
+    <span>Quick Book</span>
+  </button>
+);
+
+const QuickBookModal = ({ coaches, onClose }) => (
+  <div className="quick-book-overlay" role="dialog" aria-modal="true" aria-labelledby="quick-book-title">
+    <div className="quick-book-overlay__backdrop" onClick={onClose} />
+    <div className="quick-book-modal" role="document">
+      <header className="quick-book-modal__header">
+        <div>
+          <h2 id="quick-book-title">Quick Book a Lesson</h2>
+          <p className="quick-book-modal__subtitle">
+            Book with one of our featured coaches right now
+          </p>
+        </div>
+        <button type="button" className="quick-book-modal__close" onClick={onClose} aria-label="Close">
+          <X size={18} strokeWidth={2} />
+        </button>
+      </header>
+      <div className="quick-book-modal__body">
+        {coaches.map((coach) => (
+          <article key={coach.id} className="quick-book-coach">
+            <div className="quick-book-coach__avatar" aria-hidden="true">
+              {coach.name
+                .split(" ")
+                .map((part) => part.charAt(0))
+                .join("")}
+            </div>
+            <div className="quick-book-coach__details">
+              <div className="quick-book-coach__top-row">
+                <span className="quick-book-coach__name">{coach.name}</span>
+                <span className="quick-book-coach__rating">⭐ {coach.rating}</span>
+              </div>
+              <div className="quick-book-coach__specialty">{coach.specialty}</div>
+              <div className="quick-book-coach__availability">Next available · <span>{coach.nextAvailable}</span></div>
+            </div>
+            <div className="quick-book-coach__cta">
+              <div className="quick-book-coach__price">{coach.price}</div>
+              <button type="button" className="quick-book-coach__button">
+                Book Now
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <footer className="quick-book-modal__footer">
+        <button type="button" className="quick-book-modal__link">
+          View All Coaches →
+        </button>
+      </footer>
+    </div>
+  </div>
+);
 
 const matches = [
   {
@@ -364,14 +552,98 @@ const DashboardPage = () => {
     locationName: null,
     lookupFailed: false,
   });
-  const [selectedRadius, setSelectedRadius] = useState("10 mi");
+  const [distanceFilter, setDistanceFilter] = useState("10");
   const [scheduleState, setScheduleState] = useState({
     status: "idle",
     items: [],
     error: null,
   });
+  const [selectedDay, setSelectedDay] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [showQuickBook, setShowQuickBook] = useState(false);
 
-  const distanceOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+  const distanceOptions = ["5", "10", "15", "20", "all"];
+
+  const dayOptions = useMemo(() => {
+    const countsByDay = activities.reduce((accumulator, activity) => {
+      const key = moment(activity.startTime).startOf("day").format("YYYY-MM-DD");
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {});
+
+    const today = moment().startOf("day");
+    return Array.from({ length: 14 }).map((_, index) => {
+      const dayMoment = today.clone().add(index, "days");
+      const key = dayMoment.format("YYYY-MM-DD");
+      const isToday = index === 0;
+      const isTomorrow = index === 1;
+
+      return {
+        value: key,
+        label: isToday ? "Today" : isTomorrow ? "Tomorrow" : dayMoment.format("ddd"),
+        date: dayMoment.format("D"),
+        events: countsByDay[key] || 0,
+        fullLabel: `${dayMoment.format("ddd, MMM D")}`,
+      };
+    });
+  }, []);
+
+  const scopedActivities = useMemo(() => {
+    if (selectedDay === "all") {
+      return activities;
+    }
+
+    return activities.filter((activity) =>
+      moment(activity.startTime).startOf("day").format("YYYY-MM-DD") === selectedDay,
+    );
+  }, [selectedDay]);
+
+  const typeCounts = useMemo(() => {
+    const base = scopedActivities;
+    return {
+      all: base.length,
+      match: base.filter((activity) => activity.type === "match").length,
+      private: base.filter((activity) => activity.type === "private").length,
+      group: base.filter((activity) => activity.type === "group").length,
+    };
+  }, [scopedActivities]);
+
+  const typeFilterOptions = [
+    { id: "all", label: "All Activities" },
+    { id: "match", label: "Matches" },
+    { id: "private", label: "Private Lessons" },
+    { id: "group", label: "Group Sessions" },
+  ];
+
+  const filteredActivities = useMemo(() => {
+    return activities
+      .filter((activity) => {
+        const matchesType = activeFilter === "all" || activity.type === activeFilter;
+        const matchesDay =
+          selectedDay === "all" ||
+          moment(activity.startTime).startOf("day").format("YYYY-MM-DD") === selectedDay;
+        return matchesType && matchesDay;
+      })
+      .sort((first, second) =>
+        moment(first.startTime).valueOf() - moment(second.startTime).valueOf(),
+      );
+  }, [activeFilter, selectedDay]);
+
+  const selectedDayMeta = selectedDay === "all"
+    ? null
+    : dayOptions.find((option) => option.value === selectedDay) ?? null;
+
+  const activeFilterLabel =
+    activeFilter === "all" ? "All Activities" : activityTypeMeta[activeFilter]?.label ?? "All Activities";
+
+  const hasActiveFilters = selectedDay !== "all" || activeFilter !== "all";
+
+  const clearFilters = () => {
+    setSelectedDay("all");
+    setActiveFilter("all");
+  };
+
+  const formatDistanceLabel = (value) => (value === "all" ? "All" : `${value} mi`);
 
   const formatCoordinatesLabel = (coords) => {
     if (!coords) {
@@ -582,7 +854,7 @@ const DashboardPage = () => {
         return formatCoordinatesLabel(locationState.coords);
       }
 
-      return "Your area";
+      return "Los Angeles, California, US";
     }
 
     if (locationState.status === "loading") {
@@ -593,7 +865,7 @@ const DashboardPage = () => {
       return "Location unavailable";
     }
 
-    return "Use my location";
+    return "Los Angeles, California, US";
   };
 
   return (
@@ -624,19 +896,65 @@ const DashboardPage = () => {
                     <MapPin size={16} strokeWidth={2} />
                     <span>{locationChipLabel()}</span>
                   </button>
-                  {distanceOptions.map((radius) => (
+                  {distanceOptions.map((value) => (
                     <button
-                      key={radius}
+                      key={value}
                       type="button"
-                      className={`play-hero__distance-chip${
-                        selectedRadius === radius ? " play-hero__distance-chip--active" : ""
-                      }`}
-                      onClick={() => setSelectedRadius(radius)}
+                      className={`play-hero__distance-chip${distanceFilter === value ? " play-hero__distance-chip--active" : ""}`}
+                      onClick={() => setDistanceFilter(value)}
                     >
-                      {radius}
+                      {formatDistanceLabel(value)}
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="day-selector">
+                <div className="day-selector__scroller">
+                  <button
+                    type="button"
+                    className={`day-selector__day${selectedDay === "all" ? " is-active" : ""}`}
+                    onClick={() => setSelectedDay("all")}
+                  >
+                    <span className="day-selector__label">All</span>
+                    <span className="day-selector__events">{activities.length} events</span>
+                  </button>
+                  {dayOptions.map((day) => {
+                    const classes = ["day-selector__day"];
+                    if (selectedDay === day.value) {
+                      classes.append("is-active");
+                    }
+                    if (day.events === 0) {
+                      classes.append("is-empty");
+                    }
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        className={classes.join(" ")}
+                        onClick={() => setSelectedDay(day.value)}
+                      >
+                        <span className="day-selector__label">{day.label}</span>
+                        <span className="day-selector__date">{day.date}</span>
+                        <span className="day-selector__events">
+                          {day.events} event{day.events === 1 ? "" : "s"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="type-filter-bar">
+                {typeFilterOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`type-filter-bar__chip${activeFilter === option.id ? " is-active" : ""}`}
+                    onClick={() => setActiveFilter(option.id)}
+                  >
+                    <span>{option.label}</span>
+                    <span className="type-filter-bar__count">{typeCounts[option.id] ?? 0}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -648,52 +966,68 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
-        <div className="play-hero__grid">
-          {playColumns.map((column) => (
-            <article key={column.id} className={`play-card ${column.id}`}>
-              <header className="play-card__header">
-                <div>
-                  <h2 className="play-card__title">{column.title}</h2>
-                  <p className="play-card__subtitle">{column.subtitle}</p>
-                </div>
-                <span className="play-card__count">{column.available}</span>
-              </header>
-              <ul className="play-card__list">
-                {column.items.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`play-card__item${item.highlight ? " is-highlight" : ""}`}
-                  >
-                    <div className="play-card__item-top">
-                      <span className="play-card__label">{item.label}</span>
-                      {item.highlight ? <span className="play-card__pill">{item.highlight}</span> : null}
-                    </div>
-                    <div className="play-card__item-title">{item.title}</div>
-                    <div className="play-card__meta">
-                      {item.meta.map((meta) => (
-                        <span key={meta}>{meta}</span>
-                      ))}
-                    </div>
-                    {item.spots ? <div className="play-card__spots">{item.spots}</div> : null}
-                  </li>
-                ))}
-              </ul>
-              <footer className="play-card__footer">
-                <button
-                  type="button"
-                  className="play-card__cta"
-                  onClick={() => navigate(column.ctaPath)}
-                >
-                  {column.cta}
-                </button>
-              </footer>
-            </article>
-          ))}
+      </section>
+
+      <section className="section activity-section" id="activities">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Available Activities</h2>
+            <p className="section-subtitle">
+              Browse matches, lessons, and group sessions starting soon near you.
+            </p>
+          </div>
         </div>
+        {hasActiveFilters ? (
+          <div className="activity-active-filters">
+            <span className="activity-active-filters__label">Showing:</span>
+            <div className="activity-active-filters__chips">
+              <span className="activity-active-filters__chip">
+                {selectedDayMeta ? selectedDayMeta.fullLabel : "All Days"}
+              </span>
+              {activeFilter !== "all" ? (
+                <span className="activity-active-filters__chip">{activeFilterLabel}</span>
+              ) : null}
+            </div>
+            <button type="button" className="activity-active-filters__clear" onClick={clearFilters}>
+              Clear all
+            </button>
+          </div>
+        ) : null}
+        {filteredActivities.length === 0 ? (
+          <div className="activity-empty-state">
+            <div className="activity-empty-state__icon" aria-hidden="true">
+              🎾
+            </div>
+            <h3>No activities scheduled</h3>
+            <p>
+              {selectedDayMeta
+                ? `Nothing is scheduled for ${selectedDayMeta.fullLabel} with these filters. Try expanding your search.`
+                : `Try adjusting your filters to discover more sessions.`}
+            </p>
+            <div className="activity-empty-state__actions">
+              <button type="button" className="activity-empty-state__primary" onClick={clearFilters}>
+                View All Activities
+              </button>
+              <button
+                type="button"
+                className="activity-empty-state__secondary"
+                onClick={() => navigate("/matches/create")}
+              >
+                Create New Match
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="activity-feed">
+            {filteredActivities.map((activity) => (
+              <ActivityCard key={activity.id} activity={activity} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section" id="schedule">
-        <div className="section-header">
+        <div className="section-header schedule-header">
           <div>
             <h2 className="section-title">My Schedule</h2>
             <p className="section-subtitle">Your upcoming matches and coaching sessions for the day.</p>
@@ -719,58 +1053,29 @@ const DashboardPage = () => {
             You don&rsquo;t have any upcoming lessons yet. Book a session to get started!
           </div>
         ) : (
-          <div className="schedule-grid">
-            {scheduleState.items.map((item) => (
-              <article key={item.id} className={`schedule-card${item.highlight ? " primary" : ""}`}>
-                <div className="schedule-time">
+          <div className="schedule-condensed">
+            {scheduleState.items.slice(0, 3).map((item) => (
+              <article key={item.id} className="schedule-condensed__card">
+                <div className="schedule-condensed__time">
                   <span>{item.timeLabel}</span>
                   <span>{item.secondaryLabel}</span>
                 </div>
-                <div>
-                  <div className="schedule-title">{item.title}</div>
-                  {item.coachLabel ? <div className="schedule-meta">{item.coachLabel}</div> : null}
-                  {item.locationLabel ? <div className="schedule-meta">{item.locationLabel}</div> : null}
-                  {item.durationLabel ? <div className="schedule-meta">⏱ {item.durationLabel}</div> : null}
+                <div className="schedule-condensed__details">
+                  <div className="schedule-condensed__title">{item.title}</div>
+                  {item.coachLabel ? <div className="schedule-condensed__meta">{item.coachLabel}</div> : null}
+                  {item.locationLabel ? <div className="schedule-condensed__meta">{item.locationLabel}</div> : null}
+                  {item.durationLabel ? (
+                    <div className="schedule-condensed__meta">⏱ {item.durationLabel}</div>
+                  ) : null}
                 </div>
-                {item.badgeLabel ? <div className="tag">{item.badgeLabel}</div> : null}
-                {item.statusLabel ? <div className="status-badge">{item.statusLabel}</div> : null}
+                <div className="schedule-condensed__aside">
+                  {item.badgeLabel ? <div className="tag">{item.badgeLabel}</div> : null}
+                  {item.statusLabel ? <div className="status-badge">{item.statusLabel}</div> : null}
+                </div>
               </article>
             ))}
           </div>
         )}
-      </section>
-
-      <section className="section" id="quick-actions">
-        <div className="section-header">
-          <div>
-            <h2 className="section-title">Quick Actions</h2>
-            <p className="section-subtitle">Find matches, players, and coaching in just a few taps.</p>
-          </div>
-        </div>
-        <div className="quick-actions-grid">
-          {quickActions.map((action) => (
-            <article key={action.id} className={`quick-card ${action.className}`} id={action.id}>
-              <div>
-                <div className="title">{action.title}</div>
-                <div className="description">{action.description}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (action.id === "matches") {
-                    navigate("/matches");
-                    return;
-                  }
-                  if (action.id === "coaches") {
-                    navigate("/find-coaches");
-                  }
-                }}
-              >
-                {action.action}
-              </button>
-            </article>
-          ))}
-        </div>
       </section>
 
       <section className="section" id="matches">
@@ -842,6 +1147,10 @@ const DashboardPage = () => {
           </article>
         ))}
       </section>
+      <QuickBookButton onClick={() => setShowQuickBook(true)} isOpen={showQuickBook} />
+      {showQuickBook ? (
+        <QuickBookModal coaches={quickBookCoaches} onClose={() => setShowQuickBook(false)} />
+      ) : null}
     </MainLayout>
   );
 };
