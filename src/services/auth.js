@@ -1,9 +1,8 @@
+import { API_BASE_URL } from "../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
 
-const AUTH_BASE =
-  import.meta.env.VITE_API_URL ||
-  "https://ttp-api.codemymobile.com/api";
+const AUTH_BASE = API_BASE_URL.replace(/\/+$/, "");
 
 export const login = async (email, password) => {
   const data = await unwrap(

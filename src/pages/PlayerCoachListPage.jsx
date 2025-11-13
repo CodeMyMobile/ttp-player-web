@@ -21,16 +21,13 @@ import {
   Users2,
 } from "lucide-react";
 import api, { unwrap } from "../services/api";
+import { API_BASE_URL } from "../api/config";
 import { useAuth } from "../context/AuthContext";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import "./PlayerCoachListPage.css";
 
 const PER_PAGE = 10;
 const DEFAULT_RADIUS = 10;
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "https://ttp-api.codemymobile.com/api";
 const DYNAMIC_FILTERS_ENDPOINT =
   import.meta.env.VITE_PLAYER_FILTERS_ENDPOINT ?? "/player/filters";
 const ENABLE_DYNAMIC_FILTERS =
