@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { CalendarDays, MapPin, Timer, UserRound, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, MapPin, Timer, UserRound, X } from "lucide-react";
 
 import type { GroupLesson } from "../../data/mockGroupLessons";
 
@@ -37,6 +37,10 @@ const formatDateForICS = (date: Date, withZulu = false) => {
   const seconds = padNumber(date.getSeconds());
   return `${year}${month}${day}T${hours}${minutes}${seconds}${withZulu ? "Z" : ""}`;
 };
+
+const formatDateForGoogle = (date: Date) => date.toISOString().replace(/[-:]|\.\d{3}/g, "");
+
+const formatDateForMicrosoft = (date: Date) => date.toISOString();
 
 const parseLessonStart = (lesson: GroupLesson) => {
   const currentYear = new Date().getFullYear();
@@ -96,7 +100,64 @@ const GroupLessonConfirmationModal = ({ lesson, onClose }: GroupLessonConfirmati
     };
   }, [onClose]);
 
-  const handleAddToCalendar = () => {
+  const startDate = parseLessonStart(lesson);
+  const endDate = startDate ? new Date(startDate.getTime() + lesson.durationMinutes * 60 * 1000) : undefined;
+  const locationLabel = [lesson.locationName, lesson.locationCity].filter(Boolean).join(", ");
+  const canCreateCalendarEvent = Boolean(startDate && endDate);
+
+  const handleGoogleCalendar = () => {
+    if (!canCreateCalendarEvent || !startDate || !endDate) {
+      return;
+    }
+
+    const start = formatDateForGoogle(startDate);
+    const end = formatDateForGoogle(endDate);
+    const baseUrl = "https://calendar.google.com/calendar/render";
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: lesson.title,
+      dates: `${start}/${end}`,
+    });
+
+    if (lesson.description) {
+      params.set("details", lesson.description);
+    }
+
+    if (locationLabel) {
+      params.set("location", locationLabel);
+    }
+
+    window.open(`${baseUrl}?${params.toString()}`, "_blank", "noopener");
+  };
+
+  const handleMicrosoftCalendar = () => {
+    if (!canCreateCalendarEvent || !startDate || !endDate) {
+      return;
+    }
+
+    const baseUrl = "https://outlook.live.com/calendar/0/deeplink/compose";
+    const params = new URLSearchParams({
+      subject: lesson.title,
+      startdt: formatDateForMicrosoft(startDate),
+      enddt: formatDateForMicrosoft(endDate),
+    });
+
+    if (lesson.description) {
+      params.set("body", lesson.description);
+    }
+
+    if (locationLabel) {
+      params.set("location", locationLabel);
+    }
+
+    window.open(`${baseUrl}?${params.toString()}`, "_blank", "noopener");
+  };
+
+  const handleICalDownload = () => {
+    if (!canCreateCalendarEvent) {
+      return;
+    }
+
     const icsContent = buildICSFile(lesson);
     if (!icsContent) {
       return;
@@ -166,12 +227,35 @@ const GroupLessonConfirmationModal = ({ lesson, onClose }: GroupLessonConfirmati
               <span className="group-lesson-confirmation__price-label">Total paid</span>
               <span className="group-lesson-confirmation__price-value">{lesson.pricePerPlayer}</span>
             </div>
-            <button type="button" className="group-lesson-confirmation__calendar" onClick={handleAddToCalendar}>
-              <CalendarDays size={18} aria-hidden /> Add to calendar
-            </button>
-            <p className="group-lesson-confirmation__policy">
-              Need to make a change? Cancel up to 24 hours in advance for a full credit back to your account.
-            </p>
+            <div className="group-lesson-confirmation__calendar">
+              <h4>Add to your calendar</h4>
+              <p>Keep the lesson on your radar with a single click.</p>
+              <div className="group-lesson-confirmation__calendar-actions">
+                <button type="button" onClick={handleGoogleCalendar} disabled={!canCreateCalendarEvent}>
+                  <CalendarDays size={18} aria-hidden /> Google Calendar
+                </button>
+                <button type="button" onClick={handleICalDownload} disabled={!canCreateCalendarEvent}>
+                  <CalendarPlus size={18} aria-hidden /> Apple Calendar (ICS)
+                </button>
+                <button type="button" onClick={handleMicrosoftCalendar} disabled={!canCreateCalendarEvent}>
+                  <CalendarPlus size={18} aria-hidden /> Microsoft Outlook
+                </button>
+              </div>
+              {!canCreateCalendarEvent ? (
+                <p className="group-lesson-confirmation__calendar-hint">
+                  Calendar links will be available once the schedule is finalized.
+                </p>
+              ) : null}
+            </div>
+            <div className="group-lesson-confirmation__policy" role="note" aria-label="24-hour cancellation policy">
+              <AlertCircle aria-hidden className="group-lesson-confirmation__policy-icon" />
+              <div>
+                <span className="group-lesson-confirmation__policy-title">24-hour cancellation policy</span>
+                <p className="group-lesson-confirmation__policy-text">
+                  Need to make a change? Cancel up to 24 hours in advance for a full credit back to your account.
+                </p>
+              </div>
+            </div>
           </aside>
         </div>
       </div>
