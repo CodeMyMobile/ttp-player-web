@@ -155,25 +155,72 @@
 }
 
 .group-lesson-confirmation__calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.1), rgba(14, 165, 233, 0.06));
+  border: 1px solid rgba(14, 165, 233, 0.16);
+}
+
+.group-lesson-confirmation__calendar h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.group-lesson-confirmation__calendar p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.group-lesson-confirmation__calendar-hint {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.group-lesson-confirmation__calendar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-lesson-confirmation__calendar-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   border: none;
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 11px 16px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   background: #0ea5e9;
   color: #fff;
   transition: background 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.26);
+  box-shadow: 0 10px 24px rgba(14, 165, 233, 0.22);
 }
 
-.group-lesson-confirmation__calendar:hover {
+.group-lesson-confirmation__calendar-actions button svg {
+  flex-shrink: 0;
+}
+
+.group-lesson-confirmation__calendar-actions button:hover:not(:disabled),
+.group-lesson-confirmation__calendar-actions button:focus-visible:not(:disabled) {
   background: #0284c7;
   transform: translateY(-1px);
+}
+
+.group-lesson-confirmation__calendar-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
 }
 
 .group-lesson-confirmation__policy {
@@ -208,6 +255,10 @@
 
   .group-lesson-confirmation__actions {
     padding: 18px;
+  }
+
+  .group-lesson-confirmation__calendar {
+    padding: 14px;
   }
 
   .group-lesson-confirmation__header h2 {
