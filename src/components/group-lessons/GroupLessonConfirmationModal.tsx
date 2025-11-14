@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { CalendarDays, CalendarPlus, MapPin, Timer, UserRound, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, MapPin, Timer, UserRound, X } from "lucide-react";
 
 import type { GroupLesson } from "../../data/mockGroupLessons";
 
@@ -247,9 +247,15 @@ const GroupLessonConfirmationModal = ({ lesson, onClose }: GroupLessonConfirmati
                 </p>
               ) : null}
             </div>
-            <p className="group-lesson-confirmation__policy">
-              Need to make a change? Cancel up to 24 hours in advance for a full credit back to your account.
-            </p>
+            <div className="group-lesson-confirmation__policy" role="note" aria-label="24-hour cancellation policy">
+              <AlertCircle aria-hidden className="group-lesson-confirmation__policy-icon" />
+              <div>
+                <span className="group-lesson-confirmation__policy-title">24-hour cancellation policy</span>
+                <p className="group-lesson-confirmation__policy-text">
+                  Need to make a change? Cancel up to 24 hours in advance for a full credit back to your account.
+                </p>
+              </div>
+            </div>
           </aside>
         </div>
       </div>

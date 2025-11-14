@@ -224,10 +224,36 @@
 }
 
 .group-lesson-confirmation__policy {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(140deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.06));
+  border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.group-lesson-confirmation__policy-icon {
+  color: #ef4444;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.group-lesson-confirmation__policy-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #991b1b;
+  margin-bottom: 6px;
+}
+
+.group-lesson-confirmation__policy-text {
   margin: 0;
   font-size: 13px;
-  line-height: 1.5;
-  color: rgba(15, 23, 42, 0.68);
+  line-height: 1.6;
+  color: rgba(15, 23, 42, 0.78);
 }
 
 @media (max-width: 860px) {
