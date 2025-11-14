@@ -17,6 +17,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
+import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import { findGroupLessonById } from "../data/mockGroupLessons";
 
@@ -416,10 +417,50 @@ const BookingConfirmationPage = () => {
 
   const handleConfirm = () => {
     setIsConfirmed(true);
-    if (groupLesson) {
+    if (groupLesson || !isGroupLesson) {
       setIsConfirmationModalOpen(true);
     }
   };
+
+  const privateLessonStart = useMemo(() => {
+    if (isGroupLesson || !selectedDate || !selectedSlot) {
+      return undefined;
+    }
+
+    const startMinutes = parseTimeToMinutes(selectedSlot.time);
+    if (startMinutes == null) {
+      return undefined;
+    }
+
+    const [yearPart, monthPart, dayPart] = (selectedDate.id ?? "").split("-");
+    const year = Number.parseInt(yearPart ?? "", 10);
+    const month = Number.parseInt(monthPart ?? "", 10);
+    const day = Number.parseInt(dayPart ?? "", 10);
+
+    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+      return undefined;
+    }
+
+    const hours = Math.floor(startMinutes / 60);
+    const minutes = startMinutes % 60;
+    const startDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return startDate;
+  }, [isGroupLesson, selectedDate, selectedSlot]);
+
+  const privateLessonEnd = useMemo(() => {
+    if (!privateLessonStart || !selectedSlot?.duration) {
+      return undefined;
+    }
+
+    const durationMinutes = parseDurationToMinutes(selectedSlot.duration);
+    if (durationMinutes == null) {
+      return undefined;
+    }
+
+    return new Date(privateLessonStart.getTime() + durationMinutes * 60 * 1000);
+  }, [privateLessonStart, selectedSlot?.duration]);
+
+  const lessonStatusLabel = isGroupLesson ? "Confirmed" : "Pending coach approval";
 
   const savedCardsSection = (
     <div className="payment-methods__group">
@@ -847,7 +888,7 @@ const BookingConfirmationPage = () => {
               <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
             </button>
             <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
-                {isConfirmed ? (
+                {isConfirmed && isGroupLesson ? (
                   <div
                     className={`booking-confirmation__status ${
                       isGroupLesson ? "booking-confirmation__status--success" : "booking-confirmation__status--pending"
@@ -893,6 +934,21 @@ const BookingConfirmationPage = () => {
           </div>
         </div>
       </div>
+      {isConfirmationModalOpen && !isGroupLesson ? (
+        <PrivateLessonConfirmationModal
+          coachName={coachName}
+          coachTitle={coachTitle}
+          lessonLabel={lessonLabel}
+          dateLabel={lessonDateLabel}
+          timeRange={timeRange}
+          locationLabel={locationLabel}
+          statusLabel={lessonStatusLabel}
+          statusCopy={confirmationStatus.copy}
+          onClose={() => setIsConfirmationModalOpen(false)}
+          startDate={privateLessonStart}
+          endDate={privateLessonEnd}
+        />
+      ) : null}
       {isConfirmationModalOpen && groupLesson ? (
         <GroupLessonConfirmationModal
           lesson={groupLesson}
