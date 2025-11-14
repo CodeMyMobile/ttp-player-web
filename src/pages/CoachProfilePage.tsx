@@ -14,9 +14,14 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
+import { useAuth } from "../context/AuthContext";
+import { useCoachRoster } from "../hooks/useCoachRoster";
 import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./CoachProfilePage.css";
+import "../components/coaches/coaches.css";
 
 const highlightIconMap = {
   users: Users,
@@ -162,6 +167,26 @@ const CoachProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { loading, profile } = useCoachProfile(id);
+  const { user } = useAuth();
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
+  const {
+    rosterStatus,
+    rosterLoading: rosterStatusLoading,
+    rosterError: rosterStatusError,
+    requestJoin,
+    requestingJoin,
+    requestJoinError,
+    requestJoinSuccess,
+  } = useCoachRoster(profile?.id, authToken);
+  const canRequestCoach = Boolean(authToken);
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
@@ -424,6 +449,17 @@ const CoachProfilePage = () => {
 
           {!loading && profile && (
             <div className="coach-profile-content">
+              <JoinMyRosterBanner
+                coachName={profile.name}
+                rosterStatus={rosterStatus}
+                canRequest={canRequestCoach}
+                onRequestJoin={requestJoin}
+                requestingJoin={requestingJoin}
+                joinError={requestJoinError ?? undefined}
+                joinSuccess={requestJoinSuccess}
+                rosterError={rosterStatusError ?? undefined}
+                rosterLoading={rosterStatusLoading}
+              />
               <section className="coach-profile-hero">
                 <div className="coach-profile-hero__inner">
                   <div className="coach-profile-identity coach-profile-hero__identity">

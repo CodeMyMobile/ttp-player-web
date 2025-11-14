@@ -4,6 +4,7 @@ import { CalendarDays, MapPin, Star, X } from "lucide-react";
 
 import { fetchCoachSchedule, requestPrivateLesson, type CoachScheduleEntry } from "../../api/playerLessons";
 import { useAuth } from "../../context/AuthContext";
+import { useCoachRoster } from "../../hooks/useCoachRoster";
 import { getStoredAuthToken } from "../../services/authToken";
 import type { Coach } from "../../data/mockCoaches";
 import { findCoachProfile, type CoachProfile } from "../../data/mockCoachProfiles";
@@ -39,6 +40,10 @@ type SlotScheduleMeta = {
 };
 type ScheduleAwareSlot = BookingSlot & {
   scheduleMeta?: SlotScheduleMeta;
+};
+type InlineMessage = {
+  tone: "note" | "success" | "error";
+  text: string;
 };
 
 const normalizeScheduleDay = (day?: string) => (day ?? "").trim().toUpperCase();
@@ -330,6 +335,17 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   const [selectedSlotRef, setSelectedSlotRef] = useState<{ dateId: string; slotId: string } | null>(null);
   const [requestingLesson, setRequestingLesson] = useState(false);
   const [requestFeedback, setRequestFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const {
+    rosterStatus,
+    rosterLoading: rosterStatusLoading,
+    rosterError: rosterStatusError,
+    requestJoin: requestCoachAccess,
+    requestingJoin: requestingCoachAccess,
+    requestJoinError: requestCoachAccessError,
+    requestJoinSuccess: requestCoachAccessSuccess,
+  } = useCoachRoster(coach.id, authToken);
+  const isRosterMember = rosterStatus === "accepted";
+  const isRosterPending = rosterStatus === "pending";
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -704,7 +720,68 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     Boolean(authToken) &&
     Boolean(selectedSlotDetails) &&
     Boolean(selectedScheduleMeta?.locationId) &&
+    isRosterMember &&
+    !rosterStatusLoading &&
     !requestingLesson;
+
+  const joinButtonDisabled = !authToken || rosterStatusLoading || requestingCoachAccess || isRosterPending;
+  const joinButtonLabel = !authToken
+    ? "Sign in to request"
+    : rosterStatusLoading
+      ? "Checking status…"
+      : isRosterPending
+        ? "Awaiting approval"
+        : requestingCoachAccess
+          ? "Requesting coach…"
+          : "Join coach roster";
+
+  const requestActionMessage = useMemo<InlineMessage | null>(() => {
+    if (!shouldRenderBookingSurface) {
+      return null;
+    }
+    if (!isRosterMember) {
+      if (!authToken) {
+        return { tone: "note", text: "Sign in to join this coach's roster." };
+      }
+      if (requestCoachAccessError) {
+        return { tone: "error", text: requestCoachAccessError };
+      }
+      if (rosterStatusError) {
+        return { tone: "error", text: rosterStatusError };
+      }
+      if (requestCoachAccessSuccess) {
+        return {
+          tone: "success",
+          text: "Coach request sent successfully. We'll notify you once it's approved.",
+        };
+      }
+      if (isRosterPending) {
+        return { tone: "note", text: "Your coach request is pending approval." };
+      }
+      if (rosterStatusLoading) {
+        return { tone: "note", text: "Checking your roster status…" };
+      }
+      return { tone: "note", text: "Join this coach's roster to unlock lesson requests." };
+    }
+    if (requestFeedback) {
+      return { tone: requestFeedback.type, text: requestFeedback.message };
+    }
+    if (requestHelperNote) {
+      return { tone: "note", text: requestHelperNote };
+    }
+    return null;
+  }, [
+    authToken,
+    isRosterMember,
+    requestCoachAccessError,
+    rosterStatusError,
+    requestCoachAccessSuccess,
+    isRosterPending,
+    rosterStatusLoading,
+    requestFeedback,
+    requestHelperNote,
+    shouldRenderBookingSurface,
+  ]);
 
   const renderSlot = (dateId: string, slot: BookingSlot) => {
     const timeRange = buildTimeRangeLabel(slot.time, slot.duration);
@@ -775,6 +852,13 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   };
 
   const handleRequestLesson = async () => {
+    if (!isRosterMember) {
+      setRequestFeedback({
+        type: "error",
+        message: "Join this coach's roster before requesting a lesson.",
+      });
+      return;
+    }
     if (!canSubmitRequest || !authToken || !selectedSlotDetails || !selectedScheduleMeta?.locationId) {
       setRequestFeedback((prev) =>
         prev?.type === "error"
@@ -1218,23 +1302,36 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                   {selectedSlotSummary ?? "Select a time slot to request a lesson."}
                 </div>
                 <div className="book-lesson-modal__request-actions">
-                  <button
-                    type="button"
-                    className="book-lesson-modal__request-button"
-                    onClick={handleRequestLesson}
-                    disabled={!canSubmitRequest}
-                  >
-                    {requestingLesson ? "Requesting…" : "Request lesson"}
-                  </button>
-                  {requestFeedback ? (
-                    <span
-                      className={`book-lesson-modal__request-status book-lesson-modal__request-status--${requestFeedback.type}`}
-                      role={requestFeedback.type === "error" ? "alert" : "status"}
+                  {isRosterMember ? (
+                    <button
+                      type="button"
+                      className="book-lesson-modal__request-button"
+                      onClick={handleRequestLesson}
+                      disabled={!canSubmitRequest}
                     >
-                      {requestFeedback.message}
+                      {requestingLesson ? "Requesting…" : "Request lesson"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="book-lesson-modal__request-button"
+                      onClick={requestCoachAccess}
+                      disabled={joinButtonDisabled}
+                    >
+                      {joinButtonLabel}
+                    </button>
+                  )}
+                  {requestActionMessage ? (
+                    <span
+                      className={
+                        requestActionMessage.tone === "note"
+                          ? "book-lesson-modal__request-note"
+                          : `book-lesson-modal__request-status book-lesson-modal__request-status--${requestActionMessage.tone}`
+                      }
+                      role={requestActionMessage.tone === "error" ? "alert" : "status"}
+                    >
+                      {requestActionMessage.text}
                     </span>
-                  ) : requestHelperNote ? (
-                    <span className="book-lesson-modal__request-note">{requestHelperNote}</span>
                   ) : null}
                 </div>
               </div>
