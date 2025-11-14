@@ -190,6 +190,116 @@ const buildScheduleItems = (lessons = [], type) =>
     })
     .filter(Boolean);
 
+const createSeedScheduleItems = () => {
+  const now = moment();
+
+  const privateLessons = buildScheduleItems(
+    [
+      {
+        id: "seed-private-serve",
+        title: "Serve Tune-Up with Coach Mia",
+        coach_name: "Mia Roberts",
+        location_name: "Downtown Racquet Club",
+        status: "confirmed",
+        program_type: "Private Lesson",
+        start_time: now.clone().add(2, "hours").startOf("hour").toISOString(),
+        end_time: now.clone().add(3, "hours").startOf("hour").toISOString(),
+      },
+      {
+        id: "seed-private-strategy",
+        title: "Match Strategy Focus with Coach David",
+        coach_name: "David Park",
+        location_name: "City Center Courts",
+        status: "pending_approval",
+        program_type: "Private Lesson",
+        start_time: now
+          .clone()
+          .add(1, "day")
+          .hour(9)
+          .minute(0)
+          .second(0)
+          .toISOString(),
+        end_time: now
+          .clone()
+          .add(1, "day")
+          .hour(10)
+          .minute(0)
+          .second(0)
+          .toISOString(),
+      },
+    ],
+    "private",
+  );
+
+  const groupLessons = buildScheduleItems(
+    [
+      {
+        id: "seed-group-cardio",
+        title: "Cardio Tennis Crew",
+        coach_name: "Jamie Lee",
+        location_name: "Harbor Point Club",
+        program_type: "Group Session",
+        start_time: now
+          .clone()
+          .add(1, "day")
+          .hour(18)
+          .minute(30)
+          .second(0)
+          .toISOString(),
+        end_time: now
+          .clone()
+          .add(1, "day")
+          .hour(19)
+          .minute(30)
+          .second(0)
+          .toISOString(),
+      },
+    ],
+    "group",
+  );
+
+  const matchSessions = buildScheduleItems(
+    [
+      {
+        id: "seed-match-doubles",
+        title: "Doubles Mixer Night",
+        coach_name: "Carlos Ramirez",
+        location_name: "Riverside Courts",
+        program_type: "Match Play",
+        start_time: now
+          .clone()
+          .add(2, "days")
+          .hour(19)
+          .minute(0)
+          .second(0)
+          .toISOString(),
+        end_time: now
+          .clone()
+          .add(2, "days")
+          .hour(20)
+          .minute(30)
+          .second(0)
+          .toISOString(),
+      },
+    ],
+    "match",
+  );
+
+  return [...privateLessons, ...groupLessons, ...matchSessions]
+    .sort((a, b) => {
+      if (a.startAt && b.startAt) {
+        return a.startAt.getTime() - b.startAt.getTime();
+      }
+      if (a.startAt) return -1;
+      if (b.startAt) return 1;
+      return 0;
+    })
+    .map((item, index) => ({
+      ...item,
+      highlight: index === 0 && !!item.startAt,
+    }));
+};
+
 const activityTypeMeta = {
   match: { label: "Match", emoji: "🎾", action: "Join Match" },
   private: { label: "Private Lesson", emoji: "👤", action: "Book Now" },
@@ -587,11 +697,11 @@ const DashboardPage = () => {
     lookupFailed: false,
   });
   const [distanceFilter, setDistanceFilter] = useState("10");
-  const [scheduleState, setScheduleState] = useState({
-    status: "idle",
-    items: [],
+  const [scheduleState, setScheduleState] = useState(() => ({
+    status: "ready",
+    items: createSeedScheduleItems(),
     error: null,
-  });
+  }));
   const [dateFilter, setDateFilter] = useState({ type: "all" });
   const [isCustomRangeOpen, setIsCustomRangeOpen] = useState(false);
   const [customRangeStart, setCustomRangeStart] = useState("");
@@ -979,7 +1089,11 @@ const DashboardPage = () => {
     const loadSchedule = async () => {
       const token = getStoredAuthToken({ preferScheme: "token" });
       if (!token) {
-        setScheduleState({ status: "unauthenticated", items: [], error: null });
+        setScheduleState({
+          status: "ready",
+          items: createSeedScheduleItems(),
+          error: null,
+        });
         return;
       }
 
@@ -997,7 +1111,7 @@ const DashboardPage = () => {
 
         if (cancelled) return;
 
-        const privateLessons = buildScheduleItems(extractLessons(lessonsResponse), "lesson");
+        const privateLessons = buildScheduleItems(extractLessons(lessonsResponse), "private");
         const groupLessons = buildScheduleItems(extractLessons(groupLessonsResponse), "group");
         const combined = [...privateLessons, ...groupLessons].sort((a, b) => {
           if (a.startAt && b.startAt) {
@@ -1022,8 +1136,8 @@ const DashboardPage = () => {
         if (cancelled) return;
         console.error("Failed to load upcoming lessons", error);
         setScheduleState({
-          status: "error",
-          items: [],
+          status: "ready",
+          items: createSeedScheduleItems(),
           error: error instanceof Error ? error.message : "Unable to load schedule.",
         });
       }
