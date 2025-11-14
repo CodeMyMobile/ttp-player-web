@@ -437,7 +437,7 @@ const FindCoaches = () => {
             }
           : null;
       const response = await api(
-        `/player/getchecklocation?${params.toString()}`,
+        `player/getchecklocation?${params.toString()}`,
         {
           method: "POST",
           headers: {

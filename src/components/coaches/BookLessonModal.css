@@ -198,6 +198,62 @@
   width: 8px;
 }
 
+.book-lesson-modal__request {
+  border-top: 1px solid var(--profile-booking-border);
+  padding-top: 16px;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.book-lesson-modal__request-summary {
+  font-weight: 600;
+  color: var(--profile-heading);
+}
+
+.book-lesson-modal__request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.book-lesson-modal__request-button {
+  border: none;
+  border-radius: 999px;
+  background: var(--profile-purple);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.book-lesson-modal__request-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.book-lesson-modal__request-note {
+  color: var(--profile-muted);
+  font-size: 0.9rem;
+}
+
+.book-lesson-modal__request-status {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.book-lesson-modal__request-status--success {
+  color: #16a34a;
+}
+
+.book-lesson-modal__request-status--error {
+  color: #dc2626;
+}
+
 .book-lesson-modal__schedule::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.45);
   border-radius: 999px;

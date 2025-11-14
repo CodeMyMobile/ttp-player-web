@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronDown, MapPin, Star, X } from "lucide-react";
+import moment from "moment";
+import { CalendarDays, MapPin, Star, X } from "lucide-react";
 
+import { fetchCoachSchedule, requestPrivateLesson, type CoachScheduleEntry } from "../../api/playerLessons";
+import { useAuth } from "../../context/AuthContext";
+import { getStoredAuthToken } from "../../services/authToken";
 import type { Coach } from "../../data/mockCoaches";
 import { findCoachProfile, type CoachProfile } from "../../data/mockCoachProfiles";
 
@@ -23,6 +26,145 @@ const ALL_DAYS_ID = "all-days";
 const CUSTOM_RANGE_ID = "custom-range";
 
 const MINUTES_PER_DAY = 24 * 60;
+
+type BookingDate = CoachProfile["booking"]["availableDates"][number];
+type BookingSlot = BookingDate["slots"][number];
+type SlotScheduleMeta = {
+  startDateTime: string;
+  endDateTime: string;
+  startDateTimeTz: string;
+  endDateTimeTz: string;
+  locationId?: number;
+  court?: number | string | null;
+};
+type ScheduleAwareSlot = BookingSlot & {
+  scheduleMeta?: SlotScheduleMeta;
+};
+
+const normalizeScheduleDay = (day?: string) => (day ?? "").trim().toUpperCase();
+
+const enumerateIsoDates = (startIso: string, endIso: string) => {
+  const start = moment(startIso, "YYYY-MM-DD", true);
+  const end = moment(endIso, "YYYY-MM-DD", true);
+  if (!start.isValid() || !end.isValid()) {
+    return [];
+  }
+  const [minDate, maxDate] = start.isAfter(end) ? [end, start] : [start, end];
+  const cursor = minDate.clone();
+  const days: string[] = [];
+  while (cursor.isSameOrBefore(maxDate, "day")) {
+    days.push(cursor.format("YYYY-MM-DD"));
+    cursor.add(1, "day");
+  }
+  return days;
+};
+
+const buildScheduleMoment = (isoDate: string, time?: string) => {
+  if (!isoDate || !time) {
+    return null;
+  }
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const combined = moment(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
+  return combined.isValid() ? combined : null;
+};
+
+const resolveScheduleLocation = (entry: CoachScheduleEntry) => {
+  if (typeof entry.location === "string" && entry.location.trim()) {
+    return entry.location;
+  }
+  if (typeof entry.location_name === "string" && entry.location_name.trim()) {
+    return entry.location_name;
+  }
+  return undefined;
+};
+
+const getScheduleMeta = (slot: BookingSlot) => (slot as ScheduleAwareSlot).scheduleMeta;
+
+const buildSlotFromScheduleEntry = (
+  entry: CoachScheduleEntry,
+  isoDate: string,
+  priceLabel?: string,
+  fallbackIndex = 0,
+): ScheduleAwareSlot | null => {
+  const startMoment = buildScheduleMoment(isoDate, entry.from);
+  if (!startMoment) {
+    return null;
+  }
+  const endMoment = buildScheduleMoment(isoDate, entry.to);
+  const durationMinutes = endMoment ? Math.max(endMoment.diff(startMoment, "minutes"), 0) : null;
+  const computedDuration = durationMinutes && Number.isFinite(durationMinutes) && durationMinutes > 0 ? durationMinutes : 60;
+  const derivedEndMoment = endMoment ?? startMoment.clone().add(computedDuration, "minutes");
+  const slotIdBase =
+    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
+  const slotWithMeta: ScheduleAwareSlot = {
+    id: `${isoDate}-${slotIdBase}`,
+    time: startMoment.format("h:mm A"),
+    lessonType: "private",
+    duration: `${computedDuration} min`,
+    price: priceLabel ?? "$0",
+    spotsRemaining: 1,
+    title: undefined,
+    participants: [],
+    location: resolveScheduleLocation(entry),
+    scheduleMeta: {
+      startDateTime: startMoment.clone().utc().toISOString(),
+      endDateTime: derivedEndMoment.clone().utc().toISOString(),
+      startDateTimeTz: startMoment.toISOString(),
+      endDateTimeTz: derivedEndMoment.toISOString(),
+      locationId: entry.location_id,
+      court: entry.court ?? null,
+    },
+  };
+  return slotWithMeta;
+};
+
+const mapScheduleToBookingDates = (
+  schedule: CoachScheduleEntry[],
+  startIso: string,
+  endIso: string,
+  priceLabel?: string,
+): BookingDate[] => {
+  if (!schedule.length) {
+    return [];
+  }
+  const isoDates = enumerateIsoDates(startIso, endIso);
+  if (!isoDates.length) {
+    return [];
+  }
+  const normalizedEntries = schedule
+    .map((entry) => ({
+      entry,
+      day: normalizeScheduleDay(entry.day),
+    }))
+    .filter(({ day }) => Boolean(day));
+  if (!normalizedEntries.length) {
+    return [];
+  }
+  return isoDates
+    .map((isoDate) => {
+      const dateMoment = moment(isoDate, "YYYY-MM-DD", true);
+      if (!dateMoment.isValid()) {
+        return null;
+      }
+      const weekday = dateMoment.format("dddd").toUpperCase();
+      const dayEntries = normalizedEntries.filter(({ day }) => day === weekday).map(({ entry }) => entry);
+      const slots = dayEntries
+        .map((entry, index) => buildSlotFromScheduleEntry(entry, isoDate, priceLabel, index))
+        .filter((slot): slot is BookingSlot => Boolean(slot));
+      if (!slots.length) {
+        return null;
+      }
+      return {
+        id: isoDate,
+        day: dateMoment.format("ddd"),
+        date: isoDate,
+        label: dateMoment.format("MMM D"),
+        totalSlots: slots.length,
+        slots,
+      };
+    })
+    .filter((date): date is BookingDate => Boolean(date));
+};
 
 const parseTimeToMinutes = (timeLabel: string) => {
   const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -168,8 +310,26 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
   const [rangeEndValue, setRangeEndValue] = useState<string>("");
   const [rangeError, setRangeError] = useState<string | undefined>();
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
-  const navigate = useNavigate();
   const dateMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const { user } = useAuth();
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
+  const [apiAvailabilityDates, setApiAvailabilityDates] = useState<CoachProfile["booking"]["availableDates"]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [coachSchedule, setCoachSchedule] = useState<CoachScheduleEntry[]>([]);
+  const shouldRenderBookingSurface = Boolean(profile) || Boolean(authToken);
+  const [selectedSlotRef, setSelectedSlotRef] = useState<{ dateId: string; slotId: string } | null>(null);
+  const [requestingLesson, setRequestingLesson] = useState(false);
+  const [requestFeedback, setRequestFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -221,8 +381,18 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     );
   }, [profile]);
 
+  const bookingDates = useMemo(() => {
+    if (apiAvailabilityDates.length) {
+      return apiAvailabilityDates;
+    }
+    if (authToken) {
+      return [] as CoachProfile["booking"]["availableDates"];
+    }
+    return profile?.booking.availableDates ?? [];
+  }, [apiAvailabilityDates, authToken, profile]);
+
   const filteredDates = useMemo(() => {
-    if (!profile) {
+    if (!bookingDates.length) {
       return [] as CoachProfile["booking"]["availableDates"];
     }
 
@@ -237,7 +407,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     const datesToConsider = (() => {
       if (selection.range) {
         const { start, end } = selection.range;
-        return profile.booking.availableDates.filter((date) => {
+        return bookingDates.filter((date) => {
           if (start && date.id < start) {
             return false;
           }
@@ -249,32 +419,33 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       }
 
       if (selection.day === ALL_DAYS_ID) {
-        return profile.booking.availableDates;
+        return bookingDates;
       }
 
-      return profile.booking.availableDates.filter((date) => date.id === selection.day);
+      return bookingDates.filter((date) => date.id === selection.day);
     })();
 
     return datesToConsider.map((date) => ({
       ...date,
       slots: date.slots.filter(predicate),
     }));
-  }, [profile, selection.day, selection.lessonType]);
+  }, [bookingDates, selection.day, selection.lessonType, selection.range]);
 
   const hasAnySlots = filteredDates.some((date) => date.slots.length > 0);
+  const showAvailabilitySpinner = availabilityLoading && Boolean(authToken);
 
   const customSelectionMeta = useMemo(() => {
-    if (!profile || selection.day === ALL_DAYS_ID || selection.range) {
+    if (!bookingDates.length || selection.day === ALL_DAYS_ID || selection.range) {
       return undefined;
     }
 
-    const knownDate = profile.booking.availableDates.some((date) => date.id === selection.day);
+    const knownDate = bookingDates.some((date) => date.id === selection.day);
     if (knownDate) {
       return undefined;
     }
 
     return getDateDisplayMeta(selection.day);
-  }, [profile, selection.day, selection.range]);
+  }, [bookingDates, selection.day, selection.range]);
 
   const selectedRangeMeta = useMemo(() => {
     if (!selection.range) {
@@ -300,11 +471,11 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       return `${start.weekdayLong}, ${start.monthDayLong} – ${end.weekdayLong}, ${end.monthDayLong}`;
     }
 
-    if (!profile || selection.day === ALL_DAYS_ID) {
+    if (!bookingDates.length || selection.day === ALL_DAYS_ID) {
       return undefined;
     }
 
-    const matchedDate = profile.booking.availableDates.find((date) => date.id === selection.day);
+    const matchedDate = bookingDates.find((date) => date.id === selection.day);
     if (matchedDate) {
       const meta = getDateDisplayMeta(matchedDate.id);
       if (meta) {
@@ -318,7 +489,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     }
 
     return undefined;
-  }, [selection.range, selectedRangeMeta, profile, selection.day, customSelectionMeta]);
+  }, [selection.range, selectedRangeMeta, bookingDates, selection.day, customSelectionMeta]);
 
   const minSelectableDate = useMemo(() => formatDateForInput(new Date()), []);
   const maxSelectableDate = useMemo(
@@ -412,7 +583,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       return `Custom range · ${start.monthDayShort} – ${end.monthDayShort}`;
     }
 
-    if (!profile) {
+    if (!bookingDates.length) {
       return "Select a date";
     }
 
@@ -420,7 +591,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       return "All upcoming dates";
     }
 
-    const matchedDate = profile.booking.availableDates.find((date) => date.id === selection.day);
+    const matchedDate = bookingDates.find((date) => date.id === selection.day);
     if (matchedDate) {
       return `${dayNameMap[matchedDate.day] ?? matchedDate.day} · ${matchedDate.label}`;
     }
@@ -434,7 +605,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     }
 
     return "Selected date";
-  }, [selection.range, selectedRangeMeta, profile, selection.day, customSelectionMeta]);
+  }, [selection.range, selectedRangeMeta, bookingDates, selection.day, customSelectionMeta]);
 
   const dateSelectionNote = useMemo(() => {
     if (selection.range && selectedRangeMeta) {
@@ -449,26 +620,93 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       return undefined;
     }
 
-    if (!profile) {
+    if (selection.day === ALL_DAYS_ID) {
+      return undefined;
+    }
+
+    if (!bookingDates.length) {
       return undefined;
     }
 
     return dateFilterLabel;
-  }, [selection.range, selectedRangeMeta, selection.day, profile, dateFilterLabel]);
+  }, [selection.range, selectedRangeMeta, selection.day, bookingDates, dateFilterLabel]);
 
 
   const lessonLocationLabel = useMemo(() => {
+    const slotWithLocation = bookingDates
+      .flatMap((date) => date.slots)
+      .find((slot) => (slot as CoachProfile["booking"]["availableDates"][number]["slots"][number] & { location?: string }).location);
+    if (slotWithLocation) {
+      return (slotWithLocation as CoachProfile["booking"]["availableDates"][number]["slots"][number] & { location?: string })
+        .location;
+    }
     if (!profile) {
       return undefined;
     }
-
     return profile.location ?? profile.coachingLocations[0];
-  }, [profile]);
+  }, [bookingDates, profile]);
 
-  const renderSlot = (
-    dateId: string,
-    slot: CoachProfile["booking"]["availableDates"][number]["slots"][number],
-  ) => {
+  const selectedSlotDetails = useMemo(() => {
+    if (!selectedSlotRef) {
+      return null;
+    }
+    const selectedDate = filteredDates.find((date) => date.id === selectedSlotRef.dateId);
+    if (!selectedDate) {
+      return null;
+    }
+    const slot = selectedDate.slots.find((item) => item.id === selectedSlotRef.slotId);
+    if (!slot) {
+      return null;
+    }
+    return { date: selectedDate, slot };
+  }, [filteredDates, selectedSlotRef]);
+
+  useEffect(() => {
+    if (selectedSlotRef && !selectedSlotDetails) {
+      setSelectedSlotRef(null);
+    }
+  }, [selectedSlotDetails, selectedSlotRef]);
+
+  useEffect(() => {
+    setSelectedSlotRef(null);
+    setRequestFeedback(null);
+  }, [selection.day, selection.lessonType, selection.range]);
+
+  const selectedScheduleMeta = selectedSlotDetails ? getScheduleMeta(selectedSlotDetails.slot) : undefined;
+
+  const selectedSlotSummary = useMemo(() => {
+    if (!selectedSlotDetails) {
+      return null;
+    }
+    const { date, slot } = selectedSlotDetails;
+    const dateMeta = getDateDisplayMeta(date.id);
+    const rangeLabel = buildTimeRangeLabel(slot.time, slot.duration);
+    if (!dateMeta) {
+      return `${date.label} · ${rangeLabel}`;
+    }
+    return `${dateMeta.weekdayLong}, ${dateMeta.monthDayLong} · ${rangeLabel}`;
+  }, [selectedSlotDetails]);
+
+  const requestHelperNote = useMemo(() => {
+    if (!selectedSlotDetails) {
+      return "Select a time slot to enable lesson requests.";
+    }
+    if (!authToken) {
+      return "Sign in to request this lesson.";
+    }
+    if (!selectedScheduleMeta?.locationId) {
+      return "Selected slot is missing required location details.";
+    }
+    return undefined;
+  }, [authToken, selectedScheduleMeta, selectedSlotDetails]);
+
+  const canSubmitRequest =
+    Boolean(authToken) &&
+    Boolean(selectedSlotDetails) &&
+    Boolean(selectedScheduleMeta?.locationId) &&
+    !requestingLesson;
+
+  const renderSlot = (dateId: string, slot: BookingSlot) => {
     const timeRange = buildTimeRangeLabel(slot.time, slot.duration);
     const lessonDetails = lessonTypeDetailMap[slot.lessonType];
     const lessonLabel = lessonDetails?.label ?? (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
@@ -481,17 +719,27 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
       : undefined;
     const groupTitle = isGroupLesson ? slot.title : undefined;
+    const slotLocation =
+      (slot as CoachProfile["booking"]["availableDates"][number]["slots"][number] & { location?: string }).location ??
+      lessonLocationLabel;
+    const isSelected = selectedSlotRef?.dateId === dateId && selectedSlotRef?.slotId === slot.id;
 
     return (
       <button
         key={`${dateId}-${slot.id}`}
         type="button"
-        className={`coach-booking-slot coach-booking-slot--${slot.lessonType}`}
+        aria-pressed={isSelected}
+        className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
+          isSelected ? " coach-booking-slot--active" : ""
+        }`}
         onClick={() => {
-          navigate(`/booking/confirm?coach=${coach.id}&date=${dateId}&slot=${slot.id}`, {
-            state: { coachId: coach.id, dateId, slotId: slot.id },
+          setSelectedSlotRef((prev) => {
+            if (prev && prev.dateId === dateId && prev.slotId === slot.id) {
+              return null;
+            }
+            return { dateId, slotId: slot.id };
           });
-          onClose();
+          setRequestFeedback(null);
         }}
       >
         <div className="coach-booking-slot__header">
@@ -516,17 +764,128 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
             </>
           ) : null}
         </div>
-        {lessonLocationLabel ? (
+        {slotLocation ? (
           <div className="coach-booking-slot__location">
             <MapPin aria-hidden className="coach-booking-slot__location-icon" />
-            <span>{lessonLocationLabel}</span>
+            <span>{slotLocation}</span>
           </div>
         ) : null}
       </button>
     );
   };
 
+  const handleRequestLesson = async () => {
+    if (!canSubmitRequest || !authToken || !selectedSlotDetails || !selectedScheduleMeta?.locationId) {
+      setRequestFeedback((prev) =>
+        prev?.type === "error"
+          ? prev
+          : {
+              type: "error",
+              message: requestHelperNote ?? "Select a slot before requesting a lesson.",
+            },
+      );
+      return;
+    }
+    setRequestingLesson(true);
+    setRequestFeedback(null);
+    try {
+      await requestPrivateLesson({
+        token: authToken,
+        coachId: coach.id,
+        startDateTime: selectedScheduleMeta.startDateTime,
+        endDateTime: selectedScheduleMeta.endDateTime,
+        startDateTimeTz: selectedScheduleMeta.startDateTimeTz,
+        endDateTimeTz: selectedScheduleMeta.endDateTimeTz,
+        locationId: selectedScheduleMeta.locationId,
+        court: selectedScheduleMeta.court ?? 0,
+        status: "PENDING",
+      });
+      setRequestFeedback({
+        type: "success",
+        message: "Lesson request sent successfully.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to request lesson.";
+      setRequestFeedback({
+        type: "error",
+        message,
+      });
+    } finally {
+      setRequestingLesson(false);
+    }
+  };
+
   const modalDescriptionId = `book-lesson-modal-desc-${coach.id}`;
+
+  const defaultRange = useMemo(
+    () => ({
+      start: moment().format("YYYY-MM-DD"),
+      end: moment().add(13, "days").format("YYYY-MM-DD"),
+    }),
+    [],
+  );
+
+  const availabilityQueryRange = useMemo(() => {
+    if (selection.range?.start) {
+      return {
+        start: selection.range.start,
+        end: selection.range.end || selection.range.start,
+      };
+    }
+    if (selection.day !== ALL_DAYS_ID && selection.day !== CUSTOM_RANGE_ID && selection.day) {
+      return { start: selection.day, end: selection.day };
+    }
+    return defaultRange;
+  }, [defaultRange, selection.day, selection.range]);
+
+  const availabilityStart = availabilityQueryRange.start;
+  const availabilityEnd = availabilityQueryRange.end;
+
+  useEffect(() => {
+    if (!authToken) {
+      setCoachSchedule([]);
+      setApiAvailabilityDates([]);
+      setAvailabilityLoading(false);
+      setAvailabilityError(null);
+      return;
+    }
+    let cancelled = false;
+    const loadSchedule = async () => {
+      setAvailabilityLoading(true);
+      setAvailabilityError(null);
+      try {
+        const schedule = await fetchCoachSchedule({
+          token: authToken,
+          coachId: coach.id,
+        });
+        if (cancelled) return;
+        setCoachSchedule(schedule);
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "Unable to load availability.";
+          setAvailabilityError(message);
+          setCoachSchedule([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setAvailabilityLoading(false);
+        }
+      }
+    };
+    loadSchedule();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, coach.id]);
+
+  useEffect(() => {
+    if (!authToken) {
+      setApiAvailabilityDates([]);
+      return;
+    }
+    const mapped = mapScheduleToBookingDates(coachSchedule, availabilityStart, availabilityEnd, coach.pricePerHour);
+    setApiAvailabilityDates(mapped);
+  }, [authToken, availabilityEnd, availabilityStart, coach.pricePerHour, coachSchedule]);
 
   return (
     <div className="book-lesson-modal-overlay" role="dialog" aria-modal="true" aria-labelledby={modalDescriptionId}>
@@ -557,7 +916,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
         </header>
 
         <div className="book-lesson-modal__body">
-          {profile ? (
+          {shouldRenderBookingSurface ? (
             <div className="book-lesson-modal__booking-surface">
               <div className="coach-booking__controls book-lesson-modal__controls">
                 <div className="coach-booking__section">
@@ -614,7 +973,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                           <div className="coach-booking__filter-group">
                             <span className="coach-booking__filter-group-label">Upcoming options</span>
                             <div className="coach-booking__filter-options-list">
-                              {profile.booking.availableDates.map((date) => {
+                              {bookingDates.map((date) => {
                                 const active = !selection.range && selection.day === date.id;
                                 return (
                                   <button
@@ -765,7 +1124,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                       <span className="coach-booking__day-name">All Days</span>
                       <span className="coach-booking__day-date">View every option</span>
                     </button>
-                    {profile.booking.availableDates.map((date) => {
+                    {bookingDates.map((date) => {
                       const active = selection.day === date.id && !selection.range;
                       return (
                         <button
@@ -812,7 +1171,11 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
               </div>
 
               <div className="coach-booking__schedule book-lesson-modal__schedule">
-                {hasAnySlots ? (
+                {showAvailabilitySpinner ? (
+                  <div className="coach-booking-day__empty">
+                    <p>Loading availability…</p>
+                  </div>
+                ) : hasAnySlots ? (
                   <div className="coach-booking__days">
                     {filteredDates.map((date) => {
                       if (date.slots.length === 0) {
@@ -838,7 +1201,9 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                   </div>
                 ) : (
                   <div className="coach-booking-day__empty">
-                    {selection.lessonType === "group" ? (
+                    {availabilityError ? (
+                      <p>{availabilityError}</p>
+                    ) : selection.lessonType === "group" ? (
                       <p>No group sessions are available for the selected day.</p>
                     ) : selection.lessonType === "private" ? (
                       <p>No private lessons are available for the selected day.</p>
@@ -847,6 +1212,31 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
                     )}
                   </div>
                 )}
+              </div>
+              <div className="book-lesson-modal__request">
+                <div className="book-lesson-modal__request-summary">
+                  {selectedSlotSummary ?? "Select a time slot to request a lesson."}
+                </div>
+                <div className="book-lesson-modal__request-actions">
+                  <button
+                    type="button"
+                    className="book-lesson-modal__request-button"
+                    onClick={handleRequestLesson}
+                    disabled={!canSubmitRequest}
+                  >
+                    {requestingLesson ? "Requesting…" : "Request lesson"}
+                  </button>
+                  {requestFeedback ? (
+                    <span
+                      className={`book-lesson-modal__request-status book-lesson-modal__request-status--${requestFeedback.type}`}
+                      role={requestFeedback.type === "error" ? "alert" : "status"}
+                    >
+                      {requestFeedback.message}
+                    </span>
+                  ) : requestHelperNote ? (
+                    <span className="book-lesson-modal__request-note">{requestHelperNote}</span>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : (

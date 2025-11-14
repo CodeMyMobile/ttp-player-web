@@ -28,10 +28,54 @@ export interface Lesson {
   player_has_booking?: boolean;
 }
 
+export interface CoachScheduleEntry {
+  id?: number;
+  user_id?: number;
+  coach_id?: number;
+  from?: string;
+  to?: string;
+  day?: string;
+  location_id?: number;
+  location_name?: string;
+  location?: string;
+  court?: string | number | null;
+  latitude?: string;
+  longitude?: string;
+  [key: string]: unknown;
+}
+
 const sanitizeQuery = <T extends Record<string, unknown>>(params: T) =>
   Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
   ) as T;
+
+type CoachScheduleCollection = {
+  data?: CoachScheduleEntry[];
+  results?: CoachScheduleEntry[];
+  items?: CoachScheduleEntry[];
+  schedule?: CoachScheduleEntry[];
+  schedules?: CoachScheduleEntry[];
+};
+
+type CoachScheduleResponse = CoachScheduleEntry[] | CoachScheduleCollection | null | undefined;
+
+const coachScheduleKeys: Array<keyof CoachScheduleCollection> = ["data", "results", "items", "schedule", "schedules"];
+
+const extractCoachScheduleEntries = (payload: CoachScheduleResponse): CoachScheduleEntry[] => {
+  if (!payload) {
+    return [];
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  for (const key of coachScheduleKeys) {
+    const value = payload[key];
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+  return [];
+};
 
 export interface FetchAvailableLessonsParams {
   token: string;
@@ -51,6 +95,20 @@ export const fetchAvailableLessons = ({
     token,
     query: sanitizeQuery(query),
   });
+
+export interface FetchCoachScheduleParams {
+  token: string;
+  coachId: number | string;
+  day?: string;
+}
+
+export const fetchCoachSchedule = async ({ token, coachId, day }: FetchCoachScheduleParams) => {
+  const response = await request<CoachScheduleResponse>(`/player/coach/schedule/${coachId}`, {
+    token,
+    query: day ? { day } : undefined,
+  });
+  return extractCoachScheduleEntries(response);
+};
 
 export interface FetchPlayerBookingsParams {
   token: string;
@@ -81,4 +139,45 @@ export const cancelBooking = ({ token, lessonId }: CancelLessonBookingParams) =>
   request(`/player/lessons/${lessonId}/book`, {
     method: "DELETE",
     token,
+  });
+
+export interface RequestPrivateLessonParams {
+  token: string;
+  coachId: number;
+  startDateTime: string;
+  endDateTime: string;
+  startDateTimeTz: string;
+  endDateTimeTz: string;
+  locationId: number;
+  court?: number | string | null;
+  status?: string;
+  paymentMethodId?: string;
+}
+
+export const requestPrivateLesson = ({
+  token,
+  coachId,
+  startDateTime,
+  endDateTime,
+  startDateTimeTz,
+  endDateTimeTz,
+  locationId,
+  court = 0,
+  status = "PENDING",
+  paymentMethodId = "",
+}: RequestPrivateLessonParams) =>
+  request("/player/newlesson", {
+    method: "POST",
+    token,
+    body: {
+      coach_id: coachId,
+      start_date_time: startDateTime,
+      end_date_time: endDateTime,
+      start_date_time_tz: startDateTimeTz,
+      end_date_time_tz: endDateTimeTz,
+      location_id: locationId,
+      court,
+      status,
+      payment_method_id: paymentMethodId,
+    },
   });
