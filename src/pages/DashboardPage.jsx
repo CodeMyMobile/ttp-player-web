@@ -501,6 +501,40 @@ const QuickBookModal = ({ coaches, onClose }) => (
   </div>
 );
 
+const HeroScheduleCard = ({ item }) => {
+  const metaItems = [item.coachLabel, item.locationLabel, item.durationLabel].filter(Boolean);
+  const secondaryActionLabel = item.type === "private" ? "Edit Lesson" : "Manage Booking";
+
+  return (
+    <article className={`hero-session${item.highlight ? " hero-session--highlight" : ""}`}>
+      <div className="hero-session__main">
+        <div className="hero-session__time">
+          <span className="hero-session__day">{item.timeLabel}</span>
+          <span className="hero-session__range">{item.secondaryLabel}</span>
+        </div>
+        <div className="hero-session__content">
+          <h3 className="hero-session__title">{item.title}</h3>
+          {metaItems.length ? <div className="hero-session__meta">{metaItems.join(" • ")}</div> : null}
+          <div className="hero-session__tags">
+            {item.badgeLabel ? <span className="hero-session__badge">{item.badgeLabel}</span> : null}
+            {item.type === "private" && item.statusLabel ? (
+              <span className="hero-session__status">{item.statusLabel}</span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="hero-session__actions">
+        <button type="button" className="hero-session__action hero-session__action--primary">
+          View Details
+        </button>
+        <button type="button" className="hero-session__action hero-session__action--ghost">
+          {secondaryActionLabel}
+        </button>
+      </div>
+    </article>
+  );
+};
+
 const matches = [
   {
     type: "Doubles",
@@ -566,6 +600,9 @@ const DashboardPage = () => {
   const [activeFilter, setActiveFilter] = useState("all");
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showQuickBook, setShowQuickBook] = useState(false);
+  const [coachFilter, setCoachFilter] = useState("all");
+
+  const scheduleItems = scheduleState.items;
 
   const distanceOptions = ["5", "10", "15", "20", "all"];
   const todayAnchor = useMemo(() => moment().startOf("day"), []);
@@ -619,27 +656,33 @@ const DashboardPage = () => {
   const typeCounts = useMemo(() => {
     const base = scopedActivities;
     return {
+      schedule: scheduleItems.length,
       all: base.length,
       match: base.filter((activity) => activity.type === "match").length,
       private: base.filter((activity) => activity.type === "private").length,
       group: base.filter((activity) => activity.type === "group").length,
     };
-  }, [scopedActivities]);
+  }, [scopedActivities, scheduleItems]);
 
   const typeFilterOptions = [
+    { id: "schedule", label: "My Schedule" },
     { id: "all", label: "All Activities" },
     { id: "match", label: "Matches" },
     { id: "private", label: "Private Lessons" },
     { id: "group", label: "Group Sessions" },
   ];
 
+  const effectiveActivityFilter = activeFilter === "schedule" ? "all" : activeFilter;
+
   const filteredActivities = useMemo(() => {
     return scopedActivities
-      .filter((activity) => activeFilter === "all" || activity.type === activeFilter)
+      .filter(
+        (activity) => effectiveActivityFilter === "all" || activity.type === effectiveActivityFilter,
+      )
       .sort((first, second) =>
         moment(first.startTime).valueOf() - moment(second.startTime).valueOf(),
       );
-  }, [activeFilter, scopedActivities]);
+  }, [effectiveActivityFilter, scopedActivities]);
 
   useEffect(() => {
     setShowAllActivities(false);
@@ -649,6 +692,43 @@ const DashboardPage = () => {
     ? filteredActivities
     : filteredActivities.slice(0, 3);
   const remainingActivityCount = filteredActivities.length - displayedActivities.length;
+
+  const coachOptions = useMemo(() => {
+    const base = scheduleItems || [];
+    const counts = new Map();
+    base.forEach((item) => {
+      const label = typeof item.coachLabel === "string" ? item.coachLabel.trim() : "";
+      if (!label) return;
+      counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    const coachEntries = Array.from(counts.entries())
+      .map(([label, count]) => ({ id: label, label, count }))
+      .sort((first, second) => first.label.localeCompare(second.label));
+
+    return [{ id: "all", label: "All Coaches", count: base.length }, ...coachEntries];
+  }, [scheduleItems]);
+
+  useEffect(() => {
+    if (coachFilter !== "all" && !coachOptions.some((option) => option.id === coachFilter)) {
+      setCoachFilter("all");
+    }
+  }, [coachFilter, coachOptions]);
+
+  const filteredScheduleItems = useMemo(() => {
+    const base =
+      coachFilter === "all"
+        ? scheduleItems
+        : scheduleItems.filter((item) => item.coachLabel === coachFilter);
+
+    return base.map((item, index) => ({
+      ...item,
+      highlight: index === 0 && !!item.startAt,
+    }));
+  }, [coachFilter, scheduleItems]);
+
+  const heroScheduleItems = filteredScheduleItems.slice(0, 3);
+  const hasAnySchedule = scheduleItems.length > 0;
+  const hasFilteredSchedule = filteredScheduleItems.length > 0;
 
   const selectedDayMeta =
     dateFilter.type === "day"
@@ -696,7 +776,9 @@ const DashboardPage = () => {
   const activeFilterLabel =
     activeFilter === "all"
       ? "All Activities"
-      : activityTypeMeta[activeFilter]?.label ?? "All Activities";
+      : activeFilter === "schedule"
+        ? "My Schedule"
+        : activityTypeMeta[activeFilter]?.label ?? "All Activities";
 
   const hasActiveFilters = dateFilter.type !== "all" || activeFilter !== "all";
 
@@ -1155,10 +1237,72 @@ const DashboardPage = () => {
             </div>
           </div>
           <div className="play-hero__status">
-            <div className="play-hero__status-card">
-              <span className="play-hero__status-label">Next booking</span>
-              <span className="play-hero__status-value">Today · 5:30 PM</span>
-              <span className="play-hero__status-meta">Court 4 with Jamie</span>
+            <div className={`hero-schedule${activeFilter === "schedule" ? " is-active" : ""}`}>
+              <div className="hero-schedule__header">
+                <div>
+                  <h2 className="hero-schedule__title">Upcoming Sessions</h2>
+                  <p className="hero-schedule__subtitle">
+                    Stay on top of the lessons and matches you&rsquo;ve booked.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="hero-schedule__cta"
+                  onClick={() => navigate("/player/calendar")}
+                >
+                  View Calendar
+                </button>
+              </div>
+              {hasAnySchedule ? (
+                <div className="hero-schedule__filters">
+                  <span className="hero-schedule__filters-label">My Coaches</span>
+                  <div className="hero-schedule__filters-chips">
+                    {coachOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`hero-schedule__filter${coachFilter === option.id ? " is-active" : ""}`}
+                        onClick={() => setCoachFilter(option.id)}
+                      >
+                        <span>{option.label}</span>
+                        <span className="hero-schedule__filter-count">{option.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="hero-schedule__body">
+                {scheduleState.status === "loading" || scheduleState.status === "idle" ? (
+                  <div className="hero-schedule__feedback">Loading upcoming sessions…</div>
+                ) : scheduleState.status === "error" ? (
+                  <div className="hero-schedule__feedback hero-schedule__feedback--error">
+                    We couldn&rsquo;t load your upcoming sessions. Please try again.
+                  </div>
+                ) : scheduleState.status === "unauthenticated" ? (
+                  <div className="hero-schedule__feedback">Sign in to view your upcoming sessions.</div>
+                ) : !hasFilteredSchedule ? (
+                  <div className="hero-schedule__feedback">
+                    No upcoming sessions match this filter. Book a new activity to get started!
+                  </div>
+                ) : (
+                  <div className="hero-schedule__list">
+                    {heroScheduleItems.map((item) => (
+                      <HeroScheduleCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              {scheduleState.status === "ready" && scheduleItems.length > 3 ? (
+                <div className="hero-schedule__footer">
+                  <button
+                    type="button"
+                    className="hero-schedule__link"
+                    onClick={() => navigate("/player/calendar")}
+                  >
+                    View all upcoming sessions →
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1253,13 +1397,13 @@ const DashboardPage = () => {
           </div>
         ) : scheduleState.status === "unauthenticated" ? (
           <div className="schedule-feedback">Sign in to view your upcoming lessons.</div>
-        ) : scheduleState.items.length === 0 ? (
+        ) : scheduleItems.length === 0 ? (
           <div className="schedule-feedback">
             You don&rsquo;t have any upcoming lessons yet. Book a session to get started!
           </div>
         ) : (
           <div className="schedule-condensed">
-            {scheduleState.items.slice(0, 3).map((item) => (
+            {scheduleItems.slice(0, 3).map((item) => (
               <article key={item.id} className="schedule-condensed__card">
                 <div className="schedule-condensed__time">
                   <span>{item.timeLabel}</span>

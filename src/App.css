@@ -298,7 +298,310 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  align-items: flex-end;
+  align-items: stretch;
+  max-width: 360px;
+  width: 100%;
+}
+
+.hero-schedule {
+  background: linear-gradient(140deg, #0f172a 0%, #1e293b 55%, #0b6b3c 110%);
+  color: #f8fafc;
+  border-radius: 22px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  box-shadow: 0 26px 58px rgba(15, 23, 42, 0.32);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.hero-schedule.is-active {
+  transform: translateY(-4px);
+  box-shadow: 0 32px 70px rgba(34, 197, 94, 0.38);
+  border-color: rgba(34, 197, 94, 0.68);
+}
+
+.hero-schedule__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.hero-schedule__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.hero-schedule__subtitle {
+  margin: 6px 0 0;
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.hero-schedule__cta {
+  border: none;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #052e16;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.hero-schedule__cta:hover {
+  background: #2ed36d;
+  transform: translateY(-1px);
+}
+
+.hero-schedule__cta:focus-visible {
+  outline: 2px solid rgba(250, 204, 21, 0.65);
+  outline-offset: 2px;
+}
+
+.hero-schedule__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hero-schedule__filters-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.74);
+}
+
+.hero-schedule__filters-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-schedule__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.38);
+  background: rgba(15, 23, 42, 0.32);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.hero-schedule__filter:hover {
+  background: rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.hero-schedule__filter.is-active {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #f8fafc;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.24);
+}
+
+.hero-schedule__filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(248, 250, 252, 0.16);
+  color: inherit;
+}
+
+.hero-schedule__filter.is-active .hero-schedule__filter-count {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.hero-schedule__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-schedule__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hero-session {
+  background: rgba(15, 23, 42, 0.42);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.14);
+}
+
+.hero-session--highlight {
+  border-color: rgba(34, 197, 94, 0.78);
+  box-shadow: 0 20px 40px rgba(34, 197, 94, 0.28);
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.hero-session__main {
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.hero-session__time {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.hero-session__day {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.hero-session__range {
+  font-size: 14px;
+  color: #f8fafc;
+}
+
+.hero-session__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-session__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.hero-session__meta {
+  font-size: 13px;
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.hero-session__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.hero-session__badge {
+  background: rgba(248, 250, 252, 0.18);
+  color: #f8fafc;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hero-session__status {
+  background: rgba(254, 243, 199, 0.2);
+  color: #fef3c7;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(254, 215, 170, 0.4);
+}
+
+.hero-session__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-session__action {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.hero-session__action:focus-visible {
+  outline: 2px solid rgba(190, 242, 100, 0.85);
+  outline-offset: 2px;
+}
+
+.hero-session__action--primary {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.hero-session__action--primary:hover {
+  transform: translateY(-1px);
+}
+
+.hero-session__action--ghost {
+  background: transparent;
+  color: #f8fafc;
+  border: 1px solid rgba(248, 250, 252, 0.6);
+}
+
+.hero-session__action--ghost:hover {
+  background: rgba(248, 250, 252, 0.08);
+}
+
+.hero-schedule__feedback {
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 14px;
+  color: rgba(226, 232, 240, 0.86);
+  line-height: 1.45;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.hero-schedule__feedback--error {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fee2e2;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.hero-schedule__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hero-schedule__link {
+  border: none;
+  background: transparent;
+  color: #bbf7d0;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hero-schedule__link:hover {
+  text-decoration: underline;
 }
 
 .play-hero__status-card {
@@ -1949,6 +2252,7 @@
 
   .play-hero__status {
     align-items: flex-start;
+    max-width: none;
   }
 
   .play-hero__location-row {
