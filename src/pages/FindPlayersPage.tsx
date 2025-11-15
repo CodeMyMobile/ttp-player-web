@@ -58,7 +58,6 @@ type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
-const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
@@ -337,7 +336,6 @@ const FindPlayersPage = () => {
   const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
-  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
@@ -391,16 +389,6 @@ const FindPlayersPage = () => {
 
     return resolvedLocationLabel || "";
   })();
-
-  const appliedFilters = useMemo(() => {
-    const filters: Record<string, unknown> = {};
-
-    if (selectedAvailability !== availabilityOptions[0]) {
-      filters.availability = [toCanonicalAvailability(selectedAvailability)];
-    }
-
-    return filters;
-  }, [selectedAvailability]);
 
   const applyLocationFilter = useCallback(
     (nextLocation: SelectedLocation | null) => {
@@ -595,7 +583,6 @@ const FindPlayersPage = () => {
           position: position
             ? { latitude: position.latitude, longitude: position.longitude }
             : undefined,
-          filters: Object.keys(appliedFilters).length ? appliedFilters : undefined,
         });
         if (isCancelled) {
           return;
@@ -627,7 +614,7 @@ const FindPlayersPage = () => {
     return () => {
       isCancelled = true;
     };
-  }, [playerToken, appliedSearchTerm, appliedRadius, locationQuery, positionKey, appliedFilters]);
+  }, [playerToken, appliedSearchTerm, appliedRadius, locationQuery, positionKey]);
 
   const themeVars = useMemo(
     () => ({
@@ -688,10 +675,6 @@ const FindPlayersPage = () => {
     setSelectedLevel(level);
   };
 
-  const handleAvailabilityChange = (availability: string) => {
-    setSelectedAvailability(availability);
-  };
-
   const handleGenderChange = (gender: string) => {
     setSelectedGender(gender);
   };
@@ -707,7 +690,6 @@ const FindPlayersPage = () => {
     setAppliedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
     setSelectedGender(genderOptions[0]);
-    setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
     setMode("normal");
   };
@@ -744,32 +726,17 @@ const FindPlayersPage = () => {
           ? Number.parseFloat(player.level) >= 4.5
           : player.level === selectedLevel);
 
-      const matchesAvailability = (() => {
-        if (selectedAvailability === availabilityOptions[0]) {
-          return true;
-        }
-        const normalizedAvailability = normalize(selectedAvailability);
-        return player.availability.some((option) => normalize(option) === normalizedAvailability);
-      })();
-
       const matchesGender =
         selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
 
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return (
-        matchesSearch &&
-        matchesLevel &&
-        matchesAvailability &&
-        matchesGender &&
-        matchesVerification
-      );
+      return matchesSearch && matchesLevel && matchesGender && matchesVerification;
     });
   }, [
     mode,
     appliedSearchTerm,
     players,
-    selectedAvailability,
     selectedGender,
     selectedLevel,
     verifiedOnly,
@@ -855,9 +822,6 @@ const FindPlayersPage = () => {
             genderOptions={genderOptions}
             selectedGender={selectedGender}
             onGenderChange={handleGenderChange}
-            availabilityOptions={availabilityOptions}
-            selectedAvailability={selectedAvailability}
-            onAvailabilityChange={handleAvailabilityChange}
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
