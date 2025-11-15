@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, MapPin } from "lucide-react";
+import { CheckCircle2, MapPin, Navigation } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -27,7 +27,7 @@ const formatCourtLocation = (court: string) => {
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
   const bioTeaser = useMemo(() => {
-    const teaserLimit = 160;
+    const teaserLimit = 120;
     if (player.bio.length <= teaserLimit) {
       return player.bio;
     }
@@ -36,6 +36,18 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     const safeSlice = lastSpace > teaserLimit * 0.6 ? truncated.slice(0, lastSpace) : truncated;
     return `${safeSlice}…`;
   }, [player.bio]);
+
+  const matchPreferenceSummary = useMemo(() => {
+    if (player.matchPreferences?.length) {
+      return player.matchPreferences.join(" • ");
+    }
+    if (player.lookingFor?.trim()) {
+      return player.lookingFor;
+    }
+    return bioTeaser;
+  }, [bioTeaser, player.lookingFor, player.matchPreferences]);
+
+  const tagline = matchPreferenceSummary.trim();
 
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
@@ -46,6 +58,23 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
   }, [player.profileImageUrl]);
 
   const shouldDisplayProfileImage = hasProfileImage && !imageFailedToLoad;
+
+  const distanceLabel = useMemo(() => {
+    if (typeof player.distanceMiles !== "number" || Number.isNaN(player.distanceMiles)) {
+      return "";
+    }
+
+    if (player.distanceMiles <= 0) {
+      return "Nearby";
+    }
+
+    const isUnderTenMiles = player.distanceMiles < 10;
+    const formattedDistance = isUnderTenMiles
+      ? player.distanceMiles.toFixed(1)
+      : Math.round(player.distanceMiles).toString();
+
+    return `${formattedDistance} mi away`;
+  }, [player.distanceMiles]);
 
   const handleViewProfile = () => {
     if (onViewProfile) {
@@ -84,10 +113,19 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           <div className="fp-card__identity">
             <div className="fp-card__name-row">
               <h3 className="fp-card__name">{player.name}</h3>
+              {distanceLabel ? (
+                <span className="fp-card__distance" aria-label={`${distanceLabel} from your location`}>
+                  <Navigation size={16} aria-hidden="true" />
+                  {distanceLabel}
+                </span>
+              ) : null}
             </div>
+            {tagline ? (
+              <p className="fp-card__tagline">{tagline}</p>
+            ) : null}
             <div
               className="fp-card__badges"
-              aria-label={`NTRP ${player.level}${player.verified ? ", verified player" : ""}`}
+              aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
             >
               <span className="fp-card__badge fp-card__badge--level">
                 NTRP <strong>{player.level}</strong>
@@ -95,17 +133,16 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
               {player.verified ? (
                 <span
                   className="fp-card__badge fp-card__badge--verified"
-                  aria-label="Verified player"
+                  aria-label="Verified rating"
                   title="Verified players have confirmed their identity and NTRP level through community reviews."
                 >
                   <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
-                  Verified player
+                  Verified rating
                 </span>
               ) : null}
             </div>
           </div>
         </div>
-        <p className="fp-card__bio">{bioTeaser}</p>
       </header>
 
       <div className="fp-card__sections">
@@ -147,14 +184,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
       <div className="fp-card__actions">
         <button
           type="button"
-          className="fc-button fp-card__view-profile"
-          onClick={handleViewProfile}
-          disabled={!onViewProfile}
-        >
-          View profile
-        </button>
-        <button
-          type="button"
           className="fc-button fp-card__connect"
           disabled={!canConnect}
           onClick={() => onConnect(player)}
@@ -165,6 +194,14 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           }
         >
           Connect
+        </button>
+        <button
+          type="button"
+          className="fc-button fp-card__view-profile"
+          onClick={handleViewProfile}
+          disabled={!onViewProfile}
+        >
+          View profile
         </button>
       </div>
     </article>

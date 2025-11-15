@@ -8,14 +8,17 @@ const PlayerCardSkeleton = () => {
         <div className="fp-card__identity-block">
           <span className="fp-skeleton fp-skeleton--avatar" />
           <div className="fp-card__profile-skeleton">
-            <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
+            <div className="fp-card__profile-heading">
+              <span className="fp-skeleton fp-skeleton--line fp-skeleton--line-lg" />
+              <span className="fp-skeleton fp-skeleton--distance" />
+            </div>
+            <span className="fp-skeleton fp-skeleton--tagline" />
             <div className="fp-card__badge-skeleton-row">
               <span className="fp-skeleton fp-skeleton--pill" />
               <span className="fp-skeleton fp-skeleton--pill fp-skeleton--pill-sm" />
             </div>
           </div>
         </div>
-        <span className="fp-skeleton fp-skeleton--paragraph" />
       </div>
 
       <div className="fp-card__sections fp-card__sections--skeleton">
