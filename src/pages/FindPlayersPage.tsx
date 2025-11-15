@@ -396,7 +396,7 @@ const FindPlayersPage = () => {
     const filters: Record<string, unknown> = {};
 
     if (selectedAvailability !== availabilityOptions[0]) {
-      filters.availability = toCanonicalAvailability(selectedAvailability);
+      filters.availability = [toCanonicalAvailability(selectedAvailability)];
     }
 
     return filters;
