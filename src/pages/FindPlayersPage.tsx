@@ -58,7 +58,7 @@ type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
-const availabilityOptions = ["All availability", "Weekdays AM", "Weekdays PM", "Weekends"];
+const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
@@ -115,15 +115,43 @@ const toInitials = (name: string) => {
   return `${segments[0][0]}${segments[segments.length - 1][0]}`.toUpperCase();
 };
 
-const ensureStringArray = (value: unknown): string[] => {
+const canonicalAvailabilityLabels: Record<string, string> = {
+  "weekdays am": "Weekdays AM",
+  "weekday am": "Weekdays AM",
+  "weekday morning": "Weekdays AM",
+  "weekday mornings": "Weekdays AM",
+  "weekdays pm": "Weekday PM",
+  "weekday pm": "Weekday PM",
+  "weekday evening": "Weekday PM",
+  "weekday evenings": "Weekday PM",
+  "weekend": "Weekends",
+  "weekends": "Weekends",
+  "weekend only": "Weekends",
+};
+
+const toCanonicalAvailability = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+  return canonicalAvailabilityLabels[normalized] ?? value.trim();
+};
+
+const ensureStringArray = (value: unknown, normalizer?: (value: string) => string): string[] => {
   if (Array.isArray(value)) {
     return value
-      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .map((item) => {
+        if (typeof item !== "string") {
+          return "";
+        }
+        const trimmed = item.trim();
+        return normalizer ? normalizer(trimmed) : trimmed;
+      })
       .filter((item): item is string => item.length > 0);
   }
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed ? [trimmed] : [];
+    if (!trimmed) {
+      return [];
+    }
+    return [normalizer ? normalizer(trimmed) : trimmed];
   }
   return [];
 };
@@ -131,7 +159,9 @@ const ensureStringArray = (value: unknown): string[] => {
 type StoredMatchProfile = MatchProfileDetails;
 
 const formatAvailabilityList = (slots: string[]): string => {
-  const cleaned = slots.map((slot) => slot.trim()).filter((slot) => slot.length > 0);
+  const cleaned = slots
+    .map((slot) => (typeof slot === "string" ? toCanonicalAvailability(slot) : ""))
+    .filter((slot) => slot.length > 0);
 
   if (cleaned.length === 0) {
     return "Weekends";
@@ -157,7 +187,7 @@ const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null => {
   const gender = typeof record.gender === "string" ? record.gender.trim() : "";
   const localCourts = typeof record.localCourts === "string" ? record.localCourts.trim() : "";
   const playStyles = ensureStringArray(record.playStyles);
-  const availability = ensureStringArray(record.availability);
+  const availability = ensureStringArray(record.availability, toCanonicalAvailability);
 
   return { about, level, playStyles, gender, localCourts, availability };
 };
@@ -190,7 +220,7 @@ const storeMatchProfile = (profile: StoredMatchProfile) => {
 };
 
 const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
-  const availability = ensureStringArray(record.availability);
+  const availability = ensureStringArray(record.availability, toCanonicalAvailability);
   const playerLocations = ensureStringArray(record.playerLocations);
   const courtLocations = ensureStringArray(record.playerCourtLocations);
   const lookingFor = ensureStringArray(record.lookingFor);
@@ -386,11 +416,6 @@ const FindPlayersPage = () => {
       setError(null);
       try {
         const radiusValue = parseRadius(appliedRadius);
-        const filtersPayload: Record<string, unknown> = {};
-        if (selectedAvailability !== availabilityOptions[0]) {
-          filtersPayload.availability = [selectedAvailability];
-        }
-
         const response = await getSuggestedPlayerCheckLocation({
           token: playerToken,
           perPage: 20,
@@ -401,7 +426,10 @@ const FindPlayersPage = () => {
           position: position
             ? { latitude: position.latitude, longitude: position.longitude }
             : undefined,
-          filters: Object.keys(filtersPayload).length > 0 ? filtersPayload : undefined,
+          filters:
+            selectedAvailability !== availabilityOptions[0]
+              ? { availability: toCanonicalAvailability(selectedAvailability) }
+              : undefined,
         });
         if (isCancelled) {
           return;
@@ -811,14 +839,26 @@ const FindPlayersPage = () => {
                     const senderLevel = matchProfile?.level ?? "3.0";
                     const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
                     const message =
-                      `Hi ${nextPlayer.name} I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
+                      `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
                       `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
                       "Let me know if you'd like to hit sometime.";
-                    const smsUrl = `sms:&body=${encodeURIComponent(message)}`;
-                    const openedWindow = window.open(smsUrl, "_self");
-                    if (!openedWindow) {
-                      window.location.href = smsUrl;
+
+                    const encodedMessage = encodeURIComponent(message);
+                    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+                    const smsUrl = isIos
+                      ? `sms:&body=${encodedMessage}`
+                      : `sms:?body=${encodedMessage}`;
+
+                    if (typeof window.navigator.share === "function") {
+                      window.navigator
+                        .share({ text: message })
+                        .catch(() => {
+                          window.location.href = smsUrl;
+                        });
+                      return;
                     }
+
+                    window.location.href = smsUrl;
                   }}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {

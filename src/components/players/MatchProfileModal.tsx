@@ -69,7 +69,7 @@ const PLAY_STYLE_OPTIONS = [
   },
 ];
 
-const AVAILABILITY_OPTIONS = ["Weekdays AM", "Weekdays PM", "Weekends"];
+const AVAILABILITY_OPTIONS = ["Weekdays AM", "Weekday PM", "Weekends"];
 
 export type MatchProfileDetails = {
   about: string;
