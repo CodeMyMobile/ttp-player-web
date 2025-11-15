@@ -71,6 +71,15 @@ const PLAY_STYLE_OPTIONS = [
 
 const AVAILABILITY_OPTIONS = ["Weekdays AM", "Weekdays PM", "Weekends"];
 
+export type MatchProfileDetails = {
+  about: string;
+  level: string;
+  playStyles: string[];
+  gender: string;
+  localCourts: string;
+  availability: string[];
+};
+
 const GENDER_OPTIONS = [
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
@@ -80,10 +89,20 @@ const GENDER_OPTIONS = [
 type MatchProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: () => void;
+  onComplete: (profile: MatchProfileDetails) => void;
+  initialProfile?: MatchProfileDetails | null;
 };
 
 const DEFAULT_LEVEL = "3.0";
+
+const EMPTY_PROFILE: MatchProfileDetails = {
+  about: "",
+  level: DEFAULT_LEVEL,
+  playStyles: [],
+  gender: "",
+  localCourts: "",
+  availability: [],
+};
 
 type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
 
@@ -128,7 +147,7 @@ const loadGooglePlacesScript = () => {
   return placesScriptPromise;
 };
 
-const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalProps) => {
+const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: MatchProfileModalProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -138,14 +157,14 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
     null,
   );
 
-  const [about, setAbout] = useState("");
+  const [about, setAbout] = useState(EMPTY_PROFILE.about);
   const [photoName, setPhotoName] = useState<string | null>(null);
-  const [selectedLevel, setSelectedLevel] = useState(DEFAULT_LEVEL);
-  const [playStyles, setPlayStyles] = useState<string[]>([]);
-  const [gender, setGender] = useState("");
-  const [localCourts, setLocalCourts] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState(EMPTY_PROFILE.level);
+  const [playStyles, setPlayStyles] = useState<string[]>(EMPTY_PROFILE.playStyles);
+  const [gender, setGender] = useState(EMPTY_PROFILE.gender);
+  const [localCourts, setLocalCourts] = useState(EMPTY_PROFILE.localCourts);
   const [localCourtPlaceId, setLocalCourtPlaceId] = useState<string | null>(null);
-  const [availability, setAvailability] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<string[]>(EMPTY_PROFILE.availability);
   const [touched, setTouched] = useState(false);
   const [placesStatus, setPlacesStatus] = useState<PlacesStatus>("idle");
 
@@ -171,23 +190,27 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
     };
   }, [isOpen, onClose]);
 
+  const applyProfile = useCallback(
+    (profile: MatchProfileDetails | null | undefined) => {
+      const nextProfile = profile ?? EMPTY_PROFILE;
+      setAbout(nextProfile.about ?? EMPTY_PROFILE.about);
+      setPhotoName(null);
+      setSelectedLevel(nextProfile.level ?? EMPTY_PROFILE.level);
+      setPlayStyles(Array.isArray(nextProfile.playStyles) ? [...nextProfile.playStyles] : []);
+      setGender(nextProfile.gender ?? EMPTY_PROFILE.gender);
+      setLocalCourts(nextProfile.localCourts ?? EMPTY_PROFILE.localCourts);
+      setAvailability(Array.isArray(nextProfile.availability) ? [...nextProfile.availability] : []);
+      setLocalCourtPlaceId(null);
+      setTouched(false);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (isOpen) {
-      setTouched(false);
+      applyProfile(initialProfile);
     }
-  }, [isOpen]);
-
-  const resetForm = useCallback(() => {
-    setAbout("");
-    setPhotoName(null);
-    setSelectedLevel(DEFAULT_LEVEL);
-    setPlayStyles([]);
-    setGender("");
-    setLocalCourts("");
-    setLocalCourtPlaceId(null);
-    setAvailability([]);
-    setTouched(false);
-  }, []);
+  }, [applyProfile, initialProfile, isOpen]);
 
   const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
@@ -241,8 +264,16 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete }: MatchProfileModalPro
       return;
     }
 
-    resetForm();
-    onComplete();
+    const profileDetails: MatchProfileDetails = {
+      about: about.trim(),
+      level: selectedLevel,
+      playStyles: [...playStyles],
+      gender,
+      localCourts: localCourts.trim(),
+      availability: [...availability],
+    };
+
+    onComplete(profileDetails);
   };
 
   useEffect(() => {

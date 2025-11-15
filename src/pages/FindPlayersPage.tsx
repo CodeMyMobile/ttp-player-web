@@ -10,11 +10,13 @@ import PlayersFilterBar from "../components/players/PlayersFilterBar";
 import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
+import type { MatchProfileDetails } from "../components/players/MatchProfileModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -56,17 +58,10 @@ type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
-const availabilityOptions = [
-  "All availability",
-  "Mornings",
-  "Early mornings",
-  "Lunch",
-  "Weekdays",
-  "Weeknights",
-  "Weekends",
-];
+const availabilityOptions = ["All availability", "Weekdays AM", "Weekdays PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
 const DEFAULT_POSITION: Coordinates = { latitude: 34.0549076, longitude: -118.242643 };
 
 const normalize = (value: string) => value.trim().toLowerCase();
@@ -131,6 +126,67 @@ const ensureStringArray = (value: unknown): string[] => {
     return trimmed ? [trimmed] : [];
   }
   return [];
+};
+
+type StoredMatchProfile = MatchProfileDetails;
+
+const formatAvailabilityList = (slots: string[]): string => {
+  const cleaned = slots.map((slot) => slot.trim()).filter((slot) => slot.length > 0);
+
+  if (cleaned.length === 0) {
+    return "Weekends";
+  }
+  if (cleaned.length === 1) {
+    return cleaned[0];
+  }
+  if (cleaned.length === 2) {
+    return `${cleaned[0]} and ${cleaned[1]}`;
+  }
+  const head = cleaned.slice(0, -1).join(", ");
+  return `${head}, and ${cleaned[cleaned.length - 1]}`;
+};
+
+const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const level = typeof record.level === "string" && record.level.trim().length > 0 ? record.level.trim() : "3.0";
+  const about = typeof record.about === "string" ? record.about.trim() : "";
+  const gender = typeof record.gender === "string" ? record.gender.trim() : "";
+  const localCourts = typeof record.localCourts === "string" ? record.localCourts.trim() : "";
+  const playStyles = ensureStringArray(record.playStyles);
+  const availability = ensureStringArray(record.availability);
+
+  return { about, level, playStyles, gender, localCourts, availability };
+};
+
+const getStoredMatchProfile = (): StoredMatchProfile | null => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return null;
+    }
+    const raw = window.localStorage.getItem(MATCH_PROFILE_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    return sanitizeMatchProfile(parsed);
+  } catch {
+    return null;
+  }
+};
+
+const storeMatchProfile = (profile: StoredMatchProfile) => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) {
+      return;
+    }
+    window.localStorage.setItem(MATCH_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+    // ignore storage failures
+  }
 };
 
 const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
@@ -221,11 +277,13 @@ const FindPlayersPage = () => {
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [hasMatchProfile, setHasMatchProfile] = useState(false);
+  const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [playerToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
+  const hasMatchProfile = Boolean(matchProfile);
+  const { displayName } = usePlayerIdentity();
   const [position, setPosition] = useState<Coordinates | null>(() => getStoredLocation() ?? DEFAULT_POSITION);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => {
     const stored = getStoredLocation();
@@ -328,6 +386,11 @@ const FindPlayersPage = () => {
       setError(null);
       try {
         const radiusValue = parseRadius(appliedRadius);
+        const filtersPayload: Record<string, unknown> = {};
+        if (selectedAvailability !== availabilityOptions[0]) {
+          filtersPayload.availability = [selectedAvailability];
+        }
+
         const response = await getSuggestedPlayerCheckLocation({
           token: playerToken,
           perPage: 20,
@@ -338,6 +401,7 @@ const FindPlayersPage = () => {
           position: position
             ? { latitude: position.latitude, longitude: position.longitude }
             : undefined,
+          filters: Object.keys(filtersPayload).length > 0 ? filtersPayload : undefined,
         });
         if (isCancelled) {
           return;
@@ -369,7 +433,14 @@ const FindPlayersPage = () => {
     return () => {
       isCancelled = true;
     };
-  }, [playerToken, appliedSearchTerm, appliedRadius, locationLabel, positionKey]);
+  }, [
+    playerToken,
+    appliedSearchTerm,
+    appliedRadius,
+    locationLabel,
+    positionKey,
+    selectedAvailability,
+  ]);
 
   const themeVars = useMemo(
     () => ({
@@ -405,6 +476,15 @@ const FindPlayersPage = () => {
     }),
     [],
   );
+
+  const profileShareUrl = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "https://tennisplan.app/#/settings/match-profile";
+    }
+    const { origin, pathname } = window.location;
+    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
+    return `${origin}${normalizedPath}#/settings/match-profile`;
+  }, []);
 
   const handleSearch = () => {
     setAppliedSearchTerm(normalize(searchTerm));
@@ -478,11 +558,11 @@ const FindPlayersPage = () => {
           : player.level === selectedLevel);
 
       const matchesAvailability = (() => {
-        if (selectedAvailability === "All availability") {
+        if (selectedAvailability === availabilityOptions[0]) {
           return true;
         }
         const normalizedAvailability = normalize(selectedAvailability);
-        return player.availability.some((option) => option.toLowerCase().includes(normalizedAvailability));
+        return player.availability.some((option) => normalize(option) === normalizedAvailability);
       })();
 
       const matchesGender =
@@ -726,7 +806,19 @@ const FindPlayersPage = () => {
                       window.alert("Create your match profile to connect.");
                       return;
                     }
-                    window.alert(`Connection request sent to ${nextPlayer.name}`);
+                    const trimmedDisplayName = displayName.trim();
+                    const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
+                    const senderLevel = matchProfile?.level ?? "3.0";
+                    const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
+                    const message =
+                      `Hi ${nextPlayer.name} I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
+                      `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
+                      "Let me know if you'd like to hit sometime.";
+                    const smsUrl = `sms:&body=${encodeURIComponent(message)}`;
+                    const openedWindow = window.open(smsUrl, "_self");
+                    if (!openedWindow) {
+                      window.location.href = smsUrl;
+                    }
                   }}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {
@@ -742,8 +834,11 @@ const FindPlayersPage = () => {
       <MatchProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setProfileModalOpen(false)}
-        onComplete={() => {
-          setHasMatchProfile(true);
+        initialProfile={matchProfile}
+        onComplete={(profileDetails) => {
+          const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
+          setMatchProfile(normalizedProfile);
+          storeMatchProfile(normalizedProfile);
           setProfileModalOpen(false);
           window.alert(
             "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
