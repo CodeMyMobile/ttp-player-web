@@ -428,7 +428,7 @@ const FindPlayersPage = () => {
             : undefined,
           filters:
             selectedAvailability !== availabilityOptions[0]
-              ? { availability: toCanonicalAvailability(selectedAvailability) }
+              ? { availability: [toCanonicalAvailability(selectedAvailability)] }
               : undefined,
         });
         if (isCancelled) {
