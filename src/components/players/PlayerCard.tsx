@@ -79,8 +79,11 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
                 player.initials
               )}
             </div>
+          </div>
+          <div className="fp-card__identity">
+            <h3 className="fp-card__name">{player.name}</h3>
             <div
-              className="fp-card__badges fp-card__badges--stacked"
+              className="fp-card__badges"
               aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
             >
               <span className="fp-card__badge fp-card__badge--level">
@@ -97,9 +100,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
                 </span>
               ) : null}
             </div>
-          </div>
-          <div className="fp-card__identity">
-            <h3 className="fp-card__name">{player.name}</h3>
           </div>
         </div>
       </header>
