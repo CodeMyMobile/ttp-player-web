@@ -360,8 +360,7 @@ export const getSuggestedPlayerCheckLocation = async ({
   radius,
   filters = {},
 }: SuggestedPlayerCheckLocationParams) => {
-  const hasFilters = filters && Object.keys(filters).length > 0;
-  const serializedFilters = hasFilters ? JSON.stringify(filters) : undefined;
+  const hasFilters = Boolean(filters && Object.keys(filters).length);
 
   return request<Record<string, unknown>>("/player/surveys/suggested/player/getchecklocation", {
     method: "POST",
@@ -372,7 +371,6 @@ export const getSuggestedPlayerCheckLocation = async ({
       search,
       locationSearch: location,
       radius,
-      filters: serializedFilters,
     }),
     body: buildBody({
       position,
