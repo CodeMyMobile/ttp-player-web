@@ -32,7 +32,16 @@ const PlayerCardSkeleton = () => {
         </div>
         <div className="fp-card__section fp-card__section--skeleton">
           <span className="fp-skeleton fp-skeleton--section-label" />
-          <span className="fp-skeleton fp-skeleton--section-line" />
+          <div className="fp-card__location-skeleton-list">
+            <div className="fp-card__location-skeleton-item">
+              <span className="fp-skeleton fp-skeleton--location-icon" />
+              <span className="fp-skeleton fp-skeleton--location-line" />
+            </div>
+            <div className="fp-card__location-skeleton-item">
+              <span className="fp-skeleton fp-skeleton--location-icon" />
+              <span className="fp-skeleton fp-skeleton--location-line fp-skeleton--location-line-short" />
+            </div>
+          </div>
         </div>
       </div>
 

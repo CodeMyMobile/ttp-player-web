@@ -164,15 +164,15 @@
 
 .fp-card__identity-block {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 18px;
 }
 
 .fp-card__avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #a855f7, #6366f1);
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(140deg, #6b21a8, #4f46e5);
   color: #f5f3ff;
   display: flex;
   align-items: center;
@@ -180,7 +180,7 @@
   font-weight: 700;
   font-size: 24px;
   letter-spacing: 0.03em;
-  box-shadow: 0 20px 32px -22px rgba(99, 102, 241, 0.55);
+  box-shadow: 0 24px 34px -24px rgba(79, 70, 229, 0.55);
   overflow: hidden;
 }
 
@@ -194,23 +194,23 @@
 .fp-card__identity {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .fp-card__name-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
 .fp-card__name {
   margin: 0;
-  font-size: 1.28rem;
+  font-size: 1.3rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #111827;
+  color: #0f172a;
 }
 
 .fp-card__distance {
@@ -218,8 +218,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+  background: rgba(79, 70, 229, 0.14);
   color: #4338ca;
   font-size: 0.8rem;
   font-weight: 600;
@@ -228,19 +228,20 @@
 .fp-card__distance svg {
   width: 16px;
   height: 16px;
+  color: currentColor;
 }
 
 .fp-card__tagline {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #64748b;
+  color: #475569;
 }
 
 .fp-card__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .fp-card__badge {
@@ -248,7 +249,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: 10px;
+  border: 1px solid transparent;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -261,12 +263,14 @@
 }
 
 .fp-card__badge--level {
-  background: rgba(99, 102, 241, 0.12);
-  color: #4338ca;
+  background: rgba(79, 70, 229, 0.16);
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  color: #312e81;
 }
 
 .fp-card__badge--verified {
-  background: rgba(34, 197, 94, 0.18);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(5, 150, 105, 0.32);
   color: #047857;
 }
 
@@ -319,9 +323,9 @@
   justify-content: center;
   padding: 6px 12px;
   border-radius: 999px;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #4338ca;
+  background: #ede9fe;
+  border: 1px solid rgba(109, 40, 217, 0.32);
+  color: #5b21b6;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -336,28 +340,34 @@
 }
 
 .fp-card__section-value--location {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 10px;
-  color: #334155;
-}
-
-.fp-card__section-value--location svg {
-  color: #6366f1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #1e293b;
 }
 
 .fp-card__location-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .fp-card__location-item {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.9rem;
-  font-weight: 500;
-  color: #334155;
-  line-height: 1.4;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.35;
+}
+
+.fp-card__location-item svg {
+  color: #4f46e5;
+}
+
+.fp-card__location-item--empty {
+  color: #475569;
 }
 
 .fp-card__actions {
@@ -373,24 +383,24 @@
 
 .fp-card__view-profile {
   background: #ffffff;
-  border: 1px solid #c7d2fe;
+  border: 1px solid rgba(79, 70, 229, 0.35);
   color: #4338ca;
   box-shadow: none;
 }
 
 .fp-card__view-profile:hover {
-  background: #eef2ff;
+  background: rgba(79, 70, 229, 0.08);
 }
 
 .fp-card__connect {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #4338ca, #7c3aed);
   border: none;
   color: #ffffff;
-  box-shadow: 0 18px 36px -24px rgba(99, 102, 241, 0.6);
+  box-shadow: 0 20px 36px -24px rgba(99, 102, 241, 0.64);
 }
 
 .fp-card__connect:hover {
-  background: linear-gradient(135deg, #5a5df1, #7c5cf6);
+  background: linear-gradient(135deg, #372fbd, #6d28d9);
 }
 
 .fp-card .fc-button[disabled] {
@@ -433,9 +443,9 @@
 }
 
 .fp-skeleton--avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
 }
 
 .fp-skeleton--line {
@@ -449,7 +459,7 @@
 .fp-skeleton--pill {
   width: 140px;
   height: 26px;
-  border-radius: 999px;
+  border-radius: 10px;
 }
 
 .fp-skeleton--pill-sm {
@@ -459,7 +469,7 @@
 .fp-skeleton--distance {
   width: 122px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: 12px;
 }
 
 .fp-skeleton--tagline {
@@ -499,6 +509,34 @@
 
 .fp-card__section--skeleton {
   gap: 14px;
+}
+
+.fp-card__location-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fp-card__location-skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fp-skeleton--location-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 6px;
+}
+
+.fp-skeleton--location-line {
+  width: 68%;
+  height: 16px;
+  border-radius: 10px;
+}
+
+.fp-skeleton--location-line-short {
+  width: 48%;
 }
 
 .fp-skeleton--section-line {

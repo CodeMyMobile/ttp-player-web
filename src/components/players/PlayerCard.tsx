@@ -26,28 +26,12 @@ const formatCourtLocation = (court: string) => {
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
-  const bioTeaser = useMemo(() => {
-    const teaserLimit = 120;
-    if (player.bio.length <= teaserLimit) {
-      return player.bio;
-    }
-    const truncated = player.bio.slice(0, teaserLimit).trimEnd();
-    const lastSpace = truncated.lastIndexOf(" ");
-    const safeSlice = lastSpace > teaserLimit * 0.6 ? truncated.slice(0, lastSpace) : truncated;
-    return `${safeSlice}…`;
-  }, [player.bio]);
-
-  const matchPreferenceSummary = useMemo(() => {
-    if (player.matchPreferences?.length) {
-      return player.matchPreferences.join(" • ");
-    }
+  const tagline = useMemo(() => {
     if (player.lookingFor?.trim()) {
-      return player.lookingFor;
+      return player.lookingFor.trim();
     }
-    return bioTeaser;
-  }, [bioTeaser, player.lookingFor, player.matchPreferences]);
-
-  const tagline = matchPreferenceSummary.trim();
+    return "";
+  }, [player.lookingFor]);
 
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
@@ -62,10 +46,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
   const distanceLabel = useMemo(() => {
     if (typeof player.distanceMiles !== "number" || Number.isNaN(player.distanceMiles)) {
       return "";
-    }
-
-    if (player.distanceMiles <= 0) {
-      return "Nearby";
     }
 
     const isUnderTenMiles = player.distanceMiles < 10;
@@ -165,17 +145,20 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         <section className="fp-card__section" aria-label="Local courts">
           <span className="fp-card__section-label">Local courts</span>
           <div className="fp-card__section-value fp-card__section-value--location">
-            <MapPin size={16} aria-hidden="true" />
             {localCourts.length ? (
               <div className="fp-card__location-list">
                 {localCourts.map((court, index) => (
                   <span className="fp-card__location-item" key={`${court}-${index}`}>
+                    <MapPin size={14} aria-hidden="true" />
                     {court}
                   </span>
                 ))}
               </div>
             ) : (
-              <span className="fp-card__location-item">Flexible on courts</span>
+              <span className="fp-card__location-item fp-card__location-item--empty">
+                <MapPin size={14} aria-hidden="true" />
+                Flexible on courts
+              </span>
             )}
           </div>
         </section>
