@@ -369,10 +369,11 @@ export const getSuggestedPlayerCheckLocation = async ({
       search,
       locationSearch: location,
       radius,
+      filters: Object.keys(filters).length ? JSON.stringify(filters) : undefined,
     }),
     body: buildBody({
       position,
-      filters,
+      filters: Object.keys(filters).length ? filters : undefined,
     }),
   });
 

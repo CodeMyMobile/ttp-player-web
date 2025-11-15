@@ -335,6 +335,16 @@ const FindPlayersPage = () => {
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "");
 
+  const appliedFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {};
+
+    if (selectedAvailability !== availabilityOptions[0]) {
+      filters.availability = toCanonicalAvailability(selectedAvailability);
+    }
+
+    return filters;
+  }, [selectedAvailability]);
+
   const applyLocationFilter = useCallback(
     (nextLocation: SelectedLocation | null) => {
       if (nextLocation && typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number") {
@@ -426,10 +436,7 @@ const FindPlayersPage = () => {
           position: position
             ? { latitude: position.latitude, longitude: position.longitude }
             : undefined,
-          filters:
-            selectedAvailability !== availabilityOptions[0]
-              ? { availability: [toCanonicalAvailability(selectedAvailability)] }
-              : undefined,
+          filters: Object.keys(appliedFilters).length ? appliedFilters : undefined,
         });
         if (isCancelled) {
           return;
@@ -461,14 +468,7 @@ const FindPlayersPage = () => {
     return () => {
       isCancelled = true;
     };
-  }, [
-    playerToken,
-    appliedSearchTerm,
-    appliedRadius,
-    locationLabel,
-    positionKey,
-    selectedAvailability,
-  ]);
+  }, [playerToken, appliedSearchTerm, appliedRadius, locationLabel, positionKey, appliedFilters]);
 
   const themeVars = useMemo(
     () => ({
