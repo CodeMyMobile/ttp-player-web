@@ -359,8 +359,11 @@ export const getSuggestedPlayerCheckLocation = async ({
   position,
   radius,
   filters = {},
-}: SuggestedPlayerCheckLocationParams) =>
-  request<Record<string, unknown>>("/player/surveys/suggested/player/getchecklocation", {
+}: SuggestedPlayerCheckLocationParams) => {
+  const hasFilters = filters && Object.keys(filters).length > 0;
+  const serializedFilters = hasFilters ? JSON.stringify(filters) : undefined;
+
+  return request<Record<string, unknown>>("/player/surveys/suggested/player/getchecklocation", {
     method: "POST",
     token,
     query: buildBody({
@@ -369,13 +372,14 @@ export const getSuggestedPlayerCheckLocation = async ({
       search,
       locationSearch: location,
       radius,
-      filters: Object.keys(filters).length ? JSON.stringify(filters) : undefined,
+      filters: serializedFilters,
     }),
     body: buildBody({
       position,
-      filters: Object.keys(filters).length ? filters : undefined,
+      filters: hasFilters ? filters : undefined,
     }),
   });
+};
 
 export interface FavoriteParams extends PlayerTokenOnlyParams {
   followeeId: number | string;
