@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, MapPin, Navigation } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -26,13 +26,6 @@ const formatCourtLocation = (court: string) => {
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
-  const tagline = useMemo(() => {
-    if (player.lookingFor?.trim()) {
-      return player.lookingFor.trim();
-    }
-    return "";
-  }, [player.lookingFor]);
-
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
@@ -43,24 +36,19 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
 
   const shouldDisplayProfileImage = hasProfileImage && !imageFailedToLoad;
 
-  const distanceLabel = useMemo(() => {
-    if (typeof player.distanceMiles !== "number" || Number.isNaN(player.distanceMiles)) {
-      return "";
-    }
-
-    const isUnderTenMiles = player.distanceMiles < 10;
-    const formattedDistance = isUnderTenMiles
-      ? player.distanceMiles.toFixed(1)
-      : Math.round(player.distanceMiles).toString();
-
-    return `${formattedDistance} mi away`;
-  }, [player.distanceMiles]);
-
   const handleViewProfile = () => {
     if (onViewProfile) {
       onViewProfile(player);
     }
   };
+
+  const bio = useMemo(() => {
+    if (typeof player.bio === "string" && player.bio.trim()) {
+      return player.bio.trim();
+    }
+
+    return "";
+  }, [player.bio]);
 
   const localCourts = useMemo(() => {
     const fallback = [player.favoriteCourt, player.location].filter(
@@ -76,35 +64,23 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
-          <div className="fp-card__avatar" aria-hidden={shouldDisplayProfileImage ? undefined : true}>
-            {shouldDisplayProfileImage ? (
-              <img
-                className="fp-card__avatar-image"
-                src={player.profileImageUrl}
-                alt={`${player.name}'s profile picture`}
-                loading="lazy"
-                decoding="async"
-                onError={() => setImageFailedToLoad(true)}
-              />
-            ) : (
-              player.initials
-            )}
-          </div>
-          <div className="fp-card__identity">
-            <div className="fp-card__name-row">
-              <h3 className="fp-card__name">{player.name}</h3>
-              {distanceLabel ? (
-                <span className="fp-card__distance" aria-label={`${distanceLabel} from your location`}>
-                  <Navigation size={16} aria-hidden="true" />
-                  {distanceLabel}
-                </span>
-              ) : null}
+          <div className="fp-card__identity-media">
+            <div className="fp-card__avatar" aria-hidden={shouldDisplayProfileImage ? undefined : true}>
+              {shouldDisplayProfileImage ? (
+                <img
+                  className="fp-card__avatar-image"
+                  src={player.profileImageUrl}
+                  alt={`${player.name}'s profile picture`}
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => setImageFailedToLoad(true)}
+                />
+              ) : (
+                player.initials
+              )}
             </div>
-            {tagline ? (
-              <p className="fp-card__tagline">{tagline}</p>
-            ) : null}
             <div
-              className="fp-card__badges"
+              className="fp-card__badges fp-card__badges--stacked"
               aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
             >
               <span className="fp-card__badge fp-card__badge--level">
@@ -122,10 +98,19 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
               ) : null}
             </div>
           </div>
+          <div className="fp-card__identity">
+            <h3 className="fp-card__name">{player.name}</h3>
+            {player.location ? <p className="fp-card__location">{player.location}</p> : null}
+          </div>
         </div>
       </header>
 
       <div className="fp-card__sections">
+        {bio ? (
+          <section className="fp-card__section fp-card__section--bio" aria-label="Player bio">
+            <p className="fp-card__bio">{bio}</p>
+          </section>
+        ) : null}
         <section className="fp-card__section fp-card__section--availability" aria-label="Availability">
           <span className="fp-card__section-label">Availability</span>
           {player.availability.length ? (
