@@ -51,14 +51,14 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
   }, [player.bio]);
 
   const localCourts = useMemo(() => {
-    const fallback = [player.favoriteCourt, player.location].filter(
+    const fallback = [player.favoriteCourt].filter(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
     );
 
     const courts = player.localCourts?.length ? player.localCourts : fallback;
 
     return courts.map(formatCourtLocation);
-  }, [player.favoriteCourt, player.localCourts, player.location]);
+  }, [player.favoriteCourt, player.localCourts]);
 
   return (
     <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
@@ -100,7 +100,6 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           </div>
           <div className="fp-card__identity">
             <h3 className="fp-card__name">{player.name}</h3>
-            {player.location ? <p className="fp-card__location">{player.location}</p> : null}
           </div>
         </div>
       </header>

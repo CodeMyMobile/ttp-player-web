@@ -238,7 +238,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid transparent;
   font-size: 0.78rem;
   font-weight: 600;
@@ -252,9 +252,9 @@
 }
 
 .fp-card__badge--level {
-  background: linear-gradient(135deg, #4c1d95, #7c3aed);
-  border: 1px solid rgba(76, 29, 149, 0.45);
-  color: #f5f3ff;
+  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  border: 1px solid #c4b5fd;
+  color: #5b21b6;
 }
 
 .fp-card__badge--verified {
