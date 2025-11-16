@@ -330,9 +330,25 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
 }
 
+const extractTokenCredentials = (token?: string | null) => {
+  if (!token) {
+    return undefined;
+  }
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const match = trimmed.match(/^[A-Za-z]+\s+(.+)$/);
+  if (match) {
+    const [, credentials] = match;
+    return credentials?.trim() || undefined;
+  }
+  return trimmed;
+};
+
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
-    token,
+    token: extractTokenCredentials(token),
     authScheme: "token",
     query: { userId, user_id: userId },
   });
@@ -358,7 +374,7 @@ export const savePlayerMatchProfile = async ({
 }: SavePlayerMatchProfileParams) =>
   request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
     method: "POST",
-    token,
+    token: extractTokenCredentials(token),
     authScheme: "token",
     query: { userId },
     body: buildBody({ userId, user_id: userId, ...profile }),
