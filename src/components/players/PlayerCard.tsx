@@ -152,7 +152,7 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
         <button
           type="button"
           className="fc-button fp-card__connect"
-          disabled={!canConnect}
+          aria-disabled={canConnect ? undefined : true}
           onClick={() => onConnect(player)}
           title={
             canConnect
