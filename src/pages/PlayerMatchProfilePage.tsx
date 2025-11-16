@@ -210,16 +210,17 @@ const PlayerMatchProfilePage = () => {
 
   const loadProfile = useCallback(async () => {
     const authToken = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
-    const tokenCredentials = extractTokenCredentials(authToken, {
-      defaultScheme: "token",
-      preferScheme: "token",
-    });
-    if (!authToken || !tokenCredentials) {
+    if (!authToken) {
       setStatus("error");
       setProfile(null);
       setError("Sign in to view and share your match profile.");
       return;
     }
+
+    const tokenCredentials = extractTokenCredentials(authToken, {
+      defaultScheme: "token",
+      preferScheme: "token",
+    });
 
     setStatus("loading");
     setError(null);
@@ -233,7 +234,7 @@ const PlayerMatchProfilePage = () => {
       const matchRecord = await fetchPlayerDetails({
         token: authToken,
         userId,
-        tokenCredentials,
+        tokenCredentials: tokenCredentials ?? undefined,
       });
       if (!mountedRef.current) {
         return;
