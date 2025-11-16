@@ -330,88 +330,50 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
 }
 
+const MATCH_PROFILE_ROUTE_PREFIXES = ["/player/surveys", "/player"] as const;
+const MATCH_PROFILE_ROUTE_RESOURCES = ["getchecklocation", "get-check-location", "get_check_location"] as const;
+const MATCH_PROFILE_SPECIFIC_SEGMENTS = ["specific_user", "specific-user"] as const;
+
+const MATCH_PROFILE_BASE_ROUTES = MATCH_PROFILE_ROUTE_PREFIXES.flatMap((prefix) =>
+  MATCH_PROFILE_ROUTE_RESOURCES.map((resource) => `${prefix}/${resource}`),
+);
+
+const shouldRetryMatchProfileError = (error?: { status?: number }) =>
+  error?.status === 404 || error?.status === 500;
+
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
   const userQuery = { userId, user_id: userId } as Record<string, string | number>;
   const userBody = { userId, user_id: userId };
+  const encodedUserId = encodeURIComponent(userId);
   const attempts: Array<{
     path: string;
     method?: string;
     query?: Record<string, string | number>;
     body?: Record<string, unknown>;
-  }> = [
-    {
-      path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: `/player/surveys/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific_user",
-      query: userQuery,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific-user",
-      query: userQuery,
-    },
-    {
-      path: `/player/surveys/getchecklocation/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: "/player/surveys/getchecklocation",
-      query: userQuery,
-    },
-    {
-      path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: `/player/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: "/player/getchecklocation/specific_user",
-      query: userQuery,
-    },
-    {
-      path: "/player/getchecklocation/specific-user",
-      query: userQuery,
-    },
-    {
-      path: `/player/getchecklocation/${encodeURIComponent(userId)}`,
-    },
-    {
-      path: "/player/getchecklocation",
-      query: userQuery,
-    },
-    {
-      path: "/player/getchecklocation/specific_user",
-      method: "POST",
-      body: userBody,
-    },
-    {
-      path: "/player/getchecklocation/specific-user",
-      method: "POST",
-      body: userBody,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific_user",
-      method: "POST",
-      body: userBody,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific-user",
-      method: "POST",
-      body: userBody,
-    },
-    {
-      path: "/player/getchecklocation",
-      method: "POST",
-      body: userBody,
-    },
-    {
-      path: "/player/surveys/getchecklocation",
-      method: "POST",
-      body: userBody,
-    },
-  ];
+  }> = [];
+
+  for (const base of MATCH_PROFILE_BASE_ROUTES) {
+    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
+      attempts.push({ path: `${base}/${specific}/${encodedUserId}` });
+      attempts.push({ path: `${base}/${specific}`, query: userQuery });
+    }
+    attempts.push({ path: `${base}/${encodedUserId}` });
+    attempts.push({ path: base, query: userQuery });
+  }
+
+  for (const base of MATCH_PROFILE_BASE_ROUTES) {
+    attempts.push({ path: base, method: "POST", body: userBody });
+    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
+      attempts.push({ path: `${base}/${specific}`, method: "POST", body: userBody });
+      attempts.push({
+        path: `${base}/${specific}`,
+        method: "POST",
+        query: userQuery,
+        body: userBody,
+      });
+      attempts.push({ path: `${base}/${specific}/${encodedUserId}`, method: "POST", body: userBody });
+    }
+  }
 
   let lastError: Error & { status?: number } | undefined;
 
@@ -425,7 +387,7 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
       });
     } catch (error) {
       lastError = error as Error & { status?: number };
-      if (lastError?.status !== 404) {
+      if (!shouldRetryMatchProfileError(lastError)) {
         throw lastError;
       }
     }
@@ -457,75 +419,31 @@ export const savePlayerMatchProfile = async ({
   userId,
   profile,
 }: SavePlayerMatchProfileParams) => {
+  const encodedUserId = encodeURIComponent(userId);
+  const userQuery = { userId, user_id: userId } as Record<string, string | number>;
   const attempts: Array<{
     path: string;
     method?: string;
     query?: Record<string, string | number>;
     includeUserId?: boolean;
-  }> = [
-    {
-      path: "/player/getchecklocation",
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: `/player/getchecklocation/${encodeURIComponent(userId)}`,
-      method: "PATCH",
-      includeUserId: true,
-    },
-    {
-      path: "/player/getchecklocation/specific_user",
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: "/player/getchecklocation/specific-user",
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: `/player/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: "/player/surveys/getchecklocation",
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific_user",
-      method: "POST",
-      query: { userId, user_id: userId },
-      includeUserId: true,
-    },
-    {
-      path: "/player/surveys/getchecklocation/specific-user",
-      method: "POST",
-      query: { userId, user_id: userId },
-      includeUserId: true,
-    },
-    {
-      path: `/player/surveys/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
-      method: "POST",
-      includeUserId: true,
-    },
-    {
-      path: `/player/surveys/getchecklocation/${encodeURIComponent(userId)}`,
-      method: "PATCH",
-      includeUserId: true,
-    },
-  ];
+  }> = [];
+
+  for (const base of MATCH_PROFILE_BASE_ROUTES) {
+    attempts.push({ path: base, method: "POST", includeUserId: true });
+    attempts.push({ path: `${base}/${encodedUserId}`, method: "POST", includeUserId: true });
+    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
+      const specificPath = `${base}/${specific}`;
+      attempts.push({ path: specificPath, method: "POST", includeUserId: true });
+      attempts.push({
+        path: specificPath,
+        method: "POST",
+        query: userQuery,
+        includeUserId: true,
+      });
+      attempts.push({ path: `${specificPath}/${encodedUserId}`, method: "POST", includeUserId: true });
+    }
+    attempts.push({ path: `${base}/${encodedUserId}`, method: "PATCH", includeUserId: true });
+  }
 
   let lastError: Error & { status?: number } | undefined;
 
@@ -547,7 +465,7 @@ export const savePlayerMatchProfile = async ({
       });
     } catch (error) {
       lastError = error as Error & { status?: number };
-      if (lastError?.status !== 404) {
+      if (!shouldRetryMatchProfileError(lastError)) {
         throw lastError;
       }
     }
