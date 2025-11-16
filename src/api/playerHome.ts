@@ -330,75 +330,11 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
 }
 
-const MATCH_PROFILE_ROUTE_PREFIXES = ["/player/surveys", "/player"] as const;
-const MATCH_PROFILE_ROUTE_RESOURCES = ["getchecklocation", "get-check-location", "get_check_location"] as const;
-const MATCH_PROFILE_SPECIFIC_SEGMENTS = ["specific_user", "specific-user"] as const;
-
-const MATCH_PROFILE_BASE_ROUTES = MATCH_PROFILE_ROUTE_PREFIXES.flatMap((prefix) =>
-  MATCH_PROFILE_ROUTE_RESOURCES.map((resource) => `${prefix}/${resource}`),
-);
-
-const shouldRetryMatchProfileError = (error?: { status?: number }) =>
-  error?.status === 404 || error?.status === 500;
-
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
-  const userQuery = { userId, user_id: userId } as Record<string, string | number>;
-  const userBody = { userId, user_id: userId };
-  const encodedUserId = encodeURIComponent(userId);
-  const attempts: Array<{
-    path: string;
-    method?: string;
-    query?: Record<string, string | number>;
-    body?: Record<string, unknown>;
-  }> = [];
-
-  for (const base of MATCH_PROFILE_BASE_ROUTES) {
-    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
-      attempts.push({ path: `${base}/${specific}/${encodedUserId}` });
-      attempts.push({ path: `${base}/${specific}`, query: userQuery });
-    }
-    attempts.push({ path: `${base}/${encodedUserId}` });
-    attempts.push({ path: base, query: userQuery });
-  }
-
-  for (const base of MATCH_PROFILE_BASE_ROUTES) {
-    attempts.push({ path: base, method: "POST", body: userBody });
-    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
-      attempts.push({ path: `${base}/${specific}`, method: "POST", body: userBody });
-      attempts.push({
-        path: `${base}/${specific}`,
-        method: "POST",
-        query: userQuery,
-        body: userBody,
-      });
-      attempts.push({ path: `${base}/${specific}/${encodedUserId}`, method: "POST", body: userBody });
-    }
-  }
-
-  let lastError: Error & { status?: number } | undefined;
-
-  for (const attempt of attempts) {
-    try {
-      return await request<Record<string, unknown>>(attempt.path, {
-        method: attempt.method ?? "GET",
-        token,
-        query: attempt.query,
-        body: attempt.body ? buildBody(attempt.body) : undefined,
-      });
-    } catch (error) {
-      lastError = error as Error & { status?: number };
-      if (!shouldRetryMatchProfileError(lastError)) {
-        throw lastError;
-      }
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-
-  throw new Error("Unable to load match profile");
-};
+export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
+  request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
+    token,
+    query: { userId },
+  });
 
 export interface PlayerMatchProfilePayload {
   about_me?: string;
@@ -418,65 +354,12 @@ export const savePlayerMatchProfile = async ({
   token,
   userId,
   profile,
-}: SavePlayerMatchProfileParams) => {
-  const encodedUserId = encodeURIComponent(userId);
-  const userQuery = { userId, user_id: userId } as Record<string, string | number>;
-  const attempts: Array<{
-    path: string;
-    method?: string;
-    query?: Record<string, string | number>;
-    includeUserId?: boolean;
-  }> = [];
-
-  for (const base of MATCH_PROFILE_BASE_ROUTES) {
-    attempts.push({ path: base, method: "POST", includeUserId: true });
-    attempts.push({ path: `${base}/${encodedUserId}`, method: "POST", includeUserId: true });
-    for (const specific of MATCH_PROFILE_SPECIFIC_SEGMENTS) {
-      const specificPath = `${base}/${specific}`;
-      attempts.push({ path: specificPath, method: "POST", includeUserId: true });
-      attempts.push({
-        path: specificPath,
-        method: "POST",
-        query: userQuery,
-        includeUserId: true,
-      });
-      attempts.push({ path: `${specificPath}/${encodedUserId}`, method: "POST", includeUserId: true });
-    }
-    attempts.push({ path: `${base}/${encodedUserId}`, method: "PATCH", includeUserId: true });
-  }
-
-  let lastError: Error & { status?: number } | undefined;
-
-  for (const attempt of attempts) {
-    try {
-      return await request<Record<string, unknown>>(attempt.path, {
-        method: attempt.method ?? "POST",
-        token,
-        query: attempt.query,
-        body: buildBody({
-          ...(attempt.includeUserId
-            ? {
-                userId,
-                user_id: userId,
-              }
-            : {}),
-          ...profile,
-        }),
-      });
-    } catch (error) {
-      lastError = error as Error & { status?: number };
-      if (!shouldRetryMatchProfileError(lastError)) {
-        throw lastError;
-      }
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-
-  throw new Error("Unable to save match profile");
-};
+}: SavePlayerMatchProfileParams) =>
+  request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
+    method: "POST",
+    token,
+    body: buildBody({ userId, ...profile }),
+  });
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
