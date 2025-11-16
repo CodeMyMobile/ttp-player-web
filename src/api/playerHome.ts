@@ -330,13 +330,42 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
 }
 
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
-  request<Record<string, unknown>>(
-    `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
+  const attempts: Array<{
+    path: string;
+    query?: Record<string, string | number>;
+  }> = [
     {
-      token,
+      path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
     },
-  );
+    {
+      path: "/player/surveys/getchecklocation/specific_user",
+      query: { userId },
+    },
+  ];
+
+  let lastError: Error & { status?: number } | undefined;
+
+  for (const attempt of attempts) {
+    try {
+      return await request<Record<string, unknown>>(attempt.path, {
+        token,
+        query: attempt.query,
+      });
+    } catch (error) {
+      lastError = error as Error & { status?: number };
+      if (lastError?.status !== 404) {
+        throw lastError;
+      }
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error("Unable to load match profile");
+};
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
