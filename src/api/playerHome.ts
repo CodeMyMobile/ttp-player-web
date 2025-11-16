@@ -331,16 +331,48 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
 }
 
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
+  const userQuery = { userId } as Record<string, string | number>;
+  const userBody = { userId, user_id: userId };
   const attempts: Array<{
     path: string;
+    method?: string;
     query?: Record<string, string | number>;
+    body?: Record<string, unknown>;
   }> = [
     {
       path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
     },
     {
       path: "/player/surveys/getchecklocation/specific_user",
-      query: { userId },
+      query: userQuery,
+    },
+    {
+      path: `/player/surveys/getchecklocation/${encodeURIComponent(userId)}`,
+    },
+    {
+      path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+    },
+    {
+      path: "/player/getchecklocation/specific_user",
+      query: userQuery,
+    },
+    {
+      path: `/player/getchecklocation/${encodeURIComponent(userId)}`,
+    },
+    {
+      path: "/player/getchecklocation/specific_user",
+      method: "POST",
+      body: userBody,
+    },
+    {
+      path: "/player/surveys/getchecklocation/specific_user",
+      method: "POST",
+      body: userBody,
+    },
+    {
+      path: "/player/getchecklocation",
+      method: "POST",
+      body: userBody,
     },
   ];
 
@@ -349,8 +381,10 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
   for (const attempt of attempts) {
     try {
       return await request<Record<string, unknown>>(attempt.path, {
+        method: attempt.method ?? "GET",
         token,
         query: attempt.query,
+        body: attempt.body ? buildBody(attempt.body) : undefined,
       });
     } catch (error) {
       lastError = error as Error & { status?: number };
@@ -392,6 +426,26 @@ export const savePlayerMatchProfile = async ({
     query?: Record<string, string | number>;
     includeUserId?: boolean;
   }> = [
+    {
+      path: "/player/getchecklocation",
+      method: "POST",
+      includeUserId: true,
+    },
+    {
+      path: `/player/getchecklocation/${encodeURIComponent(userId)}`,
+      method: "PATCH",
+      includeUserId: true,
+    },
+    {
+      path: "/player/getchecklocation/specific_user",
+      method: "POST",
+      includeUserId: true,
+    },
+    {
+      path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+      method: "POST",
+      includeUserId: true,
+    },
     {
       path: "/player/surveys/getchecklocation",
       method: "POST",
