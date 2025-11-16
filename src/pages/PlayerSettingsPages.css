@@ -200,15 +200,9 @@
   gap: 12px;
 }
 
-.match-card__spinner {
-  color: #2563eb;
-}
-
-.match-card__retry {
+.match-card__button {
   appearance: none;
   border: none;
-  background: #2563eb;
-  color: #fff;
   font-weight: 600;
   padding: 10px 20px;
   border-radius: 999px;
@@ -216,8 +210,47 @@
   transition: opacity 0.2s ease;
 }
 
-.match-card__retry:hover {
+.match-card__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.match-card__spinner {
+  color: #2563eb;
+}
+
+.match-card__retry {
+  background: #2563eb;
+  color: #fff;
+}
+
+.match-card__retry:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.match-card__action {
+  background: linear-gradient(120deg, #0f172a, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+}
+
+.match-card__action:not(:disabled):hover {
+  opacity: 0.95;
+}
+
+.match-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.match-card__helper {
+  margin: 0 auto;
+  max-width: 460px;
+  color: #475569;
+  font-size: 14px;
 }
 
 .match-card__heading {

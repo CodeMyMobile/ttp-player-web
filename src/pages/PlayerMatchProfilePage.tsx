@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Mail, MapPin, Phone, ShieldCheck, Target } from "lucide-react";
 import MainLayout from "../components/MainLayout";
-import { fetchPlayerDetails } from "../api/playerHome";
+import MatchProfileModal, { type MatchProfileDetails } from "../components/players/MatchProfileModal";
+import {
+  fetchPlayerDetails,
+  savePlayerMatchProfile,
+  type PlayerMatchProfilePayload,
+} from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import { getPersonalDetails } from "../services/auth";
 import { formatPhoneDisplay } from "../services/phone";
@@ -204,11 +209,59 @@ const normalizeMatchProfile = (
   };
 };
 
+const DEFAULT_MODAL_LEVEL = "3.0";
+
+const matchProfileToModalDetails = (profile: MatchProfile | null): MatchProfileDetails | null => {
+  if (!profile) {
+    return null;
+  }
+  return {
+    about: profile.about ?? "",
+    level: profile.level ?? DEFAULT_MODAL_LEVEL,
+    playStyles: [...profile.matchGoals],
+    gender: profile.gender ?? "",
+    localCourts: profile.localCourts.join(", "),
+    availability: [...profile.availability],
+  };
+};
+
+const splitCommaList = (value: string) =>
+  value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+const matchProfileDetailsToPayload = (details: MatchProfileDetails): PlayerMatchProfilePayload => {
+  const trimmedAbout = details.about.trim();
+  const trimmedLevel = details.level?.trim();
+  const trimmedGender = details.gender?.trim();
+  const playStyles = details.playStyles
+    .map((style) => style.trim())
+    .filter((style) => style.length > 0);
+  const availability = details.availability
+    .map((slot) => slot.trim())
+    .filter((slot) => slot.length > 0);
+  const playerCourts = splitCommaList(details.localCourts);
+
+  return {
+    about_me: trimmedAbout || undefined,
+    skillLevel: trimmedLevel || undefined,
+    gender: trimmedGender || undefined,
+    lookingFor: playStyles.length ? playStyles : undefined,
+    availability: availability.length ? availability : undefined,
+    playerCourtLocations: playerCourts.length ? playerCourts : undefined,
+  };
+};
+
 const PlayerMatchProfilePage = () => {
   const [profile, setProfile] = useState<MatchProfile | null>(null);
+  const [personalDetails, setPersonalDetails] = useState<PersonalDetailsRecord | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
+  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+  const [isSavingProfile, setSavingProfile] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,20 +277,21 @@ const PlayerMatchProfilePage = () => {
       setStatus("loading");
       setError(null);
       try {
-        const personalDetails = (await getPersonalDetails()) as PersonalDetailsRecord | null;
-        if (!personalDetails?.id) {
+        const accountDetails = (await getPersonalDetails()) as PersonalDetailsRecord | null;
+        if (!accountDetails?.id) {
           throw new Error("We couldn’t determine your player profile ID.");
         }
+        setPersonalDetails(accountDetails);
         const rawProfile = (await fetchPlayerDetails({
           token,
-          userId: personalDetails.id,
+          userId: accountDetails.id,
         })) as RawMatchProfileRecord | null;
 
         if (cancelled) {
           return;
         }
 
-        const normalized = normalizeMatchProfile(rawProfile, personalDetails);
+        const normalized = normalizeMatchProfile(rawProfile, accountDetails);
         setProfile(normalized);
         setStatus("ready");
       } catch (requestError) {
@@ -283,6 +337,41 @@ const PlayerMatchProfilePage = () => {
 
   const handleRetry = () => {
     setRefreshIndex((index) => index + 1);
+  };
+
+  const modalInitialProfile = useMemo(() => matchProfileToModalDetails(profile), [profile]);
+
+  const handleProfileModalComplete = async (details: MatchProfileDetails) => {
+    if (isSavingProfile) {
+      return;
+    }
+    const userId = personalDetails?.id;
+    if (!userId) {
+      setModalError("We couldn’t determine your player profile ID.");
+      return;
+    }
+    const token = getStoredAuthToken({ preferScheme: "Bearer" });
+    if (!token) {
+      setModalError("Please sign in again to save your match profile.");
+      return;
+    }
+
+    setSavingProfile(true);
+    setModalError(null);
+
+    try {
+      const payload = matchProfileDetailsToPayload(details);
+      await savePlayerMatchProfile({ token, userId, profile: payload });
+      setProfileModalOpen(false);
+      setRefreshIndex((index) => index + 1);
+    } catch (saveError) {
+      console.error("Failed to save match profile", saveError);
+      setModalError(
+        saveError instanceof Error ? saveError.message : "We couldn’t save your match profile. Please try again.",
+      );
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const availabilityContent = profile?.availability.length ? (
@@ -352,7 +441,7 @@ const PlayerMatchProfilePage = () => {
     bodyContent = (
       <div className="match-card match-card--state" role="alert">
         <p>{error ?? "We couldn’t load your match profile."}</p>
-        <button type="button" className="match-card__retry" onClick={handleRetry}>
+        <button type="button" className="match-card__button match-card__retry" onClick={handleRetry}>
           Try again
         </button>
       </div>
@@ -475,9 +564,25 @@ const PlayerMatchProfilePage = () => {
     bodyContent = (
       <div className="match-card match-card--state" role="status">
         <p>You haven’t created a match profile yet.</p>
-        <button type="button" className="match-card__retry" onClick={handleRetry}>
-          Refresh
-        </button>
+        <p className="match-card__helper">
+          Share your level, vibe, and preferred courts so other players know how to connect.
+        </p>
+        <div className="match-card__actions">
+          <button
+            type="button"
+            className="match-card__button match-card__action"
+            onClick={() => {
+              setModalError(null);
+              setProfileModalOpen(true);
+            }}
+            disabled={!personalDetails?.id || isSavingProfile}
+          >
+            Build my match profile
+          </button>
+          <button type="button" className="match-card__button match-card__retry" onClick={handleRetry}>
+            Refresh
+          </button>
+        </div>
       </div>
     );
   }
@@ -500,6 +605,22 @@ const PlayerMatchProfilePage = () => {
           {bodyContent}
         </div>
       </div>
+
+      <MatchProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => {
+          if (isSavingProfile) {
+            return;
+          }
+          setProfileModalOpen(false);
+          setModalError(null);
+        }}
+        initialProfile={modalInitialProfile}
+        isSubmitting={isSavingProfile}
+        submitError={modalError}
+        submitLabel={profile ? "Update profile" : "Save profile"}
+        onComplete={handleProfileModalComplete}
+      />
     </MainLayout>
   );
 };

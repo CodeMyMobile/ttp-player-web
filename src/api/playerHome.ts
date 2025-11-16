@@ -367,6 +367,34 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
   throw new Error("Unable to load match profile");
 };
 
+export interface PlayerMatchProfilePayload {
+  about_me?: string;
+  skillLevel?: string;
+  lookingFor?: string[];
+  availability?: string[];
+  playerCourtLocations?: string[];
+  gender?: string;
+}
+
+export interface SavePlayerMatchProfileParams extends PlayerTokenOnlyParams {
+  userId: number | string;
+  profile: PlayerMatchProfilePayload;
+}
+
+export const savePlayerMatchProfile = async ({
+  token,
+  userId,
+  profile,
+}: SavePlayerMatchProfileParams) =>
+  request<Record<string, unknown>>("/player/surveys/getchecklocation", {
+    method: "POST",
+    token,
+    body: buildBody({
+      userId,
+      ...profile,
+    }),
+  });
+
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
   search?: string;
