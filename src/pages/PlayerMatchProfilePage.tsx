@@ -267,7 +267,7 @@ const PlayerMatchProfilePage = () => {
     let cancelled = false;
 
     const loadProfile = async () => {
-      const token = getStoredAuthToken({ preferScheme: "Bearer" });
+      const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
       if (!token) {
         setStatus("error");
         setError("Please sign in to view your match profile.");
@@ -350,7 +350,7 @@ const PlayerMatchProfilePage = () => {
       setModalError("We couldn’t determine your player profile ID.");
       return;
     }
-    const token = getStoredAuthToken({ preferScheme: "Bearer" });
+    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
     if (!token) {
       setModalError("Please sign in again to save your match profile.");
       return;

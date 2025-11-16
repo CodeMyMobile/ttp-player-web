@@ -333,6 +333,7 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
     token,
+    authScheme: "token",
     query: { userId },
   });
 
@@ -358,6 +359,7 @@ export const savePlayerMatchProfile = async ({
   request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
     method: "POST",
     token,
+    authScheme: "token",
     body: buildBody({ userId, ...profile }),
   });
 
