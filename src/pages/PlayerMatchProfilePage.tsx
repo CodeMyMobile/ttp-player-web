@@ -227,7 +227,7 @@ const PlayerMatchProfilePage = () => {
 
     try {
       const personalDetails = await getPlayerPersonalDetails(authToken);
-      const userId = personalDetails?.id;
+      const userId = personalDetails?.id ?? (personalDetails as { user_id?: number })?.user_id;
       if (!userId) {
         throw new Error("We couldn\'t determine your player account. Please refresh the page.");
       }

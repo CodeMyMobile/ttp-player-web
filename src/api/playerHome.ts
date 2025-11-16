@@ -337,11 +337,12 @@ export const fetchPlayerDetails = async ({ token, userId, tokenCredentials }: Fe
   const formattedUserId = formatUserIdQuery(userId);
 
   return request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
+    method: "POST",
     token,
-    query: {
+    query: tokenCredentials ? { token: tokenCredentials } : undefined,
+    body: {
       userId: formattedUserId,
       user_id: formattedUserId,
-      token: tokenCredentials ?? token,
     },
   });
 };
