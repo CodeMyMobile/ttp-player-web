@@ -16,6 +16,34 @@
   align-items: stretch;
 }
 
+.connect-intent-banner {
+  border: 1px solid var(--coach-color-border);
+  border-radius: 24px;
+  padding: 18px 24px;
+  background: var(--coach-color-highlight);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.connect-intent-banner__eyebrow {
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: var(--coach-color-subtle);
+}
+
+.connect-intent-banner__title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--coach-color-heading);
+}
+
+.connect-intent-banner__helper {
+  margin: 0;
+  color: var(--coach-color-body);
+}
+
 .create-match-page__eyebrow {
   font-weight: 600;
   font-size: 14px;

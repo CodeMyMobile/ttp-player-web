@@ -11,12 +11,14 @@ import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import type { MatchProfileDetails } from "../components/players/MatchProfileModal";
+import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import type { ConnectIntent } from "../types/matchPlay";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -342,6 +344,8 @@ const FindPlayersPage = () => {
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
+  const [connectModalPlayer, setConnectModalPlayer] = useState<Player | null>(null);
+  const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [playerToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
@@ -660,6 +664,84 @@ const FindPlayersPage = () => {
     return `${origin}${normalizedPath}#/settings/match-profile`;
   }, []);
 
+  const closeConnectModal = useCallback(() => {
+    setConnectModalOpen(false);
+    setConnectModalPlayer(null);
+  }, []);
+
+  const openConnectModalForPlayer = useCallback(
+    (player: Player) => {
+      if (!hasMatchProfile) {
+        window.alert("Create your match profile to connect.");
+        return;
+      }
+      setConnectModalPlayer(player);
+      setConnectModalOpen(true);
+    },
+    [hasMatchProfile],
+  );
+
+  const handleShareIntro = useCallback(
+    (nextPlayer: Player) => {
+      if (!matchProfile) {
+        window.alert("Create your match profile to connect.");
+        return;
+      }
+
+      const trimmedDisplayName = displayName.trim();
+      const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
+      const senderLevel = matchProfile?.level ?? "3.0";
+      const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
+      const message =
+        `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
+        `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
+        "Let me know if you'd like to hit sometime.";
+
+      const encodedMessage = encodeURIComponent(message);
+      const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+      const smsUrl = isIos ? `sms:&body=${encodedMessage}` : `sms:?body=${encodedMessage}`;
+
+      if (typeof window.navigator.share === "function") {
+        window.navigator
+          .share({ text: message })
+          .catch(() => {
+            window.location.href = smsUrl;
+          });
+        return;
+      }
+
+      window.location.href = smsUrl;
+    },
+    [displayName, matchProfile, profileShareUrl],
+  );
+
+  const handleCreateMatchPlayIntent = useCallback(
+    (nextPlayer: Player) => {
+      if (!matchProfile) {
+        window.alert("Create your match profile to start building MatchPlay invites.");
+        return;
+      }
+
+      const connectIntent: ConnectIntent = {
+        invitee: {
+          id: nextPlayer.id,
+          name: nextPlayer.name,
+          avatarUrl: nextPlayer.profileImageUrl,
+          level: nextPlayer.level,
+        },
+        senderName: displayName.trim() || "You",
+        senderLevel: matchProfile.level,
+        suggestedAvailability: [...(matchProfile.availability ?? [])],
+        preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
+        source: "find-players",
+      };
+
+      navigate("/matches/create", { state: { connectIntent } });
+      closeConnectModal();
+    },
+    [closeConnectModal, displayName, matchProfile, navigate],
+  );
+
   const handleSearch = () => {
     setAppliedSearchTerm(normalize(searchTerm));
     setMode("normal");
@@ -952,37 +1034,7 @@ const FindPlayersPage = () => {
                   key={player.id}
                   player={player}
                   canConnect={hasMatchProfile}
-                  onConnect={(nextPlayer) => {
-                    if (!hasMatchProfile) {
-                      window.alert("Create your match profile to connect.");
-                      return;
-                    }
-                    const trimmedDisplayName = displayName.trim();
-                    const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
-                    const senderLevel = matchProfile?.level ?? "3.0";
-                    const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
-                    const message =
-                      `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
-                      `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
-                      "Let me know if you'd like to hit sometime.";
-
-                    const encodedMessage = encodeURIComponent(message);
-                    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-                    const smsUrl = isIos
-                      ? `sms:&body=${encodedMessage}`
-                      : `sms:?body=${encodedMessage}`;
-
-                    if (typeof window.navigator.share === "function") {
-                      window.navigator
-                        .share({ text: message })
-                        .catch(() => {
-                          window.location.href = smsUrl;
-                        });
-                      return;
-                    }
-
-                    window.location.href = smsUrl;
-                  }}
+                  onConnect={openConnectModalForPlayer}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {
                       state: { player: nextPlayer as DirectoryPlayer },
@@ -994,6 +1046,25 @@ const FindPlayersPage = () => {
           )}
         </div>
       </div>
+      <ConnectPlayerModal
+        isOpen={isConnectModalOpen}
+        player={connectModalPlayer}
+        onClose={closeConnectModal}
+        onShareIntro={() => {
+          if (connectModalPlayer) {
+            closeConnectModal();
+            handleShareIntro(connectModalPlayer);
+          }
+        }}
+        onCreateMatch={() => {
+          if (connectModalPlayer) {
+            handleCreateMatchPlayIntent(connectModalPlayer);
+          }
+        }}
+        senderAvailability={matchProfile?.availability ?? []}
+        senderCourts={matchProfile?.localCourts ?? ""}
+      />
+
       <MatchProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setProfileModalOpen(false)}
