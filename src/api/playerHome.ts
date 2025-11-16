@@ -331,17 +331,17 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   tokenCredentials?: string;
 }
 
-export const fetchPlayerDetails = async ({ token, userId, tokenCredentials }: FetchPlayerDetailsParams) =>
-  request<Record<string, unknown>>(
-    "/player/surveys/getchecklocation/specific_user",
-    {
-      token,
-      query: {
-        userId,
-        ...(tokenCredentials ? { token: tokenCredentials } : {}),
-      },
-    },
-  );
+export const fetchPlayerDetails = async ({ token, userId, tokenCredentials }: FetchPlayerDetailsParams) => {
+  const userPath = String(userId).trim();
+  const endpoint = userPath
+    ? `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userPath)}`
+    : "/player/surveys/getchecklocation/specific_user";
+
+  return request<Record<string, unknown>>(endpoint, {
+    token,
+    query: tokenCredentials ? { token: tokenCredentials } : undefined,
+  });
+};
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
