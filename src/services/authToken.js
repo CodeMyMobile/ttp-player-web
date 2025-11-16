@@ -69,3 +69,17 @@ export const getStoredAuthToken = (options) => {
     return null;
   }
 };
+
+export const extractTokenCredentials = (token, options) => {
+  const normalized = normalizeAuthToken(token, options);
+  if (!normalized) {
+    return null;
+  }
+
+  const match = normalized.match(/^[A-Za-z]+\s+(.+)$/);
+  if (match) {
+    return match[1].trim();
+  }
+
+  return normalized.trim();
+};

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchPlayerDetails } from "../api/playerHome";
 import { getPlayerPersonalDetails, type PlayerPersonalDetails } from "../api/playerProfile";
 import MainLayout from "../components/MainLayout";
-import { getStoredAuthToken } from "../services/authToken";
+import { extractTokenCredentials, getStoredAuthToken } from "../services/authToken";
 
 import "./PlayerSettingsPages.css";
 
@@ -210,7 +210,11 @@ const PlayerMatchProfilePage = () => {
 
   const loadProfile = useCallback(async () => {
     const authToken = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
-    if (!authToken) {
+    const tokenCredentials = extractTokenCredentials(authToken, {
+      defaultScheme: "token",
+      preferScheme: "token",
+    });
+    if (!authToken || !tokenCredentials) {
       setStatus("error");
       setProfile(null);
       setError("Sign in to view and share your match profile.");
@@ -226,7 +230,11 @@ const PlayerMatchProfilePage = () => {
       if (!userId) {
         throw new Error("We couldn\'t determine your player account. Please refresh the page.");
       }
-      const matchRecord = await fetchPlayerDetails({ token: authToken, userId });
+      const matchRecord = await fetchPlayerDetails({
+        token: authToken,
+        userId,
+        tokenCredentials,
+      });
       if (!mountedRef.current) {
         return;
       }

@@ -328,15 +328,17 @@ export const getCheckLocation = async ({
 
 export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
+  tokenCredentials?: string;
 }
 
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
+export const fetchPlayerDetails = async ({ token, userId, tokenCredentials }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>(
     "/player/surveys/getchecklocation/specific_user",
     {
       token,
       query: {
         userId,
+        ...(tokenCredentials ? { token: tokenCredentials } : {}),
       },
     },
   );
