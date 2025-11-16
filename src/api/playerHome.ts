@@ -334,7 +334,7 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
   request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
     token,
     authScheme: "token",
-    query: { userId },
+    query: { userId, user_id: userId },
   });
 
 export interface PlayerMatchProfilePayload {
@@ -360,7 +360,8 @@ export const savePlayerMatchProfile = async ({
     method: "POST",
     token,
     authScheme: "token",
-    body: buildBody({ userId, ...profile }),
+    query: { userId },
+    body: buildBody({ userId, user_id: userId, ...profile }),
   });
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
