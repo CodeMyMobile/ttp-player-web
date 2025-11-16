@@ -160,7 +160,7 @@ const normalizeMatchProfile = (
   raw: RawMatchProfileRecord | null,
   personal: PersonalDetailsRecord | null,
 ): MatchProfile | null => {
-  if (!raw && !personal) {
+  if (!raw) {
     return null;
   }
 
@@ -242,6 +242,13 @@ const PlayerMatchProfilePage = () => {
         setStatus("ready");
       } catch (requestError) {
         if (cancelled) {
+          return;
+        }
+        const statusCode = (requestError as { status?: number })?.status;
+        if (statusCode === 404) {
+          setProfile(null);
+          setStatus("ready");
+          setError(null);
           return;
         }
         console.error("Failed to load match profile", requestError);

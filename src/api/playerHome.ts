@@ -332,12 +332,9 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
 
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>(
-    "/player/surveys/getchecklocation/specific_user",
+    `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
     {
       token,
-      query: {
-        userId,
-      },
     },
   );
 
