@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Check, Phone, Plus, Search, Trophy, User, UserPlus, Users, X } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { mockPlayers } from "../data/mockPlayers";
+import type { ConnectIntent, MatchDraftDetails } from "../types/matchPlay";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
@@ -56,6 +57,20 @@ const guestFormInitialState: GuestFormState = {
 
 const quickAddPlayers = mockPlayers.slice(0, 5);
 
+const toInitials = (name: string) => {
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) {
+    return "PL";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+};
+
 const formatOptions: FormatOption[] = [
   {
     value: "doubles",
@@ -89,29 +104,71 @@ const formatOptions: FormatOption[] = [
   },
 ];
 
+const formatMatchDraftSummary = (draft?: MatchDraftDetails) => {
+  if (!draft) {
+    return "";
+  }
+  const date = new Date(draft.date);
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+  const timeLabel = draft.time
+    ? new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+        new Date(`${draft.date}T${draft.time}`),
+      )
+    : "Flexible start";
+  const durationLabel = draft.duration === "60" ? "1h" : draft.duration === "90" ? "1h 30m" : "2h";
+  return `${dateLabel} • ${timeLabel} • ${durationLabel} at ${draft.location || "TBD"}`;
+};
+
 const CreatePrivateMatchInvitePage = () => {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  const { connectIntent, matchDraft } = (routerLocation.state as {
+    connectIntent?: ConnectIntent;
+    matchDraft?: MatchDraftDetails;
+  } | null) ?? {};
   const { displayName, initials: hostInitials, avatarUrl: hostAvatar } = usePlayerIdentity();
 
+  const hostInvitee: Invitee = {
+    id: "host",
+    name: displayName || "You",
+    avatarUrl: hostAvatar,
+    initials: hostInitials,
+    relationshipLabel: "Organizer",
+    statusLabel: "Confirmed",
+    type: "host",
+  };
+
+  const connectInvitee: Invitee | null = connectIntent
+    ? {
+        id: connectIntent.invitee.id,
+        name: connectIntent.invitee.name,
+        avatarUrl: connectIntent.invitee.avatarUrl ?? null,
+        initials: toInitials(connectIntent.invitee.name),
+        relationshipLabel: connectIntent.invitee.level
+          ? `${connectIntent.invitee.level} • From Find Players`
+          : "From Find Players",
+        statusLabel: "Ready to invite",
+        type: "member",
+      }
+    : null;
+
+  const defaultInvitee: Invitee = {
+    id: "grant-hawkins",
+    name: "Grant Hawkins",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1619895862022-09114b41f16f?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
+    relationshipLabel: "Played recently • Active",
+    statusLabel: "Pending invite",
+    type: "member",
+  };
+
   const [invitedPlayers, setInvitedPlayers] = useState<Invitee[]>([
-    {
-      id: "host",
-      name: displayName || "You",
-      avatarUrl: hostAvatar,
-      initials: hostInitials,
-      relationshipLabel: "Organizer",
-      statusLabel: "Confirmed",
-      type: "host",
-    },
-    {
-      id: "grant-hawkins",
-      name: "Grant Hawkins",
-      avatarUrl:
-        "https://images.unsplash.com/photo-1619895862022-09114b41f16f?auto=format&fit=facearea&facepad=3&w=400&h=400&q=80",
-      relationshipLabel: "Played recently • Active",
-      statusLabel: "Pending invite",
-      type: "member",
-    },
+    hostInvitee,
+    connectInvitee ?? defaultInvitee,
   ]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -241,6 +298,20 @@ const CreatePrivateMatchInvitePage = () => {
             </div>
           </div>
         </div>
+
+        {(connectIntent || matchDraft) && (
+          <div className="connect-intent-banner" role="status">
+            <p className="connect-intent-banner__eyebrow">MatchPlay invite</p>
+            {connectIntent ? (
+              <p className="connect-intent-banner__title">
+                Inviting {connectIntent.invitee.name} from Find Players
+              </p>
+            ) : null}
+            <p className="connect-intent-banner__helper">
+              {matchDraft ? formatMatchDraftSummary(matchDraft) : "We'll keep your roster private until you publish."}
+            </p>
+          </div>
+        )}
 
         <section className="create-match-card" aria-labelledby="invited-players-heading">
           <div className="create-match-card__header">

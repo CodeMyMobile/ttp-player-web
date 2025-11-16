@@ -1,20 +1,19 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, Globe, Lock, MapPin, Users } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import type { ConnectIntent, MatchDraftDetails, MatchDurationOption } from "../types/matchPlay";
 
 import "./CreateMatchPage.css";
 
 type MatchType = "open" | "private";
-type DurationOption = "60" | "90" | "120";
-
 type QuickLocation = {
   label: string;
   description: string;
 };
 
-const durationLabels: Record<DurationOption, string> = {
+const durationLabels: Record<MatchDurationOption, string> = {
   "60": "1 hour",
   "90": "1 hour 30 min",
   "120": "2 hours",
@@ -76,13 +75,17 @@ const getUpcomingDays = (count: number) => {
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  const { connectIntent } = (routerLocation.state as { connectIntent?: ConnectIntent } | null) ?? {};
   const dayQuickPicks = useMemo(() => getUpcomingDays(4), []);
 
-  const [matchType, setMatchType] = useState<MatchType>("open");
+  const connectDefaultMatchType: MatchType = connectIntent ? "private" : "open";
+
+  const [matchType, setMatchType] = useState<MatchType>(connectDefaultMatchType);
   const [selectedDate, setSelectedDate] = useState<string>(dayQuickPicks[0]?.value ?? formatDateInput(new Date()));
   const [selectedTime, setSelectedTime] = useState("18:00");
-  const [selectedDuration, setSelectedDuration] = useState<DurationOption>("120");
-  const [location, setLocation] = useState("Penmar Recreation Center");
+  const [selectedDuration, setSelectedDuration] = useState<MatchDurationOption>("120");
+  const [matchLocation, setMatchLocation] = useState(connectIntent?.preferredCourt || "Penmar Recreation Center");
   const [playersNeeded, setPlayersNeeded] = useState(3);
   const [isUnlimitedPlayers, setUnlimitedPlayers] = useState(false);
 
@@ -100,6 +103,16 @@ const CreateMatchPage = () => {
   const totalPlayersHelper = isUnlimitedPlayers
     ? "Anyone can join until you close the match"
     : `You + ${playersNeeded} ${playersNeeded === 1 ? "other" : "others"}`;
+
+  const matchDraft: MatchDraftDetails = {
+    matchType,
+    date: selectedDate,
+    time: selectedTime,
+    duration: selectedDuration,
+    location: matchLocation,
+    playersNeeded,
+    isUnlimitedPlayers,
+  };
 
   const handleNavigateBack = () => {
     navigate(-1);
@@ -139,6 +152,20 @@ const CreateMatchPage = () => {
             </div>
           </div>
         </div>
+
+        {connectIntent ? (
+          <div className="connect-intent-banner" role="status">
+            <div>
+              <p className="connect-intent-banner__eyebrow">MatchPlay invite</p>
+              <p className="connect-intent-banner__title">
+                Prefilling details for {connectIntent.invitee.name}
+              </p>
+              <p className="connect-intent-banner__helper">
+                We'll carry this player into your private roster on the next step.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <section className="create-match-card" aria-labelledby="match-type">
           <h2 id="match-type">Match type</h2>
@@ -236,7 +263,7 @@ const CreateMatchPage = () => {
               <select
                 id="match-duration"
                 value={selectedDuration}
-                onChange={(event) => setSelectedDuration(event.target.value as DurationOption)}
+                onChange={(event) => setSelectedDuration(event.target.value as MatchDurationOption)}
               >
                 {Object.entries(durationLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -256,7 +283,7 @@ const CreateMatchPage = () => {
             </div>
             <div className="create-match-summary">
               <MapPin size={18} aria-hidden="true" />
-              <span>{location || "Add a location"}</span>
+              <span>{matchLocation || "Add a location"}</span>
             </div>
           </div>
 
@@ -268,8 +295,8 @@ const CreateMatchPage = () => {
                 id="match-location-input"
                 type="text"
                 placeholder="e.g., Oceanside Tennis Center"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
+                value={matchLocation}
+                onChange={(event) => setMatchLocation(event.target.value)}
               />
             </div>
           </label>
@@ -281,8 +308,8 @@ const CreateMatchPage = () => {
                 <button
                   key={quickPick.label}
                   type="button"
-                  className={`location-pill${location === quickPick.label ? " location-pill--active" : ""}`}
-                  onClick={() => setLocation(quickPick.label)}
+                  className={`location-pill${matchLocation === quickPick.label ? " location-pill--active" : ""}`}
+                  onClick={() => setMatchLocation(quickPick.label)}
                 >
                   <span className="location-pill__title">{quickPick.label}</span>
                   <span className="location-pill__subtitle">{quickPick.description}</span>
@@ -350,9 +377,15 @@ const CreateMatchPage = () => {
           <button
             type="button"
             className="create-match-actions__primary"
-            onClick={() =>
-              navigate(isPrivateMatch ? "/matches/create/private/invite" : "/matches/create/settings")
-            }
+            onClick={() => {
+              if (isPrivateMatch) {
+                navigate("/matches/create/private/invite", {
+                  state: { connectIntent, matchDraft },
+                });
+                return;
+              }
+              navigate("/matches/create/settings");
+            }}
           >
             Next
           </button>
