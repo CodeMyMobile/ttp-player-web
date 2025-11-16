@@ -385,15 +385,68 @@ export const savePlayerMatchProfile = async ({
   token,
   userId,
   profile,
-}: SavePlayerMatchProfileParams) =>
-  request<Record<string, unknown>>("/player/surveys/getchecklocation", {
-    method: "POST",
-    token,
-    body: buildBody({
-      userId,
-      ...profile,
-    }),
-  });
+}: SavePlayerMatchProfileParams) => {
+  const attempts: Array<{
+    path: string;
+    method?: string;
+    query?: Record<string, string | number>;
+    includeUserId?: boolean;
+  }> = [
+    {
+      path: "/player/surveys/getchecklocation",
+      method: "POST",
+      includeUserId: true,
+    },
+    {
+      path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+      method: "POST",
+      includeUserId: true,
+    },
+    {
+      path: "/player/surveys/getchecklocation/specific_user",
+      method: "POST",
+      query: { userId },
+      includeUserId: true,
+    },
+    {
+      path: `/player/surveys/getchecklocation/${encodeURIComponent(userId)}`,
+      method: "PATCH",
+      includeUserId: true,
+    },
+  ];
+
+  let lastError: Error & { status?: number } | undefined;
+
+  for (const attempt of attempts) {
+    try {
+      return await request<Record<string, unknown>>(attempt.path, {
+        method: attempt.method ?? "POST",
+        token,
+        query: attempt.query,
+        body: buildBody({
+          ...(attempt.includeUserId
+            ? {
+                userId,
+                user_id: userId,
+              }
+            : {}),
+          ...profile,
+        }),
+      });
+    } catch (error) {
+      lastError = error as Error & { status?: number };
+      if (lastError?.status !== 404) {
+        throw lastError;
+      }
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error("Unable to save match profile");
+};
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
