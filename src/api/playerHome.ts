@@ -346,12 +346,57 @@ const extractTokenCredentials = (token?: string | null) => {
   return trimmed;
 };
 
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
-  request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
-    token: extractTokenCredentials(token),
-    authScheme: "token",
-    query: { userId, user_id: userId },
-  });
+type MatchProfileRoute = {
+  path: string;
+  method: string;
+  includeUserIdInQuery?: boolean;
+  includeUserIdInBody?: boolean;
+};
+
+const MATCH_PROFILE_FETCH_ROUTES: MatchProfileRoute[] = [
+  { path: "/player/surveys/getchecklocation/specific_user", method: "GET", includeUserIdInQuery: true },
+  { path: "/player/surveys/getchecklocation", method: "GET", includeUserIdInQuery: true },
+  { path: "/player/getchecklocation/specific_user", method: "GET", includeUserIdInQuery: true },
+  { path: "/player/getchecklocation", method: "POST", includeUserIdInBody: true },
+];
+
+const MATCH_PROFILE_SAVE_ROUTES: MatchProfileRoute[] = [
+  { path: "/player/surveys/getchecklocation/specific_user", method: "POST", includeUserIdInQuery: true, includeUserIdInBody: true },
+  { path: "/player/surveys/getchecklocation", method: "POST", includeUserIdInBody: true },
+  { path: "/player/getchecklocation/specific_user", method: "POST", includeUserIdInQuery: true, includeUserIdInBody: true },
+  { path: "/player/getchecklocation", method: "POST", includeUserIdInBody: true },
+];
+
+const buildMatchProfileQuery = (userId: number | string) => ({ userId, user_id: userId });
+const buildMatchProfileBody = (userId: number | string, profile?: PlayerMatchProfilePayload) =>
+  buildBody({ ...buildMatchProfileQuery(userId), ...(profile ?? {}) });
+
+const shouldRetryMatchProfileRoute = (error: unknown) => {
+  const status = (error as { status?: number })?.status;
+  return status === 404 || status === 500;
+};
+
+export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
+  const bareToken = extractTokenCredentials(token);
+  let lastError: unknown;
+  for (const route of MATCH_PROFILE_FETCH_ROUTES) {
+    try {
+      return await request<Record<string, unknown>>(route.path, {
+        method: route.method,
+        token: bareToken,
+        authScheme: "token",
+        query: route.includeUserIdInQuery ? buildMatchProfileQuery(userId) : undefined,
+        body: route.includeUserIdInBody ? buildMatchProfileBody(userId) : undefined,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryMatchProfileRoute(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError ?? new Error("Unable to load match profile");
+};
 
 export interface PlayerMatchProfilePayload {
   about_me?: string;
@@ -367,18 +412,27 @@ export interface SavePlayerMatchProfileParams extends PlayerTokenOnlyParams {
   profile: PlayerMatchProfilePayload;
 }
 
-export const savePlayerMatchProfile = async ({
-  token,
-  userId,
-  profile,
-}: SavePlayerMatchProfileParams) =>
-  request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
-    method: "POST",
-    token: extractTokenCredentials(token),
-    authScheme: "token",
-    query: { userId },
-    body: buildBody({ userId, user_id: userId, ...profile }),
-  });
+export const savePlayerMatchProfile = async ({ token, userId, profile }: SavePlayerMatchProfileParams) => {
+  const bareToken = extractTokenCredentials(token);
+  let lastError: unknown;
+  for (const route of MATCH_PROFILE_SAVE_ROUTES) {
+    try {
+      return await request<Record<string, unknown>>(route.path, {
+        method: route.method,
+        token: bareToken,
+        authScheme: "token",
+        query: route.includeUserIdInQuery ? buildMatchProfileQuery(userId) : undefined,
+        body: route.includeUserIdInBody ? buildMatchProfileBody(userId, profile) : buildBody(profile),
+      });
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryMatchProfileRoute(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError ?? new Error("Unable to save match profile");
+};
 
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
