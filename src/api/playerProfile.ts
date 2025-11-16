@@ -9,8 +9,24 @@ export interface PlayerProfile {
   [key: string]: unknown;
 }
 
+export interface PlayerPersonalDetails {
+  id?: number;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  profile_picture?: string;
+  about_me?: string;
+  gender?: string;
+  [key: string]: unknown;
+}
+
 export const getPlayerDetails = async (token: string) =>
   request<PlayerProfile>("/player/profile", {
+    token,
+  });
+
+export const getPlayerPersonalDetails = async (token: string) =>
+  request<PlayerPersonalDetails>("/player/personal_details", {
     token,
   });
 
