@@ -331,7 +331,7 @@ export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
 }
 
 export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
-  const userQuery = { userId } as Record<string, string | number>;
+  const userQuery = { userId, user_id: userId } as Record<string, string | number>;
   const userBody = { userId, user_id: userId };
   const attempts: Array<{
     path: string;
@@ -343,24 +343,51 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
       path: `/player/surveys/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
     },
     {
+      path: `/player/surveys/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
+    },
+    {
       path: "/player/surveys/getchecklocation/specific_user",
+      query: userQuery,
+    },
+    {
+      path: "/player/surveys/getchecklocation/specific-user",
       query: userQuery,
     },
     {
       path: `/player/surveys/getchecklocation/${encodeURIComponent(userId)}`,
     },
     {
+      path: "/player/surveys/getchecklocation",
+      query: userQuery,
+    },
+    {
       path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+    },
+    {
+      path: `/player/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
     },
     {
       path: "/player/getchecklocation/specific_user",
       query: userQuery,
     },
     {
+      path: "/player/getchecklocation/specific-user",
+      query: userQuery,
+    },
+    {
       path: `/player/getchecklocation/${encodeURIComponent(userId)}`,
     },
     {
+      path: "/player/getchecklocation",
+      query: userQuery,
+    },
+    {
       path: "/player/getchecklocation/specific_user",
+      method: "POST",
+      body: userBody,
+    },
+    {
+      path: "/player/getchecklocation/specific-user",
       method: "POST",
       body: userBody,
     },
@@ -370,7 +397,17 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
       body: userBody,
     },
     {
+      path: "/player/surveys/getchecklocation/specific-user",
+      method: "POST",
+      body: userBody,
+    },
+    {
       path: "/player/getchecklocation",
+      method: "POST",
+      body: userBody,
+    },
+    {
+      path: "/player/surveys/getchecklocation",
       method: "POST",
       body: userBody,
     },
@@ -442,7 +479,17 @@ export const savePlayerMatchProfile = async ({
       includeUserId: true,
     },
     {
+      path: "/player/getchecklocation/specific-user",
+      method: "POST",
+      includeUserId: true,
+    },
+    {
       path: `/player/getchecklocation/specific_user/${encodeURIComponent(userId)}`,
+      method: "POST",
+      includeUserId: true,
+    },
+    {
+      path: `/player/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
       method: "POST",
       includeUserId: true,
     },
@@ -459,7 +506,18 @@ export const savePlayerMatchProfile = async ({
     {
       path: "/player/surveys/getchecklocation/specific_user",
       method: "POST",
-      query: { userId },
+      query: { userId, user_id: userId },
+      includeUserId: true,
+    },
+    {
+      path: "/player/surveys/getchecklocation/specific-user",
+      method: "POST",
+      query: { userId, user_id: userId },
+      includeUserId: true,
+    },
+    {
+      path: `/player/surveys/getchecklocation/specific-user/${encodeURIComponent(userId)}`,
+      method: "POST",
       includeUserId: true,
     },
     {
