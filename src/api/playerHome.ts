@@ -328,16 +328,15 @@ export const getCheckLocation = async ({
 
 export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
-  tokenCredentials?: string;
 }
 
 const formatUserIdQuery = (userId: number | string) => String(userId).trim();
 
-export const fetchPlayerDetails = async ({ token, userId, tokenCredentials }: FetchPlayerDetailsParams) => {
+export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) => {
   const formattedUserId = formatUserIdQuery(userId);
 
   return request<Record<string, unknown>>("/player/surveys/getchecklocation/specific_user", {
-    token: tokenCredentials ?? token,
+    token,
     query: {
       userId: formattedUserId,
     },

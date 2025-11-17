@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchPlayerDetails } from "../api/playerHome";
 import { getPlayerPersonalDetails, type PlayerPersonalDetails } from "../api/playerProfile";
 import MainLayout from "../components/MainLayout";
-import { extractTokenCredentials, getStoredAuthToken } from "../services/authToken";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./PlayerSettingsPages.css";
 
@@ -217,11 +217,6 @@ const PlayerMatchProfilePage = () => {
       return;
     }
 
-    const tokenCredentials = extractTokenCredentials(authToken, {
-      defaultScheme: "token",
-      preferScheme: "token",
-    });
-
     setStatus("loading");
     setError(null);
 
@@ -234,7 +229,6 @@ const PlayerMatchProfilePage = () => {
       const matchRecord = await fetchPlayerDetails({
         token: authToken,
         userId,
-        tokenCredentials: tokenCredentials ?? undefined,
       });
       if (!mountedRef.current) {
         return;
