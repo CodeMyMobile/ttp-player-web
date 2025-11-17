@@ -134,6 +134,9 @@ const PlayerMatchProfilePage = () => {
           return;
         }
 
+        const tokenCredentials = authToken.replace(/^\s*[A-Za-z]+\s+/, "").trim();
+        const accessToken = tokenCredentials || authToken;
+
         const personalDetails = await getPersonalDetails();
         const userId =
           personalDetails?.id ?? personalDetails?.userId ?? personalDetails?.user_id ?? null;
@@ -144,7 +147,11 @@ const PlayerMatchProfilePage = () => {
         }
 
         const payload =
-          (await fetchPlayerDetails({ token: authToken, userId })) as PlayerMatchProfileResponse;
+          (await fetchPlayerDetails({
+            token: accessToken,
+            authScheme: "token",
+            userId,
+          })) as PlayerMatchProfileResponse;
 
         if (isCancelled || !payload) return;
 
