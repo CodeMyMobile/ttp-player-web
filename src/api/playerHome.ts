@@ -417,7 +417,7 @@ export const getUserVerificationLevel = async ({ token }: PlayerTokenOnlyParams)
 
 export interface VerifyUserLevelParams extends PlayerTokenOnlyParams {
   userId: number | string;
-  level: string;
+  level: string | boolean;
 }
 
 export const verifyUserLevel = async ({ token, userId, level }: VerifyUserLevelParams) =>
