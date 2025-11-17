@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Clock, MapPin, Target } from "lucide-react";
 import MainLayout from "../components/MainLayout";
+import { fetchPlayerDetails } from "../api/playerHome";
+import { getPersonalDetails } from "../services/auth";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./PlayerSettingsPages.css";
 
@@ -12,6 +15,20 @@ const availabilitySlots = [
   "Weekend afternoons",
   "Weekend evenings",
 ];
+
+type PlayerMatchProfileResponse = {
+  availability?: unknown;
+  lookingFor?: unknown;
+  matchPreferences?: unknown;
+  preferred_formats?: unknown;
+  matchIntensity?: unknown;
+  intensity?: unknown;
+  match_intensity?: unknown;
+  playerCourtLocations?: unknown;
+  playerLocations?: unknown;
+  homeBase?: unknown;
+  home_court?: unknown;
+};
 
 const matchIntensities = [
   { id: "competitive", label: "Competitive play", description: "USTA league or tournament focused" },
@@ -27,14 +44,132 @@ const preferredFormats = [
   { id: "fitness", label: "Cardio tennis" },
 ];
 
+const toStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .map((item) => item.split(",").map((part) => part.trim()))
+      .flat()
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  return [];
+};
+
+const matchAvailability = (value: string) =>
+  availabilitySlots.find((slot) => slot.toLowerCase() === value.trim().toLowerCase());
+
+const normalizeAvailability = (value: unknown) => {
+  const matches = toStringArray(value)
+    .map((item) => matchAvailability(item) ?? null)
+    .filter((item): item is string => Boolean(item));
+  return Array.from(new Set(matches));
+};
+
+const normalizeFormats = (value: unknown) => {
+  const entries = toStringArray(value)
+    .map((item) => {
+      const normalized = item.toLowerCase();
+      const match = preferredFormats.find(
+        (format) =>
+          format.id.toLowerCase() === normalized || format.label.toLowerCase() === normalized,
+      );
+      return match?.id ?? null;
+    })
+    .filter((item): item is string => Boolean(item));
+
+  return Array.from(new Set(entries));
+};
+
+const normalizeIntensity = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  const match = matchIntensities.find(
+    (option) => option.id === normalized || option.label.toLowerCase() === normalized,
+  );
+  return match?.id ?? null;
+};
+
+const normalizeHomeBase = (record: PlayerMatchProfileResponse) => {
+  const courtLocations =
+    record.playerCourtLocations ?? record.playerLocations ?? record.homeBase ?? record.home_court;
+  const courts = toStringArray(courtLocations);
+  return courts[0] ?? "";
+};
+
 const PlayerMatchProfilePage = () => {
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
-    "Weekday evenings",
-    "Weekend mornings",
-  ]);
-  const [intensity, setIntensity] = useState("balanced");
-  const [formats, setFormats] = useState<string[]>(["singles", "doubles"]);
-  const [homeBase, setHomeBase] = useState("Austin Tennis Center");
+  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
+  const [intensity, setIntensity] = useState("");
+  const [formats, setFormats] = useState<string[]>([]);
+  const [homeBase, setHomeBase] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadProfile = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const authToken = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+        if (!authToken) {
+          setError("Sign in to view your match profile.");
+          return;
+        }
+
+        const personalDetails = await getPersonalDetails();
+        const userId =
+          personalDetails?.id ?? personalDetails?.userId ?? personalDetails?.user_id ?? null;
+
+        if (!userId) {
+          setError("We couldn't determine your player id. Please try again.");
+          return;
+        }
+
+        const payload =
+          (await fetchPlayerDetails({ token: authToken, userId })) as PlayerMatchProfileResponse;
+
+        if (isCancelled || !payload) return;
+
+        const normalizedAvailability = normalizeAvailability(payload.availability);
+        const normalizedFormats = normalizeFormats(
+          payload.lookingFor ?? payload.matchPreferences ?? payload.preferred_formats,
+        );
+        const normalizedIntensity = normalizeIntensity(
+          payload.matchIntensity ?? payload.intensity ?? payload.match_intensity,
+        );
+        const normalizedHomeBase = normalizeHomeBase(payload);
+
+        setSelectedAvailability(
+          normalizedAvailability.length > 0 ? normalizedAvailability : [],
+        );
+        setFormats(normalizedFormats.length > 0 ? normalizedFormats : []);
+        setIntensity(normalizedIntensity ?? "");
+        setHomeBase(normalizedHomeBase ?? "");
+      } catch (err) {
+        if (isCancelled) return;
+        const message = err instanceof Error ? err.message : "Unable to load match profile.";
+        setError(message);
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const toggleAvailability = (slot: string) => {
     setSelectedAvailability((current) =>
@@ -62,6 +197,17 @@ const PlayerMatchProfilePage = () => {
               Tell other players how and when you like to compete so we can suggest better partners and session ideas.
             </p>
           </header>
+
+          {error ? (
+            <p role="alert" style={{ color: "#b91c1c", margin: "0 0 1rem" }}>
+              {error}
+            </p>
+          ) : null}
+          {!error && loading ? (
+            <p role="status" style={{ color: "#4b5563", margin: "0 0 1rem" }}>
+              Loading your match profile...
+            </p>
+          ) : null}
 
           <section className="settings-section">
             <div className="match-profile__layout">
@@ -190,7 +336,7 @@ const PlayerMatchProfilePage = () => {
           </section>
 
           <div className="settings-save">
-            <button type="button" className="settings-save__button">
+            <button type="button" className="settings-save__button" disabled={loading}>
               Save match profile
             </button>
           </div>
