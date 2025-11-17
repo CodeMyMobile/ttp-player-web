@@ -95,6 +95,10 @@ const normalizeIntensity = (value: unknown) => {
   return match?.id ?? null;
 };
 
+const formatLabel = (id: string) => preferredFormats.find((format) => format.id === id)?.label ?? id;
+
+const intensityLabel = (id: string) => matchIntensities.find((option) => option.id === id)?.label ?? id;
+
 const normalizeHomeBase = (record: PlayerMatchProfileResponse) => {
   const courtLocations =
     record.playerCourtLocations ?? record.playerLocations ?? record.homeBase ?? record.home_court;
@@ -109,6 +113,12 @@ const PlayerMatchProfilePage = () => {
   const [homeBase, setHomeBase] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const statusMessage = error
+    ? "Unable to load profile"
+    : loading
+      ? "Loading..."
+      : "Synced with your profile";
 
   useEffect(() => {
     let isCancelled = false;
@@ -197,6 +207,70 @@ const PlayerMatchProfilePage = () => {
               Tell other players how and when you like to compete so we can suggest better partners and session ideas.
             </p>
           </header>
+
+          <section className="match-summary" aria-live="polite">
+            <div className="match-summary__header">
+              <div>
+                <p className="match-summary__eyebrow">Your saved preferences</p>
+                <h2 className="match-summary__title">Here&apos;s what other players see</h2>
+              </div>
+              <p className="match-summary__status">{statusMessage}</p>
+            </div>
+
+            <div className="match-summary__grid">
+              <div className="match-summary__card">
+                <p className="match-summary__label">Availability</p>
+                <div className="match-summary__chips">
+                  {selectedAvailability.length === 0 ? (
+                    <span className="match-summary__chip match-summary__chip--empty">Not provided</span>
+                  ) : (
+                    selectedAvailability.map((slot) => (
+                      <span key={slot} className="match-summary__chip">
+                        {slot}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="match-summary__card">
+                <p className="match-summary__label">Match intensity</p>
+                <div className="match-summary__chips">
+                  {intensity ? (
+                    <span className="match-summary__chip">{intensityLabel(intensity)}</span>
+                  ) : (
+                    <span className="match-summary__chip match-summary__chip--empty">Not provided</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="match-summary__card">
+                <p className="match-summary__label">Preferred formats</p>
+                <div className="match-summary__chips">
+                  {formats.length === 0 ? (
+                    <span className="match-summary__chip match-summary__chip--empty">Not provided</span>
+                  ) : (
+                    formats.map((format) => (
+                      <span key={format} className="match-summary__chip">
+                        {formatLabel(format)}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="match-summary__card">
+                <p className="match-summary__label">Home courts</p>
+                <div className="match-summary__chips">
+                  {homeBase ? (
+                    <span className="match-summary__chip">{homeBase}</span>
+                  ) : (
+                    <span className="match-summary__chip match-summary__chip--empty">Not provided</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
 
           {error ? (
             <p role="alert" style={{ color: "#b91c1c", margin: "0 0 1rem" }}>
