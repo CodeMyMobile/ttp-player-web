@@ -3,6 +3,7 @@ import type { MatchesResponse } from "../types/match";
 
 const MATCHES_ENDPOINT =
   import.meta.env.VITE_PLAYER_MATCHES_ENDPOINT ?? "/player/matches";
+const MATCHES_METHOD = (import.meta.env.VITE_PLAYER_MATCHES_METHOD ?? "POST").toUpperCase();
 
 export interface GetMatchesParams {
   token?: string | null;
@@ -15,23 +16,48 @@ export interface GetMatchesParams {
   filters?: Record<string, unknown>;
 }
 
+const shouldRetryWithGet = (error: unknown) => {
+  const status = (error as { status?: number })?.status;
+  const message = (error as Error)?.message?.toLowerCase();
+  return status === 404 || message?.includes("cannot get");
+};
+
 export const getBrowseMatches = async ({
   token,
   perPage = 20,
   page = 1,
   signal,
   filters = {},
-}: GetMatchesParams = {}) =>
-  request<MatchesResponse>(MATCHES_ENDPOINT, {
-    method: "POST",
+}: GetMatchesParams = {}) => {
+  const requestOptions = {
     token: token ?? undefined,
     query: {
       perPage,
       page,
     },
-    body: filters,
+    body: MATCHES_METHOD === "GET" ? undefined : filters,
     signal,
-  });
+  } satisfies Omit<GetMatchesParams, "filters"> & {
+    query: { perPage: number; page: number };
+    body?: Record<string, unknown> | undefined;
+  };
+
+  try {
+    return await request<MatchesResponse>(MATCHES_ENDPOINT, {
+      ...requestOptions,
+      method: MATCHES_METHOD,
+    });
+  } catch (error) {
+    if (MATCHES_METHOD !== "GET" && shouldRetryWithGet(error)) {
+      return await request<MatchesResponse>(MATCHES_ENDPOINT, {
+        ...requestOptions,
+        method: "GET",
+        body: undefined,
+      });
+    }
+    throw error;
+  }
+};
 
 export const extractMatches = (payload: MatchesResponse): Record<string, unknown>[] => {
   if (Array.isArray(payload)) return payload;
