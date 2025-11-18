@@ -156,7 +156,7 @@ const PlayerMatchProfilePage = () => {
   const [blockLoading, setBlockLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
 
-  const token = getStoredAuthToken({ preferScheme: "token" });
+  const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
 
   const targetUserId = useMemo(() => {
     const stateUserId = (location.state as { userId?: number | string } | undefined)?.userId;

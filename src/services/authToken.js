@@ -13,7 +13,7 @@ const canonicalizeScheme = (scheme) => {
   const lower = scheme.trim().toLowerCase();
   if (!lower) return "";
   if (lower === "bearer") return "Bearer";
-  if (lower === "token") return "Token";
+  if (lower === "token") return "token";
   return scheme.trim();
 };
 
