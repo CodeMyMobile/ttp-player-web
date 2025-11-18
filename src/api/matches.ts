@@ -1,8 +1,21 @@
 import { request } from "./http";
 import type { MatchesResponse } from "../types/match";
 
-const MATCHES_ENDPOINT =
-  import.meta.env.VITE_PLAYER_MATCHES_ENDPOINT ?? "/player/matches";
+const normalizeEndpoint = (value: string) => `/${value.replace(/^\/+/, "")}`;
+
+const matchesEndpointCandidates = (() => {
+  const primary = import.meta.env.VITE_PLAYER_MATCHES_ENDPOINT ?? "/player/matches";
+  const fallbacks = (import.meta.env.VITE_PLAYER_MATCHES_FALLBACK_ENDPOINTS ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const defaults = ["/player/upcoming_matches", "/matches", "/player/matches/list"];
+
+  const normalized = [primary, ...fallbacks, ...defaults].map(normalizeEndpoint);
+
+  return Array.from(new Set(normalized));
+})();
 const MATCHES_METHOD = (import.meta.env.VITE_PLAYER_MATCHES_METHOD ?? "POST").toUpperCase();
 
 export interface GetMatchesParams {
@@ -42,21 +55,34 @@ export const getBrowseMatches = async ({
     body?: Record<string, unknown> | undefined;
   };
 
-  try {
-    return await request<MatchesResponse>(MATCHES_ENDPOINT, {
-      ...requestOptions,
-      method: MATCHES_METHOD,
-    });
-  } catch (error) {
-    if (MATCHES_METHOD !== "GET" && shouldRetryWithGet(error)) {
-      return await request<MatchesResponse>(MATCHES_ENDPOINT, {
+  let lastError: unknown;
+
+  for (const endpoint of matchesEndpointCandidates) {
+    try {
+      return await request<MatchesResponse>(endpoint, {
         ...requestOptions,
-        method: "GET",
-        body: undefined,
+        method: MATCHES_METHOD,
       });
+    } catch (error) {
+      if (MATCHES_METHOD !== "GET" && shouldRetryWithGet(error)) {
+        try {
+          return await request<MatchesResponse>(endpoint, {
+            ...requestOptions,
+            method: "GET",
+            body: undefined,
+          });
+        } catch (getError) {
+          lastError = getError;
+        }
+      } else if (!shouldRetryWithGet(error)) {
+        throw error;
+      }
+
+      lastError = error;
     }
-    throw error;
   }
+
+  throw lastError ?? new Error("Unable to load matches.");
 };
 
 export const extractMatches = (payload: MatchesResponse): Record<string, unknown>[] => {
