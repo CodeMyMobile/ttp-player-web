@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import MainLayout from "../components/MainLayout";
 import { addFavorite, blockPlayer, fetchPlayerDetails, removeFavorite, unblockPlayer, verifyUserLevel } from "../api/playerHome";
+import type { PositionPayload } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import { formatPhoneDisplay, getPhoneDigits } from "../services/phone";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -37,6 +38,13 @@ type RawPlayerRecord = {
   [key: string]: unknown;
 };
 
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+
 type PlayerProfile = {
   userId: number | string;
   fullName: string;
@@ -53,6 +61,29 @@ type PlayerProfile = {
 };
 
 const knownLookingFor = ["Fun / social", "Casual hitting", "Friendly competition"] as const;
+
+const parseStoredLocation = (value: unknown): Coordinates | null => {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const latitude = record.latitude;
+  const longitude = record.longitude;
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return null;
+  }
+  return { latitude, longitude };
+};
+
+const getStoredLocation = (): Coordinates | null => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredLocation(parsed);
+  } catch {
+    return null;
+  }
+};
 
 const toStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -155,6 +186,7 @@ const PlayerMatchProfilePage = () => {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [position, setPosition] = useState<PositionPayload | null>(null);
 
   const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
 
@@ -180,6 +212,39 @@ const PlayerMatchProfilePage = () => {
   }, [currentUserId, displayName, profile?.fullName, viewerLevel]);
 
   useEffect(() => {
+    const stored = getStoredLocation();
+    if (stored) {
+      setPosition((current) => current ?? {
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        latitudeDelta: 0.25,
+        longitudeDelta: 0.25,
+      });
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !("geolocation" in navigator) || position) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (coords) => {
+        const { latitude, longitude } = coords.coords;
+        setPosition({
+          latitude,
+          longitude,
+          latitudeDelta: 0.25,
+          longitudeDelta: 0.25,
+        });
+      },
+      () => {
+        // If location permission is denied, we simply skip adding position data.
+      },
+      { maximumAge: 5 * 60 * 1000, timeout: 7000 },
+    );
+  }, [position]);
+
+  useEffect(() => {
     const fetchProfile = async () => {
       if (!token) {
         setError("Missing authentication token.");
@@ -195,7 +260,7 @@ const PlayerMatchProfilePage = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchPlayerDetails({ token, authScheme: "token", userId: targetUserId });
+        const response = await fetchPlayerDetails({ token, authScheme: "token", userId: targetUserId, position });
         const firstRecord = Array.isArray(response)
           ? (response[0] as RawPlayerRecord | undefined)
           : Array.isArray((response as { data?: unknown[] })?.data)
@@ -207,14 +272,21 @@ const PlayerMatchProfilePage = () => {
         }
         setProfile(normalized);
       } catch (err) {
-        setError((err as Error).message || "Unable to load player profile.");
+        const enrichedError = err as Error & { status?: number; data?: unknown };
+        const errorMessage = enrichedError.message || "Unable to load player profile.";
+        const locationDenied = /location/i.test(errorMessage) || /location/i.test(String(enrichedError.data || ""));
+        if (locationDenied && (enrichedError.status === 401 || enrichedError.status === 403)) {
+          setError("We need location access to load this profile. Please enable location permissions and try again.");
+        } else {
+          setError(errorMessage);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     void fetchProfile();
-  }, [targetUserId, token]);
+  }, [position, targetUserId, token]);
 
   const toggleFavorite = async () => {
     if (!profile || !token) return;
