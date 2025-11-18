@@ -342,8 +342,15 @@ export const fetchPlayerDetails = async ({ token, userId, position, authScheme }
       authScheme,
       query: {
         userId,
+        user_id: userId,
       },
-      body: position ? buildBody({ position }) : undefined,
+      body: position
+        ? buildBody({
+            position,
+            userId,
+            user_id: userId,
+          })
+        : undefined,
     },
   );
 

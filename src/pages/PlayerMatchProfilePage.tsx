@@ -130,6 +130,33 @@ const normalizeProfile = (record: RawPlayerRecord | null | undefined): PlayerPro
   };
 };
 
+const extractFirstRecord = (response: unknown): RawPlayerRecord | undefined => {
+  if (Array.isArray(response)) {
+    return response[0] as RawPlayerRecord | undefined;
+  }
+
+  if (response && typeof response === "object") {
+    const record = response as Record<string, unknown>;
+
+    const data = record.data;
+    if (Array.isArray(data)) {
+      return data[0] as RawPlayerRecord | undefined;
+    }
+
+    const nestedData = (data as { data?: unknown[] } | undefined)?.data;
+    if (Array.isArray(nestedData)) {
+      return nestedData[0] as RawPlayerRecord | undefined;
+    }
+
+    const user = record.user ?? record.player ?? record.profile;
+    if (user && typeof user === "object") {
+      return user as RawPlayerRecord;
+    }
+  }
+
+  return undefined;
+};
+
 const extractUserId = (user: unknown): number | string | undefined => {
   if (!user || typeof user !== "object") return undefined;
   const profile = user as Record<string, unknown>;
@@ -194,6 +221,7 @@ const PlayerMatchProfilePage = () => {
     const stateUserId = (location.state as { userId?: number | string } | undefined)?.userId;
     return (
       stateUserId ||
+      searchParams.get("playerId") ||
       searchParams.get("userId") ||
       searchParams.get("id") ||
       routeUserId ||
@@ -261,11 +289,7 @@ const PlayerMatchProfilePage = () => {
       setError(null);
       try {
         const response = await fetchPlayerDetails({ token, authScheme: "token", userId: targetUserId, position });
-        const firstRecord = Array.isArray(response)
-          ? (response[0] as RawPlayerRecord | undefined)
-          : Array.isArray((response as { data?: unknown[] })?.data)
-            ? ((response as { data?: unknown[] }).data?.[0] as RawPlayerRecord | undefined)
-            : (response as RawPlayerRecord | undefined);
+        const firstRecord = extractFirstRecord(response);
         const normalized = normalizeProfile(firstRecord);
         if (!normalized) {
           setError("We couldn't load this player's profile.");
