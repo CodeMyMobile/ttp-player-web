@@ -29,10 +29,9 @@ export interface GetMatchesParams {
   filters?: Record<string, unknown>;
 }
 
-const shouldRetryWithGet = (error: unknown) => {
+const isAuthError = (error: unknown) => {
   const status = (error as { status?: number })?.status;
-  const message = (error as Error)?.message?.toLowerCase();
-  return status === 404 || message?.includes("cannot get");
+  return status === 401 || status === 403;
 };
 
 export const getBrowseMatches = async ({
@@ -48,37 +47,29 @@ export const getBrowseMatches = async ({
       perPage,
       page,
     },
-    body: MATCHES_METHOD === "GET" ? undefined : filters,
     signal,
-  } satisfies Omit<GetMatchesParams, "filters"> & {
+  } satisfies Omit<GetMatchesParams, "filters" | "body"> & {
     query: { perPage: number; page: number };
-    body?: Record<string, unknown> | undefined;
   };
 
   let lastError: unknown;
 
   for (const endpoint of matchesEndpointCandidates) {
-    try {
-      return await request<MatchesResponse>(endpoint, {
-        ...requestOptions,
-        method: MATCHES_METHOD,
-      });
-    } catch (error) {
-      if (MATCHES_METHOD !== "GET" && shouldRetryWithGet(error)) {
-        try {
-          return await request<MatchesResponse>(endpoint, {
-            ...requestOptions,
-            method: "GET",
-            body: undefined,
-          });
-        } catch (getError) {
-          lastError = getError;
-        }
-      } else if (!shouldRetryWithGet(error)) {
-        throw error;
-      }
+    const methodsToTry = MATCHES_METHOD === "GET" ? ["GET"] : [MATCHES_METHOD, "GET"];
 
-      lastError = error;
+    for (const method of methodsToTry) {
+      try {
+        return await request<MatchesResponse>(endpoint, {
+          ...requestOptions,
+          method,
+          body: method === "GET" ? undefined : filters,
+        });
+      } catch (error) {
+        if (isAuthError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
     }
   }
 

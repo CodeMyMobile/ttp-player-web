@@ -32,6 +32,7 @@ export interface MatchApiRecord {
   start?: string;
   start_time?: string;
   startTime?: string;
+  start_date_time?: string;
   start_date?: string;
   startDate?: string;
   date?: string;

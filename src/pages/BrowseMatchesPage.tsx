@@ -40,7 +40,14 @@ const formatDateLabel = (value?: string | number) => {
 };
 
 const pickStartTime = (match: MatchApiRecord) =>
-  match.startTime || match.start_time || match.start || match.start_date || match.startDate || match.date || match.schedule;
+  match.start_date_time ||
+  match.startTime ||
+  match.start_time ||
+  match.start ||
+  match.start_date ||
+  match.startDate ||
+  match.date ||
+  match.schedule;
 
 const pickLocation = (match: MatchApiRecord) =>
   match.location_name ||
