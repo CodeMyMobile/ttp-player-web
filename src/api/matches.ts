@@ -9,6 +9,10 @@ export interface GetMatchesParams {
   perPage?: number;
   page?: number;
   signal?: AbortSignal;
+  /**
+   * Optional payload forwarded to the API for filtering/sorting server-side.
+   */
+  filters?: Record<string, unknown>;
 }
 
 export const getBrowseMatches = async ({
@@ -16,13 +20,16 @@ export const getBrowseMatches = async ({
   perPage = 20,
   page = 1,
   signal,
+  filters = {},
 }: GetMatchesParams = {}) =>
   request<MatchesResponse>(MATCHES_ENDPOINT, {
+    method: "POST",
     token: token ?? undefined,
     query: {
       perPage,
       page,
     },
+    body: filters,
     signal,
   });
 
