@@ -243,7 +243,42 @@ const formatVisibilityLabel = (value?: string) => {
   }
 };
 
-const deriveRelationship = (record: Record<string, unknown>): MatchRelationship => {
+const identityValues = (source: unknown): string[] => {
+  if (!source || typeof source !== "object") return [];
+  const record = source as Record<string, unknown>;
+  const identifiers: Array<unknown> = [
+    record.id,
+    record.user_id,
+    record.userId,
+    record.uuid,
+    record.uid,
+    record.identity,
+    record.identity_id,
+    record.identityId,
+    record.profile_id,
+    record.profileId,
+    record.player_id,
+    record.playerId,
+    record.member_id,
+    record.memberId,
+  ];
+
+  const values = identifiers
+    .map((value) => {
+      const text = firstString([value]);
+      if (text) return text;
+      const numeric = firstNumber([value]);
+      return numeric !== undefined ? String(numeric) : undefined;
+    })
+    .filter(Boolean) as string[];
+
+  return Array.from(new Set(values.map((value) => value.toString().trim())));
+};
+
+const deriveRelationship = (
+  record: Record<string, unknown>,
+  options: { currentUser?: unknown } = {},
+): MatchRelationship => {
   const relationship = firstString([
     record.relationship,
     record.role,
@@ -251,7 +286,39 @@ const deriveRelationship = (record: Record<string, unknown>): MatchRelationship 
   ]);
   if (relationship === "host" || relationship === "participant") return relationship;
 
-  if (record.is_host || record.isHost) return "host";
+  const hostIdentityValues = Array.from(
+    new Set([
+      ...identityValues(record.host_profile),
+      ...identityValues(record.hostProfile),
+      ...identityValues(record.organizer_profile),
+      ...identityValues({
+        id: firstString([
+          record.host_id,
+          record.hostId,
+          record.host_identity,
+          record.host_identity_id,
+          record.organizer_identity,
+          record.owner_identity,
+          record.created_by_identity,
+          record.creator_identity,
+          record.created_by,
+          record.createdBy,
+          record.owner_id,
+          record.ownerId,
+          record.organizer_id,
+          record.organizerId,
+        ]),
+      }),
+    ].filter(Boolean),
+  );
+
+  const userIdentities = identityValues(options.currentUser);
+
+  const isCurrentUserHost =
+    hostIdentityValues.length > 0 &&
+    userIdentities.some((id) => hostIdentityValues.includes(id));
+
+  if (record.is_host || record.isHost || isCurrentUserHost) return "host";
   if (record.is_participant || record.isParticipant) return "participant";
 
   return "viewer";
@@ -661,7 +728,10 @@ const extractPagination = (payload: unknown): MatchesPagination | undefined => {
   };
 };
 
-export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
+export const normalizeMatchRecord = (
+  record: unknown,
+  options: { currentUser?: unknown } = {},
+): NormalizedMatch => {
   const safeRecord = (record ?? {}) as Record<string, unknown>;
   const id =
     firstString([
@@ -675,7 +745,7 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
 
   const access = deriveAccess(safeRecord);
   const visibility = deriveVisibility(safeRecord);
-  const relationship = deriveRelationship(safeRecord);
+  const relationship = deriveRelationship(safeRecord, { currentUser: options.currentUser });
   const startDisplay = deriveStartLabel(safeRecord);
   const startDateTimeIso = deriveStartIso(safeRecord);
   const location = deriveLocationLabel(safeRecord);
@@ -691,7 +761,16 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
   );
   const { playersJoined, totalSpots, playersNeeded } = derivePlayers(safeRecord);
   const level = deriveLevel(safeRecord);
-  const hostName = firstString([safeRecord.host_name, safeRecord.host, safeRecord.organizer]);
+  const hostProfile = [safeRecord.host_profile, safeRecord.hostProfile, safeRecord.organizer_profile]
+    .find((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+  const hostName = firstString([
+    safeRecord.host_name,
+    safeRecord.host,
+    safeRecord.organizer,
+    hostProfile?.name,
+    hostProfile?.full_name,
+    hostProfile?.display_name,
+  ]);
 
   return {
     id,
@@ -731,8 +810,10 @@ const extractMatchDetail = (payload: unknown): unknown => {
   return payload;
 };
 
-export const normalizeMatchDetail = (record: unknown): NormalizedMatch =>
-  normalizeMatchRecord(extractMatchDetail(record));
+export const normalizeMatchDetail = (
+  record: unknown,
+  options: { currentUser?: unknown } = {},
+): NormalizedMatch => normalizeMatchRecord(extractMatchDetail(record), options);
 
 export const listMatches = async ({ token, signal, ...params }: ListMatchesParams = {}) => {
   const query = buildMatchesQuery(params);

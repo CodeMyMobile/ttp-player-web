@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
 import { getMatchById, normalizeMatchDetail, type NormalizedMatch } from "../api/matches";
+import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -11,6 +12,7 @@ import "./MatchDetailsPage.css";
 const MatchDetailsPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth() as { user?: unknown };
   const [match, setMatch] = useState<NormalizedMatch | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ const MatchDetailsPage = () => {
           signal,
           includeHidden: true,
         });
-        const normalized = normalizeMatchDetail(response);
+        const normalized = normalizeMatchDetail(response, { currentUser: user });
         setMatch(normalized);
       } catch (loadError) {
         if (signal.aborted) return;
@@ -41,7 +43,7 @@ const MatchDetailsPage = () => {
         }
       }
     };
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,7 +72,7 @@ const MatchDetailsPage = () => {
       values.push({ label: match.visibilityLabel, tone: "warning" });
     }
     if (match.relationship) {
-      values.push({ label: match.relationship === "host" ? "Hosting" : "Joined", tone: "info" });
+      values.push({ label: match.relationship === "host" ? "You're host" : "Joined", tone: "info" });
     }
     return values;
   }, [match]);

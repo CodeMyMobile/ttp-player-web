@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { useNavigate } from "react-router-dom";
 import { Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import { listMatches, normalizeMatchRecord, type NormalizedMatch } from "../api/matches";
+import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
@@ -15,7 +16,7 @@ const distanceOptions = ["3 mi", "5 mi", "10 mi", "15 mi", "All"];
 const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Drafts", "Archived"];
 
 const relationshipLabel: Record<string, string> = {
-  host: "Hosting",
+  host: "You're host",
   participant: "Joined",
 };
 
@@ -101,6 +102,7 @@ const parseDistanceMiles = (value: string): number => {
 
 const BrowseMatchesPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth() as { user?: unknown };
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [matches, setMatches] = useState<NormalizedMatch[]>([]);
@@ -346,7 +348,7 @@ const BrowseMatchesPage = () => {
           signal,
         });
 
-        const normalized = response.matches.map((match) => normalizeMatchRecord(match));
+        const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
         setMatches(normalized);
       } catch (fetchError) {
         if (signal.aborted) return;
@@ -360,7 +362,7 @@ const BrowseMatchesPage = () => {
         }
       }
     },
-    [appliedSearch, locationQuery, position?.latitude, position?.longitude, selectedDistance, selectedTab],
+    [appliedSearch, locationQuery, position?.latitude, position?.longitude, selectedDistance, selectedTab, user],
   );
 
   useEffect(() => {
