@@ -361,10 +361,7 @@ const BrowseMatchesPage = () => {
         });
 
         const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        const filtered = isHostingTab
-          ? normalized.filter((match) => match.relationship === "host")
-          : normalized;
-        setMatches(filtered);
+        setMatches(normalized);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
