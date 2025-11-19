@@ -260,19 +260,47 @@ const deriveRelationship = (record: Record<string, unknown>): MatchRelationship 
 const extractLocationFromObject = (value: unknown) => {
   if (!value || typeof value !== "object") return {} as Record<string, string | undefined>;
   const source = value as Record<string, unknown>;
+  const address =
+    source.address && typeof source.address === "object"
+      ? (source.address as Record<string, unknown>)
+      : undefined;
+
   const primary = firstString([
     source.name,
     source.title,
     source.label,
     source.location,
     source.location_name,
+    source.locationName,
     source.venue,
+    source.venue_name,
+    source.venueName,
     source.club,
     source.club_name,
     source.court,
+    source.place,
+    address?.name,
+    address?.title,
+    address?.label,
+    address?.location,
+    address?.location_name,
   ]);
-  const city = firstString([source.city, source.location_city, source.town]);
-  const state = firstString([source.state, source.region, source.state_code]);
+  const city = firstString([
+    source.city,
+    source.location_city,
+    source.town,
+    address?.city,
+    address?.location_city,
+    address?.town,
+  ]);
+  const state = firstString([
+    source.state,
+    source.region,
+    source.state_code,
+    address?.state,
+    address?.region,
+    address?.state_code,
+  ]);
   const detail = firstString([
     source.location_detail,
     source.location_detail_label,
@@ -283,6 +311,18 @@ const extractLocationFromObject = (value: unknown) => {
     source.street,
     source.street_1,
     source.street_address,
+    source.detail,
+    source.formatted_address,
+    source.display_address,
+    address?.address,
+    address?.address_line_1,
+    address?.address_line1,
+    address?.address_line,
+    address?.street,
+    address?.street_1,
+    address?.street_address,
+    address?.formatted,
+    address?.formatted_address,
   ]);
 
   return { primary, city, state, detail } as const;
@@ -290,6 +330,18 @@ const extractLocationFromObject = (value: unknown) => {
 
 const deriveLocationLabel = (record: Record<string, unknown>): string => {
   const nestedLocation = extractLocationFromObject(record.location);
+  const fallbackNested = firstString([
+    extractLocationFromObject(record.location_detail).primary,
+    extractLocationFromObject(record.location_details).primary,
+    extractLocationFromObject(record.locationData).primary,
+    extractLocationFromObject(record.location_data).primary,
+    extractLocationFromObject(record.location_info).primary,
+    extractLocationFromObject(record.locationInfo).primary,
+    extractLocationFromObject(record.venue_details).primary,
+    extractLocationFromObject(record.venue_detail).primary,
+    extractLocationFromObject(record.address).primary,
+  ]);
+
   const primary =
     firstString([
       record.location,
@@ -300,9 +352,38 @@ const deriveLocationLabel = (record: Record<string, unknown>): string => {
       record.club_name,
       record.court,
       nestedLocation.primary,
+      fallbackNested,
+      deriveLocationDetail(record),
     ]) ?? undefined;
-  const city = firstString([record.city, record.location_city, record.town, nestedLocation.city]);
-  const state = firstString([record.state, record.region, nestedLocation.state]);
+  const city = firstString([
+    record.city,
+    record.location_city,
+    record.town,
+    nestedLocation.city,
+    extractLocationFromObject(record.location_detail).city,
+    extractLocationFromObject(record.location_details).city,
+    extractLocationFromObject(record.locationData).city,
+    extractLocationFromObject(record.location_data).city,
+    extractLocationFromObject(record.location_info).city,
+    extractLocationFromObject(record.locationInfo).city,
+    extractLocationFromObject(record.venue_details).city,
+    extractLocationFromObject(record.venue_detail).city,
+    extractLocationFromObject(record.address).city,
+  ]);
+  const state = firstString([
+    record.state,
+    record.region,
+    nestedLocation.state,
+    extractLocationFromObject(record.location_detail).state,
+    extractLocationFromObject(record.location_details).state,
+    extractLocationFromObject(record.locationData).state,
+    extractLocationFromObject(record.location_data).state,
+    extractLocationFromObject(record.location_info).state,
+    extractLocationFromObject(record.locationInfo).state,
+    extractLocationFromObject(record.venue_details).state,
+    extractLocationFromObject(record.venue_detail).state,
+    extractLocationFromObject(record.address).state,
+  ]);
   const secondaryParts = [city, state].filter(Boolean);
   if (primary) {
     return secondaryParts.length > 0 ? `${primary} · ${secondaryParts.join(", ")}` : primary;
@@ -323,6 +404,15 @@ const deriveLocationDetail = (record: Record<string, unknown>): string | undefin
     record.street_1,
     record.street_address,
     extractLocationFromObject(record.location).detail,
+    extractLocationFromObject(record.location_detail).detail,
+    extractLocationFromObject(record.location_details).detail,
+    extractLocationFromObject(record.locationData).detail,
+    extractLocationFromObject(record.location_data).detail,
+    extractLocationFromObject(record.location_info).detail,
+    extractLocationFromObject(record.locationInfo).detail,
+    extractLocationFromObject(record.venue_details).detail,
+    extractLocationFromObject(record.venue_detail).detail,
+    extractLocationFromObject(record.address).detail,
   ]);
 
 const derivePlayers = (record: Record<string, unknown>) => {
