@@ -16,7 +16,7 @@ const distanceOptions = ["3 mi", "5 mi", "10 mi", "15 mi", "All"];
 const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Drafts", "Archived"];
 
 const relationshipLabel: Record<string, string> = {
-  host: "You're host",
+  host: "Hosting",
   participant: "Joined",
 };
 
@@ -626,12 +626,14 @@ const BrowseMatchesPage = () => {
                           <p className="match-detail__secondary">{availabilityLabel}</p>
                         </div>
                       </div>
-                      {match.access === "Open" && match.level ? (
+                      {match.level ? (
                         <div className="match-detail">
                           <Star size={18} aria-hidden="true" />
                           <div>
-                            <p className="match-detail__primary">Skill level: {match.level.summary}</p>
-                            <p className="match-detail__secondary">{match.level.detail}</p>
+                            <p className="match-detail__primary">Suggested skill: {match.level.summary}</p>
+                            {match.level.detail ? (
+                              <p className="match-detail__secondary">{match.level.detail}</p>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}

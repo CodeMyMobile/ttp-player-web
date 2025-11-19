@@ -635,18 +635,45 @@ const derivePlayers = (record: Record<string, unknown>) => {
 };
 
 const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined => {
-  const summary = firstString([
+  const min = firstNumber([
+    record.skill_level_min,
+    record.skillLevelMin,
+    record.level_min,
+    record.levelMin,
+  ]);
+  const max = firstNumber([
+    record.skill_level_max,
+    record.skillLevelMax,
+    record.level_max,
+    record.levelMax,
+  ]);
+  const rangeLabel = (() => {
+    const formatValue = (value: number) => (Number.isInteger(value) ? `${value}.0` : `${value}`);
+    if (min !== undefined && max !== undefined) return `${formatValue(min)}-${formatValue(max)}`;
+    if (min !== undefined) return `${formatValue(min)}+`;
+    if (max !== undefined) return `Up to ${formatValue(max)}`;
+    return undefined;
+  })();
+
+  const fallbackSummary = firstString([
     record.level,
     record.level_summary,
     record.skill_level,
+    record.skillLevel,
     record.skill,
   ]);
+  const summary = rangeLabel ?? fallbackSummary;
   if (!summary) return undefined;
+
   const detail = firstString([
     record.level_detail,
     record.skill_level_label,
     record.skill_level_description,
-  ]);
+    record.match_format,
+    record.matchFormat,
+    record.match_type,
+  ]) ?? (rangeLabel && fallbackSummary && rangeLabel !== fallbackSummary ? fallbackSummary : undefined);
+
   return {
     summary,
     detail,

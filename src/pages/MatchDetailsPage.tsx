@@ -71,9 +71,8 @@ const MatchDetailsPage = () => {
     if (match.visibilityLabel && match.visibilityLabel !== "Open") {
       values.push({ label: match.visibilityLabel, tone: "warning" });
     }
-    if (match.relationship) {
-      values.push({ label: match.relationship === "host" ? "You're host" : "Joined", tone: "info" });
-    }
+    if (match.relationship === "host") values.push({ label: "Hosting", tone: "info" });
+    if (match.relationship === "participant") values.push({ label: "Joined", tone: "info" });
     return values;
   }, [match]);
 
@@ -101,7 +100,7 @@ const MatchDetailsPage = () => {
     match?.level
       ? {
           icon: <Star size={18} aria-hidden="true" />,
-          title: `Skill level: ${match.level.summary}`,
+          title: `Suggested skill: ${match.level.summary}`,
           subtitle: match.level.detail,
         }
       : null,
