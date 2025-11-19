@@ -490,6 +490,16 @@ const deriveLocationDetail = (record: Record<string, unknown>): string | undefin
   ]);
 
 const derivePlayers = (record: Record<string, unknown>) => {
+  const capacityObject = [record.capacity, record.roster_capacity, record.player_capacity].find(
+    (value): value is Record<string, unknown> =>
+      Boolean(value) && typeof value === "object" && !Array.isArray(value),
+  );
+
+  const participantsCount = Array.isArray(record.participants)
+    ? record.participants.length
+    : undefined;
+  const inviteesCount = Array.isArray(record.invitees) ? record.invitees.length : undefined;
+
   const playersJoined =
     firstNumber([
       record.playersJoined,
@@ -499,16 +509,29 @@ const derivePlayers = (record: Record<string, unknown>) => {
       record.participants,
       record.participants_count,
       record.confirmed_players,
-    ]) ?? 0;
+      record.current_players,
+      record.occupied,
+      record.roster_count,
+      capacityObject?.confirmed,
+      capacityObject?.current,
+      capacityObject?.occupied,
+      capacityObject?.filled,
+    ]) ?? participantsCount ?? inviteesCount ?? 0;
 
   const totalSpots = firstNumber([
     record.totalSpots,
     record.total_players,
     record.total_spots,
     record.capacity,
+    record.player_capacity,
     record.max_players,
     record.player_limit,
-    record.roster_capacity,
+    record.playerLimit,
+    record.match_player_limit,
+    record.player_cap,
+    capacityObject?.limit,
+    capacityObject?.max,
+    capacityObject?.capacity,
   ]);
 
   let playersNeeded = firstNumber([
@@ -517,6 +540,12 @@ const derivePlayers = (record: Record<string, unknown>) => {
     record.players_remaining,
     record.spots_left,
     record.available_spots,
+    record.rosterSpotsRemaining,
+    record.spotsAvailable,
+    record.open,
+    capacityObject?.open,
+    capacityObject?.remaining,
+    capacityObject?.available,
   ]);
 
   const computedTotal =
