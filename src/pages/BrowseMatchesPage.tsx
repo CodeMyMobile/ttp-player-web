@@ -12,7 +12,7 @@ import { getStoredAuthToken } from "../services/authToken";
 
 import "./BrowseMatchesPage.css";
 
-const distanceOptions = ["3 mi", "5 mi", "10 mi", "15 mi", "All"];
+const distanceOptions = ["5 mi", "10 mi", "20 mi", "50 mi", "All"];
 const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Drafts", "Archived"];
 
 const relationshipLabel: Record<string, string> = {
@@ -109,7 +109,7 @@ const BrowseMatchesPage = () => {
   const [matchesError, setMatchesError] = useState<string | null>(null);
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
-  const [selectedDistance, setSelectedDistance] = useState(distanceOptions[1]);
+  const [selectedDistance, setSelectedDistance] = useState(distanceOptions[0]);
   const [selectedTab, setSelectedTab] = useState(tabs[0]);
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
