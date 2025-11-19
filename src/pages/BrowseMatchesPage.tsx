@@ -323,18 +323,30 @@ const BrowseMatchesPage = () => {
       setIsLoadingMatches(true);
       setMatchesError(null);
 
-      const distanceMiles = parseDistanceMiles(selectedDistance);
-      const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
+      const distanceMiles = parseDistanceMiles(selectedDistance);
+      const searchQuery = (isHostingTab ? appliedSearch : appliedSearch || locationQuery).trim();
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
-        if (isHostingTab) return { filter: "my" as const, includeHidden: true };
+        if (isHostingTab)
+          return {
+            filter: "my" as const,
+          };
         if (selectedTab === "Open") return { status: "open" as const };
-        if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
-        if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
+        if (selectedTab === "Drafts")
+          return { status: "draft" as const, includeHidden: true, include_hidden: true };
+        if (selectedTab === "Archived")
+          return { filter: "archieve" as const, includeHidden: true, include_hidden: true };
         return {};
       })();
       const perPage = isHostingTab ? 50 : 20;
+
+      const hasCoords =
+        typeof position?.latitude === "number" && typeof position?.longitude === "number";
+      const latitude = isHostingTab ? undefined : position?.latitude;
+      const longitude = isHostingTab ? undefined : position?.longitude;
+      const distance =
+        isHostingTab || !hasCoords || !Number.isFinite(distanceMiles) ? undefined : distanceMiles;
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
@@ -342,19 +354,16 @@ const BrowseMatchesPage = () => {
           page: 1,
           perPage,
           search: searchQuery || undefined,
-          distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
-          latitude: position?.latitude,
-          longitude: position?.longitude,
+          distance: Number.isFinite(distance) ? distance : undefined,
+          latitude,
+          longitude,
           ...tabFilters,
           token: token ?? undefined,
           signal,
         });
 
         const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        const filtered = isHostingTab
-          ? normalized.filter((match) => match.relationship === "host")
-          : normalized;
-        setMatches(filtered);
+        setMatches(normalized);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
@@ -394,6 +403,11 @@ const BrowseMatchesPage = () => {
         "--matches-font": typography.fontFamily,
       }) as CSSProperties,
     [],
+  );
+
+  const visibleMatches = useMemo(
+    () => (selectedTab === "Hosting" ? matches.filter((match) => match.relationship === "host") : matches),
+    [matches, selectedTab],
   );
 
   return (
@@ -572,7 +586,7 @@ const BrowseMatchesPage = () => {
                 </button>
               </div>
             ) : (
-              matches.map((match) => {
+              visibleMatches.map((match) => {
                 const isHost = match.relationship === "host";
                 const isParticipant = match.relationship === "participant";
                 const playersJoined = match.playersJoined ?? 0;
