@@ -271,6 +271,13 @@ const identityValues = (source: unknown, seen = new Set<unknown>()): string[] =>
     record.memberIdentity,
     record.created_by,
     record.createdBy,
+    record.email,
+    record.email_address,
+    record.emailAddress,
+    record.username,
+    record.user_name,
+    record.handle,
+    record.slug,
   ];
 
   const values = identifiers
@@ -292,6 +299,10 @@ const identityValues = (source: unknown, seen = new Set<unknown>()): string[] =>
     record.account,
     record.member_profile,
     record.memberProfile,
+    record.account_profile,
+    record.accountProfile,
+    record.data,
+    record.details,
   ];
 
   const nestedValues = nestedSources.flatMap((value) => identityValues(value, seen));
