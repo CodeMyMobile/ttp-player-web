@@ -325,22 +325,23 @@ const BrowseMatchesPage = () => {
 
       const isHostingTab = selectedTab === "Hosting";
       const distanceMiles = parseDistanceMiles(selectedDistance);
-      const searchQuery = (
-        isHostingTab ? appliedSearch : appliedSearch || locationQuery
-      ).trim();
+      const searchQuery = (appliedSearch || locationQuery).trim();
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
-        if (isHostingTab) return { filter: "my" as const, includeHidden: true };
+        if (isHostingTab)
+          return { filter: "my" as const, includeHidden: true, include_hidden: true };
         if (selectedTab === "Open") return { status: "open" as const };
-        if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
-        if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
+        if (selectedTab === "Drafts")
+          return { status: "draft" as const, includeHidden: true, include_hidden: true };
+        if (selectedTab === "Archived")
+          return { filter: "archieve" as const, includeHidden: true, include_hidden: true };
         return {};
       })();
       const perPage = isHostingTab ? 50 : 20;
 
-      const latitude = isHostingTab ? undefined : position?.latitude;
-      const longitude = isHostingTab ? undefined : position?.longitude;
-      const distance = isHostingTab ? undefined : distanceMiles;
+      const latitude = position?.latitude;
+      const longitude = position?.longitude;
+      const distance = Number.isFinite(distanceMiles) ? distanceMiles : undefined;
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
