@@ -325,20 +325,22 @@ const BrowseMatchesPage = () => {
 
       const distanceMiles = parseDistanceMiles(selectedDistance);
       const searchQuery = (appliedSearch || locationQuery).trim();
+      const isHostingTab = selectedTab === "Hosting";
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
-        if (selectedTab === "Hosting") return { filter: "hosting" as const };
+        if (isHostingTab) return { filter: "my" as const, includeHidden: true };
         if (selectedTab === "Open") return { status: "open" as const };
         if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
         if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
         return {};
       })();
+      const perPage = isHostingTab ? 50 : 20;
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
         const response = await listMatches({
           page: 1,
-          perPage: 20,
+          perPage,
           search: searchQuery || undefined,
           distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
           latitude: position?.latitude,
@@ -349,7 +351,10 @@ const BrowseMatchesPage = () => {
         });
 
         const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        setMatches(normalized);
+        const filtered = isHostingTab
+          ? normalized.filter((match) => match.relationship === "host")
+          : normalized;
+        setMatches(filtered);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
@@ -589,6 +594,11 @@ const BrowseMatchesPage = () => {
                     ? `${playersJoined}/${totalSpots} players`
                     : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
                 const roleLabel = relationshipLabel[match.relationship] ?? null;
+                const isInviteOnlyPill =
+                  match.visibility === "private" ||
+                  match.visibilityLabel?.toLowerCase() === "invite only";
+                const showVisibilityPill =
+                  Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
 
                 return (
                   <article key={match.id} className="match-card">
@@ -597,7 +607,7 @@ const BrowseMatchesPage = () => {
                         <span className={`match-status-pill ${match.access.toLowerCase()}`}>
                           {match.access}
                         </span>
-                        {match.visibilityLabel && match.visibilityLabel !== match.access ? (
+                        {showVisibilityPill ? (
                           <span className="match-status-pill visibility">{match.visibilityLabel}</span>
                         ) : null}
                         {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}

@@ -245,10 +245,27 @@ const formatVisibilityLabel = (value?: string) => {
 };
 
 const identityValues = (source: unknown, seen = new Set<unknown>()): string[] => {
-  if (!source || typeof source !== "object") return [];
+  if (source === null || source === undefined) return [];
+
+  if (typeof source === "string") {
+    const trimmed = source.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (typeof source === "number") {
+    if (!Number.isFinite(source)) return [];
+    return [String(source)];
+  }
+
+  if (typeof source !== "object") return [];
   if (seen.has(source)) return [];
 
   seen.add(source);
+
+  if (Array.isArray(source)) {
+    const values = source.flatMap((value) => identityValues(value, seen));
+    return Array.from(new Set(values));
+  }
 
   const record = source as Record<string, unknown>;
   const identifiers: Array<unknown> = [
@@ -301,6 +318,33 @@ const identityValues = (source: unknown, seen = new Set<unknown>()): string[] =>
     record.memberProfile,
     record.account_profile,
     record.accountProfile,
+    record.owner_profile,
+    record.ownerProfile,
+    record.host,
+    record.host_profile,
+    record.hostProfile,
+    record.host_identity,
+    record.hostIdentity,
+    record.organizer,
+    record.organizer_profile,
+    record.organizerProfile,
+    record.organizer_identity,
+    record.organizerIdentity,
+    record.created_by,
+    record.createdBy,
+    record.created_by_profile,
+    record.createdByProfile,
+    record.created_by_identity,
+    record.createdByIdentity,
+    record.creator,
+    record.creator_profile,
+    record.creatorProfile,
+    record.creator_identity,
+    record.creatorIdentity,
+    record.identities,
+    record.accounts,
+    record.profiles,
+    record.hosts,
     record.data,
     record.details,
   ];
@@ -324,25 +368,46 @@ const deriveRelationship = (
   const hostIdentityValues = Array.from(
     new Set(
       [
+        ...identityValues(record.host),
         ...identityValues(record.host_profile),
         ...identityValues(record.hostProfile),
+        ...identityValues(record.host_identity),
+        ...identityValues(record.hostIdentity),
+        ...identityValues(record.organizer),
         ...identityValues(record.organizer_profile),
+        ...identityValues(record.organizerProfile),
+        ...identityValues(record.organizer_identity),
+        ...identityValues(record.organizerIdentity),
+        ...identityValues(record.owner),
+        ...identityValues(record.owner_profile),
+        ...identityValues(record.ownerProfile),
+        ...identityValues(record.owner_identity),
+        ...identityValues(record.ownerIdentity),
+        ...identityValues(record.creator),
+        ...identityValues(record.creator_profile),
+        ...identityValues(record.creatorProfile),
+        ...identityValues(record.creator_identity),
+        ...identityValues(record.creatorIdentity),
+        ...identityValues(record.created_by_profile),
+        ...identityValues(record.createdByProfile),
+        ...identityValues(record.created_by_identity),
+        ...identityValues(record.createdByIdentity),
+        ...identityValues(record.hosts),
         ...identityValues({
           id: firstString([
             record.host_id,
             record.hostId,
-            record.host_identity,
             record.host_identity_id,
-            record.organizer_identity,
-            record.owner_identity,
-            record.created_by_identity,
-            record.creator_identity,
-            record.created_by,
-            record.createdBy,
-            record.owner_id,
-            record.ownerId,
             record.organizer_id,
             record.organizerId,
+            record.organizer_identity_id,
+            record.owner_id,
+            record.ownerId,
+            record.owner_identity_id,
+            record.created_by_identity_id,
+            record.creator_identity_id,
+            record.created_by,
+            record.createdBy,
           ]),
         }),
       ].filter(Boolean),

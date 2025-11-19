@@ -68,7 +68,9 @@ const MatchDetailsPage = () => {
     if (!match) return [] as Array<{ label: string; tone: "success" | "warning" | "info" }>;
     const values: Array<{ label: string; tone: "success" | "warning" | "info" }> = [];
     values.push({ label: match.access, tone: "success" });
-    if (match.visibilityLabel && match.visibilityLabel !== "Open") {
+    const isInviteOnlyVisibility =
+      match.visibility === "private" || match.visibilityLabel?.toLowerCase() === "invite only";
+    if (match.visibilityLabel && match.visibilityLabel !== "Open" && !isInviteOnlyVisibility) {
       values.push({ label: match.visibilityLabel, tone: "warning" });
     }
     if (match.relationship === "host") values.push({ label: "Hosting", tone: "info" });
