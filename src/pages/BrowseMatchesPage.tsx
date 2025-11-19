@@ -331,8 +331,6 @@ const BrowseMatchesPage = () => {
         if (isHostingTab)
           return {
             filter: "my" as const,
-            includeHidden: true,
-            include_hidden: true,
           };
         if (selectedTab === "Open") return { status: "open" as const };
         if (selectedTab === "Drafts")
@@ -405,6 +403,11 @@ const BrowseMatchesPage = () => {
         "--matches-font": typography.fontFamily,
       }) as CSSProperties,
     [],
+  );
+
+  const visibleMatches = useMemo(
+    () => (selectedTab === "Hosting" ? matches.filter((match) => match.relationship === "host") : matches),
+    [matches, selectedTab],
   );
 
   return (
@@ -583,7 +586,7 @@ const BrowseMatchesPage = () => {
                 </button>
               </div>
             ) : (
-              matches.map((match) => {
+              visibleMatches.map((match) => {
                 const isHost = match.relationship === "host";
                 const isParticipant = match.relationship === "participant";
                 const playersJoined = match.playersJoined ?? 0;
