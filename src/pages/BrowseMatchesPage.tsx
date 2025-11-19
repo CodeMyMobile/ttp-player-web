@@ -13,7 +13,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import "./BrowseMatchesPage.css";
 
 const distanceOptions = ["5 mi", "10 mi", "20 mi", "50 mi", "All"];
-const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Drafts", "Archived"];
+const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Archived"];
 
 const relationshipLabel: Record<string, string> = {
   host: "Hosting",
@@ -95,9 +95,106 @@ const buildLocationSearch = (location: SelectedLocation | null): string => {
   return label;
 };
 
+const matchDateKeys = [
+  "startDateTime",
+  "start_date_time",
+  "start_at",
+  "starts_at",
+  "datetime",
+  "start_time_iso",
+  "start_time",
+  "start",
+];
+
+const parseMatchDate = (match: NormalizedMatch): Date | null => {
+  const isoCandidate = (() => {
+    if (match.startDateTimeIso) return match.startDateTimeIso;
+    if (!match.raw || typeof match.raw !== "object") return undefined;
+    const record = match.raw as Record<string, unknown>;
+    for (const key of matchDateKeys) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) {
+        return value;
+      }
+    }
+    return undefined;
+  })();
+
+  if (!isoCandidate) return null;
+  const parsed = new Date(isoCandidate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isSameDay = (a: Date, b: Date) => {
+  const sameYear = a.getFullYear() === b.getFullYear();
+  const sameMonth = a.getMonth() === b.getMonth();
+  const sameDate = a.getDate() === b.getDate();
+  return sameYear && sameMonth && sameDate;
+};
+
+const isWeekendDate = (date: Date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
+const startOfDay = (date: Date) => {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+
+const addDays = (date: Date, amount: number) => {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
+  return copy;
+};
+
 const parseDistanceMiles = (value: string): number => {
   const match = /([0-9.]+)/.exec(value);
   return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
+};
+
+const matchStatusKeys = [
+  "status",
+  "state",
+  "match_status",
+  "matchStatus",
+  "status_label",
+  "statusLabel",
+  "listing_status",
+  "listingStatus",
+  "registration_status",
+  "registrationStatus",
+  "availability_status",
+  "availabilityStatus",
+  "type",
+  "match_type",
+  "matchType",
+];
+
+const statusTokensFromValue = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => statusTokensFromValue(entry));
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split(/[^a-z0-9]+/i)
+      .map((token) => token.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const getMatchStatusSet = (match: NormalizedMatch): Set<string> => {
+  if (!match.raw || typeof match.raw !== "object") {
+    return new Set();
+  }
+
+  const record = match.raw as Record<string, unknown>;
+  const tokens = matchStatusKeys.flatMap((key) => statusTokensFromValue(record[key]));
+  return new Set(tokens);
 };
 
 const BrowseMatchesPage = () => {
@@ -326,15 +423,15 @@ const BrowseMatchesPage = () => {
       const distanceMiles = parseDistanceMiles(selectedDistance);
       const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
+      const isMyMatchesTab = selectedTab === "My Matches";
+      const isArchivedTab = selectedTab === "Archived";
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const };
-        if (isHostingTab) return { filter: "my" as const, includeHidden: true };
-        if (selectedTab === "Open") return { status: "open" as const };
-        if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
-        if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
+        if (isHostingTab || isArchivedTab) return { filter: "my" as const, includeHidden: true };
+        if (isMyMatchesTab) return { filter: "my" as const, includeHidden: true };
+        if (selectedTab === "Open") return { status: "open" as const, includeHidden: true };
         return {};
       })();
-      const perPage = isHostingTab ? 50 : 20;
+      const perPage = isHostingTab || isArchivedTab ? 50 : 20;
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
@@ -351,9 +448,49 @@ const BrowseMatchesPage = () => {
         });
 
         const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        const filtered = isHostingTab
-          ? normalized.filter((match) => match.relationship === "host")
-          : normalized;
+        const now = new Date();
+        const tomorrow = addDays(now, 1);
+        const filtered = normalized.filter((match) => {
+          const matchDate = parseMatchDate(match);
+          const participated = match.relationship === "host" || match.relationship === "participant";
+
+          if (isHostingTab) {
+            return match.relationship === "host";
+          }
+
+          if (isMyMatchesTab) {
+            return participated;
+          }
+
+          if (selectedTab === "Open") {
+            const statusSet = getMatchStatusSet(match);
+            const isOpenStatus = statusSet.has("open");
+            const hasPrivateStatus = statusSet.has("private");
+            const isPrivateAccess = match.access === "Private";
+            return isOpenStatus && !hasPrivateStatus && !isPrivateAccess;
+          }
+
+          if (selectedTab === "Today") {
+            return matchDate ? isSameDay(matchDate, now) : false;
+          }
+
+          if (selectedTab === "Tomorrow") {
+            return matchDate ? isSameDay(matchDate, tomorrow) : false;
+          }
+
+          if (selectedTab === "Weekend") {
+            return matchDate ? matchDate >= now && isWeekendDate(matchDate) : false;
+          }
+
+          if (isArchivedTab) {
+            if (!participated || !matchDate) {
+              return false;
+            }
+            return matchDate.getTime() < now.getTime();
+          }
+
+          return true;
+        });
         setMatches(filtered);
       } catch (fetchError) {
         if (signal.aborted) return;
