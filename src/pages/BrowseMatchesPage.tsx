@@ -595,6 +595,9 @@ const BrowseMatchesPage = () => {
                         <span className={`match-status-pill ${match.access.toLowerCase()}`}>
                           {match.access}
                         </span>
+                        {match.visibilityLabel && match.visibilityLabel !== match.access ? (
+                          <span className="match-status-pill visibility">{match.visibilityLabel}</span>
+                        ) : null}
                         {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}
                       </div>
                       {spotsAvailable > 0 && playersNeeded > 0 ? (

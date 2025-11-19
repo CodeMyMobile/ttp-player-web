@@ -12,14 +12,19 @@ export interface MatchLevel {
 export interface NormalizedMatch {
   id: string;
   access: "Open" | "Private";
+  visibility?: string;
+  visibilityLabel?: string;
   relationship: MatchRelationship;
   startDisplay: string;
+  startDateTimeIso?: string;
   location: string;
+  locationDetail?: string;
   distance: string;
   playersJoined: number;
   totalSpots: number;
   playersNeeded?: number;
   level?: MatchLevel;
+  hostName?: string;
   raw?: unknown;
 }
 
@@ -201,6 +206,43 @@ const deriveAccess = (record: Record<string, unknown>): "Open" | "Private" => {
   return "Open";
 };
 
+const deriveVisibility = (record: Record<string, unknown>) => {
+  const visibility = firstString([
+    record.visibility,
+    record.match_visibility,
+    record.access,
+    record.access_type,
+    record.match_type,
+  ]);
+
+  if (!visibility) return undefined;
+
+  const normalized = visibility.toLowerCase();
+  if (normalized.includes("link")) return "link_only";
+  if (normalized.includes("unlisted")) return "unlisted";
+  if (normalized.includes("hidden")) return "hidden";
+  if (normalized.includes("private") || normalized.includes("invite")) return "private";
+  return "open";
+};
+
+const formatVisibilityLabel = (value?: string) => {
+  if (!value) return undefined;
+  switch (value) {
+    case "link_only":
+    case "link-only":
+    case "link only":
+      return "Link-only";
+    case "unlisted":
+      return "Unlisted";
+    case "hidden":
+      return "Hidden";
+    case "private":
+      return "Invite only";
+    default:
+      return "Open";
+  }
+};
+
 const deriveRelationship = (record: Record<string, unknown>): MatchRelationship => {
   const relationship = firstString([
     record.relationship,
@@ -234,6 +276,19 @@ const deriveLocationLabel = (record: Record<string, unknown>): string => {
   if (secondaryParts.length > 0) return secondaryParts.join(", ");
   return "Location to be announced";
 };
+
+const deriveLocationDetail = (record: Record<string, unknown>): string | undefined =>
+  firstString([
+    record.location_detail,
+    record.location_detail_label,
+    record.address,
+    record.address_line_1,
+    record.address_line1,
+    record.address_line,
+    record.street,
+    record.street_1,
+    record.street_address,
+  ]);
 
 const derivePlayers = (record: Record<string, unknown>) => {
   const playersJoined =
@@ -300,6 +355,18 @@ const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined =>
     detail,
   };
 };
+
+const deriveStartIso = (record: Record<string, unknown>): string | undefined =>
+  firstString([
+    record.startDateTime,
+    record.start_date_time,
+    record.start_at,
+    record.starts_at,
+    record.datetime,
+    record.start_time_iso,
+    record.start_time,
+    record.start,
+  ]);
 
 const extractMatchesArray = (payload: unknown): unknown[] => {
   if (Array.isArray(payload)) return payload;
@@ -379,9 +446,12 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
     (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
   const access = deriveAccess(safeRecord);
+  const visibility = deriveVisibility(safeRecord);
   const relationship = deriveRelationship(safeRecord);
   const startDisplay = deriveStartLabel(safeRecord);
+  const startDateTimeIso = deriveStartIso(safeRecord);
   const location = deriveLocationLabel(safeRecord);
+  const locationDetail = deriveLocationDetail(safeRecord);
   const distance = formatDistanceLabel(
     firstString([
       safeRecord.distance_label,
@@ -391,21 +461,29 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
   );
   const { playersJoined, totalSpots, playersNeeded } = derivePlayers(safeRecord);
   const level = deriveLevel(safeRecord);
+  const hostName = firstString([safeRecord.host_name, safeRecord.host, safeRecord.organizer]);
 
   return {
     id,
     access,
+    visibility,
+    visibilityLabel: formatVisibilityLabel(visibility),
     relationship,
     startDisplay,
+    startDateTimeIso,
     location,
+    locationDetail,
     distance,
     playersJoined,
     totalSpots,
     playersNeeded,
     level,
+    hostName,
     raw: record,
   };
 };
+
+export const normalizeMatchDetail = (record: unknown): NormalizedMatch => normalizeMatchRecord(record);
 
 export const listMatches = async ({ token, signal, ...params }: ListMatchesParams = {}) => {
   const query = buildMatchesQuery(params);

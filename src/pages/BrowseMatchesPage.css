@@ -373,6 +373,11 @@
   color: #475569;
 }
 
+.match-status-pill.visibility {
+  background: rgba(234, 179, 8, 0.18);
+  color: #92400e;
+}
+
 .match-needed {
   font-size: 13px;
   font-weight: 600;
