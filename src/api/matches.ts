@@ -257,18 +257,52 @@ const deriveRelationship = (record: Record<string, unknown>): MatchRelationship 
   return "viewer";
 };
 
-const deriveLocationLabel = (record: Record<string, unknown>): string => {
+const extractLocationFromObject = (value: unknown) => {
+  if (!value || typeof value !== "object") return {} as Record<string, string | undefined>;
+  const source = value as Record<string, unknown>;
   const primary = firstString([
-    record.location,
-    record.location_name,
-    record.locationName,
-    record.venue,
-    record.club,
-    record.club_name,
-    record.court,
+    source.name,
+    source.title,
+    source.label,
+    source.location,
+    source.location_name,
+    source.venue,
+    source.club,
+    source.club_name,
+    source.court,
   ]);
-  const city = firstString([record.city, record.location_city, record.town]);
-  const state = firstString([record.state, record.region]);
+  const city = firstString([source.city, source.location_city, source.town]);
+  const state = firstString([source.state, source.region, source.state_code]);
+  const detail = firstString([
+    source.location_detail,
+    source.location_detail_label,
+    source.address,
+    source.address_line_1,
+    source.address_line1,
+    source.address_line,
+    source.street,
+    source.street_1,
+    source.street_address,
+  ]);
+
+  return { primary, city, state, detail } as const;
+};
+
+const deriveLocationLabel = (record: Record<string, unknown>): string => {
+  const nestedLocation = extractLocationFromObject(record.location);
+  const primary =
+    firstString([
+      record.location,
+      record.location_name,
+      record.locationName,
+      record.venue,
+      record.club,
+      record.club_name,
+      record.court,
+      nestedLocation.primary,
+    ]) ?? undefined;
+  const city = firstString([record.city, record.location_city, record.town, nestedLocation.city]);
+  const state = firstString([record.state, record.region, nestedLocation.state]);
   const secondaryParts = [city, state].filter(Boolean);
   if (primary) {
     return secondaryParts.length > 0 ? `${primary} · ${secondaryParts.join(", ")}` : primary;
@@ -288,6 +322,7 @@ const deriveLocationDetail = (record: Record<string, unknown>): string | undefin
     record.street,
     record.street_1,
     record.street_address,
+    extractLocationFromObject(record.location).detail,
   ]);
 
 const derivePlayers = (record: Record<string, unknown>) => {
@@ -483,7 +518,26 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
   };
 };
 
-export const normalizeMatchDetail = (record: unknown): NormalizedMatch => normalizeMatchRecord(record);
+const extractMatchDetail = (payload: unknown): unknown => {
+  if (!payload || typeof payload !== "object") return payload;
+  const body = payload as Record<string, unknown>;
+
+  if (body.match && typeof body.match === "object") return body.match;
+
+  if (body.data && typeof body.data === "object") {
+    const data = body.data as Record<string, unknown>;
+    if (data.match && typeof data.match === "object") return data.match;
+    if (data.data && typeof data.data === "object") {
+      const nested = data.data as Record<string, unknown>;
+      if (nested.match && typeof nested.match === "object") return nested.match;
+    }
+  }
+
+  return payload;
+};
+
+export const normalizeMatchDetail = (record: unknown): NormalizedMatch =>
+  normalizeMatchRecord(extractMatchDetail(record));
 
 export const listMatches = async ({ token, signal, ...params }: ListMatchesParams = {}) => {
   const query = buildMatchesQuery(params);
