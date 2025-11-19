@@ -244,11 +244,16 @@ const formatVisibilityLabel = (value?: string) => {
   }
 };
 
-const identityValues = (source: unknown): string[] => {
+const identityValues = (source: unknown, seen = new Set<unknown>()): string[] => {
   if (!source || typeof source !== "object") return [];
+  if (seen.has(source)) return [];
+
+  seen.add(source);
+
   const record = source as Record<string, unknown>;
   const identifiers: Array<unknown> = [
     record.id,
+    record._id,
     record.user_id,
     record.userId,
     record.uuid,
@@ -262,6 +267,10 @@ const identityValues = (source: unknown): string[] => {
     record.playerId,
     record.member_id,
     record.memberId,
+    record.member_identity,
+    record.memberIdentity,
+    record.created_by,
+    record.createdBy,
   ];
 
   const values = identifiers
@@ -273,7 +282,21 @@ const identityValues = (source: unknown): string[] => {
     })
     .filter(Boolean) as string[];
 
-  return Array.from(new Set(values.map((value) => value.toString().trim())));
+  const nestedSources: Array<unknown> = [
+    record.user,
+    record.profile,
+    record.member,
+    record.player,
+    record.identity,
+    record.owner,
+    record.account,
+    record.member_profile,
+    record.memberProfile,
+  ];
+
+  const nestedValues = nestedSources.flatMap((value) => identityValues(value, seen));
+
+  return Array.from(new Set([...values, ...nestedValues].map((value) => value.toString().trim())));
 };
 
 const deriveRelationship = (
