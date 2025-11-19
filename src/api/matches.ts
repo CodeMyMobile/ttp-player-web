@@ -274,6 +274,8 @@ const extractLocationFromObject = (value: unknown) => {
       : undefined;
 
   const primary = firstString([
+    source.location_text,
+    source.locationText,
     source.name,
     source.title,
     source.label,
@@ -286,7 +288,10 @@ const extractLocationFromObject = (value: unknown) => {
     source.club,
     source.club_name,
     source.court,
+    source.court_name,
     source.place,
+    source.location_text,
+    source.locationText,
     nested?.name,
     nested?.title,
     nested?.label,
@@ -299,17 +304,24 @@ const extractLocationFromObject = (value: unknown) => {
     nested?.club,
     nested?.club_name,
     nested?.court,
+    nested?.court_name,
     nested?.place,
+    nested?.location_text,
+    nested?.locationText,
     address?.name,
     address?.title,
     address?.label,
     address?.location,
     address?.location_name,
+    address?.location_text,
+    address?.locationText,
     nestedAddress?.name,
     nestedAddress?.title,
     nestedAddress?.label,
     nestedAddress?.location,
     nestedAddress?.location_name,
+    nestedAddress?.location_text,
+    nestedAddress?.locationText,
   ]);
   const city = firstString([
     source.city,
@@ -403,6 +415,8 @@ const deriveLocationLabel = (record: Record<string, unknown>): string => {
 
   const primary =
     firstString([
+      record.location_text,
+      record.locationText,
       record.location,
       record.location_name,
       record.locationName,
@@ -410,6 +424,7 @@ const deriveLocationLabel = (record: Record<string, unknown>): string => {
       record.club,
       record.club_name,
       record.court,
+      record.court_name,
       nestedLocation.primary,
       fallbackNested,
       deriveLocationDetail(record),
@@ -639,9 +654,11 @@ export const normalizeMatchRecord = (record: unknown): NormalizedMatch => {
   const distance = formatDistanceLabel(
     firstString([
       safeRecord.distance_label,
+      safeRecord.distance_miles,
+      safeRecord.distanceMiles,
       safeRecord.distance,
       safeRecord.proximity,
-    ]) ?? firstNumber([safeRecord.distance, safeRecord.proximity]),
+    ]) ?? firstNumber([safeRecord.distance, safeRecord.distance_miles, safeRecord.distanceMiles, safeRecord.proximity]),
   );
   const { playersJoined, totalSpots, playersNeeded } = derivePlayers(safeRecord);
   const level = deriveLevel(safeRecord);
