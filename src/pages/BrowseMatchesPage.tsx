@@ -323,9 +323,11 @@ const BrowseMatchesPage = () => {
       setIsLoadingMatches(true);
       setMatchesError(null);
 
-      const distanceMiles = parseDistanceMiles(selectedDistance);
-      const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
+      const distanceMiles = parseDistanceMiles(selectedDistance);
+      const searchQuery = (
+        isHostingTab ? appliedSearch : appliedSearch || locationQuery
+      ).trim();
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
         if (isHostingTab) return { filter: "my" as const, includeHidden: true };
