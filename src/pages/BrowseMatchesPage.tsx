@@ -154,6 +154,49 @@ const parseDistanceMiles = (value: string): number => {
   return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
 };
 
+const matchStatusKeys = [
+  "status",
+  "state",
+  "match_status",
+  "matchStatus",
+  "status_label",
+  "statusLabel",
+  "listing_status",
+  "listingStatus",
+  "registration_status",
+  "registrationStatus",
+  "availability_status",
+  "availabilityStatus",
+  "type",
+  "match_type",
+  "matchType",
+];
+
+const statusTokensFromValue = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => statusTokensFromValue(entry));
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split(/[^a-z0-9]+/i)
+      .map((token) => token.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const getMatchStatusSet = (match: NormalizedMatch): Set<string> => {
+  if (!match.raw || typeof match.raw !== "object") {
+    return new Set();
+  }
+
+  const record = match.raw as Record<string, unknown>;
+  const tokens = matchStatusKeys.flatMap((key) => statusTokensFromValue(record[key]));
+  return new Set(tokens);
+};
+
 const BrowseMatchesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth() as { user?: unknown };
@@ -417,6 +460,14 @@ const BrowseMatchesPage = () => {
 
           if (isMyMatchesTab) {
             return participated;
+          }
+
+          if (selectedTab === "Open") {
+            const statusSet = getMatchStatusSet(match);
+            const isOpenStatus = statusSet.has("open");
+            const hasPrivateStatus = statusSet.has("private");
+            const isPrivateAccess = match.access === "Private";
+            return isOpenStatus && !hasPrivateStatus && !isPrivateAccess;
           }
 
           if (selectedTab === "Today") {

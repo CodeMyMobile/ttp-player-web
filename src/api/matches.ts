@@ -421,7 +421,50 @@ const deriveRelationship = (
     userIdentities.some((id) => hostIdentityValues.includes(id));
 
   if (record.is_host || record.isHost || isCurrentUserHost) return "host";
-  if (record.is_participant || record.isParticipant) return "participant";
+
+  const participantIdentitySources = [
+    record.participants,
+    record.participant_profiles,
+    record.participantProfiles,
+    record.participant_identities,
+    record.participantIdentities,
+    record.player_profiles,
+    record.playerProfiles,
+    record.players,
+    record.player_list,
+    record.roster,
+    record.roster_entries,
+    record.rosterEntries,
+    record.roster_members,
+    record.rosterMembers,
+    record.confirmed_players,
+    record.confirmedPlayers,
+    record.confirmed,
+    record.accepted_players,
+    record.acceptedPlayers,
+    record.invitees,
+    record.invites,
+    record.invitations,
+    record.members,
+    record.member_profiles,
+    record.memberProfiles,
+    record.attendees,
+    record.attending,
+    record.participations,
+    record.signup_profiles,
+    record.signupProfiles,
+    record.signups,
+  ];
+
+  const participantIdentityValues = Array.from(
+    new Set(participantIdentitySources.filter(Boolean).flatMap((value) => identityValues(value))),
+  );
+
+  const isCurrentUserParticipant =
+    participantIdentityValues.length > 0 &&
+    userIdentities.some((id) => participantIdentityValues.includes(id));
+
+  if (record.is_participant || record.isParticipant || isCurrentUserParticipant) return "participant";
 
   return "viewer";
 };
