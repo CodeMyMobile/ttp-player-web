@@ -264,6 +264,14 @@ const extractLocationFromObject = (value: unknown) => {
     source.address && typeof source.address === "object"
       ? (source.address as Record<string, unknown>)
       : undefined;
+  const nested =
+    source.data && typeof source.data === "object"
+      ? (source.data as Record<string, unknown>)
+      : undefined;
+  const nestedAddress =
+    nested?.address && typeof nested.address === "object"
+      ? (nested.address as Record<string, unknown>)
+      : undefined;
 
   const primary = firstString([
     source.name,
@@ -279,27 +287,57 @@ const extractLocationFromObject = (value: unknown) => {
     source.club_name,
     source.court,
     source.place,
+    nested?.name,
+    nested?.title,
+    nested?.label,
+    nested?.location,
+    nested?.location_name,
+    nested?.locationName,
+    nested?.venue,
+    nested?.venue_name,
+    nested?.venueName,
+    nested?.club,
+    nested?.club_name,
+    nested?.court,
+    nested?.place,
     address?.name,
     address?.title,
     address?.label,
     address?.location,
     address?.location_name,
+    nestedAddress?.name,
+    nestedAddress?.title,
+    nestedAddress?.label,
+    nestedAddress?.location,
+    nestedAddress?.location_name,
   ]);
   const city = firstString([
     source.city,
     source.location_city,
     source.town,
+    nested?.city,
+    nested?.location_city,
+    nested?.town,
     address?.city,
     address?.location_city,
     address?.town,
+    nestedAddress?.city,
+    nestedAddress?.location_city,
+    nestedAddress?.town,
   ]);
   const state = firstString([
     source.state,
     source.region,
     source.state_code,
+    nested?.state,
+    nested?.region,
+    nested?.state_code,
     address?.state,
     address?.region,
     address?.state_code,
+    nestedAddress?.state,
+    nestedAddress?.region,
+    nestedAddress?.state_code,
   ]);
   const detail = firstString([
     source.location_detail,
@@ -314,6 +352,18 @@ const extractLocationFromObject = (value: unknown) => {
     source.detail,
     source.formatted_address,
     source.display_address,
+    nested?.location_detail,
+    nested?.location_detail_label,
+    nested?.address,
+    nested?.address_line_1,
+    nested?.address_line1,
+    nested?.address_line,
+    nested?.street,
+    nested?.street_1,
+    nested?.street_address,
+    nested?.detail,
+    nested?.formatted_address,
+    nested?.display_address,
     address?.address,
     address?.address_line_1,
     address?.address_line1,
@@ -323,6 +373,15 @@ const extractLocationFromObject = (value: unknown) => {
     address?.street_address,
     address?.formatted,
     address?.formatted_address,
+    nestedAddress?.address,
+    nestedAddress?.address_line_1,
+    nestedAddress?.address_line1,
+    nestedAddress?.address_line,
+    nestedAddress?.street,
+    nestedAddress?.street_1,
+    nestedAddress?.street_address,
+    nestedAddress?.formatted,
+    nestedAddress?.formatted_address,
   ]);
 
   return { primary, city, state, detail } as const;
