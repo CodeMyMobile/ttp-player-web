@@ -1,4 +1,7 @@
-import { useMemo, useState, type CSSProperties } from "react";
+/// <reference types="google.maps" />
+
+import Autocomplete from "react-google-autocomplete";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import MainLayout from "../components/MainLayout";
@@ -15,10 +18,337 @@ const relationshipLabel: Record<string, string> = {
   participant: "Joined",
 };
 
+type Coordinates = { latitude: number; longitude: number };
+
+type SelectedLocation = {
+  label: string;
+  latitude?: number;
+  longitude?: number;
+  isCurrentLocation?: boolean;
+};
+
+const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+
+const getStoredLocation = (): Coordinates | null => {
+  try {
+    const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Coordinates | null;
+    if (!parsed) return null;
+    if (typeof parsed.latitude !== "number" || typeof parsed.longitude !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const storeLocation = (coords: Coordinates | null) => {
+  try {
+    if (!coords) {
+      localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const formatCoordinatesLabel = (coords: Coordinates | null) => {
+  if (!coords) {
+    return "";
+  }
+
+  const latitude = Math.abs(coords.latitude).toFixed(2);
+  const longitude = Math.abs(coords.longitude).toFixed(2);
+  const latHemisphere = coords.latitude >= 0 ? "N" : "S";
+  const lonHemisphere = coords.longitude >= 0 ? "E" : "W";
+
+  return `${latitude}° ${latHemisphere}, ${longitude}° ${lonHemisphere}`;
+};
+
+const sanitizeLocationLabel = (label: string) => label.replace(/\s+/g, " ").trim().toLowerCase();
+
+const buildLocationSearch = (location: SelectedLocation | null): string => {
+  if (!location) {
+    return "";
+  }
+
+  if (location.isCurrentLocation) {
+    return "";
+  }
+
+  const label = location.label?.trim();
+  if (!label) {
+    return "";
+  }
+
+  const normalized = sanitizeLocationLabel(label);
+  if (!normalized || normalized === "current location") {
+    return "";
+  }
+
+  return label;
+};
+
+const parseDistance = (value: string): number => {
+  if (value === "All") return Number.POSITIVE_INFINITY;
+  const match = /([0-9.]+)/.exec(value);
+  return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
+};
+
+const parseDistanceMiles = (value: string): number => {
+  const match = /([0-9.]+)/.exec(value);
+  return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
+};
+
 const BrowseMatchesPage = () => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedDistance, setSelectedDistance] = useState(distanceOptions[1]);
   const [selectedTab, setSelectedTab] = useState(tabs[0]);
+  const storedLocation = useMemo(() => getStoredLocation(), []);
+  const [position, setPosition] = useState<Coordinates | null>(storedLocation);
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
+  const [locationSearchTerm, setLocationSearchTerm] = useState("");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    storedLocation ? "ready" : "idle",
+  );
+  const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
+    storedLocation ? formatCoordinatesLabel(storedLocation) : "",
+  );
+
+  const locationLabel = (() => {
+    if (locationFilter) {
+      return locationFilter.label;
+    }
+
+    if (locationStatus === "loading") {
+      return "Locating…";
+    }
+
+    if (locationStatus === "error") {
+      return "Location unavailable";
+    }
+
+    if (locationStatus === "ready") {
+      if (resolvedLocationLabel) {
+        return resolvedLocationLabel;
+      }
+      if (position) {
+        return formatCoordinatesLabel(position) || "Current location";
+      }
+      return "Current location";
+    }
+
+    return resolvedLocationLabel || "";
+  })();
+
+  const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
+    if (nextLocation) {
+      const hasCoords =
+        typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number";
+
+      if (hasCoords) {
+        const coords: Coordinates = {
+          latitude: nextLocation.latitude,
+          longitude: nextLocation.longitude,
+        };
+        setPosition(coords);
+        storeLocation(coords);
+      } else {
+        setPosition(null);
+        storeLocation(null);
+      }
+
+      if (nextLocation.isCurrentLocation) {
+        setLocationFilter(null);
+      } else {
+        setLocationFilter({ ...nextLocation, isCurrentLocation: false });
+      }
+
+      setResolvedLocationLabel(nextLocation.label);
+      setLocationStatus("ready");
+      setLocationSearchTerm(nextLocation.label);
+      setGeoError("");
+      setShowLocationPicker(false);
+      return;
+    }
+
+    setLocationFilter(null);
+    setLocationSearchTerm("");
+    setGeoError("");
+    setShowLocationPicker(false);
+    setResolvedLocationLabel("");
+    setLocationStatus("idle");
+    setPosition(null);
+    storeLocation(null);
+  }, []);
+
+  const detectCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      const message = "Location detection is not supported in this browser.";
+      setGeoError(message);
+      setLocationStatus("error");
+      setResolvedLocationLabel("");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationStatus("loading");
+    setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      (nextPosition) => {
+        setIsDetectingLocation(false);
+        const coords: Coordinates = {
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+        };
+        setPosition(coords);
+        storeLocation(coords);
+        setLocationFilter(null);
+        setResolvedLocationLabel(formatCoordinatesLabel(coords));
+        setLocationStatus("ready");
+        setLocationSearchTerm("");
+      },
+      (error) => {
+        setIsDetectingLocation(false);
+        console.error("Failed to detect current location", error);
+        const message =
+          error.message || "We couldn't detect your location. Please allow access and try again.";
+        setGeoError(message);
+        setLocationStatus("error");
+        setResolvedLocationLabel("");
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  }, []);
+
+  const closeLocationPicker = useCallback(() => {
+    setShowLocationPicker(false);
+    setGeoError("");
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
+
+  useEffect(() => {
+    if (!position && locationStatus === "idle" && !isDetectingLocation) {
+      detectCurrentLocation();
+    }
+  }, [position, locationStatus, isDetectingLocation, detectCurrentLocation]);
+
+  useEffect(() => {
+    if (!position || locationFilter) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const lookupLocationName = async () => {
+      try {
+        const query = new URLSearchParams({
+          format: "jsonv2",
+          lat: position.latitude.toString(),
+          lon: position.longitude.toString(),
+        });
+
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?${query.toString()}`,
+          {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to lookup location");
+        }
+
+        const data = await response.json();
+        if (cancelled) {
+          return;
+        }
+
+        const address = (data?.address ?? {}) as Record<string, unknown>;
+        const locality =
+          (address.city as string | undefined) ||
+          (address.town as string | undefined) ||
+          (address.village as string | undefined) ||
+          (address.hamlet as string | undefined) ||
+          (address.suburb as string | undefined) ||
+          (address.county as string | undefined);
+        const region = (address.state as string | undefined) || (address.region as string | undefined);
+        const countryCode =
+          typeof address.country_code === "string" ? address.country_code.toUpperCase() : null;
+
+        const labelParts = [locality, region, countryCode].filter(Boolean) as string[];
+        const resolvedLabel = labelParts.length
+          ? labelParts.join(", ")
+          : (data?.display_name as string | undefined)?.split(",").slice(0, 2).join(", ") || "";
+
+        setResolvedLocationLabel(resolvedLabel || formatCoordinatesLabel(position));
+      } catch (lookupError) {
+        if (cancelled) {
+          return;
+        }
+        console.error("Failed to resolve location", lookupError);
+        setResolvedLocationLabel(formatCoordinatesLabel(position));
+      }
+    };
+
+    lookupLocationName();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [position, locationFilter]);
+
+  const locationQuery = useMemo(() => buildLocationSearch(locationFilter), [locationFilter]);
+  const hasLocationFilter = Boolean(locationFilter);
+
+  useEffect(() => {
+    setAppliedSearch(searchTerm.trim().toLowerCase());
+  }, [searchTerm]);
+
+  const filteredMatches = useMemo(() => {
+    const maxDistance = parseDistance(selectedDistance);
+    const normalizedSearch = appliedSearch.trim();
+    const normalizedLocation = locationQuery.trim().toLowerCase();
+
+    return mockMatches.filter((match) => {
+      const miles = parseDistanceMiles(match.distance);
+      const withinDistance = Number.isFinite(maxDistance) ? miles <= maxDistance : true;
+      const matchesSearch = normalizedSearch
+        ? match.location.toLowerCase().includes(normalizedSearch) ||
+          match.startDisplay.toLowerCase().includes(normalizedSearch)
+        : true;
+      const matchesLocation = normalizedLocation
+        ? match.location.toLowerCase().includes(normalizedLocation)
+        : true;
+
+      const matchesTab = (() => {
+        if (selectedTab === "Hosting") {
+          return match.relationship === "host";
+        }
+        if (selectedTab === "Open") {
+          return match.access === "Open";
+        }
+        if (selectedTab === "My Matches") {
+          return match.relationship === "host" || match.relationship === "participant";
+        }
+        return true;
+      })();
+
+      return withinDistance && matchesSearch && matchesLocation && matchesTab;
+    });
+  }, [appliedSearch, locationQuery, selectedDistance, selectedTab]);
 
   const themeVars = useMemo(
     () =>
@@ -63,9 +393,23 @@ const BrowseMatchesPage = () => {
 
         <section className="location-panel">
           <div className="location-panel__chips" role="group" aria-label="Distance from your current location">
-            <button type="button" className="distance-chip distance-chip--location" aria-label="Selected location">
+            <button
+              type="button"
+              className={`distance-chip distance-chip--location${showLocationPicker ? " selected" : ""}`}
+              aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
+              aria-expanded={showLocationPicker}
+              onClick={() => {
+                setGeoError("");
+                setShowLocationPicker((prev) => {
+                  if (!prev) {
+                    setLocationSearchTerm(locationFilter?.label ?? "");
+                  }
+                  return !prev;
+                });
+              }}
+            >
               <MapPin size={16} aria-hidden="true" />
-              Franklin Canyon Courts
+              {locationLabel || "Select location"}
             </button>
             {distanceOptions.map((option) => (
               <button
@@ -80,6 +424,82 @@ const BrowseMatchesPage = () => {
             ))}
           </div>
         </section>
+
+        {showLocationPicker ? (
+          <section className="matches-location-panel" aria-label="Location picker">
+            <Autocomplete
+              apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+              placeholder="Search for a city, club, or court"
+              className="matches-autocomplete-input"
+              value={locationSearchTerm}
+              onChange={(event) => setLocationSearchTerm(event.target.value)}
+              onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                if (!place) {
+                  setGeoError("Please choose a location from the suggestions.");
+                  return;
+                }
+
+                const lat = place.geometry?.location?.lat?.();
+                const lng = place.geometry?.location?.lng?.();
+                const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                if (
+                  typeof lat === "number" &&
+                  !Number.isNaN(lat) &&
+                  typeof lng === "number" &&
+                  !Number.isNaN(lng)
+                ) {
+                  applyLocationFilter({ label, latitude: lat, longitude: lng });
+                } else {
+                  setGeoError("We couldn't read that location's coordinates. Try another search.");
+                }
+              }}
+              options={{
+                types: ["geocode", "establishment"],
+                fields: ["formatted_address", "geometry", "name", "address_components"],
+              }}
+            />
+
+            <div className="matches-location-actions">
+              <button
+                type="button"
+                className="matches-location-detect"
+                onClick={detectCurrentLocation}
+                disabled={isDetectingLocation}
+              >
+                {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+              </button>
+              <div className="matches-location-secondary-actions">
+                {hasLocationFilter ? (
+                  <button type="button" className="matches-location-secondary" onClick={() => applyLocationFilter(null)}>
+                    Clear location
+                  </button>
+                ) : null}
+                <button type="button" className="matches-location-secondary" onClick={closeLocationPicker}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="matches-location-summary">
+              <h4>Selected location</h4>
+              {locationFilter ? (
+                <p>{locationFilter.label}</p>
+              ) : position ? (
+                <p>
+                  Lat {position.latitude.toFixed(4)}, Lng {position.longitude.toFixed(4)}
+                </p>
+              ) : (
+                <p>No location selected yet.</p>
+              )}
+            </div>
+
+            {geoError ? <p className="matches-location-error">{geoError}</p> : null}
+            {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+              <p className="matches-location-tip">Tip: Provide a Google Places API key to enable location search suggestions.</p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="matches-main">
           <div className="matches-toolbar">
@@ -99,13 +519,19 @@ const BrowseMatchesPage = () => {
             <div className="toolbar-actions">
               <div className="search-field">
                 <Search size={16} aria-hidden="true" />
-                <input type="search" placeholder="Search matches" aria-label="Search matches" />
+                <input
+                  type="search"
+                  placeholder="Search matches"
+                  aria-label="Search matches"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
               </div>
             </div>
           </div>
 
           <div className="matches-grid">
-            {mockMatches.map((match) => {
+            {filteredMatches.map((match) => {
               const isHost = match.relationship === "host";
               const isParticipant = match.relationship === "participant";
               const isFull = match.playersJoined >= match.totalSpots;
@@ -201,6 +627,9 @@ const BrowseMatchesPage = () => {
                 </article>
               );
             })}
+            {filteredMatches.length === 0 ? (
+              <div className="matches-empty">No matches found for these filters yet.</div>
+            ) : null}
           </div>
         </section>
       </div>
