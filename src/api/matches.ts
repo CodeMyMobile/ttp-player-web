@@ -287,29 +287,31 @@ const deriveRelationship = (
   if (relationship === "host" || relationship === "participant") return relationship;
 
   const hostIdentityValues = Array.from(
-    new Set([
-      ...identityValues(record.host_profile),
-      ...identityValues(record.hostProfile),
-      ...identityValues(record.organizer_profile),
-      ...identityValues({
-        id: firstString([
-          record.host_id,
-          record.hostId,
-          record.host_identity,
-          record.host_identity_id,
-          record.organizer_identity,
-          record.owner_identity,
-          record.created_by_identity,
-          record.creator_identity,
-          record.created_by,
-          record.createdBy,
-          record.owner_id,
-          record.ownerId,
-          record.organizer_id,
-          record.organizerId,
-        ]),
-      }),
-    ].filter(Boolean),
+    new Set(
+      [
+        ...identityValues(record.host_profile),
+        ...identityValues(record.hostProfile),
+        ...identityValues(record.organizer_profile),
+        ...identityValues({
+          id: firstString([
+            record.host_id,
+            record.hostId,
+            record.host_identity,
+            record.host_identity_id,
+            record.organizer_identity,
+            record.owner_identity,
+            record.created_by_identity,
+            record.creator_identity,
+            record.created_by,
+            record.createdBy,
+            record.owner_id,
+            record.ownerId,
+            record.organizer_id,
+            record.organizerId,
+          ]),
+        }),
+      ].filter(Boolean),
+    ),
   );
 
   const userIdentities = identityValues(options.currentUser);
