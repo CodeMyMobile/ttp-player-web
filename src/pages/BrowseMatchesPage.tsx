@@ -336,15 +336,19 @@ const BrowseMatchesPage = () => {
       })();
       const perPage = isHostingTab ? 50 : 20;
 
+      const latitude = isHostingTab ? undefined : position?.latitude;
+      const longitude = isHostingTab ? undefined : position?.longitude;
+      const distance = isHostingTab ? undefined : distanceMiles;
+
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
         const response = await listMatches({
           page: 1,
           perPage,
           search: searchQuery || undefined,
-          distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
-          latitude: position?.latitude,
-          longitude: position?.longitude,
+          distance: Number.isFinite(distance) ? distance : undefined,
+          latitude,
+          longitude,
           ...tabFilters,
           token: token ?? undefined,
           signal,
