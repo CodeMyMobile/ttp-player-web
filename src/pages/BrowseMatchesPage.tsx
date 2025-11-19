@@ -325,7 +325,7 @@ const BrowseMatchesPage = () => {
 
       const isHostingTab = selectedTab === "Hosting";
       const distanceMiles = parseDistanceMiles(selectedDistance);
-      const searchQuery = (appliedSearch || locationQuery).trim();
+      const searchQuery = (isHostingTab ? appliedSearch : appliedSearch || locationQuery).trim();
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
         if (isHostingTab)
@@ -339,9 +339,12 @@ const BrowseMatchesPage = () => {
       })();
       const perPage = isHostingTab ? 50 : 20;
 
-      const latitude = position?.latitude;
-      const longitude = position?.longitude;
-      const distance = Number.isFinite(distanceMiles) ? distanceMiles : undefined;
+      const hasCoords =
+        typeof position?.latitude === "number" && typeof position?.longitude === "number";
+      const latitude = isHostingTab ? undefined : position?.latitude;
+      const longitude = isHostingTab ? undefined : position?.longitude;
+      const distance =
+        isHostingTab || !hasCoords || !Number.isFinite(distanceMiles) ? undefined : distanceMiles;
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
