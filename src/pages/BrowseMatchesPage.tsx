@@ -329,7 +329,12 @@ const BrowseMatchesPage = () => {
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const };
         if (isHostingTab)
-          return { filter: "my" as const, includeHidden: true, include_hidden: true };
+          return {
+            filter: "my" as const,
+            status: "upcoming" as const,
+            includeHidden: true,
+            include_hidden: true,
+          };
         if (selectedTab === "Open") return { status: "open" as const };
         if (selectedTab === "Drafts")
           return { status: "draft" as const, includeHidden: true, include_hidden: true };
