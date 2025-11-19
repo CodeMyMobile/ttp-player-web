@@ -14,9 +14,15 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
+import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { useAuth } from "../context/AuthContext";
+import { useCoachRoster } from "../hooks/useCoachRoster";
+import type { CoachProfile } from "../data/mockCoachProfiles";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./CoachProfilePage.css";
+import "../components/coaches/coaches.css";
 
 const highlightIconMap = {
   users: Users,
@@ -49,24 +55,75 @@ type DateEntry = {
 
 const useCoachProfile = (id?: string) => {
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<CoachProfile | undefined>();
+  const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
-    let timer: number | undefined;
-    setLoading(true);
-    timer = window.setTimeout(() => {
-      setProfile(id ? findCoachProfile(id) : undefined);
+    const controller = new AbortController();
+    let isActive = true;
+
+    if (!id) {
+      setProfile(undefined);
+      setError(undefined);
       setLoading(false);
-    }, 520);
+      return () => {
+        isActive = false;
+        controller.abort();
+      };
+    }
+
+    const coachId = Number.parseInt(id, 10);
+    if (Number.isNaN(coachId)) {
+      setProfile(undefined);
+      setError("Invalid coach identifier.");
+      setLoading(false);
+      return () => {
+        isActive = false;
+        controller.abort();
+      };
+    }
+
+    setLoading(true);
+    setError(undefined);
+    setProfile(undefined);
+
+    const loadProfile = async () => {
+      try {
+        const data = await fetchCoachProfile(coachId, { signal: controller.signal });
+        if (!isActive) {
+          return;
+        }
+        setProfile(data);
+      } catch (err) {
+        if (!isActive || controller.signal.aborted) {
+          return;
+        }
+
+        const status = (err as Error & { status?: number }).status;
+        if (status === 404) {
+          setProfile(undefined);
+          setError(undefined);
+        } else {
+          console.error("Failed to fetch coach profile", err);
+          setProfile(undefined);
+          setError(err instanceof Error ? err.message : "Unable to load coach profile.");
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadProfile();
 
     return () => {
-      if (timer) {
-        window.clearTimeout(timer);
-      }
+      isActive = false;
+      controller.abort();
     };
   }, [id]);
 
-  return { loading, profile };
+  return { loading, profile, error };
 };
 
 const Chip = ({ label }: { label: string }) => (
@@ -161,14 +218,50 @@ const extractPlayerCapacity = (lessonDurationLabel?: string) => {
 const CoachProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { loading, profile } = useCoachProfile(id);
+  const { loading, profile, error: profileError } = useCoachProfile(id);
+  const { user } = useAuth();
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
+  const {
+    rosterStatus,
+    rosterLoading: rosterStatusLoading,
+    rosterError: rosterStatusError,
+    requestJoin,
+    requestingJoin,
+    requestJoinError,
+    requestJoinSuccess,
+  } = useCoachRoster(profile?.id, authToken);
+  const canRequestCoach = Boolean(authToken);
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
+  const languages = profile?.languages ?? [];
+  const levels = profile?.levels ?? [];
+  const certifications = profile?.certifications ?? [];
+  const specialties = profile?.specialties ?? [];
+  const coachingLocations = profile?.coachingLocations ?? [];
+  const lessonDetails = profile?.lessonDetails ?? [];
+  const lessonPackages = profile?.lessonPackages ?? [];
+  const booking = profile?.booking;
+  const availableDates = booking?.availableDates ?? [];
+  const bookingLessonTypes = booking?.lessonTypes ?? [];
+  const coachDisplayName = (profile?.name ?? profile?.fullName ?? "").trim() || "Coach";
+  const bookingHeadline = booking?.headline ?? `Book a lesson with ${coachDisplayName}`;
+  const bookingNote = booking?.note ?? "Need a different time? Message your coach.";
+  const coachFirstName = coachDisplayName.split(" ")[0] ?? coachDisplayName;
+  const coachTitle = profile?.title ?? profile?.headlineBadge ?? "Tennis Coach";
+  const coachAvatar = profile?.imageUrl ?? profile?.profilePicture ?? "https://placehold.co/120x120?text=Coach";
 
   useEffect(() => {
-    if (!loading && profile) {
-      const defaultLessonType = profile.booking.defaultLessonType;
+    if (!loading && profile?.booking) {
+      const defaultLessonType = profile.booking.defaultLessonType ?? "all";
       const initialDate = profile.booking.availableDates[0];
       const initialSlot =
         initialDate?.slots.find((slot) => slot.lessonType === defaultLessonType) ??
@@ -182,7 +275,7 @@ const CoachProfilePage = () => {
   }, [loading, profile]);
 
   useEffect(() => {
-    if (!profile || !selection.lessonType) {
+    if (!profile?.booking || !selection.lessonType) {
       return;
     }
 
@@ -279,12 +372,11 @@ const CoachProfilePage = () => {
     0,
   );
   const hasCreditsRemaining = playerLessonCredits.some((credit) => credit.remaining > 0);
-  const coachFirstName = profile?.name?.split(" ")[0] ?? profile?.name ?? "the coach";
   const lessonCreditSummary = playerLessonCredits
     .map((credit) => `${credit.lessonTypeLabel}: ${Math.max(credit.remaining, 0)} left`)
     .join(" • ");
   const bestValueLessonPackage = useMemo(() => {
-    if (!profile || profile.lessonPackages.length === 0) {
+    if (!profile || !profile.lessonPackages || profile.lessonPackages.length === 0) {
       return undefined;
     }
 
@@ -304,7 +396,7 @@ const CoachProfilePage = () => {
       return [] as DateEntry[];
     }
 
-    return profile.booking.availableDates.map((date) => {
+    return availableDates.map((date) => {
       const slots =
         selection.lessonType === "all"
           ? date.slots
@@ -315,7 +407,7 @@ const CoachProfilePage = () => {
         slots,
       } satisfies DateEntry;
     });
-  }, [profile, selection.lessonType]);
+  }, [availableDates, profile, selection.lessonType]);
 
   const selectedDateEntry = useMemo(() => {
     if (isAllDatesSelected) {
@@ -330,29 +422,25 @@ const CoachProfilePage = () => {
   const filteredSlots = selectedDateEntry?.slots ?? [];
 
   const lessonTypeDetailMap = useMemo(() => {
-    if (!profile) {
-      return {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>;
-    }
-
-    return profile.booking.lessonTypes.reduce(
+    return bookingLessonTypes.reduce(
       (acc, lesson) => {
         acc[lesson.id] = lesson;
         return acc;
       },
       {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>,
     );
-  }, [profile]);
+  }, [bookingLessonTypes]);
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
       return undefined;
     }
 
-    return profile.location ?? profile.coachingLocations[0];
-  }, [profile]);
+    return profile.location ?? coachingLocations[0];
+  }, [coachingLocations, profile]);
 
   const highlightChips = useMemo(() => {
-    if (!profile) {
+    if (!profile?.highlightChips?.length) {
       return [] as CoachProfile["highlightChips"];
     }
 
@@ -406,7 +494,22 @@ const CoachProfilePage = () => {
             </div>
           )}
 
-          {!loading && !profile && (
+          {!loading && profileError && (
+            <div className="coach-profile-empty">
+              <div className="coach-profile-empty__icon">
+                <MessageCircle strokeWidth={2.4} />
+              </div>
+              <h2 className="coach-profile-empty__title">We couldn’t load this coach</h2>
+              <p className="coach-profile-empty__copy">
+                {profileError || "There was a problem loading this profile. Please try again later."}
+              </p>
+              <Link to="/find-coaches" className="coach-profile-empty__action">
+                <ArrowLeft className="coach-profile-back__icon" strokeWidth={2.5} /> Back to Find Coaches
+              </Link>
+            </div>
+          )}
+
+          {!loading && !profileError && !profile && (
             <div className="coach-profile-empty">
               <div className="coach-profile-empty__icon">
                 <MessageCircle strokeWidth={2.4} />
@@ -424,38 +527,49 @@ const CoachProfilePage = () => {
 
           {!loading && profile && (
             <div className="coach-profile-content">
+              <JoinMyRosterBanner
+                coachName={coachDisplayName}
+                rosterStatus={rosterStatus}
+                canRequest={canRequestCoach}
+                onRequestJoin={requestJoin}
+                requestingJoin={requestingJoin}
+                joinError={requestJoinError ?? undefined}
+                joinSuccess={requestJoinSuccess}
+                rosterError={rosterStatusError ?? undefined}
+                rosterLoading={rosterStatusLoading}
+              />
               <section className="coach-profile-hero">
                 <div className="coach-profile-hero__inner">
                   <div className="coach-profile-identity coach-profile-hero__identity">
                     <div className="coach-profile-identity__avatar-block">
                       <img
-                        src={profile.imageUrl}
-                        alt={`Portrait of ${profile.name}`}
+                        src={coachAvatar}
+                        alt={`Portrait of ${coachDisplayName}`}
                         className="coach-profile-identity__avatar"
                       />
                       <div className="coach-profile-identity__details">
                         <div className="coach-profile-identity__name-row">
-                          <h1 className="coach-profile-identity__name">{profile.name}</h1>
+                          <h1 className="coach-profile-identity__name">{coachDisplayName}</h1>
                         </div>
                         <div className="coach-profile-identity__meta">
-                          <span className="coach-profile-identity__title">{profile.title}</span>
-                          {profile.languages.length > 0 && (
+                          <span className="coach-profile-identity__title">{coachTitle}</span>
+                          {languages.length > 0 && (
                             <>
                               <span className="coach-profile-identity__separator" aria-hidden="true">
                                 •
                               </span>
                               <span className="coach-profile-identity__meta-item">
-                                Languages: {profile.languages.join(", ")}
+                                Languages: {languages.join(", ")}
                               </span>
                             </>
                           )}
-                          {profile.levels.length > 0 && (
+                          {levels.length > 0 && (
                             <>
                               <span className="coach-profile-identity__separator" aria-hidden="true">
                                 •
                               </span>
                               <span className="coach-profile-identity__meta-item">
-                                Levels: {profile.levels.join(", ")}
+                                Levels: {levels.join(", ")}
                               </span>
                             </>
                           )}
@@ -485,13 +599,13 @@ const CoachProfilePage = () => {
                       <section className="coach-profile-sections">
                         <div className="coach-profile-panel coach-profile-panel--about">
                           <div className="coach-profile-panel__header">
-                            <h2 className="coach-profile-panel__title">About {profile.name.split(" ")[0]}</h2>
+                            <h2 className="coach-profile-panel__title">About {coachFirstName}</h2>
                             <MessageCircle className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
                           <p className="coach-profile-about__copy">{profile.about}</p>
-                          {profile.certifications.length > 0 && (
+                          {certifications.length > 0 && (
                             <div className="coach-profile-certifications">
-                              {profile.certifications.map((certification) => (
+                              {certifications.map((certification) => (
                                 <span key={certification} className="coach-profile-certification">
                                   <CheckCircle2 className="coach-profile-certification__icon" strokeWidth={2.4} />
                                   {certification}
@@ -507,11 +621,13 @@ const CoachProfilePage = () => {
                             <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
                           <p className="coach-profile-panel__copy">Serve technique, match strategy, and tournament prep dialed for your game.</p>
-                          <div className="coach-profile-panel__chips">
-                            {profile.specialties.map((specialty) => (
-                              <Chip key={specialty} label={specialty} />
-                            ))}
-                          </div>
+                          {specialties.length > 0 && (
+                            <div className="coach-profile-panel__chips">
+                              {specialties.map((specialty) => (
+                                <Chip key={specialty} label={specialty} />
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div className="coach-profile-panel">
@@ -520,14 +636,16 @@ const CoachProfilePage = () => {
                             <MapPin className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
                           <p className="coach-profile-panel__copy">Certified to coach at these nearby courts and clubs.</p>
-                          <ul className="coach-profile-locations">
-                            {profile.coachingLocations.map((location) => (
-                              <li key={location} className="coach-profile-location">
-                                <span className="coach-profile-location__bullet" />
-                                <span>{location}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {coachingLocations.length > 0 && (
+                            <ul className="coach-profile-locations">
+                              {coachingLocations.map((location) => (
+                                <li key={location} className="coach-profile-location">
+                                  <span className="coach-profile-location__bullet" />
+                                  <span>{location}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
 
                         <div className="coach-profile-panel">
@@ -536,23 +654,25 @@ const CoachProfilePage = () => {
                           <Users className="coach-profile-panel__icon" strokeWidth={2.4} />
                         </div>
                         <p className="coach-profile-panel__copy">Clear pricing for the most popular training formats.</p>
-                        <ul className="coach-profile-lessons">
-                          {profile.lessonDetails.map((lesson) => (
-                            <li key={lesson.title} className="coach-profile-lesson">
-                              <div className="coach-profile-lesson__content">
-                                <div>
-                                  <p className="coach-profile-lesson__title">{lesson.title}</p>
-                                  <p className="coach-profile-lesson__description">{lesson.description}</p>
+                        {lessonDetails.length > 0 && (
+                          <ul className="coach-profile-lessons">
+                            {lessonDetails.map((lesson) => (
+                              <li key={lesson.title} className="coach-profile-lesson">
+                                <div className="coach-profile-lesson__content">
+                                  <div>
+                                    <p className="coach-profile-lesson__title">{lesson.title}</p>
+                                    <p className="coach-profile-lesson__description">{lesson.description}</p>
+                                  </div>
+                                  <div className="coach-profile-lesson__price">
+                                    <p className="coach-profile-lesson__amount">{lesson.price}</p>
+                                    <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
+                                  </div>
                                 </div>
-                                <div className="coach-profile-lesson__price">
-                                  <p className="coach-profile-lesson__amount">{lesson.price}</p>
-                                  <p className="coach-profile-lesson__cadence">{lesson.cadence}</p>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                        {profile.lessonPackages.length > 0 && (
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {lessonPackages.length > 0 && (
                           <div className="coach-profile-packages">
                             <div className="coach-profile-packages__header">
                               <div className="coach-profile-packages__intro">
@@ -612,7 +732,7 @@ const CoachProfilePage = () => {
                               </div>
                             </div>
                             <ul className="coach-profile-packages__list">
-                              {profile.lessonPackages.map((lessonPackage) => (
+                              {lessonPackages.map((lessonPackage) => (
                                 <li key={lessonPackage.id} className="coach-profile-package">
                                   <div className="coach-profile-package__top">
                                     <span className="coach-profile-package__discount">{lessonPackage.discount}</span>
@@ -646,7 +766,7 @@ const CoachProfilePage = () => {
                   <div className="coach-booking">
                     <div className="coach-booking__header">
                       <div className="coach-booking__header-copy">
-                        <h2 className="coach-booking__title">{profile.booking.headline}</h2>
+                        <h2 className="coach-booking__title">{bookingHeadline}</h2>
                         <p className="coach-booking__subtitle">Select your preferred date and time</p>
                       </div>
                       <CalendarDays className="coach-booking__icon" strokeWidth={2.4} />
@@ -699,7 +819,7 @@ const CoachProfilePage = () => {
                             <span className="coach-booking__day-name">All Dates</span>
                             <span className="coach-booking__day-date">View every option</span>
                           </button>
-                          {profile.booking.availableDates.map((date) => {
+                          {availableDates.map((date) => {
                             const active = selection.dateId === date.id;
                             return (
                               <button
@@ -946,7 +1066,7 @@ const CoachProfilePage = () => {
                     </div>
 
                     <div className="coach-booking__footer">
-                      <p className="coach-booking__note">{profile.booking.note}</p>
+                      <p className="coach-booking__note">{bookingNote}</p>
                       <button type="button" className="coach-profile-message">
                         <MessageCircle className="coach-profile-message__icon" strokeWidth={2.4} />
                         Message coach

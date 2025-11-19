@@ -17,6 +17,12 @@ import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
+import {
+  DEFAULT_POSITION,
+  getStoredLocation,
+  storeLocation,
+  type Coordinates,
+} from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import type { ConnectIntent } from "../types/matchPlay";
 
@@ -25,8 +31,6 @@ import "../components/players/players.css";
 
 type Mode = "normal" | "empty" | "error";
 type Status = "loading" | "ready";
-
-type Coordinates = { latitude: number; longitude: number };
 
 type SelectedLocation = {
   label: string;
@@ -72,33 +76,6 @@ const parseRadius = (radius: string) => {
   }
   const match = /^(\d+)/.exec(radius);
   return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
-};
-
-const getStoredLocation = (): Coordinates | null => {
-  try {
-    const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Coordinates | null;
-    if (!parsed) return null;
-    if (typeof parsed.latitude !== "number" || typeof parsed.longitude !== "number") {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-const storeLocation = (coords: Coordinates | null) => {
-  try {
-    if (!coords) {
-      localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
-      return;
-    }
-    localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
-  } catch {
-    // ignore
-  }
 };
 
 const toInitials = (name: string) => {

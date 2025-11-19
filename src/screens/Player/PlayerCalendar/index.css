@@ -210,6 +210,147 @@
   gap: 1.25rem;
 }
 
+.player-calendar__availability {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.player-calendar__availability-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.player-calendar__availability-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.player-calendar__availability-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.player-calendar__availability-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.player-calendar__availability-card {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 18px;
+  padding: 1rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-calendar__availability-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.player-calendar__availability-card h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.player-calendar__availability-card header span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.player-calendar__availability-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-calendar__availability-day {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.player-calendar__availability-day:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.player-calendar__availability-day-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.player-calendar__availability-day-label strong {
+  font-weight: 600;
+}
+
+.player-calendar__availability-day-label span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.player-calendar__availability-day ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.player-calendar__availability-day li {
+  font-size: 0.9rem;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.player-calendar__availability-day li span:last-child {
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.player-calendar__availability-action {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #10b981;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.player-calendar__availability-action:hover {
+  background: #d1fae5;
+  transform: translateY(-1px);
+}
+
 .player-calendar__session {
   display: grid;
   grid-template-columns: 120px 1fr;

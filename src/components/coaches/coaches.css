@@ -1451,7 +1451,91 @@
     justify-content: flex-start;
   }
 
-  .coach-questionnaire__summary-action {
-    flex: none;
-  }
+.coach-questionnaire__summary-action {
+  flex: none;
+}
+}
+
+.join-roster-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.05));
+  box-shadow: 0 20px 45px -30px rgba(79, 70, 229, 0.45);
+  margin-bottom: 24px;
+}
+
+.join-roster-banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 280px;
+  color: var(--profile-heading, #0f172a);
+}
+
+.join-roster-banner__eyebrow {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--profile-muted, #64748b);
+  text-transform: uppercase;
+}
+
+.join-roster-banner__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.join-roster-banner__body {
+  margin: 0;
+  color: var(--profile-muted, #5f6b7a);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.join-roster-banner__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.join-roster-banner__button {
+  border: none;
+  border-radius: 999px;
+  background: var(--profile-purple, #6366f1);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.join-roster-banner__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.join-roster-banner__message {
+  font-size: 0.95rem;
+}
+
+.join-roster-banner__message--note {
+  color: var(--profile-muted, #64748b);
+}
+
+.join-roster-banner__message--success {
+  color: #059669;
+}
+
+.join-roster-banner__message--error {
+  color: #dc2626;
 }

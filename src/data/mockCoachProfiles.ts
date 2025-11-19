@@ -32,6 +32,7 @@ type BookingSlot = {
   spotsRemaining: number;
   title?: string;
   participants?: GroupParticipant[];
+  location?: string;
 };
 
 type BookingDate = {

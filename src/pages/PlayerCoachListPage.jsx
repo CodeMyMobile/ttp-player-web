@@ -1204,6 +1204,8 @@ const CoachCard = ({ coach, variant = "standard" }) => {
 
 const PlayerCoachListPage = () => {
   const { user } = useAuth();
+  const playerToken =
+    user?.session?.access_token ?? user?.access_token ?? user?.token ?? null;
   const [activeTab, setActiveTab] = useState("all");
   const [allCoachPlayers, setAllCoachPlayers] = useState([]);
   const [addedCoachPlayers, setAddedCoachPlayers] = useState([]);
@@ -1560,21 +1562,38 @@ const PlayerCoachListPage = () => {
         const searchTerm = buildQueryValue(filterText);
         const locationSearch = sanitizeLocationSearch(locationFilter);
         const filterParams = buildFilterQueryParam();
-        const response = await unwrap(
-          api(
-            `/player/getchecklocation?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}${
-              locationSearch ? `&locationSearch=${encodeURIComponent(locationSearch)}` : ""
-            }&radius=${encodeURIComponent(radius)}${filterParams}`,
-            {
-              method: "POST",
-              json: {
-                position,
-                filters: buildFilterBody(),
-              },
+        const response = await api(
+          `/player/getchecklocation?perPage=${PER_PAGE}&page=${page}&search=${encodeURIComponent(searchTerm)}${
+            locationSearch ? `&locationSearch=${encodeURIComponent(locationSearch)}` : ""
+          }&radius=${encodeURIComponent(radius)}${filterParams}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json;charset=UTF-8",
             },
-          ),
+            json: {
+              position,
+              filters: buildFilterBody(),
+            },
+            ...(playerToken ? { authToken: playerToken } : {}),
+          },
         );
-        const normalized = normalizeListResponse(response);
+
+        if (response.status === 404) {
+          if (!append) {
+            setAllCoachPlayers([]);
+            setAllCoachesPage(1);
+          }
+          setIsAllCoachesListEnd(true);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to load coaches (${response.status})`);
+        }
+
+        const payload = await response.json();
+        const normalized = normalizeListResponse(payload);
         setAllCoachPlayers((prev) =>
           append ? [...prev, ...normalized] : [...normalized],
         );
@@ -1583,9 +1602,17 @@ const PlayerCoachListPage = () => {
           setAllCoachesPage(1);
         }
       } catch (error) {
-        console.error("Failed to load coaches", error);
-        if (!append) {
-          setAllCoachPlayers([]);
+        if (error?.status === 404) {
+          if (!append) {
+            setAllCoachPlayers([]);
+            setAllCoachesPage(1);
+          }
+          setIsAllCoachesListEnd(true);
+        } else {
+          console.error("Failed to load coaches", error);
+          if (!append) {
+            setAllCoachPlayers([]);
+          }
         }
       } finally {
         setAllMiniLoader(false);
@@ -1599,6 +1626,7 @@ const PlayerCoachListPage = () => {
       filterText,
       locationFilter,
       normalizeListResponse,
+      playerToken,
       radius,
     ],
   );

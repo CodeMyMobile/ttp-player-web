@@ -9,13 +9,17 @@ import {
   cancelBooking,
   fetchAvailableLessons,
   fetchPlayerBookings,
+  requestPrivateLesson,
   type Lesson as ApiLesson,
 } from "../../../api/playerLessons";
 import {
   getPlayerCoaches,
   getCoachLocation,
+  getCoachScheduleById,
+  getCoachScheduleByIdAndLocation,
   type PlayerCoach,
   type CoachLocation,
+  type CoachScheduleEntry,
 } from "../../../api/playerCalendar";
 import ResultsHeader from "../../../components/coaches/ResultsHeader";
 import MainLayout from "../../../components/MainLayout";
@@ -47,6 +51,16 @@ const LESSON_LEVELS = [
   { id: 6, name: "Expert (NTRP 5.0)", description: "I have competitive experience and advanced skill levels" },
 ] as const;
 
+const WEEK_DAYS: Array<"MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY"> = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+];
+
 const getDefaultDateRange = (): DateRange => ({
   start: moment().startOf("day"),
   end: moment().add(13, "days").endOf("day"),
@@ -60,6 +74,28 @@ type DateRange = {
   start: moment.Moment;
   end: moment.Moment;
 };
+
+interface CoachAvailabilitySlot {
+  start_time: string;
+  end_time: string;
+  duration_minutes?: number;
+  schedule_id?: number;
+  location_id?: number | string;
+  location?: string;
+  court?: string | number | null;
+}
+
+interface CoachAvailabilityDay {
+  date: string;
+  day: string;
+  slots: CoachAvailabilitySlot[];
+}
+
+interface CoachAvailability {
+  coach_id: number;
+  coach_name?: string;
+  availability?: CoachAvailabilityDay[];
+}
 
 const SHOWCASE_DATE_RANGE: DateRange = {
   start: moment("2025-11-11T00:00:00-06:00"),
@@ -195,6 +231,14 @@ const determineLessonStatus = (lesson: Lesson, bookings: Set<number>): LessonSta
   return "available";
 };
 
+const parseFilterId = (value: string) => {
+  if (!value || value === "all") {
+    return undefined;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
 const formatLessonTitle = (lesson: Lesson) => {
   if (lesson.metadata?.title) return lesson.metadata.title;
   if (lesson.metadata_title) return lesson.metadata_title;
@@ -231,6 +275,22 @@ const statusCopy: Record<LessonStatus, { label: string; tone: "success" | "info"
   booked: { label: "Booked", tone: "info" },
   full: { label: "Waitlist", tone: "danger" },
 };
+const formatScheduleSlot = (from?: string | null, to?: string | null) => {
+  if (!from || !to) return "";
+  const start = moment(from, "HH:mm:ss");
+  const end = moment(to, "HH:mm:ss");
+  if (!start.isValid() || !end.isValid()) return "";
+  return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+};
+
+const formatAvailabilityWindow = (startIso: string, endIso: string) => {
+  const start = moment(startIso);
+  const end = moment(endIso);
+  if (!start.isValid() || !end.isValid()) {
+    return "";
+  }
+  return `${start.format("MMM D, h:mm A")} – ${end.format("h:mm A")}`;
+};
 
 const PlayerCalendar = () => {
   const { user } = useAuth();
@@ -260,6 +320,27 @@ const PlayerCalendar = () => {
   const [rangeEndValue, setRangeEndValue] = useState("");
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [isShowcaseMode, setIsShowcaseMode] = useState(false);
+  const [coachScheduleByDay, setCoachScheduleByDay] = useState<Record<string, CoachScheduleEntry[]>>({});
+  const [coachScheduleLoading, setCoachScheduleLoading] = useState(false);
+  const [apiCoachAvailability, setApiCoachAvailability] = useState<CoachAvailability[]>([]);
+  const [requestSlot, setRequestSlot] = useState<{
+    coachId: number;
+    coachName: string;
+    dayLabel: string;
+    slot: {
+      location?: string;
+      locationId?: number;
+      court?: number | string | null;
+      apiStart?: string;
+      apiEnd?: string;
+      scheduleFrom?: string;
+      scheduleTo?: string;
+      scheduleDate?: string;
+    };
+  } | null>(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
@@ -272,6 +353,7 @@ const PlayerCalendar = () => {
     setPlayerBookings(
       SHOWCASE_LESSONS.filter((lesson) => Boolean(lesson.player_has_booking)).map((lesson) => lesson.id),
     );
+    setApiCoachAvailability([]);
     const showcaseStartIso = SHOWCASE_DATE_RANGE.start.format("YYYY-MM-DD");
     const showcaseEndIso = SHOWCASE_DATE_RANGE.end.format("YYYY-MM-DD");
     setCustomDateRange({ start: showcaseStartIso, end: showcaseEndIso });
@@ -371,6 +453,59 @@ const PlayerCalendar = () => {
   useEffect(() => {
     let cancelled = false;
 
+    if (!coachFilter || coachFilter === "all") {
+      setCoachScheduleByDay({});
+      setCoachScheduleLoading(false);
+      return;
+    }
+
+    const coachId = Number(coachFilter);
+    if (Number.isNaN(coachId)) {
+      setCoachScheduleByDay({});
+      setCoachScheduleLoading(false);
+      return;
+    }
+
+    const parsedLocationId = parseFilterId(locationFilter);
+
+    const fetchSchedule = async () => {
+      setCoachScheduleLoading(true);
+      try {
+        const responses = await Promise.all(
+          WEEK_DAYS.map((day) =>
+            parsedLocationId
+              ? getCoachScheduleByIdAndLocation({ coachId, day, locationId: parsedLocationId })
+              : getCoachScheduleById({ coachId, day }),
+          ),
+        );
+        if (cancelled) return;
+        const map: Record<string, CoachScheduleEntry[]> = {};
+        responses.forEach((entries, index) => {
+          map[WEEK_DAYS[index]] = entries ?? [];
+        });
+        setCoachScheduleByDay(map);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load coach schedule", err);
+          setCoachScheduleByDay({});
+        }
+      } finally {
+        if (!cancelled) {
+          setCoachScheduleLoading(false);
+        }
+      }
+    };
+
+    fetchSchedule();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [coachFilter, locationFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     const fetchLocations = async () => {
       setLocationOptionsLoading(true);
       try {
@@ -418,37 +553,60 @@ const PlayerCalendar = () => {
     }
 
     try {
+      const coachIdParam = parseFilterId(coachFilter);
+      const locationIdParam = parseFilterId(locationFilter);
+      const levelParam = levelFilter && levelFilter !== "All" ? levelFilter : undefined;
       const [lessonsResponse, bookingsResponse] = await Promise.all([
         fetchAvailableLessons({
           token: authToken,
           start_date: dateRange.start.format("YYYY-MM-DD"),
           end_date: dateRange.end.format("YYYY-MM-DD"),
           search: searchQuery.trim() || undefined,
+          coach_id: coachIdParam,
+          location_id: locationIdParam,
+          level: levelParam,
         }),
         fetchPlayerBookings({ token: authToken }),
       ]);
 
       const fetchedLessons = lessonsResponse?.data ?? [];
       const fetchedBookings = bookingsResponse?.data ?? [];
+      const availabilityPayload = Array.isArray(
+        (lessonsResponse as { availability_by_coach?: CoachAvailability[] })?.availability_by_coach,
+      )
+        ? ((lessonsResponse as { availability_by_coach?: CoachAvailability[] })?.availability_by_coach as CoachAvailability[])
+        : [];
 
       if (!fetchedLessons.length) {
         applyShowcaseLessons();
         setError("We couldn’t load live availability just yet, so here’s a sample schedule.");
+        setApiCoachAvailability([]);
         return;
       }
 
       setIsShowcaseMode(false);
       setRawLessons(fetchedLessons);
       setPlayerBookings(fetchedBookings);
+      setApiCoachAvailability(availabilityPayload);
       setError(null);
     } catch (err) {
       console.error("Failed to load player calendar", err);
       applyShowcaseLessons();
+      setApiCoachAvailability([]);
       setError("We couldn’t load live availability right now, so here’s a sample schedule.");
     } finally {
       setLoading(false);
     }
-  }, [applyShowcaseLessons, authToken, dateRange.end, dateRange.start, searchQuery]);
+  }, [
+    applyShowcaseLessons,
+    authToken,
+    coachFilter,
+    dateRange.end,
+    dateRange.start,
+    levelFilter,
+    locationFilter,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     loadLessons();
@@ -650,6 +808,195 @@ const PlayerCalendar = () => {
       .sort((a, b) => moment(a.date).diff(moment(b.date)));
   }, [filteredLessons]);
 
+  const resolveScheduleDate = useCallback(
+    (day: string) => {
+      const normalizedDay = day.toUpperCase();
+      if (selectedDay !== "all") {
+        const selectedMoment = moment(selectedDay);
+        if (selectedMoment.format("dddd").toUpperCase() === normalizedDay) {
+          return selectedMoment.clone();
+        }
+      }
+      const cursor = dateRange.start.clone();
+      while (cursor.isSameOrBefore(dateRange.end, "day")) {
+        if (cursor.format("dddd").toUpperCase() === normalizedDay) {
+          return cursor.clone();
+        }
+        cursor.add(1, "day");
+      }
+      return null;
+    },
+    [dateRange.end, dateRange.start, selectedDay],
+  );
+
+  const selectedCoachName = useMemo(() => {
+    if (coachFilter === "all") return null;
+    const match = displayedCoachOptions.find((option) => String(option.id) === coachFilter);
+    return match?.name ?? null;
+  }, [coachFilter, displayedCoachOptions]);
+
+  const derivedCoachSchedule = useMemo(() => {
+    if (!coachFilter || coachFilter === "all") {
+      return [];
+    }
+    return WEEK_DAYS.map((day) => {
+      const entries = coachScheduleByDay[day] ?? [];
+      const matchDate = resolveScheduleDate(day);
+      const slots =
+        entries
+          .filter((entry) => entry.from && entry.to)
+          .map((entry) => ({
+            id: entry.id ?? `${day}-${entry.from}-${entry.to}-${entry.location_id ?? "loc"}`,
+            from: entry.from,
+            to: entry.to,
+            location: entry.location || entry.location_name || "",
+            locationId:
+              typeof entry.location_id === "number"
+                ? entry.location_id
+                : entry.location_id !== undefined
+                  ? Number(entry.location_id)
+                  : undefined,
+            court: entry.court,
+          })) ?? [];
+      return {
+        day,
+        label: day.charAt(0) + day.slice(1).toLowerCase(),
+        matchDate,
+        slots,
+      };
+    }).filter((entry) => entry.slots.length > 0);
+  }, [coachFilter, coachScheduleByDay, resolveScheduleDate]);
+
+  const availabilityCards = useMemo(() => {
+    const buildFromApi = (collection: CoachAvailability[]) =>
+      collection
+        .map((coach) => ({
+          coachId: coach.coach_id,
+          coachName: coach.coach_name || `Coach #${coach.coach_id}`,
+          source: "api" as const,
+          days:
+            coach.availability
+              ?.map((day) => ({
+                label: day.day || moment(day.date).format("dddd"),
+                date: day.date,
+                slots:
+                  day.slots?.map((slot, index) => ({
+                    id: slot.schedule_id ?? `${coach.coach_id}-${day.date}-${index}`,
+                    primaryLabel: formatAvailabilityWindow(slot.start_time, slot.end_time),
+                    location: slot.location,
+                    locationId:
+                      typeof slot.location_id === "number"
+                        ? slot.location_id
+                        : slot.location_id
+                          ? Number(slot.location_id)
+                          : undefined,
+                    court: slot.court,
+                    apiStart: slot.start_time,
+                    apiEnd: slot.end_time,
+                  })) ?? [],
+              }))
+              .filter((day) => day.slots.length > 0) ?? [],
+        }))
+        .filter((card) => card.days.length > 0);
+
+    const filteredApi =
+      coachFilter === "all"
+        ? apiCoachAvailability
+        : apiCoachAvailability.filter((coach) => String(coach.coach_id) === coachFilter);
+    const apiCards = buildFromApi(filteredApi);
+    if (apiCards.length) {
+      return apiCards;
+    }
+
+    if (coachFilter !== "all" && derivedCoachSchedule.length) {
+      const coachIdNumeric = parseFilterId(coachFilter);
+      if (!coachIdNumeric) return [];
+      return [
+        {
+          coachId: coachIdNumeric,
+          coachName: selectedCoachName ?? `Coach #${coachIdNumeric}`,
+          source: "schedule" as const,
+          days: derivedCoachSchedule.map((day) => ({
+            label: day.label,
+            date: day.matchDate?.format("YYYY-MM-DD"),
+            slots: day.slots.map((slot) => ({
+              id: slot.id,
+              primaryLabel: day.matchDate
+                ? `${day.matchDate.format("MMM D")} • ${formatScheduleSlot(slot.from, slot.to)}`
+                : formatScheduleSlot(slot.from, slot.to),
+              location: slot.location,
+              locationId:
+                typeof slot.locationId === "number"
+                  ? slot.locationId
+                  : slot.locationId
+                    ? Number(slot.locationId)
+                    : undefined,
+              court: slot.court,
+              scheduleFrom: slot.from,
+              scheduleTo: slot.to,
+              scheduleDate: day.matchDate?.format("YYYY-MM-DD"),
+            })),
+          })),
+        },
+      ];
+    }
+
+    return [];
+  }, [apiCoachAvailability, coachFilter, derivedCoachSchedule, selectedCoachName]);
+
+  const handleRequestSlot = useCallback(
+    (
+      card: {
+        coachId: number;
+        coachName: string;
+      },
+      dayEntry: { label: string; date?: string },
+      slot: {
+        location?: string;
+        locationId?: number;
+        court?: number | string | null;
+        apiStart?: string;
+        apiEnd?: string;
+        scheduleFrom?: string;
+        scheduleTo?: string;
+        scheduleDate?: string;
+      },
+    ) => {
+      if (!authToken) {
+        window.alert("You need to be logged in to request a private lesson.");
+        return;
+      }
+      if (!slot.locationId) {
+        window.alert("This availability slot is missing a location.");
+        return;
+      }
+      const hasApiTimes = slot.apiStart && slot.apiEnd;
+      const hasScheduleTimes = slot.scheduleFrom && slot.scheduleTo && (slot.scheduleDate || dayEntry.date);
+      if (!hasApiTimes && !hasScheduleTimes) {
+        window.alert("This availability slot is missing time information.");
+        return;
+      }
+      setRequestError(null);
+      setRequestSlot({
+        coachId: card.coachId,
+        coachName: card.coachName,
+        dayLabel: dayEntry.label,
+        slot: {
+          location: slot.location,
+          locationId: slot.locationId,
+          court: slot.court,
+          apiStart: slot.apiStart,
+          apiEnd: slot.apiEnd,
+          scheduleFrom: slot.scheduleFrom,
+          scheduleTo: slot.scheduleTo,
+          scheduleDate: slot.scheduleDate || dayEntry.date,
+        },
+      });
+      setRequestModalOpen(true);
+    },
+    [authToken],
+  );
+
   const openLessonModal = (lesson: Lesson) => {
     setSelectedLesson(lesson);
     setBookingModalOpen(true);
@@ -690,6 +1037,59 @@ const PlayerCalendar = () => {
       const message = err instanceof Error ? err.message : "Unable to cancel booking.";
       window.alert(message);
       setMutationLoading(false);
+    }
+  };
+
+  const handleRequestLessonSubmit = async () => {
+    if (!requestSlot || !authToken) return;
+    const { slot, coachId } = requestSlot;
+    if (!slot.locationId) {
+      setRequestError("Location is required to request a lesson.");
+      return;
+    }
+
+    let startLocal: moment.Moment | null = null;
+    let endLocal: moment.Moment | null = null;
+
+    if (slot.apiStart && slot.apiEnd) {
+      startLocal = moment(slot.apiStart);
+      endLocal = moment(slot.apiEnd);
+    } else if (slot.scheduleFrom && slot.scheduleTo && slot.scheduleDate) {
+      startLocal = moment(`${slot.scheduleDate} ${slot.scheduleFrom}`, "YYYY-MM-DD HH:mm:ss");
+      endLocal = moment(`${slot.scheduleDate} ${slot.scheduleTo}`, "YYYY-MM-DD HH:mm:ss");
+    }
+
+    if (!startLocal || !endLocal || !startLocal.isValid() || !endLocal.isValid()) {
+      setRequestError("Unable to parse schedule time.");
+      return;
+    }
+
+    const startUtc = moment.utc(startLocal).toISOString();
+    const endUtc = moment.utc(endLocal).toISOString();
+    const startTz = startLocal.toISOString();
+    const endTz = endLocal.toISOString();
+
+    setRequestLoading(true);
+    setRequestError(null);
+    try {
+      await requestPrivateLesson({
+        token: authToken,
+        coachId,
+        startDateTime: startUtc,
+        endDateTime: endUtc,
+        startDateTimeTz: startTz,
+        endDateTimeTz: endTz,
+        locationId: slot.locationId,
+        court: slot.court ?? 0,
+      });
+      window.alert("Lesson request sent successfully!");
+      setRequestModalOpen(false);
+      setRequestSlot(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to send request.";
+      setRequestError(message);
+    } finally {
+      setRequestLoading(false);
     }
   };
 
@@ -1071,6 +1471,79 @@ const PlayerCalendar = () => {
               </div>
             </section>
 
+            {availabilityCards.length ? (
+              <section className="player-calendar__availability" aria-label="Coach availability">
+                <div className="player-calendar__availability-header">
+                  <h3>
+                    {coachFilter === "all"
+                      ? "Coach availability"
+                      : `Availability for ${availabilityCards[0]?.coachName ?? selectedCoachName ?? `Coach #${coachFilter}`}`}
+                  </h3>
+                  {coachFilter === "all" ? (
+                    <p>
+                      Showing {availabilityCards.length} coach{availabilityCards.length === 1 ? "" : "es"} between{" "}
+                      {dateRange.start.format("MMM D")} and {dateRange.end.format("MMM D")}.
+                    </p>
+                  ) : locationFilter !== "all" ? (
+                    <p>Filtered to {selectedLocationLabel}</p>
+                  ) : null}
+                </div>
+                {coachFilter !== "all" && availabilityCards[0]?.source === "schedule" && coachScheduleLoading ? (
+                  <div className="player-calendar__loading">Loading coach availability…</div>
+                ) : (
+                  <div className="player-calendar__availability-grid">
+                    {availabilityCards.map((card) => (
+                      <article key={card.coachId} className="player-calendar__availability-card">
+                        <header>
+                          <h4>{card.coachName}</h4>
+                          <span>
+                            {card.days.length} day{card.days.length === 1 ? "" : "s"}
+                          </span>
+                        </header>
+                        <div className="player-calendar__availability-days">
+                          {card.days.map((day) => (
+                            <div key={`${card.coachId}-${day.label}-${day.date ?? "na"}`} className="player-calendar__availability-day">
+                              <div className="player-calendar__availability-day-label">
+                                <strong>{day.label}</strong>
+                                <span>{day.date ? moment(day.date).format("MMM D") : ""}</span>
+                              </div>
+                              <ul>
+                                {day.slots.map((slot) => (
+                                  <li key={slot.id}>
+                                    <span>{slot.primaryLabel}</span>
+                                    {slot.location ? <span>{slot.location}</span> : null}
+                                    {slot.court ? <span>Court {slot.court}</span> : null}
+                                    <button
+                                      type="button"
+                                      className="player-calendar__availability-action"
+                                      onClick={() => handleRequestSlot(card, day, slot)}
+                                    >
+                                      Request private lesson
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : coachFilter !== "all" ? (
+              <section className="player-calendar__availability" aria-label="Coach availability">
+                <div className="player-calendar__availability-header">
+                  <h3>Availability for {selectedCoachName ?? `Coach #${coachFilter}`}</h3>
+                </div>
+                {coachScheduleLoading ? (
+                  <div className="player-calendar__loading">Loading coach availability…</div>
+                ) : (
+                  <p className="player-calendar__empty">No availability published for this coach in the selected range.</p>
+                )}
+              </section>
+            ) : null}
+
             <div className="player-calendar__days">
               {loading ? (
                 <div className="player-calendar__loading">Loading lessons…</div>
@@ -1108,8 +1581,7 @@ const PlayerCalendar = () => {
                 <div>
                   <h2>{formatLessonTitle(selectedLesson)}</h2>
                   <p>
-                    {moment(selectedLesson.start_date_time).format("dddd, MMM D • h:mm A")} –{" "}
-                    {moment(selectedLesson.end_date_time).format("h:mm A")}
+                    {moment(selectedLesson.start_date_time).format("dddd, MMM D • h:mm A")} – {moment(selectedLesson.end_date_time).format("h:mm A")}
                   </p>
                 </div>
                 <button type="button" onClick={closeModal} aria-label="Close booking modal" className="player-calendar__close-btn">
@@ -1178,6 +1650,86 @@ const PlayerCalendar = () => {
                       : "Book Lesson"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {requestModalOpen && requestSlot ? (
+        <div role="dialog" aria-modal="true" className="player-calendar__modal">
+          <div className="player-calendar__modal-card">
+            <div className="player-calendar__modal-header">
+              <div className="player-calendar__modal-header-row">
+                <div>
+                  <h2>Request a lesson with {requestSlot.coachName}</h2>
+                  <p>
+                    {(() => {
+                      if (requestSlot.slot.apiStart && requestSlot.slot.apiEnd) {
+                        return formatAvailabilityWindow(requestSlot.slot.apiStart, requestSlot.slot.apiEnd);
+                      }
+                      if (requestSlot.slot.scheduleDate && requestSlot.slot.scheduleFrom && requestSlot.slot.scheduleTo) {
+                        return `${moment(requestSlot.slot.scheduleDate).format("dddd, MMM D")} • ${formatScheduleSlot(requestSlot.slot.scheduleFrom, requestSlot.slot.scheduleTo)}`;
+                      }
+                      return requestSlot.dayLabel;
+                    })()}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestModalOpen(false);
+                    setRequestSlot(null);
+                    setRequestError(null);
+                  }}
+                  aria-label="Close request modal"
+                  className="player-calendar__close-btn"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="player-calendar__modal-body">
+              <div className="player-calendar__modal-row">
+                <span>Location</span>
+                <span>{requestSlot.slot.location || "Location TBD"}</span>
+              </div>
+              {requestSlot.slot.court ? (
+                <div className="player-calendar__modal-row">
+                  <span>Court</span>
+                  <span>{requestSlot.slot.court}</span>
+                </div>
+              ) : null}
+              <div className="player-calendar__modal-row">
+                <span>Status</span>
+                <span>Will be sent to coach for confirmation</span>
+              </div>
+              {requestError ? (
+                <div className="player-calendar__alert" role="alert">
+                  {requestError}
+                </div>
+              ) : null}
+            </div>
+            <div className="player-calendar__modal-footer">
+              <button
+                type="button"
+                className="player-calendar__modal-secondary"
+                onClick={() => {
+                  setRequestModalOpen(false);
+                  setRequestSlot(null);
+                  setRequestError(null);
+                }}
+                disabled={requestLoading}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="player-calendar__modal-primary"
+                onClick={handleRequestLessonSubmit}
+                disabled={requestLoading}
+              >
+                {requestLoading ? "Sending..." : "Send request"}
+              </button>
             </div>
           </div>
         </div>
