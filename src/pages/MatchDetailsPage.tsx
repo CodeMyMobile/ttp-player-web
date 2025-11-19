@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
+import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
 import { getMatchById, normalizeMatchDetail, type NormalizedMatch } from "../api/matches";
 import { useAuth } from "../context/AuthContext";
@@ -100,8 +100,14 @@ const MatchDetailsPage = () => {
     match?.level
       ? {
           icon: <Star size={18} aria-hidden="true" />,
-          title: `Suggested skill: ${match.level.summary}`,
+          title: `Suggested level: ${match.level.summary}`,
           subtitle: match.level.detail,
+        }
+      : null,
+    match?.format
+      ? {
+          icon: <Activity size={18} aria-hidden="true" />,
+          title: `Match format: ${match.format}`,
         }
       : null,
   ].filter(Boolean) as Array<{ icon: JSX.Element; title?: string; subtitle?: string }>;

@@ -24,6 +24,7 @@ export interface NormalizedMatch {
   totalSpots: number;
   playersNeeded?: number;
   level?: MatchLevel;
+  format?: string;
   hostName?: string;
   raw?: unknown;
 }
@@ -635,11 +636,15 @@ const derivePlayers = (record: Record<string, unknown>) => {
 };
 
 const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined => {
-  const min = firstNumber([
+  const baseLevel = firstNumber([
     record.skill_level_min,
     record.skillLevelMin,
     record.level_min,
     record.levelMin,
+    record.skill_level,
+    record.skillLevel,
+    record.level,
+    record.level_summary,
   ]);
   const max = firstNumber([
     record.skill_level_max,
@@ -647,13 +652,19 @@ const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined =>
     record.level_max,
     record.levelMax,
   ]);
-  const rangeLabel = (() => {
-    const formatValue = (value: number) => (Number.isInteger(value) ? `${value}.0` : `${value}`);
-    if (min !== undefined && max !== undefined) return `${formatValue(min)}-${formatValue(max)}`;
-    if (min !== undefined) return `${formatValue(min)}+`;
-    if (max !== undefined) return `Up to ${formatValue(max)}`;
-    return undefined;
-  })();
+
+  const formatValue = (value: number) => value.toFixed(1).replace(/\.0$/, ".0");
+  const endLevel =
+    baseLevel !== undefined
+      ? Number((baseLevel + 0.5).toFixed(1))
+      : max !== undefined
+        ? Number((max + 0.5).toFixed(1))
+        : undefined;
+  const rangeLabel = baseLevel !== undefined
+    ? `${formatValue(baseLevel)}-${formatValue(endLevel ?? baseLevel)}`
+    : max !== undefined
+      ? `${formatValue(max)}-${formatValue(endLevel ?? max)}`
+      : undefined;
 
   const fallbackSummary = firstString([
     record.level,
@@ -669,9 +680,6 @@ const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined =>
     record.level_detail,
     record.skill_level_label,
     record.skill_level_description,
-    record.match_format,
-    record.matchFormat,
-    record.match_type,
   ]) ?? (rangeLabel && fallbackSummary && rangeLabel !== fallbackSummary ? fallbackSummary : undefined);
 
   return {
@@ -679,6 +687,17 @@ const deriveLevel = (record: Record<string, unknown>): MatchLevel | undefined =>
     detail,
   };
 };
+
+const deriveMatchFormat = (record: Record<string, unknown>): string | undefined =>
+  firstString([
+    record.match_format,
+    record.matchFormat,
+    record.match_type,
+    record.matchType,
+    record.format,
+    record.play_format,
+    record.playFormat,
+  ]);
 
 const deriveStartIso = (record: Record<string, unknown>): string | undefined =>
   firstString([
@@ -790,6 +809,7 @@ export const normalizeMatchRecord = (
   );
   const { playersJoined, totalSpots, playersNeeded } = derivePlayers(safeRecord);
   const level = deriveLevel(safeRecord);
+  const format = deriveMatchFormat(safeRecord);
   const hostProfile = [safeRecord.host_profile, safeRecord.hostProfile, safeRecord.organizer_profile]
     .find((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
   const hostName = firstString([
@@ -816,6 +836,7 @@ export const normalizeMatchRecord = (
     totalSpots,
     playersNeeded,
     level,
+    format,
     hostName,
     raw: record,
   };

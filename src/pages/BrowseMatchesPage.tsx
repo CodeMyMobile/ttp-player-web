@@ -3,7 +3,7 @@
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
+import { Activity, Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import { listMatches, normalizeMatchRecord, type NormalizedMatch } from "../api/matches";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
@@ -630,10 +630,18 @@ const BrowseMatchesPage = () => {
                         <div className="match-detail">
                           <Star size={18} aria-hidden="true" />
                           <div>
-                            <p className="match-detail__primary">Suggested skill: {match.level.summary}</p>
+                            <p className="match-detail__primary">Suggested level: {match.level.summary}</p>
                             {match.level.detail ? (
                               <p className="match-detail__secondary">{match.level.detail}</p>
                             ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      {match.format ? (
+                        <div className="match-detail">
+                          <Activity size={18} aria-hidden="true" />
+                          <div>
+                            <p className="match-detail__primary">Match format: {match.format}</p>
                           </div>
                         </div>
                       ) : null}
