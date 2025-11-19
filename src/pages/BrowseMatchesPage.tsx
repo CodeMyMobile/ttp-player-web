@@ -4,9 +4,10 @@ import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
+import { listMatches, normalizeMatchRecord, type NormalizedMatch } from "../api/matches";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
-import { mockMatches } from "../data/mockMatches";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./BrowseMatchesPage.css";
 
@@ -93,12 +94,6 @@ const buildLocationSearch = (location: SelectedLocation | null): string => {
   return label;
 };
 
-const parseDistance = (value: string): number => {
-  if (value === "All") return Number.POSITIVE_INFINITY;
-  const match = /([0-9.]+)/.exec(value);
-  return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
-};
-
 const parseDistanceMiles = (value: string): number => {
   const match = /([0-9.]+)/.exec(value);
   return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
@@ -108,6 +103,10 @@ const BrowseMatchesPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [matches, setMatches] = useState<NormalizedMatch[]>([]);
+  const [matchesError, setMatchesError] = useState<string | null>(null);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [refreshIndex, setRefreshIndex] = useState(0);
   const [selectedDistance, setSelectedDistance] = useState(distanceOptions[1]);
   const [selectedTab, setSelectedTab] = useState(tabs[0]);
   const storedLocation = useMemo(() => getStoredLocation(), []);
@@ -314,41 +313,63 @@ const BrowseMatchesPage = () => {
   const hasLocationFilter = Boolean(locationFilter);
 
   useEffect(() => {
-    setAppliedSearch(searchTerm.trim().toLowerCase());
+    setAppliedSearch(searchTerm.trim());
   }, [searchTerm]);
 
-  const filteredMatches = useMemo(() => {
-    const maxDistance = parseDistance(selectedDistance);
-    const normalizedSearch = appliedSearch.trim();
-    const normalizedLocation = locationQuery.trim().toLowerCase();
+  const fetchMatches = useCallback(
+    async (signal: AbortSignal) => {
+      setIsLoadingMatches(true);
+      setMatchesError(null);
 
-    return mockMatches.filter((match) => {
-      const miles = parseDistanceMiles(match.distance);
-      const withinDistance = Number.isFinite(maxDistance) ? miles <= maxDistance : true;
-      const matchesSearch = normalizedSearch
-        ? match.location.toLowerCase().includes(normalizedSearch) ||
-          match.startDisplay.toLowerCase().includes(normalizedSearch)
-        : true;
-      const matchesLocation = normalizedLocation
-        ? match.location.toLowerCase().includes(normalizedLocation)
-        : true;
-
-      const matchesTab = (() => {
-        if (selectedTab === "Hosting") {
-          return match.relationship === "host";
-        }
-        if (selectedTab === "Open") {
-          return match.access === "Open";
-        }
-        if (selectedTab === "My Matches") {
-          return match.relationship === "host" || match.relationship === "participant";
-        }
-        return true;
+      const distanceMiles = parseDistanceMiles(selectedDistance);
+      const searchQuery = (appliedSearch || locationQuery).trim();
+      const tabFilters = (() => {
+        if (selectedTab === "My Matches") return { filter: "my" as const };
+        if (selectedTab === "Hosting") return { filter: "hosting" as const };
+        if (selectedTab === "Open") return { status: "open" as const };
+        if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
+        if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
+        return {};
       })();
 
-      return withinDistance && matchesSearch && matchesLocation && matchesTab;
-    });
-  }, [appliedSearch, locationQuery, selectedDistance, selectedTab]);
+      try {
+        const token = getStoredAuthToken({ preferScheme: "Token" });
+        const response = await listMatches({
+          page: 1,
+          perPage: 20,
+          search: searchQuery || undefined,
+          distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
+          latitude: position?.latitude,
+          longitude: position?.longitude,
+          ...tabFilters,
+          token: token ?? undefined,
+          signal,
+        });
+
+        const normalized = response.matches.map((match) => normalizeMatchRecord(match));
+        setMatches(normalized);
+      } catch (fetchError) {
+        if (signal.aborted) return;
+        console.error("Failed to load matches", fetchError);
+        setMatchesError(
+          fetchError instanceof Error ? fetchError.message : "Unable to load matches right now.",
+        );
+      } finally {
+        if (!signal.aborted) {
+          setIsLoadingMatches(false);
+        }
+      }
+    },
+    [appliedSearch, locationQuery, position?.latitude, position?.longitude, selectedDistance, selectedTab],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchMatches(controller.signal);
+    return () => controller.abort();
+  }, [fetchMatches, refreshIndex]);
+
+  const handleRetryMatches = () => setRefreshIndex((value) => value + 1);
 
   const themeVars = useMemo(
     () =>
@@ -531,103 +552,130 @@ const BrowseMatchesPage = () => {
           </div>
 
           <div className="matches-grid">
-            {filteredMatches.map((match) => {
-              const isHost = match.relationship === "host";
-              const isParticipant = match.relationship === "participant";
-              const isFull = match.playersJoined >= match.totalSpots;
-              const spotsAvailable = Math.max(match.totalSpots - match.playersJoined, 0);
-              const playersNeeded = match.playersNeeded ?? spotsAvailable;
-              const availabilityLabel = isFull
-                ? "Match is full"
-                : `${spotsAvailable} spot${spotsAvailable === 1 ? "" : "s"} available`;
-              const playersLabel = `${match.playersJoined}/${match.totalSpots} players`;
-              const roleLabel = relationshipLabel[match.relationship] ?? null;
+            {isLoadingMatches ? (
+              <div className="matches-state" role="status">
+                Loading matches…
+              </div>
+            ) : matchesError ? (
+              <div className="matches-state matches-state--error" role="alert">
+                <p className="matches-state__title">We couldn't load matches right now.</p>
+                <p className="matches-state__detail">{matchesError}</p>
+                <button type="button" className="matches-state__button" onClick={handleRetryMatches}>
+                  Try again
+                </button>
+              </div>
+            ) : (
+              matches.map((match) => {
+                const isHost = match.relationship === "host";
+                const isParticipant = match.relationship === "participant";
+                const playersJoined = match.playersJoined ?? 0;
+                const computedTotal =
+                  match.totalSpots !== undefined && match.totalSpots !== null
+                    ? match.totalSpots
+                    : playersJoined + (match.playersNeeded ?? 0);
+                const totalSpots = computedTotal > 0 ? computedTotal : playersJoined;
+                const spotsAvailable = Math.max(totalSpots - playersJoined, 0);
+                const playersNeeded = match.playersNeeded ?? spotsAvailable;
+                const availabilityLabel =
+                  totalSpots > 0
+                    ? spotsAvailable === 0
+                      ? "Match is full"
+                      : `${spotsAvailable} spot${spotsAvailable === 1 ? "" : "s"} available`
+                    : "Spots available";
+                const playersLabel =
+                  totalSpots > 0
+                    ? `${playersJoined}/${totalSpots} players`
+                    : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
+                const roleLabel = relationshipLabel[match.relationship] ?? null;
 
-              return (
-                <article key={match.id} className="match-card">
-                  <header className="match-card__header">
-                    <div className="match-pills">
-                      <span className={`match-status-pill ${match.access.toLowerCase()}`}>{match.access}</span>
-                      {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}
-                    </div>
-                    {!isFull && playersNeeded > 0 ? (
-                      <span className="match-needed">{playersNeeded} needed</span>
-                    ) : null}
-                  </header>
+                return (
+                  <article key={match.id} className="match-card">
+                    <header className="match-card__header">
+                      <div className="match-pills">
+                        <span className={`match-status-pill ${match.access.toLowerCase()}`}>
+                          {match.access}
+                        </span>
+                        {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}
+                      </div>
+                      {spotsAvailable > 0 && playersNeeded > 0 ? (
+                        <span className="match-needed">{playersNeeded} needed</span>
+                      ) : null}
+                    </header>
 
-                  <div className="match-card__body">
-                    <div className="match-detail">
-                      <Calendar size={18} aria-hidden="true" />
-                      <p className="match-detail__primary">{match.startDisplay}</p>
-                    </div>
-                    <div className="match-detail">
-                      <MapPin size={18} aria-hidden="true" />
-                      <div>
-                        <p className="match-detail__primary">{match.location}</p>
-                        <p className="match-detail__secondary">{match.distance}</p>
-                      </div>
-                    </div>
-                    <div className="match-detail">
-                      <Users size={18} aria-hidden="true" />
-                      <div>
-                        <p className="match-detail__primary">{playersLabel}</p>
-                        <p className="match-detail__secondary">{availabilityLabel}</p>
-                      </div>
-                    </div>
-                    {match.access === "Open" && match.level ? (
+                    <div className="match-card__body">
                       <div className="match-detail">
-                        <Star size={18} aria-hidden="true" />
+                        <Calendar size={18} aria-hidden="true" />
+                        <p className="match-detail__primary">{match.startDisplay}</p>
+                      </div>
+                      <div className="match-detail">
+                        <MapPin size={18} aria-hidden="true" />
                         <div>
-                          <p className="match-detail__primary">Skill level: {match.level.summary}</p>
-                          <p className="match-detail__secondary">{match.level.detail}</p>
+                          <p className="match-detail__primary">{match.location}</p>
+                          <p className="match-detail__secondary">{match.distance}</p>
                         </div>
                       </div>
-                    ) : null}
-                  </div>
+                      <div className="match-detail">
+                        <Users size={18} aria-hidden="true" />
+                        <div>
+                          <p className="match-detail__primary">{playersLabel}</p>
+                          <p className="match-detail__secondary">{availabilityLabel}</p>
+                        </div>
+                      </div>
+                      {match.access === "Open" && match.level ? (
+                        <div className="match-detail">
+                          <Star size={18} aria-hidden="true" />
+                          <div>
+                            <p className="match-detail__primary">Skill level: {match.level.summary}</p>
+                            <p className="match-detail__secondary">{match.level.detail}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
 
-                  <footer className="match-card__footer">
-                    {isHost ? (
-                      <>
+                    <footer className="match-card__footer">
+                      {isHost ? (
+                        <>
+                          <button
+                            type="button"
+                            className="match-action primary"
+                            onClick={() => navigate(`/matches/${match.id}`)}
+                          >
+                            View &amp; manage
+                          </button>
+                          <button type="button" className="match-action" disabled>
+                            <MessageCircle size={16} aria-hidden="true" />
+                            Message group
+                          </button>
+                        </>
+                      ) : isParticipant ? (
+                        <>
+                          <button
+                            type="button"
+                            className="match-action"
+                            onClick={() => navigate(`/matches/${match.id}`)}
+                          >
+                            View match
+                          </button>
+                          <button type="button" className="match-action primary">
+                            <MessageCircle size={16} aria-hidden="true" />
+                            Message group
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
                           className="match-action primary"
                           onClick={() => navigate(`/matches/${match.id}`)}
                         >
-                          View &amp; manage
-                        </button>
-                        <button type="button" className="match-action" disabled>
-                          <MessageCircle size={16} aria-hidden="true" />
-                          Message group
-                        </button>
-                      </>
-                    ) : isParticipant ? (
-                      <>
-                        <button
-                          type="button"
-                          className="match-action"
-                          onClick={() => navigate(`/matches/${match.id}`)}
-                        >
                           View match
                         </button>
-                        <button type="button" className="match-action primary">
-                          <MessageCircle size={16} aria-hidden="true" />
-                          Message group
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="match-action primary"
-                        onClick={() => navigate(`/matches/${match.id}`)}
-                      >
-                        View match
-                      </button>
-                    )}
-                  </footer>
-                </article>
-              );
-            })}
-            {filteredMatches.length === 0 ? (
+                      )}
+                    </footer>
+                  </article>
+                );
+              })
+            )}
+            {!isLoadingMatches && !matchesError && matches.length === 0 ? (
               <div className="matches-empty">No matches found for these filters yet.</div>
             ) : null}
           </div>
