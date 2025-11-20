@@ -649,8 +649,8 @@ const BrowseMatchesPage = () => {
                 const showVisibilityPill =
                   Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
                 const hostDisplayName = getHostDisplayName(match, isHost);
-                const showHostPill = Boolean(hostDisplayName) &&
-                  (isHost || (match.participants?.some((participant) => participant.hosting) ?? false));
+                const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
+                const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
 
                 return (
                   <article key={match.id} className="match-card">
@@ -663,6 +663,7 @@ const BrowseMatchesPage = () => {
                           <span className="match-status-pill visibility">{match.visibilityLabel}</span>
                         ) : null}
                         {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}
+                        {isHost ? <span className="match-host-pill match-host-pill--header">Host</span> : null}
                       </div>
                       {spotsAvailable > 0 && playersNeeded > 0 ? (
                         <span className="match-needed">{playersNeeded} needed</span>
