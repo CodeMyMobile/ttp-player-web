@@ -4,7 +4,12 @@ import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
-import { listMatches, normalizeMatchRecord, type NormalizedMatch } from "../api/matches";
+import {
+  identityValues,
+  listMatches,
+  normalizeMatchRecord,
+  type NormalizedMatch,
+} from "../api/matches";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
@@ -100,6 +105,34 @@ const parseDistanceMiles = (value: string): number => {
   return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
 };
 
+const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
+  const matchTypeIsHosted = match.type?.toLowerCase() === "hosted";
+  const participantHostMatch =
+    match.participants?.some(
+      (participant) =>
+        participant.hosting &&
+        ((participant.identityIds?.some((id) => userIdentities.includes(id)) ?? false) || participant.isCurrentUser),
+    ) ?? false;
+
+  const hostIdentityMatch =
+    match.hostIdentityIds?.some((identityId) => userIdentities.includes(identityId)) ?? false;
+
+  return match.relationship === "host" || matchTypeIsHosted || participantHostMatch || hostIdentityMatch;
+};
+
+const getHostDisplayName = (match: NormalizedMatch, isHost: boolean) => {
+  const hostingParticipants = match.participants?.filter((participant) => participant.hosting) ?? [];
+
+  const currentUserHost = hostingParticipants.find((participant) => participant.isCurrentUser);
+  if (currentUserHost?.name) return currentUserHost.name;
+
+  const namedHost = hostingParticipants.find((participant) => participant.name);
+  if (namedHost?.name) return namedHost.name;
+
+  if (match.hostName) return match.hostName;
+  return isHost ? "You" : undefined;
+};
+
 const BrowseMatchesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth() as { user?: unknown };
@@ -124,6 +157,7 @@ const BrowseMatchesPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
+  const currentUserIdentities = useMemo(() => identityValues(user), [user]);
 
   const locationLabel = (() => {
     if (locationFilter) {
@@ -326,15 +360,26 @@ const BrowseMatchesPage = () => {
       const distanceMiles = parseDistanceMiles(selectedDistance);
       const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
+      const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const };
-        if (isHostingTab) return { filter: "my" as const, includeHidden: true };
+        if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
+        if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
         if (selectedTab === "Open") return { status: "open" as const };
-        if (selectedTab === "Drafts") return { status: "draft" as const, includeHidden: true };
-        if (selectedTab === "Archived") return { status: "archived" as const, includeHidden: true };
-        return {};
+        if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
+        if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
+        if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
+          return { status: "upcoming" as const };
+        return { status: "upcoming" as const };
       })();
       const perPage = isHostingTab ? 50 : 20;
+      const hasLocationSelection = Boolean(locationFilter || position);
+      const locationParams = hasLocationSelection
+        ? {
+            latitude: position?.latitude,
+            longitude: position?.longitude,
+            distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
+          }
+        : {};
 
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
@@ -342,19 +387,14 @@ const BrowseMatchesPage = () => {
           page: 1,
           perPage,
           search: searchQuery || undefined,
-          distance: Number.isFinite(distanceMiles) ? distanceMiles : undefined,
-          latitude: position?.latitude,
-          longitude: position?.longitude,
+          ...locationParams,
           ...tabFilters,
           token: token ?? undefined,
           signal,
         });
 
         const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        const filtered = isHostingTab
-          ? normalized.filter((match) => match.relationship === "host")
-          : normalized;
-        setMatches(filtered);
+        setMatches(normalized);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
@@ -367,7 +407,16 @@ const BrowseMatchesPage = () => {
         }
       }
     },
-    [appliedSearch, locationQuery, position?.latitude, position?.longitude, selectedDistance, selectedTab, user],
+    [
+      appliedSearch,
+      locationFilter,
+      locationQuery,
+      position?.latitude,
+      position?.longitude,
+      selectedDistance,
+      selectedTab,
+      user,
+    ],
   );
 
   useEffect(() => {
@@ -573,8 +622,8 @@ const BrowseMatchesPage = () => {
               </div>
             ) : (
               matches.map((match) => {
-                const isHost = match.relationship === "host";
-                const isParticipant = match.relationship === "participant";
+                const isHost = isHostingMatch(match, currentUserIdentities);
+                const isParticipant = !isHost && match.relationship === "participant";
                 const playersJoined = match.playersJoined ?? 0;
                 const computedTotal =
                   match.totalSpots !== undefined && match.totalSpots !== null
@@ -593,12 +642,15 @@ const BrowseMatchesPage = () => {
                   totalSpots > 0
                     ? `${playersJoined}/${totalSpots} players`
                     : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
-                const roleLabel = relationshipLabel[match.relationship] ?? null;
+                const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
                 const isInviteOnlyPill =
                   match.visibility === "private" ||
                   match.visibilityLabel?.toLowerCase() === "invite only";
                 const showVisibilityPill =
                   Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
+                const hostDisplayName = getHostDisplayName(match, isHost);
+                const showHostPill = Boolean(hostDisplayName) &&
+                  (isHost || (match.participants?.some((participant) => participant.hosting) ?? false));
 
                 return (
                   <article key={match.id} className="match-card">
@@ -629,6 +681,18 @@ const BrowseMatchesPage = () => {
                           <p className="match-detail__secondary">{match.distance}</p>
                         </div>
                       </div>
+                      {hostDisplayName ? (
+                        <div className="match-detail match-detail--host">
+                          <Users size={18} aria-hidden="true" />
+                          <div>
+                            <p className="match-detail__primary match-detail__host-primary">
+                              {hostDisplayName}
+                              {showHostPill ? <span className="match-host-pill">Host</span> : null}
+                            </p>
+                            <p className="match-detail__secondary">Organizer</p>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="match-detail">
                         <Users size={18} aria-hidden="true" />
                         <div>
