@@ -9,12 +9,21 @@ export interface MatchLevel {
   detail?: string;
 }
 
+export interface NormalizedMatchParticipant {
+  id?: string;
+  name?: string;
+  hosting?: boolean;
+  identityIds?: string[];
+  isCurrentUser?: boolean;
+}
+
 export interface NormalizedMatch {
   id: string;
   access: "Open" | "Private";
   visibility?: string;
   visibilityLabel?: string;
   relationship: MatchRelationship;
+  type?: string;
   startDisplay: string;
   startDateTimeIso?: string;
   location: string;
@@ -26,6 +35,8 @@ export interface NormalizedMatch {
   level?: MatchLevel;
   format?: string;
   hostName?: string;
+  hostIdentityIds?: string[];
+  participants?: NormalizedMatchParticipant[];
   raw?: unknown;
 }
 
@@ -244,7 +255,7 @@ const formatVisibilityLabel = (value?: string) => {
   }
 };
 
-const identityValues = (source: unknown, seen = new Set<unknown>()): string[] => {
+export const identityValues = (source: unknown, seen = new Set<unknown>()): string[] => {
   if (source === null || source === undefined) return [];
 
   if (typeof source === "string") {
@@ -354,18 +365,8 @@ const identityValues = (source: unknown, seen = new Set<unknown>()): string[] =>
   return Array.from(new Set([...values, ...nestedValues].map((value) => value.toString().trim())));
 };
 
-const deriveRelationship = (
-  record: Record<string, unknown>,
-  options: { currentUser?: unknown } = {},
-): MatchRelationship => {
-  const relationship = firstString([
-    record.relationship,
-    record.role,
-    record.user_relationship,
-  ]);
-  if (relationship === "host" || relationship === "participant") return relationship;
-
-  const hostIdentityValues = Array.from(
+const deriveHostIdentities = (record: Record<string, unknown>) =>
+  Array.from(
     new Set(
       [
         ...identityValues(record.host),
@@ -414,7 +415,40 @@ const deriveRelationship = (
     ),
   );
 
+const deriveRelationship = (
+  record: Record<string, unknown>,
+  options: { currentUser?: unknown } = {},
+): MatchRelationship => {
+  const relationship = firstString([
+    record.relationship,
+    record.role,
+    record.user_relationship,
+  ]);
+  if (relationship === "host" || relationship === "participant") return relationship;
+
   const userIdentities = identityValues(options.currentUser);
+
+  if (typeof record.type === "string" && record.type.toLowerCase() === "hosted") return "host";
+
+  const participantHosting =
+    Array.isArray(record.participants) &&
+    record.participants.some((participant) => {
+      if (!participant || typeof participant !== "object") return false;
+      const participantRecord = participant as Record<string, unknown>;
+      if (!participantRecord.hosting && !participantRecord.is_host && !participantRecord.isHost)
+        return false;
+      const participantIds = identityValues(participantRecord);
+      const isCurrentUserParticipant =
+        participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
+      return (
+        isCurrentUserParticipant ||
+        (participantIds.length > 0 && userIdentities.some((id) => participantIds.includes(id)))
+      );
+    });
+
+  if (participantHosting) return "host";
+
+  const hostIdentityValues = deriveHostIdentities(record);
 
   const isCurrentUserHost =
     hostIdentityValues.length > 0 &&
@@ -798,6 +832,9 @@ const deriveMatchFormat = (record: Record<string, unknown>): string | undefined 
     record.playFormat,
   ]);
 
+const deriveMatchType = (record: Record<string, unknown>): string | undefined =>
+  firstString([record.type, record.match_type, record.matchType, record.match_category]);
+
 const deriveStartIso = (record: Record<string, unknown>): string | undefined =>
   firstString([
     record.startDateTime,
@@ -831,6 +868,74 @@ const firstArray = (values: Array<unknown>): unknown[] | undefined => {
     if (Array.isArray(value)) return value;
   }
   return undefined;
+};
+
+const deriveParticipants = (
+  record: Record<string, unknown>,
+  options: { currentUser?: unknown } = {},
+) => {
+  const participantsArray = firstArray([
+    record.participants,
+    record.roster,
+    record.players,
+    record.invitees,
+  ]);
+
+  if (!participantsArray) return undefined;
+
+  const userIdentities = identityValues(options.currentUser);
+
+  const participants = participantsArray
+    .map((participant) => {
+      if (!participant || typeof participant !== "object") return null;
+      const participantRecord = participant as Record<string, unknown>;
+      const profile =
+        participantRecord.profile && typeof participantRecord.profile === "object"
+          ? (participantRecord.profile as Record<string, unknown>)
+          : undefined;
+      const identityIds = identityValues(participantRecord);
+      const isFlaggedCurrentUser =
+        participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
+      const id = firstString([
+        participantRecord.id,
+        participantRecord.uuid,
+        participantRecord.identity_id,
+        participantRecord.profile_id,
+        participantRecord.user_id,
+        participantRecord.player_id,
+      ]);
+      const name = firstString([
+        participantRecord.name,
+        participantRecord.full_name,
+        participantRecord.fullName,
+        participantRecord.display_name,
+        participantRecord.displayName,
+        participantRecord.player_name,
+        profile?.name,
+        profile?.full_name,
+        profile?.display_name,
+      ]);
+      const hosting = Boolean(
+        participantRecord.hosting ||
+        participantRecord.is_host ||
+          participantRecord.isHost ||
+          participantRecord.host === true,
+      );
+      const isCurrentUser =
+        isFlaggedCurrentUser ||
+        (identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value)));
+
+      return {
+        id: id ?? (identityIds.length ? identityIds[0] : undefined),
+        name,
+        hosting,
+        identityIds: identityIds.length ? identityIds : undefined,
+        isCurrentUser,
+      } satisfies NormalizedMatchParticipant;
+    })
+    .filter(Boolean) as NormalizedMatchParticipant[];
+
+  return participants.length > 0 ? participants : undefined;
 };
 
 const extractPagination = (payload: unknown): MatchesPagination | undefined => {
@@ -893,6 +998,7 @@ export const normalizeMatchRecord = (
   const access = deriveAccess(safeRecord);
   const visibility = deriveVisibility(safeRecord);
   const relationship = deriveRelationship(safeRecord, { currentUser: options.currentUser });
+  const type = deriveMatchType(safeRecord);
   const startDisplay = deriveStartLabel(safeRecord);
   const startDateTimeIso = deriveStartIso(safeRecord);
   const location = deriveLocationLabel(safeRecord);
@@ -909,6 +1015,8 @@ export const normalizeMatchRecord = (
   const { playersJoined, totalSpots, playersNeeded } = derivePlayers(safeRecord);
   const level = deriveLevel(safeRecord);
   const format = deriveMatchFormat(safeRecord);
+  const hostIdentityIds = deriveHostIdentities(safeRecord);
+  const participants = deriveParticipants(safeRecord, { currentUser: options.currentUser });
   const hostProfile = [safeRecord.host_profile, safeRecord.hostProfile, safeRecord.organizer_profile]
     .find((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
   const hostName = firstString([
@@ -926,6 +1034,7 @@ export const normalizeMatchRecord = (
     visibility,
     visibilityLabel: formatVisibilityLabel(visibility),
     relationship,
+    type,
     startDisplay,
     startDateTimeIso,
     location,
@@ -937,6 +1046,8 @@ export const normalizeMatchRecord = (
     level,
     format,
     hostName,
+    hostIdentityIds: hostIdentityIds.length > 0 ? hostIdentityIds : undefined,
+    participants,
     raw: record,
   };
 };

@@ -418,6 +418,29 @@
   font-size: 13px;
 }
 
+.match-detail__host-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.match-host-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.match-host-pill--header {
+  padding: 4px 10px;
+}
+
 .match-card__footer {
   display: flex;
   flex-wrap: wrap;
