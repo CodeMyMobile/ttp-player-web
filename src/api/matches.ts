@@ -438,7 +438,12 @@ const deriveRelationship = (
       if (!participantRecord.hosting && !participantRecord.is_host && !participantRecord.isHost)
         return false;
       const participantIds = identityValues(participantRecord);
-      return participantIds.length > 0 && userIdentities.some((id) => participantIds.includes(id));
+      const isCurrentUserParticipant =
+        participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
+      return (
+        isCurrentUserParticipant ||
+        (participantIds.length > 0 && userIdentities.some((id) => participantIds.includes(id)))
+      );
     });
 
   if (participantHosting) return "host";
@@ -889,6 +894,8 @@ const deriveParticipants = (
           ? (participantRecord.profile as Record<string, unknown>)
           : undefined;
       const identityIds = identityValues(participantRecord);
+      const isFlaggedCurrentUser =
+        participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
       const id = firstString([
         participantRecord.id,
         participantRecord.uuid,
@@ -910,12 +917,13 @@ const deriveParticipants = (
       ]);
       const hosting = Boolean(
         participantRecord.hosting ||
-          participantRecord.is_host ||
+        participantRecord.is_host ||
           participantRecord.isHost ||
           participantRecord.host === true,
       );
       const isCurrentUser =
-        identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value));
+        isFlaggedCurrentUser ||
+        (identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value)));
 
       return {
         id: id ?? (identityIds.length ? identityIds[0] : undefined),

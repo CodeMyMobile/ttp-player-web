@@ -106,7 +106,8 @@ const parseDistanceMiles = (value: string): number => {
 };
 
 const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
-  const matchTypeIsHosted = match.type?.toLowerCase() === "hosted";
+  const matchType = match.type?.toLowerCase();
+  const matchTypeIsHosted = matchType === "hosted" || matchType?.includes("hosted");
   const participantHostMatch =
     match.participants?.some(
       (participant) =>
