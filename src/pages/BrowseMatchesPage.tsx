@@ -395,10 +395,11 @@ const BrowseMatchesPage = () => {
           signal,
         });
 
-        const normalized = response.matches
-          .map((match) => normalizeMatchRecord(match, { currentUser: user }))
-          .filter((match) => isOpenMatch(match));
-        setMatches(normalized);
+        const normalized = response.matches.map((match) =>
+          normalizeMatchRecord(match, { currentUser: user }),
+        );
+        const visibleMatches = selectedTab === "Open" ? normalized.filter(isOpenMatch) : normalized;
+        setMatches(visibleMatches);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
