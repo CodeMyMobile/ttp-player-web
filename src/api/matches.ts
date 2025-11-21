@@ -148,9 +148,10 @@ const buildMatchesQuery = ({
 
   if (isTruthyFlag(includeHiddenFlag)) {
     query.includeHidden = true;
-    query.include_hidden = true;
   } else if (explicitlyFalse) {
     query.include_hidden = false;
+  } else if (include_hidden !== undefined) {
+    query.include_hidden = include_hidden;
   }
 
   if (typeof latitude === "number" && typeof longitude === "number") {
