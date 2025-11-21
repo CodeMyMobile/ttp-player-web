@@ -14,6 +14,7 @@ import {
 import MainLayout from "../components/MainLayout";
 import { createMatch } from "../api/matches";
 import type { MatchDraftDetails } from "../types/matchPlay";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
@@ -85,6 +86,7 @@ const CreateMatchReviewPage = () => {
   const { matchDraft, settings, invitedPlayers, privateFormat, shareLink, matchId } =
     (routerLocation.state as ReviewState | null) ?? {};
   const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const roster = invitedPlayers ?? [];
   const showInvitedPlayers = roster.length > 0;
 
@@ -138,7 +140,13 @@ const CreateMatchReviewPage = () => {
       return;
     }
     setIsPublishing(true);
+    setPublishError(null);
     try {
+      const authToken = getStoredAuthToken({ preferScheme: "token" });
+      if (!authToken) {
+        throw new Error("Please sign in to publish this match.");
+      }
+
       const rosterSize = matchDraft.isUnlimitedPlayers ? undefined : matchDraft.playersNeeded + 1;
       const response = await createMatch({
         privacy: matchDraft.matchType,
@@ -149,6 +157,7 @@ const CreateMatchReviewPage = () => {
         matchFormat: matchDraft.matchType === "open" ? settings?.format : privateFormat,
         notes: formattedNotes,
         linkOnly: settings?.visibility === "hidden",
+        token: authToken,
       });
 
       navigate("/matches/create/published", {
@@ -164,6 +173,7 @@ const CreateMatchReviewPage = () => {
     } catch (error) {
       // Keep the review page interactive even if publish fails
       console.error(error);
+      setPublishError((error as Error | undefined)?.message ?? "Unable to publish match. Please try again.");
       setIsPublishing(false);
     }
   };
@@ -362,21 +372,21 @@ const CreateMatchReviewPage = () => {
               <div className="review-summary__icon" aria-hidden="true">
                 <Share2 size={20} />
               </div>
-            <div className="review-summary__content">
-              <span className="review-summary__label">Visibility</span>
-              <span className="review-summary__value">{visibilityValue}</span>
-              <span className="review-summary__hint">{visibilityDescription}</span>
-            </div>
-          </div>
-          {matchDraft?.matchType !== "private" && (
-            <div className="review-summary__item review-summary__item--link" role="listitem">
               <div className="review-summary__content">
-                <span className="review-summary__label">Share link</span>
-                <div className="review-summary__link">
-                  <code>{shareLinkLabel}</code>
-                  <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
-                    <Copy size={16} aria-hidden="true" />
-                    Copy
+                <span className="review-summary__label">Visibility</span>
+                <span className="review-summary__value">{visibilityValue}</span>
+                <span className="review-summary__hint">{visibilityDescription}</span>
+              </div>
+            </div>
+            {matchDraft?.matchType !== "private" && (
+              <div className="review-summary__item review-summary__item--link" role="listitem">
+                <div className="review-summary__content">
+                  <span className="review-summary__label">Share link</span>
+                  <div className="review-summary__link">
+                    <code>{shareLinkLabel}</code>
+                    <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
+                      <Copy size={16} aria-hidden="true" />
+                      Copy
                     </button>
                   </div>
                 </div>
@@ -389,6 +399,7 @@ const CreateMatchReviewPage = () => {
           <button type="button" className="create-match-actions__secondary" onClick={handleEditSettings}>
             Back to settings
           </button>
+          {publishError && <p className="create-match-actions__error">{publishError}</p>}
           <button
             type="button"
             className="create-match-actions__primary"

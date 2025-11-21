@@ -1077,6 +1077,8 @@
   justify-content: flex-end;
   gap: 16px;
   margin-top: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .create-match-actions__secondary {
@@ -1119,6 +1121,11 @@
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+}
+
+.create-match-actions__error {
+  color: #dc2626;
+  font-weight: 600;
 }
 
 @media (max-width: 960px) {
