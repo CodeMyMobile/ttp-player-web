@@ -5,4 +5,4 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   DEFAULT_API_BASE_URL;
 
-export const DEFAULT_AUTH_SCHEME = "token";
+export const DEFAULT_AUTH_SCHEME = "Bearer";

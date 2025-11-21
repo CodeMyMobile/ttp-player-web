@@ -166,7 +166,8 @@ const MatchDetailsPage = () => {
   });
   const [inviteInputs, setInviteInputs] = useState({ players: "", phones: "" });
 
-  const token = useMemo(() => getStoredAuthToken({ preferScheme: "Token" }), []);
+  // Normalize the stored auth token from localStorage into a Bearer header value for all requests.
+  const token = useMemo(() => getStoredAuthToken({ preferScheme: "Bearer" }), []);
 
   const loadMatch = useMemo(() => {
     return async (signal: AbortSignal) => {
