@@ -364,7 +364,8 @@ const BrowseMatchesPage = () => {
       const isHostingTab = selectedTab === "Hosting";
       const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
+        if (selectedTab === "My Matches")
+          return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
         if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
         if (selectedTab === "Open") return { status: "upcoming" as const, ...includeHiddenParams };
         if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
