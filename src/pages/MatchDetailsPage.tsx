@@ -179,7 +179,6 @@ const MatchDetailsPage = () => {
         const response = await getMatchById(id, {
           token: token ?? undefined,
           signal,
-          includeHidden: true,
         });
         const normalized = normalizeMatchDetail(response, { currentUser: user });
         const raw = (response as Record<string, unknown>)?.match ?? (response as Record<string, unknown>);

@@ -1,4 +1,5 @@
 import { request, type RequestQuery } from "./http";
+import { getStoredAuthToken } from "../services/authToken";
 
 export type TruthyLike = boolean | string | number;
 
@@ -183,6 +184,9 @@ const deriveShareLink = (source: unknown): string | undefined => {
   if (typeof shareCandidate !== "string") return undefined;
   return shareCandidate;
 };
+
+const resolveAuthToken = (token?: string | null) =>
+  token ?? getStoredAuthToken({ preferScheme: "Bearer" }) ?? undefined;
 
 const persistCreatedMatch = (response: unknown) => {
   const match = extractMatchDetail(response) as Record<string, unknown> | undefined;
@@ -1242,7 +1246,7 @@ export const listMatches = async ({ token, signal, ...params }: ListMatchesParam
   const query = buildMatchesQuery(params);
   const response = await request<unknown>("/matches", {
     query,
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     signal,
   });
 
@@ -1257,7 +1261,7 @@ export const getMatchById = async (
   {
     token,
     signal,
-    includeHidden = true,
+    includeHidden = false,
     include_hidden,
     ...params
   }: Omit<ListMatchesParams, "page" | "perPage"> = {},
@@ -1265,7 +1269,7 @@ export const getMatchById = async (
   const query = buildMatchesQuery({ includeHidden, include_hidden, ...params });
   const response = await request<unknown>(`/matches/${id}`, {
     query,
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     signal,
   });
   return response;
@@ -1329,10 +1333,11 @@ export const updateMatch = async (
 
   return request(`/matches/${id}`, {
     method: "PUT",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
-    body: payload,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 };
 
@@ -1342,7 +1347,7 @@ export const joinMatch = async (
 ) =>
   request(`/matches/${id}/join`, {
     method: "POST",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
   });
@@ -1353,7 +1358,7 @@ export const leaveMatch = async (
 ) =>
   request(`/matches/${id}/leave`, {
     method: "POST",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
   });
@@ -1365,7 +1370,7 @@ export const removeMatchParticipant = async (
 ) =>
   request(`/matches/${matchId}/participants/${playerId}`, {
     method: "DELETE",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
   });
@@ -1381,13 +1386,14 @@ export const sendMatchInvites = async (
 ) =>
   request(`/matches/${matchId}/invites`, {
     method: "POST",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
-    body: {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       playerIds,
       phoneNumbers,
-    },
+    }),
   });
 
 export const getMatchShareLink = async (
@@ -1396,7 +1402,7 @@ export const getMatchShareLink = async (
 ) =>
   request(`/matches/${id}/share-link`, {
     method: "GET",
-    token: token ?? undefined,
+    token: resolveAuthToken(token),
     authScheme: "Bearer",
     signal,
   });
