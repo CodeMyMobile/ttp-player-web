@@ -1,4 +1,5 @@
 import { request } from "./http";
+import type { AuthScheme } from "./http";
 import type { PaginatedResponse } from "./player";
 
 export interface CoachSummary {
@@ -328,16 +329,28 @@ export const getCheckLocation = async ({
 
 export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
+  position?: PositionPayload | null;
+  authScheme?: AuthScheme;
 }
 
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
+export const fetchPlayerDetails = async ({ token, userId, position, authScheme }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>(
     "/player/surveys/getchecklocation/specific_user",
     {
+      method: position ? "POST" : "GET",
       token,
+      authScheme,
       query: {
         userId,
+        user_id: userId,
       },
+      body: position
+        ? buildBody({
+            position,
+            userId,
+            user_id: userId,
+          })
+        : undefined,
     },
   );
 
@@ -417,7 +430,7 @@ export const getUserVerificationLevel = async ({ token }: PlayerTokenOnlyParams)
 
 export interface VerifyUserLevelParams extends PlayerTokenOnlyParams {
   userId: number | string;
-  level: string;
+  level: string | boolean;
 }
 
 export const verifyUserLevel = async ({ token, userId, level }: VerifyUserLevelParams) =>

@@ -1,200 +1,554 @@
-import { useState } from "react";
-import { Check, Clock, MapPin, Target } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useParams, useSearchParams } from "react-router-dom";
+import {
+  AlertCircle,
+  Ban,
+  BadgeCheck,
+  Heart,
+  Loader2,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
 import MainLayout from "../components/MainLayout";
+import { addFavorite, blockPlayer, fetchPlayerDetails, removeFavorite, unblockPlayer, verifyUserLevel } from "../api/playerHome";
+import type { PositionPayload } from "../api/playerHome";
+import { getStoredAuthToken } from "../services/authToken";
+import { formatPhoneDisplay, getPhoneDigits } from "../services/phone";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { useAuth } from "../context/AuthContext";
 
-import "./PlayerSettingsPages.css";
+import "./PlayerMatchProfilePage.css";
 
-const availabilitySlots = [
-  "Early mornings",
-  "Weekday afternoons",
-  "Weekday evenings",
-  "Weekend mornings",
-  "Weekend afternoons",
-  "Weekend evenings",
-];
+type RawPlayerRecord = {
+  userId?: number | string;
+  id?: number | string;
+  full_name?: string;
+  skillLevel?: string;
+  phone?: string;
+  profile_picture?: string;
+  about_me?: string;
+  availability?: unknown;
+  playerCourtLocations?: unknown;
+  lookingFor?: unknown;
+  verifiedLevelCount?: number | string;
+  is_favorite?: boolean;
+  is_blocked?: boolean;
+  [key: string]: unknown;
+};
 
-const matchIntensities = [
-  { id: "competitive", label: "Competitive play", description: "USTA league or tournament focused" },
-  { id: "balanced", label: "Balanced", description: "Mix of rally sessions and competitive sets" },
-  { id: "casual", label: "Casual hits", description: "Easy going hits with rally focus" },
-];
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
 
-const preferredFormats = [
-  { id: "singles", label: "Singles" },
-  { id: "doubles", label: "Doubles" },
-  { id: "mixed", label: "Mixed doubles" },
-  { id: "drills", label: "Live-ball drills" },
-  { id: "fitness", label: "Cardio tennis" },
-];
+const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
+
+type PlayerProfile = {
+  userId: number | string;
+  fullName: string;
+  skillLevel?: string;
+  phone?: string;
+  profilePicture?: string;
+  about?: string;
+  availability: string[];
+  courts: string[];
+  lookingFor: string[];
+  verifiedLevelCount: number;
+  isFavorite: boolean;
+  isBlocked: boolean;
+};
+
+const knownLookingFor = ["Fun / social", "Casual hitting", "Friendly competition"] as const;
+
+const parseStoredLocation = (value: unknown): Coordinates | null => {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const latitude = record.latitude;
+  const longitude = record.longitude;
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return null;
+  }
+  return { latitude, longitude };
+};
+
+const getStoredLocation = (): Coordinates | null => {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredLocation(parsed);
+  } catch {
+    return null;
+  }
+};
+
+const toStringArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item): item is string => Boolean(item));
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return [];
+};
+
+const normalizeProfile = (record: RawPlayerRecord | null | undefined): PlayerProfile | null => {
+  if (!record) return null;
+  const userId = record.userId ?? record.id;
+  if (!userId) return null;
+
+  const fullName = typeof record.full_name === "string" && record.full_name.trim() ? record.full_name.trim() : "TTP Player";
+
+  const verifiedCountRaw = record.verifiedLevelCount;
+  const verifiedLevelCount = typeof verifiedCountRaw === "number"
+    ? verifiedCountRaw
+    : typeof verifiedCountRaw === "string"
+      ? Number.parseInt(verifiedCountRaw, 10) || 0
+      : 0;
+
+  const lookingFor = toStringArray(record.lookingFor).filter((item) => knownLookingFor.includes(item as (typeof knownLookingFor)[number]));
+
+  return {
+    userId,
+    fullName,
+    skillLevel: typeof record.skillLevel === "string" ? record.skillLevel : undefined,
+    phone: typeof record.phone === "string" ? record.phone : undefined,
+    profilePicture: typeof record.profile_picture === "string" ? record.profile_picture : undefined,
+    about: typeof record.about_me === "string" ? record.about_me : undefined,
+    availability: toStringArray(record.availability),
+    courts: toStringArray(record.playerCourtLocations),
+    lookingFor,
+    verifiedLevelCount,
+    isFavorite: Boolean(record.is_favorite),
+    isBlocked: Boolean(record.is_blocked),
+  };
+};
+
+const extractFirstRecord = (response: unknown): RawPlayerRecord | undefined => {
+  if (Array.isArray(response)) {
+    return response[0] as RawPlayerRecord | undefined;
+  }
+
+  if (response && typeof response === "object") {
+    const record = response as Record<string, unknown>;
+
+    const data = record.data;
+    if (Array.isArray(data)) {
+      return data[0] as RawPlayerRecord | undefined;
+    }
+
+    const nestedData = (data as { data?: unknown[] } | undefined)?.data;
+    if (Array.isArray(nestedData)) {
+      return nestedData[0] as RawPlayerRecord | undefined;
+    }
+
+    const user = record.user ?? record.player ?? record.profile;
+    if (user && typeof user === "object") {
+      return user as RawPlayerRecord;
+    }
+  }
+
+  return undefined;
+};
+
+const extractUserId = (user: unknown): number | string | undefined => {
+  if (!user || typeof user !== "object") return undefined;
+  const profile = user as Record<string, unknown>;
+  const idFields = ["id", "userId", "user_id", "playerId"] as const;
+  for (const field of idFields) {
+    const value = profile[field];
+    if (typeof value === "number" || typeof value === "string") {
+      return value;
+    }
+  }
+  return undefined;
+};
+
+const extractSurveyAnswers = (user: unknown): unknown[] => {
+  if (!user || typeof user !== "object") return [];
+  const profile = user as Record<string, unknown>;
+  const answers = (profile.survey_answers ?? profile.surveyAnswers ?? profile.surveys) as unknown;
+  return Array.isArray(answers) ? answers : [];
+};
+
+const deriveViewerLevel = (user: unknown): string | undefined => {
+  const answers = extractSurveyAnswers(user);
+  for (const answer of answers) {
+    if (!answer || typeof answer !== "object") continue;
+    const entry = answer as Record<string, unknown>;
+    const questionId = entry.questionId ?? entry.question_id ?? entry.questionID;
+    if (questionId && String(questionId) === "3") {
+      const value = entry.answer ?? entry.response ?? entry.value ?? entry.answer_text;
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+      if (Array.isArray(value)) {
+        const first = value.find((item) => typeof item === "string" && item.trim());
+        if (typeof first === "string") {
+          return first.trim();
+        }
+      }
+    }
+  }
+  return undefined;
+};
 
 const PlayerMatchProfilePage = () => {
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
-    "Weekday evenings",
-    "Weekend mornings",
-  ]);
-  const [intensity, setIntensity] = useState("balanced");
-  const [formats, setFormats] = useState<string[]>(["singles", "doubles"]);
-  const [homeBase, setHomeBase] = useState("Austin Tennis Center");
+  const { id: routeUserId } = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const { user } = useAuth() as { user?: unknown };
+  const { displayName } = usePlayerIdentity();
 
-  const toggleAvailability = (slot: string) => {
-    setSelectedAvailability((current) =>
-      current.includes(slot) ? current.filter((item) => item !== slot) : [...current, slot]
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [position, setPosition] = useState<PositionPayload | null>(null);
+
+  const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+
+  const targetUserId = useMemo(() => {
+    const stateUserId = (location.state as { userId?: number | string } | undefined)?.userId;
+    return (
+      stateUserId ||
+      searchParams.get("playerId") ||
+      searchParams.get("userId") ||
+      searchParams.get("id") ||
+      routeUserId ||
+      extractUserId(user)
     );
+  }, [location.state, routeUserId, searchParams, user]);
+
+  const viewerLevel = useMemo(() => deriveViewerLevel(user), [user]);
+  const currentUserId = useMemo(() => extractUserId(user), [user]);
+
+  const inviteMessage = useMemo(() => {
+    const playerName = profile?.fullName ?? "there";
+    const viewerLevelText = viewerLevel ?? "tennis";
+    const profileLinkId = currentUserId ?? "me";
+    return `Hi ${playerName}, I'm ${displayName} and I found you on the Tennis Plan App. I'm a ${viewerLevelText} level player and you can check out my profile here: ttp://player/profile/${profileLinkId}. Let me know if you'd be interested in hitting some time.`;
+  }, [currentUserId, displayName, profile?.fullName, viewerLevel]);
+
+  useEffect(() => {
+    const stored = getStoredLocation();
+    if (stored) {
+      setPosition((current) => current ?? {
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        latitudeDelta: 0.25,
+        longitudeDelta: 0.25,
+      });
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !("geolocation" in navigator) || position) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (coords) => {
+        const { latitude, longitude } = coords.coords;
+        setPosition({
+          latitude,
+          longitude,
+          latitudeDelta: 0.25,
+          longitudeDelta: 0.25,
+        });
+      },
+      () => {
+        // If location permission is denied, we simply skip adding position data.
+      },
+      { maximumAge: 5 * 60 * 1000, timeout: 7000 },
+    );
+  }, [position]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!token) {
+        setError("Missing authentication token.");
+        setLoading(false);
+        return;
+      }
+      if (!targetUserId) {
+        setError("Missing player identifier.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetchPlayerDetails({ token, authScheme: "token", userId: targetUserId, position });
+        const firstRecord = extractFirstRecord(response);
+        const normalized = normalizeProfile(firstRecord);
+        if (!normalized) {
+          setError("We couldn't load this player's profile.");
+        }
+        setProfile(normalized);
+      } catch (err) {
+        const enrichedError = err as Error & { status?: number; data?: unknown };
+        const errorMessage = enrichedError.message || "Unable to load player profile.";
+        const locationDenied = /location/i.test(errorMessage) || /location/i.test(String(enrichedError.data || ""));
+        if (locationDenied && (enrichedError.status === 401 || enrichedError.status === 403)) {
+          setError("We need location access to load this profile. Please enable location permissions and try again.");
+        } else {
+          setError(errorMessage);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchProfile();
+  }, [position, targetUserId, token]);
+
+  const toggleFavorite = async () => {
+    if (!profile || !token) return;
+    setFavoriteLoading(true);
+    setActionError(null);
+    try {
+      if (profile.isFavorite) {
+        await removeFavorite({ token, followeeId: profile.userId });
+        setProfile((current) => (current ? { ...current, isFavorite: false } : current));
+      } else {
+        await addFavorite({ token, followeeId: profile.userId });
+        setProfile((current) => (current ? { ...current, isFavorite: true } : current));
+      }
+    } catch (err) {
+      setActionError((err as Error).message || "Unable to update favorite.");
+    } finally {
+      setFavoriteLoading(false);
+    }
   };
 
-  const toggleFormat = (id: string) => {
-    setFormats((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
+  const toggleBlock = async () => {
+    if (!profile || !token) return;
+    setBlockLoading(true);
+    setActionError(null);
+    try {
+      if (profile.isBlocked) {
+        await unblockPlayer({ token, blockedId: profile.userId });
+        setProfile((current) => (current ? { ...current, isBlocked: false } : current));
+      } else {
+        await blockPlayer({ token, blockedId: profile.userId });
+        setProfile((current) => (current ? { ...current, isBlocked: true } : current));
+      }
+    } catch (err) {
+      setActionError((err as Error).message || "Unable to update block status.");
+    } finally {
+      setBlockLoading(false);
+    }
   };
+
+  const verifyLevel = async () => {
+    if (!profile || !token) return;
+    setVerifyLoading(true);
+    setActionError(null);
+    try {
+      await verifyUserLevel({ token, userId: profile.userId, level: true });
+      setProfile((current) =>
+        current
+          ? { ...current, verifiedLevelCount: (current.verifiedLevelCount || 0) + 1 }
+          : current,
+      );
+    } catch (err) {
+      setActionError((err as Error).message || "Unable to verify level.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const initials = useMemo(() => {
+    const name = profile?.fullName ?? "Player";
+    const parts = name.split(" ").filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    if (parts[0]) return parts[0].slice(0, 2).toUpperCase();
+    return "TP";
+  }, [profile?.fullName]);
+
+  const smsBody = encodeURIComponent(inviteMessage);
+  const phoneDigits = getPhoneDigits(profile?.phone);
+  const smsHref = phoneDigits ? `sms:${phoneDigits}?&body=${smsBody}` : undefined;
 
   return (
     <MainLayout>
-      <div className="settings-page">
-        <div className="settings-page__inner">
-          <header className="settings-hero settings-hero--match">
-            <span className="settings-hero__badge">
-              <Target size={16} aria-hidden="true" />
-              Match preferences
-            </span>
-            <h1 className="settings-hero__title">Player match profile</h1>
-            <p className="settings-hero__subtitle">
-              Tell other players how and when you like to compete so we can suggest better partners and session ideas.
-            </p>
-          </header>
-
-          <section className="settings-section">
-            <div className="match-profile__layout">
-              <div className="match-profile__main">
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">
-                      <Clock size={20} aria-hidden="true" />
-                      Match availability
-                    </h2>
-                    <p className="match-card__description">Choose the windows when you&apos;re generally open to play.</p>
-                  </div>
-                  <div className="match-availability">
-                    {availabilitySlots.map((slot) => {
-                      const selected = selectedAvailability.includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => toggleAvailability(slot)}
-                          className={`match-availability__slot${selected ? " match-availability__slot--selected" : ""}`}
-                          aria-pressed={selected}
-                        >
-                          <span className="match-availability__label">{slot}</span>
-                          {selected ? (
-                            <span className="match-availability__status">
-                              <Check size={12} aria-hidden="true" />
-                              Selected
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </article>
-
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">Match intensity</h2>
-                    <p className="match-card__description">Let others know how competitive you&apos;d like sessions to be.</p>
-                  </div>
-                  <div className="match-intensity">
-                    {matchIntensities.map((option) => {
-                      const selected = intensity === option.id;
-                      return (
-                        <label
-                          key={option.id}
-                          className={`match-intensity__option${selected ? " match-intensity__option--selected" : ""}`}
-                        >
-                          <input
-                            type="radio"
-                            name="match-intensity"
-                            value={option.id}
-                            checked={selected}
-                            onChange={() => setIntensity(option.id)}
-                            className="visually-hidden"
-                          />
-                          <span className="match-intensity__label">{option.label}</span>
-                          <span className="match-intensity__detail">{option.description}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </article>
-
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">Preferred formats</h2>
-                    <p className="match-card__description">
-                      Highlight the type of play you&apos;re hoping to schedule with new connections.
-                    </p>
-                  </div>
-                  <div className="match-formats">
-                    {preferredFormats.map((format) => {
-                      const selected = formats.includes(format.id);
-                      return (
-                        <button
-                          key={format.id}
-                          type="button"
-                          onClick={() => toggleFormat(format.id)}
-                          className={`match-format-chip${selected ? " match-format-chip--selected" : ""}`}
-                          aria-pressed={selected}
-                        >
-                          {format.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </article>
-              </div>
-
-              <aside className="match-sidebar">
-                <div className="match-sidebar__card">
-                  <h3 className="match-sidebar__title">
-                    <MapPin size={18} aria-hidden="true" />
-                    Home courts
-                  </h3>
-                  <p className="match-sidebar__note">
-                    Share the courts where you typically host or prefer to meet.
-                  </p>
-                  <div className="match-sidebar__field">
-                    <span className="match-sidebar__label">Primary facility</span>
-                    <input
-                      type="text"
-                      value={homeBase}
-                      onChange={(event) => setHomeBase(event.target.value)}
-                      placeholder="Add your go-to courts"
-                      className="match-sidebar__input"
-                    />
-                    <p className="match-sidebar__note">
-                      We&apos;ll use this to estimate travel distance for other players.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="match-sidebar__tips">
-                  <h3>Tips</h3>
-                  <ul>
-                    <li>✓ Pick at least two availability windows to match faster.</li>
-                    <li>✓ Competitive preferences help us pair you with similar goals.</li>
-                    <li>✓ Update your home courts when you travel to new cities.</li>
-                  </ul>
-                </div>
-              </aside>
-            </div>
-          </section>
-
-          <div className="settings-save">
-            <button type="button" className="settings-save__button">
-              Save match profile
-            </button>
+      <div className="match-profile-page">
+        {loading ? (
+          <div className="match-profile-state" role="status">
+            <Loader2 size={20} className="spin" aria-hidden="true" />
+            <p>Loading player profile…</p>
           </div>
-        </div>
+        ) : error || !profile ? (
+          <div className="match-profile-state" role="alert">
+            <AlertCircle size={20} aria-hidden="true" />
+            <div>
+              <p className="match-profile-state__title">Unable to load profile</p>
+              <p className="match-profile-state__message">{error || "Please try again later."}</p>
+            </div>
+          </div>
+        ) : (
+          <article className="match-profile-card">
+            <header className="match-profile-header">
+              <div className="match-profile-person">
+                <div className="match-profile-avatar" aria-hidden={!profile.profilePicture}>
+                  {profile.profilePicture ? (
+                    <img src={profile.profilePicture} alt={`${profile.fullName} profile`} />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+                <div>
+                  <h1>{profile.fullName}</h1>
+                  <p className="match-profile-meta">
+                    <Phone size={16} aria-hidden="true" />
+                    <span>{profile.phone ? formatPhoneDisplay(profile.phone) : "No phone shared"}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="match-profile-actions">
+                <button
+                  type="button"
+                  className={`match-profile-button${profile.isFavorite ? " match-profile-button--active" : ""}`}
+                  onClick={toggleFavorite}
+                  disabled={favoriteLoading}
+                >
+                  {favoriteLoading ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Heart size={16} aria-hidden="true" />}
+                  <span>{profile.isFavorite ? "Favorited" : "Favorite"}</span>
+                </button>
+                <a
+                  className="match-profile-button match-profile-button--secondary"
+                  href={smsHref}
+                  onClick={(event) => {
+                    if (!smsHref) {
+                      event.preventDefault();
+                    }
+                  }}
+                  aria-disabled={!smsHref}
+                >
+                  <MessageCircle size={16} aria-hidden="true" />
+                  <span>SMS invite</span>
+                </a>
+                <button
+                  type="button"
+                  className={`match-profile-button match-profile-button--secondary${profile.isBlocked ? " match-profile-button--danger" : ""}`}
+                  onClick={toggleBlock}
+                  disabled={blockLoading}
+                >
+                  {blockLoading ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Ban size={16} aria-hidden="true" />}
+                  <span>{profile.isBlocked ? "Unblock" : "Block"}</span>
+                </button>
+              </div>
+            </header>
+
+            {actionError && (
+              <div className="match-profile-banner" role="alert">
+                <AlertCircle size={16} aria-hidden="true" />
+                <p>{actionError}</p>
+              </div>
+            )}
+
+            <section className="match-profile-section">
+              <h2>About</h2>
+              <p className="match-profile-body">{profile.about || "This player hasn’t shared an about section yet."}</p>
+            </section>
+
+            <section className="match-profile-section">
+              <div className="match-profile-section__header">
+                <h2>Level</h2>
+                <div className="match-profile-level-pill">
+                  <BadgeCheck size={16} aria-hidden="true" />
+                  <span>{profile.skillLevel || "Not shared"}</span>
+                </div>
+              </div>
+              <p className="match-profile-body">
+                {profile.verifiedLevelCount > 0
+                  ? `${profile.verifiedLevelCount} players have verified this level.`
+                  : "No level verifications yet."}
+              </p>
+              <button
+                type="button"
+                className="match-profile-button match-profile-button--secondary"
+                onClick={verifyLevel}
+                disabled={verifyLoading}
+              >
+                {verifyLoading ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />}
+                <span>Verify level</span>
+              </button>
+            </section>
+
+            <section className="match-profile-section">
+              <h2>Availability</h2>
+              {profile.availability.length > 0 ? (
+                <ul className="match-profile-list">
+                  {profile.availability.map((slot) => (
+                    <li key={slot}>{slot}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="match-profile-body">No preferences available.</p>
+              )}
+            </section>
+
+            <section className="match-profile-section">
+              <h2>Local courts</h2>
+              {profile.courts.length > 0 ? (
+                <ul className="match-profile-list">
+                  {profile.courts.map((court) => (
+                    <li key={court}>{court}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="match-profile-body">No home courts shared yet.</p>
+              )}
+            </section>
+
+            <section className="match-profile-section">
+              <h2>Looking for</h2>
+              {profile.lookingFor.length > 0 ? (
+                <div className="match-profile-chips">
+                  {profile.lookingFor.map((preference) => (
+                    <span key={preference} className="match-profile-chip">
+                      <Star size={14} aria-hidden="true" />
+                      {preference}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="match-profile-body">No play preferences shared yet.</p>
+              )}
+            </section>
+
+            <section className="match-profile-section match-profile-section--cta">
+              <div>
+                <h2>Invite {profile.fullName.split(" ")[0] || "this player"}</h2>
+                <p className="match-profile-body">Send a quick SMS with your profile link and level.</p>
+              </div>
+              <a
+                className="match-profile-button match-profile-button--primary"
+                href={smsHref}
+                onClick={(event) => {
+                  if (!smsHref) {
+                    event.preventDefault();
+                  }
+                }}
+                aria-disabled={!smsHref}
+              >
+                <MessageCircle size={16} aria-hidden="true" />
+                <span>Send SMS invite</span>
+              </a>
+            </section>
+          </article>
+        )}
       </div>
     </MainLayout>
   );
