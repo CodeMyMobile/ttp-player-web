@@ -649,11 +649,16 @@ const BrowseMatchesPage = () => {
                     ? `${playersJoined}/${totalSpots} players`
                     : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
                 const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
+                const isHiddenLink = match.visibility === "hidden";
                 const isInviteOnlyPill =
                   match.visibility === "private" ||
                   match.visibilityLabel?.toLowerCase() === "invite only";
-                const showVisibilityPill =
-                  Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
+                const showVisibilityPill = Boolean(
+                  match.visibilityLabel &&
+                    match.visibilityLabel !== match.access &&
+                    !isInviteOnlyPill &&
+                    !isHiddenLink,
+                );
                 const hostDisplayName = getHostDisplayName(match, isHost);
                 const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
                 const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
@@ -665,6 +670,7 @@ const BrowseMatchesPage = () => {
                         <span className={`match-status-pill ${match.access.toLowerCase()}`}>
                           {match.access}
                         </span>
+                        {isHiddenLink ? <span className="match-status-pill hidden">Hidden link</span> : null}
                         {showVisibilityPill ? (
                           <span className="match-status-pill visibility">{match.visibilityLabel}</span>
                         ) : null}
