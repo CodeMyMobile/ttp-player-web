@@ -20,15 +20,16 @@ const canonicalizeScheme = (scheme) => {
 const pickScheme = (detected, { defaultScheme, preferScheme } = {}) => {
   const normalizedDetected = canonicalizeScheme(detected);
   const normalizedPrefer = canonicalizeScheme(preferScheme);
-  if (normalizedDetected) {
-    if (normalizedPrefer && normalizedPrefer === normalizedDetected) {
-      return normalizedPrefer;
-    }
-    return normalizedDetected;
-  }
+
+  // When a preference is provided, honor it even if the stored token already has a scheme.
   if (normalizedPrefer) {
     return normalizedPrefer;
   }
+
+  if (normalizedDetected) {
+    return normalizedDetected;
+  }
+
   return canonicalizeScheme(defaultScheme);
 };
 
@@ -64,7 +65,8 @@ export const normalizeAuthToken = (
 export const getStoredAuthToken = (options) => {
   try {
     const stored = localStorage.getItem("authToken");
-    return normalizeAuthToken(stored, options);
+    const session = sessionStorage.getItem("authToken");
+    return normalizeAuthToken(stored ?? session, options);
   } catch {
     return null;
   }
