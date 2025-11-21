@@ -237,6 +237,13 @@ const deriveVisibility = (record: Record<string, unknown>) => {
   return "open";
 };
 
+export const isOpenMatch = (record: unknown): boolean => {
+  const visibility = deriveVisibility((record ?? {}) as Record<string, unknown>);
+  const access = deriveAccess((record ?? {}) as Record<string, unknown>);
+
+  return visibility !== "private" && access !== "Private";
+};
+
 const formatVisibilityLabel = (value?: string) => {
   if (!value) return undefined;
   switch (value) {
