@@ -302,10 +302,11 @@ const MatchDetailsPage = () => {
 
     try {
       const token = getStoredAuthToken({ preferScheme: "Token" });
+      const includeHidden = Boolean(token);
       const response = await getMatchById(id, {
         token: token ?? undefined,
         signal,
-        includeHidden: true,
+        includeHidden,
       });
       const normalized = normalizeMatchDetail(response, { currentUser: user });
       setMatch(normalized);
