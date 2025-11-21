@@ -1265,3 +1265,133 @@ export const getMatchById = async (
   return response;
 };
 
+export const updateMatch = async (
+  id: string | number,
+  {
+    startDate,
+    startTime,
+    locationText,
+    matchFormat,
+    skillLevel,
+    playerLimit,
+    notes,
+    token,
+    signal,
+  }: {
+    startDate?: string;
+    startTime?: string;
+    locationText?: string;
+    matchFormat?: string | null;
+    skillLevel?: string | number | null;
+    playerLimit?: number | null;
+    notes?: string | null;
+    token?: string | null;
+    signal?: AbortSignal;
+  } = {},
+) => {
+  const startIso = startDate && startTime ? toIsoString(`${startDate}T${startTime}`) : undefined;
+  const payload: Record<string, unknown> = {};
+
+  if (startIso) {
+    payload.start_date_time = startIso;
+    payload.dateTime = startIso;
+  }
+
+  if (locationText !== undefined) {
+    payload.location_text = locationText;
+    payload.location = locationText;
+  }
+
+  if (matchFormat !== undefined) {
+    payload.match_format = matchFormat;
+    payload.format = matchFormat;
+  }
+
+  if (skillLevel !== undefined) {
+    payload.skill_level_min = skillLevel;
+    payload.skillLevel = skillLevel;
+  }
+
+  if (playerLimit !== undefined) {
+    payload.player_limit = playerLimit;
+    payload.playerCount = playerLimit;
+  }
+
+  if (notes !== undefined) {
+    payload.notes = notes;
+  }
+
+  return request(`/matches/${id}`, {
+    method: "PUT",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+    body: payload,
+  });
+};
+
+export const joinMatch = async (
+  id: string | number,
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
+) =>
+  request(`/matches/${id}/join`, {
+    method: "POST",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+  });
+
+export const leaveMatch = async (
+  id: string | number,
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
+) =>
+  request(`/matches/${id}/leave`, {
+    method: "POST",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+  });
+
+export const removeMatchParticipant = async (
+  matchId: string | number,
+  playerId: string | number,
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
+) =>
+  request(`/matches/${matchId}/participants/${playerId}`, {
+    method: "DELETE",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+  });
+
+export const sendMatchInvites = async (
+  matchId: string | number,
+  {
+    playerIds = [],
+    phoneNumbers = [],
+    token,
+    signal,
+  }: { playerIds?: Array<string | number>; phoneNumbers?: string[]; token?: string | null; signal?: AbortSignal } = {},
+) =>
+  request(`/matches/${matchId}/invites`, {
+    method: "POST",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+    body: {
+      playerIds,
+      phoneNumbers,
+    },
+  });
+
+export const getMatchShareLink = async (
+  id: string | number,
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
+) =>
+  request(`/matches/${id}/share-link`, {
+    method: "GET",
+    token: token ?? undefined,
+    authScheme: "Bearer",
+    signal,
+  });
+
