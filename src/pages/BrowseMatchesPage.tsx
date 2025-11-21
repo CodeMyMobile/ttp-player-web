@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Activity, Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import {
   identityValues,
+  isOpenMatch,
   listMatches,
   normalizeMatchRecord,
   type NormalizedMatch,
@@ -365,7 +366,7 @@ const BrowseMatchesPage = () => {
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
         if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
-        if (selectedTab === "Open") return { status: "open" as const };
+        if (selectedTab === "Open") return { status: "open" as const, ...includeHiddenParams };
         if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
         if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
         if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
@@ -394,7 +395,9 @@ const BrowseMatchesPage = () => {
           signal,
         });
 
-        const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
+        const normalized = response.matches
+          .map((match) => normalizeMatchRecord(match, { currentUser: user }))
+          .filter((match) => isOpenMatch(match));
         setMatches(normalized);
       } catch (fetchError) {
         if (signal.aborted) return;
