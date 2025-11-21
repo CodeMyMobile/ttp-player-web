@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { createMatch } from "../api/matches";
+import { createMatch, getMatchById } from "../api/matches";
 import type { MatchDraftDetails } from "../types/matchPlay";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -160,6 +160,32 @@ const CreateMatchReviewPage = () => {
         token: authToken,
       });
 
+      if (!response.matchId) {
+        throw new Error("We couldn't save your match. Please try publishing again.");
+      }
+
+      let verifiedShareLink = response.shareLink;
+
+      try {
+        const persisted = await getMatchById(response.matchId, {
+          token: authToken,
+          includeHidden: true,
+          include_hidden: true,
+        });
+        const persistedRecord = (persisted ?? {}) as Record<string, unknown>;
+        const persistedShareLink =
+          (persistedRecord.share_link as string | undefined) ||
+          (persistedRecord.shareLink as string | undefined) ||
+          (persistedRecord.url as string | undefined);
+
+        if (persistedShareLink) {
+          verifiedShareLink = persistedShareLink;
+        }
+      } catch (verificationError) {
+        console.error("Unable to verify created match", verificationError);
+        throw new Error("We couldn't verify your match was saved. Please try again.");
+      }
+
       navigate("/matches/create/published", {
         state: {
           matchDraft,
@@ -167,7 +193,7 @@ const CreateMatchReviewPage = () => {
           invitedPlayers,
           privateFormat,
           matchId: response.matchId,
-          shareLink: response.shareLink,
+          shareLink: verifiedShareLink,
         },
       });
     } catch (error) {
