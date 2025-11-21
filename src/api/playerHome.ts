@@ -1,4 +1,4 @@
-import { request } from "./http";
+import { type AuthScheme, request } from "./http";
 import type { PaginatedResponse } from "./player";
 
 export interface CoachSummary {
@@ -328,13 +328,15 @@ export const getCheckLocation = async ({
 
 export interface FetchPlayerDetailsParams extends PlayerTokenOnlyParams {
   userId: number | string;
+  authScheme?: AuthScheme;
 }
 
-export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsParams) =>
+export const fetchPlayerDetails = async ({ token, userId, authScheme }: FetchPlayerDetailsParams) =>
   request<Record<string, unknown>>(
     "/player/surveys/getchecklocation/specific_user",
     {
       token,
+      authScheme,
       query: {
         userId,
       },
