@@ -364,18 +364,18 @@ const BrowseMatchesPage = () => {
       const isHostingTab = selectedTab === "Hosting";
       const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
-        if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
-        if (selectedTab === "Open") return { status: "upcoming" as const, ...includeHiddenParams };
+        if (selectedTab === "My Matches") return { filter: "my" as const, ...includeHiddenParams };
+        if (isHostingTab) return { filter: "my" as const, ...includeHiddenParams };
+        if (selectedTab === "Open") return { ...includeHiddenParams };
         if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
-        if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
-        if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
-          return { status: "upcoming" as const };
-        return { status: "upcoming" as const };
+        if (selectedTab === "Archived") return { filter: "archieve" as const, ...includeHiddenParams };
+        if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend") return {};
+        return {};
       })();
       const perPage = isHostingTab ? 50 : 20;
       const hasLocationSelection = Boolean(locationFilter || position);
-      const locationParams = hasLocationSelection
+      const isMyMatchesFilter = tabFilters.filter === "my" || tabFilters.filter === "archieve";
+      const locationParams = hasLocationSelection && !isMyMatchesFilter
         ? {
             latitude: position?.latitude,
             longitude: position?.longitude,
