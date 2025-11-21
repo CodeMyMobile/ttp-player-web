@@ -360,21 +360,21 @@ const BrowseMatchesPage = () => {
       setMatchesError(null);
 
       const distanceMiles = parseDistanceMiles(selectedDistance);
-      const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
-      const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
+      const personalFilters = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const, ...includeHiddenParams };
-        if (isHostingTab) return { filter: "my" as const, ...includeHiddenParams };
-        if (selectedTab === "Open") return { ...includeHiddenParams };
-        if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
-        if (selectedTab === "Archived") return { filter: "archieve" as const, ...includeHiddenParams };
+        if (selectedTab === "My Matches") return { filter: "my" as const, ...personalFilters };
+        if (isHostingTab) return { filter: "my" as const, ...personalFilters };
+        if (selectedTab === "Open") return {};
+        if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...personalFilters };
+        if (selectedTab === "Archived") return { filter: "archieve" as const, ...personalFilters };
         if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend") return {};
         return {};
       })();
+      const isMyMatchesFilter = tabFilters.filter === "my" || tabFilters.filter === "archieve";
+      const searchQuery = (isMyMatchesFilter ? appliedSearch : appliedSearch || locationQuery).trim();
       const perPage = isHostingTab ? 50 : 20;
       const hasLocationSelection = Boolean(locationFilter || position);
-      const isMyMatchesFilter = tabFilters.filter === "my" || tabFilters.filter === "archieve";
       const locationParams = hasLocationSelection && !isMyMatchesFilter
         ? {
             latitude: position?.latitude,
