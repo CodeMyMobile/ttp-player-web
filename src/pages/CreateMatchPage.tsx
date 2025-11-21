@@ -384,7 +384,7 @@ const CreateMatchPage = () => {
                 });
                 return;
               }
-              navigate("/matches/create/settings");
+              navigate("/matches/create/settings", { state: { matchDraft } });
             }}
           >
             Next

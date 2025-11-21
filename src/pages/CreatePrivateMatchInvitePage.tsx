@@ -585,7 +585,11 @@ const CreatePrivateMatchInvitePage = () => {
           <button
             type="button"
             className="create-match-actions__primary"
-            onClick={() => navigate("/matches/create/review")}
+            onClick={() =>
+              navigate("/matches/create/review", {
+                state: { matchDraft, connectIntent, invitedPlayers, privateFormat: format },
+              })
+            }
           >
             Next
           </button>

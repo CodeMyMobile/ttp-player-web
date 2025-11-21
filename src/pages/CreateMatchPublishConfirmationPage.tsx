@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Apple,
   CalendarDays,
@@ -17,45 +17,131 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { createdMatchSummary } from "../data/mockCreateMatch";
+import type { MatchDraftDetails } from "../types/matchPlay";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
+
+type Invitee = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  initials?: string;
+  relationshipLabel?: string;
+  statusLabel?: string;
+  statusTone?: "host" | "sms" | "pending" | "guest" | "confirmed" | "declined";
+};
+
+type ReviewSettings = {
+  skillLevel?: string;
+  format?: string;
+  visibility?: "public" | "hidden";
+  courtNumber?: string;
+  notes?: string;
+};
+
+type PublishState = {
+  matchDraft?: MatchDraftDetails;
+  settings?: ReviewSettings;
+  invitedPlayers?: Invitee[];
+  privateFormat?: string;
+  matchId?: string;
+  shareLink?: string;
+};
 
 const formatDateForCalendar = (isoString: string) => {
   const normalized = new Date(isoString);
   return normalized.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 };
 
+const formatDateLabel = (date?: string) => {
+  if (!date) return "Date TBA";
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return "Date TBA";
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(value);
+};
+
+const formatTimeLabel = (start?: string, durationMinutes = 0) => {
+  if (!start) return "Time TBA";
+  const startDate = new Date(start);
+  if (Number.isNaN(startDate.getTime())) return "Time TBA";
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+  const startLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(startDate);
+  const endLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(endDate);
+  return `${startLabel} – ${endLabel}`;
+};
+
+const formatMatchFormat = (value?: string) => {
+  if (!value) return "Format TBA";
+  switch (value) {
+    case "singles":
+      return "Singles";
+    case "doubles":
+      return "Doubles";
+    case "round-robin":
+      return "Round robin";
+    case "dingles":
+      return "Dingles";
+    default:
+      return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+};
+
 const CreateMatchPublishConfirmationPage = () => {
+  const routerLocation = useLocation();
   const navigate = useNavigate();
 
-  const eventLocation = `${createdMatchSummary.locationName}, ${createdMatchSummary.locationDetail}`;
-  const calendarDetails = `Hosted by ${createdMatchSummary.hostName}. ${createdMatchSummary.formatLabel} • ${createdMatchSummary.skillLevelLabel}. ${createdMatchSummary.notes} RSVP: ${createdMatchSummary.shareLink}`;
-  const shareMessage = `Join me for ${createdMatchSummary.title} on ${createdMatchSummary.dateLabel} at ${createdMatchSummary.timeLabel} at ${createdMatchSummary.locationName}. RSVP: ${createdMatchSummary.shareLink}`;
-  const rosterInvitees = [createdMatchSummary.hostInvitee, ...createdMatchSummary.invitedPlayers];
+  const { matchDraft, settings, invitedPlayers, privateFormat, shareLink, matchId } =
+    (routerLocation.state as PublishState | null) ?? {};
+
+  const startIso = matchDraft?.date ? new Date(`${matchDraft.date}T${matchDraft.time || "18:00"}`).toISOString() : undefined;
+  const durationMinutes = matchDraft?.duration === "60" ? 60 : matchDraft?.duration === "90" ? 90 : 120;
+  const endIso = startIso ? new Date(new Date(startIso).getTime() + durationMinutes * 60 * 1000).toISOString() : undefined;
+  const dateLabel = formatDateLabel(matchDraft?.date);
+  const timeLabel = formatTimeLabel(startIso, durationMinutes);
+  const locationName = matchDraft?.location || "TBD";
+  const visibilityValue = settings?.visibility === "hidden" ? "Hidden link" : "Public link";
+  const formattedSkill = matchDraft?.matchType === "private" ? "Private roster" : settings?.skillLevel ?? "All levels";
+  const formattedFormat = formatMatchFormat(settings?.format ?? privateFormat);
+  const courtLabel = settings?.courtNumber ? `Court ${settings.courtNumber}` : "Court TBA";
+  const formattedNotes = settings?.notes || "";
+  const shareLinkLabel = shareLink || "Link available after publish";
+  const rosterInvitees = invitedPlayers ?? [];
+  const playersNeededText = matchDraft
+    ? matchDraft.isUnlimitedPlayers
+      ? "Unlimited spots open"
+      : `${matchDraft.playersNeeded} more needed`
+    : "Roster TBD";
+
+  const eventLocation = `${locationName}`;
+  const calendarDetails = `Hosted by you. ${formattedFormat} • ${formattedSkill}. ${formattedNotes} RSVP: ${shareLinkLabel}`;
+  const shareMessage = `Join me for ${locationName} on ${dateLabel} at ${timeLabel}. RSVP: ${shareLinkLabel}`;
+
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const googleCalendarUrl = useMemo(() => {
-    const start = formatDateForCalendar(createdMatchSummary.startDateTime);
-    const end = formatDateForCalendar(createdMatchSummary.endDateTime);
+    if (!startIso || !endIso) return "";
+    const start = formatDateForCalendar(startIso);
+    const end = formatDateForCalendar(endIso);
     const params = new URLSearchParams({
       action: "TEMPLATE",
-      text: createdMatchSummary.title,
+      text: locationName,
       dates: `${start}/${end}`,
       details: calendarDetails,
       location: eventLocation,
-      ctz: createdMatchSummary.timezone,
+      ctz: timezone,
     });
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
-  }, [calendarDetails, eventLocation]);
+  }, [calendarDetails, endIso, eventLocation, locationName, startIso, timezone]);
 
   const outlookCalendarUrl = useMemo(() => {
-    const start = new Date(createdMatchSummary.startDateTime).toISOString();
-    const end = new Date(createdMatchSummary.endDateTime).toISOString();
+    if (!startIso || !endIso) return "";
+    const start = new Date(startIso).toISOString();
+    const end = new Date(endIso).toISOString();
     const params = new URLSearchParams({
       path: "/calendar/action/compose",
       rru: "addevent",
-      subject: createdMatchSummary.title,
+      subject: locationName,
       startdt: start,
       enddt: end,
       body: calendarDetails,
@@ -65,18 +151,19 @@ const CreateMatchPublishConfirmationPage = () => {
   }, [calendarDetails, eventLocation]);
 
   const icsDownloadUrl = useMemo(() => {
-    const start = formatDateForCalendar(createdMatchSummary.startDateTime);
-    const end = formatDateForCalendar(createdMatchSummary.endDateTime);
+    if (!startIso || !endIso) return "";
+    const start = formatDateForCalendar(startIso);
+    const end = formatDateForCalendar(endIso);
     const lines = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
       "PRODID:-//TTP Tennis//Match Publish//EN",
       "BEGIN:VEVENT",
-      `UID:${createdMatchSummary.id}@ttp.tennis`,
+      `UID:${matchId ?? locationName}@ttp.tennis`,
       `DTSTAMP:${formatDateForCalendar(new Date().toISOString())}`,
       `DTSTART:${start}`,
       `DTEND:${end}`,
-      `SUMMARY:${createdMatchSummary.title}`,
+      `SUMMARY:${locationName}`,
       `DESCRIPTION:${calendarDetails}`,
       `LOCATION:${eventLocation}`,
       "END:VEVENT",
@@ -86,7 +173,7 @@ const CreateMatchPublishConfirmationPage = () => {
   }, [calendarDetails, eventLocation]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(createdMatchSummary.shareLink).catch(() => {
+    navigator.clipboard.writeText(shareLinkLabel).catch(() => {
       /* no-op */
     });
   };
@@ -104,58 +191,58 @@ const CreateMatchPublishConfirmationPage = () => {
   };
 
   const handleViewMatchDetails = () => {
-    navigate(`/matches/${createdMatchSummary.id}`);
+    navigate(`/matches/${matchId ?? ""}`);
   };
 
   const handleViewMatches = () => {
     navigate("/matches");
   };
 
-  if (createdMatchSummary.isPrivate) {
+  if (matchDraft?.matchType === "private") {
     return (
       <MainLayout>
         <div className="create-match-page">
           <div className="create-match-page__header create-match-page__header--centered">
-            <div className="private-success-hero" aria-live="polite">
-              <span className="private-success-hero__icon" aria-hidden="true">
-                <CheckCircle2 size={36} />
-              </span>
-              <h1>Private match created!</h1>
-              <p>Invitations have been sent to your selected players.</p>
-            </div>
-          </div>
-
-          <section className="create-match-card private-summary-card" aria-labelledby="private-summary-heading">
-            <div className="private-summary-card__header">
-              <div>
-                <p className="private-summary-card__eyebrow">{createdMatchSummary.title}</p>
-                <h2 id="private-summary-heading">{createdMatchSummary.formatLabel}</h2>
+              <div className="private-success-hero" aria-live="polite">
+                <span className="private-success-hero__icon" aria-hidden="true">
+                  <CheckCircle2 size={36} />
+                </span>
+                <h1>Private match created!</h1>
+                <p>Invitations have been sent to your selected players.</p>
               </div>
-              <span className="private-summary-card__badge">Private</span>
             </div>
+
+            <section className="create-match-card private-summary-card" aria-labelledby="private-summary-heading">
+              <div className="private-summary-card__header">
+                <div>
+                  <p className="private-summary-card__eyebrow">{locationName}</p>
+                  <h2 id="private-summary-heading">{formattedFormat}</h2>
+                </div>
+                <span className="private-summary-card__badge">Private</span>
+              </div>
             <div className="private-summary-card__schedule">
               <div className="private-summary-card__schedule-item">
                 <CalendarDays size={18} aria-hidden="true" />
-                <span>{createdMatchSummary.dateLabel}</span>
+                <span>{dateLabel}</span>
               </div>
               <div className="private-summary-card__schedule-item">
                 <Clock size={18} aria-hidden="true" />
-                <span>{createdMatchSummary.timeLabel}</span>
+                <span>{timeLabel}</span>
               </div>
             </div>
             <div className="private-summary-card__meta">
               <div className="private-summary-card__detail">
                 <MapPin size={18} aria-hidden="true" />
                 <div>
-                  <span className="private-summary-card__detail-label">{createdMatchSummary.locationName}</span>
-                  <span className="private-summary-card__detail-hint">{createdMatchSummary.locationDetail}</span>
+                  <span className="private-summary-card__detail-label">{locationName}</span>
+                  <span className="private-summary-card__detail-hint">Location shared after approval</span>
                 </div>
               </div>
               <div className="private-summary-card__detail">
                 <Users size={18} aria-hidden="true" />
                 <div>
-                  <span className="private-summary-card__detail-label">{createdMatchSummary.inviteSummaryLabel}</span>
-                  <span className="private-summary-card__detail-hint">{createdMatchSummary.inviteNeedsLabel}</span>
+                  <span className="private-summary-card__detail-label">{`${rosterInvitees.length} players invited`}</span>
+                  <span className="private-summary-card__detail-hint">{playersNeededText}</span>
                 </div>
               </div>
             </div>
@@ -179,8 +266,8 @@ const CreateMatchPublishConfirmationPage = () => {
                 <p className="create-match-card__subtitle">Keep tabs on who has confirmed so you can fill any remaining spots.</p>
               </div>
               <div className="invite-summary" aria-live="polite">
-                <span className="invite-summary__count">{createdMatchSummary.inviteSummaryLabel}</span>
-                <span className="invite-summary__helper">{createdMatchSummary.inviteNeedsLabel}</span>
+                <span className="invite-summary__count">{`${rosterInvitees.length} players invited`}</span>
+                <span className="invite-summary__helper">{playersNeededText}</span>
               </div>
             </div>
 
@@ -200,7 +287,9 @@ const CreateMatchPublishConfirmationPage = () => {
                     </div>
                   </div>
                   <div className="invitee-row__actions">
-                    <span className={`invitee-status invitee-status--${player.statusTone}`}>{player.statusLabel}</span>
+                    <span className={`invitee-status invitee-status--${player.statusTone ?? "pending"}`}>
+                      {player.statusLabel ?? "Invite"}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -223,7 +312,7 @@ const CreateMatchPublishConfirmationPage = () => {
                 </div>
                 <ExternalLink size={16} aria-hidden="true" />
               </a>
-              <a className="private-calendar-button" href={icsDownloadUrl} download={`${createdMatchSummary.id}.ics`}>
+              <a className="private-calendar-button" href={icsDownloadUrl} download={`${matchId ?? "match"}.ics`}>
                 <div className="private-calendar-button__icon" aria-hidden="true">
                   <Apple size={18} />
                 </div>
@@ -303,7 +392,7 @@ const CreateMatchPublishConfirmationPage = () => {
               <CheckCircle2 size={32} />
             </div>
             <div className="create-match-confirmation__content">
-              <h2>All set, {createdMatchSummary.hostName}!</h2>
+              <h2>All set, you&apos;re live!</h2>
               <p>
                 Your open match is now live. Share the invite link so players can request a spot and keep everyone in sync
                 with calendar reminders.
@@ -322,8 +411,8 @@ const CreateMatchPublishConfirmationPage = () => {
 
           <div className="review-summary__intro">
             <div>
-              <p className="review-summary__eyebrow">{createdMatchSummary.matchType}</p>
-              <h3 className="review-summary__title">{createdMatchSummary.title}</h3>
+              <p className="review-summary__eyebrow">{matchDraft?.matchType === "private" ? "Private match" : "Open match"}</p>
+              <h3 className="review-summary__title">{locationName}</h3>
             </div>
           </div>
 
@@ -334,7 +423,7 @@ const CreateMatchPublishConfirmationPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Date</span>
-                <span className="review-summary__value">{createdMatchSummary.dateLabel}</span>
+                <span className="review-summary__value">{dateLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -343,7 +432,7 @@ const CreateMatchPublishConfirmationPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Time &amp; duration</span>
-                <span className="review-summary__value">{createdMatchSummary.timeLabel}</span>
+                <span className="review-summary__value">{timeLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -352,8 +441,8 @@ const CreateMatchPublishConfirmationPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Location</span>
-                <span className="review-summary__value">{createdMatchSummary.locationName}</span>
-                <span className="review-summary__hint">{createdMatchSummary.locationDetail}</span>
+                <span className="review-summary__value">{locationName}</span>
+                <span className="review-summary__hint">Location shared after approval</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -362,7 +451,7 @@ const CreateMatchPublishConfirmationPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Players needed</span>
-                <span className="review-summary__value">{createdMatchSummary.playersNeededLabel}</span>
+                <span className="review-summary__value">{playersNeededText}</span>
                 <span className="review-summary__hint">Total includes you as host</span>
               </div>
             </div>
@@ -381,7 +470,7 @@ const CreateMatchPublishConfirmationPage = () => {
             <div className="review-summary__content">
               <span className="review-summary__label">Share link</span>
               <div className="review-summary__link">
-                <code>{createdMatchSummary.shareLink}</code>
+                <code>{shareLinkLabel}</code>
                 <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
                   <Copy size={16} aria-hidden="true" />
                   Copy
@@ -454,7 +543,7 @@ const CreateMatchPublishConfirmationPage = () => {
               </div>
               <ExternalLink size={16} aria-hidden="true" />
             </a>
-            <a className="calendar-action" href={icsDownloadUrl} download={`${createdMatchSummary.id}.ics`}>
+            <a className="calendar-action" href={icsDownloadUrl} download={`${matchId ?? "match"}.ics`}>
               <div className="calendar-action__icon" aria-hidden="true">
                 <CalendarDays size={18} />
               </div>
