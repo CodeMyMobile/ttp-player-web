@@ -362,6 +362,7 @@ const BrowseMatchesPage = () => {
       const distanceMiles = parseDistanceMiles(selectedDistance);
       const searchQuery = (appliedSearch || locationQuery).trim();
       const isHostingTab = selectedTab === "Hosting";
+      const isPersonalTab = selectedTab === "My Matches" || isHostingTab;
       const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
         if (selectedTab === "My Matches")
@@ -376,7 +377,8 @@ const BrowseMatchesPage = () => {
       })();
       const perPage = isHostingTab ? 50 : 20;
       const hasLocationSelection = Boolean(locationFilter || position);
-      const locationParams = hasLocationSelection
+      const shouldApplyLocation = hasLocationSelection && !isPersonalTab;
+      const locationParams = shouldApplyLocation
         ? {
             latitude: position?.latitude,
             longitude: position?.longitude,
