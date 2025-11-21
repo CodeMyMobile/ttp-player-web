@@ -20,6 +20,8 @@ export type MatchDraftDetails = {
   time: string;
   duration: MatchDurationOption;
   location: string;
+  locationLatitude?: number;
+  locationLongitude?: number;
   playersNeeded: number;
   isUnlimitedPlayers: boolean;
 };

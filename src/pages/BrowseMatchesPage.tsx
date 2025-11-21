@@ -366,7 +366,7 @@ const BrowseMatchesPage = () => {
       const tabFilters = (() => {
         if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
         if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
-        if (selectedTab === "Open") return { status: "open" as const, ...includeHiddenParams };
+        if (selectedTab === "Open") return { status: "upcoming" as const, ...includeHiddenParams };
         if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
         if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
         if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")

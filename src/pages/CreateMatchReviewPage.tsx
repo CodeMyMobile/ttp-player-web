@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Clock,
@@ -12,16 +12,113 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import { createdMatchSummary } from "../data/mockCreateMatch";
+import { createMatch, getMatchById } from "../api/matches";
+import type { MatchDraftDetails } from "../types/matchPlay";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./CreateMatchPage.css";
 import "./CreatePrivateMatchInvitePage.css";
 
+type Invitee = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  initials?: string;
+  relationshipLabel?: string;
+  statusLabel?: string;
+  statusTone?: "host" | "sms" | "pending" | "guest" | "confirmed" | "declined";
+};
+
+type ReviewSettings = {
+  skillLevel?: string;
+  format?: string;
+  visibility?: "public" | "hidden";
+  courtNumber?: string;
+  notes?: string;
+};
+
+type ReviewState = {
+  matchDraft?: MatchDraftDetails;
+  settings?: ReviewSettings;
+  invitedPlayers?: Invitee[];
+  connectIntent?: unknown;
+  privateFormat?: string;
+  shareLink?: string;
+  matchId?: string;
+};
+
+const formatDateLabel = (date?: string) => {
+  if (!date) return "Date TBA";
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return "Date TBA";
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(value);
+};
+
+const formatTimeLabel = (date?: string, durationMinutes = 0) => {
+  if (!date) return "Time TBA";
+  const start = new Date(date);
+  if (Number.isNaN(start.getTime())) return "Time TBA";
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const startLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(start);
+  const endLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(end);
+  return `${startLabel} – ${endLabel}`;
+};
+
+const formatMatchFormat = (value?: string) => {
+  if (!value) return "Format TBA";
+  switch (value) {
+    case "singles":
+      return "Singles";
+    case "doubles":
+      return "Doubles";
+    case "round-robin":
+      return "Round robin";
+    case "dingles":
+      return "Dingles";
+    default:
+      return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+};
+
 const CreateMatchReviewPage = () => {
+  const routerLocation = useLocation();
   const navigate = useNavigate();
+  const { matchDraft, settings, invitedPlayers, privateFormat, shareLink, matchId } =
+    (routerLocation.state as ReviewState | null) ?? {};
   const [isPublishing, setIsPublishing] = useState(false);
-  const inviteRoster = [createdMatchSummary.hostInvitee, ...createdMatchSummary.invitedPlayers];
-  const showInvitedPlayers = createdMatchSummary.invitedPlayers.length > 0;
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const roster = invitedPlayers ?? [];
+  const showInvitedPlayers = roster.length > 0;
+
+  const startIso = useMemo(() => {
+    if (!matchDraft?.date) return undefined;
+    const time = matchDraft.time || "18:00";
+    return new Date(`${matchDraft.date}T${time}`).toISOString();
+  }, [matchDraft?.date, matchDraft?.time]);
+
+  const durationMinutes = matchDraft?.duration === "60" ? 60 : matchDraft?.duration === "90" ? 90 : 120;
+  const playersNeededLabel = matchDraft
+    ? matchDraft.isUnlimitedPlayers
+      ? "Unlimited players"
+      : `${matchDraft.playersNeeded} players needed`
+    : "Players TBD";
+
+  const visibilityLabel = matchDraft?.matchType === "private" ? "Private invitations" : "Open listing";
+  const visibilityDescription =
+    matchDraft?.matchType === "private"
+      ? "Invites are delivered directly to your roster."
+      : settings?.visibility === "hidden"
+        ? "Only people with the link can view this match."
+        : "Visible in match search and to players nearby.";
+
+  const formattedSkill = matchDraft?.matchType === "private" ? "Private roster" : settings?.skillLevel ?? "All levels";
+  const formattedFormat = formatMatchFormat(settings?.format ?? privateFormat);
+  const formattedNotes = settings?.notes || "";
+  const courtLabel = settings?.courtNumber ? `Court ${settings.courtNumber}` : "Court TBA";
+  const matchTypeLabel = matchDraft?.matchType === "private" ? "Private match" : "Open match";
+  const matchTitle = matchDraft?.location ? `${matchDraft.location}` : "Match details";
+  const locationDetail = matchDraft?.location ? "Location shared after approval" : "Location to be confirmed";
+  const shareLinkLabel = shareLink || "Link available after publish";
 
   const handleEditDetails = () => {
     navigate("/matches/create");
@@ -32,22 +129,96 @@ const CreateMatchReviewPage = () => {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(createdMatchSummary.shareLink).catch(() => {
+    navigator.clipboard.writeText(shareLinkLabel).catch(() => {
       /* no-op */
     });
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
+    if (!matchDraft) {
+      navigate("/matches/create");
+      return;
+    }
     setIsPublishing(true);
-    window.setTimeout(() => {
+    setPublishError(null);
+    try {
+      const authToken = getStoredAuthToken({ preferScheme: "token" });
+      if (!authToken) {
+        throw new Error("Please sign in to publish this match.");
+      }
+
+      const rosterSize = matchDraft.isUnlimitedPlayers ? undefined : matchDraft.playersNeeded + 1;
+      const response = await createMatch({
+        privacy: matchDraft.matchType,
+        startDateTime: startIso,
+        locationText: matchDraft.location,
+        latitude: matchDraft.locationLatitude,
+        longitude: matchDraft.locationLongitude,
+        rosterSize,
+        skillLevel: matchDraft.matchType === "open" ? settings?.skillLevel : undefined,
+        matchFormat: matchDraft.matchType === "open" ? settings?.format : privateFormat,
+        notes: formattedNotes,
+        linkOnly: settings?.visibility === "hidden",
+        token: authToken,
+      });
+
+      if (!response.matchId) {
+        throw new Error("We couldn't save your match. Please try publishing again.");
+      }
+
+      let verifiedShareLink = response.shareLink;
+
+      try {
+        const persisted = await getMatchById(response.matchId, {
+          token: authToken,
+          includeHidden: true,
+          include_hidden: true,
+        });
+        const persistedRecord = (persisted ?? {}) as Record<string, unknown>;
+        const persistedShareLink =
+          (persistedRecord.share_link as string | undefined) ||
+          (persistedRecord.shareLink as string | undefined) ||
+          (persistedRecord.url as string | undefined);
+
+        if (persistedShareLink) {
+          verifiedShareLink = persistedShareLink;
+        }
+      } catch (verificationError) {
+        console.error("Unable to verify created match", verificationError);
+        throw new Error("We couldn't verify your match was saved. Please try again.");
+      }
+
+      navigate("/matches/create/published", {
+        state: {
+          matchDraft,
+          settings,
+          invitedPlayers,
+          privateFormat,
+          matchId: response.matchId,
+          shareLink: verifiedShareLink,
+        },
+      });
+    } catch (error) {
+      // Keep the review page interactive even if publish fails
+      console.error(error);
+      setPublishError((error as Error | undefined)?.message ?? "Unable to publish match. Please try again.");
       setIsPublishing(false);
-      navigate("/matches/create/published");
-    }, 900);
+    }
   };
 
-  const pageSubtitle = createdMatchSummary.isPrivate
-    ? "Review your private roster, confirm the essentials, and publish when everything looks good."
-    : "Confirm the essentials, share the match link, and publish when you're ready. You can always edit the details after publishing.";
+  const pageSubtitle =
+    matchDraft?.matchType === "private"
+      ? "Review your private roster, confirm the essentials, and publish when everything looks good."
+      : "Confirm the essentials, share the match link, and publish when you're ready. You can always edit the details after publishing.";
+
+  const dateLabel = formatDateLabel(matchDraft?.date);
+  const timeLabel = formatTimeLabel(startIso, durationMinutes);
+  const locationName = matchDraft?.location || "TBD";
+  const visibilityValue = settings?.visibility === "hidden" ? "Hidden link" : "Public link";
+  const skillHelper =
+    matchDraft?.matchType === "private"
+      ? "Private roster only"
+      : "Players who match this level will request to join.";
 
   return (
     <MainLayout>
@@ -67,7 +238,7 @@ const CreateMatchReviewPage = () => {
             <div className="progress-step progress-step--complete">
               <span className="progress-step__number">2</span>
               <span className="progress-step__label">
-                {createdMatchSummary.isPrivate ? "Invite players" : "Match settings"}
+                {matchDraft?.matchType === "private" ? "Invite players" : "Match settings"}
               </span>
             </div>
             <div className="progress-connector" aria-hidden="true" />
@@ -91,8 +262,8 @@ const CreateMatchReviewPage = () => {
 
           <div className="review-summary__intro">
             <div>
-              <p className="review-summary__eyebrow">{createdMatchSummary.matchType}</p>
-              <h3 className="review-summary__title">{createdMatchSummary.title}</h3>
+              <p className="review-summary__eyebrow">{matchTypeLabel}</p>
+              <h3 className="review-summary__title">{matchTitle}</h3>
             </div>
           </div>
 
@@ -103,7 +274,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Date</span>
-                <span className="review-summary__value">{createdMatchSummary.dateLabel}</span>
+                <span className="review-summary__value">{dateLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -112,7 +283,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Time &amp; duration</span>
-                <span className="review-summary__value">{createdMatchSummary.timeLabel}</span>
+                <span className="review-summary__value">{timeLabel}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -121,8 +292,8 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Location</span>
-                <span className="review-summary__value">{createdMatchSummary.locationName}</span>
-                <span className="review-summary__hint">{createdMatchSummary.locationDetail}</span>
+                <span className="review-summary__value">{locationName}</span>
+                <span className="review-summary__hint">{locationDetail}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -131,7 +302,7 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Players needed</span>
-                <span className="review-summary__value">{createdMatchSummary.playersNeededLabel}</span>
+                <span className="review-summary__value">{playersNeededLabel}</span>
                 <span className="review-summary__hint">Total includes you as host</span>
               </div>
             </div>
@@ -156,8 +327,8 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Skill level</span>
-                <span className="review-summary__value">{createdMatchSummary.skillLevelLabel}</span>
-                <span className="review-summary__hint">{createdMatchSummary.skillDescription}</span>
+                <span className="review-summary__value">{formattedSkill}</span>
+                <span className="review-summary__hint">{skillHelper}</span>
               </div>
             </div>
             <div className="review-summary__item" role="listitem">
@@ -167,9 +338,9 @@ const CreateMatchReviewPage = () => {
               <div className="review-summary__content">
                 <span className="review-summary__label">Format &amp; court</span>
                 <span className="review-summary__value">
-                  {createdMatchSummary.formatLabel} • {createdMatchSummary.courtLabel}
+                  {formattedFormat} • {courtLabel}
                 </span>
-                <span className="review-summary__hint">{createdMatchSummary.notes}</span>
+                <span className="review-summary__hint">{formattedNotes || ""}</span>
               </div>
             </div>
           </div>
@@ -185,13 +356,13 @@ const CreateMatchReviewPage = () => {
                 </p>
               </div>
               <div className="invite-summary" aria-live="polite">
-                <span className="invite-summary__count">{createdMatchSummary.inviteSummaryLabel}</span>
-                <span className="invite-summary__helper">{createdMatchSummary.inviteNeedsLabel}</span>
+                <span className="invite-summary__count">{`${roster.length} players invited`}</span>
+                <span className="invite-summary__helper">{playersNeededLabel}</span>
               </div>
             </div>
 
             <div className="invitee-list">
-              {inviteRoster.map((player) => (
+              {roster.map((player) => (
                 <div key={player.id} className="invitee-row">
                   <div className="invitee-row__details">
                     <div
@@ -206,7 +377,9 @@ const CreateMatchReviewPage = () => {
                     </div>
                   </div>
                   <div className="invitee-row__actions">
-                    <span className={`invitee-status invitee-status--${player.statusTone}`}>{player.statusLabel}</span>
+                    <span className={`invitee-status invitee-status--${player.statusTone ?? "pending"}`}>
+                      {player.statusLabel ?? "Invite"}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -229,16 +402,16 @@ const CreateMatchReviewPage = () => {
               </div>
               <div className="review-summary__content">
                 <span className="review-summary__label">Visibility</span>
-                <span className="review-summary__value">{createdMatchSummary.visibilityLabel}</span>
-                <span className="review-summary__hint">{createdMatchSummary.visibilityDescription}</span>
+                <span className="review-summary__value">{visibilityValue}</span>
+                <span className="review-summary__hint">{visibilityDescription}</span>
               </div>
             </div>
-            {!createdMatchSummary.isPrivate && (
+            {matchDraft?.matchType !== "private" && (
               <div className="review-summary__item review-summary__item--link" role="listitem">
                 <div className="review-summary__content">
                   <span className="review-summary__label">Share link</span>
                   <div className="review-summary__link">
-                    <code>{createdMatchSummary.shareLink}</code>
+                    <code>{shareLinkLabel}</code>
                     <button type="button" className="review-summary__copy" onClick={handleCopyLink}>
                       <Copy size={16} aria-hidden="true" />
                       Copy
@@ -254,6 +427,7 @@ const CreateMatchReviewPage = () => {
           <button type="button" className="create-match-actions__secondary" onClick={handleEditSettings}>
             Back to settings
           </button>
+          {publishError && <p className="create-match-actions__error">{publishError}</p>}
           <button
             type="button"
             className="create-match-actions__primary"

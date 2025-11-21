@@ -1,6 +1,10 @@
+/// <reference types="google.maps" />
+
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, Globe, Lock, MapPin, Users } from "lucide-react";
+
+import Autocomplete from "react-google-autocomplete";
 
 import MainLayout from "../components/MainLayout";
 import type { ConnectIntent, MatchDraftDetails, MatchDurationOption } from "../types/matchPlay";
@@ -86,6 +90,8 @@ const CreateMatchPage = () => {
   const [selectedTime, setSelectedTime] = useState("18:00");
   const [selectedDuration, setSelectedDuration] = useState<MatchDurationOption>("120");
   const [matchLocation, setMatchLocation] = useState(connectIntent?.preferredCourt || "Penmar Recreation Center");
+  const [matchLocationLat, setMatchLocationLat] = useState<number | undefined>();
+  const [matchLocationLng, setMatchLocationLng] = useState<number | undefined>();
   const [playersNeeded, setPlayersNeeded] = useState(3);
   const [isUnlimitedPlayers, setUnlimitedPlayers] = useState(false);
 
@@ -110,6 +116,8 @@ const CreateMatchPage = () => {
     time: selectedTime,
     duration: selectedDuration,
     location: matchLocation,
+    locationLatitude: matchLocationLat,
+    locationLongitude: matchLocationLng,
     playersNeeded,
     isUnlimitedPlayers,
   };
@@ -291,12 +299,33 @@ const CreateMatchPage = () => {
             <span className="input-field__label">Venue or courts</span>
             <div className="input-wrapper">
               <MapPin size={18} aria-hidden="true" />
-              <input
+              <Autocomplete
                 id="match-location-input"
-                type="text"
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
                 placeholder="e.g., Oceanside Tennis Center"
+                className="match-location-autocomplete"
                 value={matchLocation}
-                onChange={(event) => setMatchLocation(event.target.value)}
+                onChange={(event) => {
+                  setMatchLocation(event.target.value);
+                  setMatchLocationLat(undefined);
+                  setMatchLocationLng(undefined);
+                }}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) return;
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label = place.formatted_address || place.name || matchLocation || "Custom location";
+
+                  setMatchLocation(label);
+                  if (typeof lat === "number" && !Number.isNaN(lat)) {
+                    setMatchLocationLat(lat);
+                  }
+                  if (typeof lng === "number" && !Number.isNaN(lng)) {
+                    setMatchLocationLng(lng);
+                  }
+                }}
+                options={{ types: ["geocode", "establishment"], componentRestrictions: { country: "us" } }}
               />
             </div>
           </label>
@@ -309,7 +338,11 @@ const CreateMatchPage = () => {
                   key={quickPick.label}
                   type="button"
                   className={`location-pill${matchLocation === quickPick.label ? " location-pill--active" : ""}`}
-                  onClick={() => setMatchLocation(quickPick.label)}
+                  onClick={() => {
+                    setMatchLocation(quickPick.label);
+                    setMatchLocationLat(undefined);
+                    setMatchLocationLng(undefined);
+                  }}
                 >
                   <span className="location-pill__title">{quickPick.label}</span>
                   <span className="location-pill__subtitle">{quickPick.description}</span>
@@ -384,7 +417,7 @@ const CreateMatchPage = () => {
                 });
                 return;
               }
-              navigate("/matches/create/settings");
+              navigate("/matches/create/settings", { state: { matchDraft } });
             }}
           >
             Next
