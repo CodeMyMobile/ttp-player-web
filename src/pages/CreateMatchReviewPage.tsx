@@ -152,6 +152,8 @@ const CreateMatchReviewPage = () => {
         privacy: matchDraft.matchType,
         startDateTime: startIso,
         locationText: matchDraft.location,
+        latitude: matchDraft.locationLatitude,
+        longitude: matchDraft.locationLongitude,
         rosterSize,
         skillLevel: matchDraft.matchType === "open" ? settings?.skillLevel : undefined,
         matchFormat: matchDraft.matchType === "open" ? settings?.format : privateFormat,
