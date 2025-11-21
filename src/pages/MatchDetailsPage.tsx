@@ -166,7 +166,7 @@ const MatchDetailsPage = () => {
   });
   const [inviteInputs, setInviteInputs] = useState({ players: "", phones: "" });
 
-  const token = useMemo(() => getStoredAuthToken({ preferScheme: "Bearer" }), []);
+  const token = useMemo(() => getStoredAuthToken({ preferScheme: "Token" }), []);
 
   const loadMatch = useMemo(() => {
     return async (signal: AbortSignal) => {
