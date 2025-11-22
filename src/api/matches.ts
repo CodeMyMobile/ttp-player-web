@@ -221,6 +221,7 @@ export const createMatch = async ({
     status,
     match_type: matchType,
     location_text: locationText,
+    location: locationText,
   };
 
   const startIso = toIsoString(startDateTime);
@@ -232,9 +233,7 @@ export const createMatch = async ({
   if (typeof latitude === "number") payload.latitude = latitude;
   if (typeof longitude === "number") payload.longitude = longitude;
 
-  if (typeof rosterSize === "number") {
-    payload.player_limit = rosterSize;
-  }
+  if (typeof rosterSize === "number") payload.player_limit = rosterSize;
 
   if (
     matchType === "open" &&
@@ -260,11 +259,12 @@ export const createMatch = async ({
   }
 
   if (matchType === "open") {
-    payload.hidden = false;
-    payload.is_hidden = false;
-    payload.listing_visibility = linkOnly ? "link_only" : "listed";
+    const isLinkOnly = Boolean(linkOnly);
+    payload.hidden = isLinkOnly;
+    payload.is_hidden = isLinkOnly;
+    payload.listing_visibility = isLinkOnly ? "link_only" : "listed";
 
-    if (linkOnly) {
+    if (isLinkOnly) {
       payload.visibility = "hidden";
       payload.match_visibility = "hidden";
     }
