@@ -216,6 +216,7 @@ export const createMatch = async ({
 }: CreateMatchParams) => {
   const status = "upcoming";
   const matchType = privacy === "private" ? "private" : "open";
+  const defaultVisibility = matchType === "open" ? "open" : "private";
 
   const payload: Record<string, unknown> = {
     status,
@@ -223,6 +224,10 @@ export const createMatch = async ({
     location_text: locationText,
     location: locationText,
     listing_visibility: "listed",
+    hidden: false,
+    is_hidden: false,
+    visibility: defaultVisibility,
+    match_visibility: defaultVisibility,
   };
 
   const startIso = toIsoString(startDateTime);
