@@ -270,16 +270,24 @@ export const createMatch = async ({
     }
   }
 
-  const executeCreate = async (override?: Record<string, unknown>) =>
-    request<unknown>("/matches", {
+  const executeCreate = async (override?: Record<string, unknown>) => {
+    const body = {
+      ...payload,
+      ...override,
+    };
+
+    console.log("[createMatch] POST /matches", {
+      body,
+      tokenProvided: Boolean(token),
+    });
+
+    return request<unknown>("/matches", {
       method: "POST",
       token: token ?? undefined,
       signal,
-      body: {
-        ...payload,
-        ...override,
-      },
+      body,
     });
+  };
 
   try {
     const response = await executeCreate();
