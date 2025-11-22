@@ -216,19 +216,11 @@ export const createMatch = async ({
 }: CreateMatchParams) => {
   const status = "upcoming";
   const matchType = privacy === "private" ? "private" : "open";
-  const defaultVisibility = matchType === "open" ? "open" : "private";
-  const listingVisibility = matchType === "open" ? "listed" : "private";
 
   const payload: Record<string, unknown> = {
     status,
     match_type: matchType,
     location_text: locationText,
-    location: locationText,
-    listing_visibility: listingVisibility,
-    hidden: false,
-    is_hidden: false,
-    visibility: defaultVisibility,
-    match_visibility: defaultVisibility,
   };
 
   const startIso = toIsoString(startDateTime);
@@ -242,40 +234,40 @@ export const createMatch = async ({
 
   if (typeof rosterSize === "number") {
     payload.player_limit = rosterSize;
-    payload.playerCount = rosterSize;
   }
 
-  if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
+  if (
+    matchType === "open" &&
+    skillLevel !== undefined &&
+    skillLevel !== null &&
+    `${skillLevel}`.trim() !== ""
+  ) {
     const parsedSkill = `${skillLevel}`.trim();
-    const [minRaw, maxRaw] = parsedSkill.split(/\s*[-–]\s*/);
+    const [minRaw] = parsedSkill.split(/\s*[-–]\s*/);
     const minLevel = Number.parseFloat(minRaw ?? "");
-    const maxLevel = Number.parseFloat(maxRaw ?? "");
 
     if (!Number.isNaN(minLevel)) {
       payload.skill_level_min = minLevel;
     }
-    if (!Number.isNaN(maxLevel)) {
-      payload.skill_level_max = maxLevel;
-    }
-
-    payload.skillLevel = parsedSkill;
   }
 
   if (matchFormat) {
     payload.match_format = matchFormat;
-    payload.format = matchFormat;
   }
 
   if (notes) {
     payload.notes = notes;
   }
 
-  if (matchType === "open" && linkOnly) {
-    payload.hidden = true;
-    payload.is_hidden = true;
-    payload.listing_visibility = "link_only";
-    payload.visibility = "hidden";
-    payload.match_visibility = "hidden";
+  if (matchType === "open") {
+    payload.hidden = false;
+    payload.is_hidden = false;
+    payload.listing_visibility = linkOnly ? "link_only" : "listed";
+
+    if (linkOnly) {
+      payload.visibility = "hidden";
+      payload.match_visibility = "hidden";
+    }
   }
 
   const executeCreate = async (override?: Record<string, unknown>) =>
