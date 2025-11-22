@@ -1,4 +1,5 @@
 import { API_BASE_URL, DEFAULT_AUTH_SCHEME } from "./config";
+import { getStoredAuthToken, normalizeAuthToken } from "../services/authToken";
 
 export type AuthScheme = "token" | "Bearer" | (string & {});
 
@@ -45,6 +46,8 @@ const buildQueryString = (query?: RequestQuery) => {
 
 const normalizeAuthHeader = (token?: string, scheme: AuthScheme = DEFAULT_AUTH_SCHEME) => {
   if (!token) return undefined;
+  const normalized = normalizeAuthToken(token, { preferScheme: scheme, defaultScheme: scheme });
+  if (normalized) return normalized;
   if (/^\s*([A-Za-z]+)\s+/i.test(token)) {
     // Token already includes scheme
     return token;
@@ -79,7 +82,11 @@ export async function request<TResponse = unknown, TBody = unknown>(
       ? path
       : `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path.replace(/^\//, "")}`;
   const queryString = buildQueryString(query);
-  const authHeader = normalizeAuthHeader(token ?? authToken, authScheme);
+  const storedToken =
+    token ??
+    authToken ??
+    getStoredAuthToken({ preferScheme: authScheme, defaultScheme: authScheme });
+  const authHeader = normalizeAuthHeader(storedToken, authScheme);
 
   const finalHeaders: Record<string, string> = {
     Accept: "application/json",
