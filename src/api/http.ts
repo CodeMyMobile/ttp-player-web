@@ -9,6 +9,10 @@ export interface RequestQuery {
 export interface RequestOptions<TBody = unknown> {
   method?: string;
   token?: string;
+  /**
+   * Alias for `token` used by legacy callers; if provided, `token` takes precedence.
+   */
+  authToken?: string;
   authScheme?: AuthScheme;
   headers?: Record<string, string>;
   query?: RequestQuery;
@@ -61,6 +65,7 @@ export async function request<TResponse = unknown, TBody = unknown>(
   {
     method = "GET",
     token,
+    authToken,
     authScheme = DEFAULT_AUTH_SCHEME,
     headers = {},
     query,
@@ -74,7 +79,7 @@ export async function request<TResponse = unknown, TBody = unknown>(
       ? path
       : `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path.replace(/^\//, "")}`;
   const queryString = buildQueryString(query);
-  const authHeader = normalizeAuthHeader(token, authScheme);
+  const authHeader = normalizeAuthHeader(token ?? authToken, authScheme);
 
   const finalHeaders: Record<string, string> = {
     Accept: "application/json",
