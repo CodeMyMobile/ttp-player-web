@@ -20,15 +20,16 @@ const canonicalizeScheme = (scheme) => {
 const pickScheme = (detected, { defaultScheme, preferScheme } = {}) => {
   const normalizedDetected = canonicalizeScheme(detected);
   const normalizedPrefer = canonicalizeScheme(preferScheme);
-  if (normalizedDetected) {
-    if (normalizedPrefer && normalizedPrefer === normalizedDetected) {
-      return normalizedPrefer;
-    }
-    return normalizedDetected;
-  }
+
+  // When a preference is provided, honor it even if the stored token already has a scheme.
   if (normalizedPrefer) {
     return normalizedPrefer;
   }
+
+  if (normalizedDetected) {
+    return normalizedDetected;
+  }
+
   return canonicalizeScheme(defaultScheme);
 };
 
@@ -61,11 +62,49 @@ export const normalizeAuthToken = (
   return `${finalScheme} ${credentials}`;
 };
 
-export const getStoredAuthToken = (options) => {
+const readCookieValue = (name) => {
+  if (typeof document === "undefined") return null;
   try {
-    const stored = localStorage.getItem("authToken");
-    return normalizeAuthToken(stored, options);
+    const pattern = new RegExp(`(?:^|; )${name.replace(/([.*+?^${}()|[\]\\])/g, "\\$1")}=([^;]*)`);
+    const match = document.cookie.match(pattern);
+    return match ? decodeURIComponent(match[1]) : null;
   } catch {
     return null;
   }
 };
+
+const readFromStorage = (key) => {
+  try {
+    const local = localStorage.getItem(key);
+    if (local) return local;
+  } catch {
+    // ignore
+  }
+  try {
+    const session = sessionStorage.getItem(key);
+    if (session) return session;
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
+const TOKEN_KEYS = ["authToken", "access_token", "accessToken", "token"];
+
+export const getStoredAuthToken = (options) => {
+  for (const key of TOKEN_KEYS) {
+    const storageValue = readFromStorage(key);
+    if (storageValue) {
+      const normalized = normalizeAuthToken(storageValue, options);
+      if (normalized) return normalized;
+    }
+    const cookieValue = readCookieValue(key);
+    if (cookieValue) {
+      const normalized = normalizeAuthToken(cookieValue, options);
+      if (normalized) return normalized;
+    }
+  }
+  return null;
+};
+
+export const getSessionToken = (options) => getStoredAuthToken(options);

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../api/config";
+import { API_BASE_URL, DEFAULT_AUTH_SCHEME } from "../api/config";
 import { getStoredAuthToken, normalizeAuthToken } from "./authToken";
 
 const baseURL = API_BASE_URL.replace(/\/+$/, "");
@@ -8,7 +8,7 @@ const api = (path, options = {}) => {
     headers: optionHeaders = {},
     body: providedBody,
     json,
-    authSchemePreference = "token",
+    authSchemePreference = DEFAULT_AUTH_SCHEME,
     authToken,
     credentials: providedCredentials,
     ...rest
