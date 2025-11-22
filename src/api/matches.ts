@@ -217,13 +217,14 @@ export const createMatch = async ({
   const status = "upcoming";
   const matchType = privacy === "private" ? "private" : "open";
   const defaultVisibility = matchType === "open" ? "open" : "private";
+  const listingVisibility = matchType === "open" ? "listed" : "private";
 
   const payload: Record<string, unknown> = {
     status,
     match_type: matchType,
     location_text: locationText,
     location: locationText,
-    listing_visibility: "listed",
+    listing_visibility: listingVisibility,
     hidden: false,
     is_hidden: false,
     visibility: defaultVisibility,
@@ -245,8 +246,19 @@ export const createMatch = async ({
   }
 
   if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
-    payload.skill_level_min = skillLevel;
-    payload.skillLevel = skillLevel;
+    const parsedSkill = `${skillLevel}`.trim();
+    const [minRaw, maxRaw] = parsedSkill.split(/\s*[-–]\s*/);
+    const minLevel = Number.parseFloat(minRaw ?? "");
+    const maxLevel = Number.parseFloat(maxRaw ?? "");
+
+    if (!Number.isNaN(minLevel)) {
+      payload.skill_level_min = minLevel;
+    }
+    if (!Number.isNaN(maxLevel)) {
+      payload.skill_level_max = maxLevel;
+    }
+
+    payload.skillLevel = parsedSkill;
   }
 
   if (matchFormat) {
