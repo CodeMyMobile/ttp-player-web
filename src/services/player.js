@@ -13,8 +13,8 @@ export const updatePlayerPersonalDetails = async ({
   profile_picture,
 }) => {
   const authHeader = normalizeAuthToken(player, {
-    defaultScheme: "token",
-    preferScheme: "token",
+    defaultScheme: "Bearer",
+    preferScheme: "Bearer",
   });
   if (!authHeader) {
     throw new Error("Missing player token");
@@ -43,7 +43,7 @@ export const updatePlayerPersonalDetails = async ({
     api(`/player/personal_details/${id}`, {
       method: "PATCH",
       authToken: authHeader,
-      authSchemePreference: "token",
+      authSchemePreference: "Bearer",
       json: params,
     }),
   );

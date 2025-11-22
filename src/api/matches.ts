@@ -1,5 +1,5 @@
 import { request, type RequestQuery } from "./http";
-import { getStoredAuthToken } from "../services/authToken";
+import { getStoredAuthToken, normalizeAuthToken } from "../services/authToken";
 
 export type TruthyLike = boolean | string | number;
 
@@ -185,8 +185,12 @@ const deriveShareLink = (source: unknown): string | undefined => {
   return shareCandidate;
 };
 
-const resolveAuthToken = (token?: string | null) =>
-  token ?? getStoredAuthToken({ preferScheme: "Bearer" }) ?? undefined;
+const resolveAuthToken = (token?: string | null) => {
+  const normalized = normalizeAuthToken(token ?? getStoredAuthToken({ preferScheme: "Bearer" }), {
+    preferScheme: "Bearer",
+  });
+  return normalized ?? undefined;
+};
 
 const persistCreatedMatch = (response: unknown) => {
   const match = extractMatchDetail(response) as Record<string, unknown> | undefined;

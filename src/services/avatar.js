@@ -18,8 +18,8 @@ const normalizeUploadResponse = (data = {}) => {
 
 export const getPlayerAWSUrl = async (token, extension = "jpeg") => {
   const authHeader = normalizeAuthToken(token, {
-    defaultScheme: "token",
-    preferScheme: "token",
+    defaultScheme: "Bearer",
+    preferScheme: "Bearer",
   });
   if (!authHeader) {
     throw new Error("Missing player token");
@@ -29,7 +29,7 @@ export const getPlayerAWSUrl = async (token, extension = "jpeg") => {
     api(`/player/profile_picture/upload_url`, {
       method: "POST",
       authToken: authHeader,
-      authSchemePreference: "token",
+      authSchemePreference: "Bearer",
       json: {
         file_extension: extension,
       },

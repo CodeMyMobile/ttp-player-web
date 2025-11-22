@@ -55,7 +55,7 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
 export const getPersonalDetails = async () =>
   unwrap(
     api(`/player/personal_details`, {
-      authSchemePreference: "token",
+      authSchemePreference: "Bearer",
     }),
   );
 
