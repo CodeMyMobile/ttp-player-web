@@ -224,6 +224,8 @@ export const createMatch = async ({
   };
 
   if (matchType === "open") {
+    payload.hidden = false;
+    payload.is_hidden = false;
     payload.listing_visibility = "listed";
   }
 
