@@ -1564,6 +1564,26 @@
   gap: 16px;
 }
 
+.coach-booking__alert {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+.coach-booking__alert--success {
+  color: #065f46;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.coach-booking__alert--error {
+  color: #991b1b;
+  background: #fef2f2;
+  border-color: #fecdd3;
+}
+
 .coach-booking__days {
   display: flex;
   flex-direction: column;
@@ -1790,6 +1810,35 @@
   width: 16px;
   height: 16px;
   color: var(--coach-slot-pill-color, var(--profile-purple));
+}
+
+.coach-booking-slot__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.coach-booking-slot__book {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--profile-purple);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  min-width: 140px;
+}
+
+.coach-booking-slot__book:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
+}
+
+.coach-booking-slot__book:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .coach-booking__footer {

@@ -16,6 +16,7 @@ import {
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { requestPrivateLesson } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
@@ -242,6 +243,9 @@ const CoachProfilePage = () => {
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
+  const [bookingInFlight, setBookingInFlight] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
   const languages = profile?.languages ?? [];
   const levels = profile?.levels ?? [];
   const certifications = profile?.certifications ?? [];
@@ -455,6 +459,150 @@ const CoachProfilePage = () => {
     navigate(`/booking/confirm?coach=${profile.id}&date=${dateId}&slot=${slotId}`, {
       state: { coachId: profile.id, dateId, slotId },
     });
+  };
+
+  const resolveIsoDate = (date?: BookingDate) => {
+    if (!date) return undefined;
+    const candidates = [date.id, date.date];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && /^\d{4}-\d{2}-\d{2}/.test(candidate)) {
+        return candidate.slice(0, 10);
+      }
+    }
+    return undefined;
+  };
+
+  const computeSlotDateTimes = (date?: BookingDate, slot?: BookingSlot) => {
+    if (!date || !slot) return null;
+    const slotRecord = slot as Record<string, unknown>;
+    const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+    const durationMinutes =
+      parseDurationToMinutes(lessonDetails?.duration ?? slot.duration) ?? parseDurationToMinutes(slot.duration) ?? 60;
+
+    const startIso =
+      (slotRecord.startDateTime as string | undefined) ??
+      (slotRecord.start_date_time as string | undefined) ??
+      (slotRecord.start as string | undefined) ??
+      (slotRecord.start_time as string | undefined);
+    const endIso =
+      (slotRecord.endDateTime as string | undefined) ??
+      (slotRecord.end_date_time as string | undefined) ??
+      (slotRecord.end as string | undefined) ??
+      (slotRecord.end_time as string | undefined);
+
+    if (startIso && endIso) {
+      return {
+        startDateTime: startIso,
+        endDateTime: endIso,
+        startDateTimeTz: startIso,
+        endDateTimeTz: endIso,
+      };
+    }
+
+    const baseDate = resolveIsoDate(date);
+    const startMinutes = parseTimeToMinutes(slot.time ?? "");
+
+    if (!baseDate || startMinutes == null) {
+      return null;
+    }
+
+    const [year, month, day] = baseDate.split("-").map((value) => Number.parseInt(value, 10));
+    if ([year, month, day].some((value) => Number.isNaN(value))) {
+      return null;
+    }
+
+    const hours = Math.floor(startMinutes / 60);
+    const minutes = startMinutes % 60;
+
+    const startUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    const startLocal = new Date(year, month - 1, day, hours, minutes, 0);
+    const endUtc = new Date(startUtc.getTime() + durationMinutes * 60_000);
+    const endLocal = new Date(startLocal.getTime() + durationMinutes * 60_000);
+
+    return {
+      startDateTime: startUtc.toISOString(),
+      endDateTime: endUtc.toISOString(),
+      startDateTimeTz: startLocal.toISOString(),
+      endDateTimeTz: endLocal.toISOString(),
+    };
+  };
+
+  const extractLocationId = (slot?: BookingSlot) => {
+    if (!slot) return null;
+    const record = slot as Record<string, unknown>;
+    const candidates = [
+      record.location_id,
+      record.locationId,
+      (record.location as Record<string, unknown> | undefined)?.id,
+      (record.location as Record<string, unknown> | undefined)?.location_id,
+    ];
+
+    for (const candidate of candidates) {
+      const numeric = typeof candidate === "number" ? candidate : Number(candidate);
+      if (Number.isFinite(numeric)) {
+        return numeric;
+      }
+    }
+
+    return null;
+  };
+
+  const extractCourt = (slot?: BookingSlot) => {
+    if (!slot) return 0;
+    const record = slot as Record<string, unknown>;
+    const value = record.court ?? record.court_id ?? record.courtId;
+    const numeric = typeof value === "number" ? value : Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    return 0;
+  };
+
+  const handleBookLesson = async (date?: BookingDate, slot?: BookingSlot) => {
+    if (!profile || !slot || !date) return;
+    if (!authToken) {
+      setBookingError("Please sign in again to book this lesson.");
+      return;
+    }
+
+    const schedule = computeSlotDateTimes(date, slot);
+    const locationId = extractLocationId(slot);
+    const court = extractCourt(slot);
+
+    if (!schedule || !locationId) {
+      setBookingError("We couldn’t prepare this lesson request. Missing schedule or location details.");
+      return;
+    }
+
+    const coachId = Number(profile.id);
+    if (!Number.isFinite(coachId)) {
+      setBookingError("Invalid coach information. Please refresh and try again.");
+      return;
+    }
+
+    setBookingError(null);
+    setBookingSuccess(null);
+    setBookingInFlight(slot.id);
+
+    try {
+      await requestPrivateLesson({
+        token: authToken,
+        coachId,
+        startDateTime: schedule.startDateTime,
+        endDateTime: schedule.endDateTime,
+        startDateTimeTz: schedule.startDateTimeTz,
+        endDateTimeTz: schedule.endDateTimeTz,
+        locationId,
+        court,
+        status: "PENDING",
+      });
+      setBookingSuccess("Lesson request sent to your coach.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not book this lesson.";
+      setBookingError(message);
+    } finally {
+      setBookingInFlight(null);
+    }
   };
 
   return (
@@ -860,6 +1008,15 @@ const CoachProfilePage = () => {
                     </div>
 
                     <div className="coach-booking__schedule">
+                      {(bookingError || bookingSuccess) && (
+                        <div
+                          className={`coach-booking__alert${
+                            bookingError ? " coach-booking__alert--error" : " coach-booking__alert--success"
+                          }`}
+                        >
+                          {bookingError ?? bookingSuccess}
+                        </div>
+                      )}
                       <div className="coach-booking__days">
                         {isAllDatesSelected ? (
                           dateEntries.length > 0 ? (
@@ -897,16 +1054,26 @@ const CoachProfilePage = () => {
                                         lessonDetails?.label ??
                                         (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
                                       const groupTitle = isGroupLesson ? slot.title : undefined;
+                                      const isBooking = bookingInFlight === slot.id;
 
                                       return (
-                                        <button
+                                        <div
                                           key={slot.id}
-                                          type="button"
+                                          role="group"
+                                          tabIndex={0}
                                           aria-pressed={active}
                                           onClick={() => {
                                             handleDateChange(date.id);
                                             handleTimeChange(slot.id);
                                             navigateToCheckout(date.id, slot.id);
+                                          }}
+                                          onKeyDown={(event) => {
+                                            if (event.key === "Enter" || event.key === " ") {
+                                              event.preventDefault();
+                                              handleDateChange(date.id);
+                                              handleTimeChange(slot.id);
+                                              navigateToCheckout(date.id, slot.id);
+                                            }
                                           }}
                                           className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
                                             active ? " coach-booking-slot--active" : ""
@@ -940,7 +1107,20 @@ const CoachProfilePage = () => {
                                               <span>{lessonLocationLabel}</span>
                                             </div>
                                           ) : null}
-                                        </button>
+                                          <div className="coach-booking-slot__actions">
+                                            <button
+                                              type="button"
+                                              className="coach-booking-slot__book"
+                                              disabled={isBooking}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                void handleBookLesson(date, slot);
+                                              }}
+                                            >
+                                              {isBooking ? "Booking…" : "Book lesson"}
+                                            </button>
+                                          </div>
+                                        </div>
                                       );
                                     })}
                                   </div>
@@ -998,16 +1178,26 @@ const CoachProfilePage = () => {
                                     lessonDetails?.label ??
                                     (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
                                   const groupTitle = isGroupLesson ? slot.title : undefined;
+                                  const isBooking = bookingInFlight === slot.id;
 
                                   return (
-                                    <button
+                                    <div
                                       key={slot.id}
-                                      type="button"
+                                      role="group"
+                                      tabIndex={0}
                                       aria-pressed={active}
                                       onClick={() => {
                                         handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
                                         navigateToCheckout(selectedDate.id, slot.id);
+                                      }}
+                                      onKeyDown={(event) => {
+                                        if (event.key === "Enter" || event.key === " ") {
+                                          event.preventDefault();
+                                          handleDateChange(selectedDate.id);
+                                          handleTimeChange(slot.id);
+                                          navigateToCheckout(selectedDate.id, slot.id);
+                                        }
                                       }}
                                       className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
                                         active ? " coach-booking-slot--active" : ""
@@ -1041,7 +1231,20 @@ const CoachProfilePage = () => {
                                           <span>{lessonLocationLabel}</span>
                                         </div>
                                       ) : null}
-                                    </button>
+                                      <div className="coach-booking-slot__actions">
+                                        <button
+                                          type="button"
+                                          className="coach-booking-slot__book"
+                                          disabled={isBooking}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            void handleBookLesson(selectedDate, slot);
+                                          }}
+                                        >
+                                          {isBooking ? "Booking…" : "Book lesson"}
+                                        </button>
+                                      </div>
+                                    </div>
                                   );
                                 })}
                               </div>

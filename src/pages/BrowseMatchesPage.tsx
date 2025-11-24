@@ -18,7 +18,16 @@ import { getStoredAuthToken } from "../services/authToken";
 import "./BrowseMatchesPage.css";
 
 const distanceOptions = ["5 mi", "10 mi", "20 mi", "50 mi", "All"];
-const tabs = ["My Matches", "Hosting", "Open", "Today", "Tomorrow", "Weekend", "Drafts", "Archived"];
+const tabs = [
+  { label: "My Matches", icon: "⭐" },
+  { label: "Hosting", icon: "🧢" },
+  { label: "Open", icon: "🔥" },
+  { label: "Today", icon: "📅" },
+  { label: "Tomorrow", icon: "⏰" },
+  { label: "Weekend", icon: "🎉" },
+  { label: "Drafts", icon: "📝" },
+  { label: "Archived", icon: "🗂️" },
+];
 
 const relationshipLabel: Record<string, string> = {
   host: "Hosting",
@@ -144,7 +153,7 @@ const BrowseMatchesPage = () => {
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
   const [selectedDistance, setSelectedDistance] = useState(distanceOptions[0]);
-  const [selectedTab, setSelectedTab] = useState(tabs[0]);
+  const [selectedTab, setSelectedTab] = useState(tabs[0].label);
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
@@ -363,15 +372,15 @@ const BrowseMatchesPage = () => {
       const isHostingTab = selectedTab === "Hosting";
       const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-        if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
-        if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
-        if (selectedTab === "Open") return { status: "open" as const };
-        if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
-        if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
-        if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
-          return { status: "upcoming" as const };
-        return { status: "upcoming" as const };
-      })();
+    if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
+    if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
+    if (selectedTab === "Open") return { status: "open" as const };
+    if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
+    if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
+    if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
+      return { status: "upcoming" as const };
+    return { status: "upcoming" as const };
+  })();
       const perPage = isHostingTab ? 50 : 20;
       const hasLocationSelection = Boolean(locationFilter || position);
       const locationParams = hasLocationSelection
@@ -449,171 +458,199 @@ const BrowseMatchesPage = () => {
   return (
     <MainLayout>
       <div className="matches-page" style={themeVars}>
-        <header className="matches-hero">
-          <div className="matches-hero__text">
-            <h1 className="matches-hero__title">Browse Local Matches</h1>
-            <p className="matches-hero__subtitle">See what's nearby and jump back in.</p>
-          </div>
-          <div className="matches-hero__actions">
-            <button
-              type="button"
-              className="matches-create-btn"
-              onClick={() => navigate("/matches/create")}
-            >
-              + Create Match
-            </button>
-            <button type="button" className="matches-filter-btn">
-              <Filter size={18} aria-hidden="true" />
-              Filters
-            </button>
-          </div>
-        </header>
-
-        <section className="location-panel">
-          <div className="location-panel__chips" role="group" aria-label="Distance from your current location">
-            <button
-              type="button"
-              className={`distance-chip distance-chip--location${showLocationPicker ? " selected" : ""}`}
-              aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
-              aria-expanded={showLocationPicker}
-              onClick={() => {
-                setGeoError("");
-                setShowLocationPicker((prev) => {
-                  if (!prev) {
-                    setLocationSearchTerm(locationFilter?.label ?? "");
-                  }
-                  return !prev;
-                });
-              }}
-            >
-              <MapPin size={16} aria-hidden="true" />
-              {locationLabel || "Select location"}
-            </button>
-            {distanceOptions.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
-                onClick={() => setSelectedDistance(option)}
-                aria-pressed={selectedDistance === option}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {showLocationPicker ? (
-          <section className="matches-location-panel" aria-label="Location picker">
-            <Autocomplete
-              apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-              placeholder="Search for a city, club, or court"
-              className="matches-autocomplete-input"
-              value={locationSearchTerm}
-              onChange={(event) => setLocationSearchTerm(event.target.value)}
-              onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
-                if (!place) {
-                  setGeoError("Please choose a location from the suggestions.");
-                  return;
-                }
-
-                const lat = place.geometry?.location?.lat?.();
-                const lng = place.geometry?.location?.lng?.();
-                const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
-
-                if (
-                  typeof lat === "number" &&
-                  !Number.isNaN(lat) &&
-                  typeof lng === "number" &&
-                  !Number.isNaN(lng)
-                ) {
-                  applyLocationFilter({ label, latitude: lat, longitude: lng });
-                } else {
-                  setGeoError("We couldn't read that location's coordinates. Try another search.");
-                }
-              }}
-              options={{
-                types: ["geocode", "establishment"],
-                fields: ["formatted_address", "geometry", "name", "address_components"],
-              }}
-            />
-
-            <div className="matches-location-actions">
-              <button
-                type="button"
-                className="matches-location-detect"
-                onClick={detectCurrentLocation}
-                disabled={isDetectingLocation}
-              >
-                {isDetectingLocation ? "Detecting location..." : "Use my current location"}
-              </button>
-              <div className="matches-location-secondary-actions">
-                {hasLocationFilter ? (
-                  <button type="button" className="matches-location-secondary" onClick={() => applyLocationFilter(null)}>
-                    Clear location
-                  </button>
-                ) : null}
-                <button type="button" className="matches-location-secondary" onClick={closeLocationPicker}>
-                  Close
+        <div className="matches-shell">
+          <header className="matches-hero">
+            <div className="matches-hero__text">
+              <p className="matches-hero__eyebrow">Find a match, fast</p>
+              <h1 className="matches-hero__title">Browse Local Matches</h1>
+              <p className="matches-hero__subtitle">
+                Curated matches near you with quick filters, refreshed live.
+              </p>
+              <div className="matches-hero__cta">
+                <button
+                  type="button"
+                  className="matches-create-btn"
+                  onClick={() => navigate("/matches/create")}
+                >
+                  + Create Match
+                </button>
+                <button
+                  type="button"
+                  className="matches-filter-btn"
+                  onClick={() => navigate("/find-players")}
+                >
+                  <Users size={18} aria-hidden="true" />
+                  Find players
                 </button>
               </div>
             </div>
+            <div className="matches-hero__art">
+              <div className="matches-hero__badge">🎾</div>
+              <div className="matches-hero__stat">
+                <span className="matches-hero__stat-number">{matches.length}</span>
+                <span className="matches-hero__stat-label">Active matches</span>
+              </div>
+            </div>
+          </header>
 
-            <div className="matches-location-summary">
-              <h4>Selected location</h4>
-              {locationFilter ? (
-                <p>{locationFilter.label}</p>
-              ) : position ? (
-                <p>
-                  Lat {position.latitude.toFixed(4)}, Lng {position.longitude.toFixed(4)}
+          <section className="location-panel">
+            <div className="location-panel__header">
+              <div>
+                <p className="location-panel__eyebrow">Location filter</p>
+                <h2 className="location-panel__title">
+                  {hasLocationFilter ? "Dialed into your spot" : "Use a location to see closer matches"}
+                </h2>
+                <p className="location-panel__subtitle">
+                  Switch between saved location and nearby radius in one tap.
                 </p>
-              ) : (
-                <p>No location selected yet.</p>
-              )}
+              </div>
+              <button
+                type="button"
+                className={`distance-chip distance-chip--location${showLocationPicker ? " selected" : ""}`}
+                aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
+                aria-expanded={showLocationPicker}
+                onClick={() => {
+                  setGeoError("");
+                  setShowLocationPicker((prev) => {
+                    if (!prev) {
+                      setLocationSearchTerm(locationFilter?.label ?? "");
+                    }
+                    return !prev;
+                  });
+                }}
+              >
+                <MapPin size={16} aria-hidden="true" />
+                {locationLabel || "Select location"}
+              </button>
             </div>
 
-            {geoError ? <p className="matches-location-error">{geoError}</p> : null}
-            {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-              <p className="matches-location-tip">Tip: Provide a Google Places API key to enable location search suggestions.</p>
-            ) : null}
-          </section>
-        ) : null}
-
-        <section className="matches-main">
-          <div className="matches-toolbar">
-            <nav className="matches-tabs" aria-label="Match filters">
-              {tabs.map((tab) => (
+            <div className="location-panel__chips" role="group" aria-label="Distance from your current location">
+              {distanceOptions.map((option) => (
                 <button
-                  key={tab}
+                  key={option}
                   type="button"
-                  className={`tab${selectedTab === tab ? " active" : ""}`}
-                  onClick={() => setSelectedTab(tab)}
-                  aria-pressed={selectedTab === tab}
+                  className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
+                  onClick={() => setSelectedDistance(option)}
+                  aria-pressed={selectedDistance === option}
                 >
-                  {tab}
+                  {option}
                 </button>
               ))}
-            </nav>
-            <div className="toolbar-actions">
-              <div className="search-field">
-                <Search size={16} aria-hidden="true" />
-                <input
-                  type="search"
-                  placeholder="Search matches"
-                  aria-label="Search matches"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                />
+            </div>
+          </section>
+
+          {showLocationPicker ? (
+            <section className="matches-location-panel" aria-label="Location picker">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="Search for a city, club, or court"
+                className="matches-autocomplete-input"
+                value={locationSearchTerm}
+                onChange={(event) => setLocationSearchTerm(event.target.value)}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) {
+                    setGeoError("Please choose a location from the suggestions.");
+                    return;
+                  }
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                  if (
+                    typeof lat === "number" &&
+                    !Number.isNaN(lat) &&
+                    typeof lng === "number" &&
+                    !Number.isNaN(lng)
+                  ) {
+                    applyLocationFilter({ label, latitude: lat, longitude: lng });
+                  } else {
+                    setGeoError("We couldn't read that location's coordinates. Try another search.");
+                  }
+                }}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+
+              <div className="matches-location-actions">
+                <button
+                  type="button"
+                  className="matches-location-detect"
+                  onClick={detectCurrentLocation}
+                  disabled={isDetectingLocation}
+                >
+                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+                </button>
+                <div className="matches-location-secondary-actions">
+                  {hasLocationFilter ? (
+                    <button type="button" className="matches-location-secondary" onClick={() => applyLocationFilter(null)}>
+                      Clear location
+                    </button>
+                  ) : null}
+                  <button type="button" className="matches-location-secondary" onClick={closeLocationPicker}>
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="matches-location-summary">
+                <h4>Selected location</h4>
+                {locationFilter ? (
+                  <p>{locationFilter.label}</p>
+                ) : position ? (
+                  <p>
+                    Lat {position.latitude.toFixed(4)}, Lng {position.longitude.toFixed(4)}
+                  </p>
+                ) : (
+                  <p>No location selected yet.</p>
+                )}
+              </div>
+
+              {geoError ? <p className="matches-location-error">{geoError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="matches-location-tip">Tip: Provide a Google Places API key to enable location search suggestions.</p>
+              ) : null}
+            </section>
+          ) : null}
+
+          <section className="matches-main">
+            <div className="matches-toolbar">
+              <nav className="matches-tabs" aria-label="Match filters">
+                {tabs.map(({ label, icon }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`tab${selectedTab === label ? " active" : ""}`}
+                    onClick={() => setSelectedTab(label)}
+                    aria-pressed={selectedTab === label}
+                  >
+                    <span className="tab__icon" aria-hidden="true">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              <div className="toolbar-actions">
+                <div className="search-field">
+                  <Search size={16} aria-hidden="true" />
+                  <input
+                    type="search"
+                    placeholder="Search matches"
+                    aria-label="Search matches"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="matches-grid">
-            {isLoadingMatches ? (
-              <div className="matches-state" role="status">
-                Loading matches…
-              </div>
-            ) : matchesError ? (
+            <div className="matches-grid">
+              {isLoadingMatches ? (
+                <div className="matches-state" role="status">
+                  Loading matches…
+                </div>
+              ) : matchesError ? (
               <div className="matches-state matches-state--error" role="alert">
                 <p className="matches-state__title">We couldn't load matches right now.</p>
                 <p className="matches-state__detail">{matchesError}</p>
@@ -633,6 +670,15 @@ const BrowseMatchesPage = () => {
                 const totalSpots = computedTotal > 0 ? computedTotal : playersJoined;
                 const spotsAvailable = Math.max(totalSpots - playersJoined, 0);
                 const playersNeeded = match.playersNeeded ?? spotsAvailable;
+                const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
+                const isInviteOnlyPill =
+                  match.visibility === "private" ||
+                  match.visibilityLabel?.toLowerCase() === "invite only";
+                const showVisibilityPill =
+                  Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
+                const hostDisplayName = getHostDisplayName(match, isHost);
+                const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
+                const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
                 const availabilityLabel =
                   totalSpots > 0
                     ? spotsAvailable === 0
@@ -643,15 +689,6 @@ const BrowseMatchesPage = () => {
                   totalSpots > 0
                     ? `${playersJoined}/${totalSpots} players`
                     : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
-                const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
-                const isInviteOnlyPill =
-                  match.visibility === "private" ||
-                  match.visibilityLabel?.toLowerCase() === "invite only";
-                const showVisibilityPill =
-                  Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
-                const hostDisplayName = getHostDisplayName(match, isHost);
-                const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
-                const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
 
                 return (
                   <article key={match.id} className="match-card">
@@ -667,8 +704,12 @@ const BrowseMatchesPage = () => {
                         {isHost ? <span className="match-host-pill match-host-pill--header">Host</span> : null}
                       </div>
                       {spotsAvailable > 0 && playersNeeded > 0 ? (
-                        <span className="match-needed">{playersNeeded} needed</span>
-                      ) : null}
+                        <span className="match-needed">
+                          <strong>{playersNeeded}</strong> needed
+                        </span>
+                      ) : (
+                        <span className="match-needed match-needed--quiet">Roster set</span>
+                      )}
                     </header>
 
                     <div className="match-card__body">
@@ -680,7 +721,7 @@ const BrowseMatchesPage = () => {
                         <MapPin size={18} aria-hidden="true" />
                         <div>
                           <p className="match-detail__primary">{match.location}</p>
-                          <p className="match-detail__secondary">{match.distance}</p>
+                          <p className="match-detail__secondary">{match.distance || "Distance unavailable"}</p>
                         </div>
                       </div>
                       {hostDisplayName ? (
@@ -724,53 +765,30 @@ const BrowseMatchesPage = () => {
                     </div>
 
                     <footer className="match-card__footer">
-                      {isHost ? (
-                        <>
-                          <button
-                            type="button"
-                            className="match-action primary"
-                            onClick={() => navigate(`/matches/${match.id}`)}
-                          >
-                            View &amp; manage
-                          </button>
-                          <button type="button" className="match-action" disabled>
-                            <MessageCircle size={16} aria-hidden="true" />
-                            Message group
-                          </button>
-                        </>
-                      ) : isParticipant ? (
-                        <>
-                          <button
-                            type="button"
-                            className="match-action"
-                            onClick={() => navigate(`/matches/${match.id}`)}
-                          >
-                            View match
-                          </button>
-                          <button type="button" className="match-action primary">
-                            <MessageCircle size={16} aria-hidden="true" />
-                            Message group
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="match-action primary"
-                          onClick={() => navigate(`/matches/${match.id}`)}
-                        >
-                          View match
+                      <button
+                        type="button"
+                        className="match-action primary"
+                        onClick={() => navigate(`/matches/${match.id}`)}
+                      >
+                        {isHost ? "View & manage" : "View match"}
+                      </button>
+                      {isHost || isParticipant ? (
+                        <button type="button" className="match-action" disabled>
+                          <MessageCircle size={16} aria-hidden="true" />
+                          Message group
                         </button>
-                      )}
+                      ) : null}
                     </footer>
                   </article>
                 );
               })
             )}
-            {!isLoadingMatches && !matchesError && matches.length === 0 ? (
-              <div className="matches-empty">No matches found for these filters yet.</div>
-            ) : null}
-          </div>
-        </section>
+              {!isLoadingMatches && !matchesError && matches.length === 0 ? (
+                <div className="matches-empty">No matches found for these filters yet.</div>
+              ) : null}
+            </div>
+          </section>
+        </div>
       </div>
     </MainLayout>
   );
