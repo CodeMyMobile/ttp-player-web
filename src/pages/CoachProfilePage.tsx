@@ -16,6 +16,7 @@ import {
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import { requestPrivateLesson } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
@@ -246,6 +247,23 @@ const CoachProfilePage = () => {
   const [bookingInFlight, setBookingInFlight] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<{
+    date: BookingDate;
+    slot: BookingSlot;
+    schedule: {
+      startDateTime: string;
+      endDateTime: string;
+      startDateTimeTz: string;
+      endDateTimeTz: string;
+    };
+    locationId: number;
+    court: number | string | null;
+  } | null>(null);
   const languages = profile?.languages ?? [];
   const levels = profile?.levels ?? [];
   const certifications = profile?.certifications ?? [];
@@ -558,6 +576,43 @@ const CoachProfilePage = () => {
     return 0;
   };
 
+  const loadPaymentMethods = async () => {
+    if (!authToken) {
+      setPaymentMethodsError("Sign in to choose a payment method.");
+      setPaymentMethods([]);
+      return;
+    }
+    setPaymentMethodsLoading(true);
+    setPaymentMethodsError(null);
+    try {
+      const payload = await getPlayerStripePaymentMethods(authToken);
+      const methods =
+        Array.isArray(payload) || !payload
+          ? (payload ?? [])
+          : (payload.payment_methods ??
+            payload.data ??
+            payload.results ??
+            (payload as { paymentMethods?: PlayerStripePaymentMethod[] }).paymentMethods ??
+            []);
+      setPaymentMethods(methods);
+      const defaultId =
+        (!Array.isArray(payload) && payload
+          ? payload.default_payment_method_id ??
+            (payload as Record<string, unknown>)["default_payment_method"] ??
+            (payload as Record<string, unknown>)["defaultPaymentMethodId"]
+          : undefined) ??
+        methods.find((method) => method.is_default || method.default || method.default_for_currency)?.id ??
+        methods[0]?.id;
+      setSelectedPaymentMethodId(defaultId ?? null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load payment methods.";
+      setPaymentMethods([]);
+      setPaymentMethodsError(message);
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  };
+
   const handleBookLesson = async (date?: BookingDate, slot?: BookingSlot) => {
     if (!profile || !slot || !date) return;
     if (!authToken) {
@@ -580,6 +635,36 @@ const CoachProfilePage = () => {
       return;
     }
 
+    setPendingBooking({ date, slot, schedule, locationId, court });
+    setBookingError(null);
+    setBookingSuccess(null);
+    setPaymentSheetOpen(true);
+    await loadPaymentMethods();
+  };
+
+  const closePaymentSheet = () => {
+    setPaymentSheetOpen(false);
+    setPendingBooking(null);
+    setPaymentMethodsError(null);
+  };
+
+  const confirmBookLesson = async () => {
+    if (!pendingBooking || !profile || !authToken) {
+      setBookingError("Please select a lesson and sign in to continue.");
+      return;
+    }
+    if (!selectedPaymentMethodId) {
+      setPaymentMethodsError("Choose a payment method to book this lesson.");
+      return;
+    }
+
+    const coachId = Number(profile.id);
+    if (!Number.isFinite(coachId)) {
+      setBookingError("Invalid coach information. Please refresh and try again.");
+      return;
+    }
+
+    const { schedule, locationId, court, slot } = pendingBooking;
     setBookingError(null);
     setBookingSuccess(null);
     setBookingInFlight(slot.id);
@@ -595,8 +680,10 @@ const CoachProfilePage = () => {
         locationId,
         court,
         status: "PENDING",
+        paymentMethodId: selectedPaymentMethodId,
       });
       setBookingSuccess("Lesson request sent to your coach.");
+      closePaymentSheet();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not book this lesson.";
       setBookingError(message);
@@ -1284,6 +1371,86 @@ const CoachProfilePage = () => {
           )}
         </div>
       </div>
+      {paymentSheetOpen && (
+        <div className="coach-payment-modal" role="dialog" aria-modal="true">
+          <div className="coach-payment-modal__backdrop" onClick={closePaymentSheet} />
+          <div className="coach-payment-modal__panel">
+            <div className="coach-payment-modal__header">
+              <div>
+                <p className="coach-payment-modal__eyebrow">Pay for lesson</p>
+                <h3 className="coach-payment-modal__title">Choose a payment method</h3>
+              </div>
+              <button
+                type="button"
+                className="coach-payment-modal__close"
+                onClick={closePaymentSheet}
+                aria-label="Close payment selection"
+              >
+                ×
+              </button>
+            </div>
+
+            {paymentMethodsLoading && <p className="coach-payment-modal__hint">Loading your cards…</p>}
+            {paymentMethodsError && <p className="coach-payment-modal__error">{paymentMethodsError}</p>}
+
+            {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
+              <div className="coach-payment-modal__empty">
+                <p>No saved cards yet.</p>
+                <Link to="/settings/payment-methods" className="coach-payment-modal__link">
+                  Add a payment method
+                </Link>
+              </div>
+            )}
+
+            {paymentMethods.length > 0 && (
+              <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
+                {paymentMethods.map((method) => {
+                  const brand = (method.card?.brand ?? "Card").toString();
+                  const last4 = method.card?.last4 ?? "••••";
+                  const expMonth = method.card?.exp_month;
+                  const expYear = method.card?.exp_year;
+                  const isActive = selectedPaymentMethodId === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      className={`coach-payment-card${isActive ? " coach-payment-card--active" : ""}`}
+                      onClick={() => setSelectedPaymentMethodId(method.id)}
+                    >
+                      <div className="coach-payment-card__brand">{brand}</div>
+                      <div className="coach-payment-card__meta">
+                        <span className="coach-payment-card__last4">•••• {last4}</span>
+                        {expMonth && expYear ? (
+                          <span className="coach-payment-card__expiry">
+                            {expMonth.toString().padStart(2, "0")}/{`${expYear}`.slice(-2)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {method.is_default && <span className="coach-payment-card__pill">Default</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="coach-payment-modal__actions">
+              <Link to="/settings/payment-methods" className="coach-payment-modal__link">
+                Manage payment methods
+              </Link>
+              <button
+                type="button"
+                className="coach-payment-modal__confirm"
+                disabled={bookingInFlight !== null || !selectedPaymentMethodId || paymentMethodsLoading}
+                onClick={() => void confirmBookLesson()}
+              >
+                {bookingInFlight ? "Booking…" : "Confirm & pay"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };
