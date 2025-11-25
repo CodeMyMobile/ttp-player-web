@@ -9,6 +9,8 @@ import {
   cancelBooking,
   fetchAvailableLessons,
   fetchPlayerBookings,
+  fetchCoachLessonsByDate,
+  fetchCoachSchedule,
   requestPrivateLesson,
   type Lesson as ApiLesson,
 } from "../../../api/playerLessons";
@@ -74,6 +76,8 @@ type DateRange = {
   start: moment.Moment;
   end: moment.Moment;
 };
+
+type SessionTab = "all" | "private" | "group";
 
 interface CoachAvailabilitySlot {
   start_time: string;
@@ -292,6 +296,27 @@ const formatAvailabilityWindow = (startIso: string, endIso: string) => {
   return `${start.format("MMM D, h:mm A")} – ${end.format("h:mm A")}`;
 };
 
+// Split a long availability window into 1-hour slots (HH:mm:ss format) for easier rendering.
+const splitIntoSlots = (availability?: { from?: string | null; to?: string | null }) => {
+  if (!availability?.from || !availability?.to) return [];
+  const fromMoment = moment(availability.from, "HH:mm:ss");
+  const toMoment = moment(availability.to, "HH:mm:ss");
+  if (!fromMoment.isValid() || !toMoment.isValid() || !fromMoment.isBefore(toMoment)) return [];
+
+  const slots: Array<{ startTime: string; endTime: string }> = [];
+  let cursor = fromMoment.clone();
+  while (cursor.isBefore(toMoment)) {
+    const segmentEnd = cursor.clone().add(1, "hour");
+    if (segmentEnd.isAfter(toMoment)) break;
+    slots.push({
+      startTime: cursor.format("HH:mm:ss"),
+      endTime: segmentEnd.format("HH:mm:ss"),
+    });
+    cursor = segmentEnd;
+  }
+  return slots;
+};
+
 const PlayerCalendar = () => {
   const { user } = useAuth();
 
@@ -320,6 +345,7 @@ const PlayerCalendar = () => {
   const [rangeEndValue, setRangeEndValue] = useState("");
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [isShowcaseMode, setIsShowcaseMode] = useState(false);
+  const [sessionTab, setSessionTab] = useState<SessionTab>("all");
   const [coachScheduleByDay, setCoachScheduleByDay] = useState<Record<string, CoachScheduleEntry[]>>({});
   const [coachScheduleLoading, setCoachScheduleLoading] = useState(false);
   const [apiCoachAvailability, setApiCoachAvailability] = useState<CoachAvailability[]>([]);
@@ -341,6 +367,7 @@ const PlayerCalendar = () => {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestTimeRange, setRequestTimeRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
@@ -466,11 +493,36 @@ const PlayerCalendar = () => {
       return;
     }
 
+    const selectedDayName =
+      selectedDay !== "all" && moment(selectedDay, moment.ISO_8601, true).isValid()
+        ? moment(selectedDay).format("dddd").toUpperCase()
+        : null;
+
     const parsedLocationId = parseFilterId(locationFilter);
 
     const fetchSchedule = async () => {
       setCoachScheduleLoading(true);
       try {
+        if (selectedDayName) {
+          try {
+            const entries = await fetchCoachSchedule({
+              token: authToken ?? "",
+              coachId,
+              day: selectedDayName,
+            });
+            if (cancelled) return;
+            setCoachScheduleByDay({ [selectedDayName]: entries ?? [] });
+          } catch (err) {
+            const status = (err as Error & { status?: number }).status;
+            if (status === 304) {
+              setCoachScheduleByDay({ [selectedDayName]: [] });
+            } else {
+              throw err;
+            }
+          }
+          return;
+        }
+
         const responses = await Promise.all(
           WEEK_DAYS.map((day) =>
             parsedLocationId
@@ -501,7 +553,7 @@ const PlayerCalendar = () => {
     return () => {
       cancelled = true;
     };
-  }, [coachFilter, locationFilter]);
+  }, [authToken, coachFilter, locationFilter, selectedDay]);
 
   useEffect(() => {
     let cancelled = false;
@@ -556,7 +608,11 @@ const PlayerCalendar = () => {
       const coachIdParam = parseFilterId(coachFilter);
       const locationIdParam = parseFilterId(locationFilter);
       const levelParam = levelFilter && levelFilter !== "All" ? levelFilter : undefined;
-      const [lessonsResponse, bookingsResponse] = await Promise.all([
+      const selectedDayMoment =
+        selectedDay !== "all" && moment(selectedDay, moment.ISO_8601, true).isValid()
+          ? moment(selectedDay)
+          : null;
+      const [lessonsResponse, bookingsResponse, coachDayLessons] = await Promise.all([
         fetchAvailableLessons({
           token: authToken,
           start_date: dateRange.start.format("YYYY-MM-DD"),
@@ -567,9 +623,28 @@ const PlayerCalendar = () => {
           level: levelParam,
         }),
         fetchPlayerBookings({ token: authToken }),
+        coachIdParam && selectedDayMoment
+          ? fetchCoachLessonsByDate({
+              token: authToken,
+              coachId: coachIdParam,
+              date: selectedDayMoment.format("YYYY-MM-DD"),
+            }).catch((err) => {
+              console.error("Failed to fetch coach lessons for date", err);
+              return [];
+            })
+          : Promise.resolve([]),
       ]);
 
       const fetchedLessons = lessonsResponse?.data ?? [];
+      const mergedLessons = (() => {
+        if (!coachDayLessons?.length) return fetchedLessons;
+        const merged = new Map<number | string, Lesson>();
+        [...fetchedLessons, ...coachDayLessons].forEach((lesson) => {
+          if (!lesson || (!lesson.id && lesson.id !== 0)) return;
+          merged.set(lesson.id, lesson);
+        });
+        return Array.from(merged.values());
+      })();
       const fetchedBookings = bookingsResponse?.data ?? [];
       const availabilityPayload = Array.isArray(
         (lessonsResponse as { availability_by_coach?: CoachAvailability[] })?.availability_by_coach,
@@ -577,7 +652,7 @@ const PlayerCalendar = () => {
         ? ((lessonsResponse as { availability_by_coach?: CoachAvailability[] })?.availability_by_coach as CoachAvailability[])
         : [];
 
-      if (!fetchedLessons.length) {
+      if (!mergedLessons.length) {
         applyShowcaseLessons();
         setError("We couldn’t load live availability just yet, so here’s a sample schedule.");
         setApiCoachAvailability([]);
@@ -585,7 +660,7 @@ const PlayerCalendar = () => {
       }
 
       setIsShowcaseMode(false);
-      setRawLessons(fetchedLessons);
+      setRawLessons(mergedLessons);
       setPlayerBookings(fetchedBookings);
       setApiCoachAvailability(availabilityPayload);
       setError(null);
@@ -606,6 +681,7 @@ const PlayerCalendar = () => {
     levelFilter,
     locationFilter,
     searchQuery,
+    selectedDay,
   ]);
 
   useEffect(() => {
@@ -735,6 +811,21 @@ const PlayerCalendar = () => {
     setIsRangeOpen(false);
   };
 
+  const syncSessionTab = useCallback(
+    (value: string) => {
+      if (value === "private" || value === "group") {
+        setSessionTab(value);
+      } else {
+        setSessionTab("all");
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    syncSessionTab(lessonTypeFilter);
+  }, [lessonTypeFilter, syncSessionTab]);
+
   const filteredLessons = useMemo(() => {
     const coachId = coachFilter === "all" ? null : Number(coachFilter);
     const locationId = locationFilter === "all" ? null : Number(locationFilter);
@@ -845,19 +936,33 @@ const PlayerCalendar = () => {
       const slots =
         entries
           .filter((entry) => entry.from && entry.to)
-          .map((entry) => ({
-            id: entry.id ?? `${day}-${entry.from}-${entry.to}-${entry.location_id ?? "loc"}`,
-            from: entry.from,
-            to: entry.to,
-            location: entry.location || entry.location_name || "",
-            locationId:
+          .flatMap((entry) => {
+            const baseId = entry.id ?? `${day}-${entry.from}-${entry.to}-${entry.location_id ?? "loc"}`;
+            const locationId =
               typeof entry.location_id === "number"
                 ? entry.location_id
                 : entry.location_id !== undefined
                   ? Number(entry.location_id)
-                  : undefined,
-            court: entry.court,
-          })) ?? [];
+                  : undefined;
+            const segments = splitIntoSlots({ from: entry.from, to: entry.to });
+            const segmentList =
+              segments.length > 0
+                ? segments
+                : [
+                    {
+                      startTime: entry.from,
+                      endTime: entry.to,
+                    },
+                  ];
+            return segmentList.map((segment, index) => ({
+              id: `${baseId}-seg-${index}`,
+              from: segment.startTime,
+              to: segment.endTime,
+              location: entry.location || entry.location_name || "",
+              locationId,
+              court: entry.court,
+            }));
+          }) ?? [];
       return {
         day,
         label: day.charAt(0) + day.slice(1).toLowerCase(),
@@ -976,6 +1081,16 @@ const PlayerCalendar = () => {
         window.alert("This availability slot is missing time information.");
         return;
       }
+      const initialStart = slot.apiStart
+        ? moment(slot.apiStart).format("HH:mm")
+        : slot.scheduleFrom
+          ? slot.scheduleFrom.slice(0, 5)
+          : "";
+      const initialEnd = slot.apiEnd
+        ? moment(slot.apiEnd).format("HH:mm")
+        : slot.scheduleTo
+          ? slot.scheduleTo.slice(0, 5)
+          : "";
       setRequestError(null);
       setRequestSlot({
         coachId: card.coachId,
@@ -991,6 +1106,10 @@ const PlayerCalendar = () => {
           scheduleTo: slot.scheduleTo,
           scheduleDate: slot.scheduleDate || dayEntry.date,
         },
+      });
+      setRequestTimeRange({
+        start: initialStart,
+        end: initialEnd,
       });
       setRequestModalOpen(true);
     },
@@ -1047,20 +1166,51 @@ const PlayerCalendar = () => {
       setRequestError("Location is required to request a lesson.");
       return;
     }
+    if (!requestTimeRange.start || !requestTimeRange.end) {
+      setRequestError("Select a start and end time.");
+      return;
+    }
 
     let startLocal: moment.Moment | null = null;
     let endLocal: moment.Moment | null = null;
 
-    if (slot.apiStart && slot.apiEnd) {
-      startLocal = moment(slot.apiStart);
-      endLocal = moment(slot.apiEnd);
-    } else if (slot.scheduleFrom && slot.scheduleTo && slot.scheduleDate) {
-      startLocal = moment(`${slot.scheduleDate} ${slot.scheduleFrom}`, "YYYY-MM-DD HH:mm:ss");
-      endLocal = moment(`${slot.scheduleDate} ${slot.scheduleTo}`, "YYYY-MM-DD HH:mm:ss");
-    }
+    const windowDate = slot.scheduleDate
+      ? slot.scheduleDate
+      : slot.apiStart
+        ? moment(slot.apiStart).format("YYYY-MM-DD")
+        : null;
+
+    const selectedDate = windowDate ?? moment().format("YYYY-MM-DD");
+    startLocal = moment(`${selectedDate} ${requestTimeRange.start}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
+    endLocal = moment(`${selectedDate} ${requestTimeRange.end}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
 
     if (!startLocal || !endLocal || !startLocal.isValid() || !endLocal.isValid()) {
       setRequestError("Unable to parse schedule time.");
+      return;
+    }
+
+    const windowStart = slot.apiStart
+      ? moment(slot.apiStart)
+      : slot.scheduleFrom && windowDate
+        ? moment(`${windowDate} ${slot.scheduleFrom}`, "YYYY-MM-DD HH:mm:ss")
+        : null;
+    const windowEnd = slot.apiEnd
+      ? moment(slot.apiEnd)
+      : slot.scheduleTo && windowDate
+        ? moment(`${windowDate} ${slot.scheduleTo}`, "YYYY-MM-DD HH:mm:ss")
+        : null;
+
+    if (endLocal.isSameOrBefore(startLocal)) {
+      setRequestError("End time must be after start time.");
+      return;
+    }
+
+    if (windowStart && startLocal.isBefore(windowStart)) {
+      setRequestError("Start time must be within the coach’s availability window.");
+      return;
+    }
+    if (windowEnd && endLocal.isAfter(windowEnd)) {
+      setRequestError("End time must be within the coach’s availability window.");
       return;
     }
 
@@ -1275,7 +1425,10 @@ const PlayerCalendar = () => {
                   <select
                     className="fc-select__field"
                     value={lessonTypeFilter}
-                    onChange={(event) => setLessonTypeFilter(event.target.value)}
+                    onChange={(event) => {
+                      setLessonTypeFilter(event.target.value);
+                      syncSessionTab(event.target.value);
+                    }}
                     aria-label="Filter by session type"
                   >
                     {LESSON_TYPE_OPTIONS.map((option) => (
@@ -1325,6 +1478,29 @@ const PlayerCalendar = () => {
                 </div>
               </div>
             </form>
+
+            <div className="player-calendar__tabs" role="tablist" aria-label="Session type">
+              {[
+                { key: "all", label: "All" },
+                { key: "private", label: "Private" },
+                { key: "group", label: "Group" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={sessionTab === tab.key}
+                  className={`player-calendar__tab${sessionTab === tab.key ? " player-calendar__tab--active" : ""}`}
+                  onClick={() => {
+                    const value = tab.key as SessionTab;
+                    setSessionTab(value);
+                    setLessonTypeFilter(value);
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section className="group-lessons-day-filter player-calendar__day-filter" role="region" aria-label="Filter sessions by day">
@@ -1680,6 +1856,7 @@ const PlayerCalendar = () => {
                     setRequestModalOpen(false);
                     setRequestSlot(null);
                     setRequestError(null);
+                    setRequestTimeRange({ start: "", end: "" });
                   }}
                   aria-label="Close request modal"
                   className="player-calendar__close-btn"
@@ -1703,6 +1880,36 @@ const PlayerCalendar = () => {
                 <span>Status</span>
                 <span>Will be sent to coach for confirmation</span>
               </div>
+              <div className="player-calendar__modal-row player-calendar__modal-row--inputs">
+                <label className="player-calendar__field">
+                  <span>Start time</span>
+                  <input
+                    type="time"
+                    value={requestTimeRange.start}
+                    onChange={(event) =>
+                      setRequestTimeRange((prev) => ({
+                        ...prev,
+                        start: event.target.value,
+                      }))
+                    }
+                    aria-label="Select lesson start time"
+                  />
+                </label>
+                <label className="player-calendar__field">
+                  <span>End time</span>
+                  <input
+                    type="time"
+                    value={requestTimeRange.end}
+                    onChange={(event) =>
+                      setRequestTimeRange((prev) => ({
+                        ...prev,
+                        end: event.target.value,
+                      }))
+                    }
+                    aria-label="Select lesson end time"
+                  />
+                </label>
+              </div>
               {requestError ? (
                 <div className="player-calendar__alert" role="alert">
                   {requestError}
@@ -1717,6 +1924,7 @@ const PlayerCalendar = () => {
                   setRequestModalOpen(false);
                   setRequestSlot(null);
                   setRequestError(null);
+                  setRequestTimeRange({ start: "", end: "" });
                 }}
                 disabled={requestLoading}
               >

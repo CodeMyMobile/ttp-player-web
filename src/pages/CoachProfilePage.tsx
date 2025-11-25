@@ -1,3 +1,4 @@
+import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -17,7 +18,11 @@ import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
-import { requestPrivateLesson } from "../api/playerLessons";
+import {
+  fetchCoachLessonsByDate,
+  fetchCoachSchedule,
+  requestPrivateLesson,
+} from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
@@ -136,6 +141,7 @@ const Chip = ({ label }: { label: string }) => (
 
 const MINUTES_PER_DAY = 24 * 60;
 const ALL_DATES_ID = "all-dates";
+const SCHEDULE_WINDOW_DAYS = 7;
 
 const parseTimeToMinutes = (timeLabel: string) => {
   const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -217,6 +223,69 @@ const extractPlayerCapacity = (lessonDurationLabel?: string) => {
   return undefined;
 };
 
+// Breaks a wide availability window into hourly slots for booking display.
+const splitIntoSlots = (slot: BookingSlot) => {
+  const record = slot as Record<string, unknown>;
+  const from =
+    (typeof record.from === "string" && record.from) ||
+    (typeof record.start_time === "string" && record.start_time) ||
+    (typeof record.startTime === "string" && record.startTime) ||
+    (typeof record.start_date_time === "string" && record.start_date_time) ||
+    (typeof record.startDateTime === "string" && record.startDateTime);
+  const to =
+    (typeof record.to === "string" && record.to) ||
+    (typeof record.end_time === "string" && record.end_time) ||
+    (typeof record.endTime === "string" && record.endTime) ||
+    (typeof record.end_date_time === "string" && record.end_date_time) ||
+    (typeof record.endDateTime === "string" && record.endDateTime);
+
+  if (!from || !to) return [slot];
+
+  const parseTime = (value: string) => {
+    const clock = moment(value, ["HH:mm:ss", "HH:mm", "h:mm A"], true);
+    if (clock.isValid()) return clock;
+    const iso = moment(value);
+    return iso.isValid() ? iso : null;
+  };
+
+  const fromMoment = parseTime(from);
+  const toMoment = parseTime(to);
+
+  if (!fromMoment || !toMoment || !fromMoment.isBefore(toMoment)) {
+    return [slot];
+  }
+
+  const segments: BookingSlot[] = [];
+  let cursor = fromMoment.clone();
+  let index = 0;
+
+  while (cursor.isBefore(toMoment)) {
+    const end = cursor.clone().add(1, "hour");
+    if (end.isAfter(toMoment)) break;
+
+    segments.push({
+      ...slot,
+      id: `${slot.id}-seg-${index}`,
+      time: cursor.format("h:mm A"),
+      duration: `${end.diff(cursor, "minutes")} min`,
+      startDateTime: cursor.toISOString(),
+      endDateTime: end.toISOString(),
+      startDateTimeTz: cursor.toISOString(),
+      endDateTimeTz: end.toISOString(),
+    });
+
+    cursor = end;
+    index += 1;
+  }
+
+  return segments.length ? segments : [slot];
+};
+
+const getScopedSlots = (slots: BookingSlot[], lessonType: string) => {
+  const scoped = lessonType === "all" ? slots : slots.filter((slot) => slot.lessonType === lessonType);
+  return scoped.flatMap(splitIntoSlots);
+};
+
 const CoachProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -272,7 +341,6 @@ const CoachProfilePage = () => {
   const lessonDetails = profile?.lessonDetails ?? [];
   const lessonPackages = profile?.lessonPackages ?? [];
   const booking = profile?.booking;
-  const availableDates = booking?.availableDates ?? [];
   const bookingLessonTypes = booking?.lessonTypes ?? [];
   const coachDisplayName = (profile?.name ?? profile?.fullName ?? "").trim() || "Coach";
   const bookingHeadline = booking?.headline ?? `Book a lesson with ${coachDisplayName}`;
@@ -280,24 +348,182 @@ const CoachProfilePage = () => {
   const coachFirstName = coachDisplayName.split(" ")[0] ?? coachDisplayName;
   const coachTitle = profile?.title ?? profile?.headlineBadge ?? "Tennis Coach";
   const coachAvatar = profile?.imageUrl ?? profile?.profilePicture ?? "https://placehold.co/120x120?text=Coach";
+  const [apiAvailableDates, setApiAvailableDates] = useState<BookingDate[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const availableDates = useMemo(
+    () => (apiAvailableDates.length ? apiAvailableDates : booking?.availableDates ?? []),
+    [apiAvailableDates, booking?.availableDates],
+  );
 
   useEffect(() => {
-    if (!loading && profile?.booking) {
-      const defaultLessonType = profile.booking.defaultLessonType ?? "all";
-      const initialDate = profile.booking.availableDates[0];
-      const initialSlot =
-        initialDate?.slots.find((slot) => slot.lessonType === defaultLessonType) ??
-        initialDate?.slots[0];
-      setSelection({
-        lessonType: "all",
-        dateId: initialDate?.id,
-        timeId: initialSlot?.id,
-      });
+    if (!profile?.id) {
+      setApiAvailableDates([]);
+      return;
     }
-  }, [loading, profile]);
+
+    let cancelled = false;
+    const coachId = Number(profile.id);
+    const defaultLesson =
+      bookingLessonTypes.find((lesson) => lesson.id === "private") ?? bookingLessonTypes[0];
+    const defaultLessonType = (defaultLesson?.id ?? "private") as BookingSlot["lessonType"];
+    const defaultDuration = defaultLesson?.duration ?? "60 min";
+    const defaultPrice = defaultLesson?.price ?? "";
+
+    const loadSchedule = async () => {
+      setScheduleLoading(true);
+      const days: BookingDate[] = [];
+
+      try {
+        for (let offset = 0; offset < SCHEDULE_WINDOW_DAYS; offset += 1) {
+          const dateMoment = moment().add(offset, "days");
+          const dayName = dateMoment.format("dddd").toUpperCase();
+          const isoDate = dateMoment.format("YYYY-MM-DD");
+
+          let scheduleEntries = [];
+          try {
+            scheduleEntries = await fetchCoachSchedule({
+              token: authToken ?? "",
+              coachId,
+              day: dayName,
+            });
+          } catch (err) {
+            // ignore schedule errors for this day
+            console.error("Failed to fetch coach schedule", err);
+            continue;
+          }
+
+          if (!scheduleEntries.length) {
+            continue;
+          }
+
+          let lessonsForDate = [];
+          try {
+            lessonsForDate = await fetchCoachLessonsByDate({
+              token: authToken ?? undefined,
+              coachId,
+              date: isoDate,
+            });
+          } catch (err) {
+            lessonsForDate = [];
+          }
+
+          const lessonTimes = new Set(
+            lessonsForDate
+              .map((lesson) => moment(lesson.start_date_time).format("HH:mm"))
+              .filter(Boolean),
+          );
+
+          const slots = scheduleEntries
+            .flatMap((entry, entryIndex) => {
+              const baseSlot: BookingSlot = {
+                id: `${isoDate}-${entry.id ?? entryIndex}`,
+                time: moment(entry.from, ["HH:mm:ss", "HH:mm"]).format("h:mm A"),
+                lessonType: defaultLessonType,
+                duration: defaultDuration,
+                price: defaultPrice,
+                spotsRemaining: 4,
+                title: entry.court ? `Court ${entry.court}` : undefined,
+                location: entry.location_name ?? entry.location ?? "",
+                location_id:
+                  typeof entry.location_id === "number"
+                    ? entry.location_id
+                    : entry.location_id
+                      ? Number(entry.location_id)
+                      : undefined,
+              } as BookingSlot;
+
+              const withTimes = {
+                ...baseSlot,
+                from: entry.from,
+                to: entry.to,
+                start_time: entry.from,
+                end_time: entry.to,
+                court: entry.court ?? null,
+              } as BookingSlot;
+
+              return splitIntoSlots(withTimes).map((segment, segmentIndex) => ({
+                ...segment,
+                id: segment.id ?? `${baseSlot.id}-seg-${segmentIndex}`,
+                lessonType: segment.lessonType ?? baseSlot.lessonType,
+                duration: segment.duration ?? baseSlot.duration,
+                price: segment.price ?? baseSlot.price,
+                spotsRemaining:
+                  (segment as Record<string, unknown>).spotsRemaining as number | undefined ?? 4,
+                location: entry.location_name ?? entry.location ?? baseSlot.location,
+                location_id:
+                  typeof entry.location_id === "number"
+                    ? entry.location_id
+                    : entry.location_id
+                      ? Number(entry.location_id)
+                      : baseSlot.location_id,
+                locationId:
+                  typeof entry.location_id === "number"
+                    ? entry.location_id
+                    : entry.location_id
+                      ? Number(entry.location_id)
+                      : baseSlot.location_id,
+                court: entry.court ?? null,
+              }));
+            })
+            .filter((slot) => {
+              const slotStart = slot.startDateTime
+                ? moment(slot.startDateTime).format("HH:mm")
+                : moment(slot.time, ["h:mm A", "HH:mm"]).format("HH:mm");
+              return slotStart ? !lessonTimes.has(slotStart) : true;
+            });
+
+          if (slots.length) {
+            days.push({
+              id: isoDate,
+              day: dateMoment.format("ddd"),
+              date: dateMoment.format("DD"),
+              label: dateMoment.format("MMM D"),
+              totalSlots: slots.length,
+              slots,
+            });
+          }
+        }
+
+        if (!cancelled) {
+          setApiAvailableDates(days);
+        }
+      } finally {
+        if (!cancelled) {
+          setScheduleLoading(false);
+        }
+      }
+    };
+
+    void loadSchedule();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, bookingLessonTypes, profile?.id]);
 
   useEffect(() => {
-    if (!profile?.booking || !selection.lessonType) {
+    if (loading || !availableDates.length) {
+      return;
+    }
+
+    if (selection.dateId && selection.timeId) {
+      return;
+    }
+
+    const defaultLessonType = booking?.defaultLessonType ?? "all";
+    const initialDate = availableDates[0];
+    const initialSlot =
+      getScopedSlots(initialDate?.slots ?? [], defaultLessonType)[0] ??
+      getScopedSlots(initialDate?.slots ?? [], "all")[0];
+    setSelection({
+      lessonType: defaultLessonType,
+      dateId: initialDate?.id,
+      timeId: initialSlot?.id,
+    });
+  }, [availableDates, booking?.defaultLessonType, loading, selection.dateId, selection.timeId]);
+
+  useEffect(() => {
+    if (!availableDates.length || !selection.lessonType) {
       return;
     }
 
@@ -306,11 +532,8 @@ const CoachProfilePage = () => {
         return;
       }
 
-      const timeExists = profile.booking.availableDates.some((date) =>
-        (selection.lessonType === "all"
-          ? date.slots
-          : date.slots.filter((slot) => slot.lessonType === selection.lessonType)
-        ).some((slot) => slot.id === selection.timeId),
+      const timeExists = availableDates.some((date) =>
+        getScopedSlots(date.slots, selection.lessonType).some((slot) => slot.id === selection.timeId),
       );
 
       if (!timeExists) {
@@ -323,17 +546,14 @@ const CoachProfilePage = () => {
       return;
     }
 
-    const dates = profile.booking.availableDates;
+    const dates = availableDates;
     if (!dates.length) {
       return;
     }
 
     const activeDate =
       dates.find((item) => item.id === selection.dateId) ?? dates[0];
-    const slotsForLesson =
-      selection.lessonType === "all"
-        ? activeDate.slots
-        : activeDate.slots.filter((slot) => slot.lessonType === selection.lessonType);
+    const slotsForLesson = getScopedSlots(activeDate.slots, selection.lessonType);
 
     const desiredTimeId =
       slotsForLesson.length === 0
@@ -349,7 +569,7 @@ const CoachProfilePage = () => {
         timeId: desiredTimeId,
       }));
     }
-  }, [profile, selection.dateId, selection.lessonType, selection.timeId]);
+  }, [availableDates, selection.dateId, selection.lessonType, selection.timeId]);
 
   const handleOpenPurchaseModal = () => {
     if (!profile) {
@@ -419,10 +639,7 @@ const CoachProfilePage = () => {
     }
 
     return availableDates.map((date) => {
-      const slots =
-        selection.lessonType === "all"
-          ? date.slots
-          : date.slots.filter((slot) => slot.lessonType === selection.lessonType);
+      const slots = getScopedSlots(date.slots, selection.lessonType);
 
       return {
         date,
@@ -468,16 +685,6 @@ const CoachProfilePage = () => {
 
     return profile.highlightChips.filter((chip) => !/utr/i.test(chip.label));
   }, [profile]);
-
-  const navigateToCheckout = (dateId: string, slotId: string) => {
-    if (!profile) {
-      return;
-    }
-
-    navigate(`/booking/confirm?coach=${profile.id}&date=${dateId}&slot=${slotId}`, {
-      state: { coachId: profile.id, dateId, slotId },
-    });
-  };
 
   const resolveIsoDate = (date?: BookingDate) => {
     if (!date) return undefined;
@@ -545,15 +752,16 @@ const CoachProfilePage = () => {
     };
   };
 
-  const extractLocationId = (slot?: BookingSlot) => {
-    if (!slot) return null;
-    const record = slot as Record<string, unknown>;
-    const candidates = [
-      record.location_id,
-      record.locationId,
-      (record.location as Record<string, unknown> | undefined)?.id,
-      (record.location as Record<string, unknown> | undefined)?.location_id,
-    ];
+const extractLocationId = (slot?: BookingSlot) => {
+  if (!slot) return null;
+  const record = slot as Record<string, unknown>;
+  const candidates = [
+    record.location_id,
+    record.locationId,
+    (record.location as Record<string, unknown> | undefined)?.id,
+    (record.location as Record<string, unknown> | undefined)?.location_id,
+    (record.location as Record<string, unknown> | undefined)?.locationId,
+  ];
 
     for (const candidate of candidates) {
       const numeric = typeof candidate === "number" ? candidate : Number(candidate);
@@ -1105,11 +1313,11 @@ const CoachProfilePage = () => {
                         </div>
                       )}
                       <div className="coach-booking__days">
-                        {isAllDatesSelected ? (
-                          dateEntries.length > 0 ? (
-                            dateEntries.map(({ date, slots }) => (
-                              <section key={date.id} className="coach-booking-day">
-                                <div className="coach-booking-day__header">
+            {isAllDatesSelected ? (
+              dateEntries.length > 0 ? (
+                dateEntries.map(({ date, slots }) => (
+                  <section key={date.id} className="coach-booking-day">
+                    <div className="coach-booking-day__header">
                                   <div className="coach-booking-day__titles">
                                     <h3>{dayNameMap[date.day] ?? date.day}</h3>
                                     <span>{date.label}</span>
@@ -1152,14 +1360,14 @@ const CoachProfilePage = () => {
                                           onClick={() => {
                                             handleDateChange(date.id);
                                             handleTimeChange(slot.id);
-                                            navigateToCheckout(date.id, slot.id);
+                                            void handleBookLesson(date, slot);
                                           }}
                                           onKeyDown={(event) => {
                                             if (event.key === "Enter" || event.key === " ") {
                                               event.preventDefault();
                                               handleDateChange(date.id);
                                               handleTimeChange(slot.id);
-                                              navigateToCheckout(date.id, slot.id);
+                                              void handleBookLesson(date, slot);
                                             }
                                           }}
                                           className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${
@@ -1276,14 +1484,14 @@ const CoachProfilePage = () => {
                                       onClick={() => {
                                         handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
-                                        navigateToCheckout(selectedDate.id, slot.id);
+                                        void handleBookLesson(selectedDate, slot);
                                       }}
                                       onKeyDown={(event) => {
                                         if (event.key === "Enter" || event.key === " ") {
                                           event.preventDefault();
                                           handleDateChange(selectedDate.id);
                                           handleTimeChange(slot.id);
-                                          navigateToCheckout(selectedDate.id, slot.id);
+                                          void handleBookLesson(selectedDate, slot);
                                         }
                                       }}
                                       className={`coach-booking-slot coach-booking-slot--${slot.lessonType}${

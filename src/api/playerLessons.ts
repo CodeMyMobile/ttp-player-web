@@ -110,6 +110,29 @@ export const fetchCoachSchedule = async ({ token, coachId, day }: FetchCoachSche
   return extractCoachScheduleEntries(response);
 };
 
+export interface FetchCoachLessonsByDateParams {
+  token?: string;
+  coachId: number | string;
+  date: string;
+}
+
+export const fetchCoachLessonsByDate = async ({ token, coachId, date }: FetchCoachLessonsByDateParams) => {
+  if (!coachId || !date) {
+    return [];
+  }
+
+  const response = await request<Lesson[]>(`/player/coach/lessons/date/${coachId}`, {
+    token,
+    query: { date },
+  });
+
+  if (!response) {
+    return [];
+  }
+
+  return Array.isArray(response) ? response : [];
+};
+
 export interface FetchPlayerBookingsParams {
   token: string;
 }
