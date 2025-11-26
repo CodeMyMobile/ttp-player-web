@@ -9,13 +9,28 @@ import useDebouncedValue from "../hooks/useDebouncedValue";
 
 import "./MyCoachesPage.css";
 
+type StatusCategory = "active" | "pending" | "inactive";
+
 type CoachStatusBadgeProps = {
   status?: string | number;
 };
 
+const getStatusCategory = (status?: string): StatusCategory => {
+  if (!status) return "active";
+  const normalized = status.toLowerCase();
+  if (["pending", "requested", "awaiting", "waiting", "approval"].some((token) => normalized.includes(token))) {
+    return "pending";
+  }
+  if (["cancel", "inactive", "removed", "declined"].some((token) => normalized.includes(token))) {
+    return "inactive";
+  }
+  return "active";
+};
+
 const CoachStatusBadge = ({ status }: CoachStatusBadgeProps) => {
   if (status === null || status === undefined || status === "") return null;
-  return <span className="my-coaches__status">{String(status)}</span>;
+  const category = getStatusCategory(String(status));
+  return <span className={`my-coaches__status my-coaches__status--${category}`}>{String(status)}</span>;
 };
 
 const pickCoachId = (coach: PlayerCoach) =>
@@ -57,11 +72,16 @@ const resolveAvatar = (coach: PlayerCoach) => {
   return "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80";
 };
 
-const resolveRating = (coach: PlayerCoach) => {
+const resolveRatingValue = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
   const value = record.rating ?? record.average_rating ?? record.avg_rating ?? record.score;
   const numeric = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(numeric) ? numeric.toFixed(1) : null;
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const resolveRating = (coach: PlayerCoach) => {
+  const value = resolveRatingValue(coach);
+  return value !== null ? value.toFixed(1) : null;
 };
 
 const resolveLocation = (coach: PlayerCoach) => {
@@ -120,11 +140,16 @@ const resolveStatus = (coach: PlayerCoach) => {
   return String(raw);
 };
 
-const resolveHourlyRate = (coach: PlayerCoach) => {
+const resolveHourlyRateValue = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
   const value = record.hourly_rate ?? record.rate ?? record.price_per_hour;
   const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return null;
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const resolveHourlyRate = (coach: PlayerCoach) => {
+  const numeric = resolveHourlyRateValue(coach);
+  if (numeric === null) return null;
   return `$${numeric.toFixed(0)}`;
 };
 
@@ -157,6 +182,7 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
   const location = resolveLocation(coach);
   const distance = resolveDistance(coach);
   const status = resolveStatus(coach);
+  const statusCategory = getStatusCategory(status);
   const hourlyRate = resolveHourlyRate(coach);
   const about = resolveAbout(coach);
   const locations = resolveLocationTags(coach);
@@ -164,13 +190,28 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
   return (
     <article className="my-coaches__card">
       <div className="my-coaches__card-top">
-        <div className="my-coaches__card-left">
-          <img className="my-coaches__avatar" src={avatar} alt={`Portrait of ${name}`} />
-          <div className="my-coaches__identity">
-            <div className="my-coaches__name-row">
-              <h3 className="my-coaches__name">{name}</h3>
-              {status && <CoachStatusBadge status={status} />}
-            </div>
+        <div className="my-coaches__status-row">
+          <CoachStatusBadge status={status ?? "Active"} />
+          {distance && <span className="my-coaches__pill">{distance}</span>}
+        </div>
+        {hourlyRate && (
+          <div className="my-coaches__rate-block">
+            <span className="my-coaches__rate">{hourlyRate}</span>
+            <span className="my-coaches__rate-caption">/hr</span>
+          </div>
+        )}
+      </div>
+
+      <div className="my-coaches__card-left">
+        <img className="my-coaches__avatar" src={avatar} alt={`Portrait of ${name}`} />
+        <div className="my-coaches__identity">
+          <div className="my-coaches__name-row">
+            <h3 className="my-coaches__name">{name}</h3>
+            <span className={`my-coaches__status-dot my-coaches__status-dot--${statusCategory}`}>
+              ●
+            </span>
+          </div>
+          <div className="my-coaches__meta-row">
             {rating && (
               <div className="my-coaches__rating">
                 <Star size={16} className="my-coaches__rating-icon" />
@@ -183,14 +224,7 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
                 <span>{location}</span>
               </div>
             )}
-            {distance && <div className="my-coaches__distance">{distance}</div>}
           </div>
-        </div>
-        {hourlyRate && <div className="my-coaches__rate">{hourlyRate}</div>}
-      </div>
-
-      {(about || locations.length > 0) && (
-        <div className="my-coaches__details">
           {about && <p className="my-coaches__about">{about}</p>}
           {locations.length > 0 && (
             <div className="my-coaches__tags">
@@ -202,13 +236,18 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
             </div>
           )}
         </div>
-      )}
+      </div>
 
       <div className="my-coaches__actions">
         {coachId && (
-          <Link className="my-coaches__button" to={`/coaches/${coachId}`}>
-            View profile
-          </Link>
+          <>
+            <Link className="my-coaches__button secondary" to={`/coaches/${coachId}`}>
+              View profile
+            </Link>
+            <Link className="my-coaches__button primary" to={`/coaches/${coachId}/purchase`}>
+              Book lesson
+            </Link>
+          </>
         )}
       </div>
     </article>
@@ -234,6 +273,41 @@ const MyCoachesPage = () => {
     () => Boolean(debouncedSearch.trim() || debouncedLocation.trim()),
     [debouncedLocation, debouncedSearch],
   );
+
+  const rosterBreakdown = useMemo(() => {
+    const ratingValues: number[] = [];
+    const rateValues: number[] = [];
+    const categorized: Record<StatusCategory, PlayerCoach[]> = {
+      active: [],
+      pending: [],
+      inactive: [],
+    };
+
+    coaches.forEach((coach) => {
+      const status = resolveStatus(coach);
+      const category = getStatusCategory(status);
+      const ratingValue = resolveRatingValue(coach);
+      const rateValue = resolveHourlyRateValue(coach);
+
+      if (ratingValue !== null) ratingValues.push(ratingValue);
+      if (rateValue !== null) rateValues.push(rateValue);
+
+      categorized[category].push(coach);
+    });
+
+    const averageRating = ratingValues.length
+      ? (ratingValues.reduce((total, value) => total + value, 0) / ratingValues.length).toFixed(1)
+      : null;
+    const averageRate = rateValues.length
+      ? `$${Math.round(rateValues.reduce((total, value) => total + value, 0) / rateValues.length)}`
+      : null;
+
+    return {
+      ...categorized,
+      averageRating,
+      averageRate,
+    };
+  }, [coaches]);
 
   const fetchCoaches = useCallback(async () => {
     setLoading(true);
@@ -263,22 +337,64 @@ const MyCoachesPage = () => {
   return (
     <MainLayout>
       <div className="my-coaches">
-        <header className="my-coaches__header">
-          <div>
-            <p className="my-coaches__eyebrow">Roster</p>
+        <header className="my-coaches__hero">
+          <div className="my-coaches__intro">
+            <div className="my-coaches__eyebrow">Roster</div>
             <h1 className="my-coaches__title">My coaches</h1>
             <p className="my-coaches__subtitle">
-              Keep track of the coaches you are working with and jump to their profiles quickly.
+              See every coach you work with, check their status, and jump into booking without leaving this page.
             </p>
+            <div className="my-coaches__pill-row">
+              <span className="my-coaches__pill my-coaches__pill--brand">
+                Active coaches · {rosterBreakdown.active.length}
+              </span>
+              <span className="my-coaches__pill">
+                Pending approvals · {rosterBreakdown.pending.length}
+              </span>
+              <span className="my-coaches__pill">
+                Total in roster · {coaches.length}
+              </span>
+            </div>
           </div>
-          <button
-            type="button"
-            className="my-coaches__icon-button"
-            onClick={fetchCoaches}
-            aria-label="Refresh coaches"
-          >
-            <RefreshCcw size={18} />
-          </button>
+
+          <div className="my-coaches__hero-card">
+            <div className="my-coaches__hero-header">
+              <div>
+                <p className="my-coaches__hero-label">Roster health</p>
+                <h2 className="my-coaches__hero-title">Stay connected</h2>
+              </div>
+              <button
+                type="button"
+                className="my-coaches__icon-button"
+                onClick={fetchCoaches}
+                aria-label="Refresh coaches"
+              >
+                <RefreshCcw size={18} />
+              </button>
+            </div>
+            <div className="my-coaches__stat-grid">
+              <div className="my-coaches__stat">
+                <p className="my-coaches__stat-label">Average rating</p>
+                <p className="my-coaches__stat-value">{rosterBreakdown.averageRating ?? "—"}</p>
+                <p className="my-coaches__stat-hint">Across coaches with ratings</p>
+              </div>
+              <div className="my-coaches__stat">
+                <p className="my-coaches__stat-label">Typical rate</p>
+                <p className="my-coaches__stat-value">{rosterBreakdown.averageRate ?? "—"}</p>
+                <p className="my-coaches__stat-hint">Per hour on average</p>
+              </div>
+              <div className="my-coaches__stat">
+                <p className="my-coaches__stat-label">Confirmed</p>
+                <p className="my-coaches__stat-value">{rosterBreakdown.active.length}</p>
+                <p className="my-coaches__stat-hint">Ready for booking</p>
+              </div>
+              <div className="my-coaches__stat">
+                <p className="my-coaches__stat-label">Pending</p>
+                <p className="my-coaches__stat-value">{rosterBreakdown.pending.length}</p>
+                <p className="my-coaches__stat-hint">Waiting for confirmation</p>
+              </div>
+            </div>
+          </div>
         </header>
 
         <div className="my-coaches__filters">
@@ -325,11 +441,58 @@ const MyCoachesPage = () => {
         )}
 
         {!loading && !error && coaches.length > 0 && (
-          <div className="my-coaches__grid">
-            {coaches.map((coach) => (
-              <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
-            ))}
-          </div>
+          <>
+            {rosterBreakdown.active.length > 0 && (
+              <section className="my-coaches__section" aria-label="Active coaches">
+                <div className="my-coaches__section-header">
+                  <div>
+                    <p className="my-coaches__section-eyebrow">Active</p>
+                    <h3>Active coaches</h3>
+                    <p>Confirmed coaches you can book and message right away.</p>
+                  </div>
+                </div>
+                <div className="my-coaches__grid">
+                  {rosterBreakdown.active.map((coach) => (
+                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {rosterBreakdown.pending.length > 0 && (
+              <section className="my-coaches__section" aria-label="Pending coaches">
+                <div className="my-coaches__section-header">
+                  <div>
+                    <p className="my-coaches__section-eyebrow">Pending</p>
+                    <h3>Awaiting approval</h3>
+                    <p>These coaches still need to confirm before you can book with them.</p>
+                  </div>
+                </div>
+                <div className="my-coaches__grid">
+                  {rosterBreakdown.pending.map((coach) => (
+                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {rosterBreakdown.inactive.length > 0 && (
+              <section className="my-coaches__section" aria-label="Inactive coaches">
+                <div className="my-coaches__section-header">
+                  <div>
+                    <p className="my-coaches__section-eyebrow">Inactive</p>
+                    <h3>Archived coaches</h3>
+                    <p>Coaches with cancelled or inactive connections stay here for reference.</p>
+                  </div>
+                </div>
+                <div className="my-coaches__grid">
+                  {rosterBreakdown.inactive.map((coach) => (
+                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     </MainLayout>

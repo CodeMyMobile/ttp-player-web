@@ -1,15 +1,23 @@
 .my-coaches {
-  padding: 32px 24px 64px;
-  max-width: 1100px;
+  padding: 32px 24px 80px;
+  max-width: 1200px;
   margin: 0 auto;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
 }
 
-.my-coaches__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+.my-coaches__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.my-coaches__intro {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
 }
 
 .my-coaches__eyebrow {
@@ -18,19 +26,92 @@
   font-size: 12px;
   color: #6b7280;
   margin: 0 0 6px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .my-coaches__title {
   margin: 0;
-  font-size: 28px;
+  font-size: 30px;
   color: #0f172a;
 }
 
 .my-coaches__subtitle {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: #475569;
   max-width: 640px;
+  line-height: 1.6;
+}
+
+.my-coaches__pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.my-coaches__hero-card {
+  background: radial-gradient(circle at 20% 20%, #eef2ff, #f8fafc 60%);
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.my-coaches__hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.my-coaches__hero-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+  font-size: 12px;
+}
+
+.my-coaches__hero-title {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.my-coaches__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.my-coaches__stat {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.06);
+}
+
+.my-coaches__stat-label {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.my-coaches__stat-value {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.my-coaches__stat-hint {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .my-coaches__icon-button {
@@ -53,20 +134,24 @@
 
 .my-coaches__filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
-  margin: 12px 0 18px;
+  margin: 10px 0 20px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.06);
 }
 
 .my-coaches__input {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  background: #fff;
+  padding: 12px;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .my-coaches__input input {
@@ -75,11 +160,42 @@
   outline: none;
   font-size: 14px;
   color: #0f172a;
+  background: transparent;
+}
+
+.my-coaches__section {
+  margin-top: 18px;
+}
+
+.my-coaches__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.my-coaches__section-eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.my-coaches__section h3 {
+  margin: 4px 0 2px;
+  color: #0f172a;
+}
+
+.my-coaches__section p {
+  margin: 0;
+  color: #475569;
 }
 
 .my-coaches__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 14px;
   margin-top: 12px;
 }
@@ -87,18 +203,91 @@
 .my-coaches__card {
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 18px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 20px 36px rgba(15, 23, 42, 0.08);
 }
 
 .my-coaches__card-top {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  align-items: center;
+}
+
+.my-coaches__status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-coaches__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.my-coaches__status--active {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.my-coaches__status--pending {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.my-coaches__status--inactive {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.my-coaches__pill {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.my-coaches__pill--brand {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #312e81;
+}
+
+.my-coaches__rate-block {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: #ecfeff;
+  border: 1px solid #cce6ea;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #0f172a;
+}
+
+.my-coaches__rate {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.my-coaches__rate-caption {
+  font-size: 12px;
+  color: #475569;
 }
 
 .my-coaches__card-left {
@@ -108,9 +297,9 @@
 }
 
 .my-coaches__avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 14px;
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
   object-fit: cover;
   background: linear-gradient(135deg, #e0f2fe, #f8fafc);
 }
@@ -118,14 +307,14 @@
 .my-coaches__identity {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .my-coaches__name-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .my-coaches__name {
@@ -134,21 +323,36 @@
   color: #0f172a;
 }
 
-.my-coaches__status {
-  background: #ecfeff;
-  color: #0e7490;
-  border: 1px solid #cce6ea;
-  border-radius: 999px;
-  padding: 4px 10px;
+.my-coaches__status-dot {
   font-size: 12px;
-  font-weight: 600;
+}
+
+.my-coaches__status-dot--active {
+  color: #16a34a;
+}
+
+.my-coaches__status-dot--pending {
+  color: #fb923c;
+}
+
+.my-coaches__status-dot--inactive {
+  color: #94a3b8;
+}
+
+.my-coaches__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 14px;
 }
 
 .my-coaches__rating {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -165,31 +369,8 @@
   font-size: 14px;
 }
 
-.my-coaches__distance {
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.my-coaches__rate {
-  font-weight: 700;
-  color: #0f172a;
-  font-size: 20px;
-  white-space: nowrap;
-  padding: 6px 10px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #ecfeff, #f8fafc);
-  border: 1px solid #cce6ea;
-  height: fit-content;
-}
-
-.my-coaches__details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .my-coaches__about {
-  margin: 0;
+  margin: 4px 0 0;
   color: #475569;
   line-height: 1.5;
   display: -webkit-box;
@@ -217,25 +398,39 @@
 .my-coaches__actions {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .my-coaches__button {
-  background: #0f172a;
-  color: #fff;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
   padding: 10px 14px;
   border-radius: 10px;
   text-decoration: none;
-  font-weight: 600;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.my-coaches__button.primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+}
+
+.my-coaches__button.secondary {
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
 }
 
 .my-coaches__button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
 }
 
 .my-coaches__skeleton {
-  height: 120px;
+  height: 180px;
   border-radius: 16px;
   background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
   background-size: 200% 100%;
@@ -251,27 +446,20 @@
   }
 }
 
+@media (max-width: 960px) {
+  .my-coaches__hero {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .my-coaches {
-    padding: 24px 16px 48px;
-  }
-
-  .my-coaches__card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .my-coaches__card-top {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .my-coaches__rate {
-    align-self: flex-start;
+    padding: 24px 16px 56px;
   }
 
   .my-coaches__actions {
     width: 100%;
+    flex-direction: column;
   }
 
   .my-coaches__button {
