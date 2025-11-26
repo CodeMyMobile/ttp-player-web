@@ -234,6 +234,7 @@ const splitIntoSlots = (slot: BookingSlot) => {
   if (record[SEGMENTED_FLAG]) {
     return [slot];
   }
+
   const from =
     (typeof record.from === "string" && record.from) ||
     (typeof record.start_time === "string" && record.start_time) ||
@@ -249,41 +250,28 @@ const splitIntoSlots = (slot: BookingSlot) => {
 
   if (!from || !to) return [slot];
 
-  const parseTime = (value: string) => {
-    const clockMatch = value.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
-    if (clockMatch) {
-      const clock = moment(clockMatch[1], ["HH:mm:ss", "HH:mm"], true);
-      if (clock.isValid()) return clock;
-    }
+  const date = (typeof record.date === "string" && record.date) || moment().format("YYYY-MM-DD");
 
-    const clock = moment(value, ["HH:mm:ss", "HH:mm", "h:mm A"], true);
-    if (clock.isValid()) return clock;
+  const fromDate = moment(`${date} ${from}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"], true);
+  const toDate = moment(`${date} ${to}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"], true);
 
-    const iso = moment.parseZone(value);
-    return iso.isValid() ? iso : null;
-  };
-
-  const fromMoment = parseTime(from);
-  const toMoment = parseTime(to);
-
-  if (!fromMoment || !toMoment || !fromMoment.isBefore(toMoment)) {
+  if (!fromDate.isValid() || !toDate.isValid() || !fromDate.isBefore(toDate)) {
     return [{ ...slot, [SEGMENTED_FLAG]: true }];
   }
 
   const segments: BookingSlot[] = [];
-  let cursor = fromMoment.clone();
+  let cursor = fromDate.clone();
   let index = 0;
 
-  while (cursor.isBefore(toMoment)) {
+  while (cursor.isBefore(toDate)) {
     const end = cursor.clone().add(1, "hour");
-    if (end.isAfter(toMoment)) break;
+    if (end.isAfter(toDate)) break;
 
     segments.push({
       ...slot,
-      id: `${slot.id}-seg-${index}`,
+      id: `${slot.id ?? record.id ?? "slot"}-seg-${index}`,
       time: cursor.format("h:mm A"),
       duration: `${end.diff(cursor, "minutes")} min`,
-      // store both local and UTC timestamps for robust matching
       startDateTime: cursor.toISOString(),
       endDateTime: end.toISOString(),
       start_date_time: cursor.utc().toISOString(),
@@ -453,6 +441,7 @@ const CoachProfilePage = () => {
                     : entry.location_id
                       ? Number(entry.location_id)
                       : undefined,
+                date: isoDate,
               } as BookingSlot;
 
               const withTimes = {
@@ -462,6 +451,7 @@ const CoachProfilePage = () => {
                 start_time: entry.from,
                 end_time: entry.to,
                 court: entry.court ?? null,
+                date: isoDate,
               } as BookingSlot;
 
               return splitIntoSlots(withTimes).map((segment, segmentIndex) => ({
