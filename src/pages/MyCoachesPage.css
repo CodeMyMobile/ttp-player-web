@@ -90,9 +90,15 @@
   border-radius: 16px;
   padding: 14px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.my-coaches__card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .my-coaches__card-left {
@@ -164,6 +170,50 @@
   font-size: 13px;
 }
 
+.my-coaches__rate {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 20px;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ecfeff, #f8fafc);
+  border: 1px solid #cce6ea;
+  height: fit-content;
+}
+
+.my-coaches__details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-coaches__about {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.my-coaches__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.my-coaches__tag {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .my-coaches__actions {
   display: flex;
   align-items: center;
@@ -209,6 +259,15 @@
   .my-coaches__card {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .my-coaches__card-top {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .my-coaches__rate {
+    align-self: flex-start;
   }
 
   .my-coaches__actions {
