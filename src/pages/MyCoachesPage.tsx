@@ -126,6 +126,14 @@ const isPostalCode = (value: string) => {
   return false;
 };
 
+const shortenLocationDisplay = (value: string) => {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+
+  const [firstSegment] = cleaned.split(/[·,]/);
+  return firstSegment.trim() || cleaned;
+};
+
 const formatLocationObject = (location: unknown) => {
   if (!location || typeof location !== "object") return "";
   const entry = location as Record<string, unknown>;
@@ -144,12 +152,7 @@ const formatLocationObject = (location: unknown) => {
     entry.street ?? entry.street_1 ?? entry.street1 ?? entry.address ?? entry.address_1 ?? entry.address1 ?? entry.line1,
   );
   const country = normalizeLocationString(entry.country ?? entry.country_code);
-  const parts = [
-    facility,
-    street,
-    [city, state].filter(Boolean).join(", "),
-    country,
-  ]
+  const parts = [facility, street, [city, state].filter(Boolean).join(", "), country]
     .map((value) => value.replace(/^zip\s*/i, ""))
     .filter(Boolean);
   return parts.join(" · ").trim();
@@ -200,7 +203,7 @@ const resolveLocation = (
   if (!primaryCandidates.length) return "";
 
   const nonPostal = primaryCandidates.find((entry) => !isPostalCode(entry));
-  return nonPostal ?? "";
+  return nonPostal ? shortenLocationDisplay(nonPostal) : "";
 };
 
 const resolveDistance = (coach: PlayerCoach) => {
@@ -273,7 +276,10 @@ const resolveLocationTags = (
     : [];
 
   const combined = [...profileLocations, ...apiLocations, ...formatted];
-  const filtered = combined.filter((loc) => !isPostalCode(loc));
+  const filtered = combined
+    .filter((loc) => !isPostalCode(loc))
+    .map((loc) => shortenLocationDisplay(loc))
+    .filter(Boolean);
 
   return Array.from(new Set(filtered)).slice(0, 3);
 };
