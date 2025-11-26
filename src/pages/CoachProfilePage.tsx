@@ -226,8 +226,14 @@ const extractPlayerCapacity = (lessonDurationLabel?: string) => {
 };
 
 // Breaks a wide availability window into hourly slots for booking display.
+const SEGMENTED_FLAG = "__ttpSegmented";
+
 const splitIntoSlots = (slot: BookingSlot) => {
-  const record = slot as Record<string, unknown>;
+  const record = slot as Record<string, unknown> & { [SEGMENTED_FLAG]?: boolean };
+
+  if (record[SEGMENTED_FLAG]) {
+    return [slot];
+  }
   const from =
     (typeof record.from === "string" && record.from) ||
     (typeof record.start_time === "string" && record.start_time) ||
@@ -261,36 +267,37 @@ const splitIntoSlots = (slot: BookingSlot) => {
   const toMoment = parseTime(to);
 
   if (!fromMoment || !toMoment || !fromMoment.isBefore(toMoment)) {
-    return [slot];
+    return [{ ...slot, [SEGMENTED_FLAG]: true }];
   }
 
-    const segments: BookingSlot[] = [];
-    let cursor = fromMoment.clone();
-    let index = 0;
+  const segments: BookingSlot[] = [];
+  let cursor = fromMoment.clone();
+  let index = 0;
 
-    while (cursor.isBefore(toMoment)) {
-      const end = cursor.clone().add(1, "hour");
-      if (end.isAfter(toMoment)) break;
+  while (cursor.isBefore(toMoment)) {
+    const end = cursor.clone().add(1, "hour");
+    if (end.isAfter(toMoment)) break;
 
-      segments.push({
-        ...slot,
-        id: `${slot.id}-seg-${index}`,
-        time: cursor.format("h:mm A"),
-        duration: `${end.diff(cursor, "minutes")} min`,
-        // store both local and UTC timestamps for robust matching
-        startDateTime: cursor.toISOString(),
-        endDateTime: end.toISOString(),
-        start_date_time: cursor.utc().toISOString(),
-        end_date_time: end.utc().toISOString(),
-        startDateTimeTz: cursor.toISOString(),
-        endDateTimeTz: end.toISOString(),
-      });
+    segments.push({
+      ...slot,
+      id: `${slot.id}-seg-${index}`,
+      time: cursor.format("h:mm A"),
+      duration: `${end.diff(cursor, "minutes")} min`,
+      // store both local and UTC timestamps for robust matching
+      startDateTime: cursor.toISOString(),
+      endDateTime: end.toISOString(),
+      start_date_time: cursor.utc().toISOString(),
+      end_date_time: end.utc().toISOString(),
+      startDateTimeTz: cursor.toISOString(),
+      endDateTimeTz: end.toISOString(),
+      [SEGMENTED_FLAG]: true,
+    });
 
-      cursor = end;
-      index += 1;
-    }
+    cursor = end;
+    index += 1;
+  }
 
-  return segments.length ? segments : [slot];
+  return segments.length ? segments : [{ ...slot, [SEGMENTED_FLAG]: true }];
 };
 
 const getScopedSlots = (slots: BookingSlot[], lessonType: string) => {
