@@ -64,6 +64,46 @@ const parseNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const normalizeRosterStatus = (coach) => {
+  const rawStatus =
+    coach?.player_coach_status ??
+    coach?.player_status ??
+    coach?.status ??
+    coach?.coach_status ??
+    coach?.status_text ??
+    null;
+
+  if (rawStatus === null || rawStatus === undefined) return null;
+
+  const normalizedStatus =
+    typeof rawStatus === "string" ? rawStatus.trim().toLowerCase() : rawStatus;
+
+  if (normalizedStatus === 0) return "pending";
+  if (normalizedStatus === 1) return "confirmed";
+  if (normalizedStatus === 2) return "cancelled";
+
+  if (typeof normalizedStatus === "string") {
+    if (normalizedStatus === "0" || normalizedStatus.includes("pending")) {
+      return "pending";
+    }
+    if (
+      normalizedStatus === "1" ||
+      normalizedStatus.includes("confirm") ||
+      normalizedStatus.includes("active")
+    ) {
+      return "confirmed";
+    }
+    if (normalizedStatus === "2" || normalizedStatus.includes("cancel")) {
+      return "cancelled";
+    }
+    if (normalizedStatus.includes("new")) {
+      return "new";
+    }
+  }
+
+  return null;
+};
+
 const IGNORED_OBJECT_KEYS = new Set([
   "type",
   "__typename",
@@ -956,6 +996,7 @@ const normalizeCoach = (coach) => {
       ? "Top Rated"
       : null);
   const status = (coach.status ?? coach.coach_status ?? "").toString().toLowerCase();
+  const rosterStatus = normalizeRosterStatus(coach);
   const slug = coach.slug ?? coach.username ?? id;
   const hourlyRateDisplay =
     typeof hourlyRate === "number"
@@ -982,6 +1023,7 @@ const normalizeCoach = (coach) => {
     lessonsCount,
     badge: typeof badge === "string" && badge.trim() ? badge : null,
     status,
+    rosterStatus,
     slug,
   };
 };
@@ -1053,19 +1095,39 @@ const CoachCard = ({ coach, variant = "standard" }) => {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }, [coach?.name]);
 
+  const rosterStatusLabel = useMemo(() => {
+    if (!coach?.rosterStatus) return null;
+    if (coach.rosterStatus === "pending") return "Pending";
+    if (coach.rosterStatus === "confirmed") return "Confirmed";
+    if (coach.rosterStatus === "cancelled") return "Cancelled";
+    if (coach.rosterStatus === "new") return "New";
+    return null;
+  }, [coach?.rosterStatus]);
+
+  const rosterStatusClass = useMemo(() => {
+    if (!coach?.rosterStatus) return "";
+    if (coach.rosterStatus === "pending") return "coach-card-banner pending";
+    if (coach.rosterStatus === "confirmed") return "coach-card-banner confirmed";
+    if (coach.rosterStatus === "cancelled") return "coach-card-banner cancelled";
+    if (coach.rosterStatus === "new") return "coach-card-banner new";
+    return "";
+  }, [coach?.rosterStatus]);
+
   const statusLabel = useMemo(() => {
+    if (rosterStatusLabel) return rosterStatusLabel;
     if (!coach?.status) return null;
     if (coach.status === "inactive") return "Inactive";
     if (coach.status === "pending") return "Pending";
     return null;
-  }, [coach?.status]);
+  }, [coach?.status, rosterStatusLabel]);
 
   const statusClass = useMemo(() => {
+    if (rosterStatusClass) return rosterStatusClass;
     if (!coach?.status) return "";
     if (coach.status === "inactive") return "coach-card-banner inactive";
     if (coach.status === "pending") return "coach-card-banner pending";
     return "";
-  }, [coach?.status]);
+  }, [coach?.status, rosterStatusClass]);
 
   const ratingDisplay =
     typeof coach?.ratingValue === "number" && !Number.isNaN(coach.ratingValue)

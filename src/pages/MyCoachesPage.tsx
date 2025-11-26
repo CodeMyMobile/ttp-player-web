@@ -66,15 +66,25 @@ const resolveRating = (coach: PlayerCoach) => {
 
 const resolveLocation = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
-  return (
+  const primary =
     record.location ??
     record.location_name ??
     record.city ??
     record.state ??
     record.country ??
     record.address ??
-    ""
-  );
+    "";
+
+  if (primary) return primary;
+
+  const coachLocations = record.coach_locations;
+  if (Array.isArray(coachLocations) && coachLocations.length > 0) {
+    const first = coachLocations[0];
+    if (typeof first === "string" && first.trim()) return first;
+    if (first !== null && first !== undefined) return String(first);
+  }
+
+  return "";
 };
 
 const resolveDistance = (coach: PlayerCoach) => {
@@ -86,13 +96,57 @@ const resolveDistance = (coach: PlayerCoach) => {
 
 const resolveStatus = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
-  return (
+  const raw =
     record.player_coach_status_text ??
     record.status_text ??
     record.player_status ??
     record.status ??
-    record.player_coach_status
-  );
+    record.player_coach_status;
+
+  if (raw === null || raw === undefined || raw === "") return undefined;
+
+  const numeric = Number(raw);
+  const statusLookup: Record<number, string> = {
+    0: "Pending",
+    1: "Confirmed",
+    2: "Cancelled",
+  };
+
+  if (!Number.isNaN(numeric) && statusLookup[numeric]) {
+    return statusLookup[numeric];
+  }
+
+  if (typeof raw === "string") return raw;
+  return String(raw);
+};
+
+const resolveHourlyRate = (coach: PlayerCoach) => {
+  const record = coach as Record<string, unknown>;
+  const value = record.hourly_rate ?? record.rate ?? record.price_per_hour;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return `$${numeric.toFixed(0)}`;
+};
+
+const resolveAbout = (coach: PlayerCoach) => {
+  const record = coach as Record<string, unknown>;
+  const about =
+    record.about_me ?? record.about ?? record.bio ?? record.description ?? record.summary;
+  if (typeof about !== "string") return "";
+  return about.trim();
+};
+
+const resolveLocationTags = (coach: PlayerCoach) => {
+  const record = coach as Record<string, unknown>;
+  const rawLocations =
+    record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
+  if (Array.isArray(rawLocations)) {
+    return rawLocations
+      .map((loc) => (typeof loc === "string" ? loc : String(loc ?? "")))
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+  return [];
 };
 
 const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
@@ -103,31 +157,53 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
   const location = resolveLocation(coach);
   const distance = resolveDistance(coach);
   const status = resolveStatus(coach);
+  const hourlyRate = resolveHourlyRate(coach);
+  const about = resolveAbout(coach);
+  const locations = resolveLocationTags(coach);
 
   return (
     <article className="my-coaches__card">
-      <div className="my-coaches__card-left">
-        <img className="my-coaches__avatar" src={avatar} alt={`Portrait of ${name}`} />
-        <div className="my-coaches__identity">
-          <div className="my-coaches__name-row">
-            <h3 className="my-coaches__name">{name}</h3>
-            {status && <CoachStatusBadge status={status} />}
+      <div className="my-coaches__card-top">
+        <div className="my-coaches__card-left">
+          <img className="my-coaches__avatar" src={avatar} alt={`Portrait of ${name}`} />
+          <div className="my-coaches__identity">
+            <div className="my-coaches__name-row">
+              <h3 className="my-coaches__name">{name}</h3>
+              {status && <CoachStatusBadge status={status} />}
+            </div>
+            {rating && (
+              <div className="my-coaches__rating">
+                <Star size={16} className="my-coaches__rating-icon" />
+                <span>{rating}</span>
+              </div>
+            )}
+            {location && (
+              <div className="my-coaches__meta">
+                <MapPin size={14} />
+                <span>{location}</span>
+              </div>
+            )}
+            {distance && <div className="my-coaches__distance">{distance}</div>}
           </div>
-          {rating && (
-            <div className="my-coaches__rating">
-              <Star size={16} className="my-coaches__rating-icon" />
-              <span>{rating}</span>
-            </div>
-          )}
-          {location && (
-            <div className="my-coaches__meta">
-              <MapPin size={14} />
-              <span>{location}</span>
-            </div>
-          )}
-          {distance && <div className="my-coaches__distance">{distance}</div>}
         </div>
+        {hourlyRate && <div className="my-coaches__rate">{hourlyRate}</div>}
       </div>
+
+      {(about || locations.length > 0) && (
+        <div className="my-coaches__details">
+          {about && <p className="my-coaches__about">{about}</p>}
+          {locations.length > 0 && (
+            <div className="my-coaches__tags">
+              {locations.map((loc) => (
+                <span key={loc} className="my-coaches__tag">
+                  {loc}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="my-coaches__actions">
         {coachId && (
           <Link className="my-coaches__button" to={`/coaches/${coachId}`}>

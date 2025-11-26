@@ -547,6 +547,21 @@
   color: #92400e;
 }
 
+.coach-card-banner.confirmed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #065f46;
+}
+
+.coach-card-banner.cancelled {
+  background: rgba(248, 113, 113, 0.15);
+  color: #7f1d1d;
+}
+
+.coach-card-banner.new {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1e3a8a;
+}
+
 .coach-card-accent {
   position: absolute;
   top: 16px;
