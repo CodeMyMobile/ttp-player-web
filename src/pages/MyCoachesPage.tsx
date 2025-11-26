@@ -8,6 +8,7 @@ import {
   type CoachLocation,
   type PlayerCoach,
 } from "../api/playerCalendar";
+import fetchCoachProfile, { type CoachProfileRecord } from "../api/coachProfile";
 import MainLayout from "../components/MainLayout";
 import StateBanner from "../components/coaches/StateBanner";
 import useDebouncedValue from "../hooks/useDebouncedValue";
@@ -101,6 +102,20 @@ const normalizeLocationString = (value: unknown) => {
   return typeof value === "string" ? value.trim() : "";
 };
 
+const normalizeProfileLocation = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+const deriveProfileLocations = (profile?: CoachProfileRecord) => {
+  if (!profile) return [] as string[];
+
+  const fromProfile = normalizeProfileLocation(profile.location ?? (profile as Record<string, unknown>).location_name);
+  const coachingLocations = Array.isArray(profile.coachingLocations)
+    ? profile.coachingLocations.map(normalizeProfileLocation).filter(Boolean)
+    : [];
+
+  const combined = [fromProfile, ...coachingLocations].filter(Boolean);
+  return Array.from(new Set(combined));
+};
+
 const isPostalCode = (value: string) => {
   const trimmed = value.trim().replace(/^zip\s*/i, "");
   if (/^\d{5}(?:[-\s]?\d{4})?$/.test(trimmed)) return true;
@@ -149,9 +164,13 @@ const formatLocationsFromApi = (entries: CoachLocation[] = []) => {
   return nonPostal.length ? nonPostal : [];
 };
 
-const resolveLocation = (coach: PlayerCoach, linkedLocations: CoachLocation[]) => {
+const resolveLocation = (
+  coach: PlayerCoach,
+  linkedLocations: CoachLocation[],
+  profileLocations: string[],
+) => {
   const record = coach as Record<string, unknown>;
-  const primaryCandidates: string[] = [];
+  const primaryCandidates: string[] = [...profileLocations];
 
   const formattedApiLocations = formatLocationsFromApi(linkedLocations);
   primaryCandidates.push(...formattedApiLocations);
@@ -238,7 +257,11 @@ const resolveAbout = (coach: PlayerCoach) => {
   return about.trim();
 };
 
-const resolveLocationTags = (coach: PlayerCoach, linkedLocations: CoachLocation[]) => {
+const resolveLocationTags = (
+  coach: PlayerCoach,
+  linkedLocations: CoachLocation[],
+  profileLocations: string[],
+) => {
   const record = coach as Record<string, unknown>;
   const rawLocations =
     record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
@@ -249,24 +272,32 @@ const resolveLocationTags = (coach: PlayerCoach, linkedLocations: CoachLocation[
     ? rawLocations.map((loc) => normalizeLocationString(loc) || formatLocationObject(loc)).filter(Boolean)
     : [];
 
-  const combined = [...apiLocations, ...formatted];
+  const combined = [...profileLocations, ...apiLocations, ...formatted];
   const filtered = combined.filter((loc) => !isPostalCode(loc));
 
   return Array.from(new Set(filtered)).slice(0, 3);
 };
 
-const MyCoachCard = ({ coach, linkedLocations }: { coach: PlayerCoach; linkedLocations: CoachLocation[] }) => {
+const MyCoachCard = ({
+  coach,
+  linkedLocations,
+  profileLocations,
+}: {
+  coach: PlayerCoach;
+  linkedLocations: CoachLocation[];
+  profileLocations: string[];
+}) => {
   const coachId = pickCoachId(coach);
   const name = resolveName(coach);
   const avatar = resolveAvatar(coach);
   const rating = resolveRating(coach);
-  const location = resolveLocation(coach, linkedLocations);
+  const location = resolveLocation(coach, linkedLocations, profileLocations);
   const distance = resolveDistance(coach);
   const status = resolveStatus(coach);
   const statusCategory = getStatusCategory(status);
   const hourlyRate = resolveHourlyRate(coach);
   const about = resolveAbout(coach);
-  const locations = resolveLocationTags(coach, linkedLocations);
+  const locations = resolveLocationTags(coach, linkedLocations, profileLocations);
 
   return (
     <article className="my-coaches__card">
@@ -343,6 +374,7 @@ const buildQueryParams = (search: string, location: string) => ({
 const MyCoachesPage = () => {
   const [coaches, setCoaches] = useState<PlayerCoach[]>([]);
   const [coachLocations, setCoachLocations] = useState<CoachLocation[]>([]);
+  const [coachProfiles, setCoachProfiles] = useState<Record<string, CoachProfileRecord>>({});
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
@@ -428,6 +460,54 @@ const MyCoachesPage = () => {
       console.error("Failed to load coach locations", err);
     }
   }, []);
+
+  useEffect(() => {
+    const coachIds = Array.from(
+      new Set(
+        coaches
+          .map((coach) => pickCoachId(coach))
+          .filter((id) => id !== undefined && id !== null)
+          .map(String),
+      ),
+    );
+
+    const missingIds = coachIds.filter((id) => !coachProfiles[id] && Number.isFinite(Number(id)));
+    if (!missingIds.length) return;
+
+    let cancelled = false;
+
+    const loadProfiles = async () => {
+      const entries = await Promise.all(
+        missingIds.map(async (id) => {
+          try {
+            const profile = await fetchCoachProfile(Number(id));
+            return { id, profile };
+          } catch (error) {
+            console.error(`Failed to fetch profile for coach ${id}`, error);
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setCoachProfiles((prev) => {
+        const next = { ...prev };
+        entries.forEach((entry) => {
+          if (entry?.profile) {
+            next[entry.id] = entry.profile;
+          }
+        });
+        return next;
+      });
+    };
+
+    void loadProfiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [coachProfiles, coaches]);
 
   useEffect(() => {
     fetchCoaches();
@@ -557,12 +637,16 @@ const MyCoachesPage = () => {
                   {rosterBreakdown.active.map((coach) => {
                     const coachId = pickCoachId(coach);
                     const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+                    const profileLocations = coachId
+                      ? deriveProfileLocations(coachProfiles[String(coachId)])
+                      : [];
 
                     return (
                       <MyCoachCard
                         key={coachId ?? resolveName(coach)}
                         coach={coach}
                         linkedLocations={linkedLocations}
+                        profileLocations={profileLocations}
                       />
                     );
                   })}
@@ -583,12 +667,16 @@ const MyCoachesPage = () => {
                   {rosterBreakdown.pending.map((coach) => {
                     const coachId = pickCoachId(coach);
                     const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+                    const profileLocations = coachId
+                      ? deriveProfileLocations(coachProfiles[String(coachId)])
+                      : [];
 
                     return (
                       <MyCoachCard
                         key={coachId ?? resolveName(coach)}
                         coach={coach}
                         linkedLocations={linkedLocations}
+                        profileLocations={profileLocations}
                       />
                     );
                   })}
@@ -609,12 +697,16 @@ const MyCoachesPage = () => {
                   {rosterBreakdown.inactive.map((coach) => {
                     const coachId = pickCoachId(coach);
                     const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+                    const profileLocations = coachId
+                      ? deriveProfileLocations(coachProfiles[String(coachId)])
+                      : [];
 
                     return (
                       <MyCoachCard
                         key={coachId ?? resolveName(coach)}
                         coach={coach}
                         linkedLocations={linkedLocations}
+                        profileLocations={profileLocations}
                       />
                     );
                   })}
