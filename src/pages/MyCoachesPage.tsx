@@ -84,27 +84,52 @@ const resolveRating = (coach: PlayerCoach) => {
   return value !== null ? value.toFixed(1) : null;
 };
 
+const normalizeLocationString = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
+
+const isPostalCode = (value: string) => /^\s*(?:zip\s*)?\d{5}(?:-\d{4})?\s*$/i.test(value);
+
+const formatLocationObject = (location: unknown) => {
+  if (!location || typeof location !== "object") return "";
+  const entry = location as Record<string, unknown>;
+  const name = normalizeLocationString(entry.name ?? entry.location_name ?? entry.facility_name ?? entry.facility);
+  const city = normalizeLocationString(entry.city ?? entry.town ?? entry.municipality);
+  const state = normalizeLocationString(entry.state ?? entry.region);
+  const country = normalizeLocationString(entry.country);
+  const parts = [
+    name,
+    [city, state].filter(Boolean).join(", "),
+    country,
+  ].filter(Boolean);
+  return parts.join(" · ").trim();
+};
+
 const resolveLocation = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
-  const primary =
-    record.location ??
-    record.location_name ??
-    record.city ??
-    record.state ??
-    record.country ??
-    record.address ??
-    "";
+  const primaryCandidates = [
+    record.location,
+    record.location_name,
+    record.city && record.state ? `${record.city}, ${record.state}` : undefined,
+    record.city,
+    record.state,
+    record.country,
+    record.address,
+  ]
+    .map(normalizeLocationString)
+    .filter(Boolean);
 
-  if (primary) return primary;
-
-  const coachLocations = record.coach_locations;
-  if (Array.isArray(coachLocations) && coachLocations.length > 0) {
-    const first = coachLocations[0];
-    if (typeof first === "string" && first.trim()) return first;
-    if (first !== null && first !== undefined) return String(first);
+  const coachLocations = record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
+  if (Array.isArray(coachLocations)) {
+    const formatted = coachLocations
+      .map((entry) => normalizeLocationString(entry) || formatLocationObject(entry))
+      .filter(Boolean);
+    primaryCandidates.push(...formatted);
   }
 
-  return "";
+  if (!primaryCandidates.length) return "";
+
+  const nonPostal = primaryCandidates.find((entry) => !isPostalCode(entry));
+  return nonPostal ?? primaryCandidates[0];
 };
 
 const resolveDistance = (coach: PlayerCoach) => {
@@ -165,13 +190,17 @@ const resolveLocationTags = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
   const rawLocations =
     record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
-  if (Array.isArray(rawLocations)) {
-    return rawLocations
-      .map((loc) => (typeof loc === "string" ? loc : String(loc ?? "")))
-      .filter(Boolean)
-      .slice(0, 3);
-  }
-  return [];
+
+  if (!Array.isArray(rawLocations)) return [];
+
+  const formatted = rawLocations
+    .map((loc) => normalizeLocationString(loc) || formatLocationObject(loc))
+    .filter(Boolean);
+
+  const hasNonPostal = formatted.some((loc) => !isPostalCode(loc));
+  const filtered = hasNonPostal ? formatted.filter((loc) => !isPostalCode(loc)) : formatted;
+
+  return Array.from(new Set(filtered)).slice(0, 3);
 };
 
 const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
