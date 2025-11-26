@@ -2,7 +2,12 @@ import { RefreshCcw, Search, Star, MapPin } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { getPlayerCoaches, type PlayerCoach } from "../api/playerCalendar";
+import {
+  getCoachLocation,
+  getPlayerCoaches,
+  type CoachLocation,
+  type PlayerCoach,
+} from "../api/playerCalendar";
 import MainLayout from "../components/MainLayout";
 import StateBanner from "../components/coaches/StateBanner";
 import useDebouncedValue from "../hooks/useDebouncedValue";
@@ -54,6 +59,13 @@ const resolveName = (coach: PlayerCoach) => {
   return parts[0] || "Coach";
 };
 
+const pickLocationCoachId = (location: CoachLocation) =>
+  (location as Record<string, unknown>).coach_id ??
+  (location as Record<string, unknown>).coachId ??
+  (location as Record<string, unknown>).coach_user_id ??
+  (location as Record<string, unknown>).user_id ??
+  (location as Record<string, unknown>).coach?.id;
+
 const resolveAvatar = (coach: PlayerCoach) => {
   const record = coach as Record<string, unknown>;
   const candidates = [
@@ -102,8 +114,14 @@ const isPostalCode = (value: string) => {
 const formatLocationObject = (location: unknown) => {
   if (!location || typeof location !== "object") return "";
   const entry = location as Record<string, unknown>;
-  const name = normalizeLocationString(
-    entry.name ?? entry.location_name ?? entry.facility_name ?? entry.facility ?? entry.court_name ?? entry.label,
+  const facility = normalizeLocationString(
+    entry.name ??
+      entry.location_name ??
+      entry.facility_name ??
+      entry.facility ??
+      entry.court_name ??
+      entry.label ??
+      entry.description,
   );
   const city = normalizeLocationString(entry.city ?? entry.city_name ?? entry.town ?? entry.municipality ?? entry.locality);
   const state = normalizeLocationString(entry.state ?? entry.state_code ?? entry.region ?? entry.province);
@@ -112,17 +130,31 @@ const formatLocationObject = (location: unknown) => {
   );
   const country = normalizeLocationString(entry.country ?? entry.country_code);
   const parts = [
+    facility,
     street,
-    name,
     [city, state].filter(Boolean).join(", "),
     country,
-  ].filter(Boolean);
+  ]
+    .map((value) => value.replace(/^zip\s*/i, ""))
+    .filter(Boolean);
   return parts.join(" · ").trim();
 };
 
-const resolveLocation = (coach: PlayerCoach) => {
+const formatLocationsFromApi = (entries: CoachLocation[] = []) => {
+  const formatted = entries
+    .map((entry) => normalizeLocationString(entry.location ?? entry.location_name) || formatLocationObject(entry))
+    .filter(Boolean);
+
+  const nonPostal = formatted.filter((value) => !isPostalCode(value));
+  return nonPostal.length ? nonPostal : [];
+};
+
+const resolveLocation = (coach: PlayerCoach, linkedLocations: CoachLocation[]) => {
   const record = coach as Record<string, unknown>;
   const primaryCandidates: string[] = [];
+
+  const formattedApiLocations = formatLocationsFromApi(linkedLocations);
+  primaryCandidates.push(...formattedApiLocations);
 
   const coachLocations = record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
   if (Array.isArray(coachLocations)) {
@@ -206,35 +238,35 @@ const resolveAbout = (coach: PlayerCoach) => {
   return about.trim();
 };
 
-const resolveLocationTags = (coach: PlayerCoach) => {
+const resolveLocationTags = (coach: PlayerCoach, linkedLocations: CoachLocation[]) => {
   const record = coach as Record<string, unknown>;
   const rawLocations =
     record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
 
-  if (!Array.isArray(rawLocations)) return [];
+  const apiLocations = formatLocationsFromApi(linkedLocations);
 
-  const formatted = rawLocations
-    .map((loc) => normalizeLocationString(loc) || formatLocationObject(loc))
-    .filter(Boolean);
+  const formatted = Array.isArray(rawLocations)
+    ? rawLocations.map((loc) => normalizeLocationString(loc) || formatLocationObject(loc)).filter(Boolean)
+    : [];
 
-  const hasNonPostal = formatted.some((loc) => !isPostalCode(loc));
-  const filtered = hasNonPostal ? formatted.filter((loc) => !isPostalCode(loc)) : [];
+  const combined = [...apiLocations, ...formatted];
+  const filtered = combined.filter((loc) => !isPostalCode(loc));
 
   return Array.from(new Set(filtered)).slice(0, 3);
 };
 
-const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
+const MyCoachCard = ({ coach, linkedLocations }: { coach: PlayerCoach; linkedLocations: CoachLocation[] }) => {
   const coachId = pickCoachId(coach);
   const name = resolveName(coach);
   const avatar = resolveAvatar(coach);
   const rating = resolveRating(coach);
-  const location = resolveLocation(coach);
+  const location = resolveLocation(coach, linkedLocations);
   const distance = resolveDistance(coach);
   const status = resolveStatus(coach);
   const statusCategory = getStatusCategory(status);
   const hourlyRate = resolveHourlyRate(coach);
   const about = resolveAbout(coach);
-  const locations = resolveLocationTags(coach);
+  const locations = resolveLocationTags(coach, linkedLocations);
 
   return (
     <article className="my-coaches__card">
@@ -310,6 +342,7 @@ const buildQueryParams = (search: string, location: string) => ({
 
 const MyCoachesPage = () => {
   const [coaches, setCoaches] = useState<PlayerCoach[]>([]);
+  const [coachLocations, setCoachLocations] = useState<CoachLocation[]>([]);
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
@@ -322,6 +355,16 @@ const MyCoachesPage = () => {
     () => Boolean(debouncedSearch.trim() || debouncedLocation.trim()),
     [debouncedLocation, debouncedSearch],
   );
+
+  const coachLocationsById = useMemo(() => {
+    return coachLocations.reduce<Record<string, CoachLocation[]>>((acc, location) => {
+      const coachId = pickLocationCoachId(location);
+      if (!coachId && coachId !== 0) return acc;
+      const key = String(coachId);
+      acc[key] = acc[key] ? [...acc[key], location] : [location];
+      return acc;
+    }, {});
+  }, [coachLocations]);
 
   const rosterBreakdown = useMemo(() => {
     const ratingValues: number[] = [];
@@ -377,9 +420,19 @@ const MyCoachesPage = () => {
     }
   }, [debouncedLocation, debouncedSearch]);
 
+  const fetchCoachLocations = useCallback(async () => {
+    try {
+      const data = await getCoachLocation({ page: 1, limit: 100 });
+      setCoachLocations(data);
+    } catch (err) {
+      console.error("Failed to load coach locations", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCoaches();
-  }, [fetchCoaches]);
+    fetchCoachLocations();
+  }, [fetchCoachLocations, fetchCoaches]);
 
   const showEmpty = !loading && !error && coaches.length === 0;
 
@@ -501,9 +554,18 @@ const MyCoachesPage = () => {
                   </div>
                 </div>
                 <div className="my-coaches__grid">
-                  {rosterBreakdown.active.map((coach) => (
-                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
-                  ))}
+                  {rosterBreakdown.active.map((coach) => {
+                    const coachId = pickCoachId(coach);
+                    const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+
+                    return (
+                      <MyCoachCard
+                        key={coachId ?? resolveName(coach)}
+                        coach={coach}
+                        linkedLocations={linkedLocations}
+                      />
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -518,9 +580,18 @@ const MyCoachesPage = () => {
                   </div>
                 </div>
                 <div className="my-coaches__grid">
-                  {rosterBreakdown.pending.map((coach) => (
-                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
-                  ))}
+                  {rosterBreakdown.pending.map((coach) => {
+                    const coachId = pickCoachId(coach);
+                    const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+
+                    return (
+                      <MyCoachCard
+                        key={coachId ?? resolveName(coach)}
+                        coach={coach}
+                        linkedLocations={linkedLocations}
+                      />
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -535,9 +606,18 @@ const MyCoachesPage = () => {
                   </div>
                 </div>
                 <div className="my-coaches__grid">
-                  {rosterBreakdown.inactive.map((coach) => (
-                    <MyCoachCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
-                  ))}
+                  {rosterBreakdown.inactive.map((coach) => {
+                    const coachId = pickCoachId(coach);
+                    const linkedLocations = coachId ? coachLocationsById[String(coachId)] ?? [] : [];
+
+                    return (
+                      <MyCoachCard
+                        key={coachId ?? resolveName(coach)}
+                        coach={coach}
+                        linkedLocations={linkedLocations}
+                      />
+                    );
+                  })}
                 </div>
               </section>
             )}
