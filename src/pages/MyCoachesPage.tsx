@@ -84,10 +84,20 @@ const resolveRating = (coach: PlayerCoach) => {
   return value !== null ? value.toFixed(1) : null;
 };
 
-const normalizeLocationString = (value: unknown) =>
-  typeof value === "string" ? value.trim() : "";
+const normalizeLocationString = (value: unknown) => {
+  if (typeof value === "number") return String(value).trim();
+  return typeof value === "string" ? value.trim() : "";
+};
 
-const isPostalCode = (value: string) => /^\s*(?:zip\s*)?\d{5}(?:-\d{4})?\s*$/i.test(value);
+const isPostalCode = (value: string) => {
+  const trimmed = value.trim().replace(/^zip\s*/i, "");
+  if (/^\d{5}(?:[-\s]?\d{4})?$/.test(trimmed)) return true;
+
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  if ((digitsOnly.length === 5 || digitsOnly.length === 9) && /^\d+$/.test(digitsOnly)) return true;
+
+  return false;
+};
 
 const formatLocationObject = (location: unknown) => {
   if (!location || typeof location !== "object") return "";
@@ -97,8 +107,12 @@ const formatLocationObject = (location: unknown) => {
   );
   const city = normalizeLocationString(entry.city ?? entry.city_name ?? entry.town ?? entry.municipality ?? entry.locality);
   const state = normalizeLocationString(entry.state ?? entry.state_code ?? entry.region ?? entry.province);
+  const street = normalizeLocationString(
+    entry.street ?? entry.street_1 ?? entry.street1 ?? entry.address ?? entry.address_1 ?? entry.address1 ?? entry.line1,
+  );
   const country = normalizeLocationString(entry.country ?? entry.country_code);
   const parts = [
+    street,
     name,
     [city, state].filter(Boolean).join(", "),
     country,
