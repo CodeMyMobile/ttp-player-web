@@ -1,4 +1,4 @@
-import { API_BASE_URL, DEFAULT_AUTH_SCHEME } from "./config";
+import { API_BASE_URL, DEFAULT_AUTH_SCHEME, buildApiUrl } from "./config";
 
 export type AuthScheme = "token" | "Bearer" | (string & {});
 
@@ -69,10 +69,7 @@ export async function request<TResponse = unknown, TBody = unknown>(
     rawBody = false,
   }: RequestOptions<TBody> = {},
 ): Promise<TResponse> {
-  const url =
-    /^https?:\/\//i.test(path) && !path.startsWith(API_BASE_URL)
-      ? path
-      : `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path.replace(/^\//, "")}`;
+  const url = buildApiUrl(path);
   const queryString = buildQueryString(query);
   const authHeader = normalizeAuthHeader(token, authScheme);
 

@@ -1,8 +1,5 @@
-import { API_BASE_URL } from "../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
-
-const AUTH_BASE = API_BASE_URL.replace(/\/+$/, "");
 
 export const login = async (email, password) => {
   const data = await unwrap(
@@ -65,7 +62,7 @@ export const logout = () => {
 
 export const forgotPassword = async (email) =>
   unwrap(
-    api(`${AUTH_BASE}/auth/forgot-password`, {
+    api(`/auth/forgot-password`, {
       method: "POST",
       body: JSON.stringify({ email }),
     })
@@ -73,7 +70,7 @@ export const forgotPassword = async (email) =>
 
 export const resetPassword = async ({ token, email, password }) =>
   unwrap(
-    api(`${AUTH_BASE}/auth/reset-password/${token}/${encodeURIComponent(email)}`, {
+    api(`/auth/reset-password/${token}/${encodeURIComponent(email)}`, {
       method: "PATCH",
       body: JSON.stringify({ password }),
     })

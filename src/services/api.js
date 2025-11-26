@@ -1,7 +1,5 @@
-import { API_BASE_URL } from "../api/config";
+import { buildApiUrl } from "../api/config";
 import { getStoredAuthToken, normalizeAuthToken } from "./authToken";
-
-const baseURL = API_BASE_URL.replace(/\/+$/, "");
 
 const api = (path, options = {}) => {
   const {
@@ -14,7 +12,11 @@ const api = (path, options = {}) => {
     ...rest
   } = options;
 
-  const token = authToken
+  const hasAuthTokenOption = Object.prototype.hasOwnProperty.call(
+    options,
+    "authToken",
+  );
+  const token = hasAuthTokenOption
     ? normalizeAuthToken(authToken, { preferScheme: authSchemePreference })
     : getStoredAuthToken({ preferScheme: authSchemePreference });
 
@@ -44,10 +46,7 @@ const api = (path, options = {}) => {
   }
 
   if (token) headers.Authorization = token;
-  // Allow absolute URLs by not prefixing baseURL when path looks absolute
-  const isAbsolute = /^https?:\/\//i.test(path);
-  const relativePath = path.startsWith("/") ? path : `/${path}`;
-  const url = isAbsolute ? path : `${baseURL}${relativePath}`;
+  const url = buildApiUrl(path);
   // Default to no cookies to avoid CORS credential restrictions unless explicitly requested
   const credentials = providedCredentials ?? "omit";
   return fetch(url, {
@@ -67,7 +66,7 @@ export const unwrap = (p) =>
       // ignore non-JSON responses
     }
     if (!r.ok) {
-      const msg = data?.error || r.statusText || "API_ERROR";
+      const msg = data?.message || data?.error || r.statusText || "API_ERROR";
       const error = new Error(msg);
       error.status = r.status;
       error.data = data;

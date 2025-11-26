@@ -23,6 +23,7 @@ import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
+import MyCoachesPage from "./pages/MyCoachesPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import "./App.css";
 
@@ -144,6 +145,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <PlayerCoachListPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/my-coaches"
+      element={(
+        <ProtectedRoute>
+          <MyCoachesPage />
         </ProtectedRoute>
       )}
     />

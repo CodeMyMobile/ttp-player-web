@@ -1,4 +1,5 @@
 import { request } from "./http";
+import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import type { PaginatedResponse } from "./player";
 
 export interface CoachSummary {
@@ -24,7 +25,8 @@ export interface PaginationParams {
   page?: number;
 }
 
-export type PositionPayload = Record<string, unknown>;
+export type Coordinates = { latitude: number; longitude: number };
+export type PositionPayload = Record<string, unknown> | Coordinates;
 export type FiltersPayload = Record<string, unknown>;
 
 type RequestBody<TPayload extends Record<string, unknown>> = Partial<TPayload>;
@@ -33,6 +35,38 @@ const buildBody = <TPayload extends Record<string, unknown>>(payload: RequestBod
   Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== undefined),
   ) as TPayload;
+
+const toNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const normalizePosition = (
+  position?: PositionPayload | null,
+  fallback?: PositionPayload | null,
+): Coordinates | undefined => {
+  const candidates = [position, (position as Record<string, unknown>)?.coords, fallback] as Array<
+    PositionPayload | null | undefined
+  >;
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const lat = toNumber((candidate as Record<string, unknown>).latitude ?? (candidate as Record<string, unknown>).lat);
+    const lng = toNumber(
+      (candidate as Record<string, unknown>).longitude ??
+        (candidate as Record<string, unknown>).lng ??
+        (candidate as Record<string, unknown>).lon,
+    );
+    if (lat !== null && lng !== null) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+  return undefined;
+};
 
 export interface PlayerFutureLessonsParams extends PaginationParams {
   token: string;
@@ -78,6 +112,11 @@ export const getPlayerFutureGroupLessons = async ({
   signal,
 }: PlayerFutureGroupLessonsParams) => {
   const finalPerPage = perPage ?? lessonsPerPage ?? 5;
+  const normalizedPosition = normalizePosition(
+    position,
+    (filters as Record<string, unknown>)?.position ?? (filters as PositionPayload),
+  );
+  const finalPosition = normalizedPosition ?? getStoredLocation() ?? DEFAULT_POSITION;
   return request<PaginatedResponse<LessonSummary>>("/player/upcoming_group_lessons", {
     method: "POST",
     token,
@@ -88,7 +127,7 @@ export const getPlayerFutureGroupLessons = async ({
     },
     body: buildBody({
       search,
-      position,
+      position: finalPosition,
       filters,
     }),
   });
