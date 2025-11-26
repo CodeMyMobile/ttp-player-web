@@ -14,6 +14,7 @@ import {
   requestPrivateLesson,
   type Lesson as ApiLesson,
 } from "../../../api/playerLessons";
+import LessonDetailCard from "../../../components/LessonDetailCard";
 import {
   getPlayerCoaches,
   getCoachLocation,
@@ -1285,67 +1286,28 @@ const PlayerCalendar = () => {
           <span className="player-calendar__session-time-label">{moment(start).format("h:mm A")}</span>
           <span className="player-calendar__session-duration">{duration}</span>
         </div>
-        <article className="player-calendar__session-card">
-          <header className="player-calendar__session-card-header">
-            <div className="player-calendar__session-card-heading">
-              <p className="player-calendar__session-location">
-                <MapPin aria-hidden className="player-calendar__session-location-icon" />
-                {locationLabel}
+        <div className="player-calendar__session-card">
+          <LessonDetailCard
+            lesson={lesson}
+            statusLabel={statusInfo.label}
+            onShare={() => openLessonModal(lesson)}
+          />
+          <div className="player-calendar__session-cta">
+            {typeof lesson.price_per_person === "number" ? (
+              <p className="player-calendar__session-price">
+                ${lesson.price_per_person.toFixed(2)}
+                <span>per player</span>
               </p>
-              <h3 className="player-calendar__session-title">{formatLessonTitle(lesson)}</h3>
-              {normalizedLevelLabel ? (
-                <p className="player-calendar__session-subtitle">{normalizedLevelLabel}</p>
-              ) : null}
-              {lesson.metadata?.description ? (
-                <p className="player-calendar__session-description">{lesson.metadata.description}</p>
-              ) : null}
-            </div>
-            <div className={`player-calendar__status player-calendar__status--${statusInfo.tone}`}>
-              {statusInfo.label}
-            </div>
-          </header>
-          <div className="player-calendar__session-body">
-            <ul className="player-calendar__session-details">
-              <li>
-                <Clock aria-hidden />
-                {formatTimeRange(start, end)}
-              </li>
-              {lesson.coach_name ? (
-                <li>
-                  <User aria-hidden />
-                  Coach {lesson.coach_name}
-                </li>
-              ) : null}
-              {sessionTypeLabel ? (
-                <li>
-                  <Layers aria-hidden />
-                  {sessionTypeLabel}
-                </li>
-              ) : null}
-              {spotsLabel ? (
-                <li>
-                  <UserCheck aria-hidden />
-                  {spotsLabel}
-                </li>
-              ) : null}
-            </ul>
-            <div className="player-calendar__session-cta">
-              {typeof lesson.price_per_person === "number" ? (
-                <p className="player-calendar__session-price">
-                  ${lesson.price_per_person.toFixed(2)}
-                  <span>per player</span>
-                </p>
-              ) : null}
-              <button
-                type="button"
-                className={`player-calendar__session-button player-calendar__session-button--${status}`}
-                onClick={() => openLessonModal(lesson)}
-              >
-                {buttonCopy}
-              </button>
-            </div>
+            ) : null}
+            <button
+              type="button"
+              className={`player-calendar__session-button player-calendar__session-button--${status}`}
+              onClick={() => openLessonModal(lesson)}
+            >
+              {buttonCopy}
+            </button>
           </div>
-        </article>
+        </div>
       </div>
     );
   };

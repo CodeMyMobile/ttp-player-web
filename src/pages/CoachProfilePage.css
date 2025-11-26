@@ -1647,6 +1647,23 @@
   gap: 10px;
 }
 
+.coach-booking-day__lessons {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.coach-booking-day__lessons-title {
+  margin: 0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coach-booking-day__lessons-list {
+  display: grid;
+  gap: 12px;
+}
+
 .coach-booking-day__empty {
   margin-top: 20px;
   padding: 24px;

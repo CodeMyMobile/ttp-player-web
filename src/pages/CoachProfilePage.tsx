@@ -19,6 +19,7 @@ import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import {
+  type Lesson as ApiLesson,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   requestPrivateLesson,
@@ -27,6 +28,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
 import { getStoredAuthToken } from "../services/authToken";
+import LessonDetailCard from "../components/LessonDetailCard";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -255,28 +257,31 @@ const splitIntoSlots = (slot: BookingSlot) => {
     return [slot];
   }
 
-  const segments: BookingSlot[] = [];
-  let cursor = fromMoment.clone();
-  let index = 0;
+    const segments: BookingSlot[] = [];
+    let cursor = fromMoment.clone();
+    let index = 0;
 
-  while (cursor.isBefore(toMoment)) {
-    const end = cursor.clone().add(1, "hour");
-    if (end.isAfter(toMoment)) break;
+    while (cursor.isBefore(toMoment)) {
+      const end = cursor.clone().add(1, "hour");
+      if (end.isAfter(toMoment)) break;
 
-    segments.push({
-      ...slot,
-      id: `${slot.id}-seg-${index}`,
-      time: cursor.format("h:mm A"),
-      duration: `${end.diff(cursor, "minutes")} min`,
-      startDateTime: cursor.toISOString(),
-      endDateTime: end.toISOString(),
-      startDateTimeTz: cursor.toISOString(),
-      endDateTimeTz: end.toISOString(),
-    });
+      segments.push({
+        ...slot,
+        id: `${slot.id}-seg-${index}`,
+        time: cursor.format("h:mm A"),
+        duration: `${end.diff(cursor, "minutes")} min`,
+        // store both local and UTC timestamps for robust matching
+        startDateTime: cursor.toISOString(),
+        endDateTime: end.toISOString(),
+        start_date_time: cursor.utc().toISOString(),
+        end_date_time: end.utc().toISOString(),
+        startDateTimeTz: cursor.toISOString(),
+        endDateTimeTz: end.toISOString(),
+      });
 
-    cursor = end;
-    index += 1;
-  }
+      cursor = end;
+      index += 1;
+    }
 
   return segments.length ? segments : [slot];
 };
@@ -350,6 +355,7 @@ const CoachProfilePage = () => {
   const coachAvatar = profile?.imageUrl ?? profile?.profilePicture ?? "https://placehold.co/120x120?text=Coach";
   const [apiAvailableDates, setApiAvailableDates] = useState<BookingDate[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [lessonsByDate, setLessonsByDate] = useState<Record<string, ApiLesson[]>>({});
   const availableDates = useMemo(
     () => (apiAvailableDates.length ? apiAvailableDates : booking?.availableDates ?? []),
     [apiAvailableDates, booking?.availableDates],
@@ -368,6 +374,7 @@ const CoachProfilePage = () => {
     const defaultLessonType = (defaultLesson?.id ?? "private") as BookingSlot["lessonType"];
     const defaultDuration = defaultLesson?.duration ?? "60 min";
     const defaultPrice = defaultLesson?.price ?? "";
+    const lessonsMap: Record<string, ApiLesson[]> = {};
 
     const loadSchedule = async () => {
       setScheduleLoading(true);
@@ -406,6 +413,8 @@ const CoachProfilePage = () => {
           } catch (err) {
             lessonsForDate = [];
           }
+
+          lessonsMap[isoDate] = lessonsForDate;
 
           const lessonTimes = new Set(
             lessonsForDate
@@ -486,6 +495,7 @@ const CoachProfilePage = () => {
 
         if (!cancelled) {
           setApiAvailableDates(days);
+          setLessonsByDate(lessonsMap);
         }
       } finally {
         if (!cancelled) {
@@ -599,6 +609,52 @@ const CoachProfilePage = () => {
       ...prev,
       timeId: id,
     }));
+  };
+
+  const lessonStatusLabel = (lesson?: ApiLesson) => {
+    if (!lesson) return undefined;
+    const status = (lesson as Record<string, unknown>).status;
+    if (status === 0) return "Pending";
+    if (status === 1) return "Confirmed";
+    if (status === 2) return "Cancelled";
+    return undefined;
+  };
+
+  const findLessonForSlot = (dateKey: string, slot: BookingSlot) => {
+    const lessons = lessonsByDate[dateKey] ?? [];
+    const slotStart = (() => {
+      if (slot.start_date_time) return moment(slot.start_date_time.replace(/Z$/, ""));
+      if (slot.startDateTime) return moment(slot.startDateTime);
+      if ((slot as Record<string, unknown>).from) {
+        const from = (slot as Record<string, string>).from;
+        return moment(`${dateKey} ${from}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
+      }
+      return moment(`${dateKey} ${slot.time}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm"]);
+    })();
+    if (!slotStart.isValid()) return null;
+    const slotEnd = (() => {
+      if (slot.end_date_time) return moment(slot.end_date_time.replace(/Z$/, ""));
+      if (slot.endDateTime) return moment(slot.endDateTime);
+      if ((slot as Record<string, unknown>).to) {
+        const to = (slot as Record<string, string>).to;
+        return moment(`${dateKey} ${to}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
+      }
+      return slotStart.clone().add(parseDurationToMinutes(slot.duration ?? "60 min") ?? 60, "minutes");
+    })();
+
+    return (
+      lessons.find((lesson) => {
+        // Parse UTC string but treat as local by stripping trailing Z
+        const lessonStart = moment(lesson.start_date_time?.replace(/Z$/, ""));
+        const lessonEnd = moment(lesson.end_date_time?.replace(/Z$/, ""));
+        if (!lessonStart.isValid() || !lessonEnd.isValid()) return false;
+        return (
+          lessonStart.isSame(slotStart, "minute") ||
+          lessonStart.isBetween(slotStart, slotEnd, undefined, "[)") ||
+          slotStart.isBetween(lessonStart, lessonEnd, undefined, "[)")
+        );
+      }) ?? null
+    );
   };
 
   const lessonFilters = [
@@ -1260,16 +1316,18 @@ const extractLocationId = (slot?: BookingSlot) => {
                             }`}
                           >
                             <span className="coach-booking__day-name">All Dates</span>
-                            <span className="coach-booking__day-date">View every option</span>
-                          </button>
-                          {availableDates.map((date) => {
-                            const active = selection.dateId === date.id;
-                            return (
-                              <button
-                                key={date.id}
-                                type="button"
-                                aria-pressed={active}
-                                onClick={() => handleDateChange(date.id)}
+                          <span className="coach-booking__day-date">View every option</span>
+                        </button>
+                        {availableDates.map((date) => {
+                          const active = selection.dateId === date.id;
+                          const dateKey = resolveIsoDate(date) ?? String(date.id);
+                          const bookedLessons = lessonsByDate[dateKey] ?? [];
+                          return (
+                            <button
+                              key={date.id}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => handleDateChange(date.id)}
                                 className={`coach-booking__day${active ? " coach-booking__day--active" : ""}`}
                               >
                                 <span className="coach-booking__day-name">{dayNameMap[date.day] ?? date.day}</span>
@@ -1315,7 +1373,10 @@ const extractLocationId = (slot?: BookingSlot) => {
                       <div className="coach-booking__days">
             {isAllDatesSelected ? (
               dateEntries.length > 0 ? (
-                dateEntries.map(({ date, slots }) => (
+                dateEntries.map(({ date, slots }) => {
+                  const dateKey = resolveIsoDate(date) ?? String(date.id);
+                  const bookedLessons = lessonsByDate[dateKey] ?? [];
+                  return (
                   <section key={date.id} className="coach-booking-day">
                     <div className="coach-booking-day__header">
                                   <div className="coach-booking-day__titles">
@@ -1331,6 +1392,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     {slots.map((slot) => {
                                       const active = selection.timeId === slot.id;
                                       const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+                                      const slotLesson = findLessonForSlot(dateKey, slot);
+                                      const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
                                       const timeRange = buildTimeRangeLabel(
                                         slot.time,
                                         lessonDetails?.duration ?? slot.duration,
@@ -1350,6 +1413,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
                                       const groupTitle = isGroupLesson ? slot.title : undefined;
                                       const isBooking = bookingInFlight === slot.id;
+                                      const isDisabled = Boolean(slotLesson);
+                                      const buttonLabel = slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                       return (
                                         <div
@@ -1358,11 +1423,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           tabIndex={0}
                                           aria-pressed={active}
                                           onClick={() => {
+                                            if (isDisabled) return;
                                             handleDateChange(date.id);
                                             handleTimeChange(slot.id);
                                             void handleBookLesson(date, slot);
                                           }}
                                           onKeyDown={(event) => {
+                                            if (isDisabled) return;
                                             if (event.key === "Enter" || event.key === " ") {
                                               event.preventDefault();
                                               handleDateChange(date.id);
@@ -1396,28 +1463,29 @@ const extractLocationId = (slot?: BookingSlot) => {
                                               </>
                                             ) : null}
                                           </div>
-                                          {lessonLocationLabel ? (
-                                            <div className="coach-booking-slot__location">
-                                              <MapPin aria-hidden className="coach-booking-slot__location-icon" />
-                                              <span>{lessonLocationLabel}</span>
-                                            </div>
-                                          ) : null}
-                                          <div className="coach-booking-slot__actions">
-                                            <button
-                                              type="button"
-                                              className="coach-booking-slot__book"
-                                              disabled={isBooking}
-                                              onClick={(event) => {
-                                                event.stopPropagation();
-                                                void handleBookLesson(date, slot);
-                                              }}
-                                            >
-                                              {isBooking ? "Booking…" : "Book lesson"}
-                                            </button>
-                                          </div>
+                                      {lessonLocationLabel ? (
+                                        <div className="coach-booking-slot__location">
+                                          <MapPin aria-hidden className="coach-booking-slot__location-icon" />
+                                          <span>{lessonLocationLabel}</span>
                                         </div>
-                                      );
-                                    })}
+                                      ) : null}
+                                      <div className="coach-booking-slot__actions">
+                                        <button
+                                          type="button"
+                                          className="coach-booking-slot__book"
+                                          disabled={isBooking || isDisabled}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            if (isDisabled) return;
+                                            void handleBookLesson(date, slot);
+                                          }}
+                                        >
+                                          {buttonLabel}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                                   </div>
                                 ) : (
                                   <div className="coach-booking-day__empty">
@@ -1432,9 +1500,23 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     )}
                                   </div>
                                 )}
+                                {bookedLessons.length > 0 && (
+                                  <div className="coach-booking-day__lessons">
+                                    <h4 className="coach-booking-day__lessons-title">Booked lessons</h4>
+                                    <div className="coach-booking-day__lessons-list">
+                                      {bookedLessons.map((lesson) => (
+                                        <LessonDetailCard
+                                          key={lesson.id}
+                                          lesson={lesson}
+                                          statusLabel={lessonStatusLabel(lesson)}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </section>
-                            ))
-                          ) : (
+                  );})
+              ) : (
                             <div className="coach-booking-day__empty">
                               <p>No lessons are available at this time.</p>
                             </div>
@@ -1455,6 +1537,9 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 {filteredSlots.map((slot) => {
                                   const active = selection.timeId === slot.id;
                                   const lessonDetails = lessonTypeDetailMap[slot.lessonType];
+                                  const dateKey = resolveIsoDate(selectedDate) ?? String(selectedDate.id);
+                                  const slotLesson = findLessonForSlot(dateKey, slot);
+                                  const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
                                   const timeRange = buildTimeRangeLabel(
                                     slot.time,
                                     lessonDetails?.duration ?? slot.duration,
@@ -1474,6 +1559,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
                                   const groupTitle = isGroupLesson ? slot.title : undefined;
                                   const isBooking = bookingInFlight === slot.id;
+                                  const isDisabled = Boolean(slotLesson);
+                                  const buttonLabel = slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                   return (
                                     <div
@@ -1482,11 +1569,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       tabIndex={0}
                                       aria-pressed={active}
                                       onClick={() => {
+                                        if (isDisabled) return;
                                         handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
                                         void handleBookLesson(selectedDate, slot);
                                       }}
                                       onKeyDown={(event) => {
+                                        if (isDisabled) return;
                                         if (event.key === "Enter" || event.key === " ") {
                                           event.preventDefault();
                                           handleDateChange(selectedDate.id);
@@ -1520,28 +1609,29 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           </>
                                         ) : null}
                                       </div>
-                                      {lessonLocationLabel ? (
-                                        <div className="coach-booking-slot__location">
-                                          <MapPin aria-hidden className="coach-booking-slot__location-icon" />
-                                          <span>{lessonLocationLabel}</span>
-                                        </div>
-                                      ) : null}
-                                      <div className="coach-booking-slot__actions">
-                                        <button
-                                          type="button"
-                                          className="coach-booking-slot__book"
-                                          disabled={isBooking}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            void handleBookLesson(selectedDate, slot);
-                                          }}
-                                        >
-                                          {isBooking ? "Booking…" : "Book lesson"}
-                                        </button>
-                                      </div>
+                                  {lessonLocationLabel ? (
+                                    <div className="coach-booking-slot__location">
+                                      <MapPin aria-hidden className="coach-booking-slot__location-icon" />
+                                      <span>{lessonLocationLabel}</span>
                                     </div>
-                                  );
-                                })}
+                                  ) : null}
+                                  <div className="coach-booking-slot__actions">
+                                    <button
+                                      type="button"
+                                      className="coach-booking-slot__book"
+                                      disabled={isBooking || isDisabled}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        if (isDisabled) return;
+                                        void handleBookLesson(selectedDate, slot);
+                                      }}
+                                    >
+                                      {buttonLabel}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                               </div>
                             ) : (
                               <div className="coach-booking-day__empty">
@@ -1554,6 +1644,25 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 {selection.lessonType === "all" && <p>No lessons are available on this day.</p>}
                               </div>
                             )}
+                            {(() => {
+                              const dateKey = resolveIsoDate(selectedDate) ?? String(selectedDate.id);
+                              const bookedLessons = lessonsByDate[dateKey] ?? [];
+                              if (!bookedLessons.length) return null;
+                              return (
+                                <div className="coach-booking-day__lessons">
+                                  <h4 className="coach-booking-day__lessons-title">Booked lessons</h4>
+                                  <div className="coach-booking-day__lessons-list">
+                                    {bookedLessons.map((lesson) => (
+                                      <LessonDetailCard
+                                        key={lesson.id}
+                                        lesson={lesson}
+                                        statusLabel={lessonStatusLabel(lesson)}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </section>
                         ) : (
                           <div className="coach-booking-day__empty">
