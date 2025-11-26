@@ -692,15 +692,6 @@ const BrowseMatchesPage = () => {
                 const totalSpots = computedTotal > 0 ? computedTotal : playersJoined;
                 const spotsAvailable = Math.max(totalSpots - playersJoined, 0);
                 const playersNeeded = match.playersNeeded ?? spotsAvailable;
-                const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
-                const isInviteOnlyPill =
-                  match.visibility === "private" ||
-                  match.visibilityLabel?.toLowerCase() === "invite only";
-                const showVisibilityPill =
-                  Boolean(match.visibilityLabel && match.visibilityLabel !== match.access && !isInviteOnlyPill);
-                const hostDisplayName = getHostDisplayName(match, isHost);
-                const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
-                const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
                 const availabilityLabel =
                   totalSpots > 0
                     ? spotsAvailable === 0
