@@ -20,6 +20,7 @@ import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile"
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import {
   type Lesson as ApiLesson,
+  type CoachScheduleEntry,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   requestPrivateLesson,
@@ -176,6 +177,107 @@ const parseDurationToMinutes = (durationLabel: string) => {
   const [, durationPart] = match;
   const duration = Number.parseInt(durationPart, 10);
   return Number.isNaN(duration) ? null : duration;
+};
+
+const buildScheduleMoment = (isoDate: string, time?: string) => {
+  if (!isoDate || !time) {
+    return null;
+  }
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const combined = moment(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
+  return combined.isValid() ? combined : null;
+};
+
+const buildSlotsFromScheduleEntry = (
+  entry: CoachScheduleEntry,
+  isoDate: string,
+  defaultLessonType: BookingSlot["lessonType"],
+  defaultDuration: string,
+  defaultPrice: string,
+  fallbackIndex = 0,
+): BookingSlot[] => {
+  const startMoment = buildScheduleMoment(isoDate, entry.from);
+  if (!startMoment) {
+    return [];
+  }
+
+  const endMoment = buildScheduleMoment(isoDate, entry.to);
+  const slotIdBase =
+    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
+
+  const locationId =
+    typeof entry.location_id === "number"
+      ? entry.location_id
+      : entry.location_id
+        ? Number(entry.location_id)
+        : undefined;
+  const locationLabel = entry.location_name ?? entry.location ?? "";
+  const baseSlot = {
+    lessonType: defaultLessonType,
+    duration: defaultDuration,
+    price: defaultPrice,
+    location: locationLabel,
+    location_id: locationId,
+    locationId,
+    date: isoDate,
+    court: entry.court ?? null,
+    title: entry.court ? `Court ${entry.court}` : undefined,
+  };
+
+  const slots: BookingSlot[] = [];
+
+  if (endMoment && endMoment.isAfter(startMoment)) {
+    let cursor = startMoment.clone();
+    let segmentIndex = 0;
+
+    while (cursor.isBefore(endMoment)) {
+      const segmentEnd = cursor.clone().add(1, "hour");
+      if (segmentEnd.isAfter(endMoment)) {
+        break;
+      }
+      slots.push({
+        ...baseSlot,
+        id: `${isoDate}-${slotIdBase}-seg-${segmentIndex}`,
+        time: cursor.format("h:mm A"),
+        duration: `${segmentEnd.diff(cursor, "minutes")} min`,
+        spotsRemaining: 4,
+        startDateTime: cursor.clone().utc().toISOString(),
+        endDateTime: segmentEnd.clone().utc().toISOString(),
+        startDateTimeTz: cursor.toISOString(),
+        endDateTimeTz: segmentEnd.toISOString(),
+        [SEGMENTED_FLAG]: true,
+      });
+      cursor = segmentEnd;
+      segmentIndex += 1;
+    }
+  }
+
+  if (slots.length) {
+    return slots;
+  }
+
+  const durationMinutes =
+    endMoment && endMoment.isAfter(startMoment) ? endMoment.diff(startMoment, "minutes") : null;
+  const computedDuration =
+    durationMinutes && Number.isFinite(durationMinutes) && durationMinutes > 0
+      ? durationMinutes
+      : parseDurationToMinutes(defaultDuration) ?? 60;
+  const derivedEnd = endMoment ?? startMoment.clone().add(computedDuration, "minutes");
+
+  return [
+    {
+      ...baseSlot,
+      id: `${isoDate}-${slotIdBase}`,
+      time: startMoment.format("h:mm A"),
+      duration: `${computedDuration} min`,
+      spotsRemaining: 4,
+      startDateTime: startMoment.clone().utc().toISOString(),
+      endDateTime: derivedEnd.clone().utc().toISOString(),
+      startDateTimeTz: startMoment.toISOString(),
+      endDateTimeTz: derivedEnd.toISOString(),
+      [SEGMENTED_FLAG]: true,
+    },
+  ];
 };
 
 const formatMinutesToTimeLabel = (totalMinutes: number) => {
@@ -425,59 +527,9 @@ const CoachProfilePage = () => {
           );
 
           const slots = scheduleEntries
-            .flatMap((entry, entryIndex) => {
-              const baseSlot: BookingSlot = {
-                id: `${isoDate}-${entry.id ?? entryIndex}`,
-                time: moment(entry.from, ["HH:mm:ss", "HH:mm"]).format("h:mm A"),
-                lessonType: defaultLessonType,
-                duration: defaultDuration,
-                price: defaultPrice,
-                spotsRemaining: 4,
-                title: entry.court ? `Court ${entry.court}` : undefined,
-                location: entry.location_name ?? entry.location ?? "",
-                location_id:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : undefined,
-                date: isoDate,
-              } as BookingSlot;
-
-              const withTimes = {
-                ...baseSlot,
-                from: entry.from,
-                to: entry.to,
-                start_time: entry.from,
-                end_time: entry.to,
-                court: entry.court ?? null,
-                date: isoDate,
-              } as BookingSlot;
-
-              return splitIntoSlots(withTimes).map((segment, segmentIndex) => ({
-                ...segment,
-                id: segment.id ?? `${baseSlot.id}-seg-${segmentIndex}`,
-                lessonType: segment.lessonType ?? baseSlot.lessonType,
-                duration: segment.duration ?? baseSlot.duration,
-                price: segment.price ?? baseSlot.price,
-                spotsRemaining:
-                  (segment as Record<string, unknown>).spotsRemaining as number | undefined ?? 4,
-                location: entry.location_name ?? entry.location ?? baseSlot.location,
-                location_id:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : baseSlot.location_id,
-                locationId:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : baseSlot.location_id,
-                court: entry.court ?? null,
-              }));
-            })
+            .flatMap((entry, entryIndex) =>
+              buildSlotsFromScheduleEntry(entry, isoDate, defaultLessonType, defaultDuration, defaultPrice, entryIndex),
+            )
             .filter((slot) => {
               const slotStart = slot.startDateTime
                 ? moment(slot.startDateTime).format("HH:mm")
