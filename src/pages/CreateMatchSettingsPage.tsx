@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Eye,
   EyeOff,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import type { MatchDraftDetails } from "../types/matchPlay";
 
 import "./CreateMatchPage.css";
 
@@ -95,6 +96,8 @@ const visibilityOptions: VisibilityOption[] = [
 
 const CreateMatchSettingsPage = () => {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  const { matchDraft } = (routerLocation.state as { matchDraft?: MatchDraftDetails } | null) ?? {};
 
   const [skillLevel, setSkillLevel] = useState(skillLevels[2]?.value ?? "3.0-3.5");
   const [format, setFormat] = useState(formatOptions[1]?.value ?? "doubles");
@@ -117,7 +120,18 @@ const CreateMatchSettingsPage = () => {
   };
 
   const handleContinue = () => {
-    navigate("/matches/create/review");
+    navigate("/matches/create/review", {
+      state: {
+        matchDraft,
+        settings: {
+          skillLevel,
+          format,
+          visibility,
+          courtNumber,
+          notes,
+        },
+      },
+    });
   };
 
   return (

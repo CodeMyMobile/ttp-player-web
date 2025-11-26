@@ -72,6 +72,21 @@ export interface ListMatchesParams {
   signal?: AbortSignal;
 }
 
+export interface CreateMatchParams {
+  privacy: "open" | "private";
+  startDateTime?: string | Date;
+  locationText: string;
+  latitude?: number;
+  longitude?: number;
+  rosterSize?: number | null;
+  skillLevel?: string | number | null;
+  matchFormat?: string | null;
+  notes?: string | null;
+  linkOnly?: boolean;
+  token?: string | null;
+  signal?: AbortSignal;
+}
+
 const isTruthyFlag = (value: TruthyLike | null | undefined) => {
   if (value === null || value === undefined) return false;
   if (typeof value === "boolean") return value;
@@ -128,6 +143,147 @@ const buildMatchesQuery = ({
   }
 
   return query;
+};
+
+const toIsoString = (value?: string | Date | null) => {
+  if (!value) return undefined;
+  const date = typeof value === "string" ? new Date(value) : value;
+  const timestamp = date?.getTime?.();
+  if (!timestamp || Number.isNaN(timestamp)) return undefined;
+  return new Date(timestamp).toISOString();
+};
+
+const isMatchStatusEnumError = (error: unknown) => {
+  const message = (error as Error | undefined)?.message?.toLowerCase?.() ?? "";
+  if (message.includes("match_status_enum")) return true;
+
+  const data = (error as { data?: unknown } | undefined)?.data;
+  if (!data || typeof data !== "object") return false;
+
+  const serialized = JSON.stringify(data).toLowerCase();
+  return serialized.includes("match_status_enum");
+};
+
+const CREATED_MATCH_STORAGE_KEY = "ttp:last-created-match";
+
+const deriveMatchId = (source: unknown): string | undefined => {
+  if (!source || typeof source !== "object") return undefined;
+  const record = source as Record<string, unknown>;
+  const idCandidate =
+    record.id ?? record.match_id ?? record.matchId ?? record.slug ?? (record.match as Record<string, unknown> | undefined)?.id;
+
+  if (idCandidate === undefined || idCandidate === null) return undefined;
+  return String(idCandidate);
+};
+
+const deriveShareLink = (source: unknown): string | undefined => {
+  if (!source || typeof source !== "object") return undefined;
+  const record = source as Record<string, unknown>;
+  const shareCandidate = record.share_link ?? record.shareLink ?? record.share_url ?? record.url;
+  if (typeof shareCandidate !== "string") return undefined;
+  return shareCandidate;
+};
+
+const persistCreatedMatch = (response: unknown) => {
+  const match = extractMatchDetail(response) as Record<string, unknown> | undefined;
+  const matchId = deriveMatchId(match ?? response);
+  const shareLink = deriveShareLink(match ?? response);
+
+  if (typeof window !== "undefined" && window.localStorage && (matchId || shareLink)) {
+    try {
+      window.localStorage.setItem(CREATED_MATCH_STORAGE_KEY, JSON.stringify({ id: matchId, shareLink }));
+    } catch {
+      // Ignore storage failures
+    }
+  }
+
+  return { matchId, shareLink, match, raw: response };
+};
+
+export const createMatch = async ({
+  privacy,
+  startDateTime,
+  locationText,
+  latitude,
+  longitude,
+  rosterSize,
+  skillLevel,
+  matchFormat,
+  notes,
+  linkOnly,
+  token,
+  signal,
+}: CreateMatchParams) => {
+  const status = "upcoming";
+  const matchType = privacy === "private" ? "private" : "open";
+
+  const payload: Record<string, unknown> = {
+    status,
+    match_type: matchType,
+    location_text: locationText,
+    location: locationText,
+    listing_visibility: "listed",
+  };
+
+  const startIso = toIsoString(startDateTime);
+  if (startIso) {
+    payload.start_date_time = startIso;
+    payload.dateTime = startIso;
+  }
+
+  if (typeof latitude === "number") payload.latitude = latitude;
+  if (typeof longitude === "number") payload.longitude = longitude;
+
+  if (typeof rosterSize === "number") {
+    payload.player_limit = rosterSize;
+    payload.playerCount = rosterSize;
+  }
+
+  if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
+    payload.skill_level_min = skillLevel;
+    payload.skillLevel = skillLevel;
+  }
+
+  if (matchFormat) {
+    payload.match_format = matchFormat;
+    payload.format = matchFormat;
+  }
+
+  if (notes) {
+    payload.notes = notes;
+  }
+
+  if (matchType === "open" && linkOnly) {
+    payload.hidden = true;
+    payload.is_hidden = true;
+    payload.listing_visibility = "link_only";
+    payload.visibility = "hidden";
+    payload.match_visibility = "hidden";
+  }
+
+  const executeCreate = async (override?: Record<string, unknown>) =>
+    request<unknown>("/matches", {
+      method: "POST",
+      token: token ?? undefined,
+      signal,
+      body: {
+        ...payload,
+        ...override,
+      },
+    });
+
+  try {
+    const response = await executeCreate();
+    return persistCreatedMatch(response);
+  } catch (error) {
+    if (!isMatchStatusEnumError(error)) throw error;
+
+    const response = await executeCreate({
+      status: matchType,
+      match_type: status,
+    });
+    return persistCreatedMatch(response);
+  }
 };
 
 const firstNumber = (values: Array<unknown>): number | undefined => {
@@ -235,6 +391,13 @@ const deriveVisibility = (record: Record<string, unknown>) => {
   if (normalized.includes("hidden")) return "hidden";
   if (normalized.includes("private") || normalized.includes("invite")) return "private";
   return "open";
+};
+
+export const isOpenMatch = (record: unknown): boolean => {
+  const visibility = deriveVisibility((record ?? {}) as Record<string, unknown>);
+  const access = deriveAccess((record ?? {}) as Record<string, unknown>);
+
+  return visibility !== "private" && access !== "Private";
 };
 
 const formatVisibilityLabel = (value?: string) => {

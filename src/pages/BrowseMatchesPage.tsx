@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Activity, Calendar, Filter, MapPin, MessageCircle, Search, Star, Users } from "lucide-react";
 import {
   identityValues,
+  isOpenMatch,
   listMatches,
   normalizeMatchRecord,
   type NormalizedMatch,
@@ -372,15 +373,33 @@ const BrowseMatchesPage = () => {
       const isHostingTab = selectedTab === "Hosting";
       const includeHiddenParams = { includeHidden: true as const, include_hidden: true as const };
       const tabFilters = (() => {
-    if (selectedTab === "My Matches") return { filter: "my" as const, status: "upcoming" as const };
-    if (isHostingTab) return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
-    if (selectedTab === "Open") return { status: "open" as const };
-    if (selectedTab === "Drafts") return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
-    if (selectedTab === "Archived") return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
-    if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend")
-      return { status: "upcoming" as const };
-    return { status: "upcoming" as const };
-  })();
+        if (selectedTab === "My Matches") {
+          return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
+        }
+
+        if (isHostingTab) {
+          return { filter: "my" as const, status: "upcoming" as const, ...includeHiddenParams };
+        }
+
+        if (selectedTab === "Open") {
+          return { status: "open" as const, ...includeHiddenParams };
+        }
+
+        if (selectedTab === "Drafts") {
+          return { filter: "my" as const, status: "draft" as const, ...includeHiddenParams };
+        }
+
+        if (selectedTab === "Archived") {
+          return { filter: "my" as const, status: "archived" as const, ...includeHiddenParams };
+        }
+
+        if (selectedTab === "Today" || selectedTab === "Tomorrow" || selectedTab === "Weekend") {
+          return { status: "upcoming" as const };
+        }
+
+        return { status: "upcoming" as const };
+      })();
+
       const perPage = isHostingTab ? 50 : 20;
       const hasLocationSelection = Boolean(locationFilter || position);
       const locationParams = hasLocationSelection
@@ -403,8 +422,11 @@ const BrowseMatchesPage = () => {
           signal,
         });
 
-        const normalized = response.matches.map((match) => normalizeMatchRecord(match, { currentUser: user }));
-        setMatches(normalized);
+        const normalized = response.matches.map((match) =>
+          normalizeMatchRecord(match, { currentUser: user }),
+        );
+        const visibleMatches = selectedTab === "Open" ? normalized.filter(isOpenMatch) : normalized;
+        setMatches(visibleMatches);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
@@ -689,6 +711,20 @@ const BrowseMatchesPage = () => {
                   totalSpots > 0
                     ? `${playersJoined}/${totalSpots} players`
                     : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
+                const roleLabel = isHost ? "Hosting" : isParticipant ? relationshipLabel[match.relationship] : null;
+                const isHiddenLink = match.visibility === "hidden";
+                const isInviteOnlyPill =
+                  match.visibility === "private" ||
+                  match.visibilityLabel?.toLowerCase() === "invite only";
+                const showVisibilityPill = Boolean(
+                  match.visibilityLabel &&
+                    match.visibilityLabel !== match.access &&
+                    !isInviteOnlyPill &&
+                    !isHiddenLink,
+                );
+                const hostDisplayName = getHostDisplayName(match, isHost);
+                const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
+                const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
 
                 return (
                   <article key={match.id} className="match-card">
@@ -697,6 +733,7 @@ const BrowseMatchesPage = () => {
                         <span className={`match-status-pill ${match.access.toLowerCase()}`}>
                           {match.access}
                         </span>
+                        {isHiddenLink ? <span className="match-status-pill hidden">Hidden link</span> : null}
                         {showVisibilityPill ? (
                           <span className="match-status-pill visibility">{match.visibilityLabel}</span>
                         ) : null}
