@@ -244,9 +244,16 @@ const splitIntoSlots = (slot: BookingSlot) => {
   if (!from || !to) return [slot];
 
   const parseTime = (value: string) => {
+    const clockMatch = value.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+    if (clockMatch) {
+      const clock = moment(clockMatch[1], ["HH:mm:ss", "HH:mm"], true);
+      if (clock.isValid()) return clock;
+    }
+
     const clock = moment(value, ["HH:mm:ss", "HH:mm", "h:mm A"], true);
     if (clock.isValid()) return clock;
-    const iso = moment(value);
+
+    const iso = moment.parseZone(value);
     return iso.isValid() ? iso : null;
   };
 
