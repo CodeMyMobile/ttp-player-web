@@ -473,11 +473,13 @@ const MyCoachesPage = () => {
         coaches
           .map((coach) => pickCoachId(coach))
           .filter((id) => id !== undefined && id !== null)
-          .map(String),
+          .map(String)
+          .map((value) => value.trim())
+          .filter(Boolean),
       ),
     );
 
-    const missingIds = coachIds.filter((id) => !coachProfiles[id] && Number.isFinite(Number(id)));
+    const missingIds = coachIds.filter((id) => !coachProfiles[id]);
     if (!missingIds.length) return;
 
     let cancelled = false;
@@ -486,7 +488,7 @@ const MyCoachesPage = () => {
       const entries = await Promise.all(
         missingIds.map(async (id) => {
           try {
-            const profile = await fetchCoachProfile(Number(id));
+            const profile = await fetchCoachProfile(id);
             return { id, profile };
           } catch (error) {
             console.error(`Failed to fetch profile for coach ${id}`, error);
