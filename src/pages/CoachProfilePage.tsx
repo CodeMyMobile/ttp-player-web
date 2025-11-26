@@ -20,6 +20,7 @@ import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile"
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import {
   type Lesson as ApiLesson,
+  type CoachScheduleEntry,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   requestPrivateLesson,
@@ -178,6 +179,107 @@ const parseDurationToMinutes = (durationLabel: string) => {
   return Number.isNaN(duration) ? null : duration;
 };
 
+const buildScheduleMoment = (isoDate: string, time?: string) => {
+  if (!isoDate || !time) {
+    return null;
+  }
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const combined = moment(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
+  return combined.isValid() ? combined : null;
+};
+
+const buildSlotsFromScheduleEntry = (
+  entry: CoachScheduleEntry,
+  isoDate: string,
+  defaultLessonType: BookingSlot["lessonType"],
+  defaultDuration: string,
+  defaultPrice: string,
+  fallbackIndex = 0,
+): BookingSlot[] => {
+  const startMoment = buildScheduleMoment(isoDate, entry.from);
+  if (!startMoment) {
+    return [];
+  }
+
+  const endMoment = buildScheduleMoment(isoDate, entry.to);
+  const slotIdBase =
+    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
+
+  const locationId =
+    typeof entry.location_id === "number"
+      ? entry.location_id
+      : entry.location_id
+        ? Number(entry.location_id)
+        : undefined;
+  const locationLabel = entry.location_name ?? entry.location ?? "";
+  const baseSlot = {
+    lessonType: defaultLessonType,
+    duration: defaultDuration,
+    price: defaultPrice,
+    location: locationLabel,
+    location_id: locationId,
+    locationId,
+    date: isoDate,
+    court: entry.court ?? null,
+    title: entry.court ? `Court ${entry.court}` : undefined,
+  };
+
+  const slots: BookingSlot[] = [];
+
+  if (endMoment && endMoment.isAfter(startMoment)) {
+    let cursor = startMoment.clone();
+    let segmentIndex = 0;
+
+    while (cursor.isBefore(endMoment)) {
+      const segmentEnd = cursor.clone().add(1, "hour");
+      if (segmentEnd.isAfter(endMoment)) {
+        break;
+      }
+      slots.push({
+        ...baseSlot,
+        id: `${isoDate}-${slotIdBase}-seg-${segmentIndex}`,
+        time: cursor.format("h:mm A"),
+        duration: `${segmentEnd.diff(cursor, "minutes")} min`,
+        spotsRemaining: 4,
+        startDateTime: cursor.clone().utc().toISOString(),
+        endDateTime: segmentEnd.clone().utc().toISOString(),
+        startDateTimeTz: cursor.toISOString(),
+        endDateTimeTz: segmentEnd.toISOString(),
+        [SEGMENTED_FLAG]: true,
+      });
+      cursor = segmentEnd;
+      segmentIndex += 1;
+    }
+  }
+
+  if (slots.length) {
+    return slots;
+  }
+
+  const durationMinutes =
+    endMoment && endMoment.isAfter(startMoment) ? endMoment.diff(startMoment, "minutes") : null;
+  const computedDuration =
+    durationMinutes && Number.isFinite(durationMinutes) && durationMinutes > 0
+      ? durationMinutes
+      : parseDurationToMinutes(defaultDuration) ?? 60;
+  const derivedEnd = endMoment ?? startMoment.clone().add(computedDuration, "minutes");
+
+  return [
+    {
+      ...baseSlot,
+      id: `${isoDate}-${slotIdBase}`,
+      time: startMoment.format("h:mm A"),
+      duration: `${computedDuration} min`,
+      spotsRemaining: 4,
+      startDateTime: startMoment.clone().utc().toISOString(),
+      endDateTime: derivedEnd.clone().utc().toISOString(),
+      startDateTimeTz: startMoment.toISOString(),
+      endDateTimeTz: derivedEnd.toISOString(),
+      [SEGMENTED_FLAG]: true,
+    },
+  ];
+};
+
 const formatMinutesToTimeLabel = (totalMinutes: number) => {
   const minutesNormalized = ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const hours24 = Math.floor(minutesNormalized / 60);
@@ -226,8 +328,15 @@ const extractPlayerCapacity = (lessonDurationLabel?: string) => {
 };
 
 // Breaks a wide availability window into hourly slots for booking display.
+const SEGMENTED_FLAG = "__ttpSegmented";
+
 const splitIntoSlots = (slot: BookingSlot) => {
-  const record = slot as Record<string, unknown>;
+  const record = slot as Record<string, unknown> & { [SEGMENTED_FLAG]?: boolean };
+
+  if (record[SEGMENTED_FLAG]) {
+    return [slot];
+  }
+
   const from =
     (typeof record.from === "string" && record.from) ||
     (typeof record.start_time === "string" && record.start_time) ||
@@ -243,47 +352,42 @@ const splitIntoSlots = (slot: BookingSlot) => {
 
   if (!from || !to) return [slot];
 
-  const parseTime = (value: string) => {
-    const clock = moment(value, ["HH:mm:ss", "HH:mm", "h:mm A"], true);
-    if (clock.isValid()) return clock;
-    const iso = moment(value);
-    return iso.isValid() ? iso : null;
-  };
+  const date = (typeof record.date === "string" && record.date) || moment().format("YYYY-MM-DD");
 
-  const fromMoment = parseTime(from);
-  const toMoment = parseTime(to);
+  const fromDate = moment(`${date} ${from}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"], true);
+  const toDate = moment(`${date} ${to}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"], true);
 
-  if (!fromMoment || !toMoment || !fromMoment.isBefore(toMoment)) {
-    return [slot];
+  if (!fromDate.isValid() || !toDate.isValid() || !fromDate.isBefore(toDate)) {
+    return [{ ...slot, [SEGMENTED_FLAG]: true }];
   }
 
-    const segments: BookingSlot[] = [];
-    let cursor = fromMoment.clone();
-    let index = 0;
+  const segments: BookingSlot[] = [];
+  let cursor = fromDate.clone();
+  let index = 0;
 
-    while (cursor.isBefore(toMoment)) {
-      const end = cursor.clone().add(1, "hour");
-      if (end.isAfter(toMoment)) break;
+  while (cursor.isBefore(toDate)) {
+    const end = cursor.clone().add(1, "hour");
+    if (end.isAfter(toDate)) break;
 
-      segments.push({
-        ...slot,
-        id: `${slot.id}-seg-${index}`,
-        time: cursor.format("h:mm A"),
-        duration: `${end.diff(cursor, "minutes")} min`,
-        // store both local and UTC timestamps for robust matching
-        startDateTime: cursor.toISOString(),
-        endDateTime: end.toISOString(),
-        start_date_time: cursor.utc().toISOString(),
-        end_date_time: end.utc().toISOString(),
-        startDateTimeTz: cursor.toISOString(),
-        endDateTimeTz: end.toISOString(),
-      });
+    segments.push({
+      ...slot,
+      id: `${slot.id ?? record.id ?? "slot"}-seg-${index}`,
+      time: cursor.format("h:mm A"),
+      duration: `${end.diff(cursor, "minutes")} min`,
+      startDateTime: cursor.toISOString(),
+      endDateTime: end.toISOString(),
+      start_date_time: cursor.utc().toISOString(),
+      end_date_time: end.utc().toISOString(),
+      startDateTimeTz: cursor.toISOString(),
+      endDateTimeTz: end.toISOString(),
+      [SEGMENTED_FLAG]: true,
+    });
 
-      cursor = end;
-      index += 1;
-    }
+    cursor = end;
+    index += 1;
+  }
 
-  return segments.length ? segments : [slot];
+  return segments.length ? segments : [{ ...slot, [SEGMENTED_FLAG]: true }];
 };
 
 const getScopedSlots = (slots: BookingSlot[], lessonType: string) => {
@@ -423,57 +527,9 @@ const CoachProfilePage = () => {
           );
 
           const slots = scheduleEntries
-            .flatMap((entry, entryIndex) => {
-              const baseSlot: BookingSlot = {
-                id: `${isoDate}-${entry.id ?? entryIndex}`,
-                time: moment(entry.from, ["HH:mm:ss", "HH:mm"]).format("h:mm A"),
-                lessonType: defaultLessonType,
-                duration: defaultDuration,
-                price: defaultPrice,
-                spotsRemaining: 4,
-                title: entry.court ? `Court ${entry.court}` : undefined,
-                location: entry.location_name ?? entry.location ?? "",
-                location_id:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : undefined,
-              } as BookingSlot;
-
-              const withTimes = {
-                ...baseSlot,
-                from: entry.from,
-                to: entry.to,
-                start_time: entry.from,
-                end_time: entry.to,
-                court: entry.court ?? null,
-              } as BookingSlot;
-
-              return splitIntoSlots(withTimes).map((segment, segmentIndex) => ({
-                ...segment,
-                id: segment.id ?? `${baseSlot.id}-seg-${segmentIndex}`,
-                lessonType: segment.lessonType ?? baseSlot.lessonType,
-                duration: segment.duration ?? baseSlot.duration,
-                price: segment.price ?? baseSlot.price,
-                spotsRemaining:
-                  (segment as Record<string, unknown>).spotsRemaining as number | undefined ?? 4,
-                location: entry.location_name ?? entry.location ?? baseSlot.location,
-                location_id:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : baseSlot.location_id,
-                locationId:
-                  typeof entry.location_id === "number"
-                    ? entry.location_id
-                    : entry.location_id
-                      ? Number(entry.location_id)
-                      : baseSlot.location_id,
-                court: entry.court ?? null,
-              }));
-            })
+            .flatMap((entry, entryIndex) =>
+              buildSlotsFromScheduleEntry(entry, isoDate, defaultLessonType, defaultDuration, defaultPrice, entryIndex),
+            )
             .filter((slot) => {
               const slotStart = slot.startDateTime
                 ? moment(slot.startDateTime).format("HH:mm")

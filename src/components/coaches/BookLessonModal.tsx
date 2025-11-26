@@ -85,42 +85,82 @@ const resolveScheduleLocation = (entry: CoachScheduleEntry) => {
 
 const getScheduleMeta = (slot: BookingSlot) => (slot as ScheduleAwareSlot).scheduleMeta;
 
-const buildSlotFromScheduleEntry = (
+const buildSlotsFromScheduleEntry = (
   entry: CoachScheduleEntry,
   isoDate: string,
   priceLabel?: string,
   fallbackIndex = 0,
-): ScheduleAwareSlot | null => {
+): ScheduleAwareSlot[] => {
   const startMoment = buildScheduleMoment(isoDate, entry.from);
   if (!startMoment) {
-    return null;
+    return [];
   }
   const endMoment = buildScheduleMoment(isoDate, entry.to);
+  const slotIdBase =
+    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
+  const slots: ScheduleAwareSlot[] = [];
+
+  if (endMoment && endMoment.isAfter(startMoment)) {
+    let cursor = startMoment.clone();
+    let segmentIndex = 0;
+    while (cursor.isBefore(endMoment)) {
+      const segmentEnd = cursor.clone().add(1, "hour");
+      if (segmentEnd.isAfter(endMoment)) {
+        break;
+      }
+      slots.push({
+        id: `${isoDate}-${slotIdBase}-seg-${segmentIndex}`,
+        time: cursor.format("h:mm A"),
+        lessonType: "private",
+        duration: `${segmentEnd.diff(cursor, "minutes")} min`,
+        price: priceLabel ?? "$0",
+        spotsRemaining: 1,
+        title: undefined,
+        participants: [],
+        location: resolveScheduleLocation(entry),
+        scheduleMeta: {
+          startDateTime: cursor.clone().utc().toISOString(),
+          endDateTime: segmentEnd.clone().utc().toISOString(),
+          startDateTimeTz: cursor.toISOString(),
+          endDateTimeTz: segmentEnd.toISOString(),
+          locationId: entry.location_id,
+          court: entry.court ?? null,
+        },
+      });
+      cursor = segmentEnd;
+      segmentIndex += 1;
+    }
+  }
+
+  if (slots.length) {
+    return slots;
+  }
+
   const durationMinutes = endMoment ? Math.max(endMoment.diff(startMoment, "minutes"), 0) : null;
   const computedDuration = durationMinutes && Number.isFinite(durationMinutes) && durationMinutes > 0 ? durationMinutes : 60;
   const derivedEndMoment = endMoment ?? startMoment.clone().add(computedDuration, "minutes");
-  const slotIdBase =
-    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
-  const slotWithMeta: ScheduleAwareSlot = {
-    id: `${isoDate}-${slotIdBase}`,
-    time: startMoment.format("h:mm A"),
-    lessonType: "private",
-    duration: `${computedDuration} min`,
-    price: priceLabel ?? "$0",
-    spotsRemaining: 1,
-    title: undefined,
-    participants: [],
-    location: resolveScheduleLocation(entry),
-    scheduleMeta: {
-      startDateTime: startMoment.clone().utc().toISOString(),
-      endDateTime: derivedEndMoment.clone().utc().toISOString(),
-      startDateTimeTz: startMoment.toISOString(),
-      endDateTimeTz: derivedEndMoment.toISOString(),
-      locationId: entry.location_id,
-      court: entry.court ?? null,
+
+  return [
+    {
+      id: `${isoDate}-${slotIdBase}`,
+      time: startMoment.format("h:mm A"),
+      lessonType: "private",
+      duration: `${computedDuration} min`,
+      price: priceLabel ?? "$0",
+      spotsRemaining: 1,
+      title: undefined,
+      participants: [],
+      location: resolveScheduleLocation(entry),
+      scheduleMeta: {
+        startDateTime: startMoment.clone().utc().toISOString(),
+        endDateTime: derivedEndMoment.clone().utc().toISOString(),
+        startDateTimeTz: startMoment.toISOString(),
+        endDateTimeTz: derivedEndMoment.toISOString(),
+        locationId: entry.location_id,
+        court: entry.court ?? null,
+      },
     },
-  };
-  return slotWithMeta;
+  ];
 };
 
 const mapScheduleToBookingDates = (
@@ -154,7 +194,7 @@ const mapScheduleToBookingDates = (
       const weekday = dateMoment.format("dddd").toUpperCase();
       const dayEntries = normalizedEntries.filter(({ day }) => day === weekday).map(({ entry }) => entry);
       const slots = dayEntries
-        .map((entry, index) => buildSlotFromScheduleEntry(entry, isoDate, priceLabel, index))
+        .flatMap((entry, index) => buildSlotsFromScheduleEntry(entry, isoDate, priceLabel, index))
         .filter((slot): slot is BookingSlot => Boolean(slot));
       if (!slots.length) {
         return null;
