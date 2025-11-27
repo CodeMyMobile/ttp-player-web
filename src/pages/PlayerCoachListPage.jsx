@@ -8,7 +8,7 @@ import {
 } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Calendar,
@@ -1385,6 +1385,7 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
   const [selection, setSelection] = useState(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const coachName = coach?.name ?? "Coach";
   const locationLabel = pickCoachLocationLabel(coach);
@@ -1535,6 +1536,38 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
 
   const buttonTone = selection?.type === "group" ? "group" : selection ? "private" : "disabled";
 
+  const handleBook = useCallback(() => {
+    if (!selection) return;
+    const destination = `/coaches/${coach.slug || coach.id}`;
+
+    if (selection.type === "group") {
+      navigate(`${destination}?lessonId=${selection.lesson.id}&type=group`, {
+        state: {
+          preselectedLesson: selection.lesson,
+          coach,
+        },
+      });
+      return;
+    }
+
+    const start = selection.slot.scheduleMeta?.startDateTimeTz;
+    const end = selection.slot.scheduleMeta?.endDateTimeTz;
+    const query = [
+      "bookingType=private",
+      start ? `start=${encodeURIComponent(start)}` : null,
+      end ? `end=${encodeURIComponent(end)}` : null,
+    ]
+      .filter(Boolean)
+      .join("&");
+
+    navigate(query ? `${destination}?${query}` : destination, {
+      state: {
+        preselectedSlot: selection.slot,
+        coach,
+      },
+    });
+  }, [coach, navigate, selection]);
+
   return (
     <article className="my-coach-card">
       <header className="my-coach-card__header">
@@ -1585,10 +1618,14 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
                 type="button"
                 className={`my-coach-card__slot${isSelected ? " selected" : ""}`}
                 onClick={() =>
-                  setSelection({
-                    type: "private",
-                    slot,
-                  })
+                  setSelection((prev) =>
+                    prev?.type === "private" && prev.slot.id === slot.id
+                      ? null
+                      : {
+                          type: "private",
+                          slot,
+                        },
+                  )
                 }
               >
                 <div className="my-coach-card__slot-day">{slot.dayLabel}</div>
@@ -1600,9 +1637,9 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
             <p className="my-coach-card__muted">No upcoming private slots in the next two weeks.</p>
           ) : null}
         </div>
-        <button type="button" className="my-coach-card__link">
+        <Link to={`/coaches/${coach.slug || coach.id}`} className="my-coach-card__link">
           All times <ArrowRight size={14} aria-hidden />
-        </button>
+        </Link>
       </section>
 
       {groupClasses.length ? (
@@ -1621,7 +1658,13 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
                   key={lesson.id}
                   type="button"
                   className={`my-coach-card__class${isSelected ? " selected" : ""}`}
-                  onClick={() => setSelection({ type: "group", lesson })}
+                  onClick={() =>
+                    setSelection((prev) =>
+                      prev?.type === "group" && prev.lesson.id === lesson.id
+                        ? null
+                        : { type: "group", lesson },
+                    )
+                  }
                 >
                   <div>
                     <div className="my-coach-card__class-title">{lesson.title}</div>
@@ -1645,9 +1688,9 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
               );
             })}
           </div>
-          <button type="button" className="my-coach-card__link group">
+          <Link to={`/coaches/${coach.slug || coach.id}`} className="my-coach-card__link group">
             All classes <ArrowRight size={14} aria-hidden />
-          </button>
+          </Link>
         </section>
       ) : null}
 
@@ -1658,6 +1701,7 @@ const MyCoachBookingCard = ({ coach, authToken }) => {
         className={`my-coach-card__cta ${buttonTone}`}
         disabled={!selection}
         aria-disabled={!selection}
+        onClick={handleBook}
       >
         {buttonLabel}
       </button>
