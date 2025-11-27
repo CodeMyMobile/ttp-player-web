@@ -221,14 +221,17 @@ export const createMatch = async ({
     status,
     match_type: matchType,
     location_text: locationText,
-    location: locationText,
-    listing_visibility: "listed",
   };
+
+  if (matchType === "open") {
+    payload.hidden = false;
+    payload.is_hidden = false;
+    payload.listing_visibility = "listed";
+  }
 
   const startIso = toIsoString(startDateTime);
   if (startIso) {
     payload.start_date_time = startIso;
-    payload.dateTime = startIso;
   }
 
   if (typeof latitude === "number") payload.latitude = latitude;
@@ -236,17 +239,14 @@ export const createMatch = async ({
 
   if (typeof rosterSize === "number") {
     payload.player_limit = rosterSize;
-    payload.playerCount = rosterSize;
   }
 
   if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
     payload.skill_level_min = skillLevel;
-    payload.skillLevel = skillLevel;
   }
 
   if (matchFormat) {
     payload.match_format = matchFormat;
-    payload.format = matchFormat;
   }
 
   if (notes) {
