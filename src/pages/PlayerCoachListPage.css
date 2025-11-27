@@ -26,6 +26,92 @@
   overflow: hidden;
 }
 
+.my-booking-hero {
+  position: relative;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+  padding: 32px 28px;
+  border-radius: 28px;
+  background: linear-gradient(120deg, #ede9fe 0%, #e0f2fe 45%, #f0fdf4 100%);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 960px) {
+  .my-booking-hero {
+    grid-template-columns: 2fr 1fr;
+    align-items: stretch;
+    padding: 40px 44px;
+  }
+}
+
+.my-booking-hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.my-booking-hero__chips {
+  display: inline-flex;
+  gap: 10px;
+  padding: 6px;
+  background: rgba(91, 95, 199, 0.08);
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.my-booking-hero__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #e5e7eb;
+}
+
+.my-booking-hero__meta .label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.my-booking-hero__meta-value {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #5b5fc7;
+}
+
+.my-booking-hero__cta {
+  align-self: stretch;
+  padding: 18px;
+  border-radius: 20px;
+  background: #0f172a;
+  color: #f8fafc;
+  display: grid;
+  gap: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.my-booking-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #5b5fc7;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 @media (min-width: 1024px) {
   .coach-hero {
     flex-direction: row;
@@ -155,6 +241,36 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.my-booking-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.my-booking-toolbar__controls {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .my-booking-toolbar__controls {
+    grid-template-columns: minmax(260px, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.my-booking-toolbar__hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .coach-controls-bar {

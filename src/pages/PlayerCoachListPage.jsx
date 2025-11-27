@@ -2445,172 +2445,259 @@ const PlayerCoachListPage = () => {
 
   return (
     <div className="coach-list-page">
-      <header className="coach-hero">
-        <div className="coach-hero-copy">
-          <p className="coach-hero-eyebrow">Player Experience</p>
-          <h1>{heroTitle}</h1>
-          <p className="coach-hero-subtitle">{heroSubtitle}</p>
-          <div className="coach-tab-bar" role="tablist" aria-label="Coach views">
+      {activeTab === "my" ? (
+        <header className="my-booking-hero">
+          <div className="my-booking-hero__content">
+            <p className="coach-hero-eyebrow">My Coaches</p>
+            <h1>Book your next lesson in seconds</h1>
+            <p className="coach-hero-subtitle">
+              See real availability, pick a time, and confirm without leaving this page.
+            </p>
+            <div className="my-booking-hero__chips" role="tablist" aria-label="Coach views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected
+                className="coach-tab active"
+                onClick={() => {
+                  setActiveTab("my");
+                  resetMyPagination();
+                }}
+              >
+                <SlidersHorizontal size={16} aria-hidden />
+                Quick book
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={false}
+                className="coach-tab"
+                onClick={() => {
+                  setActiveTab("all");
+                  resetAllPagination();
+                }}
+              >
+                <Users2 size={16} aria-hidden />
+                Browse all coaches
+              </button>
+            </div>
+            <div className="my-booking-hero__meta">
+              <div>
+                <p className="label">Connected coaches</p>
+                <p className="my-booking-hero__meta-value">{confirmedMyCoaches.length}</p>
+              </div>
+              <div>
+                <p className="label">Pending approvals</p>
+                <p className="my-booking-hero__meta-value">{pendingCoaches.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="my-booking-hero__cta">
+            <div className="my-booking-hero__badge">Lightning-fast booking</div>
+            <p>Tap a slot on a coach card to prefill the booking button instantly.</p>
+          </div>
+        </header>
+      ) : (
+        <header className="coach-hero">
+          <div className="coach-hero-copy">
+            <p className="coach-hero-eyebrow">Player Experience</p>
+            <h1>{heroTitle}</h1>
+            <p className="coach-hero-subtitle">{heroSubtitle}</p>
+            <div className="coach-tab-bar" role="tablist" aria-label="Coach views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "all"}
+                className={`coach-tab${activeTab === "all" ? " active" : ""}`}
+                onClick={() => {
+                  setActiveTab("all");
+                  resetAllPagination();
+                }}
+              >
+                <Users2 size={16} aria-hidden />
+                All Coaches
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "my"}
+                className={`coach-tab${activeTab === "my" ? " active" : ""}`}
+                onClick={() => {
+                  setActiveTab("my");
+                  resetMyPagination();
+                }}
+              >
+                <SlidersHorizontal size={16} aria-hidden />
+                My Coaches
+              </button>
+            </div>
+          </div>
+          <dl className="coach-hero-stats">
+            <div className="coach-hero-stat">
+              <dt>Available Coaches</dt>
+              <dd>{heroStats.available.toLocaleString()}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Avg Rating</dt>
+              <dd>{heroStats.avgRating ?? "—"}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Avg Hourly Rate</dt>
+              <dd>{heroStats.avgHourlyRate ?? "—"}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Lessons Booked</dt>
+              <dd>{heroStats.lessons ?? "—"}</dd>
+            </div>
+          </dl>
+        </header>
+      )}
+
+      {activeTab === "my" ? (
+        <section className="my-booking-toolbar" aria-label="Quick booking filters">
+          <div className="my-booking-toolbar__controls">
+            <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
+              <Search size={16} aria-hidden />
+              <input
+                type="search"
+                value={nameDraft}
+                onChange={handleSearchChange}
+                placeholder="Search your coaches…"
+                aria-label="Search my coaches by name"
+              />
+              {nameDraft ? (
+                <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
+                  <span className="sr-only">Clear search</span>
+                  ×
+                </button>
+              ) : null}
+            </form>
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "all"}
-              className={`coach-tab${activeTab === "all" ? " active" : ""}`}
-              onClick={() => {
-                setActiveTab("all");
-                resetAllPagination();
-              }}
+              className="refresh-button"
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              <Users2 size={16} aria-hidden />
-              All Coaches
+              {refreshing ? <Loader2 className="spin" size={16} aria-hidden /> : <RefreshCcw size={16} aria-hidden />}
+              Refresh availability
             </button>
+          </div>
+          <p className="my-booking-toolbar__hint">Select a time on any card to activate the booking button.</p>
+        </section>
+      ) : (
+        <section className="coach-controls" aria-label="Search and filters">
+          <div className="coach-controls-bar">
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "my"}
-              className={`coach-tab${activeTab === "my" ? " active" : ""}`}
+              className="coach-location-trigger"
               onClick={() => {
-                setActiveTab("my");
-                resetMyPagination();
+                setFocusFilterSection("location");
+                setOpenFilter("filters");
               }}
+              aria-label={
+                locationFilter?.address
+                  ? `Change location from ${locationFilter.address}`
+                  : "Select a location"
+              }
+              aria-haspopup="dialog"
+            >
+              <MapPin size={16} aria-hidden />
+              <span>
+                {locationFilter?.address
+                  ? locationFilter.address
+                  : debouncedUserPos?.latitude && debouncedUserPos?.longitude
+                    ? "Current location"
+                    : "Select location"}
+              </span>
+            </button>
+            <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
+              <Search size={16} aria-hidden />
+              <input
+                type="search"
+                value={nameDraft}
+                onChange={handleSearchChange}
+                placeholder="Search coaches by name…"
+                aria-label="Search coaches by name"
+              />
+              {nameDraft ? (
+                <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
+                  <span className="sr-only">Clear search</span>
+                  ×
+                </button>
+              ) : null}
+            </form>
+            <button
+              type="button"
+              className="coach-filters-toggle"
+              onClick={() => {
+                setFocusFilterSection(null);
+                setOpenFilter("filters");
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={openFilter === "filters"}
             >
               <SlidersHorizontal size={16} aria-hidden />
-              My Coaches
+              Filters
             </button>
-          </div>
-        </div>
-        <dl className="coach-hero-stats">
-          <div className="coach-hero-stat">
-            <dt>Available Coaches</dt>
-            <dd>{heroStats.available.toLocaleString()}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Avg Rating</dt>
-            <dd>{heroStats.avgRating ?? "—"}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Avg Hourly Rate</dt>
-            <dd>{heroStats.avgHourlyRate ?? "—"}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Lessons Booked</dt>
-            <dd>{heroStats.lessons ?? "—"}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <section className="coach-controls" aria-label="Search and filters">
-        <div className="coach-controls-bar">
-          <button
-            type="button"
-            className="coach-location-trigger"
-            onClick={() => {
-              setFocusFilterSection("location");
-              setOpenFilter("filters");
-            }}
-            aria-label={
-              locationFilter?.address
-                ? `Change location from ${locationFilter.address}`
-                : "Select a location"
-            }
-            aria-haspopup="dialog"
-          >
-            <MapPin size={16} aria-hidden />
-            <span>
-              {locationFilter?.address
-                ? locationFilter.address
-                : debouncedUserPos?.latitude && debouncedUserPos?.longitude
-                  ? "Current location"
-                  : "Select location"}
-            </span>
-          </button>
-          <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              value={nameDraft}
-              onChange={handleSearchChange}
-              placeholder="Search coaches by name…"
-              aria-label="Search coaches by name"
-            />
-            {nameDraft ? (
-              <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
-                <span className="sr-only">Clear search</span>
-                ×
-              </button>
-            ) : null}
-          </form>
-          <button
-            type="button"
-            className="coach-filters-toggle"
-            onClick={() => {
-              setFocusFilterSection(null);
-              setOpenFilter("filters");
-            }}
-            aria-haspopup="dialog"
-            aria-expanded={openFilter === "filters"}
-          >
-            <SlidersHorizontal size={16} aria-hidden />
-            Filters
-          </button>
-          <div className="coach-sort">
-            <label htmlFor="coach-sort-select">Sort by</label>
-            <select
-              id="coach-sort-select"
-              value={sortValue}
-              onChange={handleSortChange}
-              aria-label="Sort coaches"
-            >
-              <option value="recommended">Recommended</option>
-              <option value="price">Price</option>
-              <option value="rating">Rating</option>
-              <option value="distance">Distance</option>
-            </select>
-          </div>
-        </div>
-        <div
-          id="coach-specialty-chips"
-          className="coach-chip-toolbar"
-          role="toolbar"
-          aria-label="Specialty filters"
-        >
-          {specialtyChips.map((chip) => {
-            const isSelected = specialtySelection.includes(chip.value);
-            return (
-              <button
-                key={chip.value}
-                type="button"
-                className={`coach-chip${isSelected ? " selected" : ""}`}
-                onClick={() => toggleSpecialty(chip.value)}
-                aria-pressed={isSelected}
+            <div className="coach-sort">
+              <label htmlFor="coach-sort-select">Sort by</label>
+              <select
+                id="coach-sort-select"
+                value={sortValue}
+                onChange={handleSortChange}
+                aria-label="Sort coaches"
               >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-        {dynamicFilterPills.some((pill) => pill.isActive) ? (
-          <div className="coach-active-filters" role="list" aria-label="Active filters">
-            {dynamicFilterPills
-              .filter((pill) => pill.isActive)
-              .map((pill) => (
-                <button
-                  type="button"
-                  key={pill.key}
-                  className="filter-pill"
-                  role="listitem"
-                  onClick={() => {
-                    setFocusFilterSection(pill.key);
-                    setOpenFilter("filters");
-                  }}
-                  aria-haspopup="dialog"
-                >
-                  <span>{pill.label}</span>
-                </button>
-              ))}
+                <option value="recommended">Recommended</option>
+                <option value="price">Price</option>
+                <option value="rating">Rating</option>
+                <option value="distance">Distance</option>
+              </select>
+            </div>
           </div>
-        ) : null}
-      </section>
+          <div
+            id="coach-specialty-chips"
+            className="coach-chip-toolbar"
+            role="toolbar"
+            aria-label="Specialty filters"
+          >
+            {specialtyChips.map((chip) => {
+              const isSelected = specialtySelection.includes(chip.value);
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  className={`coach-chip${isSelected ? " selected" : ""}`}
+                  onClick={() => toggleSpecialty(chip.value)}
+                  aria-pressed={isSelected}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+          {dynamicFilterPills.some((pill) => pill.isActive) ? (
+            <div className="coach-active-filters" role="list" aria-label="Active filters">
+              {dynamicFilterPills
+                .filter((pill) => pill.isActive)
+                .map((pill) => (
+                  <button
+                    type="button"
+                    key={pill.key}
+                    className="filter-pill"
+                    role="listitem"
+                    onClick={() => {
+                      setFocusFilterSection(pill.key);
+                      setOpenFilter("filters");
+                    }}
+                    aria-haspopup="dialog"
+                  >
+                    <span>{pill.label}</span>
+                  </button>
+                ))}
+            </div>
+          ) : null}
+        </section>
+      )}
 
       <div className="coach-results-header">
         <div>
