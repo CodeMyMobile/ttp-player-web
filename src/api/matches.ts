@@ -222,7 +222,6 @@ export const createMatch = async ({
     match_type: matchType,
     location_text: locationText,
     location: locationText,
-    listing_visibility: "listed",
   };
 
   const startIso = toIsoString(startDateTime);
@@ -234,43 +233,61 @@ export const createMatch = async ({
   if (typeof latitude === "number") payload.latitude = latitude;
   if (typeof longitude === "number") payload.longitude = longitude;
 
-  if (typeof rosterSize === "number") {
-    payload.player_limit = rosterSize;
-    payload.playerCount = rosterSize;
-  }
+  if (typeof rosterSize === "number") payload.player_limit = rosterSize;
 
-  if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
-    payload.skill_level_min = skillLevel;
-    payload.skillLevel = skillLevel;
+  if (
+    matchType === "open" &&
+    skillLevel !== undefined &&
+    skillLevel !== null &&
+    `${skillLevel}`.trim() !== ""
+  ) {
+    const parsedSkill = `${skillLevel}`.trim();
+    const [minRaw] = parsedSkill.split(/\s*[-–]\s*/);
+    const minLevel = Number.parseFloat(minRaw ?? "");
+
+    if (!Number.isNaN(minLevel)) {
+      payload.skill_level_min = minLevel;
+    }
   }
 
   if (matchFormat) {
     payload.match_format = matchFormat;
-    payload.format = matchFormat;
   }
 
   if (notes) {
     payload.notes = notes;
   }
 
-  if (matchType === "open" && linkOnly) {
-    payload.hidden = true;
-    payload.is_hidden = true;
-    payload.listing_visibility = "link_only";
-    payload.visibility = "hidden";
-    payload.match_visibility = "hidden";
+  if (matchType === "open") {
+    const isLinkOnly = Boolean(linkOnly);
+    payload.hidden = isLinkOnly;
+    payload.is_hidden = isLinkOnly;
+    payload.listing_visibility = isLinkOnly ? "link_only" : "listed";
+
+    if (isLinkOnly) {
+      payload.visibility = "hidden";
+      payload.match_visibility = "hidden";
+    }
   }
 
-  const executeCreate = async (override?: Record<string, unknown>) =>
-    request<unknown>("/matches", {
+  const executeCreate = async (override?: Record<string, unknown>) => {
+    const body = {
+      ...payload,
+      ...override,
+    };
+
+    console.log("[createMatch] POST /matches", {
+      body,
+      tokenProvided: Boolean(token),
+    });
+
+    return request<unknown>("/matches", {
       method: "POST",
       token: token ?? undefined,
       signal,
-      body: {
-        ...payload,
-        ...override,
-      },
+      body,
     });
+  };
 
   try {
     const response = await executeCreate();
