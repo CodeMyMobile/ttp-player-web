@@ -87,6 +87,27 @@ export interface CreateMatchParams {
   signal?: AbortSignal;
 }
 
+export interface UpdateMatchParams {
+  startDateTime?: string | Date | null;
+  locationText?: string | null;
+  matchFormat?: string | null;
+  skillLevel?: string | number | null;
+  playerLimit?: number | null;
+  notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface MutateMatchOptions {
+  token?: string | null;
+  signal?: AbortSignal;
+}
+
+export interface InvitePayload {
+  playerIds?: Array<string | number>;
+  phoneNumbers?: string[];
+}
+
 const isTruthyFlag = (value: TruthyLike | null | undefined) => {
   if (value === null || value === undefined) return false;
   if (typeof value === "boolean") return value;
@@ -127,9 +148,10 @@ const buildMatchesQuery = ({
 
   if (isTruthyFlag(includeHiddenFlag)) {
     query.includeHidden = true;
-    query.include_hidden = true;
   } else if (explicitlyFalse) {
     query.include_hidden = false;
+  } else if (include_hidden !== undefined) {
+    query.include_hidden = include_hidden;
   }
 
   if (typeof latitude === "number" && typeof longitude === "number") {
@@ -1263,5 +1285,90 @@ export const getMatchById = async (
     signal,
   });
   return response;
+};
+
+export const updateMatch = async (
+  id: string | number,
+  params: UpdateMatchParams,
+  { token, signal }: MutateMatchOptions = {},
+) => {
+  const startDateTime = toIsoString(params.startDateTime ?? undefined);
+
+  const payload: Record<string, unknown> = {
+    location_text: params.locationText ?? undefined,
+    location: params.locationText ?? undefined,
+    match_format: params.matchFormat ?? undefined,
+    format: params.matchFormat ?? undefined,
+    skill_level_min: params.skillLevel ?? undefined,
+    skillLevel: params.skillLevel ?? undefined,
+    player_limit: params.playerLimit ?? undefined,
+    player_limit_override: params.playerLimit ?? undefined,
+    notes: params.notes ?? undefined,
+  };
+
+  if (startDateTime) {
+    payload.start_date_time = startDateTime;
+    payload.dateTime = startDateTime;
+  }
+
+  if (typeof params.latitude === "number") payload.latitude = params.latitude;
+  if (typeof params.longitude === "number") payload.longitude = params.longitude;
+
+  return request(`/matches/${id}`, {
+    method: "PUT",
+    token: token ?? undefined,
+    signal,
+    body: payload,
+  });
+};
+
+export const joinMatch = async (id: string | number, { token, signal }: MutateMatchOptions = {}) =>
+  request(`/matches/${id}/join`, {
+    method: "POST",
+    token: token ?? undefined,
+    signal,
+  });
+
+export const leaveMatch = async (id: string | number, { token, signal }: MutateMatchOptions = {}) =>
+  request(`/matches/${id}/leave`, {
+    method: "POST",
+    token: token ?? undefined,
+    signal,
+  });
+
+export const removeMatchParticipant = async (
+  matchId: string | number,
+  playerId: string | number,
+  { token, signal }: MutateMatchOptions = {},
+) =>
+  request(`/matches/${matchId}/participants/${playerId}`, {
+    method: "DELETE",
+    token: token ?? undefined,
+    signal,
+  });
+
+export const sendMatchInvites = async (
+  matchId: string | number,
+  payload: InvitePayload,
+  { token, signal }: MutateMatchOptions = {},
+) =>
+  request(`/matches/${matchId}/invites`, {
+    method: "POST",
+    token: token ?? undefined,
+    signal,
+    body: {
+      playerIds: payload.playerIds ?? [],
+      phoneNumbers: payload.phoneNumbers ?? [],
+    },
+  });
+
+export const getMatchShareLink = async (id: string | number, { token, signal }: MutateMatchOptions = {}) => {
+  const response = await request(`/matches/${id}/share-link`, {
+    method: "GET",
+    token: token ?? undefined,
+    signal,
+  });
+
+  return { shareLink: deriveShareLink(response), raw: response };
 };
 
