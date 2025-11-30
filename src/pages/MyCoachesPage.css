@@ -7,9 +7,22 @@
   background: #f4f7fb;
 }
 
+.my-coaches__inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 @media (min-width: 1024px) {
   .my-coaches {
     padding: 48px 64px 80px;
+    gap: 32px;
+  }
+
+  .my-coaches__inner {
     gap: 32px;
   }
 }

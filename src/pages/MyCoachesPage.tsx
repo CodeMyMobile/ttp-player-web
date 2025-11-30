@@ -666,10 +666,11 @@ const MyCoachesPage = () => {
   return (
     <MainLayout>
       <div className="my-coaches">
-        <header className="my-booking-hero">
-          <div className="my-booking-hero__content">
-            <p className="coach-hero-eyebrow">My Coaches</p>
-            <h1>Book your next lesson fast</h1>
+        <div className="my-coaches__inner">
+          <header className="my-booking-hero">
+            <div className="my-booking-hero__content">
+              <p className="coach-hero-eyebrow">My Coaches</p>
+              <h1>Book your next lesson fast</h1>
             <p className="coach-hero-subtitle">
               Tap a slot on a coach card to prefill the booking button instantly.
             </p>
@@ -692,77 +693,78 @@ const MyCoachesPage = () => {
               </div>
             </div>
           </div>
-          <div className="my-booking-hero__cta">
-            <div className="my-booking-hero__badge">Lightning-fast booking</div>
-            <p>Skip discovery mode—this page is built to confirm your next lesson quickly.</p>
-          </div>
-        </header>
-
-        <section className="my-booking-toolbar" aria-label="Quick booking filters">
-          <div className="my-booking-toolbar__controls">
-            <form className="coach-search" role="search" onSubmit={(event) => event.preventDefault()}>
-              <Search size={16} aria-hidden />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search your coaches…"
-                aria-label="Search my coaches by name"
-              />
-              {search ? (
-                <button type="button" className="coach-search-clear" onClick={() => setSearch("")}>
-                  <span className="sr-only">Clear search</span>
-                  ×
-                </button>
-              ) : null}
-            </form>
-            <button type="button" className="refresh-button" onClick={fetchCoaches} disabled={loading}>
-              {loading ? <Loader2 className="spin" size={16} aria-hidden /> : <RefreshCcw size={16} aria-hidden />}
-              Refresh availability
-            </button>
-          </div>
-          <p className="my-booking-toolbar__hint">Select a time on any card to activate the booking button.</p>
-        </section>
-
-        {error && <StateBanner tone="error" title="Couldn’t load coaches" message={error} />}
-
-        {loading && (
-          <div className="my-coaches__grid">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="my-coaches__skeleton" />
-            ))}
-          </div>
-        )}
-
-        {showEmpty && (
-          <StateBanner
-            tone="empty"
-            title="No coaches in your roster"
-            message="Once you start working with coaches, they’ll appear here."
-          />
-        )}
-
-        {!loading && !error && filteredConfirmed.length > 0 && (
-          <section className="my-coaches__grid" aria-label="Connected coaches">
-            {filteredConfirmed.map((coach) => (
-              <MyCoachBookingCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} authToken={playerToken} />
-            ))}
-          </section>
-        )}
-
-        {!loading && !error && pendingCoaches.length > 0 && (
-          <section className="pending-coaches" aria-labelledby="pending-coaches-heading">
-            <div className="coach-section-header">
-              <h3 id="pending-coaches-heading">Pending Approval</h3>
-              <p>Requests that are awaiting coach confirmation.</p>
+            <div className="my-booking-hero__cta">
+              <div className="my-booking-hero__badge">Lightning-fast booking</div>
+              <p>Skip discovery mode—this page is built to confirm your next lesson quickly.</p>
             </div>
-            <ul className="pending-coaches__list">
-              {pendingCoaches.map((coach) => (
-                <PendingCoachRow key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
-              ))}
-            </ul>
+          </header>
+
+          <section className="my-booking-toolbar" aria-label="Quick booking filters">
+            <div className="my-booking-toolbar__controls">
+              <form className="coach-search" role="search" onSubmit={(event) => event.preventDefault()}>
+                <Search size={16} aria-hidden />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search your coaches…"
+                  aria-label="Search my coaches by name"
+                />
+                {search ? (
+                  <button type="button" className="coach-search-clear" onClick={() => setSearch("")}>
+                    <span className="sr-only">Clear search</span>
+                    ×
+                  </button>
+                ) : null}
+              </form>
+              <button type="button" className="refresh-button" onClick={fetchCoaches} disabled={loading}>
+                {loading ? <Loader2 className="spin" size={16} aria-hidden /> : <RefreshCcw size={16} aria-hidden />}
+                Refresh availability
+              </button>
+            </div>
+            <p className="my-booking-toolbar__hint">Select a time on any card to activate the booking button.</p>
           </section>
-        )}
+
+          {error && <StateBanner tone="error" title="Couldn’t load coaches" message={error} />}
+
+          {loading && (
+            <div className="my-coaches__grid">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="my-coaches__skeleton" />
+              ))}
+            </div>
+          )}
+
+          {showEmpty && (
+            <StateBanner
+              tone="empty"
+              title="No coaches in your roster"
+              message="Once you start working with coaches, they’ll appear here."
+            />
+          )}
+
+          {!loading && !error && filteredConfirmed.length > 0 && (
+            <section className="my-coaches__grid" aria-label="Connected coaches">
+              {filteredConfirmed.map((coach) => (
+                <MyCoachBookingCard key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} authToken={playerToken} />
+              ))}
+            </section>
+          )}
+
+          {!loading && !error && pendingCoaches.length > 0 && (
+            <section className="pending-coaches" aria-labelledby="pending-coaches-heading">
+              <div className="coach-section-header">
+                <h3 id="pending-coaches-heading">Pending Approval</h3>
+                <p>Requests that are awaiting coach confirmation.</p>
+              </div>
+              <ul className="pending-coaches__list">
+                {pendingCoaches.map((coach) => (
+                  <PendingCoachRow key={pickCoachId(coach) ?? resolveName(coach)} coach={coach} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       </div>
     </MainLayout>
   );
