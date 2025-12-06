@@ -75,6 +75,41 @@
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.match-details-card__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.match-details-card__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.match-details-card__section-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.match-details-card__section-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #166534;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .match-details-card__list {
@@ -119,6 +154,90 @@
 .match-details-card__secondary {
   margin: 0;
   color: #475569;
+}
+
+.match-details-participants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.match-details-participants__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.match-details-participants__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.match-details-participants__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.match-details-participants__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-details-participants__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.match-details-participants__name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.match-details-participants__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.match-details-participants__tag--muted {
+  background: rgba(100, 116, 139, 0.18);
+  color: #334155;
+}
+
+.match-details-participants__contact {
+  color: #475569;
+  font-weight: 600;
+}
+
+.match-details-participants__empty {
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 14px;
+  color: #475569;
+  font-weight: 600;
 }
 
 .match-details-card__footer {

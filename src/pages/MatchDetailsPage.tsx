@@ -83,6 +83,16 @@ const MatchDetailsPage = () => {
     navigate(`/matches/${match.id}`);
   };
 
+  const buildInitials = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "";
+    return trimmed
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("");
+  };
+
   const detailItems = [
     {
       icon: <Calendar size={18} aria-hidden="true" />,
@@ -99,6 +109,12 @@ const MatchDetailsPage = () => {
       title: playersLabel,
       subtitle: availabilityLabel,
     },
+    match?.type
+      ? {
+          icon: <Activity size={18} aria-hidden="true" />,
+          title: `Match type: ${match.type}`,
+        }
+      : null,
     match?.level
       ? {
           icon: <Star size={18} aria-hidden="true" />,
@@ -149,17 +165,65 @@ const MatchDetailsPage = () => {
             </header>
 
             <div className="match-details-card__body">
-              <ul className="match-details-card__list">
-                {detailItems.map((item) => (
-                  <li key={item.title} className="match-details-card__item">
-                    <div className="match-details-card__icon">{item.icon}</div>
-                    <div className="match-details-card__text">
-                      <p className="match-details-card__primary">{item.title}</p>
-                      {item.subtitle ? <p className="match-details-card__secondary">{item.subtitle}</p> : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <section className="match-details-card__panel" aria-label="Match information">
+                <h2 className="match-details-card__section-title">Match details</h2>
+                <ul className="match-details-card__list">
+                  {detailItems.map((item) => (
+                    <li key={item.title} className="match-details-card__item">
+                      <div className="match-details-card__icon">{item.icon}</div>
+                      <div className="match-details-card__text">
+                        <p className="match-details-card__primary">{item.title}</p>
+                        {item.subtitle ? <p className="match-details-card__secondary">{item.subtitle}</p> : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="match-details-card__panel" aria-label="Participants">
+                <div className="match-details-card__section-heading">
+                  <h2 className="match-details-card__section-title">Participating players</h2>
+                  <span className="match-details-card__section-pill">{playersLabel}</span>
+                </div>
+                {match?.participants && match.participants.length > 0 ? (
+                  <ul className="match-details-participants">
+                    {match.participants.map((participant) => {
+                      const initials = participant.name ? buildInitials(participant.name) : "";
+                      const contactLabel =
+                        participant.contactEmail || participant.contactPhone
+                          ? [participant.contactEmail, participant.contactPhone].filter(Boolean).join(" · ")
+                          : "Contact info not provided";
+
+                      return (
+                        <li key={participant.id ?? participant.name} className="match-details-participants__item">
+                          <span className="match-details-participants__avatar" aria-hidden>
+                            {participant.avatarUrl ? (
+                              <img src={participant.avatarUrl} alt="" />
+                            ) : (
+                              initials
+                            )}
+                          </span>
+                          <div className="match-details-participants__body">
+                            <div className="match-details-participants__row">
+                              <span className="match-details-participants__name">{participant.name ?? "Player"}</span>
+                              {participant.hosting ? (
+                                <span className="match-details-participants__tag">Host</span>
+                              ) : participant.isCurrentUser ? (
+                                <span className="match-details-participants__tag match-details-participants__tag--muted">You</span>
+                              ) : null}
+                            </div>
+                            <span className="match-details-participants__contact">{contactLabel}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="match-details-participants__empty">
+                    Invite players to join you — participant names and contact details will appear here.
+                  </div>
+                )}
+              </section>
             </div>
 
             <footer className="match-details-card__footer">

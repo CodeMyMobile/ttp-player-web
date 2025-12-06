@@ -15,6 +15,9 @@ export interface NormalizedMatchParticipant {
   hosting?: boolean;
   identityIds?: string[];
   isCurrentUser?: boolean;
+  avatarUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface NormalizedMatch {
@@ -1088,12 +1091,39 @@ const deriveParticipants = (
         isFlaggedCurrentUser ||
         (identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value)));
 
+      const avatarUrl = firstString([
+        participantRecord.avatar_url,
+        participantRecord.avatarUrl,
+        participantRecord.profile_image,
+        participantRecord.profileImage,
+        participantRecord.image_url,
+        participantRecord.imageUrl,
+        participantRecord.photo,
+      ]);
+
+      const contactEmail = firstString([
+        participantRecord.email,
+        participantRecord.contact_email,
+        participantRecord.contactEmail,
+      ]);
+
+      const contactPhone = firstString([
+        participantRecord.phone,
+        participantRecord.phone_number,
+        participantRecord.phoneNumber,
+        participantRecord.contact_phone,
+        participantRecord.contactPhone,
+      ]);
+
       return {
         id: id ?? (identityIds.length ? identityIds[0] : undefined),
         name,
         hosting,
         identityIds: identityIds.length ? identityIds : undefined,
         isCurrentUser,
+        avatarUrl: avatarUrl || undefined,
+        contactEmail: contactEmail || undefined,
+        contactPhone: contactPhone || undefined,
       } satisfies NormalizedMatchParticipant;
     })
     .filter(Boolean) as NormalizedMatchParticipant[];
