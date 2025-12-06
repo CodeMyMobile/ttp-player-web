@@ -17,6 +17,7 @@ import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
 
 import "./BrowseMatchesPage.css";
+import "../components/coaches/coaches.css";
 import "../components/players/players.css";
 
 const distanceOptions = ["5 mi", "10 mi", "20 mi", "50 mi", "All"];
@@ -480,13 +481,18 @@ const BrowseMatchesPage = () => {
         "--fc-color-text-secondary": colors.secondaryText,
         "--fc-color-text-muted": colors.mutedText,
         "--fc-color-border": colors.border,
+        "--fc-color-icon": colors.icon,
         "--fc-color-accent": colors.accentPurple,
         "--fc-color-accent-light": colors.accentPurpleLight,
         "--fc-color-accent-border": colors.accentPurpleBorder,
+        "--fc-chip-bg": colors.filterChipBg,
+        "--fc-chip-hover-bg": colors.filterChipHover,
+        "--fc-chip-text": colors.secondaryButtonText,
         "--fc-color-secondary-border": colors.secondaryButtonBorder,
         "--fc-color-secondary-text": colors.secondaryButtonText,
         "--fc-color-secondary-hover": colors.secondaryButtonHover,
         "--fc-color-success": colors.primarySuccess,
+        "--fc-color-success-hover": colors.primarySuccessHover,
         "--fc-color-error-text": colors.errorText,
       }) as CSSProperties,
     [],
@@ -530,49 +536,90 @@ const BrowseMatchesPage = () => {
             </div>
           </header>
 
-          <section className="location-panel">
-            <div className="location-panel__header">
+          <section className="fc-filter matches-filter-card">
+            <div className="matches-filter-card__header">
               <div>
-                <p className="location-panel__eyebrow">Location filter</p>
-                <h2 className="location-panel__title">
+                <p className="matches-filter-card__eyebrow">Location filter</p>
+                <h2 className="matches-filter-card__title">
                   {hasLocationFilter ? "Dialed into your spot" : "Use a location to see closer matches"}
                 </h2>
-                <p className="location-panel__subtitle">
+                <p className="matches-filter-card__subtitle">
                   Switch between saved location and nearby radius in one tap.
                 </p>
               </div>
-              <button
-                type="button"
-                className={`distance-chip distance-chip--location${showLocationPicker ? " selected" : ""}`}
-                aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
-                aria-expanded={showLocationPicker}
-                onClick={() => {
-                  setGeoError("");
-                  setShowLocationPicker((prev) => {
-                    if (!prev) {
-                      setLocationSearchTerm(locationFilter?.label ?? "");
-                    }
-                    return !prev;
-                  });
-                }}
-              >
-                <MapPin size={16} aria-hidden="true" />
-                {locationLabel || "Select location"}
-              </button>
+              <div className="matches-filter-card__summary">
+                <span className="matches-filter-card__summary-label">Showing matches near</span>
+                <strong className="matches-filter-card__summary-value">{locationLabel || "Select location"}</strong>
+              </div>
             </div>
 
-            <div className="location-panel__chips" role="group" aria-label="Distance from your current location">
-              {distanceOptions.map((option) => (
+            <div className="fc-filter__distance-row matches-filter-card__distance-row">
+              <div className="fc-filter__distance-group">
                 <button
-                  key={option}
                   type="button"
-                  className={`distance-chip${selectedDistance === option ? " selected" : ""}`}
-                  onClick={() => setSelectedDistance(option)}
-                  aria-pressed={selectedDistance === option}
+                  className={`fc-distance-chip fc-distance-chip--location${
+                    showLocationPicker ? " fc-distance-chip--active" : ""
+                  }`}
+                  aria-label={locationLabel ? `Selected location: ${locationLabel}` : "Select location"}
+                  aria-expanded={showLocationPicker}
+                  onClick={() => {
+                    setGeoError("");
+                    setShowLocationPicker((prev) => {
+                      if (!prev) {
+                        setLocationSearchTerm(locationFilter?.label ?? "");
+                      }
+                      return !prev;
+                    });
+                  }}
                 >
-                  {option}
+                  <MapPin size={18} aria-hidden="true" />
+                  {locationLabel || "Select location"}
                 </button>
-              ))}
+                {distanceOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`fc-distance-chip${selectedDistance === option ? " fc-distance-chip--active" : ""}`}
+                    onClick={() => setSelectedDistance(option)}
+                    aria-pressed={selectedDistance === option}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <div className="matches-filter-card__location-hint">Adjust your location or radius to refine nearby matches.</div>
+            </div>
+
+            <div className="matches-filter-card__controls">
+              <div className="fc-filter__search matches-filter-card__search">
+                <Search className="fc-filter__search-icon" size={18} strokeWidth={2} />
+                <input
+                  type="search"
+                  aria-label="Search matches"
+                  placeholder="Search by club, host, or vibe"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </div>
+
+              <nav className="matches-filter-card__tabs" aria-label="Match filters">
+                {tabs.map(({ label, icon }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className={`fc-distance-chip matches-tab${
+                      selectedTab === label ? " fc-distance-chip--active" : ""
+                    }`}
+                    onClick={() => setSelectedTab(label)}
+                    aria-pressed={selectedTab === label}
+                  >
+                    <span className="matches-tab__icon" aria-hidden="true">
+                      {icon}
+                    </span>
+                    {label}
+                  </button>
+                ))}
+              </nav>
             </div>
           </section>
 
@@ -653,35 +700,6 @@ const BrowseMatchesPage = () => {
           ) : null}
 
           <section className="matches-main">
-            <div className="matches-toolbar">
-              <nav className="matches-tabs" aria-label="Match filters">
-                {tabs.map(({ label, icon }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className={`tab${selectedTab === label ? " active" : ""}`}
-                    onClick={() => setSelectedTab(label)}
-                    aria-pressed={selectedTab === label}
-                  >
-                    <span className="tab__icon" aria-hidden="true">{icon}</span>
-                    {label}
-                  </button>
-                ))}
-              </nav>
-              <div className="toolbar-actions">
-                <div className="search-field">
-                  <Search size={16} aria-hidden="true" />
-                  <input
-                    type="search"
-                    placeholder="Search matches"
-                    aria-label="Search matches"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
             <div className="matches-grid">
               {isLoadingMatches ? (
                 <div className="matches-state" role="status">
