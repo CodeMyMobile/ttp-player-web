@@ -17,6 +17,7 @@ import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
 
 import "./BrowseMatchesPage.css";
+import "../components/players/players.css";
 
 const distanceOptions = ["5 mi", "10 mi", "20 mi", "50 mi", "All"];
 const tabs = [
@@ -473,6 +474,20 @@ const BrowseMatchesPage = () => {
         "--matches-surface": colors.surface,
         "--matches-success": colors.primarySuccess,
         "--matches-font": typography.fontFamily,
+        "--fc-color-bg": colors.pageBackground,
+        "--fc-color-surface": colors.surface,
+        "--fc-color-text-primary": colors.primaryText,
+        "--fc-color-text-secondary": colors.secondaryText,
+        "--fc-color-text-muted": colors.mutedText,
+        "--fc-color-border": colors.border,
+        "--fc-color-accent": colors.accentPurple,
+        "--fc-color-accent-light": colors.accentPurpleLight,
+        "--fc-color-accent-border": colors.accentPurpleBorder,
+        "--fc-color-secondary-border": colors.secondaryButtonBorder,
+        "--fc-color-secondary-text": colors.secondaryButtonText,
+        "--fc-color-secondary-hover": colors.secondaryButtonHover,
+        "--fc-color-success": colors.primarySuccess,
+        "--fc-color-error-text": colors.errorText,
       }) as CSSProperties,
     [],
   );
@@ -562,11 +577,11 @@ const BrowseMatchesPage = () => {
           </section>
 
           {showLocationPicker ? (
-            <section className="matches-location-panel" aria-label="Location picker">
+            <section className="fp-location-panel" aria-label="Location picker">
               <Autocomplete
                 apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
                 placeholder="Search for a city, club, or court"
-                className="matches-autocomplete-input"
+                className="fp-autocomplete-input"
                 value={locationSearchTerm}
                 onChange={(event) => setLocationSearchTerm(event.target.value)}
                 onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
@@ -596,28 +611,28 @@ const BrowseMatchesPage = () => {
                 }}
               />
 
-              <div className="matches-location-actions">
+              <div className="fp-location-actions">
                 <button
                   type="button"
-                  className="matches-location-detect"
+                  className="fp-location-detect"
                   onClick={detectCurrentLocation}
                   disabled={isDetectingLocation}
                 >
                   {isDetectingLocation ? "Detecting location..." : "Use my current location"}
                 </button>
-                <div className="matches-location-secondary-actions">
+                <div className="fp-location-secondary-actions">
                   {hasLocationFilter ? (
-                    <button type="button" className="matches-location-secondary" onClick={() => applyLocationFilter(null)}>
+                    <button type="button" className="fp-location-secondary" onClick={() => applyLocationFilter(null)}>
                       Clear location
                     </button>
                   ) : null}
-                  <button type="button" className="matches-location-secondary" onClick={closeLocationPicker}>
+                  <button type="button" className="fp-location-secondary" onClick={closeLocationPicker}>
                     Close
                   </button>
                 </div>
               </div>
 
-              <div className="matches-location-summary">
+              <div className="fp-location-summary">
                 <h4>Selected location</h4>
                 {locationFilter ? (
                   <p>{locationFilter.label}</p>
@@ -630,9 +645,9 @@ const BrowseMatchesPage = () => {
                 )}
               </div>
 
-              {geoError ? <p className="matches-location-error">{geoError}</p> : null}
+              {geoError ? <p className="fp-location-error">{geoError}</p> : null}
               {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-                <p className="matches-location-tip">Tip: Provide a Google Places API key to enable location search suggestions.</p>
+                <p className="fp-location-tip">Tip: Provide a Google Places API key to enable location search suggestions.</p>
               ) : null}
             </section>
           ) : null}
