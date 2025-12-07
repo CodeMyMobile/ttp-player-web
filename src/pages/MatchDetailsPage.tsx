@@ -65,13 +65,13 @@ const MatchDetailsPage = () => {
   useEffect(() => {
     if (!id) return undefined;
 
-    const shouldFetch = refreshIndex > 0 || !hydratedMatch;
+    const shouldFetch = refreshIndex > 0 || (!hydratedMatch && !match);
     if (!shouldFetch) return undefined;
 
     const controller = new AbortController();
     loadMatch(controller.signal);
     return () => controller.abort();
-  }, [hydratedMatch, id, loadMatch, refreshIndex]);
+  }, [hydratedMatch, id, loadMatch, match, refreshIndex]);
 
   const playersJoined = match?.playersJoined ?? 0;
   const totalSpots = match?.totalSpots ?? playersJoined;
