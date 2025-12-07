@@ -129,7 +129,6 @@ const buildMatchesQuery = ({
   const explicitlyFalse = include_hidden === false || include_hidden === "false" || include_hidden === 0;
 
   if (isTruthyFlag(includeHiddenFlag)) {
-    query.includeHidden = true;
     query.include_hidden = true;
   } else if (explicitlyFalse) {
     query.include_hidden = false;
