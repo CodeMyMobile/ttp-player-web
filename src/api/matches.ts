@@ -1306,6 +1306,23 @@ export const getMatchById = async (
   const findMatch = (records: unknown[]) =>
     records.find((record) => deriveMatchId(record) === targetId) ?? null;
 
+  try {
+    const detail = await request<unknown>(`/matches/${targetId}`, {
+      token: token ?? undefined,
+      signal,
+      query: { include_hidden: true },
+    });
+
+    const extracted = extractMatchDetail(detail);
+    if (deriveMatchId(extracted) === targetId) return extracted;
+    if (deriveMatchId(detail) === targetId) return detail;
+  } catch (directError) {
+    if (signal?.aborted) return null;
+    if (import.meta.env.MODE === "development") {
+      console.warn("Direct match detail request failed, falling back to listings", directError);
+    }
+  }
+
   const searchParameterSets: Partial<ListMatchesParams>[] = [
     {},
     { includeHidden: true },
