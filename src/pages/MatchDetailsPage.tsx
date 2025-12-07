@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
 import {
-  getMatchById,
   listMatches,
   normalizeMatchDetail,
   normalizeMatchRecord,
@@ -48,7 +47,7 @@ const MatchDetailsPage = () => {
       const token = getStoredAuthToken({ preferScheme: "Token" });
 
       const tryListLookup = async (params?: { includeHidden?: boolean }) => {
-        const fallbackResponse = await listMatches({
+        const response = await listMatches({
           search: id,
           perPage: 1,
           token: token ?? undefined,
@@ -56,39 +55,24 @@ const MatchDetailsPage = () => {
           ...params,
         });
 
-        const fallbackMatch = fallbackResponse.matches[0];
+        const fallbackMatch = response.matches[0];
         if (!fallbackMatch) return null;
         return normalizeMatchRecord(fallbackMatch, { currentUser: user });
       };
 
       try {
-        const response = await getMatchById(id, {
-          token: token ?? undefined,
-          signal,
-        });
-        const normalized = normalizeMatchDetail(response, { currentUser: user });
-        setMatch(normalized);
-        return;
+        const listMatch = (await tryListLookup()) || (await tryListLookup({ includeHidden: true }));
+
+        if (listMatch) {
+          setMatch(listMatch);
+          return;
+        }
+
+        throw new Error("Match not found");
       } catch (loadError) {
         if (signal.aborted) return;
-        console.warn("Primary match detail request failed, attempting fallback", loadError);
-
-        try {
-          const fallbackMatch =
-            (await tryListLookup()) || (await tryListLookup({ includeHidden: true }));
-
-          if (fallbackMatch) {
-            setMatch(fallbackMatch);
-            return;
-          }
-
-          throw loadError;
-        } catch (fallbackError) {
-          if (signal.aborted) return;
-          const finalError = fallbackError instanceof Error ? fallbackError : loadError;
-          console.error("Failed to load match details", finalError);
-          setError(finalError instanceof Error ? finalError.message : "Unable to load match details.");
-        }
+        console.error("Failed to load match details", loadError);
+        setError(loadError instanceof Error ? loadError.message : "Unable to load match details.");
       } finally {
         if (!signal.aborted) {
           setIsLoading(false);
