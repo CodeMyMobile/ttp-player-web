@@ -226,6 +226,11 @@
   color: #334155;
 }
 
+.match-details-participants__tag--danger {
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+}
+
 .match-details-participants__contact {
   color: #475569;
   font-weight: 600;

@@ -212,6 +212,24 @@ const MatchDetailsPage = () => {
                     {match.participants.map((participant) => {
                       const initials = participant.name ? buildInitials(participant.name) : "";
                       const contactItems = [] as React.ReactNode[];
+                      const statusLower = participant.status?.toLowerCase();
+                      const tags = [] as React.ReactNode[];
+
+                      if (participant.hosting) {
+                        tags.push(<span className="match-details-participants__tag">Host</span>);
+                      }
+
+                      if (participant.isCurrentUser) {
+                        tags.push(
+                          <span className="match-details-participants__tag match-details-participants__tag--muted">You</span>,
+                        );
+                      }
+
+                      if (statusLower === "canceled" || statusLower === "cancelled") {
+                        tags.push(
+                          <span className="match-details-participants__tag match-details-participants__tag--danger">Cancelled</span>,
+                        );
+                      }
 
                       if (participant.contactEmail) {
                         contactItems.push(
@@ -268,11 +286,9 @@ const MatchDetailsPage = () => {
                           <div className="match-details-participants__body">
                             <div className="match-details-participants__row">
                               <span className="match-details-participants__name">{participant.name ?? "Player"}</span>
-                              {participant.hosting ? (
-                                <span className="match-details-participants__tag">Host</span>
-                              ) : participant.isCurrentUser ? (
-                                <span className="match-details-participants__tag match-details-participants__tag--muted">You</span>
-                              ) : null}
+                              {tags.map((tag, index) => (
+                                <Fragment key={`${participant.id ?? participant.name ?? index}-${index}`}>{tag}</Fragment>
+                              ))}
                             </div>
                             {contactContent}
                           </div>

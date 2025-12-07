@@ -18,6 +18,7 @@ export interface NormalizedMatchParticipant {
   avatarUrl?: string;
   contactEmail?: string;
   contactPhone?: string;
+  status?: string;
 }
 
 export interface NormalizedMatch {
@@ -1090,7 +1091,19 @@ const deriveParticipants = (
         isFlaggedCurrentUser ||
         (identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value)));
 
+      const profileImage = firstString([
+        profile?.profile_image,
+        profile?.profileImage,
+        profile?.image,
+        profile?.image_url,
+        profile?.imageUrl,
+        profile?.avatar_url,
+        profile?.avatarUrl,
+        profile?.photo,
+      ]);
+
       const avatarUrl = firstString([
+        profileImage,
         participantRecord.avatar_url,
         participantRecord.avatarUrl,
         participantRecord.profile_image,
@@ -1129,6 +1142,16 @@ const deriveParticipants = (
         contact?.contactPhone,
       ]);
 
+      const status = firstString([
+        participantRecord.status,
+        participantRecord.state,
+        participantRecord.rsvp_status,
+        participantRecord.rsvpStatus,
+        participantRecord.response_status,
+        participantRecord.responseStatus,
+        profile?.status,
+      ]);
+
       return {
         id: id ?? (identityIds.length ? identityIds[0] : undefined),
         name,
@@ -1138,6 +1161,7 @@ const deriveParticipants = (
         avatarUrl: avatarUrl || undefined,
         contactEmail: contactEmail || undefined,
         contactPhone: contactPhone || undefined,
+        status: status || undefined,
       } satisfies NormalizedMatchParticipant;
     })
     .filter(Boolean) as NormalizedMatchParticipant[];
