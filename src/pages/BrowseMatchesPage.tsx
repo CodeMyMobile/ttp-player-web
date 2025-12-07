@@ -829,7 +829,7 @@ const BrowseMatchesPage = () => {
                       <button
                         type="button"
                         className="match-action primary"
-                        onClick={() => navigate(`/matches/${match.id}`)}
+                        onClick={() => navigate(`/matches/${match.id}`, { state: { match } })}
                       >
                         {isHost ? "View & manage" : "View match"}
                       </button>

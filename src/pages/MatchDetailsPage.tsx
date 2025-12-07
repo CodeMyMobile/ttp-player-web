@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
 import {
@@ -17,6 +17,7 @@ import "./MatchDetailsPage.css";
 
 const MatchDetailsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const { user } = useAuth() as { user?: unknown };
   const [match, setMatch] = useState<NormalizedMatch | null>(null);
@@ -24,13 +25,41 @@ const MatchDetailsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
+  const hydratedMatch = useMemo(() => {
+    const state = location.state as { match?: NormalizedMatch } | undefined;
+    return state?.match ? normalizeMatchDetail(state.match, { currentUser: user }) : null;
+  }, [location.state, user]);
+
+  useEffect(() => {
+    if (hydratedMatch) {
+      setMatch(hydratedMatch);
+      setIsLoading(false);
+    }
+  }, [hydratedMatch]);
+
   const loadMatch = useMemo(() => {
     return async (signal: AbortSignal) => {
       if (!id) return;
-      setIsLoading(true);
+      if (!match) {
+        setIsLoading(true);
+      }
       setError(null);
 
       const token = getStoredAuthToken({ preferScheme: "Token" });
+
+      const tryListLookup = async (params?: { includeHidden?: boolean }) => {
+        const fallbackResponse = await listMatches({
+          search: id,
+          perPage: 1,
+          token: token ?? undefined,
+          signal,
+          ...params,
+        });
+
+        const fallbackMatch = fallbackResponse.matches[0];
+        if (!fallbackMatch) return null;
+        return normalizeMatchRecord(fallbackMatch, { currentUser: user });
+      };
 
       try {
         const response = await getMatchById(id, {
@@ -45,22 +74,15 @@ const MatchDetailsPage = () => {
         console.warn("Primary match detail request failed, attempting fallback", loadError);
 
         try {
-          const fallbackResponse = await listMatches({
-            search: id,
-            includeHidden: true,
-            perPage: 1,
-            token: token ?? undefined,
-            signal,
-          });
+          const fallbackMatch =
+            (await tryListLookup()) || (await tryListLookup({ includeHidden: true }));
 
-          const fallbackMatch = fallbackResponse.matches[0];
-          if (!fallbackMatch) {
-            throw loadError;
+          if (fallbackMatch) {
+            setMatch(fallbackMatch);
+            return;
           }
 
-          const normalized = normalizeMatchRecord(fallbackMatch, { currentUser: user });
-          setMatch(normalized);
-          return;
+          throw loadError;
         } catch (fallbackError) {
           if (signal.aborted) return;
           const finalError = fallbackError instanceof Error ? fallbackError : loadError;
@@ -73,7 +95,7 @@ const MatchDetailsPage = () => {
         }
       }
     };
-  }, [id, user]);
+  }, [id, user, location.state, match]);
 
   useEffect(() => {
     const controller = new AbortController();
