@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
@@ -36,12 +36,11 @@ const MatchDetailsPage = () => {
     }
   }, [hydratedMatch]);
 
-  const loadMatch = useMemo(() => {
-    return async (signal: AbortSignal) => {
+  const loadMatch = useCallback(
+    async (signal: AbortSignal) => {
       if (!id) return;
-      if (!match) {
-        setIsLoading(true);
-      }
+
+      setIsLoading(true);
       setError(null);
 
       const token = getStoredAuthToken({ preferScheme: "Token" });
@@ -59,14 +58,20 @@ const MatchDetailsPage = () => {
           setIsLoading(false);
         }
       }
-    };
-  }, [id, user, match]);
+    },
+    [id, user],
+  );
 
   useEffect(() => {
+    if (!id) return undefined;
+
+    const shouldFetch = refreshIndex > 0 || !hydratedMatch;
+    if (!shouldFetch) return undefined;
+
     const controller = new AbortController();
     loadMatch(controller.signal);
     return () => controller.abort();
-  }, [loadMatch, refreshIndex]);
+  }, [hydratedMatch, id, loadMatch, refreshIndex]);
 
   const playersJoined = match?.playersJoined ?? 0;
   const totalSpots = match?.totalSpots ?? playersJoined;
