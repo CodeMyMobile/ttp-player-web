@@ -1283,11 +1283,9 @@ export const listMatches = async ({ token, signal, ...params }: ListMatchesParam
 
 export const getMatchById = async (
   id: string | number,
-  { token, signal, ...params }: Omit<ListMatchesParams, "page" | "perPage"> = {},
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
 ) => {
-  const query = buildMatchesQuery(params);
   const response = await request<unknown>(`/matches/${id}`, {
-    query,
     token: token ?? undefined,
     signal,
   });

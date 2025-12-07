@@ -171,8 +171,6 @@ const CreateMatchReviewPage = () => {
       try {
         const persisted = await getMatchById(response.matchId, {
           token: authToken,
-          includeHidden: true,
-          include_hidden: true,
         });
         const persistedRecord = (persisted ?? {}) as Record<string, unknown>;
         const persistedShareLink =
