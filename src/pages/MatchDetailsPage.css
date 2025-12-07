@@ -231,6 +231,17 @@
   font-weight: 600;
 }
 
+.match-details-participants__contact-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+}
+
+.match-details-participants__contact-separator {
+  margin: 0 8px;
+  color: #cbd5e1;
+}
+
 .match-details-participants__empty {
   border: 1px dashed #cbd5e1;
   background: #f8fafc;

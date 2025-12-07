@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
@@ -211,10 +211,50 @@ const MatchDetailsPage = () => {
                   <ul className="match-details-participants">
                     {match.participants.map((participant) => {
                       const initials = participant.name ? buildInitials(participant.name) : "";
-                      const contactLabel =
-                        participant.contactEmail || participant.contactPhone
-                          ? [participant.contactEmail, participant.contactPhone].filter(Boolean).join(" · ")
-                          : "Contact info not provided";
+                      const contactItems = [] as React.ReactNode[];
+
+                      if (participant.contactEmail) {
+                        contactItems.push(
+                          <a
+                            key="email"
+                            className="match-details-participants__contact-link"
+                            href={`mailto:${participant.contactEmail}`}
+                          >
+                            {participant.contactEmail}
+                          </a>,
+                        );
+                      }
+
+                      if (participant.contactPhone) {
+                        const phoneHref = `tel:${participant.contactPhone.replace(/[^+\d]/g, "") || participant.contactPhone}`;
+
+                        contactItems.push(
+                          <a
+                            key="phone"
+                            className="match-details-participants__contact-link"
+                            href={phoneHref}
+                          >
+                            {participant.contactPhone}
+                          </a>,
+                        );
+                      }
+
+                      const contactContent = contactItems.length ? (
+                        <span className="match-details-participants__contact">
+                          {contactItems.map((item, index) =>
+                            index === 0 ? (
+                              item
+                            ) : (
+                              <Fragment key={`${(item as { key?: string }).key ?? index}`}>
+                                <span className="match-details-participants__contact-separator">·</span>
+                                {item}
+                              </Fragment>
+                            ),
+                          )}
+                        </span>
+                      ) : (
+                        <span className="match-details-participants__contact">Contact info not provided</span>
+                      );
 
                       return (
                         <li key={participant.id ?? participant.name} className="match-details-participants__item">
@@ -234,7 +274,7 @@ const MatchDetailsPage = () => {
                                 <span className="match-details-participants__tag match-details-participants__tag--muted">You</span>
                               ) : null}
                             </div>
-                            <span className="match-details-participants__contact">{contactLabel}</span>
+                            {contactContent}
                           </div>
                         </li>
                       );

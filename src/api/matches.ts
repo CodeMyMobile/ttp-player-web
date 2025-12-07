@@ -1106,12 +1106,27 @@ const deriveParticipants = (
         participantRecord.contactEmail,
       ]);
 
+      const contact =
+        participantRecord.contact && typeof participantRecord.contact === "object"
+          ? (participantRecord.contact as Record<string, unknown>)
+          : undefined;
+
       const contactPhone = firstString([
         participantRecord.phone,
         participantRecord.phone_number,
         participantRecord.phoneNumber,
         participantRecord.contact_phone,
         participantRecord.contactPhone,
+        profile?.phone,
+        profile?.phone_number,
+        profile?.phoneNumber,
+        profile?.contact_phone,
+        profile?.contactPhone,
+        contact?.phone,
+        contact?.phone_number,
+        contact?.phoneNumber,
+        contact?.contact_phone,
+        contact?.contactPhone,
       ]);
 
       return {
