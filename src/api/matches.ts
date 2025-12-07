@@ -1300,19 +1300,59 @@ export const getMatchById = async (
   id: string | number,
   { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
 ) => {
-  const lookup = async (params?: Partial<ListMatchesParams>) => {
+  const targetId = String(id);
+  const baseParams = { token: token ?? undefined, signal } as const;
+
+  const findMatch = (records: unknown[]) =>
+    records.find((record) => deriveMatchId(record) === targetId) ?? null;
+
+  const lookupBySearch = async (params?: Partial<ListMatchesParams>) => {
     const { matches } = await listMatches({
-      search: String(id),
+      search: targetId,
       perPage: 1,
-      token: token ?? undefined,
-      signal,
+      ...baseParams,
       ...params,
     });
 
-    return matches[0] ?? null;
+    return findMatch(matches);
   };
 
-  const match = (await lookup()) ?? (await lookup({ includeHidden: true, hidden: true }));
+  const lookupByPagination = async (params?: Partial<ListMatchesParams>) => {
+    const perPage = Math.max(Number(params?.perPage) || 50, 1);
+    let page = 1;
+    let totalPages: number | undefined;
+
+    while (true) {
+      const { matches, pagination } = await listMatches({
+        page,
+        perPage,
+        ...baseParams,
+        ...params,
+      });
+
+      const match = findMatch(matches);
+      if (match) return match;
+
+      if (pagination?.perPage && pagination?.total) {
+        totalPages = Math.max(Math.ceil(pagination.total / pagination.perPage), totalPages ?? 0);
+      }
+
+      const hasMorePages =
+        (totalPages && page < totalPages) || (!totalPages && matches.length === perPage);
+      if (!hasMorePages) break;
+
+      page += 1;
+    }
+
+    return null;
+  };
+
+  const match =
+    (await lookupBySearch()) ||
+    (await lookupBySearch({ includeHidden: true, hidden: true })) ||
+    (await lookupByPagination()) ||
+    (await lookupByPagination({ includeHidden: true, hidden: true }));
+
   if (match) return match;
 
   throw new Error("Match not found");
