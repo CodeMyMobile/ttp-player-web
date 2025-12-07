@@ -1317,6 +1317,16 @@ export const getMatchById = async (
     { status: "archived" },
     { status: "draft", includeHidden: true, hidden: true },
     { status: "archived", includeHidden: true, hidden: true },
+    { filter: "my" },
+    { filter: "my", includeHidden: true },
+    { filter: "my", includeHidden: true, hidden: true },
+    { filter: "my", includeHidden: true, hiddenOnly: true },
+    { filter: "my", status: "open" },
+    { filter: "my", status: "upcoming" },
+    { filter: "my", status: "draft" },
+    { filter: "my", status: "archived" },
+    { filter: "my", status: "draft", includeHidden: true, hidden: true },
+    { filter: "my", status: "archived", includeHidden: true, hidden: true },
   ].filter((params, index, all) => {
     const serialized = JSON.stringify(params);
     return all.findIndex((other) => JSON.stringify(other) === serialized) === index;
