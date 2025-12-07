@@ -1306,6 +1306,22 @@ export const getMatchById = async (
   const findMatch = (records: unknown[]) =>
     records.find((record) => deriveMatchId(record) === targetId) ?? null;
 
+  const searchParameterSets: Partial<ListMatchesParams>[] = [
+    {},
+    { includeHidden: true },
+    { includeHidden: true, hidden: true },
+    { includeHidden: true, hiddenOnly: true },
+    { status: "open" },
+    { status: "upcoming" },
+    { status: "draft" },
+    { status: "archived" },
+    { status: "draft", includeHidden: true, hidden: true },
+    { status: "archived", includeHidden: true, hidden: true },
+  ].filter((params, index, all) => {
+    const serialized = JSON.stringify(params);
+    return all.findIndex((other) => JSON.stringify(other) === serialized) === index;
+  });
+
   const lookupBySearch = async (params?: Partial<ListMatchesParams>) => {
     const { matches } = await listMatches({
       search: targetId,
@@ -1347,13 +1363,15 @@ export const getMatchById = async (
     return null;
   };
 
-  const match =
-    (await lookupBySearch()) ||
-    (await lookupBySearch({ includeHidden: true, hidden: true })) ||
-    (await lookupByPagination()) ||
-    (await lookupByPagination({ includeHidden: true, hidden: true }));
+  for (const params of searchParameterSets) {
+    const match = await lookupBySearch(params);
+    if (match) return match;
+  }
 
-  if (match) return match;
+  for (const params of searchParameterSets) {
+    const match = await lookupByPagination(params);
+    if (match) return match;
+  }
 
   throw new Error("Match not found");
 };
