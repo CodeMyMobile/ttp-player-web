@@ -1285,10 +1285,21 @@ export const getMatchById = async (
   id: string | number,
   { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
 ) => {
-  const response = await request<unknown>(`/matches/${id}`, {
-    token: token ?? undefined,
-    signal,
-  });
-  return response;
+  const lookup = async (params?: Partial<ListMatchesParams>) => {
+    const { matches } = await listMatches({
+      search: String(id),
+      perPage: 1,
+      token: token ?? undefined,
+      signal,
+      ...params,
+    });
+
+    return matches[0] ?? null;
+  };
+
+  const match = (await lookup()) ?? (await lookup({ includeHidden: true, hidden: true }));
+  if (match) return match;
+
+  throw new Error("Match not found");
 };
 

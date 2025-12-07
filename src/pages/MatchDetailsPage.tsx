@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Activity, Calendar, MapPin, MessageCircle, Star, Users } from "lucide-react";
 
 import {
-  listMatches,
+  getMatchById,
   normalizeMatchDetail,
   normalizeMatchRecord,
   type NormalizedMatch,
@@ -46,29 +46,10 @@ const MatchDetailsPage = () => {
 
       const token = getStoredAuthToken({ preferScheme: "Token" });
 
-      const tryListLookup = async (params?: { includeHidden?: boolean }) => {
-        const response = await listMatches({
-          search: id,
-          perPage: 1,
-          token: token ?? undefined,
-          signal,
-          ...params,
-        });
-
-        const fallbackMatch = response.matches[0];
-        if (!fallbackMatch) return null;
-        return normalizeMatchRecord(fallbackMatch, { currentUser: user });
-      };
-
       try {
-        const listMatch = (await tryListLookup()) || (await tryListLookup({ includeHidden: true }));
-
-        if (listMatch) {
-          setMatch(listMatch);
-          return;
-        }
-
-        throw new Error("Match not found");
+        const matchRecord = await getMatchById(id, { token: token ?? undefined, signal });
+        const normalized = normalizeMatchRecord(matchRecord, { currentUser: user });
+        setMatch(normalized);
       } catch (loadError) {
         if (signal.aborted) return;
         console.error("Failed to load match details", loadError);
@@ -79,7 +60,7 @@ const MatchDetailsPage = () => {
         }
       }
     };
-  }, [id, user, location.state, match]);
+  }, [id, user, match]);
 
   useEffect(() => {
     const controller = new AbortController();
