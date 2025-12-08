@@ -170,14 +170,35 @@ const isMatchStatusEnumError = (error: unknown) => {
 
 const CREATED_MATCH_STORAGE_KEY = "ttp:last-created-match";
 
-const deriveMatchId = (source: unknown): string | undefined => {
-  if (!source || typeof source !== "object") return undefined;
+const matchIdCandidates = (source: unknown): string[] => {
+  if (!source || typeof source !== "object") return [];
   const record = source as Record<string, unknown>;
-  const idCandidate =
-    record.id ?? record.match_id ?? record.matchId ?? record.slug ?? (record.match as Record<string, unknown> | undefined)?.id;
+  const candidates = [
+    record.id,
+    record.match_id,
+    record.matchId,
+    record.uuid,
+    record.slug,
+    record.code,
+    (record.match as Record<string, unknown> | undefined)?.id,
+    (record.match as Record<string, unknown> | undefined)?.slug,
+    (record.match as Record<string, unknown> | undefined)?.match_id,
+    (record.match as Record<string, unknown> | undefined)?.code,
+  ]
+    .flatMap((value) => {
+      if (Array.isArray(value)) return value;
+      return [value];
+    })
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => String(value));
 
-  if (idCandidate === undefined || idCandidate === null) return undefined;
-  return String(idCandidate);
+  return candidates.filter((value, index, all) => value && all.indexOf(value) === index);
+};
+
+const deriveMatchId = (source: unknown): string | undefined => {
+  const candidates = matchIdCandidates(source);
+  if (candidates.length === 0) return undefined;
+  return candidates[0];
 };
 
 const deriveShareLink = (source: unknown): string | undefined => {
@@ -1401,8 +1422,14 @@ export const getMatchById = async (
   const targetId = String(id);
   const baseParams = { token: token ?? undefined, signal } as const;
 
-  const findMatch = (records: unknown[]) =>
-    records.find((record) => deriveMatchId(record) === targetId) ?? null;
+  const findMatch = (records: unknown[]) => {
+    const normalizedTarget = targetId.trim().toLowerCase();
+    return (
+      records.find((record) =>
+        matchIdCandidates(record).some((candidate) => candidate.trim().toLowerCase() === normalizedTarget),
+      ) ?? null
+    );
+  };
 
   try {
     const detail = await request<unknown>(`/matches/${targetId}`, {
@@ -1500,4 +1527,3 @@ export const getMatchById = async (
 
   throw new Error("Match not found");
 };
-
