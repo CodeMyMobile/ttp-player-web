@@ -10,6 +10,7 @@ import {
   listMatches,
   normalizeMatchRecord,
   type NormalizedMatch,
+  type MatchesPagination,
 } from "../api/matches";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
@@ -35,6 +36,12 @@ const tabs = [
 const relationshipLabel: Record<string, string> = {
   host: "Hosting",
   participant: "Joined",
+};
+
+type MatchWithMeta = NormalizedMatch & {
+  distanceMiles?: number | null;
+  distanceLabel?: string;
+  startDate?: Date | null;
 };
 
 type Coordinates = { latitude: number; longitude: number };
@@ -117,6 +124,133 @@ const parseDistanceMiles = (value: string): number => {
   return match ? Number.parseFloat(match[1]) : Number.POSITIVE_INFINITY;
 };
 
+const parseNumeric = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const parseDistanceValue = (value: unknown): number | null => {
+  if (value === undefined || value === null) return null;
+  const numeric = parseNumeric(value);
+  if (numeric !== null) return numeric;
+  if (typeof value === "string") {
+    const extracted = value.match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (extracted) {
+      const parsed = Number.parseFloat(extracted[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+};
+
+const getStartOfDay = (date: Date) => {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+
+const isSameDay = (candidate: Date, target: Date) =>
+  candidate.getFullYear() === target.getFullYear() &&
+  candidate.getMonth() === target.getMonth() &&
+  candidate.getDate() === target.getDate();
+
+const getUpcomingWeekendBounds = (now: Date) => {
+  const start = getStartOfDay(now);
+  const day = start.getDay();
+  const daysUntilSaturday = (6 - day + 7) % 7;
+  const saturday = new Date(start);
+  saturday.setDate(saturday.getDate() + daysUntilSaturday);
+  const monday = new Date(saturday);
+  monday.setDate(monday.getDate() + 2);
+  return { start: saturday, end: monday };
+};
+
+const extractCoordinates = (record: Record<string, unknown>): Coordinates | null => {
+  const latitude = parseNumeric(
+    record.latitude ??
+      record.lat ??
+      record.location_latitude ??
+      (record.match as Record<string, unknown> | undefined)?.latitude ??
+      (record.match as Record<string, unknown> | undefined)?.lat,
+  );
+  const longitude = parseNumeric(
+    record.longitude ??
+      record.lng ??
+      record.long ??
+      record.location_longitude ??
+      (record.match as Record<string, unknown> | undefined)?.longitude ??
+      (record.match as Record<string, unknown> | undefined)?.lng ??
+      (record.match as Record<string, unknown> | undefined)?.long,
+  );
+
+  if (latitude === null || longitude === null) return null;
+  return { latitude, longitude };
+};
+
+const getMatchStartDate = (match: NormalizedMatch): Date | null => {
+  const raw = (match.raw ?? {}) as Record<string, unknown>;
+  const candidate =
+    match.startDateTimeIso ??
+    raw.start_date_time ??
+    raw.startDateTime ??
+    raw.start_time ??
+    raw.dateTime;
+  if (!candidate) return null;
+  const parsed =
+    candidate instanceof Date
+      ? candidate
+      : typeof candidate === "string"
+      ? new Date(candidate)
+      : new Date(candidate as Date);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const calculateDistanceMiles = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const parsedLat1 = Number(lat1);
+  const parsedLon1 = Number(lon1);
+  const parsedLat2 = Number(lat2);
+  const parsedLon2 = Number(lon2);
+
+  if (
+    [parsedLat1, parsedLon1, parsedLat2, parsedLon2].some((value) => Number.isNaN(value))
+  ) {
+    return null;
+  }
+
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusMiles = 3958.8;
+
+  const dLat = toRad(parsedLat2 - parsedLat1);
+  const dLon = toRad(parsedLon2 - parsedLon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(parsedLat1)) * Math.cos(toRad(parsedLat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(earthRadiusMiles * c * 10) / 10;
+};
+
+const deriveDistanceMiles = (match: NormalizedMatch, origin: Coordinates | null): number | null => {
+  const raw = (match.raw ?? {}) as Record<string, unknown>;
+  const serverDistance =
+    parseDistanceValue(raw.distance_miles) ??
+    parseDistanceValue(raw.distanceMiles) ??
+    parseDistanceValue(raw.distance) ??
+    parseDistanceValue(raw.proximity) ??
+    parseDistanceValue(match.distance);
+  if (serverDistance !== null) return serverDistance;
+  if (!origin) return null;
+  const matchCoords = extractCoordinates(raw);
+  if (!matchCoords) return null;
+  return calculateDistanceMiles(origin.latitude, origin.longitude, matchCoords.latitude, matchCoords.longitude);
+};
+
 const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
   const matchType = match.type?.toLowerCase();
   const matchTypeIsHosted = matchType === "hosted" || matchType?.includes("hosted");
@@ -152,6 +286,8 @@ const BrowseMatchesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [matches, setMatches] = useState<NormalizedMatch[]>([]);
+  const [pagination, setPagination] = useState<MatchesPagination | null>(null);
+  const [page, setPage] = useState(1);
   const [matchesError, setMatchesError] = useState<string | null>(null);
   const [isLoadingMatches, setIsLoadingMatches] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
@@ -365,6 +501,11 @@ const BrowseMatchesPage = () => {
     setAppliedSearch(searchTerm.trim());
   }, [searchTerm]);
 
+  useEffect(() => {
+    setPage(1);
+    setPagination(null);
+  }, [appliedSearch, locationQuery, locationFilter, position?.latitude, position?.longitude, selectedDistance, selectedTab]);
+
   const fetchMatches = useCallback(
     async (signal: AbortSignal) => {
       setIsLoadingMatches(true);
@@ -415,7 +556,7 @@ const BrowseMatchesPage = () => {
       try {
         const token = getStoredAuthToken({ preferScheme: "Token" });
         const response = await listMatches({
-          page: 1,
+          page,
           perPage,
           search: searchQuery || undefined,
           ...locationParams,
@@ -427,14 +568,16 @@ const BrowseMatchesPage = () => {
         const normalized = response.matches.map((match) =>
           normalizeMatchRecord(match, { currentUser: user }),
         );
-        const visibleMatches = selectedTab === "Open" ? normalized.filter(isOpenMatch) : normalized;
-        setMatches(visibleMatches);
+        const filteredMatches = selectedTab === "Open" ? normalized.filter(isOpenMatch) : normalized;
+        setMatches(filteredMatches);
+        setPagination(response.pagination ?? null);
       } catch (fetchError) {
         if (signal.aborted) return;
         console.error("Failed to load matches", fetchError);
         setMatchesError(
           fetchError instanceof Error ? fetchError.message : "Unable to load matches right now.",
         );
+        setPagination(null);
       } finally {
         if (!signal.aborted) {
           setIsLoadingMatches(false);
@@ -445,6 +588,7 @@ const BrowseMatchesPage = () => {
       appliedSearch,
       locationFilter,
       locationQuery,
+      page,
       position?.latitude,
       position?.longitude,
       selectedDistance,
@@ -460,6 +604,91 @@ const BrowseMatchesPage = () => {
   }, [fetchMatches, refreshIndex]);
 
   const handleRetryMatches = () => setRefreshIndex((value) => value + 1);
+
+  const activeCoordinates = useMemo(() => {
+    const source = locationFilter ?? position;
+    if (!source) return null;
+    if (typeof source.latitude === "number" && typeof source.longitude === "number") {
+      return { latitude: source.latitude, longitude: source.longitude };
+    }
+    return null;
+  }, [locationFilter, position]);
+
+  const visibleMatches = useMemo<MatchWithMeta[]>(() => {
+    const now = new Date();
+    const todayStart = getStartOfDay(now);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const weekendBounds = getUpcomingWeekendBounds(now);
+    const distanceLimit = parseDistanceMiles(selectedDistance);
+    const coords = activeCoordinates;
+
+    const enriched = matches.map((match) => {
+      const startDate = getMatchStartDate(match);
+      const distanceMiles = deriveDistanceMiles(match, coords);
+      const distanceLabel =
+        match.distance ||
+        (distanceMiles !== null ? `${distanceMiles.toFixed(1)} mi away` : "Distance unavailable");
+      return { ...match, startDate, distanceMiles, distanceLabel };
+    });
+
+    const filteredByTab = enriched.filter((match) => {
+      if (selectedTab === "Hosting") {
+        return isHostingMatch(match, currentUserIdentities);
+      }
+      if (selectedTab === "Open") {
+        return isOpenMatch(match);
+      }
+      if (selectedTab === "Today") {
+        return match.startDate ? isSameDay(match.startDate, todayStart) : false;
+      }
+      if (selectedTab === "Tomorrow") {
+        return match.startDate ? isSameDay(match.startDate, tomorrowStart) : false;
+      }
+      if (selectedTab === "Weekend") {
+        if (!match.startDate) return false;
+        return match.startDate >= weekendBounds.start && match.startDate < weekendBounds.end;
+      }
+      return true;
+    });
+
+    const filteredByDistance =
+      coords && Number.isFinite(distanceLimit)
+        ? filteredByTab.filter((match) => match.distanceMiles !== null && match.distanceMiles <= distanceLimit)
+        : filteredByTab;
+
+    const sorted = [...filteredByDistance].sort((a, b) => {
+      const aTime = a.startDate?.getTime() ?? Number.POSITIVE_INFINITY;
+      const bTime = b.startDate?.getTime() ?? Number.POSITIVE_INFINITY;
+      if (aTime === bTime) return 0;
+      if (!Number.isFinite(aTime)) return 1;
+      if (!Number.isFinite(bTime)) return -1;
+      return aTime - bTime;
+    });
+
+    return sorted;
+  }, [activeCoordinates, currentUserIdentities, matches, selectedDistance, selectedTab]);
+
+  const visibleMatchCount = visibleMatches.length;
+  const totalMatchCount = pagination?.total ?? visibleMatchCount;
+  const totalPages = useMemo(() => {
+    if (!pagination?.perPage) return null;
+    if (pagination.total && pagination.total > 0) {
+      return Math.max(1, Math.ceil(pagination.total / pagination.perPage));
+    }
+    if (visibleMatchCount > 0) {
+      return Math.max(1, Math.ceil(visibleMatchCount / pagination.perPage));
+    }
+    return null;
+  }, [pagination?.perPage, pagination?.total, visibleMatchCount]);
+  const hasNextPage = useMemo(() => {
+    if (!pagination?.perPage) return false;
+    if (totalPages) return page < totalPages;
+    if (pagination.page && visibleMatchCount) {
+      return visibleMatchCount >= pagination.perPage;
+    }
+    return false;
+  }, [page, pagination?.page, pagination?.perPage, totalPages, visibleMatchCount]);
 
   const themeVars = useMemo(
     () =>
@@ -530,7 +759,7 @@ const BrowseMatchesPage = () => {
             <div className="matches-hero__art">
               <div className="matches-hero__badge">🎾</div>
               <div className="matches-hero__stat">
-                <span className="matches-hero__stat-number">{matches.length}</span>
+                <span className="matches-hero__stat-number">{totalMatchCount}</span>
                 <span className="matches-hero__stat-label">Active matches</span>
               </div>
             </div>
@@ -714,7 +943,7 @@ const BrowseMatchesPage = () => {
                 </button>
               </div>
             ) : (
-              matches.map((match) => {
+              visibleMatches.map((match) => {
                 const isHost = isHostingMatch(match, currentUserIdentities);
                 const isParticipant = !isHost && match.relationship === "participant";
                 const playersJoined = match.playersJoined ?? 0;
@@ -782,7 +1011,9 @@ const BrowseMatchesPage = () => {
                         <MapPin size={18} aria-hidden="true" />
                         <div>
                           <p className="match-detail__primary">{match.location}</p>
-                          <p className="match-detail__secondary">{match.distance || "Distance unavailable"}</p>
+                          <p className="match-detail__secondary">
+                            {match.distanceLabel || match.distance || "Distance unavailable"}
+                          </p>
                         </div>
                       </div>
                       {hostDisplayName ? (
@@ -844,10 +1075,34 @@ const BrowseMatchesPage = () => {
                 );
               })
             )}
-              {!isLoadingMatches && !matchesError && matches.length === 0 ? (
+              {!isLoadingMatches && !matchesError && visibleMatches.length === 0 ? (
                 <div className="matches-empty">No matches found for these filters yet.</div>
               ) : null}
             </div>
+            {pagination?.perPage ? (
+              <div className="matches-pagination">
+                <button
+                  type="button"
+                  className="matches-pagination__button"
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  disabled={page === 1 || isLoadingMatches}
+                >
+                  Previous
+                </button>
+                <span className="matches-pagination__status">
+                  Page {page}
+                  {totalPages ? ` of ${totalPages}` : ""}
+                </span>
+                <button
+                  type="button"
+                  className="matches-pagination__button"
+                  onClick={() => setPage((value) => value + 1)}
+                  disabled={!hasNextPage || isLoadingMatches}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
       </div>
