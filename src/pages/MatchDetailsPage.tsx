@@ -209,11 +209,12 @@ const MatchDetailsPage = () => {
                 </div>
                 {match?.participants && match.participants.length > 0 ? (
                   <ul className="match-details-participants">
-                    {match.participants.map((participant) => {
-                      const initials = participant.name ? buildInitials(participant.name) : "";
-                      const contactItems = [] as React.ReactNode[];
-                      const statusLower = participant.status?.toLowerCase();
-                      const tags = [] as React.ReactNode[];
+                  {match.participants.map((participant) => {
+                    const initials = participant.name ? buildInitials(participant.name) : "";
+                    const avatarSrc = participant.profileImageUrl ?? participant.avatarUrl;
+                    const contactItems = [] as React.ReactNode[];
+                    const statusLower = participant.status?.toLowerCase();
+                    const tags = [] as React.ReactNode[];
 
                       if (participant.hosting) {
                         tags.push(<span className="match-details-participants__tag">Host</span>);
@@ -277,8 +278,8 @@ const MatchDetailsPage = () => {
                       return (
                         <li key={participant.id ?? participant.name} className="match-details-participants__item">
                           <span className="match-details-participants__avatar" aria-hidden>
-                            {participant.avatarUrl ? (
-                              <img src={participant.avatarUrl} alt="" />
+                            {avatarSrc ? (
+                              <img src={avatarSrc} alt="" />
                             ) : (
                               initials
                             )}

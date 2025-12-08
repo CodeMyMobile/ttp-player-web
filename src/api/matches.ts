@@ -15,6 +15,7 @@ export interface NormalizedMatchParticipant {
   hosting?: boolean;
   identityIds?: string[];
   isCurrentUser?: boolean;
+  profileImageUrl?: string;
   avatarUrl?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -1055,10 +1056,26 @@ const deriveParticipants = (
     .map((participant) => {
       if (!participant || typeof participant !== "object") return null;
       const participantRecord = participant as Record<string, unknown>;
+      const player =
+        participantRecord.player && typeof participantRecord.player === "object"
+          ? (participantRecord.player as Record<string, unknown>)
+          : undefined;
+      const user =
+        participantRecord.user && typeof participantRecord.user === "object"
+          ? (participantRecord.user as Record<string, unknown>)
+          : undefined;
+      const userProfile =
+        user?.profile && typeof user.profile === "object"
+          ? (user.profile as Record<string, unknown>)
+          : undefined;
+      const playerProfile =
+        player?.profile && typeof player.profile === "object"
+          ? (player.profile as Record<string, unknown>)
+          : undefined;
       const profile =
         participantRecord.profile && typeof participantRecord.profile === "object"
           ? (participantRecord.profile as Record<string, unknown>)
-          : undefined;
+          : playerProfile ?? userProfile ?? undefined;
       const identityIds = identityValues(participantRecord);
       const isFlaggedCurrentUser =
         participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
@@ -1100,6 +1117,38 @@ const deriveParticipants = (
         profile?.avatar_url,
         profile?.avatarUrl,
         profile?.photo,
+        player?.profile_image,
+        player?.profileImage,
+        player?.image,
+        player?.image_url,
+        player?.imageUrl,
+        player?.avatar_url,
+        player?.avatarUrl,
+        player?.photo,
+        user?.profile_image,
+        user?.profileImage,
+        user?.image,
+        user?.image_url,
+        user?.imageUrl,
+        user?.avatar_url,
+        user?.avatarUrl,
+        user?.photo,
+        playerProfile?.profile_image,
+        playerProfile?.profileImage,
+        playerProfile?.image,
+        playerProfile?.image_url,
+        playerProfile?.imageUrl,
+        playerProfile?.avatar_url,
+        playerProfile?.avatarUrl,
+        playerProfile?.photo,
+        userProfile?.profile_image,
+        userProfile?.profileImage,
+        userProfile?.image,
+        userProfile?.image_url,
+        userProfile?.imageUrl,
+        userProfile?.avatar_url,
+        userProfile?.avatarUrl,
+        userProfile?.photo,
       ]);
 
       const avatarUrl = firstString([
@@ -1117,6 +1166,10 @@ const deriveParticipants = (
         participantRecord.email,
         participantRecord.contact_email,
         participantRecord.contactEmail,
+        player?.email,
+        playerProfile?.email,
+        user?.email,
+        userProfile?.email,
       ]);
 
       const contact =
@@ -1135,6 +1188,26 @@ const deriveParticipants = (
         profile?.phoneNumber,
         profile?.contact_phone,
         profile?.contactPhone,
+        player?.phone,
+        player?.phone_number,
+        player?.phoneNumber,
+        player?.contact_phone,
+        player?.contactPhone,
+        user?.phone,
+        user?.phone_number,
+        user?.phoneNumber,
+        user?.contact_phone,
+        user?.contactPhone,
+        playerProfile?.phone,
+        playerProfile?.phone_number,
+        playerProfile?.phoneNumber,
+        playerProfile?.contact_phone,
+        playerProfile?.contactPhone,
+        userProfile?.phone,
+        userProfile?.phone_number,
+        userProfile?.phoneNumber,
+        userProfile?.contact_phone,
+        userProfile?.contactPhone,
         contact?.phone,
         contact?.phone_number,
         contact?.phoneNumber,
@@ -1158,6 +1231,7 @@ const deriveParticipants = (
         hosting,
         identityIds: identityIds.length ? identityIds : undefined,
         isCurrentUser,
+        profileImageUrl: profileImage || undefined,
         avatarUrl: avatarUrl || undefined,
         contactEmail: contactEmail || undefined,
         contactPhone: contactPhone || undefined,
