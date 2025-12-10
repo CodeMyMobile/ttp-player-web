@@ -86,11 +86,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches"
-      element={(
-        <ProtectedRoute>
-          <BrowseMatchesPage />
-        </ProtectedRoute>
-      )}
+      element={<BrowseMatchesPage />}
     />
     <Route
       path="/matches/create"
@@ -134,11 +130,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches/:id"
-      element={(
-        <ProtectedRoute>
-          <MatchDetailsPage />
-        </ProtectedRoute>
-      )}
+      element={<MatchDetailsPage />}
     />
     <Route
       path="/coaches"

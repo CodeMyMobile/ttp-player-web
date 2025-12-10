@@ -259,10 +259,9 @@ export const createMatch = async ({
   if (typeof latitude === "number") payload.latitude = latitude;
   if (typeof longitude === "number") payload.longitude = longitude;
 
-  if (typeof rosterSize === "number") {
-    payload.player_limit = rosterSize;
-    payload.playerCount = rosterSize;
-  }
+  const normalizedRosterSize = typeof rosterSize === "number" && Number.isFinite(rosterSize) ? rosterSize : 4;
+  payload.player_limit = normalizedRosterSize;
+  payload.playerCount = normalizedRosterSize;
 
   if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
     payload.skill_level_min = skillLevel;
@@ -327,6 +326,7 @@ const firstNumber = (values: Array<unknown>): number | undefined => {
 const firstString = (values: Array<unknown>): string | undefined => {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return undefined;
 };

@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
+import { deriveListingVisibility, isLinkOnlyVisibility, isPrivateMatch } from "../utils/matchVisibility";
 
 import "./BrowseMatchesPage.css";
 import "../components/coaches/coaches.css";
@@ -207,6 +208,33 @@ const getMatchStartDate = (match: NormalizedMatch): Date | null => {
       ? new Date(candidate)
       : new Date(candidate as Date);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toIdentitySet = (values: string[]) =>
+  new Set(values.map((value) => value.toString().trim().toLowerCase()).filter(Boolean));
+
+const extractInvitees = (record: Record<string, unknown>): unknown[] => {
+  const inviteArrays = [
+    record.invitees,
+    record.invites,
+    record.invitations,
+    record.pending_invites,
+    record.pendingInvites,
+    (record.match as Record<string, unknown> | undefined)?.invitees,
+    (record.match as Record<string, unknown> | undefined)?.invites,
+  ];
+
+  return inviteArrays.flatMap((value) => (Array.isArray(value) ? value : [])).filter(Boolean);
+};
+
+const matchHasInviteForUser = (record: Record<string, unknown>, userIdentities: Set<string>) => {
+  if (record.is_invited === true || record.isInvited === true) return true;
+  const invites = extractInvitees(record);
+  if (invites.length === 0 || userIdentities.size === 0) return false;
+  return invites.some((invite) => {
+    const inviteIdentities = identityValues(invite).map((id) => id.toLowerCase());
+    return inviteIdentities.some((id) => userIdentities.has(id));
+  });
 };
 
 const calculateDistanceMiles = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -554,6 +582,7 @@ const BrowseMatchesPage = () => {
         : {};
 
       try {
+        const userIdentitySet = toIdentitySet(identityValues(user));
         const token = getStoredAuthToken({ preferScheme: "Token" });
         const response = await listMatches({
           page,
@@ -568,7 +597,31 @@ const BrowseMatchesPage = () => {
         const normalized = response.matches.map((match) =>
           normalizeMatchRecord(match, { currentUser: user }),
         );
-        const filteredMatches = selectedTab === "Open" ? normalized.filter(isOpenMatch) : normalized;
+        const accessibleMatches = normalized.filter((match) => {
+          const raw = (match.raw ?? {}) as Record<string, unknown>;
+          const listingVisibility = deriveListingVisibility(
+            match.visibility,
+            raw.visibility,
+            raw.match_visibility,
+            raw,
+          );
+          const privateMatch = isPrivateMatch(raw) || match.access === "Private";
+          const linkOnly = isLinkOnlyVisibility(listingVisibility);
+          const isHost = isHostingMatch(match, Array.from(userIdentitySet));
+          const isParticipant =
+            match.relationship === "participant" ||
+            (match.participants ?? []).some((participant) => {
+              if (participant.isCurrentUser) return true;
+              const participantIds = (participant.identityIds ?? []).map((id) => id.toLowerCase());
+              return participantIds.some((id) => userIdentitySet.has(id));
+            });
+          const isInvited = matchHasInviteForUser(raw, userIdentitySet);
+          if (isHost || isParticipant || isInvited) return true;
+          if (!privateMatch && !linkOnly) return true;
+          return false;
+        });
+        const filteredMatches =
+          selectedTab === "Open" ? accessibleMatches.filter(isOpenMatch) : accessibleMatches;
         setMatches(filteredMatches);
         setPagination(response.pagination ?? null);
       } catch (fetchError) {
