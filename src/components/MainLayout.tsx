@@ -12,6 +12,7 @@ const navLinks = [
   { label: "Group Lessons", to: "/group-lessons" },
   { label: "Find Coaches", to: "/find-coaches" },
   { label: "My Coaches", to: "/my-coaches" },
+  { label: "Credits", to: "/credits" },
   { label: "My Activity", href: "#activity" },
 ];
 

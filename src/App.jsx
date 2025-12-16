@@ -24,6 +24,7 @@ import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
+import CreditsPage from "./pages/CreditsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import "./App.css";
 
@@ -153,6 +154,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <FindCoaches />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/credits"
+      element={(
+        <ProtectedRoute>
+          <CreditsPage />
         </ProtectedRoute>
       )}
     />
