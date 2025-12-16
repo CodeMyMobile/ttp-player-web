@@ -4,7 +4,7 @@ import { ArrowLeftCircle, Loader2 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { PurchaseLessonPackageCheckout } from "../components/coaches/PurchaseLessonPackageExperience";
-import { findCoachProfile, type CoachProfile } from "../data/mockCoachProfiles";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 
 import "./PurchaseLessonPackagePage.css";
 
@@ -12,21 +12,54 @@ const PurchaseLessonPackagePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [coach, setCoach] = useState<CoachProfile | undefined>();
+  const [coach, setCoach] = useState<CoachProfileRecord | undefined>();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let timer: number | undefined;
-    setLoading(true);
-    timer = window.setTimeout(() => {
-      setCoach(id ? findCoachProfile(id) : undefined);
-      setLoading(false);
-    }, 480);
+    const controller = new AbortController();
 
-    return () => {
-      if (timer) {
-        window.clearTimeout(timer);
-      }
-    };
+    if (!id) {
+      setCoach(undefined);
+      setError("Coach not found.");
+      setLoading(false);
+      return () => controller.abort();
+    }
+
+    const coachId = Number.parseInt(id, 10);
+    if (Number.isNaN(coachId)) {
+      setCoach(undefined);
+      setError("Invalid coach identifier.");
+      setLoading(false);
+      return () => controller.abort();
+    }
+
+    setLoading(true);
+    setError(null);
+    setCoach(undefined);
+
+    fetchCoachProfile(coachId, { signal: controller.signal })
+      .then((data) => {
+        setCoach(data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        const status = (err as Error & { status?: number }).status;
+        if (status === 404) {
+          setCoach(undefined);
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : "Unable to load coach profile.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
   }, [id]);
 
   const handleClose = () => {
@@ -51,7 +84,10 @@ const PurchaseLessonPackagePage = () => {
           <div className="purchase-package-page__status" role="alert">
             <ArrowLeftCircle className="purchase-package-page__status-icon" aria-hidden />
             <h2>Coach not found</h2>
-            <p>We couldn&apos;t locate that coaching profile. Choose another coach to purchase lesson packages.</p>
+            <p>
+              {error ||
+                "We couldn't locate that coaching profile. Choose another coach to purchase lesson packages."}
+            </p>
             <Link to="/find-coaches" className="purchase-package-page__status-link">
               Browse coaches
             </Link>

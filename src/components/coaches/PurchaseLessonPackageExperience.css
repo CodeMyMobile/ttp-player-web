@@ -379,6 +379,13 @@
   color: #64748b;
 }
 
+.purchase-package-experience__package-meta {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #475467;
+}
+
 .purchase-package-experience__empty {
   padding: 20px;
   border-radius: 18px;
@@ -828,6 +835,52 @@
   outline: none;
   border-color: rgba(99, 102, 241, 0.7);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+}
+
+.coach-profile-packages__status-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coach-profile-packages__status-item {
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coach-profile-packages__status-item--active {
+  border-color: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.07);
+}
+
+.coach-profile-packages__status-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-profile-packages__status-type {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coach-profile-packages__status-remaining {
+  font-size: 14px;
+  color: #475467;
+}
+
+.coach-profile-packages__status-meta {
+  font-size: 13px;
+  color: #64748b;
 }
 
 @media (max-width: 1080px) {
