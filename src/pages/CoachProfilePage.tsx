@@ -191,7 +191,8 @@ const buildScheduleMoment = (isoDate: string, time?: string) => {
     return null;
   }
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
-  const combined = moment(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
+  // Treat schedule times as UTC so they align with the mobile app’s handling
+  const combined = moment.utc(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
   return combined.isValid() ? combined : null;
 };
 
