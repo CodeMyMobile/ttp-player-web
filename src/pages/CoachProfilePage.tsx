@@ -582,7 +582,7 @@ const CoachProfilePage = () => {
 
           const lessonTimes = new Set(
             lessonsForDate
-              .map((lesson) => moment(lesson.start_date_time).format("HH:mm"))
+              .map((lesson) => moment.utc(lesson.start_date_time).format("HH:mm"))
               .filter(Boolean),
           );
 
@@ -827,8 +827,8 @@ const CoachProfilePage = () => {
   const findLessonForSlot = (dateKey: string, slot: BookingSlot) => {
     const lessons = lessonsByDate[dateKey] ?? [];
     const slotStart = (() => {
-      if (slot.start_date_time) return moment(slot.start_date_time.replace(/Z$/, ""));
-      if (slot.startDateTime) return moment(slot.startDateTime);
+      if (slot.start_date_time) return moment.utc(slot.start_date_time);
+      if (slot.startDateTime) return moment.utc(slot.startDateTime);
       if ((slot as Record<string, unknown>).from) {
         const from = (slot as Record<string, string>).from;
         return moment(`${dateKey} ${from}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
@@ -837,8 +837,8 @@ const CoachProfilePage = () => {
     })();
     if (!slotStart.isValid()) return null;
     const slotEnd = (() => {
-      if (slot.end_date_time) return moment(slot.end_date_time.replace(/Z$/, ""));
-      if (slot.endDateTime) return moment(slot.endDateTime);
+      if (slot.end_date_time) return moment.utc(slot.end_date_time);
+      if (slot.endDateTime) return moment.utc(slot.endDateTime);
       if ((slot as Record<string, unknown>).to) {
         const to = (slot as Record<string, string>).to;
         return moment(`${dateKey} ${to}`, ["YYYY-MM-DD HH:mm:ss", "YYYY-MM-DD HH:mm"]);
@@ -849,8 +849,8 @@ const CoachProfilePage = () => {
     return (
       lessons.find((lesson) => {
         // Parse UTC string but treat as local by stripping trailing Z
-        const lessonStart = moment(lesson.start_date_time?.replace(/Z$/, ""));
-        const lessonEnd = moment(lesson.end_date_time?.replace(/Z$/, ""));
+        const lessonStart = moment.utc(lesson.start_date_time);
+        const lessonEnd = moment.utc(lesson.end_date_time);
         if (!lessonStart.isValid() || !lessonEnd.isValid()) return false;
         return (
           lessonStart.isSame(slotStart, "minute") ||

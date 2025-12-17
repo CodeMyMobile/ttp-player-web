@@ -32,9 +32,15 @@ const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; t
 };
 
 const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProps) => {
+  // Align time handling with mobile: treat API timestamps as UTC and provide a 1h fallback if end is missing
   const start = moment.utc(lesson.start_date_time);
-  const end = moment.utc(lesson.end_date_time);
-  const durationMinutes = Math.max(end.diff(start, "minutes"), 0);
+  const end = lesson.end_date_time
+    ? moment.utc(lesson.end_date_time)
+    : start.clone().add(1, "hour");
+  const startTimeLabel = start.format("hh:mm a");
+  const endTimeLabel = end.isValid() ? end.format("hh:mm a") : "";
+  const durationMinutes = end.isValid() ? Math.max(end.diff(start, "minutes"), 0) : 0;
+  const durationLabel = end.isValid() ? `${durationMinutes} mins` : "";
   const level = lesson.metadata?.level || lesson.metadata_level;
   const title =
     lesson.metadata?.title ||
@@ -60,7 +66,8 @@ const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProp
               </p>
             ) : null}
             <p className="lesson-detail-card__meta">
-              <Clock size={16} /> {start.format("h:mm A")} – {end.format("h:mm A")} • {durationMinutes} min
+              <Clock size={16} /> {startTimeLabel}
+              {endTimeLabel ? ` - ${endTimeLabel}` : ""}{durationLabel ? ` • ${durationLabel}` : ""}
             </p>
             <div className="lesson-detail-card__chips">
               {lesson.lesson_type_name ? (
