@@ -65,6 +65,23 @@ export interface PurchaseCoachPackageParams {
   paymentMethodId: string;
 }
 
+export interface ConsumePackageCreditsParams {
+  token: string;
+  coachId: number | string;
+  lessonType: string;
+  lessonId?: number | string;
+  purchaseId?: number | string;
+}
+
+export interface ConsumePackageCreditsResponse {
+  purchase?: PackagePurchase;
+  usage?: {
+    id?: number | string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export const fetchCoachPackages = ({ token, coachId, signal }: FetchCoachPackagesParams) =>
   request<CoachPackageListResponse>("/player/packages", {
     token,
@@ -95,5 +112,24 @@ export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: Purc
     token,
     body: {
       payment_method_id: paymentMethodId,
+    },
+  });
+
+export const consumePackageCredits = ({
+  token,
+  coachId,
+  lessonType,
+  lessonId,
+  purchaseId,
+}: ConsumePackageCreditsParams) =>
+  request<ConsumePackageCreditsResponse>("/player/packages/credits/consume", {
+    method: "POST",
+    token,
+    authScheme: "Token",
+    body: {
+      coachId,
+      lessonType,
+      lessonId,
+      purchaseId,
     },
   });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Apple,
@@ -20,6 +20,9 @@ import GroupLessonConfirmationModal from "../components/group-lessons/GroupLesso
 import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import { findGroupLessonById } from "../data/mockGroupLessons";
+import { fetchPackageCredits, consumePackageCredits, type PackagePurchase } from "../api/playerPackages";
+import { useAuth } from "../context/AuthContext";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./BookingConfirmationPage.css";
 
@@ -36,14 +39,6 @@ const savedPaymentMethods: SavedCard[] = [
   { id: "card-personal", brand: "Visa", last4: "4242", expiry: "04/26", nickname: "Personal", isDefault: true },
   { id: "card-club", brand: "Mastercard", last4: "1188", expiry: "11/25", nickname: "Club expenses" },
 ];
-
-const lessonCreditWallet = {
-  id: "lesson-credits",
-  label: "Adult 60-min private lesson credits",
-  balance: 2,
-  creditValue: "$85 value per credit",
-  expiresLabel: "2 credits expire May 31",
-};
 
 type NewCardFormState = {
   name: string;
@@ -116,6 +111,13 @@ const buildTimeRangeLabel = (startLabel: string, durationLabel: string) => {
   return `${formatMinutesToTimeLabel(startMinutes)} - ${formatMinutesToTimeLabel(endMinutes)}`;
 };
 
+const formatDateLabel = (value?: string | null) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
 const extractPlayerCapacity = (lessonDurationLabel?: string) => {
   if (!lessonDurationLabel) {
     return undefined;
@@ -153,6 +155,7 @@ const dayNameMap: Record<string, string> = {
 };
 
 const BookingConfirmationPage = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -183,6 +186,22 @@ const BookingConfirmationPage = () => {
   const dateId = dateIdFromState ?? dateIdParam ?? undefined;
   const slotId = slotIdFromState ?? slotIdParam ?? undefined;
   const groupLessonId = groupLessonIdFromState ?? groupLessonParam ?? undefined;
+
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      undefined,
+    [user],
+  );
+
+  const [credits, setCredits] = useState<PackagePurchase[]>([]);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [isConsumingCredits, setIsConsumingCredits] = useState(false);
+  const [consumeError, setConsumeError] = useState<string | null>(null);
 
   const profile = coachId != null ? findCoachProfile(coachId) : undefined;
   const groupLesson = groupLessonId ? findGroupLessonById(groupLessonId) : undefined;
@@ -262,6 +281,50 @@ const BookingConfirmationPage = () => {
     return Math.max(selectedSlot?.spotsRemaining ?? 0, 0);
   }, [capacity, groupLesson, isProfileGroupLesson, participantCount, selectedSlot]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!coachId) {
+      setCredits([]);
+      setCreditsError(null);
+      setCreditsLoading(false);
+      return () => controller.abort();
+    }
+
+    if (!authToken) {
+      setCredits([]);
+      setCreditsError("Sign in to view credits.");
+      setCreditsLoading(false);
+      return () => controller.abort();
+    }
+
+    setCreditsLoading(true);
+    setCreditsError(null);
+
+    fetchPackageCredits({
+      token: authToken,
+      coachId,
+      includeExpired: false,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCredits(data?.purchases ?? []);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        const message = err instanceof Error ? err.message : "Unable to load credits.";
+        setCreditsError(message);
+        setCredits([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCreditsLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [authToken, coachId]);
+
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
       const base = `${participantCount}/${groupLesson.totalSpots} players confirmed`;
@@ -304,6 +367,42 @@ const BookingConfirmationPage = () => {
       .join("");
   };
 
+  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
+  const eligibleCredits = useMemo(() => {
+    const allowedForLesson = (purchase: PackagePurchase) => {
+      const allowed = purchase.lesson_types_allowed;
+      if (Array.isArray(allowed) && allowed.length > 0) {
+        return allowed.includes(lessonType);
+      }
+      return true;
+    };
+    return credits.filter(
+      (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
+    );
+  }, [credits, lessonType]);
+
+  const creditSummary = useMemo(() => {
+    const totals = eligibleCredits.reduce(
+      (acc, purchase) => {
+        const remaining = Number(purchase.credits_remaining ?? 0);
+        return { ...acc, remaining: acc.remaining + (Number.isFinite(remaining) ? remaining : 0) };
+      },
+      { remaining: 0 },
+    );
+
+    const nextExpiry = eligibleCredits
+      .map((purchase) => purchase.expires_at)
+      .filter(Boolean)
+      .map((value) => new Date(value as string))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    return {
+      remaining: totals.remaining,
+      nextExpiry: nextExpiry ? formatDateLabel(nextExpiry.toISOString()) : undefined,
+    };
+  }, [eligibleCredits]);
+
   const lessonLabel = groupLesson
     ? groupLesson.title
     : lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
@@ -333,12 +432,12 @@ const BookingConfirmationPage = () => {
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
   const selectedSavedCard = savedPaymentMethods.find((card) => card.id === paymentMethod);
-  const canUseCredits = lessonCreditWallet.balance > 0;
+  const canUseCredits = eligibleCredits.length > 0;
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
 
-  const remainingCredits = Math.max(lessonCreditWallet.balance - 1, 0);
+  const remainingCredits = Math.max(creditSummary.remaining - 1, 0);
   const remainingCreditsLabel = remainingCredits === 0 ? "no credits" : `${remainingCredits} credit${remainingCredits === 1 ? "" : "s"}`;
 
   const priceLabel = isUsingCredits
@@ -347,13 +446,11 @@ const BookingConfirmationPage = () => {
       ? "Total due today"
       : "Total due now";
 
-  const priceValue = isUsingCredits
-    ? `1 lesson credit${lessonCreditWallet.creditValue ? ` (${lessonCreditWallet.creditValue})` : ""}`
-    : groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
+  const priceValue = isUsingCredits ? "1 lesson credit" : groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
 
   const priceCaption = (() => {
     if (isUsingCredits) {
-      const expiresMessage = lessonCreditWallet.expiresLabel ? ` ${lessonCreditWallet.expiresLabel}.` : "";
+      const expiresMessage = creditSummary.nextExpiry ? ` Next expiry ${creditSummary.nextExpiry}.` : "";
       return `We'll deduct 1 credit from your balance. You'll have ${remainingCreditsLabel} remaining.${expiresMessage}`;
     }
     if (isUsingApplePay) {
@@ -413,9 +510,76 @@ const BookingConfirmationPage = () => {
     );
   }, [isUsingNewCard, newCardForm]);
 
-  const isConfirmDisabled = isConfirmed || !isNewCardValid || (isUsingCredits && !canUseCredits);
+  const isConfirmDisabled =
+    isConfirmed ||
+    isConsumingCredits ||
+    !isNewCardValid ||
+    (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    setConsumeError(null);
+
+    if (isUsingCredits) {
+      if (!authToken) {
+        setConsumeError("Sign in to use credits.");
+        return;
+      }
+      if (!coachId || !lessonType) {
+        setConsumeError("Missing lesson details for credits.");
+        return;
+      }
+      if (!canUseCredits) {
+        setConsumeError("No eligible credits available. Please pay by card.");
+        setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+        return;
+      }
+
+      setIsConsumingCredits(true);
+      try {
+        const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
+        const bestPurchase = eligibleCredits[0];
+        await consumePackageCredits({
+          token: authToken,
+          coachId,
+          lessonType,
+          lessonId: lessonIdForConsume ? Number(lessonIdForConsume) || lessonIdForConsume : undefined,
+          purchaseId: bestPurchase?.id,
+        });
+        setIsConfirmed(true);
+        setIsConfirmationModalOpen(true);
+        try {
+          const refreshed = await fetchPackageCredits({
+            token: authToken,
+            coachId,
+            includeExpired: false,
+          });
+          setCredits(refreshed?.purchases ?? []);
+          setCreditsError(null);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unable to refresh credits.";
+          setCreditsError(message);
+        }
+      } catch (err) {
+        const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
+        const errorMessage = (() => {
+          switch (code) {
+            case "no_eligible_package":
+            case "no_credits_remaining":
+            case "package_expired":
+            case "lesson_type_not_allowed":
+              return "No eligible credits for this lesson type. Please pay by card.";
+            default:
+              return "Couldn't use credits, please try card.";
+          }
+        })();
+        setConsumeError(errorMessage);
+        setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+      } finally {
+        setIsConsumingCredits(false);
+      }
+      return;
+    }
+
     setIsConfirmed(true);
     if (groupLesson || !isGroupLesson) {
       setIsConfirmationModalOpen(true);
@@ -611,7 +775,7 @@ const BookingConfirmationPage = () => {
           value="credits"
           checked={isUsingCredits}
           onChange={() => setPaymentMethod("credits")}
-          disabled={!canUseCredits}
+          disabled={!canUseCredits || creditsLoading || !authToken}
         />
         <span className="payment-method-card__selector" aria-hidden />
         <span className="payment-method-card__icon">
@@ -620,13 +784,19 @@ const BookingConfirmationPage = () => {
         <span className="payment-method-card__body">
           <span className="payment-method-card__title">Use lesson credits</span>
           <span className="payment-method-card__subtitle">
-            {canUseCredits
-              ? `${lessonCreditWallet.balance} credit${lessonCreditWallet.balance === 1 ? "" : "s"} available • ${lessonCreditWallet.label}`
-              : "No credits available for this lesson type."}
+            {creditsLoading
+              ? "Checking credits…"
+              : creditsError
+                ? creditsError
+                : !authToken
+                  ? "Sign in to use credits."
+                  : canUseCredits
+                    ? `${creditSummary.remaining} credit${creditSummary.remaining === 1 ? "" : "s"} available for this lesson type`
+                    : "No credits available for this lesson type."}
           </span>
         </span>
-        {lessonCreditWallet.expiresLabel && canUseCredits ? (
-          <span className="payment-method-card__tag payment-method-card__tag--success">{lessonCreditWallet.expiresLabel}</span>
+        {creditSummary.nextExpiry && canUseCredits ? (
+          <span className="payment-method-card__tag payment-method-card__tag--success">Next expiry {creditSummary.nextExpiry}</span>
         ) : null}
       </label>
       {isUsingCredits ? (
@@ -884,9 +1054,10 @@ const BookingConfirmationPage = () => {
               onClick={handleConfirm}
               disabled={isConfirmDisabled}
             >
-              {confirmButtonLabel}
+              {isConsumingCredits ? "Applying credits..." : confirmButtonLabel}
               <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
             </button>
+            {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
             <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed && isGroupLesson ? (
                   <div

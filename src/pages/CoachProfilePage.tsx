@@ -1,5 +1,5 @@
 import moment from "moment";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from ".
 import {
   fetchCoachPackages,
   fetchPackageCredits,
+  consumePackageCredits,
   type CoachPackage,
   type PackagePurchase,
 } from "../api/playerPackages";
@@ -480,6 +481,9 @@ const CoachProfilePage = () => {
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [paymentChoice, setPaymentChoice] = useState<"credits" | "card">("card");
+  const [consumingCredits, setConsumingCredits] = useState(false);
+  const [consumeError, setConsumeError] = useState<string | null>(null);
   const [pendingBooking, setPendingBooking] = useState<{
     date: BookingDate;
     slot: BookingSlot;
@@ -901,6 +905,48 @@ const CoachProfilePage = () => {
     .map((credit) => `${credit.lessonTypeLabel}: ${Math.max(credit.remaining, 0)} left`)
     .join(" • ");
 
+  const eligibleCreditsForLessonType = useCallback(
+    (lessonType: string | undefined) => {
+      const normalizedType = (lessonType ?? "").toLowerCase();
+      const isAllowed = (purchase: PackagePurchase) => {
+        const allowed = purchase.lesson_types_allowed;
+        if (Array.isArray(allowed) && allowed.length > 0) {
+          return allowed.some((type) => type?.toLowerCase() === normalizedType);
+        }
+        return true;
+      };
+      return packageCredits.filter(
+        (purchase) => (purchase.credits_remaining ?? 0) > 0 && isAllowed(purchase),
+      );
+    },
+    [packageCredits],
+  );
+
+  const pendingLessonType = pendingBooking?.slot.lessonType ?? selection.lessonType ?? "private";
+  const pendingEligibleCredits = useMemo(
+    () => eligibleCreditsForLessonType(pendingLessonType),
+    [eligibleCreditsForLessonType, pendingLessonType],
+  );
+
+  const pendingCreditSummary = useMemo(() => {
+    const remaining = pendingEligibleCredits.reduce(
+      (sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0),
+      0,
+    );
+
+    const nextExpiry = pendingEligibleCredits
+      .map((purchase) => purchase.expires_at)
+      .filter(Boolean)
+      .map((value) => moment(value as string))
+      .filter((value) => value.isValid())
+      .sort((a, b) => a.valueOf() - b.valueOf())[0];
+
+    return {
+      remaining,
+      nextExpiryLabel: nextExpiry ? `Next expiry ${nextExpiry.format("MMM D, YYYY")}` : undefined,
+    };
+  }, [pendingEligibleCredits]);
+
   const isAllDatesSelected = selection.dateId === ALL_DATES_ID;
 
   const dateEntries = useMemo(() => {
@@ -1116,6 +1162,8 @@ const extractLocationId = (slot?: BookingSlot) => {
     setPendingBooking({ date, slot, schedule, locationId, court });
     setBookingError(null);
     setBookingSuccess(null);
+    setConsumeError(null);
+    setPaymentChoice(eligibleCreditsForLessonType(slot.lessonType).length > 0 ? "credits" : "card");
     setPaymentSheetOpen(true);
     await loadPaymentMethods();
   };
@@ -1124,6 +1172,9 @@ const extractLocationId = (slot?: BookingSlot) => {
     setPaymentSheetOpen(false);
     setPendingBooking(null);
     setPaymentMethodsError(null);
+    setPaymentChoice("card");
+    setConsumeError(null);
+    setConsumingCredits(false);
   };
 
   const confirmBookLesson = async () => {
@@ -1131,7 +1182,7 @@ const extractLocationId = (slot?: BookingSlot) => {
       setBookingError("Please select a lesson and sign in to continue.");
       return;
     }
-    if (!selectedPaymentMethodId) {
+    if (paymentChoice === "card" && !selectedPaymentMethodId) {
       setPaymentMethodsError("Choose a payment method to book this lesson.");
       return;
     }
@@ -1146,8 +1197,70 @@ const extractLocationId = (slot?: BookingSlot) => {
     setBookingError(null);
     setBookingSuccess(null);
     setBookingInFlight(slot.id);
+    setConsumeError(null);
 
     try {
+      if (paymentChoice === "credits") {
+        setConsumingCredits(true);
+        try {
+          const bestPurchase = pendingEligibleCredits[0];
+          const consumeResult = await consumePackageCredits({
+            token: authToken,
+            coachId,
+            lessonType: slot.lessonType ?? "private",
+            lessonId: slot.id ?? undefined,
+            purchaseId: bestPurchase?.id,
+          });
+          try {
+            await requestPrivateLesson({
+              token: authToken,
+              coachId,
+              startDateTime: schedule.startDateTime,
+              endDateTime: schedule.endDateTime,
+              startDateTimeTz: schedule.startDateTimeTz,
+              endDateTimeTz: schedule.endDateTimeTz,
+              locationId,
+              court,
+              status: "PAID",
+            });
+            setBookingSuccess(
+              "Lesson booked with credits. You're all set!",
+            );
+            closePaymentSheet();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "We used your credits but could not finalize the booking.";
+            setBookingError(message);
+          }
+          try {
+            const refreshed = await fetchPackageCredits({
+              token: authToken,
+              coachId,
+              includeExpired: false,
+            });
+            setPackageCredits(refreshed?.purchases ?? []);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unable to refresh credits.";
+            setCreditsError(message);
+          }
+        } catch (err) {
+          const code = (err as Error & { data?: { code?: string } })?.data?.code;
+          const fallbackMessage =
+            code === "no_eligible_package" ||
+            code === "no_credits_remaining" ||
+            code === "package_expired" ||
+            code === "lesson_type_not_allowed"
+              ? "No eligible credits left for this lesson. Please pay by card."
+              : "Couldn't use credits, please try a card.";
+          setConsumeError(fallbackMessage);
+          setPaymentChoice("card");
+          setPaymentSheetOpen(true);
+        } finally {
+          setConsumingCredits(false);
+          setBookingInFlight(null);
+        }
+        return;
+      }
+
       await requestPrivateLesson({
         token: authToken,
         coachId,
@@ -1939,6 +2052,7 @@ const extractLocationId = (slot?: BookingSlot) => {
               <div>
                 <p className="coach-payment-modal__eyebrow">Pay for lesson</p>
                 <h3 className="coach-payment-modal__title">Choose a payment method</h3>
+                {consumeError ? <p className="coach-payment-modal__error">{consumeError}</p> : null}
               </div>
               <button
                 type="button"
@@ -1952,6 +2066,9 @@ const extractLocationId = (slot?: BookingSlot) => {
 
             {paymentMethodsLoading && <p className="coach-payment-modal__hint">Loading your cards…</p>}
             {paymentMethodsError && <p className="coach-payment-modal__error">{paymentMethodsError}</p>}
+            {creditsError && paymentChoice === "credits" && (
+              <p className="coach-payment-modal__error">{creditsError}</p>
+            )}
 
             {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
               <div className="coach-payment-modal__empty">
@@ -1962,7 +2079,59 @@ const extractLocationId = (slot?: BookingSlot) => {
               </div>
             )}
 
-            {paymentMethods.length > 0 && (
+            <div className="coach-payment-modal__choices">
+              <label
+                className={`coach-payment-choice${
+                  paymentChoice === "credits" ? " coach-payment-choice--active" : ""
+                }${creditsLoading || !pendingEligibleCredits.length || creditsError ? " coach-payment-choice--disabled" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="payment-choice"
+                  value="credits"
+                  checked={paymentChoice === "credits"}
+                  onChange={() => setPaymentChoice("credits")}
+                  disabled={creditsLoading || !pendingEligibleCredits.length || Boolean(creditsError)}
+                />
+                <div className="coach-payment-choice__body">
+                  <div className="coach-payment-choice__title-row">
+                    <span className="coach-payment-choice__title">Use credits</span>
+                    {pendingCreditSummary.nextExpiryLabel && (
+                      <span className="coach-payment-choice__pill">{pendingCreditSummary.nextExpiryLabel}</span>
+                    )}
+                  </div>
+                  <p className="coach-payment-choice__subtitle">
+                    {creditsLoading
+                      ? "Checking credits…"
+                      : !pendingEligibleCredits.length
+                        ? "No eligible credits for this lesson type."
+                        : `You have ${pendingCreditSummary.remaining} credit${pendingCreditSummary.remaining === 1 ? "" : "s"} available.`}
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`coach-payment-choice${
+                  paymentChoice === "card" ? " coach-payment-choice--active" : ""
+                }${paymentMethodsLoading ? " coach-payment-choice--disabled" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="payment-choice"
+                  value="card"
+                  checked={paymentChoice === "card"}
+                  onChange={() => setPaymentChoice("card")}
+                />
+                <div className="coach-payment-choice__body">
+                  <div className="coach-payment-choice__title-row">
+                    <span className="coach-payment-choice__title">Pay by card</span>
+                  </div>
+                  <p className="coach-payment-choice__subtitle">Use your saved cards for this booking.</p>
+                </div>
+              </label>
+            </div>
+
+            {paymentChoice === "card" && paymentMethods.length > 0 && (
               <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
                 {paymentMethods.map((method) => {
                   const brand = (method.card?.brand ?? "Card").toString();
@@ -2002,10 +2171,18 @@ const extractLocationId = (slot?: BookingSlot) => {
               <button
                 type="button"
                 className="coach-payment-modal__confirm"
-                disabled={bookingInFlight !== null || !selectedPaymentMethodId || paymentMethodsLoading}
+                disabled={
+                  bookingInFlight !== null ||
+                  (paymentChoice === "card" && (!selectedPaymentMethodId || paymentMethodsLoading)) ||
+                  (paymentChoice === "credits" && (creditsLoading || !pendingEligibleCredits.length || consumingCredits))
+                }
                 onClick={() => void confirmBookLesson()}
               >
-                {bookingInFlight ? "Booking…" : "Confirm & pay"}
+                {bookingInFlight || consumingCredits
+                  ? "Booking…"
+                  : paymentChoice === "credits"
+                    ? "Confirm with credits"
+                    : "Confirm & pay"}
               </button>
             </div>
           </div>

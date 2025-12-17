@@ -1928,6 +1928,69 @@
   color: #475569;
 }
 
+.coach-payment-modal__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.coach-payment-choice {
+  display: flex;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  align-items: flex-start;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coach-payment-choice input {
+  margin-top: 6px;
+}
+
+.coach-payment-choice--active {
+  border-color: #22c55e;
+  box-shadow: 0 12px 28px rgba(34, 197, 94, 0.15);
+  background: linear-gradient(120deg, #f0fdf4, #ffffff);
+}
+
+.coach-payment-choice--disabled {
+  opacity: 0.6;
+}
+
+.coach-payment-choice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coach-payment-choice__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-payment-choice__title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coach-payment-choice__subtitle {
+  margin: 0;
+  color: #475569;
+}
+
+.coach-payment-choice__pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0e7490;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 .coach-payment-modal__error {
   color: #b91c1c;
   font-weight: 600;

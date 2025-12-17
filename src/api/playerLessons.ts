@@ -187,7 +187,7 @@ export const requestPrivateLesson = ({
   locationId,
   court = 0,
   status = "PENDING",
-  paymentMethodId = "",
+  paymentMethodId,
 }: RequestPrivateLessonParams) =>
   request("/player/newlesson", {
     method: "POST",
@@ -201,6 +201,6 @@ export const requestPrivateLesson = ({
       location_id: locationId,
       court,
       status,
-      payment_method_id: paymentMethodId,
+      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
     },
   });

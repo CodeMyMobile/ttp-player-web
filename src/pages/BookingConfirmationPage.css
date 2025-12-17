@@ -690,6 +690,11 @@
   gap: 10px;
 }
 
+.booking-confirmation__error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .booking-confirmation__confirm {
   display: inline-flex;
   align-items: center;
