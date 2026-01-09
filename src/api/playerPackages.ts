@@ -35,6 +35,12 @@ export interface PackageCreditsResponse {
   purchases?: PackagePurchase[];
 }
 
+export interface PackageCreditsBalanceResponse {
+  available?: number;
+  held?: number;
+  total?: number;
+}
+
 export interface PurchasePackageResponse {
   purchase?: PackagePurchase;
   paymentIntent?: {
@@ -56,6 +62,12 @@ export interface FetchPackageCreditsParams {
   token: string;
   coachId: number | string;
   includeExpired?: boolean;
+  signal?: AbortSignal;
+}
+
+export interface FetchPackageCreditsBalanceParams {
+  token: string;
+  coachId?: number | string;
   signal?: AbortSignal;
 }
 
@@ -103,6 +115,15 @@ export const fetchPackageCredits = ({
     query: {
       coachId,
       includeExpired,
+    },
+  });
+
+export const fetchPackageCreditsBalance = ({ token, coachId, signal }: FetchPackageCreditsBalanceParams) =>
+  request<PackageCreditsBalanceResponse>("/player/packages/credits/balance", {
+    token,
+    signal,
+    query: {
+      coachId,
     },
   });
 

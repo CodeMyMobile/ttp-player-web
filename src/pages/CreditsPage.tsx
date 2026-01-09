@@ -5,8 +5,10 @@ import { Link } from "react-router-dom";
 import { getPlayerCoaches, type PlayerCoach } from "../api/playerCalendar";
 import {
   fetchCoachPackages,
+  fetchPackageCreditsBalance,
   fetchPackageCredits,
   type CoachPackage,
+  type PackageCreditsBalanceResponse,
   type PackagePurchase,
 } from "../api/playerPackages";
 import MainLayout from "../components/MainLayout";
@@ -122,6 +124,8 @@ const formatDateLabel = (value?: string | null) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
 const summarizeCredits = (purchases: PackagePurchase[]) => {
   const totals = purchases.reduce(
     (acc, purchase) => {
@@ -175,6 +179,7 @@ const CreditsPage = () => {
   const [credits, setCredits] = useState<PackagePurchase[]>([]);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
 
   const debouncedSearch = useDebouncedValue(search, 250);
 
@@ -259,6 +264,7 @@ const CreditsPage = () => {
       setCredits([]);
       setCreditsError(null);
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -266,6 +272,7 @@ const CreditsPage = () => {
       setCredits([]);
       setCreditsError("Sign in to view credits.");
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -297,6 +304,32 @@ const CreditsPage = () => {
   }, [authToken, selectedCoachId]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    if (!selectedCoachId || !authToken) {
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    setCreditsBalance(null);
+
+    fetchPackageCreditsBalance({
+      token: authToken,
+      coachId: selectedCoachId,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCreditsBalance(data ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCreditsBalance(null);
+      });
+
+    return () => controller.abort();
+  }, [authToken, selectedCoachId]);
+
+  useEffect(() => {
     if (!coaches.length || !selectedCoachId) return;
     const exists = coaches.some((coach) => pickCoachId(coach) === selectedCoachId);
     if (!exists) {
@@ -309,8 +342,24 @@ const CreditsPage = () => {
     [coaches, selectedCoachId],
   );
 
-  const hasCredits = credits.length > 0;
+  const hasCredits =
+    credits.length > 0 || (isFiniteNumber(creditsBalance?.total) ? creditsBalance.total > 0 : false);
   const creditSummary = summarizeCredits(credits);
+  const availableCredits = isFiniteNumber(creditsBalance?.available)
+    ? creditsBalance.available
+    : creditSummary.remaining;
+  const balanceSubtitleParts: string[] = [];
+  if (isFiniteNumber(creditsBalance?.held)) {
+    balanceSubtitleParts.push(`${creditsBalance.held} held`);
+  }
+  if (isFiniteNumber(creditsBalance?.total)) {
+    balanceSubtitleParts.push(`${creditsBalance.total} total`);
+  }
+  const balanceSubtitle = balanceSubtitleParts.join(" · ");
+  const fallbackSubtitle = creditSummary.used
+    ? `${creditSummary.used} used · ${creditSummary.total} total`
+    : `${creditSummary.total} total`;
+  const walletSubtitle = balanceSubtitle || fallbackSubtitle;
 
   const renderCoachCard = (coach: PlayerCoach) => {
     const coachId = pickCoachId(coach);
@@ -475,11 +524,9 @@ const CreditsPage = () => {
       <div className="credits-page__wallet credits-page__wallet--active">
         <div>
           <p className="credits-page__eyebrow">Credits</p>
-          <p className="credits-page__wallet-title">You have {creditSummary.remaining} credits</p>
+          <p className="credits-page__wallet-title">You have {availableCredits} credits available</p>
           <p className="credits-page__wallet-subtitle">
-            {creditSummary.used
-              ? `${creditSummary.used} used · ${creditSummary.total} total`
-              : `${creditSummary.total} total`}
+            {walletSubtitle}
             {creditSummary.nextExpiry ? ` · Next expiry ${creditSummary.nextExpiry}` : ""}
           </p>
         </div>

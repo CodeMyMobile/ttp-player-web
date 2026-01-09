@@ -177,6 +177,16 @@ export interface RequestPrivateLessonParams {
   paymentMethodId?: string;
 }
 
+export interface NewLessonResponse {
+  id?: number | string;
+  lesson_id?: number | string;
+  lesson?: {
+    id?: number | string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export const requestPrivateLesson = ({
   token,
   coachId,
@@ -189,7 +199,7 @@ export const requestPrivateLesson = ({
   status = "PENDING",
   paymentMethodId,
 }: RequestPrivateLessonParams) =>
-  request("/player/newlesson", {
+  request<NewLessonResponse>("/player/newlesson", {
     method: "POST",
     token,
     body: {

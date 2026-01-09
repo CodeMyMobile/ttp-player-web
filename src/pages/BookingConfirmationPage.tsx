@@ -20,7 +20,13 @@ import GroupLessonConfirmationModal from "../components/group-lessons/GroupLesso
 import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import { findGroupLessonById } from "../data/mockGroupLessons";
-import { fetchPackageCredits, consumePackageCredits, type PackagePurchase } from "../api/playerPackages";
+import {
+  fetchPackageCredits,
+  fetchPackageCreditsBalance,
+  consumePackageCredits,
+  type PackageCreditsBalanceResponse,
+  type PackagePurchase,
+} from "../api/playerPackages";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -154,6 +160,19 @@ const dayNameMap: Record<string, string> = {
   Sun: "Sunday",
 };
 
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+const extractNumericLessonId = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
 const BookingConfirmationPage = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -200,6 +219,7 @@ const BookingConfirmationPage = () => {
   const [credits, setCredits] = useState<PackagePurchase[]>([]);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
@@ -288,6 +308,7 @@ const BookingConfirmationPage = () => {
       setCredits([]);
       setCreditsError(null);
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -295,6 +316,7 @@ const BookingConfirmationPage = () => {
       setCredits([]);
       setCreditsError("Sign in to view credits.");
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -320,6 +342,30 @@ const BookingConfirmationPage = () => {
         if (!controller.signal.aborted) {
           setCreditsLoading(false);
         }
+      });
+
+    return () => controller.abort();
+  }, [authToken, coachId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!coachId || !authToken) {
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    fetchPackageCreditsBalance({
+      token: authToken,
+      coachId,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCreditsBalance(data ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCreditsBalance(null);
       });
 
     return () => controller.abort();
@@ -436,6 +482,8 @@ const BookingConfirmationPage = () => {
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
+  const heldCredits = isFiniteNumber(creditsBalance?.held) ? creditsBalance.held : 0;
+  const heldCreditsLabel = heldCredits > 0 ? ` · ${heldCredits} held` : "";
 
   const remainingCredits = Math.max(creditSummary.remaining - 1, 0);
   const remainingCreditsLabel = remainingCredits === 0 ? "no credits" : `${remainingCredits} credit${remainingCredits === 1 ? "" : "s"}`;
@@ -538,11 +586,17 @@ const BookingConfirmationPage = () => {
       try {
         const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
         const bestPurchase = eligibleCredits[0];
+        const numericLessonId = extractNumericLessonId(lessonIdForConsume);
+        if (!numericLessonId) {
+          setConsumeError("We need a numeric lesson ID to reserve credits.");
+          setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+          return;
+        }
         await consumePackageCredits({
           token: authToken,
           coachId,
           lessonType,
-          lessonId: lessonIdForConsume ? Number(lessonIdForConsume) || lessonIdForConsume : undefined,
+          lessonId: numericLessonId,
           purchaseId: bestPurchase?.id,
         });
         setIsConfirmed(true);
@@ -558,6 +612,15 @@ const BookingConfirmationPage = () => {
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unable to refresh credits.";
           setCreditsError(message);
+        }
+        try {
+          const refreshedBalance = await fetchPackageCreditsBalance({
+            token: authToken,
+            coachId,
+          });
+          setCreditsBalance(refreshedBalance ?? null);
+        } catch {
+          setCreditsBalance(null);
         }
       } catch (err) {
         const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
@@ -789,9 +852,9 @@ const BookingConfirmationPage = () => {
               : creditsError
                 ? creditsError
                 : !authToken
-                  ? "Sign in to use credits."
-                  : canUseCredits
-                    ? `${creditSummary.remaining} credit${creditSummary.remaining === 1 ? "" : "s"} available for this lesson type`
+                    ? "Sign in to use credits."
+                    : canUseCredits
+                    ? `${creditSummary.remaining} credit${creditSummary.remaining === 1 ? "" : "s"} available for this lesson type${heldCreditsLabel}`
                     : "No credits available for this lesson type."}
           </span>
         </span>

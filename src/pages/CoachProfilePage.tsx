@@ -20,9 +20,11 @@ import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile"
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import {
   fetchCoachPackages,
+  fetchPackageCreditsBalance,
   fetchPackageCredits,
   consumePackageCredits,
   type CoachPackage,
+  type PackageCreditsBalanceResponse,
   type PackagePurchase,
 } from "../api/playerPackages";
 import {
@@ -31,6 +33,7 @@ import {
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   requestPrivateLesson,
+  type NewLessonResponse,
 } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
@@ -55,6 +58,24 @@ const dayNameMap: Record<string, string> = {
   Fri: "Friday",
   Sat: "Saturday",
   Sun: "Sunday",
+};
+
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+const extractNumericLessonId = (payload?: NewLessonResponse | null) => {
+  const candidates = [payload?.lesson?.id, payload?.id, payload?.lesson_id];
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return candidate;
+    }
+    if (typeof candidate === "string" && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return undefined;
 };
 
 type BookingSelections = {
@@ -503,6 +524,7 @@ const CoachProfilePage = () => {
   const [packageCredits, setPackageCredits] = useState<PackagePurchase[]>([]);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
   const languages = profile?.languages ?? [];
   const levels = profile?.levels ?? [];
   const certifications = profile?.certifications ?? [];
@@ -679,6 +701,7 @@ const CoachProfilePage = () => {
       setPackageCredits([]);
       setCreditsError(null);
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -686,6 +709,7 @@ const CoachProfilePage = () => {
       setPackageCredits([]);
       setCreditsError("Sign in to view credits.");
       setCreditsLoading(false);
+      setCreditsBalance(null);
       return () => controller.abort();
     }
 
@@ -711,6 +735,32 @@ const CoachProfilePage = () => {
         if (!controller.signal.aborted) {
           setCreditsLoading(false);
         }
+      });
+
+    return () => controller.abort();
+  }, [authToken, profile?.id]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!profile?.id || !authToken) {
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    setCreditsBalance(null);
+
+    fetchPackageCreditsBalance({
+      token: authToken,
+      coachId: profile.id,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCreditsBalance(data ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCreditsBalance(null);
       });
 
     return () => controller.abort();
@@ -896,15 +946,32 @@ const CoachProfilePage = () => {
         };
       });
   }, [packageCredits]);
-  const hasLessonCredits = playerLessonCredits.length > 0;
   const creditsRemaining = playerLessonCredits.reduce(
     (sum, credit) => sum + Math.max(credit.remaining, 0),
     0,
   );
-  const hasCreditsRemaining = playerLessonCredits.some((credit) => credit.remaining > 0);
+  const balanceAvailable = isFiniteNumber(creditsBalance?.available) ? creditsBalance.available : undefined;
+  const balanceHeld = isFiniteNumber(creditsBalance?.held) ? creditsBalance.held : undefined;
+  const balanceTotal = isFiniteNumber(creditsBalance?.total) ? creditsBalance.total : undefined;
+  const availableCredits = balanceAvailable ?? creditsRemaining;
+  const hasCreditsRemaining = availableCredits > 0;
+  const hasLessonCredits =
+    playerLessonCredits.length > 0 || (isFiniteNumber(balanceTotal) ? balanceTotal > 0 : false);
   const lessonCreditSummary = playerLessonCredits
     .map((credit) => `${credit.lessonTypeLabel}: ${Math.max(credit.remaining, 0)} left`)
     .join(" • ");
+  const balanceDetailParts: string[] = [];
+  if (isFiniteNumber(balanceHeld)) {
+    balanceDetailParts.push(`${balanceHeld} held`);
+  }
+  if (isFiniteNumber(balanceTotal)) {
+    balanceDetailParts.push(`${balanceTotal} total`);
+  }
+  const balanceDetail = balanceDetailParts.join(" · ");
+  const exhaustedCreditsMessage =
+    isFiniteNumber(balanceHeld) && balanceHeld > 0
+      ? "Your credits are currently held for pending bookings."
+      : "All saved lesson credits have been used.";
 
   const eligibleCreditsForLessonType = useCallback(
     (lessonType: string | undefined) => {
@@ -1205,15 +1272,8 @@ const extractLocationId = (slot?: BookingSlot) => {
         setConsumingCredits(true);
         try {
           const bestPurchase = pendingEligibleCredits[0];
-          const consumeResult = await consumePackageCredits({
-            token: authToken,
-            coachId,
-            lessonType: slot.lessonType ?? "private",
-            lessonId: slot.id ?? undefined,
-            purchaseId: bestPurchase?.id,
-          });
           try {
-            await requestPrivateLesson({
+            const lessonResponse = await requestPrivateLesson({
               token: authToken,
               coachId,
               startDateTime: schedule.startDateTime,
@@ -1222,14 +1282,26 @@ const extractLocationId = (slot?: BookingSlot) => {
               endDateTimeTz: schedule.endDateTimeTz,
               locationId,
               court,
-              status: "PAID",
+              status: "PENDING",
             });
-            setBookingSuccess(
-              "Lesson booked with credits. You're all set!",
-            );
+            const lessonId = extractNumericLessonId(lessonResponse);
+            if (!lessonId) {
+              throw new Error("Unable to reserve credits without a numeric lesson ID.");
+            }
+            await consumePackageCredits({
+              token: authToken,
+              coachId,
+              lessonType: slot.lessonType ?? "private",
+              lessonId,
+              purchaseId: bestPurchase?.id,
+            });
+            setBookingSuccess("Lesson request sent. We’re holding your credit until the coach confirms.");
             closePaymentSheet();
           } catch (err) {
-            const message = err instanceof Error ? err.message : "We used your credits but could not finalize the booking.";
+            const message =
+              err instanceof Error
+                ? err.message
+                : "We created the lesson but could not reserve your credit.";
             setBookingError(message);
           }
           try {
@@ -1242,6 +1314,15 @@ const extractLocationId = (slot?: BookingSlot) => {
           } catch (err) {
             const message = err instanceof Error ? err.message : "Unable to refresh credits.";
             setCreditsError(message);
+          }
+          try {
+            const refreshedBalance = await fetchPackageCreditsBalance({
+              token: authToken,
+              coachId,
+            });
+            setCreditsBalance(refreshedBalance ?? null);
+          } catch {
+            setCreditsBalance(null);
           }
         } catch (err) {
           const code = (err as Error & { data?: { code?: string } })?.data?.code;
@@ -1649,10 +1730,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                           <p className="coach-booking__wallet-copy">
                             {hasLessonCredits
                               ? hasCreditsRemaining
-                                ? `You have ${creditsRemaining} credit${creditsRemaining === 1 ? "" : "s"} ready to apply when you book.`
-                                : "All saved lesson credits have been used."
+                                ? `You have ${availableCredits} credit${availableCredits === 1 ? "" : "s"} ready to apply when you book.`
+                                : exhaustedCreditsMessage
                               : `Purchase credits to skip checkout and save on ${coachFirstName}'s lessons.`}
                           </p>
+                          {balanceDetail ? (
+                            <span className="coach-booking__wallet-detail">{balanceDetail}</span>
+                          ) : null}
                           {lessonCreditSummary ? (
                             <span className="coach-booking__wallet-detail">{lessonCreditSummary}</span>
                           ) : null}
