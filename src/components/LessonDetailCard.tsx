@@ -17,6 +17,7 @@ const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; t
     if (normalized.includes("confirm")) return { label: statusLabel, tone: "success" };
     if (normalized.includes("pending") || normalized.includes("wait")) return { label: statusLabel, tone: "pending" };
     if (normalized.includes("cancel")) return { label: statusLabel, tone: "danger" };
+    if (normalized.includes("reserved")) return { label: statusLabel, tone: "neutral" };
     if (normalized.includes("book")) return { label: statusLabel, tone: "success" };
     return { label: statusLabel, tone: "neutral" };
   }

@@ -1,5 +1,6 @@
 import moment from "moment";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { loadStripe } from "@stripe/stripe-js";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -17,7 +18,11 @@ import {
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
-import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
+import {
+  createPlayerStripePaymentIntent,
+  getPlayerStripePaymentMethods,
+  type PlayerStripePaymentMethod,
+} from "../api/playerStripe";
 import {
   fetchCoachPackages,
   fetchPackageCreditsBalance,
@@ -32,6 +37,7 @@ import {
   type CoachScheduleEntry,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
+  joinLesson,
   requestPrivateLesson,
   type NewLessonResponse,
 } from "../api/playerLessons";
@@ -59,6 +65,13 @@ const dayNameMap: Record<string, string> = {
   Sat: "Saturday",
   Sun: "Sunday",
 };
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
+  "";
+
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
@@ -374,6 +387,80 @@ const buildTimeRangeLabel = (startLabel: string, durationLabel: string) => {
   return `${formatMinutesToTimeLabel(startMinutes)} - ${formatMinutesToTimeLabel(endMinutes)}`;
 };
 
+const shouldDedupeLesson = (lesson: ApiLesson) => {
+  const record = lesson as Record<string, unknown>;
+  const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+  if (typeId === 2 || typeId === 3) return true;
+  const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+  return typeLabel.includes("group") || typeLabel.includes("semi");
+};
+
+const buildLessonDedupeKey = (lesson: ApiLesson) => {
+  const record = lesson as Record<string, unknown>;
+  const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId) || 0;
+  const coachId = record.coach_id ?? record.coachId ?? "";
+  const locationId = record.location_id ?? record.locationId ?? "";
+  const court = record.court ?? "";
+  return [
+    lesson.start_date_time ?? "",
+    lesson.end_date_time ?? "",
+    typeId,
+    coachId,
+    locationId,
+    court,
+  ]
+    .map((value) => String(value))
+    .join("|");
+};
+
+const lessonBelongsToUser = (lesson: ApiLesson, userId?: string) => {
+  if (!userId) return false;
+  const record = lesson as Record<string, unknown>;
+  const playerId = record.player_id ?? record.playerId ?? record.playerID;
+  if (playerId != null && String(playerId) === userId) return true;
+  const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+  return groupPlayers.some((player) => {
+    const playerData = player as Record<string, unknown>;
+    const groupPlayerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
+    return groupPlayerId != null && String(groupPlayerId) === userId;
+  });
+};
+
+const mergeLessonRecords = (primary: ApiLesson, secondary: ApiLesson) => {
+  const primaryRecord = primary as Record<string, unknown>;
+  const secondaryRecord = secondary as Record<string, unknown>;
+  const primaryPlayers = Array.isArray(primaryRecord.group_players) ? primaryRecord.group_players : [];
+  const secondaryPlayers = Array.isArray(secondaryRecord.group_players) ? secondaryRecord.group_players : [];
+  if (primaryPlayers.length || !secondaryPlayers.length) {
+    return primary;
+  }
+  return { ...primary, group_players: secondaryPlayers };
+};
+
+const dedupeLessonsForDate = (lessons: ApiLesson[], userId?: string) => {
+  const map = new Map<string, ApiLesson>();
+  lessons.forEach((lesson) => {
+    if (!shouldDedupeLesson(lesson)) {
+      map.set(`lesson-${lesson.id}`, lesson);
+      return;
+    }
+    const key = buildLessonDedupeKey(lesson);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, lesson);
+      return;
+    }
+    const existingOwned = lessonBelongsToUser(existing, userId);
+    const incomingOwned = lessonBelongsToUser(lesson, userId);
+    if (!existingOwned && incomingOwned) {
+      map.set(key, mergeLessonRecords(lesson, existing));
+      return;
+    }
+    map.set(key, mergeLessonRecords(existing, lesson));
+  });
+  return Array.from(map.values());
+};
+
 const extractPlayerCapacity = (lessonDurationLabel?: string) => {
   if (!lessonDurationLabel) {
     return undefined;
@@ -473,6 +560,15 @@ const CoachProfilePage = () => {
   const navigate = useNavigate();
   const { loading, profile, error: profileError } = useCoachProfile(id);
   const { user } = useAuth();
+  const currentUserId = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const candidate =
+      record?.id ??
+      record?.user_id ??
+      record?.player_id ??
+      (record?.session as Record<string, unknown> | undefined)?.user_id;
+    return candidate != null ? String(candidate) : undefined;
+  }, [user]);
   const authToken = useMemo(
     () =>
       user?.session?.access_token ??
@@ -506,6 +602,7 @@ const CoachProfilePage = () => {
   const [paymentChoice, setPaymentChoice] = useState<"credits" | "card">("card");
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [pendingLessonPayment, setPendingLessonPayment] = useState<ApiLesson | null>(null);
   const [pendingBooking, setPendingBooking] = useState<{
     date: BookingDate;
     slot: BookingSlot;
@@ -601,12 +698,28 @@ const CoachProfilePage = () => {
             lessonsForDate = [];
           }
 
+          lessonsForDate = dedupeLessonsForDate(lessonsForDate, currentUserId);
           lessonsMap[isoDate] = lessonsForDate;
 
           const lessonTimes = new Set(
-            lessonsForDate
-              .map((lesson) => moment.utc(lesson.start_date_time).format("HH:mm"))
-              .filter(Boolean),
+            (() => {
+              const grouped = new Map<string, ApiLesson[]>();
+              lessonsForDate.forEach((lesson) => {
+                const timeKey = moment.utc(lesson.start_date_time).format("HH:mm");
+                if (!timeKey) return;
+                const existing = grouped.get(timeKey) ?? [];
+                existing.push(lesson);
+                grouped.set(timeKey, existing);
+              });
+              const blocked = new Set<string>();
+              grouped.forEach((groupLessons, timeKey) => {
+                const isBlocked = groupLessons.length > 0 && groupLessons.every((lesson) => shouldBlockSlot(lesson));
+                if (isBlocked) {
+                  blocked.add(timeKey);
+                }
+              });
+              return blocked;
+            })(),
           );
 
           const slots = scheduleEntries
@@ -648,7 +761,7 @@ const CoachProfilePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [authToken, bookingLessonTypes, profile?.id]);
+  }, [authToken, bookingLessonTypes, currentUserId, profile?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -866,12 +979,93 @@ const CoachProfilePage = () => {
     }));
   };
 
+  const resolveLessonParticipantStatus = (lesson?: ApiLesson) => {
+    if (!lesson) return undefined;
+    const record = lesson as Record<string, unknown>;
+    const rawStatus = record.status;
+    let status = typeof rawStatus === "number" ? rawStatus : Number(rawStatus);
+    if (!Number.isFinite(status)) {
+      status = undefined;
+    }
+
+    const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+    if (groupPlayers.length && currentUserId) {
+      const playerRecord = groupPlayers.find((player) => {
+        const playerData = player as Record<string, unknown>;
+        const playerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
+        return playerId != null && String(playerId) === currentUserId;
+      }) as Record<string, unknown> | undefined;
+
+      if (playerRecord) {
+        const resolved = playerRecord.payment_status ?? playerRecord.status;
+        const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+        if (Number.isFinite(parsed)) {
+          status = parsed;
+        }
+      }
+    }
+
+    return status;
+  };
+
+  const isOpenGroupLesson = (lesson?: ApiLesson) => {
+    if (!lesson) return false;
+    const record = lesson as Record<string, unknown>;
+    const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+    if (typeId === 3) return true;
+    const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+    return typeLabel.includes("open group");
+  };
+
+  const isOpenGroupAvailable = (lesson?: ApiLesson) => {
+    if (!lesson || !isOpenGroupLesson(lesson)) return false;
+    const record = lesson as Record<string, unknown>;
+    const playerId = record.player_id ?? record.playerId ?? record.playerID;
+    return playerId == null;
+  };
+
+  const isLessonOwnedByUser = (lesson?: ApiLesson) => {
+    if (!lesson || !currentUserId) return false;
+    const record = lesson as Record<string, unknown>;
+    const playerId = record.player_id ?? record.playerId ?? record.playerID;
+    if (playerId != null && String(playerId) === currentUserId) return true;
+    const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+    return groupPlayers.some((player) => {
+      const playerData = player as Record<string, unknown>;
+      const groupPlayerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
+      return groupPlayerId != null && String(groupPlayerId) === currentUserId;
+    });
+  };
+
+  const resolveLessonTypeId = (lesson?: ApiLesson) => {
+    if (!lesson) return "private";
+    const record = lesson as Record<string, unknown>;
+    const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+    const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+    if (typeId === 3 || typeLabel.includes("group")) return "group";
+    if (typeId === 2 || typeLabel.includes("semi")) return "group";
+    return "private";
+  };
+
+  const shouldBlockSlot = (lesson?: ApiLesson) => {
+    if (!lesson) return false;
+    if (isLessonOwnedByUser(lesson)) return false;
+    if (isOpenGroupAvailable(lesson)) return false;
+    return true;
+  };
+
   const lessonStatusLabel = (lesson?: ApiLesson) => {
     if (!lesson) return undefined;
-    const status = (lesson as Record<string, unknown>).status;
+    if (isOpenGroupAvailable(lesson) && !isLessonOwnedByUser(lesson)) {
+      return undefined;
+    }
+    const status = resolveLessonParticipantStatus(lesson);
+    if (status === 2) return "Cancelled";
+    if (!isLessonOwnedByUser(lesson)) {
+      return "Reserved";
+    }
     if (status === 0) return "Pending";
     if (status === 1) return "Confirmed";
-    if (status === 2) return "Cancelled";
     return undefined;
   };
 
@@ -897,19 +1091,23 @@ const CoachProfilePage = () => {
       return slotStart.clone().add(parseDurationToMinutes(slot.duration ?? "60 min") ?? 60, "minutes");
     })();
 
-    return (
-      lessons.find((lesson) => {
-        // Parse UTC string but treat as local by stripping trailing Z
-        const lessonStart = moment.utc(lesson.start_date_time);
-        const lessonEnd = moment.utc(lesson.end_date_time);
-        if (!lessonStart.isValid() || !lessonEnd.isValid()) return false;
-        return (
-          lessonStart.isSame(slotStart, "minute") ||
-          lessonStart.isBetween(slotStart, slotEnd, undefined, "[)") ||
-          slotStart.isBetween(lessonStart, lessonEnd, undefined, "[)")
-        );
-      }) ?? null
-    );
+    const matchingLessons = lessons.filter((lesson) => {
+      const lessonStart = moment.utc(lesson.start_date_time);
+      const lessonEnd = moment.utc(lesson.end_date_time);
+      if (!lessonStart.isValid() || !lessonEnd.isValid()) return false;
+      return (
+        lessonStart.isSame(slotStart, "minute") ||
+        lessonStart.isBetween(slotStart, slotEnd, undefined, "[)") ||
+        slotStart.isBetween(lessonStart, lessonEnd, undefined, "[)")
+      );
+    });
+
+    if (!matchingLessons.length) {
+      return null;
+    }
+
+    const ownedLesson = matchingLessons.find((lesson) => isLessonOwnedByUser(lesson));
+    return ownedLesson ?? matchingLessons[0] ?? null;
   };
 
   const lessonFilters = [
@@ -991,9 +1189,12 @@ const CoachProfilePage = () => {
   );
 
   const pendingLessonType = pendingBooking?.slot.lessonType ?? selection.lessonType ?? "private";
+  const resolvedPendingLessonType = pendingLessonPayment
+    ? resolveLessonTypeId(pendingLessonPayment)
+    : pendingLessonType;
   const pendingEligibleCredits = useMemo(
-    () => eligibleCreditsForLessonType(pendingLessonType),
-    [eligibleCreditsForLessonType, pendingLessonType],
+    () => (pendingLessonPayment ? [] : eligibleCreditsForLessonType(resolvedPendingLessonType)),
+    [eligibleCreditsForLessonType, pendingLessonPayment, resolvedPendingLessonType],
   );
 
   const pendingCreditSummary = useMemo(() => {
@@ -1228,6 +1429,7 @@ const extractLocationId = (slot?: BookingSlot) => {
     }
 
     setPendingBooking({ date, slot, schedule, locationId, court });
+    setPendingLessonPayment(null);
     setBookingError(null);
     setBookingSuccess(null);
     setConsumeError(null);
@@ -1236,17 +1438,147 @@ const extractLocationId = (slot?: BookingSlot) => {
     await loadPaymentMethods();
   };
 
+  const handleConfirmPendingLesson = async (lesson: ApiLesson) => {
+    if (!authToken) {
+      setBookingError("Please sign in again to confirm this lesson.");
+      return;
+    }
+    setPendingLessonPayment(lesson);
+    setPendingBooking(null);
+    setBookingError(null);
+    setBookingSuccess(null);
+    setConsumeError(null);
+    setPaymentChoice("card");
+    setPaymentSheetOpen(true);
+    await loadPaymentMethods();
+  };
+
   const closePaymentSheet = () => {
     setPaymentSheetOpen(false);
     setPendingBooking(null);
+    setPendingLessonPayment(null);
     setPaymentMethodsError(null);
     setPaymentChoice("card");
     setConsumeError(null);
     setConsumingCredits(false);
   };
 
+  const applyLessonConfirmedStatus = (lesson: ApiLesson) => {
+    const lessonDateKey = moment.utc(lesson.start_date_time).format("YYYY-MM-DD");
+    setLessonsByDate((prev) => {
+      const list = prev[lessonDateKey] ?? [];
+      const updated = list.map((entry) => {
+        if (entry.id !== lesson.id) return entry;
+        const record = entry as Record<string, unknown>;
+        const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+        if (!groupPlayers.length || !currentUserId) {
+          return { ...entry, status: 1 };
+        }
+        const updatedPlayers = groupPlayers.map((player) => {
+          const playerData = player as Record<string, unknown>;
+          const playerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
+          if (playerId == null || String(playerId) !== currentUserId) {
+            return player;
+          }
+          if (playerData.payment_status != null) {
+            return { ...playerData, payment_status: 1 };
+          }
+          return { ...playerData, status: 1 };
+        });
+        return { ...entry, status: 1, group_players: updatedPlayers };
+      });
+      return {
+        ...prev,
+        [lessonDateKey]: updated,
+      };
+    });
+  };
+
   const confirmBookLesson = async () => {
-    if (!pendingBooking || !profile || !authToken) {
+    if (!pendingBooking && !pendingLessonPayment) {
+      setBookingError("Please select a lesson to continue.");
+      return;
+    }
+    if (!authToken) {
+      setBookingError("Please select a lesson and sign in to continue.");
+      return;
+    }
+
+    if (pendingLessonPayment) {
+      if (!selectedPaymentMethodId) {
+        setPaymentMethodsError("Choose a payment method to confirm this lesson.");
+        return;
+      }
+      setBookingError(null);
+      setBookingSuccess(null);
+      setBookingInFlight(`lesson-${pendingLessonPayment.id}`);
+
+      try {
+        if (isOpenGroupLesson(pendingLessonPayment)) {
+          const record = pendingLessonPayment as Record<string, unknown>;
+          const coachId = Number(record.coach_id ?? profile?.id);
+          const locationId = Number(record.location_id ?? record.locationId);
+          if (!Number.isFinite(coachId) || !Number.isFinite(locationId)) {
+            throw new Error("Missing coach or location details for this lesson.");
+          }
+          await joinLesson({
+            token: authToken,
+            lessonId: pendingLessonPayment.id,
+            coachId,
+            startDateTime: pendingLessonPayment.start_date_time,
+            endDateTime: pendingLessonPayment.end_date_time,
+            startDateTimeTz: pendingLessonPayment.start_date_time,
+            endDateTimeTz: pendingLessonPayment.end_date_time,
+            locationId,
+            court: record.court ?? 0,
+            status: "CONFIRMED",
+            paymentMethodId: selectedPaymentMethodId,
+          });
+        } else {
+          if (!stripePromise) {
+            throw new Error("Stripe is not configured for this environment.");
+          }
+          const intentResponse = await createPlayerStripePaymentIntent({
+            token: authToken,
+            lessonId: pendingLessonPayment.id,
+          });
+          const intentRecord = intentResponse as Record<string, unknown>;
+          const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
+          const clientSecret =
+            (intentRecord?.client_secret as string | undefined) ??
+            (nestedIntent?.client_secret as string | undefined);
+          if (!clientSecret) {
+            throw new Error("Unable to start payment. Please try again.");
+          }
+          const stripe = await stripePromise;
+          if (!stripe) {
+            throw new Error("Stripe is not available to confirm this payment.");
+          }
+          const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: selectedPaymentMethodId,
+          });
+          if (error) {
+            throw new Error(error.message || "Card payment failed.");
+          }
+          const status = paymentIntent?.status?.toLowerCase();
+          if (status && status !== "succeeded") {
+            throw new Error("Payment was not successful.");
+          }
+        }
+
+        setBookingSuccess("Payment confirmed. See you on court!");
+        applyLessonConfirmedStatus(pendingLessonPayment);
+        closePaymentSheet();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to confirm payment for this lesson.";
+        setBookingError(message);
+      } finally {
+        setBookingInFlight(null);
+      }
+      return;
+    }
+
+    if (!pendingBooking || !profile) {
       setBookingError("Please select a lesson and sign in to continue.");
       return;
     }
@@ -1842,6 +2174,12 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       const lessonDetails = lessonTypeDetailMap[slot.lessonType];
                                       const slotLesson = findLessonForSlot(dateKey, slot);
                                       const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
+                                      const slotLessonPending =
+                                        slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
+                                      const canConfirmPending =
+                                        Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
+                                      const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
+                                      const isReserved = slotLessonStatus === "Reserved";
                                       const timeRange = buildTimeRangeLabel(
                                         slot.time,
                                         lessonDetails?.duration ?? slot.duration,
@@ -1857,12 +2195,24 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
                                         : undefined;
                                       const lessonLabel =
-                                        lessonDetails?.label ??
-                                        (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
+                                        (slotLesson?.lesson_type_name ??
+                                          lessonDetails?.label ??
+                                          (slot.lessonType === "private" ? "Private lesson" : "Group lesson"));
                                       const groupTitle = isGroupLesson ? slot.title : undefined;
-                                      const isBooking = bookingInFlight === slot.id;
-                                      const isDisabled = Boolean(slotLesson);
-                                      const buttonLabel = slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
+                                      const isBooking =
+                                        bookingInFlight === slot.id ||
+                                        (slotLesson ? bookingInFlight === `lesson-${slotLesson.id}` : false);
+                                      const canTakeAction = canConfirmPending || canJoinOpenGroup;
+                                      const isDisabled = Boolean(slotLesson) && !canTakeAction;
+                                      const buttonLabel = canConfirmPending
+                                        ? isBooking
+                                          ? "Confirming…"
+                                          : "Confirm & pay"
+                                        : canJoinOpenGroup
+                                          ? isBooking
+                                            ? "Joining…"
+                                            : "Join & pay"
+                                          : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                       return (
                                         <div
@@ -1871,15 +2221,27 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           tabIndex={0}
                                           aria-pressed={active}
                                           onClick={() => {
-                                            if (isDisabled) return;
+                                            if (slotLesson) {
+                                              if (canConfirmPending || canJoinOpenGroup) {
+                                                void handleConfirmPendingLesson(slotLesson);
+                                              }
+                                              return;
+                                            }
                                             handleDateChange(date.id);
                                             handleTimeChange(slot.id);
                                             void handleBookLesson(date, slot);
                                           }}
                                           onKeyDown={(event) => {
-                                            if (isDisabled) return;
+                                            if (isDisabled && !canTakeAction) return;
                                             if (event.key === "Enter" || event.key === " ") {
                                               event.preventDefault();
+                                              if (slotLesson) {
+                                                if (canConfirmPending || canJoinOpenGroup) {
+                                                  void handleConfirmPendingLesson(slotLesson);
+                                                  return;
+                                                }
+                                                return;
+                                              }
                                               handleDateChange(date.id);
                                               handleTimeChange(slot.id);
                                               void handleBookLesson(date, slot);
@@ -1895,6 +2257,11 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           </div>
                                           <div className="coach-booking-slot__details">
                                             <span className="coach-booking-slot__badge">{lessonLabel}</span>
+                                            {isReserved ? (
+                                              <span className="coach-booking-slot__badge coach-booking-slot__badge--reserved">
+                                                Reserved
+                                              </span>
+                                            ) : null}
                                             {groupTitle ? (
                                               <>
                                                 <span className="coach-booking-slot__group-title">{groupTitle}</span>
@@ -1918,18 +2285,28 @@ const extractLocationId = (slot?: BookingSlot) => {
                                             </div>
                                           ) : null}
                                           <div className="coach-booking-slot__actions">
-                                            <button
-                                              type="button"
-                                              className="coach-booking-slot__book"
-                                              disabled={isBooking || isDisabled}
-                                              onClick={(event) => {
-                                                event.stopPropagation();
-                                                if (isDisabled) return;
-                                                void handleBookLesson(date, slot);
-                                              }}
-                                            >
-                                              {buttonLabel}
-                                            </button>
+                                            {isReserved ? (
+                                              <span className="coach-booking-slot__status">Reserved</span>
+                                            ) : null}
+                                            {!isReserved ? (
+                                              <button
+                                                type="button"
+                                                className="coach-booking-slot__book"
+                                                disabled={isBooking || isDisabled}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  if (slotLesson) {
+                                                    if (canConfirmPending || canJoinOpenGroup) {
+                                                      void handleConfirmPendingLesson(slotLesson);
+                                                    }
+                                                    return;
+                                                  }
+                                                  void handleBookLesson(date, slot);
+                                                }}
+                                              >
+                                                {buttonLabel}
+                                              </button>
+                                            ) : null}
                                           </div>
                                         </div>
                                       );
@@ -1950,13 +2327,32 @@ const extractLocationId = (slot?: BookingSlot) => {
                                   <div className="coach-booking-day__lessons">
                                     <h4 className="coach-booking-day__lessons-title">Booked lessons</h4>
                                     <div className="coach-booking-day__lessons-list">
-                                      {bookedLessons.map((lesson) => (
-                                        <LessonDetailCard
-                                          key={lesson.id}
-                                          lesson={lesson}
-                                          statusLabel={lessonStatusLabel(lesson)}
-                                        />
-                                      ))}
+                                      {bookedLessons.map((lesson) => {
+                                        const isPending = resolveLessonParticipantStatus(lesson) === 0;
+                                        const canConfirm = isPending && isLessonOwnedByUser(lesson);
+                                        return (
+                                          <div key={lesson.id}>
+                                            <LessonDetailCard
+                                              lesson={lesson}
+                                              statusLabel={lessonStatusLabel(lesson)}
+                                            />
+                                            {canConfirm && (
+                                              <div className="coach-booking-slot__actions">
+                                                <button
+                                                  type="button"
+                                                  className="coach-booking-slot__book"
+                                                  disabled={bookingInFlight === `lesson-${lesson.id}`}
+                                                  onClick={() => void handleConfirmPendingLesson(lesson)}
+                                                >
+                                                  {bookingInFlight === `lesson-${lesson.id}`
+                                                    ? "Confirming…"
+                                                    : "Confirm & pay"}
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 )}
@@ -1987,6 +2383,12 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 const dateKey = resolveIsoDate(selectedDate) ?? String(selectedDate.id);
                                 const slotLesson = findLessonForSlot(dateKey, slot);
                                 const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
+                                const slotLessonPending =
+                                  slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
+                                const canConfirmPending =
+                                  Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
+                                const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
+                                const isReserved = slotLessonStatus === "Reserved";
                                 const timeRange = buildTimeRangeLabel(
                                   slot.time,
                                   lessonDetails?.duration ?? slot.duration,
@@ -2000,12 +2402,24 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
                                   : undefined;
                                 const lessonLabel =
-                                  lessonDetails?.label ??
-                                  (slot.lessonType === "private" ? "Private lesson" : "Group lesson");
+                                  (slotLesson?.lesson_type_name ??
+                                    lessonDetails?.label ??
+                                    (slot.lessonType === "private" ? "Private lesson" : "Group lesson"));
                                 const groupTitle = isGroupLesson ? slot.title : undefined;
-                                const isBooking = bookingInFlight === slot.id;
-                                const isDisabled = Boolean(slotLesson);
-                                const buttonLabel = slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
+                                const isBooking =
+                                  bookingInFlight === slot.id ||
+                                  (slotLesson ? bookingInFlight === `lesson-${slotLesson.id}` : false);
+                                const canTakeAction = canConfirmPending || canJoinOpenGroup;
+                                const isDisabled = Boolean(slotLesson) && !canTakeAction;
+                                const buttonLabel = canConfirmPending
+                                  ? isBooking
+                                    ? "Confirming…"
+                                    : "Confirm & pay"
+                                  : canJoinOpenGroup
+                                    ? isBooking
+                                      ? "Joining…"
+                                      : "Join & pay"
+                                    : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                 return (
                                   <div
@@ -2014,15 +2428,27 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     tabIndex={0}
                                     aria-pressed={active}
                                     onClick={() => {
-                                      if (isDisabled) return;
+                                      if (slotLesson) {
+                                        if (canConfirmPending || canJoinOpenGroup) {
+                                          void handleConfirmPendingLesson(slotLesson);
+                                        }
+                                        return;
+                                      }
                                       handleDateChange(selectedDate.id);
                                       handleTimeChange(slot.id);
                                       void handleBookLesson(selectedDate, slot);
                                     }}
                                     onKeyDown={(event) => {
-                                      if (isDisabled) return;
+                                      if (isDisabled && !canTakeAction) return;
                                       if (event.key === "Enter" || event.key === " ") {
                                         event.preventDefault();
+                                        if (slotLesson) {
+                                          if (canConfirmPending || canJoinOpenGroup) {
+                                            void handleConfirmPendingLesson(slotLesson);
+                                            return;
+                                          }
+                                          return;
+                                        }
                                         handleDateChange(selectedDate.id);
                                         handleTimeChange(slot.id);
                                         void handleBookLesson(selectedDate, slot);
@@ -2038,6 +2464,11 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     </div>
                                     <div className="coach-booking-slot__details">
                                       <span className="coach-booking-slot__badge">{lessonLabel}</span>
+                                      {isReserved ? (
+                                        <span className="coach-booking-slot__badge coach-booking-slot__badge--reserved">
+                                          Reserved
+                                        </span>
+                                      ) : null}
                                       {groupTitle ? (
                                         <>
                                           <span className="coach-booking-slot__group-title">{groupTitle}</span>
@@ -2061,18 +2492,28 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       </div>
                                     ) : null}
                                     <div className="coach-booking-slot__actions">
-                                      <button
-                                        type="button"
-                                        className="coach-booking-slot__book"
-                                        disabled={isBooking || isDisabled}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          if (isDisabled) return;
-                                          void handleBookLesson(selectedDate, slot);
-                                        }}
-                                      >
-                                        {buttonLabel}
-                                      </button>
+                                      {isReserved ? (
+                                        <span className="coach-booking-slot__status">Reserved</span>
+                                      ) : null}
+                                      {!isReserved ? (
+                                        <button
+                                          type="button"
+                                          className="coach-booking-slot__book"
+                                          disabled={isBooking || isDisabled}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            if (slotLesson) {
+                                              if (canConfirmPending || canJoinOpenGroup) {
+                                                void handleConfirmPendingLesson(slotLesson);
+                                              }
+                                              return;
+                                            }
+                                            void handleBookLesson(selectedDate, slot);
+                                          }}
+                                        >
+                                          {buttonLabel}
+                                        </button>
+                                      ) : null}
                                     </div>
                                   </div>
                                 );
@@ -2093,12 +2534,28 @@ const extractLocationId = (slot?: BookingSlot) => {
                               <div className="coach-booking-day__lessons">
                                 <h4 className="coach-booking-day__lessons-title">Booked lessons</h4>
                                 <div className="coach-booking-day__lessons-list">
-                                  {bookedLessons.map((lesson) => (
-                                    <LessonDetailCard
-                                      key={lesson.id}
-                                      lesson={lesson}
-                                      statusLabel={lessonStatusLabel(lesson)}
-                                    />
+                              {bookedLessons.map((lesson) => (
+                                    <div key={lesson.id}>
+                                      <LessonDetailCard
+                                        lesson={lesson}
+                                        statusLabel={lessonStatusLabel(lesson)}
+                                      />
+                                      {resolveLessonParticipantStatus(lesson) === 0 &&
+                                        isLessonOwnedByUser(lesson) && (
+                                          <div className="coach-booking-slot__actions">
+                                            <button
+                                              type="button"
+                                              className="coach-booking-slot__book"
+                                              disabled={bookingInFlight === `lesson-${lesson.id}`}
+                                              onClick={() => void handleConfirmPendingLesson(lesson)}
+                                            >
+                                              {bookingInFlight === `lesson-${lesson.id}`
+                                                ? "Confirming…"
+                                                : "Confirm & pay"}
+                                            </button>
+                                          </div>
+                                        )}
+                                    </div>
                                   ))}
                                 </div>
                               </div>

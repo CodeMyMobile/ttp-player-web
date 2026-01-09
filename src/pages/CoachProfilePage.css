@@ -1801,6 +1801,11 @@
   background: currentColor;
 }
 
+.coach-booking-slot__badge--reserved {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
 .coach-booking-slot__spots {
   color: var(--coach-slot-spot-color, var(--profile-purple));
   font-weight: 600;
@@ -1832,6 +1837,8 @@
 .coach-booking-slot__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
 }
 
 .coach-booking-slot__book {
@@ -1856,6 +1863,14 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+.coach-booking-slot__status {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
 }
 
 .coach-payment-modal {
