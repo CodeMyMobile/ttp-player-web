@@ -73,6 +73,15 @@ const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
   return normalized || "package";
 };
 
+const formatLessonTypeList = (lessonTypes?: string[]) => {
+  if (!lessonTypes || lessonTypes.length === 0) return "All lesson types";
+  if (lessonTypes.length === 1) return normalizeLessonTypeLabel(lessonTypes);
+  return lessonTypes
+    .map((type) => normalizeLessonTypeLabel([type]))
+    .map((type) => type.charAt(0).toUpperCase() + type.slice(1))
+    .join(" · ");
+};
+
 const buildPerLessonLabel = (total: number | string, count?: number | null) => {
   if (!count || count <= 0) return undefined;
   const formattedTotal = formatCurrency(total);
@@ -318,9 +327,7 @@ const PurchaseLessonPackageExperience = ({
   const creditEntries = useMemo(() => {
     const now = new Date();
     return credits.map((purchase) => {
-      const lessonTypeLabel = normalizeLessonTypeLabel(purchase.lesson_types_allowed);
-      const displayLessonType =
-        lessonTypeLabel.charAt(0).toUpperCase() + lessonTypeLabel.slice(1);
+      const displayLessonType = formatLessonTypeList(purchase.lesson_types_allowed);
       const remaining = purchase.credits_remaining ?? 0;
       const total =
         purchase.credits_total ?? remaining + (purchase.credits_used ?? 0);
@@ -331,7 +338,7 @@ const PurchaseLessonPackageExperience = ({
           : false;
       const purchasedLabel = formatDateLabel(purchase.purchased_at);
       return {
-        id: String(purchase.id ?? `${lessonTypeLabel}-${purchase.coach_package_id ?? "pkg"}`),
+        id: String(purchase.id ?? `${displayLessonType}-${purchase.coach_package_id ?? "pkg"}`),
         lessonTypeLabel: displayLessonType,
         remaining,
         total,
@@ -474,7 +481,7 @@ const PurchaseLessonPackageExperience = ({
                           ? lessonPackage.total_price
                           : `${lessonPackage.total_price}`);
                       const validityLabel = buildValidityLabel(lessonPackage.validity_months);
-                      const lessonTypeLabel = normalizeLessonTypeLabel(lessonPackage.lesson_types_allowed);
+                      const lessonTypeLabel = formatLessonTypeList(lessonPackage.lesson_types_allowed);
                       const packageTitle =
                         lessonPackage.name || `${lessonPackage.lesson_count} ${lessonTypeLabel} package`;
 
@@ -592,7 +599,7 @@ const PurchaseLessonPackageExperience = ({
                   </div>
                   <p className="purchase-package-experience__order-copy">
                     Includes {selectedPackage.lesson_count} credits with {coachFirstName}. Credits apply to{" "}
-                    {normalizeLessonTypeLabel(selectedPackage.lesson_types_allowed)} lessons.
+                    {formatLessonTypeList(selectedPackage.lesson_types_allowed)} lessons.
                   </p>
                   <div className="purchase-package-experience__summary-highlight">
                     <Package aria-hidden />

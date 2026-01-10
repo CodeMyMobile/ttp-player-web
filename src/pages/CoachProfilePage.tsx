@@ -253,6 +253,15 @@ const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
   return normalized || "package";
 };
 
+const formatLessonTypeList = (lessonTypes?: string[]) => {
+  if (!lessonTypes || lessonTypes.length === 0) return "All lesson types";
+  if (lessonTypes.length === 1) return normalizeLessonTypeLabel(lessonTypes);
+  return lessonTypes
+    .map((type) => normalizeLessonTypeLabel([type]))
+    .map((type) => type.charAt(0).toUpperCase() + type.slice(1))
+    .join(" · ");
+};
+
 const buildPerLessonLabel = (total: number | string, count?: number | null) => {
   if (!count || count <= 0) return undefined;
   const formattedTotal = formatCurrency(total);
@@ -2007,13 +2016,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     ? `${lessonPackage.validity_months} month${lessonPackage.validity_months === 1 ? "" : "s"} validity`
                                     : "Flexible expiry";
                                   const lessonTypeLabel = normalizeLessonTypeLabel(lessonPackage.lesson_types_allowed);
+                                  const lessonTypesLabel = formatLessonTypeList(lessonPackage.lesson_types_allowed);
                                   const packageTitle =
                                     lessonPackage.name || `${lessonPackage.lesson_count} ${lessonTypeLabel} package`;
 
                                   return (
                                     <li key={lessonPackage.id} className="coach-profile-package">
                                       <div className="coach-profile-package__top">
-                                        <span className="coach-profile-package__discount">{lessonTypeLabel}</span>
+                                        <span className="coach-profile-package__discount">{lessonTypesLabel}</span>
                                         {validityLabel ? (
                                           <span className="coach-profile-package__per">{validityLabel}</span>
                                         ) : null}
