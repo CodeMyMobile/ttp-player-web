@@ -1189,9 +1189,18 @@ const CoachProfilePage = () => {
   );
 
   const pendingLessonType = pendingBooking?.slot.lessonType ?? selection.lessonType ?? "private";
-  const resolvedPendingLessonType = pendingLessonPayment
-    ? resolveLessonTypeId(pendingLessonPayment)
-    : pendingLessonType;
+  const resolvedPendingLessonType = (() => {
+    if (pendingLessonPayment) {
+      return resolveLessonTypeId(pendingLessonPayment);
+    }
+    if (pendingBooking?.slot?.lessonType && pendingBooking.slot.lessonType !== "all") {
+      return pendingBooking.slot.lessonType;
+    }
+    if (selection.lessonType === "all") {
+      return "private";
+    }
+    return pendingLessonType;
+  })();
   const pendingEligibleCredits = useMemo(
     () => (pendingLessonPayment ? [] : eligibleCreditsForLessonType(resolvedPendingLessonType)),
     [eligibleCreditsForLessonType, pendingLessonPayment, resolvedPendingLessonType],
