@@ -7,12 +7,15 @@ import {
   Award,
   CalendarDays,
   CheckCircle2,
+  Circle,
   MapPin,
   MessageCircle,
   Package,
+  Plus,
   Sparkles,
   Users,
   Wallet,
+  XCircle,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -1221,19 +1224,64 @@ const CoachProfilePage = () => {
 
   const lessonStatusLabel = (lesson?: ApiLesson) => {
     if (!lesson) return undefined;
-    const openGroupStatus = resolveOpenGroupStatus(lesson);
-    if (openGroupStatus) return openGroupStatus;
+    const isGroupLesson = resolveLessonTypeId(lesson) !== "private";
+    if (isGroupLesson) {
+      const groupStatus = resolveGroupPlayerStatus(lesson);
+      if (groupStatus === 2) return "Cancelled";
+      if (groupStatus === 1) return "Confirmed";
+      if (groupStatus === 0) return "Pending";
+      if (isOpenGroupLesson(lesson)) return "Pending";
+      return "Reserved";
+    }
     const status = resolveLessonParticipantStatus(lesson);
     if (status === 2) return "Cancelled";
+    if (status === 1) return "Confirmed";
     if (!isLessonOwnedByUser(lesson)) {
       return "Reserved";
     }
     if (status === 0) return "Pending";
-    if (status === 1) return "Confirmed";
     return undefined;
   };
 
-  const findLessonForSlot = (dateKey: string, slot: BookingSlot) => {
+  const resolveAvailabilityPill = (lesson?: ApiLesson) => {
+    if (!lesson) return null;
+    const record = lesson as Record<string, unknown>;
+    const isExternal = Boolean((record.metadata as Record<string, unknown> | undefined)?.externalUrl);
+    if (isExternal) {
+      return { label: "External", tone: "external" as const };
+    }
+    if (isOpenGroupLesson(lesson)) {
+      const limitRaw = record.player_limit ?? record.playerLimit;
+      const limit = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
+      if (!Number.isFinite(limit) || limit <= 0) return null;
+      const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+      const confirmed = groupPlayers.filter((player) => {
+        const playerRecord = player as Record<string, unknown>;
+        return playerRecord.status === 1 || playerRecord.payment_status === 1;
+      }).length;
+      const available = Math.max(limit - confirmed, 0);
+      return {
+        label: `Avail. spots: ${available}/${limit}`,
+        tone: available > 0 ? ("available" as const) : ("full" as const),
+      };
+    }
+    const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+    if (typeId === 2) return { label: "Semi-Private Lesson", tone: "neutral" as const };
+    if (typeId === 1) return { label: "Private Lesson", tone: "neutral" as const };
+    if (typeId === 3) return { label: "Group Lesson", tone: "neutral" as const };
+    return null;
+  };
+
+  const resolveEffectiveStatusIcon = (lesson?: ApiLesson, statusOverride?: number) => {
+    if (!lesson) return { tone: "available" as const, label: "Available", Icon: Plus };
+    const status = statusOverride ?? resolveLessonParticipantStatus(lesson);
+    if (status === 2) return { tone: "cancelled" as const, label: "Cancelled", Icon: XCircle };
+    if (status === 1) return { tone: "confirmed" as const, label: "Confirmed", Icon: CheckCircle2 };
+    if (status === 0) return { tone: "pending" as const, label: "Pending", Icon: Circle };
+    return { tone: "available" as const, label: "Available", Icon: Plus };
+  };
+
+  const getLessonsForSlot = (dateKey: string, slot: BookingSlot) => {
     const lessons = lessonsByDate[dateKey] ?? [];
     const slotStart = (() => {
       if (slot.start_date_time) return moment.utc(slot.start_date_time);
@@ -1244,7 +1292,7 @@ const CoachProfilePage = () => {
       }
       return moment(`${dateKey} ${slot.time}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm"]);
     })();
-    if (!slotStart.isValid()) return null;
+    if (!slotStart.isValid()) return [];
     const slotEnd = (() => {
       if (slot.end_date_time) return moment.utc(slot.end_date_time);
       if (slot.endDateTime) return moment.utc(slot.endDateTime);
@@ -1265,13 +1313,63 @@ const CoachProfilePage = () => {
         slotStart.isBetween(lessonStart, lessonEnd, undefined, "[)")
       );
     });
+    return matchingLessons;
+  };
 
-    if (!matchingLessons.length) {
-      return null;
+  const resolveEffectiveSlotLesson = (visibleLessons: ApiLesson[]) => {
+    if (!visibleLessons.length) {
+      return { lesson: null, statusLabel: undefined, statusCode: undefined };
     }
 
-    const ownedLesson = matchingLessons.find((lesson) => isLessonOwnedByUser(lesson));
-    return ownedLesson ?? matchingLessons[0] ?? null;
+    const groupLesson = visibleLessons.find((lesson) => resolveLessonTypeId(lesson) !== "private");
+    if (groupLesson) {
+      const record = groupLesson as Record<string, unknown>;
+      const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+      const userRecord = groupPlayers.find((player) => matchesCurrentUser(player as Record<string, unknown>)) as
+        | Record<string, unknown>
+        | undefined;
+      if (userRecord) {
+        const rawStatus = userRecord.payment_status ?? userRecord.status;
+        const statusCode = typeof rawStatus === "number" ? rawStatus : Number(rawStatus);
+        const statusLabel =
+          statusCode === 0 ? "Pending" : statusCode === 1 ? "Confirmed" : statusCode === 2 ? "Cancelled" : undefined;
+        const childLessonId = userRecord.lesson_id;
+        const effectiveLesson =
+          childLessonId != null
+            ? visibleLessons.find((lesson) => lesson.id === childLessonId) ?? groupLesson
+            : groupLesson;
+        return { lesson: effectiveLesson, statusLabel, statusCode: Number.isFinite(statusCode) ? statusCode : undefined };
+      }
+      const typeLabel = String(record.lesson_type_name ?? "").toLowerCase();
+      const statusLabel = typeLabel === "open group" ? "Pending" : "Reserved";
+      return { lesson: groupLesson, statusLabel, statusCode: undefined };
+    }
+
+    const privateLesson = visibleLessons.find((lesson) => {
+      const record = lesson as Record<string, unknown>;
+      const playerId = record.player_id ?? record.playerId ?? record.playerID;
+      return currentUserIdentity.id && playerId != null && String(playerId) === currentUserIdentity.id;
+    });
+    if (privateLesson) {
+      const rawStatus = (privateLesson as Record<string, unknown>).status;
+      const statusCode = typeof rawStatus === "number" ? rawStatus : Number(rawStatus);
+      const statusLabel =
+        statusCode === 0 ? "Pending" : statusCode === 1 ? "Confirmed" : statusCode === 2 ? "Cancelled" : undefined;
+      return { lesson: privateLesson, statusLabel, statusCode: Number.isFinite(statusCode) ? statusCode : undefined };
+    }
+
+    const fallback = visibleLessons[0];
+    const fallbackRecord = fallback as Record<string, unknown>;
+    const fallbackStatus = Number(fallbackRecord.status);
+    const statusLabel =
+      fallbackStatus === 2
+        ? "Cancelled"
+        : fallbackStatus === 1
+          ? "Confirmed"
+          : String(fallbackRecord.lesson_type_name ?? "").toLowerCase() === "open group"
+            ? "Pending"
+            : "Reserved";
+    return { lesson: fallback, statusLabel, statusCode: Number.isFinite(fallbackStatus) ? fallbackStatus : undefined };
   };
 
   const lessonFilters = [
@@ -2353,11 +2451,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     {slots.map((slot) => {
                                       const active = selection.timeId === slot.id;
                                       const lessonDetails = lessonTypeDetailMap[slot.lessonType];
-                                      const slotLesson = findLessonForSlot(dateKey, slot);
-                                      const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
-                                      const groupPlayerStatus = resolveGroupPlayerStatus(slotLesson);
+                                      const visibleLessons = getLessonsForSlot(dateKey, slot);
+                                      const { lesson: slotLesson, statusLabel: slotLessonStatus, statusCode } =
+                                        resolveEffectiveSlotLesson(visibleLessons);
+                                      const groupPlayerStatus = statusCode ?? resolveGroupPlayerStatus(slotLesson);
                                       const slotLessonPending =
-                                        slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
+                                        statusCode === 0 ||
+                                        (slotLesson && resolveLessonParticipantStatus(slotLesson) === 0);
                                       const canConfirmPending =
                                         Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
                                       const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
@@ -2394,6 +2494,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         priceData.baseRate,
                                         priceData.discountPercentage,
                                       );
+                                      const availabilityPill = resolveAvailabilityPill(slotLesson ?? undefined);
+                                      const statusIcon = resolveEffectiveStatusIcon(slotLesson ?? undefined, statusCode);
                                       const groupTitle = isGroupLesson ? slot.title : undefined;
                                       const isBooking =
                                         bookingInFlight === slot.id ||
@@ -2480,6 +2582,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                               </>
                                             ) : null}
                                           </div>
+                                          {availabilityPill ? (
+                                            <div className="coach-booking-slot__pill-row">
+                                              <span className={`coach-booking-slot__pill coach-booking-slot__pill--${availabilityPill.tone}`}>
+                                                {availabilityPill.label}
+                                              </span>
+                                            </div>
+                                          ) : null}
                                           {priceBreakdown ? (
                                             <div className="coach-booking-slot__price-breakdown">
                                               <span>Total: {formatCurrency(priceBreakdown.total) ?? "$0.00"}</span>
@@ -2498,6 +2607,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                             </div>
                                           ) : null}
                                           <div className="coach-booking-slot__actions">
+                                            {slotLesson ? (
+                                              <span
+                                                className={`coach-booking-slot__status-icon coach-booking-slot__status-icon--${statusIcon.tone}`}
+                                                title={statusIcon.label}
+                                              >
+                                                <statusIcon.Icon size={16} />
+                                              </span>
+                                            ) : null}
                                             {isReserved ? (
                                               <span className="coach-booking-slot__status">Reserved</span>
                                             ) : null}
@@ -2594,11 +2711,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 const active = selection.timeId === slot.id;
                                 const lessonDetails = lessonTypeDetailMap[slot.lessonType];
                                 const dateKey = resolveIsoDate(selectedDate) ?? String(selectedDate.id);
-                                const slotLesson = findLessonForSlot(dateKey, slot);
-                                const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
-                                const groupPlayerStatus = resolveGroupPlayerStatus(slotLesson);
+                                const visibleLessons = getLessonsForSlot(dateKey, slot);
+                                const { lesson: slotLesson, statusLabel: slotLessonStatus, statusCode } =
+                                  resolveEffectiveSlotLesson(visibleLessons);
+                                const groupPlayerStatus = statusCode ?? resolveGroupPlayerStatus(slotLesson);
                                 const slotLessonPending =
-                                  slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
+                                  statusCode === 0 ||
+                                  (slotLesson && resolveLessonParticipantStatus(slotLesson) === 0);
                                 const canConfirmPending =
                                   Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
                                 const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
@@ -2633,6 +2752,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                   priceData.baseRate,
                                   priceData.discountPercentage,
                                 );
+                                const availabilityPill = resolveAvailabilityPill(slotLesson ?? undefined);
+                                const statusIcon = resolveEffectiveStatusIcon(slotLesson ?? undefined, statusCode);
                                 const groupTitle = isGroupLesson ? slot.title : undefined;
                                 const isBooking =
                                   bookingInFlight === slot.id ||
@@ -2719,7 +2840,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         </>
                                       ) : null}
                                     </div>
-                                    {/* {priceBreakdown ? (
+                                    {availabilityPill ? (
+                                      <div className="coach-booking-slot__pill-row">
+                                        <span className={`coach-booking-slot__pill coach-booking-slot__pill--${availabilityPill.tone}`}>
+                                          {availabilityPill.label}
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                    {priceBreakdown ? (
                                       <div className="coach-booking-slot__price-breakdown">
                                         <span>Total: {formatCurrency(priceBreakdown.total) ?? "$0.00"}</span>
                                         <span>Credit 3%: {formatCurrency(priceBreakdown.creditFee) ?? "$0.00"}</span>
@@ -2729,7 +2857,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         ) : null}
                                         <span>Coach fee: {formatCurrency(priceBreakdown.baseFee) ?? "$0.00"}</span>
                                       </div>
-                                    ) : null} */}
+                                    ) : null}
                                     {lessonLocationLabel ? (
                                       <div className="coach-booking-slot__location">
                                         <MapPin aria-hidden className="coach-booking-slot__location-icon" />
@@ -2737,6 +2865,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       </div>
                                     ) : null}
                                     <div className="coach-booking-slot__actions">
+                                      {slotLesson ? (
+                                        <span
+                                          className={`coach-booking-slot__status-icon coach-booking-slot__status-icon--${statusIcon.tone}`}
+                                          title={statusIcon.label}
+                                        >
+                                          <statusIcon.Icon size={16} />
+                                        </span>
+                                      ) : null}
                                       {isReserved ? (
                                         <span className="coach-booking-slot__status">Reserved</span>
                                       ) : null}

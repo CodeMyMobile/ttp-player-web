@@ -43,7 +43,22 @@ const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; t
     return { label: statusLabel, tone: "neutral" };
   }
 
-  const numericStatus = (lesson as Record<string, unknown>).status;
+  const lessonRecord = lesson as Record<string, unknown>;
+  const playerId = lessonRecord.player_id ?? lessonRecord.playerId ?? lessonRecord.playerID;
+  const groupPlayers = Array.isArray(lessonRecord.group_players) ? lessonRecord.group_players : [];
+  const playerRecord =
+    playerId != null
+      ? groupPlayers.find((player) => {
+          const playerData = player as Record<string, unknown>;
+          const candidateId = playerData.player_id ?? playerData.id ?? playerData.user_id;
+          return candidateId != null && String(candidateId) === String(playerId);
+        })
+      : undefined;
+  const derivedStatus = playerRecord
+    ? (playerRecord as Record<string, unknown>).payment_status ?? (playerRecord as Record<string, unknown>).status
+    : lessonRecord.status;
+  const numericStatus =
+    typeof derivedStatus === "number" ? derivedStatus : Number(derivedStatus);
   if (typeof numericStatus === "number") {
     if (numericStatus === 0) return { label: "Pending", tone: "pending" };
     if (numericStatus === 1) return { label: "Confirmed", tone: "success" };
@@ -108,6 +123,29 @@ const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProp
     record.created_by != null &&
     record.updated_by != null &&
     record.created_by === record.updated_by;
+  const availabilityPill = (() => {
+    const isExternal = Boolean((lesson.metadata as Record<string, unknown> | undefined)?.externalUrl);
+    if (isExternal) {
+      return { label: "External", tone: "external" as const };
+    }
+    if (typeId === 3) {
+      const limitRaw = record.player_limit ?? lesson.player_limit;
+      const limit = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
+      if (!Number.isFinite(limit) || limit <= 0) return null;
+      const confirmed = groupPlayers.filter((player) => {
+        const playerRecord = player as Record<string, unknown>;
+        return playerRecord.status === 1 || playerRecord.payment_status === 1;
+      }).length;
+      const available = Math.max(limit - confirmed, 0);
+      return {
+        label: `Avail. spots: ${available}/${limit}`,
+        tone: available > 0 ? ("available" as const) : ("full" as const),
+      };
+    }
+    if (typeId === 2) return { label: "Semi-Private Lesson", tone: "neutral" as const };
+    if (typeId === 1) return { label: "Private Lesson", tone: "neutral" as const };
+    return null;
+  })();
   const parseMoney = (value: unknown) => {
     if (typeof value === "number" && Number.isFinite(value)) {
       return value;
@@ -215,6 +253,11 @@ const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProp
               {showStatusCounts && cancelledCount > 0 ? (
                 <span className="lesson-detail-card__pill lesson-detail-card__pill--cancel">
                   {cancelledCount} Cancelled
+                </span>
+              ) : null}
+              {availabilityPill ? (
+                <span className={`lesson-detail-card__pill lesson-detail-card__pill--${availabilityPill.tone}`}>
+                  {availabilityPill.label}
                 </span>
               ) : null}
               {lessonTypeName ? (
