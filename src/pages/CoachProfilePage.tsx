@@ -1473,11 +1473,21 @@ const CoachProfilePage = () => {
 
   const eligibleCreditsForLessonType = useCallback(
     (lessonType: string | undefined) => {
-      const normalizedType = (lessonType ?? "").toLowerCase();
+      const normalizeType = (value?: string) =>
+        (value ?? "")
+          .toLowerCase()
+          .replace(/[\s-]+/g, "_")
+          .trim();
+      const normalizedType = normalizeType(lessonType);
+      const normalizedAliases = new Set<string>([normalizedType]);
+      if (normalizedType === "semi") normalizedAliases.add("semi_private");
+      if (normalizedType === "semi_private") normalizedAliases.add("semi");
+      if (normalizedType === "group") normalizedAliases.add("open_group");
+      if (normalizedType === "open_group") normalizedAliases.add("group");
       const isAllowed = (purchase: PackagePurchase) => {
         const allowed = purchase.lesson_types_allowed;
         if (Array.isArray(allowed) && allowed.length > 0) {
-          return allowed.some((type) => type?.toLowerCase() === normalizedType);
+          return allowed.some((type) => normalizedAliases.has(normalizeType(type)));
         }
         return true;
       };
@@ -1502,8 +1512,8 @@ const CoachProfilePage = () => {
     return pendingLessonType;
   })();
   const pendingEligibleCredits = useMemo(
-    () => (pendingLessonPayment ? [] : eligibleCreditsForLessonType(resolvedPendingLessonType)),
-    [eligibleCreditsForLessonType, pendingLessonPayment, resolvedPendingLessonType],
+    () => eligibleCreditsForLessonType(resolvedPendingLessonType),
+    [eligibleCreditsForLessonType, resolvedPendingLessonType],
   );
   const pendingCreditSummary = useMemo(() => {
     const remaining = pendingEligibleCredits.reduce(
