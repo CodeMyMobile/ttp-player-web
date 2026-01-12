@@ -246,6 +246,25 @@ const formatCurrency = (value?: number | string | null) => {
   }
 };
 
+const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const parseMoney = (value?: number | string | null) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const cleaned = value.replace(/[^0-9.\-]/g, "");
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+const discountCalc = (bill: number, discount = 0) => {
+  const percentage = clampNumber(discount, 0, 100);
+  return Math.round((bill - (bill * percentage) / 100) * 100) / 100;
+};
+const percentageCalc = (percentage: number, amount: number) =>
+  Math.round(((percentage / 100) * amount) * 100) / 100;
+
 const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
   const label = lessonTypes?.[0];
   if (!label) return "package";
@@ -422,16 +441,34 @@ const buildLessonDedupeKey = (lesson: ApiLesson) => {
     .join("|");
 };
 
-const lessonBelongsToUser = (lesson: ApiLesson, userId?: string) => {
-  if (!userId) return false;
+const lessonBelongsToUser = (
+  lesson: ApiLesson,
+  userIdentity?: { id?: string; email?: string; phone?: string },
+) => {
+  if (!userIdentity) return false;
   const record = lesson as Record<string, unknown>;
   const playerId = record.player_id ?? record.playerId ?? record.playerID;
-  if (playerId != null && String(playerId) === userId) return true;
+  if (userIdentity.id && playerId != null && String(playerId) === userIdentity.id) return true;
   const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
   return groupPlayers.some((player) => {
     const playerData = player as Record<string, unknown>;
     const groupPlayerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
-    return groupPlayerId != null && String(groupPlayerId) === userId;
+    if (userIdentity.id && groupPlayerId != null && String(groupPlayerId) === userIdentity.id) {
+      return true;
+    }
+    if (userIdentity.email) {
+      const email = playerData.email ?? playerData.user_email;
+      if (typeof email === "string" && email.toLowerCase() === userIdentity.email) {
+        return true;
+      }
+    }
+    if (userIdentity.phone) {
+      const phone = playerData.phone ?? playerData.phone_number;
+      if (phone != null && String(phone) === userIdentity.phone) {
+        return true;
+      }
+    }
+    return false;
   });
 };
 
@@ -446,7 +483,10 @@ const mergeLessonRecords = (primary: ApiLesson, secondary: ApiLesson) => {
   return { ...primary, group_players: secondaryPlayers };
 };
 
-const dedupeLessonsForDate = (lessons: ApiLesson[], userId?: string) => {
+const dedupeLessonsForDate = (
+  lessons: ApiLesson[],
+  userIdentity?: { id?: string; email?: string; phone?: string },
+) => {
   const map = new Map<string, ApiLesson>();
   lessons.forEach((lesson) => {
     if (!shouldDedupeLesson(lesson)) {
@@ -459,8 +499,8 @@ const dedupeLessonsForDate = (lessons: ApiLesson[], userId?: string) => {
       map.set(key, lesson);
       return;
     }
-    const existingOwned = lessonBelongsToUser(existing, userId);
-    const incomingOwned = lessonBelongsToUser(lesson, userId);
+    const existingOwned = lessonBelongsToUser(existing, userIdentity);
+    const incomingOwned = lessonBelongsToUser(lesson, userIdentity);
     if (!existingOwned && incomingOwned) {
       map.set(key, mergeLessonRecords(lesson, existing));
       return;
@@ -569,14 +609,29 @@ const CoachProfilePage = () => {
   const navigate = useNavigate();
   const { loading, profile, error: profileError } = useCoachProfile(id);
   const { user } = useAuth();
-  const currentUserId = useMemo(() => {
+  const currentUserIdentity = useMemo(() => {
     const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
     const candidate =
       record?.id ??
       record?.user_id ??
       record?.player_id ??
-      (record?.session as Record<string, unknown> | undefined)?.user_id;
-    return candidate != null ? String(candidate) : undefined;
+      record?.profile_id ??
+      sessionRecord?.user_id ??
+      sessionRecord?.id;
+    const email =
+      (record?.email as string | undefined) ??
+      (record?.user_email as string | undefined) ??
+      (sessionRecord?.email as string | undefined);
+    const phone =
+      (record?.phone as string | undefined) ??
+      (record?.phone_number as string | undefined) ??
+      (sessionRecord?.phone as string | undefined);
+    return {
+      id: candidate != null ? String(candidate) : undefined,
+      email: email ? String(email).toLowerCase() : undefined,
+      phone: phone ? String(phone) : undefined,
+    };
   }, [user]);
   const authToken = useMemo(
     () =>
@@ -707,7 +762,7 @@ const CoachProfilePage = () => {
             lessonsForDate = [];
           }
 
-          lessonsForDate = dedupeLessonsForDate(lessonsForDate, currentUserId);
+          lessonsForDate = dedupeLessonsForDate(lessonsForDate, currentUserIdentity);
           lessonsMap[isoDate] = lessonsForDate;
 
           const lessonTimes = new Set(
@@ -770,7 +825,7 @@ const CoachProfilePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [authToken, bookingLessonTypes, currentUserId, profile?.id]);
+  }, [authToken, bookingLessonTypes, currentUserIdentity, profile?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -988,6 +1043,59 @@ const CoachProfilePage = () => {
     }));
   };
 
+  const matchesCurrentUser = (player: Record<string, unknown>) => {
+    if (currentUserIdentity.id) {
+      const playerId = player.player_id ?? player.id ?? player.user_id;
+      if (playerId != null && String(playerId) === currentUserIdentity.id) {
+        return true;
+      }
+    }
+    if (currentUserIdentity.email) {
+      const email = player.email ?? player.user_email;
+      if (typeof email === "string" && email.toLowerCase() === currentUserIdentity.email) {
+        return true;
+      }
+    }
+    if (currentUserIdentity.phone) {
+      const phone = player.phone ?? player.phone_number;
+      if (phone != null && String(phone) === currentUserIdentity.phone) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const resolveGroupPlayerStatus = (lesson?: ApiLesson) => {
+    if (!lesson) return undefined;
+    const record = lesson as Record<string, unknown>;
+    const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+    if (!groupPlayers.length) return undefined;
+    const playerRecord = groupPlayers.find((player) =>
+      matchesCurrentUser(player as Record<string, unknown>),
+    ) as Record<string, unknown> | undefined;
+    if (!playerRecord) return undefined;
+    const resolved = playerRecord.payment_status ?? playerRecord.status;
+    const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const resolveOpenGroupStatus = (lesson?: ApiLesson) => {
+    if (!lesson || !isOpenGroupLesson(lesson)) return undefined;
+    const record = lesson as Record<string, unknown>;
+    const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+    if (!groupPlayers.length) return "Pending";
+    const playerRecord = groupPlayers.find((player) =>
+      matchesCurrentUser(player as Record<string, unknown>),
+    ) as Record<string, unknown> | undefined;
+    if (!playerRecord) return "Pending";
+    const paymentStatus = playerRecord.payment_status;
+    const parsed = typeof paymentStatus === "number" ? paymentStatus : Number(paymentStatus);
+    if (parsed === 1) return "Confirmed";
+    if (parsed === 0) return "Pending";
+    if (parsed === 2) return "Cancelled";
+    return "Pending";
+  };
+
   const resolveLessonParticipantStatus = (lesson?: ApiLesson) => {
     if (!lesson) return undefined;
     const record = lesson as Record<string, unknown>;
@@ -997,21 +1105,9 @@ const CoachProfilePage = () => {
       status = undefined;
     }
 
-    const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
-    if (groupPlayers.length && currentUserId) {
-      const playerRecord = groupPlayers.find((player) => {
-        const playerData = player as Record<string, unknown>;
-        const playerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
-        return playerId != null && String(playerId) === currentUserId;
-      }) as Record<string, unknown> | undefined;
-
-      if (playerRecord) {
-        const resolved = playerRecord.payment_status ?? playerRecord.status;
-        const parsed = typeof resolved === "number" ? resolved : Number(resolved);
-        if (Number.isFinite(parsed)) {
-          status = parsed;
-        }
-      }
+    const groupStatus = resolveGroupPlayerStatus(lesson);
+    if (groupStatus != null) {
+      status = groupStatus;
     }
 
     return status;
@@ -1028,22 +1124,21 @@ const CoachProfilePage = () => {
 
   const isOpenGroupAvailable = (lesson?: ApiLesson) => {
     if (!lesson || !isOpenGroupLesson(lesson)) return false;
+    if (isLessonOwnedByUser(lesson)) return false;
     const record = lesson as Record<string, unknown>;
     const playerId = record.player_id ?? record.playerId ?? record.playerID;
     return playerId == null;
   };
 
   const isLessonOwnedByUser = (lesson?: ApiLesson) => {
-    if (!lesson || !currentUserId) return false;
+    if (!lesson) return false;
     const record = lesson as Record<string, unknown>;
     const playerId = record.player_id ?? record.playerId ?? record.playerID;
-    if (playerId != null && String(playerId) === currentUserId) return true;
+    if (currentUserIdentity.id && playerId != null && String(playerId) === currentUserIdentity.id) {
+      return true;
+    }
     const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
-    return groupPlayers.some((player) => {
-      const playerData = player as Record<string, unknown>;
-      const groupPlayerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
-      return groupPlayerId != null && String(groupPlayerId) === currentUserId;
-    });
+    return groupPlayers.some((player) => matchesCurrentUser(player as Record<string, unknown>));
   };
 
   const resolveLessonTypeId = (lesson?: ApiLesson) => {
@@ -1051,9 +1146,70 @@ const CoachProfilePage = () => {
     const record = lesson as Record<string, unknown>;
     const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
     const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+    if (typeId === 2 || typeLabel.includes("semi")) return "semi";
     if (typeId === 3 || typeLabel.includes("group")) return "group";
-    if (typeId === 2 || typeLabel.includes("semi")) return "group";
     return "private";
+  };
+
+  const resolveLessonPriceData = (
+    lesson?: ApiLesson,
+    slot?: BookingSlot,
+    lessonDetails?: CoachProfile["booking"]["lessonTypes"][number],
+  ) => {
+    const record = (lesson ?? {}) as Record<string, unknown>;
+    const groupPrice =
+      parseMoney(record.group_price_per_person) ??
+      parseMoney(record.groupPricePerPerson) ??
+      parseMoney(record.price_per_person) ??
+      parseMoney((lesson as Record<string, unknown> | undefined)?.price_per_person);
+    const hourlyRate = parseMoney(record.hourly_rate) ?? parseMoney(record.hourlyRate);
+    const slotPrice = parseMoney(slot?.price) ?? parseMoney(lessonDetails?.price);
+    const discountPercentage =
+      parseMoney(record.discount_percentage) ??
+      parseMoney(record.discountPercentage) ??
+      parseMoney((slot as Record<string, unknown> | undefined)?.discount_percentage) ??
+      parseMoney((lessonDetails as Record<string, unknown> | undefined)?.discountPercentage) ??
+      0;
+    const isGroup = lesson ? resolveLessonTypeId(lesson) !== "private" : slot?.lessonType === "group";
+    const baseRate = isGroup ? groupPrice ?? slotPrice ?? hourlyRate : hourlyRate ?? slotPrice ?? groupPrice;
+    return { baseRate, discountPercentage, isGroup };
+  };
+
+  const buildPriceBreakdown = (baseRate?: number | null, discountPercentage?: number | null) => {
+    if (!baseRate || !Number.isFinite(baseRate)) {
+      return null;
+    }
+    const SERVICE_FEE = 1;
+    const CREDIT_FEE_PERCENTAGE = 3;
+    const discount = Number.isFinite(discountPercentage ?? NaN) ? Number(discountPercentage) : 0;
+    const discounted = discountCalc(baseRate, discount);
+    const creditFee = percentageCalc(CREDIT_FEE_PERCENTAGE, discounted);
+    const total = discounted + creditFee + SERVICE_FEE;
+    return {
+      baseFee: discounted,
+      creditFee,
+      total,
+      discountPercentage: clampNumber(discount, 0, 100),
+    };
+  };
+
+  const resolveLessonDisplayTitle = (lesson?: ApiLesson) => {
+    if (!lesson) return undefined;
+    const record = lesson as Record<string, unknown>;
+    const lessonTypeName = String(record.lesson_type_name ?? lesson.lesson_type_name ?? "").trim();
+    const typeId = Number(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+    const isPrivate =
+      typeId === 1 ||
+      lessonTypeName.toLowerCase() === "private";
+    if (isPrivate) {
+      const fullName = typeof record.full_name === "string" ? record.full_name.trim() : "";
+      return fullName || lessonTypeName || "Private lesson";
+    }
+    const metadataTitle =
+      typeof record.metadata_title === "string"
+        ? record.metadata_title.trim()
+        : lesson.metadata?.title ?? "";
+    return metadataTitle || lessonTypeName || "Group lesson";
   };
 
   const shouldBlockSlot = (lesson?: ApiLesson) => {
@@ -1065,9 +1221,8 @@ const CoachProfilePage = () => {
 
   const lessonStatusLabel = (lesson?: ApiLesson) => {
     if (!lesson) return undefined;
-    if (isOpenGroupAvailable(lesson) && !isLessonOwnedByUser(lesson)) {
-      return undefined;
-    }
+    const openGroupStatus = resolveOpenGroupStatus(lesson);
+    if (openGroupStatus) return openGroupStatus;
     const status = resolveLessonParticipantStatus(lesson);
     if (status === 2) return "Cancelled";
     if (!isLessonOwnedByUser(lesson)) {
@@ -1214,7 +1369,6 @@ const CoachProfilePage = () => {
     () => (pendingLessonPayment ? [] : eligibleCreditsForLessonType(resolvedPendingLessonType)),
     [eligibleCreditsForLessonType, pendingLessonPayment, resolvedPendingLessonType],
   );
-
   const pendingCreditSummary = useMemo(() => {
     const remaining = pendingEligibleCredits.reduce(
       (sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0),
@@ -1272,6 +1426,14 @@ const CoachProfilePage = () => {
       {} as Record<string, CoachProfile["booking"]["lessonTypes"][number]>,
     );
   }, [bookingLessonTypes]);
+
+  const pendingPriceSummary = useMemo(() => {
+    const lessonDetails =
+      pendingBooking?.slot ? lessonTypeDetailMap[pendingBooking.slot.lessonType] : undefined;
+    const data = resolveLessonPriceData(pendingLessonPayment ?? undefined, pendingBooking?.slot, lessonDetails);
+    const breakdown = buildPriceBreakdown(data.baseRate, data.discountPercentage);
+    return breakdown;
+  }, [buildPriceBreakdown, lessonTypeDetailMap, pendingBooking, pendingLessonPayment, resolveLessonPriceData]);
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -1489,13 +1651,13 @@ const extractLocationId = (slot?: BookingSlot) => {
         if (entry.id !== lesson.id) return entry;
         const record = entry as Record<string, unknown>;
         const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
-        if (!groupPlayers.length || !currentUserId) {
+        if (!groupPlayers.length || !currentUserIdentity.id) {
           return { ...entry, status: 1 };
         }
         const updatedPlayers = groupPlayers.map((player) => {
           const playerData = player as Record<string, unknown>;
           const playerId = playerData.player_id ?? playerData.id ?? playerData.user_id;
-          if (playerId == null || String(playerId) !== currentUserId) {
+          if (playerId == null || String(playerId) !== currentUserIdentity.id) {
             return player;
           }
           if (playerData.payment_status != null) {
@@ -2193,12 +2355,22 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       const lessonDetails = lessonTypeDetailMap[slot.lessonType];
                                       const slotLesson = findLessonForSlot(dateKey, slot);
                                       const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
+                                      const groupPlayerStatus = resolveGroupPlayerStatus(slotLesson);
                                       const slotLessonPending =
                                         slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
                                       const canConfirmPending =
                                         Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
                                       const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
                                       const isReserved = slotLessonStatus === "Reserved";
+                                      const openGroupStatus = resolveOpenGroupStatus(slotLesson);
+                                      const openGroupConfirmed = openGroupStatus === "Confirmed";
+                                      const isGroupBookingConfirmed =
+                                        Boolean(
+                                          slotLessonStatus === "Confirmed" &&
+                                            slotLesson &&
+                                            isLessonOwnedByUser(slotLesson) &&
+                                            resolveLessonTypeId(slotLesson) !== "private",
+                                        );
                                       const timeRange = buildTimeRangeLabel(
                                         slot.time,
                                         lessonDetails?.duration ?? slot.duration,
@@ -2214,9 +2386,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
                                         : undefined;
                                       const lessonLabel =
-                                        (slotLesson?.lesson_type_name ??
+                                        (resolveLessonDisplayTitle(slotLesson) ??
                                           lessonDetails?.label ??
                                           (slot.lessonType === "private" ? "Private lesson" : "Group lesson"));
+                                      const priceData = resolveLessonPriceData(slotLesson ?? undefined, slot, lessonDetails);
+                                      const priceBreakdown = buildPriceBreakdown(
+                                        priceData.baseRate,
+                                        priceData.discountPercentage,
+                                      );
                                       const groupTitle = isGroupLesson ? slot.title : undefined;
                                       const isBooking =
                                         bookingInFlight === slot.id ||
@@ -2231,7 +2408,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           ? isBooking
                                             ? "Joining…"
                                             : "Join & pay"
-                                          : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
+                                          : openGroupConfirmed
+                                            ? "Booked"
+                                            : groupPlayerStatus === 1
+                                              ? "Booked"
+                                              : isGroupBookingConfirmed
+                                                ? "Booked"
+                                                : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                       return (
                                         <div
@@ -2297,6 +2480,17 @@ const extractLocationId = (slot?: BookingSlot) => {
                                               </>
                                             ) : null}
                                           </div>
+                                          {priceBreakdown ? (
+                                            <div className="coach-booking-slot__price-breakdown">
+                                              <span>Total: {formatCurrency(priceBreakdown.total) ?? "$0.00"}</span>
+                                              <span>Credit 3%: {formatCurrency(priceBreakdown.creditFee) ?? "$0.00"}</span>
+                                              <span>Service fee: $1.00</span>
+                                              {priceBreakdown.discountPercentage > 0 ? (
+                                                <span>Discount: {priceBreakdown.discountPercentage}%</span>
+                                              ) : null}
+                                              <span>Coach fee: {formatCurrency(priceBreakdown.baseFee) ?? "$0.00"}</span>
+                                            </div>
+                                          ) : null}
                                           {lessonLocationLabel ? (
                                             <div className="coach-booking-slot__location">
                                               <MapPin aria-hidden className="coach-booking-slot__location-icon" />
@@ -2402,12 +2596,22 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 const dateKey = resolveIsoDate(selectedDate) ?? String(selectedDate.id);
                                 const slotLesson = findLessonForSlot(dateKey, slot);
                                 const slotLessonStatus = lessonStatusLabel(slotLesson || undefined);
+                                const groupPlayerStatus = resolveGroupPlayerStatus(slotLesson);
                                 const slotLessonPending =
                                   slotLesson && resolveLessonParticipantStatus(slotLesson) === 0;
                                 const canConfirmPending =
                                   Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
                                 const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
                                 const isReserved = slotLessonStatus === "Reserved";
+                                const openGroupStatus = resolveOpenGroupStatus(slotLesson);
+                                const openGroupConfirmed = openGroupStatus === "Confirmed";
+                                const isGroupBookingConfirmed =
+                                  Boolean(
+                                    slotLessonStatus === "Confirmed" &&
+                                      slotLesson &&
+                                      isLessonOwnedByUser(slotLesson) &&
+                                      resolveLessonTypeId(slotLesson) !== "private",
+                                  );
                                 const timeRange = buildTimeRangeLabel(
                                   slot.time,
                                   lessonDetails?.duration ?? slot.duration,
@@ -2421,9 +2625,14 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     : `${availableSpots} spot${availableSpots === 1 ? "" : "s"} available`
                                   : undefined;
                                 const lessonLabel =
-                                  (slotLesson?.lesson_type_name ??
+                                  (resolveLessonDisplayTitle(slotLesson) ??
                                     lessonDetails?.label ??
                                     (slot.lessonType === "private" ? "Private lesson" : "Group lesson"));
+                                const priceData = resolveLessonPriceData(slotLesson ?? undefined, slot, lessonDetails);
+                                const priceBreakdown = buildPriceBreakdown(
+                                  priceData.baseRate,
+                                  priceData.discountPercentage,
+                                );
                                 const groupTitle = isGroupLesson ? slot.title : undefined;
                                 const isBooking =
                                   bookingInFlight === slot.id ||
@@ -2438,7 +2647,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     ? isBooking
                                       ? "Joining…"
                                       : "Join & pay"
-                                    : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
+                                    : openGroupConfirmed
+                                      ? "Booked"
+                                      : groupPlayerStatus === 1
+                                        ? "Booked"
+                                        : isGroupBookingConfirmed
+                                          ? "Booked"
+                                          : slotLessonStatus ?? (isBooking ? "Booking…" : "Book lesson");
 
                                 return (
                                   <div
@@ -2504,6 +2719,17 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         </>
                                       ) : null}
                                     </div>
+                                    {/* {priceBreakdown ? (
+                                      <div className="coach-booking-slot__price-breakdown">
+                                        <span>Total: {formatCurrency(priceBreakdown.total) ?? "$0.00"}</span>
+                                        <span>Credit 3%: {formatCurrency(priceBreakdown.creditFee) ?? "$0.00"}</span>
+                                        <span>Service fee: $1.00</span>
+                                        {priceBreakdown.discountPercentage > 0 ? (
+                                          <span>Discount: {priceBreakdown.discountPercentage}%</span>
+                                        ) : null}
+                                        <span>Coach fee: {formatCurrency(priceBreakdown.baseFee) ?? "$0.00"}</span>
+                                      </div>
+                                    ) : null} */}
                                     {lessonLocationLabel ? (
                                       <div className="coach-booking-slot__location">
                                         <MapPin aria-hidden className="coach-booking-slot__location-icon" />
@@ -2724,6 +2950,18 @@ const extractLocationId = (slot?: BookingSlot) => {
                 })}
               </div>
             )}
+
+            {pendingPriceSummary ? (
+              <div className="coach-payment-modal__price-breakdown">
+                <span>Total: {formatCurrency(pendingPriceSummary.total) ?? "$0.00"}</span>
+                <span>Credit 3%: {formatCurrency(pendingPriceSummary.creditFee) ?? "$0.00"}</span>
+                <span>Service fee: $1.00</span>
+                {pendingPriceSummary.discountPercentage > 0 ? (
+                  <span>Discount: {pendingPriceSummary.discountPercentage}%</span>
+                ) : null}
+                <span>Coach fee: {formatCurrency(pendingPriceSummary.baseFee) ?? "$0.00"}</span>
+              </div>
+            ) : null}
 
             <div className="coach-payment-modal__actions">
               <Link to="/settings/payment-methods" className="coach-payment-modal__link">

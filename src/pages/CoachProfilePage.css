@@ -2110,6 +2110,32 @@
   box-shadow: none;
 }
 
+.coach-booking-slot__price-breakdown {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--profile-slot-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--profile-muted);
+}
+
+.coach-payment-modal__price-breakdown {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
 .coach-booking__footer {
   display: flex;
   flex-direction: column;
