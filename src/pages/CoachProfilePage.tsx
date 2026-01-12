@@ -615,6 +615,34 @@ const CoachProfilePage = () => {
   const currentUserIdentity = useMemo(() => {
     const record = user as Record<string, unknown> | null;
     const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    let storedUserId: string | undefined;
+    let storedEmail: string | undefined;
+    let storedPhone: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const loginRaw = localStorage.getItem("authLoginResponse");
+        const profileRaw = localStorage.getItem("playerPersonalDetails");
+        const login = loginRaw ? JSON.parse(loginRaw) : null;
+        const profile = profileRaw ? JSON.parse(profileRaw) : null;
+        const storedId =
+          login?.user_id ??
+          login?.profile?.user_id ??
+          profile?.user_id ??
+          profile?.id ??
+          undefined;
+        storedUserId = storedId != null ? String(storedId) : undefined;
+        storedEmail =
+          (login?.email as string | undefined) ??
+          (profile?.email as string | undefined);
+        storedPhone =
+          (login?.phone as string | undefined) ??
+          (profile?.phone as string | undefined);
+      } catch {
+        storedUserId = undefined;
+        storedEmail = undefined;
+        storedPhone = undefined;
+      }
+    }
     const candidate =
       record?.id ??
       record?.user_id ??
@@ -631,9 +659,9 @@ const CoachProfilePage = () => {
       (record?.phone_number as string | undefined) ??
       (sessionRecord?.phone as string | undefined);
     return {
-      id: candidate != null ? String(candidate) : undefined,
-      email: email ? String(email).toLowerCase() : undefined,
-      phone: phone ? String(phone) : undefined,
+      id: candidate != null ? String(candidate) : storedUserId,
+      email: email ? String(email).toLowerCase() : storedEmail?.toLowerCase(),
+      phone: phone ? String(phone) : storedPhone ? String(storedPhone) : undefined,
     };
   }, [user]);
   const authToken = useMemo(
@@ -1226,20 +1254,28 @@ const CoachProfilePage = () => {
     if (!lesson) return undefined;
     const isGroupLesson = resolveLessonTypeId(lesson) !== "private";
     if (isGroupLesson) {
-      const groupStatus = resolveGroupPlayerStatus(lesson);
-      if (groupStatus === 2) return "Cancelled";
-      if (groupStatus === 1) return "Confirmed";
-      if (groupStatus === 0) return "Pending";
+      const record = lesson as Record<string, unknown>;
+      const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+      const currentUserRecord = groupPlayers.find((player) =>
+        matchesCurrentUser(player as Record<string, unknown>),
+      ) as Record<string, unknown> | undefined;
+      if (currentUserRecord) {
+        const paymentStatus = currentUserRecord.payment_status ?? currentUserRecord.status;
+        const parsed = typeof paymentStatus === "number" ? paymentStatus : Number(paymentStatus);
+        if (parsed === 2) return "Cancelled";
+        if (parsed === 1) return "Confirmed";
+        if (parsed === 0) return "Pending";
+      }
       if (isOpenGroupLesson(lesson)) return "Pending";
       return "Reserved";
     }
     const status = resolveLessonParticipantStatus(lesson);
     if (status === 2) return "Cancelled";
+    if (status === 0) return "Pending";
     if (status === 1) return "Confirmed";
     if (!isLessonOwnedByUser(lesson)) {
       return "Reserved";
     }
-    if (status === 0) return "Pending";
     return undefined;
   };
 
@@ -1364,6 +1400,8 @@ const CoachProfilePage = () => {
     const statusLabel =
       fallbackStatus === 2
         ? "Cancelled"
+        : fallbackStatus === 0
+          ? "Pending"
         : fallbackStatus === 1
           ? "Confirmed"
           : String(fallbackRecord.lesson_type_name ?? "").toLowerCase() === "open group"
@@ -2665,6 +2703,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                                             <LessonDetailCard
                                               lesson={lesson}
                                               statusLabel={lessonStatusLabel(lesson)}
+                                              currentUserId={user?.session?.user_id ?? user?.id ?? currentUserIdentity.id}
                                             />
                                             {canConfirm && (
                                               <div className="coach-booking-slot__actions">
@@ -2847,7 +2886,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         </span>
                                       </div>
                                     ) : null}
-                                    {priceBreakdown ? (
+                                    {/* {priceBreakdown ? (
                                       <div className="coach-booking-slot__price-breakdown">
                                         <span>Total: {formatCurrency(priceBreakdown.total) ?? "$0.00"}</span>
                                         <span>Credit 3%: {formatCurrency(priceBreakdown.creditFee) ?? "$0.00"}</span>
@@ -2857,7 +2896,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         ) : null}
                                         <span>Coach fee: {formatCurrency(priceBreakdown.baseFee) ?? "$0.00"}</span>
                                       </div>
-                                    ) : null}
+                                    ) : null} */}
                                     {lessonLocationLabel ? (
                                       <div className="coach-booking-slot__location">
                                         <MapPin aria-hidden className="coach-booking-slot__location-icon" />
@@ -2920,6 +2959,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       <LessonDetailCard
                                         lesson={lesson}
                                         statusLabel={lessonStatusLabel(lesson)}
+                                        currentUserId={user?.session?.user_id ?? user?.id ?? currentUserIdentity.id}
                                       />
                                       {resolveLessonParticipantStatus(lesson) === 0 &&
                                         isLessonOwnedByUser(lesson) && (

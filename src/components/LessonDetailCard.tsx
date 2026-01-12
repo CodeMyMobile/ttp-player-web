@@ -20,6 +20,7 @@ type LessonDetailCardProps = {
   lesson: Lesson;
   statusLabel?: string;
   onShare?: (lesson: Lesson) => void;
+  currentUserId?: string | number;
 };
 
 type StatusTone = "success" | "pending" | "danger" | "neutral";
@@ -32,7 +33,11 @@ const discountCalc = (bill: number, discount = 0) => {
 const percentageCalc = (percentage: number, amount: number) =>
   Math.round(((percentage / 100) * amount) * 100) / 100;
 
-const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; tone: StatusTone } => {
+const resolveStatus = (
+  lesson: Lesson,
+  statusLabel?: string,
+  currentUserId?: string | number,
+): { label: string; tone: StatusTone } => {
   if (statusLabel) {
     const normalized = statusLabel.toLowerCase();
     if (normalized.includes("confirm")) return { label: statusLabel, tone: "success" };
@@ -44,7 +49,33 @@ const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; t
   }
 
   const lessonRecord = lesson as Record<string, unknown>;
-  const playerId = lessonRecord.player_id ?? lessonRecord.playerId ?? lessonRecord.playerID;
+  const fallbackUserId = (() => {
+    if (currentUserId != null) return currentUserId;
+    if (typeof window === "undefined") return undefined;
+    try {
+      const loginRaw = localStorage.getItem("authLoginResponse");
+      const profileRaw = localStorage.getItem("playerPersonalDetails");
+      const login = loginRaw ? JSON.parse(loginRaw) : null;
+      const profile = profileRaw ? JSON.parse(profileRaw) : null;
+      return (
+        login?.user_id ??
+        login?.profile?.user_id ??
+        profile?.user_id ??
+        profile?.id ??
+        undefined
+      );
+    } catch {
+      return undefined;
+    }
+  })();
+  const playerId =
+    fallbackUserId ??
+    lessonRecord.player_id ??
+    lessonRecord.playerId ??
+    lessonRecord.playerID;
+  const lessonTypeName = String(lessonRecord.lesson_type_name ?? "").toLowerCase();
+  const typeId = Number(lessonRecord.lessontype_id ?? lessonRecord.lesson_type_id ?? lessonRecord.lessonTypeId);
+  const isGroupLesson = typeId === 2 || typeId === 3 || typeId === 4 || lessonTypeName.includes("group");
   const groupPlayers = Array.isArray(lessonRecord.group_players) ? lessonRecord.group_players : [];
   const playerRecord =
     playerId != null
@@ -64,11 +95,15 @@ const resolveStatus = (lesson: Lesson, statusLabel?: string): { label: string; t
     if (numericStatus === 1) return { label: "Confirmed", tone: "success" };
     if (numericStatus === 2) return { label: "Cancelled", tone: "danger" };
   }
+  if (isGroupLesson && lessonTypeName.includes("open group")) {
+    return { label: "Pending", tone: "pending" };
+  }
 
   return { label: "Lesson", tone: "neutral" };
 };
 
-const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProps) => {
+const LessonDetailCard = ({ lesson, statusLabel, onShare, currentUserId }: LessonDetailCardProps) => {
+  console.log("Rendering LessonDetailCard for lesson ID:", lesson.id,currentUserId);
   // Align time handling with mobile: treat API timestamps as UTC and provide a 1h fallback if end is missing
   const start = moment.utc(lesson.start_date_time);
   const end = lesson.end_date_time
@@ -200,7 +235,7 @@ const LessonDetailCard = ({ lesson, statusLabel, onShare }: LessonDetailCardProp
     return { label: "Pending", tone: "pending" as const };
   };
 
-  const status = resolveStatus(lesson, statusLabel);
+  const status = resolveStatus(lesson, statusLabel, currentUserId);
 
   return (
     <article className="lesson-detail-card">

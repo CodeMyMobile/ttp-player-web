@@ -8,6 +8,9 @@ export const login = async (email, password) => {
       body: JSON.stringify({ email, password }),
     })
   );
+  if (data) {
+    localStorage.setItem("authLoginResponse", JSON.stringify(data));
+  }
   if (data?.access_token) {
     localStorage.setItem("authToken", data.access_token);
   }
@@ -49,15 +52,22 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
   return data;
 };
 
-export const getPersonalDetails = async () =>
-  unwrap(
+export const getPersonalDetails = async () => {
+  const data = await unwrap(
     api(`/player/personal_details`, {
       authSchemePreference: "token",
     }),
   );
+  if (data) {
+    localStorage.setItem("playerPersonalDetails", JSON.stringify(data));
+  }
+  return data;
+};
 
 export const logout = () => {
   localStorage.removeItem("authToken");
+  localStorage.removeItem("authLoginResponse");
+  localStorage.removeItem("playerPersonalDetails");
 };
 
 export const forgotPassword = async (email) =>
