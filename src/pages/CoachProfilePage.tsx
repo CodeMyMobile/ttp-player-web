@@ -1384,7 +1384,12 @@ const CoachProfilePage = () => {
     const privateLesson = visibleLessons.find((lesson) => {
       const record = lesson as Record<string, unknown>;
       const playerId = record.player_id ?? record.playerId ?? record.playerID;
-      return currentUserIdentity.id && playerId != null && String(playerId) === currentUserIdentity.id;
+      const createdBy = record.created_by ?? record.createdBy;
+      if (!currentUserIdentity.id) return false;
+      return (
+        (playerId != null && String(playerId) === currentUserIdentity.id) ||
+        (createdBy != null && String(createdBy) === currentUserIdentity.id)
+      );
     });
     if (privateLesson) {
       const rawStatus = (privateLesson as Record<string, unknown>).status;
@@ -2506,8 +2511,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                       const slotLessonPending =
                                         statusCode === 0 ||
                                         (slotLesson && resolveLessonParticipantStatus(slotLesson) === 0);
+                                      const isPrivateLesson = slotLesson
+                                        ? resolveLessonTypeId(slotLesson) === "private"
+                                        : false;
+                                      const awaitingCoachResponse =
+                                        Boolean(isPrivateLesson && slotLessonPending && isLessonOwnedByUser(slotLesson));
                                       const canConfirmPending =
-                                        Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
+                                        Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson) && !isPrivateLesson);
                                       const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
                                       const isReserved = slotLessonStatus === "Reserved";
                                       const openGroupStatus = resolveOpenGroupStatus(slotLesson);
@@ -2549,8 +2559,10 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         bookingInFlight === slot.id ||
                                         (slotLesson ? bookingInFlight === `lesson-${slotLesson.id}` : false);
                                       const canTakeAction = canConfirmPending || canJoinOpenGroup;
-                                      const isDisabled = Boolean(slotLesson) && !canTakeAction;
-                                      const buttonLabel = canConfirmPending
+                                      const isDisabled = Boolean(slotLesson) && (!canTakeAction || awaitingCoachResponse);
+                                      const buttonLabel = awaitingCoachResponse
+                                        ? "Awaiting coach response"
+                                        : canConfirmPending
                                         ? isBooking
                                           ? "Confirming…"
                                           : "Confirm & pay"
@@ -2673,6 +2685,9 @@ const extractLocationId = (slot?: BookingSlot) => {
                                                 disabled={isBooking || isDisabled}
                                                 onClick={(event) => {
                                                   event.stopPropagation();
+                                                  if (awaitingCoachResponse) {
+                                                    return;
+                                                  }
                                                   if (slotLesson) {
                                                     if (canConfirmPending || canJoinOpenGroup) {
                                                       void handleConfirmPendingLesson(slotLesson);
@@ -2707,7 +2722,10 @@ const extractLocationId = (slot?: BookingSlot) => {
                                     <div className="coach-booking-day__lessons-list">
                                       {bookedLessons.map((lesson) => {
                                         const isPending = resolveLessonParticipantStatus(lesson) === 0;
-                                        const canConfirm = isPending && isLessonOwnedByUser(lesson);
+                                        const canConfirm =
+                                          isPending &&
+                                          isLessonOwnedByUser(lesson) &&
+                                          resolveLessonTypeId(lesson) !== "private";
                                         return (
                                           <div key={lesson.id}>
                                             <LessonDetailCard
@@ -2767,8 +2785,13 @@ const extractLocationId = (slot?: BookingSlot) => {
                                 const slotLessonPending =
                                   statusCode === 0 ||
                                   (slotLesson && resolveLessonParticipantStatus(slotLesson) === 0);
+                                const isPrivateLesson = slotLesson
+                                  ? resolveLessonTypeId(slotLesson) === "private"
+                                  : false;
+                                const awaitingCoachResponse =
+                                  Boolean(isPrivateLesson && slotLessonPending && isLessonOwnedByUser(slotLesson));
                                 const canConfirmPending =
-                                  Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson));
+                                  Boolean(slotLessonPending && isLessonOwnedByUser(slotLesson) && !isPrivateLesson);
                                 const canJoinOpenGroup = Boolean(slotLesson && isOpenGroupAvailable(slotLesson));
                                 const isReserved = slotLessonStatus === "Reserved";
                                 const openGroupStatus = resolveOpenGroupStatus(slotLesson);
@@ -2808,8 +2831,10 @@ const extractLocationId = (slot?: BookingSlot) => {
                                   bookingInFlight === slot.id ||
                                   (slotLesson ? bookingInFlight === `lesson-${slotLesson.id}` : false);
                                 const canTakeAction = canConfirmPending || canJoinOpenGroup;
-                                const isDisabled = Boolean(slotLesson) && !canTakeAction;
-                                const buttonLabel = canConfirmPending
+                                const isDisabled = Boolean(slotLesson) && (!canTakeAction || awaitingCoachResponse);
+                                const buttonLabel = awaitingCoachResponse
+                                  ? "Awaiting coach response"
+                                  : canConfirmPending
                                   ? isBooking
                                     ? "Confirming…"
                                     : "Confirm & pay"
@@ -2932,6 +2957,9 @@ const extractLocationId = (slot?: BookingSlot) => {
                                           disabled={isBooking || isDisabled}
                                           onClick={(event) => {
                                             event.stopPropagation();
+                                            if (awaitingCoachResponse) {
+                                              return;
+                                            }
                                             if (slotLesson) {
                                               if (canConfirmPending || canJoinOpenGroup) {
                                                 void handleConfirmPendingLesson(slotLesson);
@@ -2964,7 +2992,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                               <div className="coach-booking-day__lessons">
                                 <h4 className="coach-booking-day__lessons-title">Booked lessons</h4>
                                 <div className="coach-booking-day__lessons-list">
-                              {bookedLessons.map((lesson) => (
+                                {bookedLessons.map((lesson) => (
                                     <div key={lesson.id}>
                                       <LessonDetailCard
                                         lesson={lesson}
@@ -2972,7 +3000,8 @@ const extractLocationId = (slot?: BookingSlot) => {
                                         currentUserId={user?.session?.user_id ?? user?.id ?? currentUserIdentity.id}
                                       />
                                       {resolveLessonParticipantStatus(lesson) === 0 &&
-                                        isLessonOwnedByUser(lesson) && (
+                                        isLessonOwnedByUser(lesson) &&
+                                        resolveLessonTypeId(lesson) !== "private" && (
                                           <div className="coach-booking-slot__actions">
                                             <button
                                               type="button"
