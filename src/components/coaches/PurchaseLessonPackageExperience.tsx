@@ -678,7 +678,7 @@ const PurchaseLessonPackageExperience = ({
                     </div>
                   )}
 
-                  <div className="payment-methods__group">
+                  {/* <div className="payment-methods__group">
                     <span className="payment-methods__group-label">Use a payment method ID</span>
                     <div className="payment-method-card payment-method-card--new payment-method-card--selected">
                       <span className="payment-method-card__icon">
@@ -706,7 +706,7 @@ const PurchaseLessonPackageExperience = ({
                         </label>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 {purchaseError ? (
