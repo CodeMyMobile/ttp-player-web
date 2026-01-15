@@ -34,6 +34,13 @@ export interface GroupLesson {
     focusArea: string;
     joinedLabel: string;
   }>;
+  groupPlayers?: Array<{
+    playerId?: number | string;
+    email?: string;
+    phone?: string;
+    paymentStatus?: number;
+    status?: number;
+  }>;
   highlights?: string[];
 }
 
@@ -221,6 +228,19 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       id: String(player.player_id ?? `${lesson.id}-${index}`),
       name: player.full_name ?? "Player",
       avatarUrl: player.profile_picture,
+    })),
+    groupPlayers: (lesson.group_players ?? []).map((player) => ({
+      playerId: player.player_id,
+      email: typeof player.email === "string" ? player.email.toLowerCase() : undefined,
+      phone: typeof player.phone === "string" ? player.phone : undefined,
+      paymentStatus:
+        typeof player.payment_status === "number"
+          ? player.payment_status
+          : Number(player.payment_status),
+      status:
+        typeof player.status === "number"
+          ? player.status
+          : Number(player.status),
     })),
   };
 };

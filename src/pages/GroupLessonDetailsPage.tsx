@@ -19,6 +19,7 @@ import {
 } from "../api/groupLessons";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
+import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 
@@ -81,6 +82,7 @@ const buildInitials = (name: string) => {
 const GroupLessonDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [lesson, setLesson] = useState<GroupLesson | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -167,6 +169,80 @@ const GroupLessonDetailsPage = () => {
     [],
   );
 
+  const currentUserIdentity = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    let storedUserId: string | undefined;
+    let storedEmail: string | undefined;
+    let storedPhone: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const loginRaw = localStorage.getItem("authLoginResponse");
+        const profileRaw = localStorage.getItem("playerPersonalDetails");
+        const login = loginRaw ? JSON.parse(loginRaw) : null;
+        const profile = profileRaw ? JSON.parse(profileRaw) : null;
+        const storedId =
+          login?.user_id ??
+          login?.profile?.user_id ??
+          profile?.user_id ??
+          profile?.id ??
+          undefined;
+        storedUserId = storedId != null ? String(storedId) : undefined;
+        storedEmail =
+          (login?.email as string | undefined) ??
+          (profile?.email as string | undefined);
+        storedPhone =
+          (login?.phone as string | undefined) ??
+          (profile?.phone as string | undefined);
+      } catch {
+        storedUserId = undefined;
+        storedEmail = undefined;
+        storedPhone = undefined;
+      }
+    }
+    const candidate =
+      record?.id ??
+      record?.user_id ??
+      record?.player_id ??
+      record?.profile_id ??
+      sessionRecord?.user_id ??
+      sessionRecord?.id;
+    const email =
+      (record?.email as string | undefined) ??
+      (record?.user_email as string | undefined) ??
+      (sessionRecord?.email as string | undefined);
+    const phone =
+      (record?.phone as string | undefined) ??
+      (record?.phone_number as string | undefined) ??
+      (sessionRecord?.phone as string | undefined);
+    return {
+      id: candidate != null ? String(candidate) : storedUserId,
+      email: email ? String(email).toLowerCase() : storedEmail?.toLowerCase(),
+      phone: phone ? String(phone) : storedPhone ? String(storedPhone) : undefined,
+    };
+  }, [user]);
+
+  const currentUserStatus = useMemo(() => {
+    const groupPlayers = lesson?.groupPlayers ?? [];
+    if (!groupPlayers.length) return undefined;
+    const playerRecord = groupPlayers.find((player) => {
+      if (currentUserIdentity.id && player.playerId != null) {
+        if (String(player.playerId) === currentUserIdentity.id) return true;
+      }
+      if (currentUserIdentity.email && player.email) {
+        if (player.email.toLowerCase() === currentUserIdentity.email) return true;
+      }
+      if (currentUserIdentity.phone && player.phone) {
+        if (String(player.phone) === currentUserIdentity.phone) return true;
+      }
+      return false;
+    });
+    if (!playerRecord) return undefined;
+    const resolved = playerRecord.paymentStatus ?? playerRecord.status;
+    const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [currentUserIdentity, lesson?.groupPlayers]);
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -207,6 +283,7 @@ const GroupLessonDetailsPage = () => {
     );
   }
 
+  const isBooked = currentUserStatus === 1;
   const confirmedCount = lesson.participants.length;
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
   const timeRange = lesson.startDateTime && lesson.endDateTime
@@ -370,14 +447,14 @@ const GroupLessonDetailsPage = () => {
                 <button
                   type="button"
                   className="group-lesson-details__checkout-action"
-                  disabled={spotsRemaining === 0}
+                  disabled={spotsRemaining === 0 || isBooked}
                   onClick={() => {
                     navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                       state: { groupLessonId: lesson.id },
                     });
                   }}
                 >
-                  {spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
+                  {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
                 </button>
                 <p className="group-lesson-details__checkout-caption">
                   {spotsRemaining === 0

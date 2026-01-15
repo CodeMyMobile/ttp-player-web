@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState,useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
@@ -11,6 +11,7 @@ import {
   type GroupLesson,
 } from "../api/groupLessons";
 import { colors, typography } from "../lib/theme";
+import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 
@@ -72,6 +73,7 @@ type DateFilterState =
 
 const GroupLessonsPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
   const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
@@ -187,6 +189,83 @@ const GroupLessonsPage = () => {
   const locationLabel = useLocationFilter ? location : "All locations";
 
   const totalLessons = lessonsWithIso.length;
+
+  const currentUserIdentity = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    let storedUserId: string | undefined;
+    let storedEmail: string | undefined;
+    let storedPhone: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const loginRaw = localStorage.getItem("authLoginResponse");
+        const profileRaw = localStorage.getItem("playerPersonalDetails");
+        const login = loginRaw ? JSON.parse(loginRaw) : null;
+        const profile = profileRaw ? JSON.parse(profileRaw) : null;
+        const storedId =
+          login?.user_id ??
+          login?.profile?.user_id ??
+          profile?.user_id ??
+          profile?.id ??
+          undefined;
+        storedUserId = storedId != null ? String(storedId) : undefined;
+        storedEmail =
+          (login?.email as string | undefined) ??
+          (profile?.email as string | undefined);
+        storedPhone =
+          (login?.phone as string | undefined) ??
+          (profile?.phone as string | undefined);
+      } catch {
+        storedUserId = undefined;
+        storedEmail = undefined;
+        storedPhone = undefined;
+      }
+    }
+    const candidate =
+      record?.id ??
+      record?.user_id ??
+      record?.player_id ??
+      record?.profile_id ??
+      sessionRecord?.user_id ??
+      sessionRecord?.id;
+    const email =
+      (record?.email as string | undefined) ??
+      (record?.user_email as string | undefined) ??
+      (sessionRecord?.email as string | undefined);
+    const phone =
+      (record?.phone as string | undefined) ??
+      (record?.phone_number as string | undefined) ??
+      (sessionRecord?.phone as string | undefined);
+    return {
+      id: candidate != null ? String(candidate) : storedUserId,
+      email: email ? String(email).toLowerCase() : storedEmail?.toLowerCase(),
+      phone: phone ? String(phone) : storedPhone ? String(storedPhone) : undefined,
+    };
+  }, [user]);
+
+  const isLessonBooked = useCallback(
+    (lesson: GroupLesson) => {
+      const groupPlayers = lesson.groupPlayers ?? [];
+      if (!groupPlayers.length) return false;
+      const playerRecord = groupPlayers.find((player) => {
+        if (currentUserIdentity.id && player.playerId != null) {
+          if (String(player.playerId) === currentUserIdentity.id) return true;
+        }
+        if (currentUserIdentity.email && player.email) {
+          if (player.email.toLowerCase() === currentUserIdentity.email) return true;
+        }
+        if (currentUserIdentity.phone && player.phone) {
+          if (String(player.phone) === currentUserIdentity.phone) return true;
+        }
+        return false;
+      });
+      if (!playerRecord) return false;
+      const resolved = playerRecord.paymentStatus ?? playerRecord.status;
+      const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+      return Number.isFinite(parsed) ? parsed === 1 : false;
+    },
+    [currentUserIdentity],
+  );
 
   const dateSummary = useMemo(() => {
     if (dateFilter.type === "all") {
@@ -494,6 +573,8 @@ const GroupLessonsPage = () => {
                 {lessonsWithIso.map((lesson) => {
                   const levelRange = formatLevelRange(lesson.level);
                   const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
+                  const isBooked = isLessonBooked(lesson);
+                  const isSoldOut = lesson.availableSpots === 0;
 
                   return (
                     <article key={lesson.id} className="lesson-card">
@@ -555,9 +636,9 @@ const GroupLessonsPage = () => {
                                 state: { groupLessonId: lesson.id },
                               });
                             }}
-                            disabled={lesson.availableSpots === 0}
+                            disabled={isSoldOut || isBooked}
                           >
-                            {lesson.availableSpots === 0 ? "Join waitlist" : "Quick book"}
+                            {isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Quick book"}
                           </button>
                         </div>
                       </footer>
