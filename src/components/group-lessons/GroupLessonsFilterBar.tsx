@@ -12,6 +12,8 @@ type GroupLessonsFilterBarProps = {
   onLevelChange: (value: string) => void;
   location: string;
   onLocationClick: () => void;
+  useLocationFilter: boolean;
+  onUseLocationFilterChange: (value: boolean) => void;
   radiusOptions: string[];
   selectedRadius: string;
   onRadiusChange: (value: string) => void;
@@ -29,6 +31,8 @@ const GroupLessonsFilterBar = ({
   onLevelChange,
   location,
   onLocationClick,
+  useLocationFilter,
+  onUseLocationFilterChange,
   radiusOptions,
   selectedRadius,
   onRadiusChange,
@@ -45,12 +49,21 @@ const GroupLessonsFilterBar = ({
     <div className="fc-filter group-lessons-filter">
       <div className="fc-filter__distance-row">
         <div className="fc-filter__distance-group">
+          <label className="fc-distance-chip group-lessons-filter__toggle">
+            <input
+              type="checkbox"
+              checked={useLocationFilter}
+              onChange={(event) => onUseLocationFilterChange(event.target.checked)}
+            />
+            <span>Search near me</span>
+          </label>
           <button
             type="button"
             className="fc-distance-chip fc-distance-chip--location group-lessons-filter__location"
             aria-label={`Current location: ${location}. Click to change location.`}
             title={location}
             onClick={onLocationClick}
+            disabled={!useLocationFilter}
           >
             <MapPin size={18} />
             {location}
@@ -61,6 +74,7 @@ const GroupLessonsFilterBar = ({
               type="button"
               className={`fc-distance-chip${selectedRadius === radius ? " fc-distance-chip--active" : ""}`}
               onClick={() => onRadiusChange(radius)}
+              disabled={!useLocationFilter}
             >
               {radius}
             </button>

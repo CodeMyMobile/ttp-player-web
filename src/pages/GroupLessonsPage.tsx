@@ -1,12 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
 import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
-import { mockGroupLessons } from "../data/mockGroupLessons";
+import {
+  fetchUpcomingGroupLessons,
+  mapUpcomingGroupLessonsResponse,
+  type GroupLesson,
+} from "../api/groupLessons";
 import { colors, typography } from "../lib/theme";
+import { getStoredAuthToken } from "../services/authToken";
+import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 
 import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
@@ -76,30 +82,34 @@ const GroupLessonsPage = () => {
   const [rangeStartValue, setRangeStartValue] = useState<string>("");
   const [rangeEndValue, setRangeEndValue] = useState<string>("");
   const [rangeError, setRangeError] = useState<string | undefined>();
+  const [useLocationFilter, setUseLocationFilter] = useState(true);
+  const [lessons, setLessons] = useState<GroupLesson[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const lessons = useMemo(
+  const lessonsWithIso = useMemo(
     () =>
-      mockGroupLessons.map((lesson) => ({
+      lessons.map((lesson) => ({
         ...lesson,
         isoDate: parseLessonDateToIso(lesson.date),
       })),
-    [],
-  );
-
-  const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(lessons.map((lesson) => lesson.coachName))],
     [lessons],
   );
 
+  const coachOptions = useMemo(
+    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => lesson.coachName))],
+    [lessonsWithIso],
+  );
+
   const levelOptions = useMemo(() => {
-    const uniqueLevels = Array.from(new Set(lessons.map((lesson) => lesson.level)))
+    const uniqueLevels = Array.from(new Set(lessonsWithIso.map((lesson) => lesson.level)))
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
-  }, [lessons]);
+  }, [lessonsWithIso]);
 
   const dateAnchors = useMemo(() => {
-    const validIsos = lessons
+    const validIsos = lessonsWithIso
       .map((lesson) => lesson.isoDate)
       .filter((iso): iso is string => Boolean(iso))
       .sort();
@@ -116,7 +126,7 @@ const GroupLessonsPage = () => {
     const computedEnd = toIsoDate(endAnchor);
     const max = last > computedEnd ? last : computedEnd;
     return { start, end: max };
-  }, [lessons]);
+  }, [lessonsWithIso]);
 
   const dayOptions = useMemo(() => {
     const startDate = dateAnchors.start;
@@ -174,54 +184,9 @@ const GroupLessonsPage = () => {
     }
   };
 
-  const filteredLessons = useMemo(() => {
-    const normalizedLocation = location.trim().toLowerCase();
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const radiusLimit = parseRadius(selectedRadius);
+  const locationLabel = useLocationFilter ? location : "All locations";
 
-    return lessons.filter((lesson) => {
-      const matchesCoach =
-        coachFilter === "All coaches" || lesson.coachName === coachFilter;
-      const matchesLevel =
-        levelFilter === "All levels" || lesson.level.toFixed(1) === levelFilter;
-      const matchesLocation =
-        normalizedLocation.length === 0 ||
-        lesson.locationCity.toLowerCase().includes(normalizedLocation);
-      const matchesDay = (() => {
-        if (!lesson.isoDate) {
-          return true;
-        }
-        if (dateFilter.type === "all") {
-          return true;
-        }
-        if (dateFilter.type === "day") {
-          return lesson.isoDate === dateFilter.iso;
-        }
-        return lesson.isoDate >= dateFilter.start && lesson.isoDate <= dateFilter.end;
-      })();
-      const withinRadius = lesson.distanceMiles <= radiusLimit + 0.001;
-      const haystack = [
-        lesson.title,
-        lesson.focus,
-        lesson.coachName,
-        lesson.locationCity,
-      ]
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = normalizedSearch.length === 0 || haystack.includes(normalizedSearch);
-
-      return (
-        matchesCoach &&
-        matchesLevel &&
-        matchesLocation &&
-        matchesDay &&
-        withinRadius &&
-        matchesSearch
-      );
-    });
-  }, [coachFilter, levelFilter, location, searchTerm, dateFilter, lessons, selectedRadius]);
-
-  const totalLessons = lessons.length;
+  const totalLessons = lessonsWithIso.length;
 
   const dateSummary = useMemo(() => {
     if (dateFilter.type === "all") {
@@ -238,15 +203,84 @@ const GroupLessonsPage = () => {
   }, [dateFilter, dayOptions]);
 
   const resultsSummary =
-    filteredLessons.length === totalLessons
-      ? `${filteredLessons.length} ${
-          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+    lessonsWithIso.length === totalLessons
+      ? `${lessonsWithIso.length} ${
+          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
         } available ${dateSummary}`
-      : `${filteredLessons.length} ${
-          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+      : `${lessonsWithIso.length} ${
+          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadLessons = async () => {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setLoadError("Missing authentication token.");
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      const selectedCoach =
+        coachFilter === "All coaches"
+          ? undefined
+          : lessonsWithIso.find((lesson) => lesson.coachName === coachFilter)?.coachId;
+      const parsedLevel =
+        levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
+      const radiusMiles = parseRadius(selectedRadius);
+      const dateRange =
+        dateFilter.type === "all"
+          ? {}
+          : dateFilter.type === "day"
+            ? { dateStart: dateFilter.iso, dateEnd: dateFilter.iso }
+            : { dateStart: dateFilter.start, dateEnd: dateFilter.end };
+      const position = useLocationFilter ? getStoredLocation() ?? DEFAULT_POSITION : undefined;
+
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          token,
+          perPage: 50,
+          page: 1,
+          search: searchTerm.trim(),
+          ...(position ? { position } : {}),
+          filters: {
+            coachId: selectedCoach,
+            level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
+            radiusMiles:
+              useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
+            ...dateRange,
+          },
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        const mapped = mapUpcomingGroupLessonsResponse(response);
+        setLessons(mapped.lessons);
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : "Unable to load group lessons.");
+        setLessons([]);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadLessons();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [coachFilter, levelFilter, selectedRadius, searchTerm, dateFilter, useLocationFilter]);
 
   const handleApplyRange = () => {
     if (!rangeStartValue || !rangeEndValue) {
@@ -286,8 +320,10 @@ const GroupLessonsPage = () => {
             levelOptions={levelOptions}
             selectedLevel={levelFilter}
             onLevelChange={setLevelFilter}
-            location={location}
+            location={locationLabel}
             onLocationClick={handleLocationClick}
+            useLocationFilter={useLocationFilter}
+            onUseLocationFilterChange={setUseLocationFilter}
             radiusOptions={radiusOptions}
             selectedRadius={selectedRadius}
             onRadiusChange={setSelectedRadius}
@@ -429,7 +465,15 @@ const GroupLessonsPage = () => {
               </div>
             </div>
 
-            {filteredLessons.length === 0 ? (
+            {isLoading ? (
+              <div className="empty-state">
+                <p>Loading group lessons…</p>
+              </div>
+            ) : loadError ? (
+              <div className="empty-state">
+                <p>{loadError}</p>
+              </div>
+            ) : lessonsWithIso.length === 0 ? (
               <div className="empty-state">
                 <p>No lessons match your current filters.</p>
                 <button
@@ -447,7 +491,7 @@ const GroupLessonsPage = () => {
               </div>
             ) : (
               <div className="lessons-grid">
-                {filteredLessons.map((lesson) => {
+                {lessonsWithIso.map((lesson) => {
                   const levelRange = formatLevelRange(lesson.level);
                   const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
 

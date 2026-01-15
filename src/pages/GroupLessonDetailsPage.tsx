@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -9,9 +9,17 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  fetchUpcomingGroupLessons,
+  fetchUpcomingGroupLessonById,
+  mapUpcomingGroupLesson,
+  mapUpcomingGroupLessonsResponse,
+  type GroupLesson,
+} from "../api/groupLessons";
 import MainLayout from "../components/MainLayout";
-import { findGroupLessonById } from "../data/mockGroupLessons";
 import { colors, typography } from "../lib/theme";
+import { getStoredAuthToken } from "../services/authToken";
+import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -72,8 +80,75 @@ const buildInitials = (name: string) => {
 const GroupLessonDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [lesson, setLesson] = useState<GroupLesson | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const lesson = useMemo(() => (id ? findGroupLessonById(id) : undefined), [id]);
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadLesson = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setLoadError("Missing authentication token.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        try {
+          const response = await fetchUpcomingGroupLessonById({
+            token,
+            lessonId: id,
+            signal: controller.signal,
+          });
+
+          if (cancelled) return;
+
+          setLesson(mapUpcomingGroupLesson(response.lesson));
+        } catch (error) {
+          if (cancelled) return;
+          const position = getStoredLocation() ?? DEFAULT_POSITION;
+          const fallbackResponse = await fetchUpcomingGroupLessons({
+            token,
+            perPage: 50,
+            page: 1,
+            position,
+            signal: controller.signal,
+          });
+
+          if (cancelled) return;
+
+          const mapped = mapUpcomingGroupLessonsResponse(fallbackResponse);
+          const found = mapped.lessons.find((item) => item.id === String(id));
+          setLesson(found ?? null);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : "Unable to load lesson.");
+        setLesson(null);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadLesson();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [id]);
 
   const themeVars = useMemo(
     () => ({
@@ -91,7 +166,22 @@ const GroupLessonDetailsPage = () => {
     [],
   );
 
-  if (!lesson) {
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="group-lesson-details" style={themeVars}>
+          <div className="group-lesson-details__inner group-lesson-details__inner--empty">
+            <div className="group-lesson-details__empty">
+              <h1>Loading session…</h1>
+              <p>Hang tight while we load the details.</p>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (loadError || !lesson) {
     return (
       <MainLayout>
         <div className="group-lesson-details" style={themeVars}>
@@ -100,8 +190,12 @@ const GroupLessonDetailsPage = () => {
               <ArrowLeft aria-hidden /> Back to group lessons
             </Link>
             <div className="group-lesson-details__empty">
-              <h1>We couldn’t find that session</h1>
-              <p>The lesson may have been filled or removed. Browse the latest sessions to pick another time.</p>
+              <h1>{loadError ? "We couldn’t load that session" : "We couldn’t find that session"}</h1>
+              <p>
+                {loadError
+                  ? loadError
+                  : "The lesson may have been filled or removed. Browse the latest sessions to pick another time."}
+              </p>
               <Link to="/group-lessons" className="group-lesson-details__empty-action">
                 Explore group lessons
               </Link>
