@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -6,10 +6,13 @@ import {
   CreditCard,
   Loader2,
   Package,
+  Plus,
   ShieldCheck,
   Wallet,
   X,
 } from "lucide-react";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 
 import type { CoachProfileRecord } from "../../api/coachProfile";
 import {
@@ -19,7 +22,12 @@ import {
   type CoachPackage,
   type PackagePurchase,
 } from "../../api/playerPackages";
-import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../../api/playerStripe";
+import {
+  getPlayerStripePaymentMethods,
+  getPlayerStripeSetupIntent,
+  type PlayerStripePaymentMethod,
+} from "../../api/playerStripe";
+import AddCardForm from "../payments/AddCardForm";
 import { useAuth } from "../../context/AuthContext";
 import { getStoredAuthToken } from "../../services/authToken";
 
@@ -106,6 +114,13 @@ const formatDateLabel = (value?: string | null) => {
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
+  "";
+
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 const extractPaymentMethods = (payload: PaymentMethodPayload): PlayerStripePaymentMethod[] => {
   if (!payload) return [];
@@ -202,10 +217,14 @@ const PurchaseLessonPackageExperience = ({
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [customPaymentMethodId, setCustomPaymentMethodId] = useState("");
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null);
+  const [setupIntentLoading, setSetupIntentLoading] = useState(false);
+  const [setupIntentError, setSetupIntentError] = useState<string | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [purchaseState, setPurchaseState] = useState<PurchaseState>("idle");
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [processingPurchase, setProcessingPurchase] = useState(false);
+  const stripeEnabled = Boolean(stripePromise);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -274,12 +293,12 @@ const PurchaseLessonPackageExperience = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, coach?.id, includeExpired]);
 
-  const loadPaymentMethods = async () => {
+  const loadPaymentMethods = useCallback(async () => {
     if (!authToken) {
       setPaymentMethods([]);
       setPaymentMethodsError("Sign in to choose a payment method.");
       setPaymentMethodsLoading(false);
-      return;
+      return [];
     }
 
     setPaymentMethodsLoading(true);
@@ -291,19 +310,61 @@ const PurchaseLessonPackageExperience = ({
       setPaymentMethods(methods);
       const defaultId = resolveDefaultPaymentMethodId(payload, methods);
       setSelectedPaymentMethodId((prev) => prev ?? defaultId ?? null);
+      return methods;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load payment methods.";
       setPaymentMethods([]);
       setPaymentMethodsError(message);
+      return [];
     } finally {
       setPaymentMethodsLoading(false);
     }
-  };
+  }, [authToken]);
+
+  const refreshSetupIntent = useCallback(async () => {
+    if (!stripeEnabled) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(null);
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    if (!authToken) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError("Sign in to add a payment method.");
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    setSetupIntentLoading(true);
+    setSetupIntentError(null);
+    setSetupIntentClientSecret(null);
+
+    try {
+      const { client_secret: clientSecret } = await getPlayerStripeSetupIntent(authToken);
+      if (!clientSecret) {
+        throw new Error("Missing Stripe setup intent. Please try again.");
+      }
+      setSetupIntentClientSecret(clientSecret);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to start a secure card session.";
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(message);
+    } finally {
+      setSetupIntentLoading(false);
+    }
+  }, [authToken, stripeEnabled]);
 
   useEffect(() => {
     void loadPaymentMethods();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken]);
+  }, [loadPaymentMethods]);
+
+  useEffect(() => {
+    if (!stripeEnabled) {
+      return;
+    }
+    void refreshSetupIntent();
+  }, [refreshSetupIntent, stripeEnabled]);
 
   useEffect(() => {
     if (packages.length && !selectedPackageId) {
@@ -317,6 +378,9 @@ const PurchaseLessonPackageExperience = ({
     setCustomPaymentMethodId("");
     setSelectedPaymentMethodId(null);
     setPaymentMethodsError(null);
+    setSetupIntentClientSecret(null);
+    setSetupIntentError(null);
+    setSetupIntentLoading(false);
   }, [coach?.id]);
 
   const selectedPackage = useMemo(
@@ -354,7 +418,23 @@ const PurchaseLessonPackageExperience = ({
   const modalTitleId = `purchase-package-modal-title-${coach.id}`;
   const dismissLabel = isModal ? "Close purchase dialog" : "Back to coach";
   const coachFirstName = (coach.name ?? coach.fullName ?? coach.headlineBadge ?? "Coach").split(" ")[0];
-  const paymentMethodId = customPaymentMethodId.trim() || (selectedPaymentMethodId ?? "").trim();
+  const isAddingNewCard = selectedPaymentMethodId === "new-card";
+  const paymentMethodId = isAddingNewCard ? "" : customPaymentMethodId.trim() || (selectedPaymentMethodId ?? "").trim();
+
+  const handleCardAdded = useCallback(
+    async (paymentMethodIdOverride?: string) => {
+      const methods = await loadPaymentMethods();
+      await refreshSetupIntent();
+      const resolved =
+        paymentMethodIdOverride ??
+        methods.find((method) => method.is_default || method.default || method.default_for_currency)?.id ??
+        methods[0]?.id;
+      if (resolved) {
+        setSelectedPaymentMethodId(resolved);
+      }
+    },
+    [loadPaymentMethods, refreshSetupIntent],
+  );
 
   const handleDismiss = () => {
     if (onClose) {
@@ -627,56 +707,139 @@ const PurchaseLessonPackageExperience = ({
                   ) : null}
                   {paymentMethodsLoading ? (
                     <div className="purchase-package-experience__empty">
-                      <Loader2 className="purchase-package-page__spinner" aria-hidden /> Loading payment methods…
+                      <Loader2 className="purchase-package-page__spinner" aria-hidden /> Loading payment methods...
                     </div>
-                  ) : paymentMethods.length > 0 ? (
-                    <div className="payment-methods__group">
-                      <span className="payment-methods__group-label">Saved cards</span>
-                      <div className="payment-methods__stack">
-                        {paymentMethods.map((method) => {
-                          const isSelected = selectedPaymentMethodId === method.id;
-                          return (
-                            <label
-                              key={method.id}
-                              className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}
-                            >
-                              <input
-                                type="radio"
-                                name="payment-method"
-                                value={method.id}
-                                checked={isSelected}
-                                onChange={() => {
-                                  setPaymentMethodsError(null);
-                                  setSelectedPaymentMethodId(method.id);
-                                }}
-                              />
-                              <span className="payment-method-card__selector" aria-hidden />
-                              <span className="payment-method-card__icon">
-                                <CreditCard aria-hidden />
+                  ) : null}
+
+                  <div className="payment-methods__group">
+                    <span className="payment-methods__group-label">Saved cards</span>
+                    {!paymentMethodsLoading && paymentMethods.length === 0 ? (
+                      <p className="payment-methods__notice">No saved cards yet.</p>
+                    ) : null}
+                    <div className="payment-methods__stack">
+                      {paymentMethods.map((method) => {
+                        const isSelected = selectedPaymentMethodId === method.id;
+                        return (
+                          <label
+                            key={method.id}
+                            className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}
+                          >
+                            <input
+                              type="radio"
+                              name="payment-method"
+                              value={method.id}
+                              checked={isSelected}
+                              onChange={() => {
+                                setPaymentMethodsError(null);
+                                setCustomPaymentMethodId("");
+                                setSelectedPaymentMethodId(method.id);
+                              }}
+                            />
+                            <span className="payment-method-card__selector" aria-hidden />
+                            <span className="payment-method-card__icon">
+                              <CreditCard aria-hidden />
+                            </span>
+                            <span className="payment-method-card__body">
+                              <span className="payment-method-card__title">{formatPaymentMethodLabel(method)}</span>
+                              <span className="payment-method-card__subtitle">
+                                {method.card?.exp_month && method.card?.exp_year
+                                  ? `Expires ${String(method.card.exp_month).padStart(2, "0")}/${String(
+                                      method.card.exp_year,
+                                    ).slice(-2)}`
+                                  : "Saved payment method"}
                               </span>
-                              <span className="payment-method-card__body">
-                                <span className="payment-method-card__title">{formatPaymentMethodLabel(method)}</span>
-                                <span className="payment-method-card__subtitle">
-                                  {method.card?.exp_month && method.card?.exp_year
-                                    ? `Expires ${String(method.card.exp_month).padStart(2, "0")}/${String(
-                                        method.card.exp_year,
-                                      ).slice(-2)}`
-                                    : "Saved payment method"}
-                                </span>
+                            </span>
+                            {method.is_default || method.default || method.default_for_currency ? (
+                              <span className="payment-method-card__tag">Default</span>
+                            ) : null}
+                          </label>
+                        );
+                      })}
+
+                      <label
+                        className={`payment-method-card payment-method-card--new${
+                          isAddingNewCard ? " payment-method-card--selected" : ""
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment-method"
+                          value="new-card"
+                          checked={isAddingNewCard}
+                          onChange={() => {
+                            setPaymentMethodsError(null);
+                            setCustomPaymentMethodId("");
+                            setSelectedPaymentMethodId("new-card");
+                          }}
+                        />
+                        <span className="payment-method-card__selector" aria-hidden />
+                        <span className="payment-method-card__icon">
+                          <CreditCard aria-hidden />
+                        </span>
+                        <span className="payment-method-card__body">
+                          <span className="payment-method-card__title">Add a new credit card</span>
+                          <span className="payment-method-card__subtitle">Securely save it for future lessons.</span>
+                        </span>
+                      </label>
+
+                      {isAddingNewCard ? (
+                        <div className="payment-method-card__form" role="group" aria-label="New card details">
+                          {stripeEnabled ? (
+                            setupIntentError ? (
+                              <div
+                                className="payment-form__status payment-form__status--error payment-form__status--stacked"
+                                role="alert"
+                              >
+                                <span>{setupIntentError}</span>
+                                <button
+                                  type="button"
+                                  className="payment-methods__cta"
+                                  onClick={() => void refreshSetupIntent()}
+                                  disabled={setupIntentLoading}
+                                >
+                                  {setupIntentLoading ? (
+                                    <>
+                                      <Loader2 className="payment-form__spinner" aria-hidden />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus size={16} aria-hidden />
+                                      Try again
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            ) : setupIntentLoading && !setupIntentClientSecret ? (
+                              <div className="payment-form__status payment-form__status--inline" role="status">
+                                <Loader2 className="payment-form__spinner" aria-hidden />
+                                Preparing secure payment form...
+                              </div>
+                            ) : setupIntentClientSecret ? (
+                              <Elements
+                                stripe={stripePromise}
+                                options={{ appearance: { theme: "stripe" } }}
+                                key={setupIntentClientSecret}
+                              >
+                                <AddCardForm clientSecret={setupIntentClientSecret} onCardAdded={handleCardAdded} />
+                              </Elements>
+                            ) : null
+                          ) : (
+                            <div className="payment-form__status payment-form__status--error" role="alert">
+                              <AlertCircle aria-hidden />
+                              <span>
+                                Stripe isn&apos;t configured. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in your
+                                environment to enable card payments.
                               </span>
-                              {method.is_default || method.default || method.default_for_currency ? (
-                                <span className="payment-method-card__tag">Default</span>
-                              ) : null}
-                            </label>
-                          );
-                        })}
-                      </div>
+                            </div>
+                          )}
+                          <p className="payment-form__note">
+                            We use encrypted vault storage and never share your payment details with coaches.
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : (
-                    <div className="purchase-package-experience__empty">
-                      No saved payment methods. Add one in settings or paste a Stripe payment method ID below.
-                    </div>
-                  )}
+                  </div>
 
                   {/* <div className="payment-methods__group">
                     <span className="payment-methods__group-label">Use a payment method ID</span>
@@ -720,7 +883,7 @@ const PurchaseLessonPackageExperience = ({
                     type="button"
                     className="purchase-package-experience__primary purchase-package-experience__primary--full"
                     onClick={handlePurchase}
-                    disabled={processingPurchase}
+                    disabled={processingPurchase || isAddingNewCard}
                   >
                     {processingPurchase ? (
                       <>

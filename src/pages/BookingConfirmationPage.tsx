@@ -1,23 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
   Apple,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock,
   CreditCard,
+  Loader2,
   MapPin,
   Package,
+  Plus,
   ShieldCheck,
   Star,
   Users,
   Wallet,
 } from "lucide-react";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 
 import MainLayout from "../components/MainLayout";
 import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
+import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import { findGroupLessonById } from "../data/mockGroupLessons";
 import {
@@ -27,31 +33,24 @@ import {
   type PackageCreditsBalanceResponse,
   type PackagePurchase,
 } from "../api/playerPackages";
+import {
+  getPlayerStripePaymentMethods,
+  getPlayerStripeSetupIntent,
+  type PlayerStripePaymentMethod,
+  type PlayerStripePaymentMethodListResponse,
+} from "../api/playerStripe";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 
 import "./BookingConfirmationPage.css";
 
-type SavedCard = {
+type NormalizedPaymentMethod = {
   id: string;
   brand: string;
   last4: string;
-  expiry: string;
-  nickname?: string;
-  isDefault?: boolean;
-};
-
-const savedPaymentMethods: SavedCard[] = [
-  { id: "card-personal", brand: "Visa", last4: "4242", expiry: "04/26", nickname: "Personal", isDefault: true },
-  { id: "card-club", brand: "Mastercard", last4: "1188", expiry: "11/25", nickname: "Club expenses" },
-];
-
-type NewCardFormState = {
-  name: string;
-  number: string;
-  expiry: string;
-  cvc: string;
-  postalCode: string;
+  expMonth?: number;
+  expYear?: number;
+  isDefault: boolean;
 };
 
 type LocationState = {
@@ -62,6 +61,13 @@ type LocationState = {
 };
 
 const MINUTES_PER_DAY = 24 * 60;
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
+  "";
+
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 const parseTimeToMinutes = (timeLabel: string) => {
   const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -124,6 +130,64 @@ const formatDateLabel = (value?: string | null) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
+const formatExpiry = (month?: number, year?: number) => {
+  if (!month || !year) return "Unknown";
+  const monthString = month < 10 ? `0${month}` : `${month}`;
+  const yearString = `${year}`.slice(-2);
+  return `${monthString}/${yearString}`;
+};
+
+const normalizeBrand = (brand?: string) => {
+  if (!brand) return "Card";
+  const normalized = brand.trim();
+  if (!normalized) return "Card";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const resolveDefaultId = (payload: PlayerStripePaymentMethodListResponse | PlayerStripePaymentMethod[] | null | undefined) => {
+  if (!payload || Array.isArray(payload)) {
+    return undefined;
+  }
+  return (
+    payload.default_payment_method_id ||
+    payload.default_payment_method ||
+    (typeof payload["defaultPaymentMethodId"] === "string" ? (payload as Record<string, string>)["defaultPaymentMethodId"] : undefined)
+  );
+};
+
+const extractPaymentMethods = (
+  payload: PlayerStripePaymentMethodListResponse | PlayerStripePaymentMethod[] | null | undefined,
+): PlayerStripePaymentMethod[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.payment_methods)) return payload.payment_methods;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray((payload as { paymentMethods?: PlayerStripePaymentMethod[] }).paymentMethods)) {
+    return (payload as { paymentMethods?: PlayerStripePaymentMethod[] }).paymentMethods ?? [];
+  }
+  return [];
+};
+
+const toNormalizedPaymentMethod = (method: PlayerStripePaymentMethod, defaultId?: string): NormalizedPaymentMethod => {
+  const card = method.card ?? (method as unknown as { card: PlayerStripePaymentMethod["card"] }).card;
+  const expMonth = card?.exp_month ?? (method as unknown as { exp_month?: number }).exp_month;
+  const expYear = card?.exp_year ?? (method as unknown as { exp_year?: number }).exp_year;
+  const last4 = card?.last4 ?? (method as unknown as { last4?: string }).last4 ?? "";
+  const brand = normalizeBrand(card?.brand ?? (method as unknown as { brand?: string }).brand);
+  const isDefaultExplicit = Boolean(method.is_default ?? method.default ?? method.default_for_currency);
+  const isDefault = isDefaultExplicit || (defaultId ? method.id === defaultId : false);
+
+  return {
+    id: method.id,
+    brand,
+    last4,
+    expMonth,
+    expYear,
+    isDefault,
+  };
+};
+
 const extractPlayerCapacity = (lessonDurationLabel?: string) => {
   if (!lessonDurationLabel) {
     return undefined;
@@ -181,15 +245,16 @@ const BookingConfirmationPage = () => {
   const state = location.state as LocationState | undefined;
   const searchParams = new URLSearchParams(location.search);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>(savedPaymentMethods[0]?.id ?? "apple-pay");
-  const [newCardForm, setNewCardForm] = useState<NewCardFormState>({
-    name: "",
-    number: "",
-    expiry: "",
-    cvc: "",
-    postalCode: "",
-  });
+  const [paymentMethod, setPaymentMethod] = useState<string>("apple-pay");
+  const [paymentMethods, setPaymentMethods] = useState<NormalizedPaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null);
+  const [setupIntentLoading, setSetupIntentLoading] = useState(false);
+  const [setupIntentError, setSetupIntentError] = useState<string | null>(null);
+  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+  const stripeEnabled = Boolean(stripePromise);
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -222,6 +287,121 @@ const BookingConfirmationPage = () => {
   const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
+
+  const fetchPaymentMethods = useCallback(async () => {
+    if (!authToken) {
+      setPaymentMethodsError("Sign in to manage your saved cards.");
+      setPaymentMethods([]);
+      setPaymentMethodsLoading(false);
+      return [];
+    }
+
+    setPaymentMethodsLoading(true);
+    setPaymentMethodsError(null);
+    try {
+      const payload = await getPlayerStripePaymentMethods(authToken);
+      const defaultId = resolveDefaultId(payload);
+      const normalized = extractPaymentMethods(payload).map((method) => toNormalizedPaymentMethod(method, defaultId));
+      setPaymentMethods(normalized);
+      return normalized;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load saved cards.";
+      setPaymentMethodsError(message);
+      setPaymentMethods([]);
+      return [];
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, [authToken]);
+
+  const refreshSetupIntent = useCallback(async () => {
+    if (!stripeEnabled) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(null);
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    if (!authToken) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError("Sign in to add a payment method.");
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    setSetupIntentLoading(true);
+    setSetupIntentError(null);
+    setSetupIntentClientSecret(null);
+
+    try {
+      const { client_secret: clientSecret } = await getPlayerStripeSetupIntent(authToken);
+      if (!clientSecret) {
+        throw new Error("Missing Stripe setup intent. Please try again.");
+      }
+      setSetupIntentClientSecret(clientSecret);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to start a secure card session.";
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(message);
+    } finally {
+      setSetupIntentLoading(false);
+    }
+  }, [authToken, stripeEnabled]);
+
+  useEffect(() => {
+    void fetchPaymentMethods();
+  }, [fetchPaymentMethods]);
+
+  useEffect(() => {
+    if (!stripeEnabled) {
+      return;
+    }
+    void refreshSetupIntent();
+  }, [refreshSetupIntent, stripeEnabled]);
+
+  useEffect(() => {
+    if (paymentMethodsLoading || hasInitializedSelection) {
+      return;
+    }
+    if (paymentMethod === "apple-pay" && paymentMethods.length > 0) {
+      const defaultId = paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id;
+      if (defaultId) {
+        setPaymentMethod(defaultId);
+      }
+    }
+    setHasInitializedSelection(true);
+  }, [hasInitializedSelection, paymentMethod, paymentMethods, paymentMethodsLoading]);
+
+  useEffect(() => {
+    if (paymentMethodsLoading) {
+      return;
+    }
+    if (paymentMethod === "apple-pay" || paymentMethod === "credits" || paymentMethod === "new-card") {
+      return;
+    }
+    if (paymentMethods.some((method) => method.id === paymentMethod)) {
+      return;
+    }
+    const fallbackId = paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id ?? "apple-pay";
+    setPaymentMethod(fallbackId);
+  }, [paymentMethod, paymentMethods, paymentMethodsLoading]);
+
+  const handleCardAdded = useCallback(
+    async (paymentMethodId?: string) => {
+      const updatedMethods = await fetchPaymentMethods();
+      await refreshSetupIntent();
+      if (paymentMethodId) {
+        setPaymentMethod(paymentMethodId);
+        setHasInitializedSelection(true);
+        return;
+      }
+      const nextId =
+        updatedMethods.find((method) => method.isDefault)?.id ?? updatedMethods[0]?.id ?? "apple-pay";
+      setPaymentMethod(nextId);
+      setHasInitializedSelection(true);
+    },
+    [fetchPaymentMethods, refreshSetupIntent],
+  );
 
   const profile = coachId != null ? findCoachProfile(coachId) : undefined;
   const groupLesson = groupLessonId ? findGroupLessonById(groupLessonId) : undefined;
@@ -477,11 +657,13 @@ const BookingConfirmationPage = () => {
     ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
-  const selectedSavedCard = savedPaymentMethods.find((card) => card.id === paymentMethod);
+  const selectedSavedCard = paymentMethods.find((card) => card.id === paymentMethod) ?? null;
   const canUseCredits = eligibleCredits.length > 0;
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
+  const fallbackCardId =
+    paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id ?? "apple-pay";
   const heldCredits = isFiniteNumber(creditsBalance?.held) ? creditsBalance.held : 0;
   const heldCreditsLabel = heldCredits > 0 ? ` · ${heldCredits} held` : "";
 
@@ -544,24 +726,10 @@ const BookingConfirmationPage = () => {
       : "You won’t be charged until the coach confirms.";
   })();
 
-  const isNewCardValid = useMemo(() => {
-    if (!isUsingNewCard) {
-      return true;
-    }
-    const trimmedNumber = newCardForm.number.replace(/\s+/g, "");
-    return (
-      newCardForm.name.trim().length > 1 &&
-      trimmedNumber.length >= 15 &&
-      newCardForm.expiry.trim().length >= 4 &&
-      newCardForm.cvc.trim().length >= 3 &&
-      newCardForm.postalCode.trim().length >= 3
-    );
-  }, [isUsingNewCard, newCardForm]);
-
   const isConfirmDisabled =
     isConfirmed ||
     isConsumingCredits ||
-    !isNewCardValid ||
+    isUsingNewCard ||
     (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
 
   const handleConfirm = async () => {
@@ -578,7 +746,7 @@ const BookingConfirmationPage = () => {
       }
       if (!canUseCredits) {
         setConsumeError("No eligible credits available. Please pay by card.");
-        setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+        setPaymentMethod(fallbackCardId);
         return;
       }
 
@@ -589,7 +757,7 @@ const BookingConfirmationPage = () => {
         const numericLessonId = extractNumericLessonId(lessonIdForConsume);
         if (!numericLessonId) {
           setConsumeError("We need a numeric lesson ID to reserve credits.");
-          setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+          setPaymentMethod(fallbackCardId);
           return;
         }
         await consumePackageCredits({
@@ -636,7 +804,7 @@ const BookingConfirmationPage = () => {
           }
         })();
         setConsumeError(errorMessage);
-        setPaymentMethod(savedPaymentMethods[0]?.id ?? "apple-pay");
+        setPaymentMethod(fallbackCardId);
       } finally {
         setIsConsumingCredits(false);
       }
@@ -692,8 +860,15 @@ const BookingConfirmationPage = () => {
   const savedCardsSection = (
     <div className="payment-methods__group">
       <span className="payment-methods__group-label">Saved cards</span>
+      {paymentMethodsLoading ? (
+        <p className="payment-methods__notice">Loading your saved cards...</p>
+      ) : paymentMethodsError ? (
+        <p className="payment-methods__notice payment-methods__notice--error">{paymentMethodsError}</p>
+      ) : paymentMethods.length === 0 ? (
+        <p className="payment-methods__notice">No saved cards yet.</p>
+      ) : null}
       <div className="payment-methods__stack">
-        {savedPaymentMethods.map((card) => {
+        {paymentMethods.map((card) => {
           const isSelected = paymentMethod === card.id;
           return (
             <label key={card.id} className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}>
@@ -709,11 +884,10 @@ const BookingConfirmationPage = () => {
                 <CreditCard aria-hidden size={18} />
               </span>
               <span className="payment-method-card__body">
-                <span className="payment-method-card__title">{card.brand} ending in {card.last4}</span>
-                <span className="payment-method-card__subtitle">
-                  Expires {card.expiry}
-                  {card.nickname ? ` • ${card.nickname}` : ""}
+                <span className="payment-method-card__title">
+                  {card.brand} ending in {card.last4}
                 </span>
+                <span className="payment-method-card__subtitle">Expires {formatExpiry(card.expMonth, card.expYear)}</span>
               </span>
               {card.isDefault ? <span className="payment-method-card__tag">Default</span> : null}
             </label>
@@ -740,61 +914,55 @@ const BookingConfirmationPage = () => {
 
         {isUsingNewCard ? (
           <div className="payment-method-card__form" role="group" aria-label="New card details">
-            <div className="payment-method-card__form-row">
-              <label className="payment-method-card__form-field">
-                <span>Cardholder name</span>
-                <input
-                  type="text"
-                  value={newCardForm.name}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="Name on card"
-                />
-              </label>
-            </div>
-            <div className="payment-method-card__form-row payment-method-card__form-row--split">
-              <label className="payment-method-card__form-field">
-                <span>Card number</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.number}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, number: event.target.value }))}
-                  placeholder="1234 1234 1234 1234"
-                />
-              </label>
-            </div>
-            <div className="payment-method-card__form-row payment-method-card__form-row--grid">
-              <label className="payment-method-card__form-field">
-                <span>Expiration</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.expiry}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, expiry: event.target.value }))}
-                  placeholder="MM/YY"
-                />
-              </label>
-              <label className="payment-method-card__form-field">
-                <span>CVC</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.cvc}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, cvc: event.target.value }))}
-                  placeholder="123"
-                />
-              </label>
-              <label className="payment-method-card__form-field">
-                <span>ZIP code</span>
-                <input
-                  type="text"
-                  inputMode="text"
-                  value={newCardForm.postalCode}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, postalCode: event.target.value }))}
-                  placeholder="12345"
-                />
-              </label>
-            </div>
+            {stripeEnabled ? (
+              setupIntentError ? (
+                <div className="payment-form__status payment-form__status--error payment-form__status--stacked" role="alert">
+                  <span>{setupIntentError}</span>
+                  <button
+                    type="button"
+                    className="payment-methods__cta"
+                    onClick={() => void refreshSetupIntent()}
+                    disabled={setupIntentLoading}
+                  >
+                    {setupIntentLoading ? (
+                      <>
+                        <Loader2 className="payment-form__spinner" aria-hidden />
+                        Retrying...
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} aria-hidden />
+                        Try again
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : setupIntentLoading && !setupIntentClientSecret ? (
+                <div className="payment-form__status payment-form__status--inline" role="status">
+                  <Loader2 className="payment-form__spinner" aria-hidden />
+                  Preparing secure payment form...
+                </div>
+              ) : setupIntentClientSecret ? (
+                <Elements
+                  stripe={stripePromise}
+                  options={{ appearance: { theme: "stripe" } }}
+                  key={setupIntentClientSecret}
+                >
+                  <AddCardForm clientSecret={setupIntentClientSecret} onCardAdded={handleCardAdded} />
+                </Elements>
+              ) : null
+            ) : (
+              <div className="payment-form__status payment-form__status--error" role="alert">
+                <AlertCircle aria-hidden />
+                <span>
+                  Stripe isn&apos;t configured. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in your environment to enable card
+                  payments.
+                </span>
+              </div>
+            )}
+            <p className="payment-form__note">
+              We use encrypted vault storage and never share your payment details with coaches.
+            </p>
           </div>
         ) : null}
       </div>
