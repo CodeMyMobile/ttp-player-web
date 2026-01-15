@@ -19,13 +19,18 @@ import {
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
+import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
 import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
-import { findGroupLessonById } from "../data/mockGroupLessons";
+import {
+  fetchUpcomingGroupLessonById,
+  mapUpcomingGroupLesson,
+  type GroupLesson,
+} from "../api/groupLessons";
 import {
   fetchPackageCredits,
   fetchPackageCreditsBalance,
@@ -287,6 +292,10 @@ const BookingConfirmationPage = () => {
   const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
+  const [groupLessonLoading, setGroupLessonLoading] = useState(false);
+  const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
+  const resolvedCoachId = coachId ?? groupLesson?.coachId;
 
   const fetchPaymentMethods = useCallback(async () => {
     if (!authToken) {
@@ -403,8 +412,54 @@ const BookingConfirmationPage = () => {
     [fetchPaymentMethods, refreshSetupIntent],
   );
 
-  const profile = coachId != null ? findCoachProfile(coachId) : undefined;
-  const groupLesson = groupLessonId ? findGroupLessonById(groupLessonId) : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    if (!groupLessonId) {
+      setGroupLesson(null);
+      setGroupLessonError(null);
+      setGroupLessonLoading(false);
+      return () => controller.abort();
+    }
+
+    if (!authToken) {
+      setGroupLesson(null);
+      setGroupLessonError("Sign in to view this group lesson.");
+      setGroupLessonLoading(false);
+      return () => controller.abort();
+    }
+
+    setGroupLessonLoading(true);
+    setGroupLessonError(null);
+
+    fetchUpcomingGroupLessonById({
+      token: authToken,
+      lessonId: groupLessonId,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setGroupLesson(mapUpcomingGroupLesson(response.lesson));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Unable to load group lesson.";
+        setGroupLessonError(message);
+        setGroupLesson(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setGroupLessonLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [authToken, groupLessonId]);
+
+  const profile = resolvedCoachId != null ? findCoachProfile(resolvedCoachId) : undefined;
 
   const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
   const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
@@ -415,7 +470,16 @@ const BookingConfirmationPage = () => {
   const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
 
   const timeRange = groupLesson
-    ? buildTimeRangeLabel(groupLesson.startTime, `${groupLesson.durationMinutes} min`)
+    ? (() => {
+        if (groupLesson.startDateTime && groupLesson.endDateTime) {
+          const start = moment.utc(groupLesson.startDateTime);
+          const end = moment.utc(groupLesson.endDateTime);
+          if (start.isValid() && end.isValid()) {
+            return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+          }
+        }
+        return buildTimeRangeLabel(groupLesson.startTime, `${groupLesson.durationMinutes} min`);
+      })()
     : selectedSlot
       ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration)
       : undefined;
@@ -423,8 +487,10 @@ const BookingConfirmationPage = () => {
   const resolvedCoachName = groupLesson?.coachName ?? profile?.name ?? "your coach";
   const coachName = resolvedCoachName;
   const coachFirstName = resolvedCoachName.split(" ")[0] ?? resolvedCoachName;
-  const lessonDateLabel = groupLesson?.date
-    ? groupLesson.date
+  const lessonDateLabel = groupLesson
+    ? groupLesson.startDateTime
+      ? moment.utc(groupLesson.startDateTime).format("dddd, MMMM D")
+      : groupLesson.date
     : selectedDate
       ? `${dayNameMap[selectedDate.day] ?? selectedDate.day}, ${selectedDate.label}`
       : undefined;
@@ -484,7 +550,7 @@ const BookingConfirmationPage = () => {
   useEffect(() => {
     const controller = new AbortController();
 
-    if (!coachId) {
+    if (!resolvedCoachId) {
       setCredits([]);
       setCreditsError(null);
       setCreditsLoading(false);
@@ -505,7 +571,7 @@ const BookingConfirmationPage = () => {
 
     fetchPackageCredits({
       token: authToken,
-      coachId,
+      coachId: resolvedCoachId,
       includeExpired: false,
       signal: controller.signal,
     })
@@ -525,19 +591,19 @@ const BookingConfirmationPage = () => {
       });
 
     return () => controller.abort();
-  }, [authToken, coachId]);
+  }, [authToken, resolvedCoachId]);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    if (!coachId || !authToken) {
+    if (!resolvedCoachId || !authToken) {
       setCreditsBalance(null);
       return () => controller.abort();
     }
 
     fetchPackageCreditsBalance({
       token: authToken,
-      coachId,
+      coachId: resolvedCoachId,
       signal: controller.signal,
     })
       .then((data) => {
@@ -549,7 +615,7 @@ const BookingConfirmationPage = () => {
       });
 
     return () => controller.abort();
-  }, [authToken, coachId]);
+  }, [authToken, resolvedCoachId]);
 
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
@@ -730,6 +796,7 @@ const BookingConfirmationPage = () => {
     isConfirmed ||
     isConsumingCredits ||
     isUsingNewCard ||
+    (groupLessonId ? groupLessonLoading : false) ||
     (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
 
   const handleConfirm = async () => {
@@ -740,7 +807,7 @@ const BookingConfirmationPage = () => {
         setConsumeError("Sign in to use credits.");
         return;
       }
-      if (!coachId || !lessonType) {
+      if (!resolvedCoachId || !lessonType) {
         setConsumeError("Missing lesson details for credits.");
         return;
       }
@@ -762,7 +829,7 @@ const BookingConfirmationPage = () => {
         }
         await consumePackageCredits({
           token: authToken,
-          coachId,
+          coachId: resolvedCoachId,
           lessonType,
           lessonId: numericLessonId,
           purchaseId: bestPurchase?.id,
@@ -772,7 +839,7 @@ const BookingConfirmationPage = () => {
         try {
           const refreshed = await fetchPackageCredits({
             token: authToken,
-            coachId,
+            coachId: resolvedCoachId,
             includeExpired: false,
           });
           setCredits(refreshed?.purchases ?? []);
@@ -784,7 +851,7 @@ const BookingConfirmationPage = () => {
         try {
           const refreshedBalance = await fetchPackageCreditsBalance({
             token: authToken,
-            coachId,
+            coachId: resolvedCoachId,
           });
           setCreditsBalance(refreshedBalance ?? null);
         } catch {
@@ -1061,15 +1128,31 @@ const BookingConfirmationPage = () => {
       };
 
   const shouldShowEmptyState = groupLessonId
-    ? !groupLesson
+    ? !groupLessonLoading && !groupLesson
     : !profile || !selectedDate || !selectedSlot;
+
+  if (groupLessonId && groupLessonLoading) {
+    return (
+      <MainLayout>
+        <div className="booking-confirmation booking-confirmation--empty">
+          <div className="booking-confirmation__empty-card">
+            <h1 className="booking-confirmation__empty-title">Loading group lesson…</h1>
+            <p className="booking-confirmation__empty-copy">
+              Please wait while we pull the latest session details.
+            </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (shouldShowEmptyState) {
     const emptyTitle = groupLessonId
-      ? "We couldn't find that group lesson"
+      ? "We couldn't load that group lesson"
       : "We couldn't load that booking";
     const emptyCopy = groupLessonId
-      ? "The session may have filled or is no longer available. Explore other group lessons to keep the momentum going."
+      ? groupLessonError ||
+        "The session may have filled or is no longer available. Explore other group lessons to keep the momentum going."
       : "The booking details expired or were missing. Please return to the coach listings to choose an available lesson.";
     const emptyActionLabel = groupLessonId ? "View group lessons" : "Browse coaches";
     const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";

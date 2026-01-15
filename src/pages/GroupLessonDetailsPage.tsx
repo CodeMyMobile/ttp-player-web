@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import moment from "moment";
 
 import {
   fetchUpcomingGroupLessons,
@@ -208,8 +209,20 @@ const GroupLessonDetailsPage = () => {
 
   const confirmedCount = lesson.participants.length;
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
-  const timeRange = buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
+  const timeRange = lesson.startDateTime && lesson.endDateTime
+    ? (() => {
+        const start = moment.utc(lesson.startDateTime);
+        const end = moment.utc(lesson.endDateTime);
+        if (start.isValid() && end.isValid()) {
+          return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+        }
+        return buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
+      })()
+    : buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
   const levelLabel = formatLevel(lesson.level);
+  const dateLabel = lesson.startDateTime
+    ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
+    : lesson.date;
 
   return (
     <MainLayout>
@@ -256,7 +269,7 @@ const GroupLessonDetailsPage = () => {
               </div>
               <div className="group-lesson-details__coach-meta">
                 <CalendarDays aria-hidden size={18} />
-                <span>{lesson.date}</span>
+                <span>{dateLabel}</span>
               </div>
               <div className="group-lesson-details__coach-meta">
                 <Clock aria-hidden size={18} />
@@ -348,11 +361,11 @@ const GroupLessonDetailsPage = () => {
                     <ShieldCheck aria-hidden size={18} /> Secure checkout powered by Matchplay
                   </li>
                   <li>
-                    <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
-                  </li>
-                  <li>
-                    <CalendarDays aria-hidden size={18} /> {lesson.date}
-                  </li>
+                  <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
+                </li>
+                <li>
+                  <CalendarDays aria-hidden size={18} /> {dateLabel}
+                </li>
                 </ul>
                 <button
                   type="button"

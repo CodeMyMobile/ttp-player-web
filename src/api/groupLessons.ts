@@ -16,6 +16,8 @@ export interface GroupLesson {
   day: string;
   date: string;
   startTime: string;
+  startDateTime?: string;
+  endDateTime?: string;
   durationMinutes: number;
   locationName: string;
   locationCity: string;
@@ -205,6 +207,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     day,
     date,
     startTime,
+    startDateTime: lesson.start_date_time,
+    endDateTime: lesson.end_date_time,
     durationMinutes: parseDurationMinutes(lesson),
     locationName: lesson.location ?? "Location TBD",
     locationCity: locationCity || "Location TBD",
