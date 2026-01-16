@@ -18,6 +18,8 @@ export interface GroupLesson {
   startTime: string;
   startDateTime?: string;
   endDateTime?: string;
+  locationId?: number;
+  court?: number | string | null;
   durationMinutes: number;
   locationName: string;
   locationCity: string;
@@ -30,9 +32,10 @@ export interface GroupLesson {
   participants: Array<{
     id: string;
     name: string;
-    skillLevel: string;
-    focusArea: string;
-    joinedLabel: string;
+    skillLevel?: string;
+    focusArea?: string;
+    joinedLabel?: string;
+    avatarUrl?: string;
   }>;
   groupPlayers?: Array<{
     playerId?: number | string;
@@ -216,6 +219,12 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     startTime,
     startDateTime: lesson.start_date_time,
     endDateTime: lesson.end_date_time,
+    locationId: (() => {
+      const raw = lesson.location_id;
+      const numeric = typeof raw === "number" ? raw : Number(raw);
+      return Number.isFinite(numeric) ? numeric : undefined;
+    })(),
+    court: lesson.court ?? null,
     durationMinutes: parseDurationMinutes(lesson),
     locationName: lesson.location ?? "Location TBD",
     locationCity: locationCity || "Location TBD",

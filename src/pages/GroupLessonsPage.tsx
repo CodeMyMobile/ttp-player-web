@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState,useCallback } from "react";
+/// <reference types="google.maps" />
+
+import Autocomplete from "react-google-autocomplete";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
@@ -13,7 +16,12 @@ import {
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
-import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
+import {
+  DEFAULT_POSITION,
+  getStoredLocation,
+  storeLocation,
+  type Coordinates,
+} from "../utils/userLocation";
 
 import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
@@ -71,12 +79,37 @@ type DateFilterState =
   | { type: "day"; iso: string }
   | { type: "range"; start: string; end: string };
 
+type SelectedLocation = {
+  label: string;
+  latitude: number;
+  longitude: number;
+  isCurrentLocation?: boolean;
+};
+
 const GroupLessonsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
-  const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
+  const [position, setPosition] = useState<Coordinates | null>(
+    () => getStoredLocation() ?? DEFAULT_POSITION,
+  );
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => {
+    const stored = getStoredLocation();
+    if (stored) {
+      return {
+        label: "Current location",
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        isCurrentLocation: true,
+      };
+    }
+    return null;
+  });
+  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
@@ -178,15 +211,79 @@ const GroupLessonsPage = () => {
     [],
   );
 
-  const handleLocationClick = () => {
-    const nextLocation = window.prompt("Enter your city or neighborhood", location);
-    if (nextLocation !== null) {
-      const trimmed = nextLocation.trim();
-      setLocation(trimmed.length ? trimmed : DEFAULT_LOCATION);
-    }
-  };
+  const locationLabel = useLocationFilter
+    ? locationFilter?.label ?? DEFAULT_LOCATION
+    : "All locations";
 
-  const locationLabel = useLocationFilter ? location : "All locations";
+  const hasLocationFilter = Boolean(locationFilter);
+
+  const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
+    if (
+      nextLocation &&
+      typeof nextLocation.latitude === "number" &&
+      typeof nextLocation.longitude === "number"
+    ) {
+      const coords: Coordinates = {
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
+      };
+      setPosition(coords);
+      storeLocation(coords);
+      setLocationFilter(nextLocation);
+      setLocationSearchTerm(nextLocation.label);
+      setGeoError("");
+      setShowLocationPicker(false);
+      return;
+    }
+
+    setLocationFilter(null);
+    setLocationSearchTerm("");
+    setGeoError("");
+    setShowLocationPicker(false);
+    setPosition({ ...DEFAULT_POSITION });
+    storeLocation(null);
+  }, []);
+
+  const detectCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError("Location detection is not supported in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (nextPosition) => {
+        setIsDetectingLocation(false);
+        const coords: Coordinates = {
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+        };
+        applyLocationFilter({
+          label: "Current location",
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          isCurrentLocation: true,
+        });
+      },
+      (geoErrorEvent) => {
+        setIsDetectingLocation(false);
+        console.error("Failed to detect current location", geoErrorEvent);
+        setGeoError(
+          geoErrorEvent.message || "We couldn't detect your location. Please allow access and try again.",
+        );
+      },
+    );
+  }, [applyLocationFilter]);
+
+  const closeLocationPicker = useCallback(() => {
+    setShowLocationPicker(false);
+    setGeoError("");
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
+
+  useEffect(() => {
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
 
   const totalLessons = lessonsWithIso.length;
 
@@ -319,7 +416,7 @@ const GroupLessonsPage = () => {
           : dateFilter.type === "day"
             ? { dateStart: dateFilter.iso, dateEnd: dateFilter.iso }
             : { dateStart: dateFilter.start, dateEnd: dateFilter.end };
-      const position = useLocationFilter ? getStoredLocation() ?? DEFAULT_POSITION : undefined;
+      const resolvedPosition = useLocationFilter ? position ?? DEFAULT_POSITION : undefined;
 
       try {
         const response = await fetchUpcomingGroupLessons({
@@ -327,7 +424,7 @@ const GroupLessonsPage = () => {
           perPage: 50,
           page: 1,
           search: searchTerm.trim(),
-          ...(position ? { position } : {}),
+          ...(resolvedPosition ? { position: resolvedPosition } : {}),
           filters: {
             coachId: selectedCoach,
             level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
@@ -359,7 +456,15 @@ const GroupLessonsPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [coachFilter, levelFilter, selectedRadius, searchTerm, dateFilter, useLocationFilter]);
+  }, [
+    coachFilter,
+    levelFilter,
+    selectedRadius,
+    searchTerm,
+    dateFilter,
+    useLocationFilter,
+    position,
+  ]);
 
   const handleApplyRange = () => {
     if (!rangeStartValue || !rangeEndValue) {
@@ -400,7 +505,15 @@ const GroupLessonsPage = () => {
             selectedLevel={levelFilter}
             onLevelChange={setLevelFilter}
             location={locationLabel}
-            onLocationClick={handleLocationClick}
+            onLocationClick={() => {
+              setGeoError("");
+              setShowLocationPicker((prev) => {
+                if (!prev) {
+                  setLocationSearchTerm(locationFilter?.label ?? "");
+                }
+                return !prev;
+              });
+            }}
             useLocationFilter={useLocationFilter}
             onUseLocationFilterChange={setUseLocationFilter}
             radiusOptions={radiusOptions}
@@ -412,6 +525,83 @@ const GroupLessonsPage = () => {
               setSearchTerm((current) => current.trim());
             }}
           />
+
+          {showLocationPicker ? (
+            <section className="fp-location-panel" id="group-lessons-location-picker" aria-label="Location picker">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="Search for a city, club, or court"
+                className="fp-autocomplete-input"
+                value={locationSearchTerm}
+                onChange={(event) => setLocationSearchTerm(event.target.value)}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) {
+                    setGeoError("Please choose a location from the suggestions.");
+                    return;
+                  }
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label =
+                    place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                  if (
+                    typeof lat === "number" &&
+                    !Number.isNaN(lat) &&
+                    typeof lng === "number" &&
+                    !Number.isNaN(lng)
+                  ) {
+                    applyLocationFilter({ label, latitude: lat, longitude: lng });
+                  } else {
+                    setGeoError("We couldn't read that location's coordinates. Try another search.");
+                  }
+                }}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+
+              <div className="fp-location-actions">
+                <button
+                  type="button"
+                  className="fp-location-detect"
+                  onClick={detectCurrentLocation}
+                  disabled={isDetectingLocation}
+                >
+                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+                </button>
+                <div className="fp-location-secondary-actions">
+                  {hasLocationFilter ? (
+                    <button type="button" className="fp-location-secondary" onClick={() => applyLocationFilter(null)}>
+                      Clear location
+                    </button>
+                  ) : null}
+                  <button type="button" className="fp-location-secondary" onClick={closeLocationPicker}>
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="fp-location-summary">
+                <h4>Selected location</h4>
+                {locationFilter ? (
+                  <p>{locationFilter.label}</p>
+                ) : useLocationFilter ? (
+                  <p>{DEFAULT_LOCATION}</p>
+                ) : (
+                  <p>No location selected yet.</p>
+                )}
+              </div>
+
+              {geoError ? <p className="fp-location-error">{geoError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="fp-location-tip">
+                  Tip: Provide a Google Places API key to enable location search suggestions.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <div className="group-lessons-day-filter" role="region" aria-label="Filter sessions by day">
             <div className="group-lessons-day-filter__controls">
@@ -560,7 +750,7 @@ const GroupLessonsPage = () => {
                   onClick={() => {
                     setCoachFilter("All coaches");
                     setLevelFilter("All levels");
-                    setLocation(DEFAULT_LOCATION);
+                    applyLocationFilter(null);
                     setSelectedRadius(radiusOptions[1]);
                     setSearchTerm("");
                   }}
