@@ -153,6 +153,49 @@ export const bookLesson = ({ token, lessonId }: BookLessonParams) =>
     token,
   });
 
+export interface JoinLessonParams {
+  token: string;
+  lessonId: number | string;
+  coachId: number | string;
+  startDateTime: string;
+  endDateTime: string;
+  startDateTimeTz: string;
+  endDateTimeTz: string;
+  locationId: number | string;
+  court?: number | string | null;
+  status: string;
+  paymentMethodId?: string;
+}
+
+export const joinLesson = ({
+  token,
+  lessonId,
+  coachId,
+  startDateTime,
+  endDateTime,
+  startDateTimeTz,
+  endDateTimeTz,
+  locationId,
+  court = 0,
+  status,
+  paymentMethodId,
+}: JoinLessonParams) =>
+  request(`/player/lesson/${lessonId}/book`, {
+    method: "POST",
+    token,
+    body: {
+      location_id: locationId,
+      coach_id: coachId,
+      start_date_time: startDateTime,
+      end_date_time: endDateTime,
+      start_date_time_tz: startDateTimeTz,
+      end_date_time_tz: endDateTimeTz,
+      status,
+      court,
+      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+    },
+  });
+
 export interface CancelLessonBookingParams {
   token: string;
   lessonId: number;
@@ -177,6 +220,16 @@ export interface RequestPrivateLessonParams {
   paymentMethodId?: string;
 }
 
+export interface NewLessonResponse {
+  id?: number | string;
+  lesson_id?: number | string;
+  lesson?: {
+    id?: number | string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export const requestPrivateLesson = ({
   token,
   coachId,
@@ -187,9 +240,9 @@ export const requestPrivateLesson = ({
   locationId,
   court = 0,
   status = "PENDING",
-  paymentMethodId = "",
+  paymentMethodId,
 }: RequestPrivateLessonParams) =>
-  request("/player/newlesson", {
+  request<NewLessonResponse>("/player/newlesson", {
     method: "POST",
     token,
     body: {
@@ -201,6 +254,6 @@ export const requestPrivateLesson = ({
       location_id: locationId,
       court,
       status,
-      payment_method_id: paymentMethodId,
+      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
     },
   });

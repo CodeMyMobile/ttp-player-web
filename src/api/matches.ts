@@ -15,6 +15,11 @@ export interface NormalizedMatchParticipant {
   hosting?: boolean;
   identityIds?: string[];
   isCurrentUser?: boolean;
+  profileImageUrl?: string;
+  avatarUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  status?: string;
 }
 
 export interface NormalizedMatch {
@@ -126,7 +131,6 @@ const buildMatchesQuery = ({
   const explicitlyFalse = include_hidden === false || include_hidden === "false" || include_hidden === 0;
 
   if (isTruthyFlag(includeHiddenFlag)) {
-    query.includeHidden = true;
     query.include_hidden = true;
   } else if (explicitlyFalse) {
     query.include_hidden = false;
@@ -166,14 +170,35 @@ const isMatchStatusEnumError = (error: unknown) => {
 
 const CREATED_MATCH_STORAGE_KEY = "ttp:last-created-match";
 
-const deriveMatchId = (source: unknown): string | undefined => {
-  if (!source || typeof source !== "object") return undefined;
+const matchIdCandidates = (source: unknown): string[] => {
+  if (!source || typeof source !== "object") return [];
   const record = source as Record<string, unknown>;
-  const idCandidate =
-    record.id ?? record.match_id ?? record.matchId ?? record.slug ?? (record.match as Record<string, unknown> | undefined)?.id;
+  const candidates = [
+    record.id,
+    record.match_id,
+    record.matchId,
+    record.uuid,
+    record.slug,
+    record.code,
+    (record.match as Record<string, unknown> | undefined)?.id,
+    (record.match as Record<string, unknown> | undefined)?.slug,
+    (record.match as Record<string, unknown> | undefined)?.match_id,
+    (record.match as Record<string, unknown> | undefined)?.code,
+  ]
+    .flatMap((value) => {
+      if (Array.isArray(value)) return value;
+      return [value];
+    })
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => String(value));
 
-  if (idCandidate === undefined || idCandidate === null) return undefined;
-  return String(idCandidate);
+  return candidates.filter((value, index, all) => value && all.indexOf(value) === index);
+};
+
+const deriveMatchId = (source: unknown): string | undefined => {
+  const candidates = matchIdCandidates(source);
+  if (candidates.length === 0) return undefined;
+  return candidates[0];
 };
 
 const deriveShareLink = (source: unknown): string | undefined => {
@@ -234,10 +259,9 @@ export const createMatch = async ({
   if (typeof latitude === "number") payload.latitude = latitude;
   if (typeof longitude === "number") payload.longitude = longitude;
 
-  if (typeof rosterSize === "number") {
-    payload.player_limit = rosterSize;
-    payload.playerCount = rosterSize;
-  }
+  const normalizedRosterSize = typeof rosterSize === "number" && Number.isFinite(rosterSize) ? rosterSize : 4;
+  payload.player_limit = normalizedRosterSize;
+  payload.playerCount = normalizedRosterSize;
 
   if (matchType === "open" && skillLevel !== undefined && skillLevel !== null && `${skillLevel}`.trim() !== "") {
     payload.skill_level_min = skillLevel;
@@ -302,6 +326,7 @@ const firstNumber = (values: Array<unknown>): number | undefined => {
 const firstString = (values: Array<unknown>): string | undefined => {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return undefined;
 };
@@ -1052,10 +1077,26 @@ const deriveParticipants = (
     .map((participant) => {
       if (!participant || typeof participant !== "object") return null;
       const participantRecord = participant as Record<string, unknown>;
+      const player =
+        participantRecord.player && typeof participantRecord.player === "object"
+          ? (participantRecord.player as Record<string, unknown>)
+          : undefined;
+      const user =
+        participantRecord.user && typeof participantRecord.user === "object"
+          ? (participantRecord.user as Record<string, unknown>)
+          : undefined;
+      const userProfile =
+        user?.profile && typeof user.profile === "object"
+          ? (user.profile as Record<string, unknown>)
+          : undefined;
+      const playerProfile =
+        player?.profile && typeof player.profile === "object"
+          ? (player.profile as Record<string, unknown>)
+          : undefined;
       const profile =
         participantRecord.profile && typeof participantRecord.profile === "object"
           ? (participantRecord.profile as Record<string, unknown>)
-          : undefined;
+          : playerProfile ?? userProfile ?? undefined;
       const identityIds = identityValues(participantRecord);
       const isFlaggedCurrentUser =
         participantRecord.is_current_user === true || participantRecord.isCurrentUser === true;
@@ -1088,12 +1129,134 @@ const deriveParticipants = (
         isFlaggedCurrentUser ||
         (identityIds.length > 0 && userIdentities.some((value) => identityIds.includes(value)));
 
+      const profileImage = firstString([
+        profile?.profile_image,
+        profile?.profileImage,
+        profile?.image,
+        profile?.image_url,
+        profile?.imageUrl,
+        profile?.avatar_url,
+        profile?.avatarUrl,
+        profile?.photo,
+        player?.profile_image,
+        player?.profileImage,
+        player?.image,
+        player?.image_url,
+        player?.imageUrl,
+        player?.avatar_url,
+        player?.avatarUrl,
+        player?.photo,
+        user?.profile_image,
+        user?.profileImage,
+        user?.image,
+        user?.image_url,
+        user?.imageUrl,
+        user?.avatar_url,
+        user?.avatarUrl,
+        user?.photo,
+        playerProfile?.profile_image,
+        playerProfile?.profileImage,
+        playerProfile?.image,
+        playerProfile?.image_url,
+        playerProfile?.imageUrl,
+        playerProfile?.avatar_url,
+        playerProfile?.avatarUrl,
+        playerProfile?.photo,
+        userProfile?.profile_image,
+        userProfile?.profileImage,
+        userProfile?.image,
+        userProfile?.image_url,
+        userProfile?.imageUrl,
+        userProfile?.avatar_url,
+        userProfile?.avatarUrl,
+        userProfile?.photo,
+      ]);
+
+      const avatarUrl = firstString([
+        profileImage,
+        participantRecord.avatar_url,
+        participantRecord.avatarUrl,
+        participantRecord.profile_image,
+        participantRecord.profileImage,
+        participantRecord.image_url,
+        participantRecord.imageUrl,
+        participantRecord.photo,
+      ]);
+
+      const contactEmail = firstString([
+        participantRecord.email,
+        participantRecord.contact_email,
+        participantRecord.contactEmail,
+        player?.email,
+        playerProfile?.email,
+        user?.email,
+        userProfile?.email,
+      ]);
+
+      const contact =
+        participantRecord.contact && typeof participantRecord.contact === "object"
+          ? (participantRecord.contact as Record<string, unknown>)
+          : undefined;
+
+      const contactPhone = firstString([
+        participantRecord.phone,
+        participantRecord.phone_number,
+        participantRecord.phoneNumber,
+        participantRecord.contact_phone,
+        participantRecord.contactPhone,
+        profile?.phone,
+        profile?.phone_number,
+        profile?.phoneNumber,
+        profile?.contact_phone,
+        profile?.contactPhone,
+        player?.phone,
+        player?.phone_number,
+        player?.phoneNumber,
+        player?.contact_phone,
+        player?.contactPhone,
+        user?.phone,
+        user?.phone_number,
+        user?.phoneNumber,
+        user?.contact_phone,
+        user?.contactPhone,
+        playerProfile?.phone,
+        playerProfile?.phone_number,
+        playerProfile?.phoneNumber,
+        playerProfile?.contact_phone,
+        playerProfile?.contactPhone,
+        userProfile?.phone,
+        userProfile?.phone_number,
+        userProfile?.phoneNumber,
+        userProfile?.contact_phone,
+        userProfile?.contactPhone,
+        contact?.phone,
+        contact?.phone_number,
+        contact?.phoneNumber,
+        contact?.contact_phone,
+        contact?.contactPhone,
+      ]);
+
+      const status = firstString([
+        participantRecord.status,
+        participantRecord.state,
+        participantRecord.rsvp_status,
+        participantRecord.rsvpStatus,
+        participantRecord.response_status,
+        participantRecord.responseStatus,
+        profile?.status,
+      ]);
+
       return {
         id: id ?? (identityIds.length ? identityIds[0] : undefined),
         name,
         hosting,
         identityIds: identityIds.length ? identityIds : undefined,
         isCurrentUser,
+        profileImageUrl: profileImage || undefined,
+        avatarUrl: avatarUrl || undefined,
+        contactEmail: contactEmail || undefined,
+        contactPhone: contactPhone || undefined,
+        status: status || undefined,
       } satisfies NormalizedMatchParticipant;
     })
     .filter(Boolean) as NormalizedMatchParticipant[];
@@ -1254,14 +1417,113 @@ export const listMatches = async ({ token, signal, ...params }: ListMatchesParam
 
 export const getMatchById = async (
   id: string | number,
-  { token, signal, ...params }: Omit<ListMatchesParams, "page" | "perPage"> = {},
+  { token, signal }: { token?: string | null; signal?: AbortSignal } = {},
 ) => {
-  const query = buildMatchesQuery(params);
-  const response = await request<unknown>(`/matches/${id}`, {
-    query,
-    token: token ?? undefined,
-    signal,
-  });
-  return response;
-};
+  const targetId = String(id);
+  const baseParams = { token: token ?? undefined, signal } as const;
 
+  const findMatch = (records: unknown[]) => {
+    const normalizedTarget = targetId.trim().toLowerCase();
+    return (
+      records.find((record) =>
+        matchIdCandidates(record).some((candidate) => candidate.trim().toLowerCase() === normalizedTarget),
+      ) ?? null
+    );
+  };
+
+  try {
+    const detail = await request<unknown>(`/matches/${targetId}`, {
+      token: token ?? undefined,
+      signal,
+      query: { include_hidden: true },
+    });
+
+    const extracted = extractMatchDetail(detail);
+    if (deriveMatchId(extracted) === targetId) return extracted;
+    if (deriveMatchId(detail) === targetId) return detail;
+  } catch (directError) {
+    if (signal?.aborted) return null;
+    if (import.meta.env.MODE === "development") {
+      console.warn("Direct match detail request failed, falling back to listings", directError);
+    }
+  }
+
+  const searchParameterSets: Partial<ListMatchesParams>[] = [
+    {},
+    { includeHidden: true },
+    { includeHidden: true, hidden: true },
+    { includeHidden: true, hiddenOnly: true },
+    { status: "open" },
+    { status: "upcoming" },
+    { status: "draft" },
+    { status: "archived" },
+    { status: "draft", includeHidden: true, hidden: true },
+    { status: "archived", includeHidden: true, hidden: true },
+    { filter: "my" },
+    { filter: "my", includeHidden: true },
+    { filter: "my", includeHidden: true, hidden: true },
+    { filter: "my", includeHidden: true, hiddenOnly: true },
+    { filter: "my", status: "open" },
+    { filter: "my", status: "upcoming" },
+    { filter: "my", status: "draft" },
+    { filter: "my", status: "archived" },
+    { filter: "my", status: "draft", includeHidden: true, hidden: true },
+    { filter: "my", status: "archived", includeHidden: true, hidden: true },
+  ].filter((params, index, all) => {
+    const serialized = JSON.stringify(params);
+    return all.findIndex((other) => JSON.stringify(other) === serialized) === index;
+  });
+
+  const lookupBySearch = async (params?: Partial<ListMatchesParams>) => {
+    const { matches } = await listMatches({
+      search: targetId,
+      perPage: 1,
+      ...baseParams,
+      ...params,
+    });
+
+    return findMatch(matches);
+  };
+
+  const lookupByPagination = async (params?: Partial<ListMatchesParams>) => {
+    const perPage = Math.max(Number(params?.perPage) || 50, 1);
+    let page = 1;
+    let totalPages: number | undefined;
+
+    while (true) {
+      const { matches, pagination } = await listMatches({
+        page,
+        perPage,
+        ...baseParams,
+        ...params,
+      });
+
+      const match = findMatch(matches);
+      if (match) return match;
+
+      if (pagination?.perPage && pagination?.total) {
+        totalPages = Math.max(Math.ceil(pagination.total / pagination.perPage), totalPages ?? 0);
+      }
+
+      const hasMorePages =
+        (totalPages && page < totalPages) || (!totalPages && matches.length === perPage);
+      if (!hasMorePages) break;
+
+      page += 1;
+    }
+
+    return null;
+  };
+
+  for (const params of searchParameterSets) {
+    const match = await lookupBySearch(params);
+    if (match) return match;
+  }
+
+  for (const params of searchParameterSets) {
+    const match = await lookupByPagination(params);
+    if (match) return match;
+  }
+
+  throw new Error("Match not found");
+};

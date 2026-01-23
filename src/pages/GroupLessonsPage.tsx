@@ -1,12 +1,27 @@
-import { useMemo, useState } from "react";
+/// <reference types="google.maps" />
+
+import Autocomplete from "react-google-autocomplete";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 
 import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
-import { mockGroupLessons } from "../data/mockGroupLessons";
+import {
+  fetchUpcomingGroupLessons,
+  mapUpcomingGroupLessonsResponse,
+  type GroupLesson,
+} from "../api/groupLessons";
 import { colors, typography } from "../lib/theme";
+import { useAuth } from "../context/AuthContext";
+import { getStoredAuthToken } from "../services/authToken";
+import {
+  DEFAULT_POSITION,
+  getStoredLocation,
+  storeLocation,
+  type Coordinates,
+} from "../utils/userLocation";
 
 import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
@@ -64,11 +79,37 @@ type DateFilterState =
   | { type: "day"; iso: string }
   | { type: "range"; start: string; end: string };
 
+type SelectedLocation = {
+  label: string;
+  latitude: number;
+  longitude: number;
+  isCurrentLocation?: boolean;
+};
+
 const GroupLessonsPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
-  const [location, setLocation] = useState<string>(DEFAULT_LOCATION);
+  const [position, setPosition] = useState<Coordinates | null>(
+    () => getStoredLocation() ?? DEFAULT_POSITION,
+  );
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => {
+    const stored = getStoredLocation();
+    if (stored) {
+      return {
+        label: "Current location",
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        isCurrentLocation: true,
+      };
+    }
+    return null;
+  });
+  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
@@ -76,30 +117,34 @@ const GroupLessonsPage = () => {
   const [rangeStartValue, setRangeStartValue] = useState<string>("");
   const [rangeEndValue, setRangeEndValue] = useState<string>("");
   const [rangeError, setRangeError] = useState<string | undefined>();
+  const [useLocationFilter, setUseLocationFilter] = useState(true);
+  const [lessons, setLessons] = useState<GroupLesson[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const lessons = useMemo(
+  const lessonsWithIso = useMemo(
     () =>
-      mockGroupLessons.map((lesson) => ({
+      lessons.map((lesson) => ({
         ...lesson,
         isoDate: parseLessonDateToIso(lesson.date),
       })),
-    [],
-  );
-
-  const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(lessons.map((lesson) => lesson.coachName))],
     [lessons],
   );
 
+  const coachOptions = useMemo(
+    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => lesson.coachName))],
+    [lessonsWithIso],
+  );
+
   const levelOptions = useMemo(() => {
-    const uniqueLevels = Array.from(new Set(lessons.map((lesson) => lesson.level)))
+    const uniqueLevels = Array.from(new Set(lessonsWithIso.map((lesson) => lesson.level)))
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
-  }, [lessons]);
+  }, [lessonsWithIso]);
 
   const dateAnchors = useMemo(() => {
-    const validIsos = lessons
+    const validIsos = lessonsWithIso
       .map((lesson) => lesson.isoDate)
       .filter((iso): iso is string => Boolean(iso))
       .sort();
@@ -116,7 +161,7 @@ const GroupLessonsPage = () => {
     const computedEnd = toIsoDate(endAnchor);
     const max = last > computedEnd ? last : computedEnd;
     return { start, end: max };
-  }, [lessons]);
+  }, [lessonsWithIso]);
 
   const dayOptions = useMemo(() => {
     const startDate = dateAnchors.start;
@@ -166,62 +211,158 @@ const GroupLessonsPage = () => {
     [],
   );
 
-  const handleLocationClick = () => {
-    const nextLocation = window.prompt("Enter your city or neighborhood", location);
-    if (nextLocation !== null) {
-      const trimmed = nextLocation.trim();
-      setLocation(trimmed.length ? trimmed : DEFAULT_LOCATION);
+  const locationLabel = useLocationFilter
+    ? locationFilter?.label ?? DEFAULT_LOCATION
+    : "All locations";
+
+  const hasLocationFilter = Boolean(locationFilter);
+
+  const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
+    if (
+      nextLocation &&
+      typeof nextLocation.latitude === "number" &&
+      typeof nextLocation.longitude === "number"
+    ) {
+      const coords: Coordinates = {
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
+      };
+      setPosition(coords);
+      storeLocation(coords);
+      setLocationFilter(nextLocation);
+      setLocationSearchTerm(nextLocation.label);
+      setGeoError("");
+      setShowLocationPicker(false);
+      return;
     }
-  };
 
-  const filteredLessons = useMemo(() => {
-    const normalizedLocation = location.trim().toLowerCase();
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const radiusLimit = parseRadius(selectedRadius);
+    setLocationFilter(null);
+    setLocationSearchTerm("");
+    setGeoError("");
+    setShowLocationPicker(false);
+    setPosition({ ...DEFAULT_POSITION });
+    storeLocation(null);
+  }, []);
 
-    return lessons.filter((lesson) => {
-      const matchesCoach =
-        coachFilter === "All coaches" || lesson.coachName === coachFilter;
-      const matchesLevel =
-        levelFilter === "All levels" || lesson.level.toFixed(1) === levelFilter;
-      const matchesLocation =
-        normalizedLocation.length === 0 ||
-        lesson.locationCity.toLowerCase().includes(normalizedLocation);
-      const matchesDay = (() => {
-        if (!lesson.isoDate) {
-          return true;
+  const detectCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError("Location detection is not supported in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (nextPosition) => {
+        setIsDetectingLocation(false);
+        const coords: Coordinates = {
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+        };
+        applyLocationFilter({
+          label: "Current location",
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          isCurrentLocation: true,
+        });
+      },
+      (geoErrorEvent) => {
+        setIsDetectingLocation(false);
+        console.error("Failed to detect current location", geoErrorEvent);
+        setGeoError(
+          geoErrorEvent.message || "We couldn't detect your location. Please allow access and try again.",
+        );
+      },
+    );
+  }, [applyLocationFilter]);
+
+  const closeLocationPicker = useCallback(() => {
+    setShowLocationPicker(false);
+    setGeoError("");
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
+
+  useEffect(() => {
+    setLocationSearchTerm(locationFilter?.label ?? "");
+  }, [locationFilter?.label]);
+
+  const totalLessons = lessonsWithIso.length;
+
+  const currentUserIdentity = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    let storedUserId: string | undefined;
+    let storedEmail: string | undefined;
+    let storedPhone: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const loginRaw = localStorage.getItem("authLoginResponse");
+        const profileRaw = localStorage.getItem("playerPersonalDetails");
+        const login = loginRaw ? JSON.parse(loginRaw) : null;
+        const profile = profileRaw ? JSON.parse(profileRaw) : null;
+        const storedId =
+          login?.user_id ??
+          login?.profile?.user_id ??
+          profile?.user_id ??
+          profile?.id ??
+          undefined;
+        storedUserId = storedId != null ? String(storedId) : undefined;
+        storedEmail =
+          (login?.email as string | undefined) ??
+          (profile?.email as string | undefined);
+        storedPhone =
+          (login?.phone as string | undefined) ??
+          (profile?.phone as string | undefined);
+      } catch {
+        storedUserId = undefined;
+        storedEmail = undefined;
+        storedPhone = undefined;
+      }
+    }
+    const candidate =
+      record?.id ??
+      record?.user_id ??
+      record?.player_id ??
+      record?.profile_id ??
+      sessionRecord?.user_id ??
+      sessionRecord?.id;
+    const email =
+      (record?.email as string | undefined) ??
+      (record?.user_email as string | undefined) ??
+      (sessionRecord?.email as string | undefined);
+    const phone =
+      (record?.phone as string | undefined) ??
+      (record?.phone_number as string | undefined) ??
+      (sessionRecord?.phone as string | undefined);
+    return {
+      id: candidate != null ? String(candidate) : storedUserId,
+      email: email ? String(email).toLowerCase() : storedEmail?.toLowerCase(),
+      phone: phone ? String(phone) : storedPhone ? String(storedPhone) : undefined,
+    };
+  }, [user]);
+
+  const isLessonBooked = useCallback(
+    (lesson: GroupLesson) => {
+      const groupPlayers = lesson.groupPlayers ?? [];
+      if (!groupPlayers.length) return false;
+      const playerRecord = groupPlayers.find((player) => {
+        if (currentUserIdentity.id && player.playerId != null) {
+          if (String(player.playerId) === currentUserIdentity.id) return true;
         }
-        if (dateFilter.type === "all") {
-          return true;
+        if (currentUserIdentity.email && player.email) {
+          if (player.email.toLowerCase() === currentUserIdentity.email) return true;
         }
-        if (dateFilter.type === "day") {
-          return lesson.isoDate === dateFilter.iso;
+        if (currentUserIdentity.phone && player.phone) {
+          if (String(player.phone) === currentUserIdentity.phone) return true;
         }
-        return lesson.isoDate >= dateFilter.start && lesson.isoDate <= dateFilter.end;
-      })();
-      const withinRadius = lesson.distanceMiles <= radiusLimit + 0.001;
-      const haystack = [
-        lesson.title,
-        lesson.focus,
-        lesson.coachName,
-        lesson.locationCity,
-      ]
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = normalizedSearch.length === 0 || haystack.includes(normalizedSearch);
-
-      return (
-        matchesCoach &&
-        matchesLevel &&
-        matchesLocation &&
-        matchesDay &&
-        withinRadius &&
-        matchesSearch
-      );
-    });
-  }, [coachFilter, levelFilter, location, searchTerm, dateFilter, lessons, selectedRadius]);
-
-  const totalLessons = lessons.length;
+        return false;
+      });
+      if (!playerRecord) return false;
+      const resolved = playerRecord.paymentStatus ?? playerRecord.status;
+      const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+      return Number.isFinite(parsed) ? parsed === 1 : false;
+    },
+    [currentUserIdentity],
+  );
 
   const dateSummary = useMemo(() => {
     if (dateFilter.type === "all") {
@@ -238,15 +379,92 @@ const GroupLessonsPage = () => {
   }, [dateFilter, dayOptions]);
 
   const resultsSummary =
-    filteredLessons.length === totalLessons
-      ? `${filteredLessons.length} ${
-          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+    lessonsWithIso.length === totalLessons
+      ? `${lessonsWithIso.length} ${
+          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
         } available ${dateSummary}`
-      : `${filteredLessons.length} ${
-          filteredLessons.length === 1 ? "group lesson" : "group lessons"
+      : `${lessonsWithIso.length} ${
+          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadLessons = async () => {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setLoadError("Missing authentication token.");
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      const selectedCoach =
+        coachFilter === "All coaches"
+          ? undefined
+          : lessonsWithIso.find((lesson) => lesson.coachName === coachFilter)?.coachId;
+      const parsedLevel =
+        levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
+      const radiusMiles = parseRadius(selectedRadius);
+      const dateRange =
+        dateFilter.type === "all"
+          ? {}
+          : dateFilter.type === "day"
+            ? { dateStart: dateFilter.iso, dateEnd: dateFilter.iso }
+            : { dateStart: dateFilter.start, dateEnd: dateFilter.end };
+      const resolvedPosition = useLocationFilter ? position ?? DEFAULT_POSITION : undefined;
+
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          token,
+          perPage: 50,
+          page: 1,
+          search: searchTerm.trim(),
+          ...(resolvedPosition ? { position: resolvedPosition } : {}),
+          filters: {
+            coachId: selectedCoach,
+            level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
+            radiusMiles:
+              useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
+            ...dateRange,
+          },
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        const mapped = mapUpcomingGroupLessonsResponse(response);
+        setLessons(mapped.lessons);
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : "Unable to load group lessons.");
+        setLessons([]);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadLessons();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    coachFilter,
+    levelFilter,
+    selectedRadius,
+    searchTerm,
+    dateFilter,
+    useLocationFilter,
+    position,
+  ]);
 
   const handleApplyRange = () => {
     if (!rangeStartValue || !rangeEndValue) {
@@ -286,8 +504,18 @@ const GroupLessonsPage = () => {
             levelOptions={levelOptions}
             selectedLevel={levelFilter}
             onLevelChange={setLevelFilter}
-            location={location}
-            onLocationClick={handleLocationClick}
+            location={locationLabel}
+            onLocationClick={() => {
+              setGeoError("");
+              setShowLocationPicker((prev) => {
+                if (!prev) {
+                  setLocationSearchTerm(locationFilter?.label ?? "");
+                }
+                return !prev;
+              });
+            }}
+            useLocationFilter={useLocationFilter}
+            onUseLocationFilterChange={setUseLocationFilter}
             radiusOptions={radiusOptions}
             selectedRadius={selectedRadius}
             onRadiusChange={setSelectedRadius}
@@ -297,6 +525,83 @@ const GroupLessonsPage = () => {
               setSearchTerm((current) => current.trim());
             }}
           />
+
+          {showLocationPicker ? (
+            <section className="fp-location-panel" id="group-lessons-location-picker" aria-label="Location picker">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="Search for a city, club, or court"
+                className="fp-autocomplete-input"
+                value={locationSearchTerm}
+                onChange={(event) => setLocationSearchTerm(event.target.value)}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) {
+                    setGeoError("Please choose a location from the suggestions.");
+                    return;
+                  }
+
+                  const lat = place.geometry?.location?.lat?.();
+                  const lng = place.geometry?.location?.lng?.();
+                  const label =
+                    place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+                  if (
+                    typeof lat === "number" &&
+                    !Number.isNaN(lat) &&
+                    typeof lng === "number" &&
+                    !Number.isNaN(lng)
+                  ) {
+                    applyLocationFilter({ label, latitude: lat, longitude: lng });
+                  } else {
+                    setGeoError("We couldn't read that location's coordinates. Try another search.");
+                  }
+                }}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+
+              <div className="fp-location-actions">
+                <button
+                  type="button"
+                  className="fp-location-detect"
+                  onClick={detectCurrentLocation}
+                  disabled={isDetectingLocation}
+                >
+                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+                </button>
+                <div className="fp-location-secondary-actions">
+                  {hasLocationFilter ? (
+                    <button type="button" className="fp-location-secondary" onClick={() => applyLocationFilter(null)}>
+                      Clear location
+                    </button>
+                  ) : null}
+                  <button type="button" className="fp-location-secondary" onClick={closeLocationPicker}>
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="fp-location-summary">
+                <h4>Selected location</h4>
+                {locationFilter ? (
+                  <p>{locationFilter.label}</p>
+                ) : useLocationFilter ? (
+                  <p>{DEFAULT_LOCATION}</p>
+                ) : (
+                  <p>No location selected yet.</p>
+                )}
+              </div>
+
+              {geoError ? <p className="fp-location-error">{geoError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="fp-location-tip">
+                  Tip: Provide a Google Places API key to enable location search suggestions.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <div className="group-lessons-day-filter" role="region" aria-label="Filter sessions by day">
             <div className="group-lessons-day-filter__controls">
@@ -429,7 +734,15 @@ const GroupLessonsPage = () => {
               </div>
             </div>
 
-            {filteredLessons.length === 0 ? (
+            {isLoading ? (
+              <div className="empty-state">
+                <p>Loading group lessons…</p>
+              </div>
+            ) : loadError ? (
+              <div className="empty-state">
+                <p>{loadError}</p>
+              </div>
+            ) : lessonsWithIso.length === 0 ? (
               <div className="empty-state">
                 <p>No lessons match your current filters.</p>
                 <button
@@ -437,7 +750,7 @@ const GroupLessonsPage = () => {
                   onClick={() => {
                     setCoachFilter("All coaches");
                     setLevelFilter("All levels");
-                    setLocation(DEFAULT_LOCATION);
+                    applyLocationFilter(null);
                     setSelectedRadius(radiusOptions[1]);
                     setSearchTerm("");
                   }}
@@ -447,9 +760,11 @@ const GroupLessonsPage = () => {
               </div>
             ) : (
               <div className="lessons-grid">
-                {filteredLessons.map((lesson) => {
+                {lessonsWithIso.map((lesson) => {
                   const levelRange = formatLevelRange(lesson.level);
                   const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
+                  const isBooked = isLessonBooked(lesson);
+                  const isSoldOut = lesson.availableSpots === 0;
 
                   return (
                     <article key={lesson.id} className="lesson-card">
@@ -511,9 +826,9 @@ const GroupLessonsPage = () => {
                                 state: { groupLessonId: lesson.id },
                               });
                             }}
-                            disabled={lesson.availableSpots === 0}
+                            disabled={isSoldOut || isBooked}
                           >
-                            {lesson.availableSpots === 0 ? "Join waitlist" : "Quick book"}
+                            {isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Quick book"}
                           </button>
                         </div>
                       </footer>

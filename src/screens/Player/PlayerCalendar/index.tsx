@@ -1291,6 +1291,7 @@ const PlayerCalendar = () => {
             lesson={lesson}
             statusLabel={statusInfo.label}
             onShare={() => openLessonModal(lesson)}
+            currentUserId={user?.session?.user_id ?? user?.id}
           />
           <div className="player-calendar__session-cta">
             {typeof lesson.price_per_person === "number" ? (

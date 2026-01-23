@@ -147,7 +147,7 @@ const CreateMatchReviewPage = () => {
         throw new Error("Please sign in to publish this match.");
       }
 
-      const rosterSize = matchDraft.isUnlimitedPlayers ? undefined : matchDraft.playersNeeded + 1;
+      const rosterSize = (matchDraft.playersNeeded ?? 3) + 1;
       const response = await createMatch({
         privacy: matchDraft.matchType,
         startDateTime: startIso,
@@ -171,8 +171,6 @@ const CreateMatchReviewPage = () => {
       try {
         const persisted = await getMatchById(response.matchId, {
           token: authToken,
-          includeHidden: true,
-          include_hidden: true,
         });
         const persistedRecord = (persisted ?? {}) as Record<string, unknown>;
         const persistedShareLink =

@@ -1,56 +1,61 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  AlertCircle,
   Apple,
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
   Clock,
   CreditCard,
+  Loader2,
   MapPin,
   Package,
+  Plus,
   ShieldCheck,
   Star,
   Users,
   Wallet,
 } from "lucide-react";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
 import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
+import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
-import { findGroupLessonById } from "../data/mockGroupLessons";
+import {
+  fetchUpcomingGroupLessonById,
+  mapUpcomingGroupLesson,
+  type GroupLesson,
+} from "../api/groupLessons";
+import {
+  fetchPackageCredits,
+  fetchPackageCreditsBalance,
+  consumePackageCredits,
+  type PackageCreditsBalanceResponse,
+  type PackagePurchase,
+} from "../api/playerPackages";
+import {
+  getPlayerStripePaymentMethods,
+  getPlayerStripeSetupIntent,
+  type PlayerStripePaymentMethod,
+  type PlayerStripePaymentMethodListResponse,
+} from "../api/playerStripe";
+import { useAuth } from "../context/AuthContext";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./BookingConfirmationPage.css";
 
-type SavedCard = {
+type NormalizedPaymentMethod = {
   id: string;
   brand: string;
   last4: string;
-  expiry: string;
-  nickname?: string;
-  isDefault?: boolean;
-};
-
-const savedPaymentMethods: SavedCard[] = [
-  { id: "card-personal", brand: "Visa", last4: "4242", expiry: "04/26", nickname: "Personal", isDefault: true },
-  { id: "card-club", brand: "Mastercard", last4: "1188", expiry: "11/25", nickname: "Club expenses" },
-];
-
-const lessonCreditWallet = {
-  id: "lesson-credits",
-  label: "Adult 60-min private lesson credits",
-  balance: 2,
-  creditValue: "$85 value per credit",
-  expiresLabel: "2 credits expire May 31",
-};
-
-type NewCardFormState = {
-  name: string;
-  number: string;
-  expiry: string;
-  cvc: string;
-  postalCode: string;
+  expMonth?: number;
+  expYear?: number;
+  isDefault: boolean;
 };
 
 type LocationState = {
@@ -61,6 +66,13 @@ type LocationState = {
 };
 
 const MINUTES_PER_DAY = 24 * 60;
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
+  "";
+
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 const parseTimeToMinutes = (timeLabel: string) => {
   const match = timeLabel.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -116,6 +128,71 @@ const buildTimeRangeLabel = (startLabel: string, durationLabel: string) => {
   return `${formatMinutesToTimeLabel(startMinutes)} - ${formatMinutesToTimeLabel(endMinutes)}`;
 };
 
+const formatDateLabel = (value?: string | null) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const formatExpiry = (month?: number, year?: number) => {
+  if (!month || !year) return "Unknown";
+  const monthString = month < 10 ? `0${month}` : `${month}`;
+  const yearString = `${year}`.slice(-2);
+  return `${monthString}/${yearString}`;
+};
+
+const normalizeBrand = (brand?: string) => {
+  if (!brand) return "Card";
+  const normalized = brand.trim();
+  if (!normalized) return "Card";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const resolveDefaultId = (payload: PlayerStripePaymentMethodListResponse | PlayerStripePaymentMethod[] | null | undefined) => {
+  if (!payload || Array.isArray(payload)) {
+    return undefined;
+  }
+  return (
+    payload.default_payment_method_id ||
+    payload.default_payment_method ||
+    (typeof payload["defaultPaymentMethodId"] === "string" ? (payload as Record<string, string>)["defaultPaymentMethodId"] : undefined)
+  );
+};
+
+const extractPaymentMethods = (
+  payload: PlayerStripePaymentMethodListResponse | PlayerStripePaymentMethod[] | null | undefined,
+): PlayerStripePaymentMethod[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.payment_methods)) return payload.payment_methods;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.results)) return payload.results;
+  if (Array.isArray((payload as { paymentMethods?: PlayerStripePaymentMethod[] }).paymentMethods)) {
+    return (payload as { paymentMethods?: PlayerStripePaymentMethod[] }).paymentMethods ?? [];
+  }
+  return [];
+};
+
+const toNormalizedPaymentMethod = (method: PlayerStripePaymentMethod, defaultId?: string): NormalizedPaymentMethod => {
+  const card = method.card ?? (method as unknown as { card: PlayerStripePaymentMethod["card"] }).card;
+  const expMonth = card?.exp_month ?? (method as unknown as { exp_month?: number }).exp_month;
+  const expYear = card?.exp_year ?? (method as unknown as { exp_year?: number }).exp_year;
+  const last4 = card?.last4 ?? (method as unknown as { last4?: string }).last4 ?? "";
+  const brand = normalizeBrand(card?.brand ?? (method as unknown as { brand?: string }).brand);
+  const isDefaultExplicit = Boolean(method.is_default ?? method.default ?? method.default_for_currency);
+  const isDefault = isDefaultExplicit || (defaultId ? method.id === defaultId : false);
+
+  return {
+    id: method.id,
+    brand,
+    last4,
+    expMonth,
+    expYear,
+    isDefault,
+  };
+};
+
 const extractPlayerCapacity = (lessonDurationLabel?: string) => {
   if (!lessonDurationLabel) {
     return undefined;
@@ -152,22 +229,37 @@ const dayNameMap: Record<string, string> = {
   Sun: "Sunday",
 };
 
+const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+const extractNumericLessonId = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
 const BookingConfirmationPage = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const state = location.state as LocationState | undefined;
   const searchParams = new URLSearchParams(location.search);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>(savedPaymentMethods[0]?.id ?? "apple-pay");
-  const [newCardForm, setNewCardForm] = useState<NewCardFormState>({
-    name: "",
-    number: "",
-    expiry: "",
-    cvc: "",
-    postalCode: "",
-  });
+  const [paymentMethod, setPaymentMethod] = useState<string>("apple-pay");
+  const [paymentMethods, setPaymentMethods] = useState<NormalizedPaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
+  const [setupIntentClientSecret, setSetupIntentClientSecret] = useState<string | null>(null);
+  const [setupIntentLoading, setSetupIntentLoading] = useState(false);
+  const [setupIntentError, setSetupIntentError] = useState<string | null>(null);
+  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+  const stripeEnabled = Boolean(stripePromise);
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -184,8 +276,190 @@ const BookingConfirmationPage = () => {
   const slotId = slotIdFromState ?? slotIdParam ?? undefined;
   const groupLessonId = groupLessonIdFromState ?? groupLessonParam ?? undefined;
 
-  const profile = coachId != null ? findCoachProfile(coachId) : undefined;
-  const groupLesson = groupLessonId ? findGroupLessonById(groupLessonId) : undefined;
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      undefined,
+    [user],
+  );
+
+  const [credits, setCredits] = useState<PackagePurchase[]>([]);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
+  const [isConsumingCredits, setIsConsumingCredits] = useState(false);
+  const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
+  const [groupLessonLoading, setGroupLessonLoading] = useState(false);
+  const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
+  const resolvedCoachId = coachId ?? groupLesson?.coachId;
+
+  const fetchPaymentMethods = useCallback(async () => {
+    if (!authToken) {
+      setPaymentMethodsError("Sign in to manage your saved cards.");
+      setPaymentMethods([]);
+      setPaymentMethodsLoading(false);
+      return [];
+    }
+
+    setPaymentMethodsLoading(true);
+    setPaymentMethodsError(null);
+    try {
+      const payload = await getPlayerStripePaymentMethods(authToken);
+      const defaultId = resolveDefaultId(payload);
+      const normalized = extractPaymentMethods(payload).map((method) => toNormalizedPaymentMethod(method, defaultId));
+      setPaymentMethods(normalized);
+      return normalized;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load saved cards.";
+      setPaymentMethodsError(message);
+      setPaymentMethods([]);
+      return [];
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, [authToken]);
+
+  const refreshSetupIntent = useCallback(async () => {
+    if (!stripeEnabled) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(null);
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    if (!authToken) {
+      setSetupIntentClientSecret(null);
+      setSetupIntentError("Sign in to add a payment method.");
+      setSetupIntentLoading(false);
+      return;
+    }
+
+    setSetupIntentLoading(true);
+    setSetupIntentError(null);
+    setSetupIntentClientSecret(null);
+
+    try {
+      const { client_secret: clientSecret } = await getPlayerStripeSetupIntent(authToken);
+      if (!clientSecret) {
+        throw new Error("Missing Stripe setup intent. Please try again.");
+      }
+      setSetupIntentClientSecret(clientSecret);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to start a secure card session.";
+      setSetupIntentClientSecret(null);
+      setSetupIntentError(message);
+    } finally {
+      setSetupIntentLoading(false);
+    }
+  }, [authToken, stripeEnabled]);
+
+  useEffect(() => {
+    void fetchPaymentMethods();
+  }, [fetchPaymentMethods]);
+
+  useEffect(() => {
+    if (!stripeEnabled) {
+      return;
+    }
+    void refreshSetupIntent();
+  }, [refreshSetupIntent, stripeEnabled]);
+
+  useEffect(() => {
+    if (paymentMethodsLoading || hasInitializedSelection) {
+      return;
+    }
+    if (paymentMethod === "apple-pay" && paymentMethods.length > 0) {
+      const defaultId = paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id;
+      if (defaultId) {
+        setPaymentMethod(defaultId);
+      }
+    }
+    setHasInitializedSelection(true);
+  }, [hasInitializedSelection, paymentMethod, paymentMethods, paymentMethodsLoading]);
+
+  useEffect(() => {
+    if (paymentMethodsLoading) {
+      return;
+    }
+    if (paymentMethod === "apple-pay" || paymentMethod === "credits" || paymentMethod === "new-card") {
+      return;
+    }
+    if (paymentMethods.some((method) => method.id === paymentMethod)) {
+      return;
+    }
+    const fallbackId = paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id ?? "apple-pay";
+    setPaymentMethod(fallbackId);
+  }, [paymentMethod, paymentMethods, paymentMethodsLoading]);
+
+  const handleCardAdded = useCallback(
+    async (paymentMethodId?: string) => {
+      const updatedMethods = await fetchPaymentMethods();
+      await refreshSetupIntent();
+      if (paymentMethodId) {
+        setPaymentMethod(paymentMethodId);
+        setHasInitializedSelection(true);
+        return;
+      }
+      const nextId =
+        updatedMethods.find((method) => method.isDefault)?.id ?? updatedMethods[0]?.id ?? "apple-pay";
+      setPaymentMethod(nextId);
+      setHasInitializedSelection(true);
+    },
+    [fetchPaymentMethods, refreshSetupIntent],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    if (!groupLessonId) {
+      setGroupLesson(null);
+      setGroupLessonError(null);
+      setGroupLessonLoading(false);
+      return () => controller.abort();
+    }
+
+    if (!authToken) {
+      setGroupLesson(null);
+      setGroupLessonError("Sign in to view this group lesson.");
+      setGroupLessonLoading(false);
+      return () => controller.abort();
+    }
+
+    setGroupLessonLoading(true);
+    setGroupLessonError(null);
+
+    fetchUpcomingGroupLessonById({
+      token: authToken,
+      lessonId: groupLessonId,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setGroupLesson(mapUpcomingGroupLesson(response.lesson));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "Unable to load group lesson.";
+        setGroupLessonError(message);
+        setGroupLesson(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setGroupLessonLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [authToken, groupLessonId]);
+
+  const profile = resolvedCoachId != null ? findCoachProfile(resolvedCoachId) : undefined;
 
   const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
   const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
@@ -196,7 +470,16 @@ const BookingConfirmationPage = () => {
   const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
 
   const timeRange = groupLesson
-    ? buildTimeRangeLabel(groupLesson.startTime, `${groupLesson.durationMinutes} min`)
+    ? (() => {
+        if (groupLesson.startDateTime && groupLesson.endDateTime) {
+          const start = moment.utc(groupLesson.startDateTime);
+          const end = moment.utc(groupLesson.endDateTime);
+          if (start.isValid() && end.isValid()) {
+            return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+          }
+        }
+        return buildTimeRangeLabel(groupLesson.startTime, `${groupLesson.durationMinutes} min`);
+      })()
     : selectedSlot
       ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration)
       : undefined;
@@ -204,8 +487,10 @@ const BookingConfirmationPage = () => {
   const resolvedCoachName = groupLesson?.coachName ?? profile?.name ?? "your coach";
   const coachName = resolvedCoachName;
   const coachFirstName = resolvedCoachName.split(" ")[0] ?? resolvedCoachName;
-  const lessonDateLabel = groupLesson?.date
-    ? groupLesson.date
+  const lessonDateLabel = groupLesson
+    ? groupLesson.startDateTime
+      ? moment.utc(groupLesson.startDateTime).format("dddd, MMMM D")
+      : groupLesson.date
     : selectedDate
       ? `${dayNameMap[selectedDate.day] ?? selectedDate.day}, ${selectedDate.label}`
       : undefined;
@@ -262,6 +547,76 @@ const BookingConfirmationPage = () => {
     return Math.max(selectedSlot?.spotsRemaining ?? 0, 0);
   }, [capacity, groupLesson, isProfileGroupLesson, participantCount, selectedSlot]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!resolvedCoachId) {
+      setCredits([]);
+      setCreditsError(null);
+      setCreditsLoading(false);
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    if (!authToken) {
+      setCredits([]);
+      setCreditsError("Sign in to view credits.");
+      setCreditsLoading(false);
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    setCreditsLoading(true);
+    setCreditsError(null);
+
+    fetchPackageCredits({
+      token: authToken,
+      coachId: resolvedCoachId,
+      includeExpired: false,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCredits(data?.purchases ?? []);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        const message = err instanceof Error ? err.message : "Unable to load credits.";
+        setCreditsError(message);
+        setCredits([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCreditsLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [authToken, resolvedCoachId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!resolvedCoachId || !authToken) {
+      setCreditsBalance(null);
+      return () => controller.abort();
+    }
+
+    fetchPackageCreditsBalance({
+      token: authToken,
+      coachId: resolvedCoachId,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCreditsBalance(data ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCreditsBalance(null);
+      });
+
+    return () => controller.abort();
+  }, [authToken, resolvedCoachId]);
+
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
       const base = `${participantCount}/${groupLesson.totalSpots} players confirmed`;
@@ -304,6 +659,42 @@ const BookingConfirmationPage = () => {
       .join("");
   };
 
+  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
+  const eligibleCredits = useMemo(() => {
+    const allowedForLesson = (purchase: PackagePurchase) => {
+      const allowed = purchase.lesson_types_allowed;
+      if (Array.isArray(allowed) && allowed.length > 0) {
+        return allowed.includes(lessonType);
+      }
+      return true;
+    };
+    return credits.filter(
+      (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
+    );
+  }, [credits, lessonType]);
+
+  const creditSummary = useMemo(() => {
+    const totals = eligibleCredits.reduce(
+      (acc, purchase) => {
+        const remaining = Number(purchase.credits_remaining ?? 0);
+        return { ...acc, remaining: acc.remaining + (Number.isFinite(remaining) ? remaining : 0) };
+      },
+      { remaining: 0 },
+    );
+
+    const nextExpiry = eligibleCredits
+      .map((purchase) => purchase.expires_at)
+      .filter(Boolean)
+      .map((value) => new Date(value as string))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    return {
+      remaining: totals.remaining,
+      nextExpiry: nextExpiry ? formatDateLabel(nextExpiry.toISOString()) : undefined,
+    };
+  }, [eligibleCredits]);
+
   const lessonLabel = groupLesson
     ? groupLesson.title
     : lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
@@ -332,13 +723,17 @@ const BookingConfirmationPage = () => {
     ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
-  const selectedSavedCard = savedPaymentMethods.find((card) => card.id === paymentMethod);
-  const canUseCredits = lessonCreditWallet.balance > 0;
+  const selectedSavedCard = paymentMethods.find((card) => card.id === paymentMethod) ?? null;
+  const canUseCredits = eligibleCredits.length > 0;
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
+  const fallbackCardId =
+    paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id ?? "apple-pay";
+  const heldCredits = isFiniteNumber(creditsBalance?.held) ? creditsBalance.held : 0;
+  const heldCreditsLabel = heldCredits > 0 ? ` · ${heldCredits} held` : "";
 
-  const remainingCredits = Math.max(lessonCreditWallet.balance - 1, 0);
+  const remainingCredits = Math.max(creditSummary.remaining - 1, 0);
   const remainingCreditsLabel = remainingCredits === 0 ? "no credits" : `${remainingCredits} credit${remainingCredits === 1 ? "" : "s"}`;
 
   const priceLabel = isUsingCredits
@@ -347,13 +742,11 @@ const BookingConfirmationPage = () => {
       ? "Total due today"
       : "Total due now";
 
-  const priceValue = isUsingCredits
-    ? `1 lesson credit${lessonCreditWallet.creditValue ? ` (${lessonCreditWallet.creditValue})` : ""}`
-    : groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
+  const priceValue = isUsingCredits ? "1 lesson credit" : groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
 
   const priceCaption = (() => {
     if (isUsingCredits) {
-      const expiresMessage = lessonCreditWallet.expiresLabel ? ` ${lessonCreditWallet.expiresLabel}.` : "";
+      const expiresMessage = creditSummary.nextExpiry ? ` Next expiry ${creditSummary.nextExpiry}.` : "";
       return `We'll deduct 1 credit from your balance. You'll have ${remainingCreditsLabel} remaining.${expiresMessage}`;
     }
     if (isUsingApplePay) {
@@ -399,23 +792,92 @@ const BookingConfirmationPage = () => {
       : "You won’t be charged until the coach confirms.";
   })();
 
-  const isNewCardValid = useMemo(() => {
-    if (!isUsingNewCard) {
-      return true;
+  const isConfirmDisabled =
+    isConfirmed ||
+    isConsumingCredits ||
+    isUsingNewCard ||
+    (groupLessonId ? groupLessonLoading : false) ||
+    (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
+
+  const handleConfirm = async () => {
+    setConsumeError(null);
+
+    if (isUsingCredits) {
+      if (!authToken) {
+        setConsumeError("Sign in to use credits.");
+        return;
+      }
+      if (!resolvedCoachId || !lessonType) {
+        setConsumeError("Missing lesson details for credits.");
+        return;
+      }
+      if (!canUseCredits) {
+        setConsumeError("No eligible credits available. Please pay by card.");
+        setPaymentMethod(fallbackCardId);
+        return;
+      }
+
+      setIsConsumingCredits(true);
+      try {
+        const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
+        const bestPurchase = eligibleCredits[0];
+        const numericLessonId = extractNumericLessonId(lessonIdForConsume);
+        if (!numericLessonId) {
+          setConsumeError("We need a numeric lesson ID to reserve credits.");
+          setPaymentMethod(fallbackCardId);
+          return;
+        }
+        await consumePackageCredits({
+          token: authToken,
+          coachId: resolvedCoachId,
+          lessonType,
+          lessonId: numericLessonId,
+          purchaseId: bestPurchase?.id,
+        });
+        setIsConfirmed(true);
+        setIsConfirmationModalOpen(true);
+        try {
+          const refreshed = await fetchPackageCredits({
+            token: authToken,
+            coachId: resolvedCoachId,
+            includeExpired: false,
+          });
+          setCredits(refreshed?.purchases ?? []);
+          setCreditsError(null);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unable to refresh credits.";
+          setCreditsError(message);
+        }
+        try {
+          const refreshedBalance = await fetchPackageCreditsBalance({
+            token: authToken,
+            coachId: resolvedCoachId,
+          });
+          setCreditsBalance(refreshedBalance ?? null);
+        } catch {
+          setCreditsBalance(null);
+        }
+      } catch (err) {
+        const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
+        const errorMessage = (() => {
+          switch (code) {
+            case "no_eligible_package":
+            case "no_credits_remaining":
+            case "package_expired":
+            case "lesson_type_not_allowed":
+              return "No eligible credits for this lesson type. Please pay by card.";
+            default:
+              return "Couldn't use credits, please try card.";
+          }
+        })();
+        setConsumeError(errorMessage);
+        setPaymentMethod(fallbackCardId);
+      } finally {
+        setIsConsumingCredits(false);
+      }
+      return;
     }
-    const trimmedNumber = newCardForm.number.replace(/\s+/g, "");
-    return (
-      newCardForm.name.trim().length > 1 &&
-      trimmedNumber.length >= 15 &&
-      newCardForm.expiry.trim().length >= 4 &&
-      newCardForm.cvc.trim().length >= 3 &&
-      newCardForm.postalCode.trim().length >= 3
-    );
-  }, [isUsingNewCard, newCardForm]);
 
-  const isConfirmDisabled = isConfirmed || !isNewCardValid || (isUsingCredits && !canUseCredits);
-
-  const handleConfirm = () => {
     setIsConfirmed(true);
     if (groupLesson || !isGroupLesson) {
       setIsConfirmationModalOpen(true);
@@ -465,8 +927,15 @@ const BookingConfirmationPage = () => {
   const savedCardsSection = (
     <div className="payment-methods__group">
       <span className="payment-methods__group-label">Saved cards</span>
+      {paymentMethodsLoading ? (
+        <p className="payment-methods__notice">Loading your saved cards...</p>
+      ) : paymentMethodsError ? (
+        <p className="payment-methods__notice payment-methods__notice--error">{paymentMethodsError}</p>
+      ) : paymentMethods.length === 0 ? (
+        <p className="payment-methods__notice">No saved cards yet.</p>
+      ) : null}
       <div className="payment-methods__stack">
-        {savedPaymentMethods.map((card) => {
+        {paymentMethods.map((card) => {
           const isSelected = paymentMethod === card.id;
           return (
             <label key={card.id} className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}>
@@ -482,11 +951,10 @@ const BookingConfirmationPage = () => {
                 <CreditCard aria-hidden size={18} />
               </span>
               <span className="payment-method-card__body">
-                <span className="payment-method-card__title">{card.brand} ending in {card.last4}</span>
-                <span className="payment-method-card__subtitle">
-                  Expires {card.expiry}
-                  {card.nickname ? ` • ${card.nickname}` : ""}
+                <span className="payment-method-card__title">
+                  {card.brand} ending in {card.last4}
                 </span>
+                <span className="payment-method-card__subtitle">Expires {formatExpiry(card.expMonth, card.expYear)}</span>
               </span>
               {card.isDefault ? <span className="payment-method-card__tag">Default</span> : null}
             </label>
@@ -513,61 +981,55 @@ const BookingConfirmationPage = () => {
 
         {isUsingNewCard ? (
           <div className="payment-method-card__form" role="group" aria-label="New card details">
-            <div className="payment-method-card__form-row">
-              <label className="payment-method-card__form-field">
-                <span>Cardholder name</span>
-                <input
-                  type="text"
-                  value={newCardForm.name}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, name: event.target.value }))}
-                  placeholder="Name on card"
-                />
-              </label>
-            </div>
-            <div className="payment-method-card__form-row payment-method-card__form-row--split">
-              <label className="payment-method-card__form-field">
-                <span>Card number</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.number}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, number: event.target.value }))}
-                  placeholder="1234 1234 1234 1234"
-                />
-              </label>
-            </div>
-            <div className="payment-method-card__form-row payment-method-card__form-row--grid">
-              <label className="payment-method-card__form-field">
-                <span>Expiration</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.expiry}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, expiry: event.target.value }))}
-                  placeholder="MM/YY"
-                />
-              </label>
-              <label className="payment-method-card__form-field">
-                <span>CVC</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={newCardForm.cvc}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, cvc: event.target.value }))}
-                  placeholder="123"
-                />
-              </label>
-              <label className="payment-method-card__form-field">
-                <span>ZIP code</span>
-                <input
-                  type="text"
-                  inputMode="text"
-                  value={newCardForm.postalCode}
-                  onChange={(event) => setNewCardForm((prev) => ({ ...prev, postalCode: event.target.value }))}
-                  placeholder="12345"
-                />
-              </label>
-            </div>
+            {stripeEnabled ? (
+              setupIntentError ? (
+                <div className="payment-form__status payment-form__status--error payment-form__status--stacked" role="alert">
+                  <span>{setupIntentError}</span>
+                  <button
+                    type="button"
+                    className="payment-methods__cta"
+                    onClick={() => void refreshSetupIntent()}
+                    disabled={setupIntentLoading}
+                  >
+                    {setupIntentLoading ? (
+                      <>
+                        <Loader2 className="payment-form__spinner" aria-hidden />
+                        Retrying...
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} aria-hidden />
+                        Try again
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : setupIntentLoading && !setupIntentClientSecret ? (
+                <div className="payment-form__status payment-form__status--inline" role="status">
+                  <Loader2 className="payment-form__spinner" aria-hidden />
+                  Preparing secure payment form...
+                </div>
+              ) : setupIntentClientSecret ? (
+                <Elements
+                  stripe={stripePromise}
+                  options={{ appearance: { theme: "stripe" } }}
+                  key={setupIntentClientSecret}
+                >
+                  <AddCardForm clientSecret={setupIntentClientSecret} onCardAdded={handleCardAdded} />
+                </Elements>
+              ) : null
+            ) : (
+              <div className="payment-form__status payment-form__status--error" role="alert">
+                <AlertCircle aria-hidden />
+                <span>
+                  Stripe isn&apos;t configured. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in your environment to enable card
+                  payments.
+                </span>
+              </div>
+            )}
+            <p className="payment-form__note">
+              We use encrypted vault storage and never share your payment details with coaches.
+            </p>
           </div>
         ) : null}
       </div>
@@ -611,7 +1073,7 @@ const BookingConfirmationPage = () => {
           value="credits"
           checked={isUsingCredits}
           onChange={() => setPaymentMethod("credits")}
-          disabled={!canUseCredits}
+          disabled={!canUseCredits || creditsLoading || !authToken}
         />
         <span className="payment-method-card__selector" aria-hidden />
         <span className="payment-method-card__icon">
@@ -620,13 +1082,19 @@ const BookingConfirmationPage = () => {
         <span className="payment-method-card__body">
           <span className="payment-method-card__title">Use lesson credits</span>
           <span className="payment-method-card__subtitle">
-            {canUseCredits
-              ? `${lessonCreditWallet.balance} credit${lessonCreditWallet.balance === 1 ? "" : "s"} available • ${lessonCreditWallet.label}`
-              : "No credits available for this lesson type."}
+            {creditsLoading
+              ? "Checking credits…"
+              : creditsError
+                ? creditsError
+                : !authToken
+                    ? "Sign in to use credits."
+                    : canUseCredits
+                    ? `${creditSummary.remaining} credit${creditSummary.remaining === 1 ? "" : "s"} available for this lesson type${heldCreditsLabel}`
+                    : "No credits available for this lesson type."}
           </span>
         </span>
-        {lessonCreditWallet.expiresLabel && canUseCredits ? (
-          <span className="payment-method-card__tag payment-method-card__tag--success">{lessonCreditWallet.expiresLabel}</span>
+        {creditSummary.nextExpiry && canUseCredits ? (
+          <span className="payment-method-card__tag payment-method-card__tag--success">Next expiry {creditSummary.nextExpiry}</span>
         ) : null}
       </label>
       {isUsingCredits ? (
@@ -660,15 +1128,31 @@ const BookingConfirmationPage = () => {
       };
 
   const shouldShowEmptyState = groupLessonId
-    ? !groupLesson
+    ? !groupLessonLoading && !groupLesson
     : !profile || !selectedDate || !selectedSlot;
+
+  if (groupLessonId && groupLessonLoading) {
+    return (
+      <MainLayout>
+        <div className="booking-confirmation booking-confirmation--empty">
+          <div className="booking-confirmation__empty-card">
+            <h1 className="booking-confirmation__empty-title">Loading group lesson…</h1>
+            <p className="booking-confirmation__empty-copy">
+              Please wait while we pull the latest session details.
+            </p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   if (shouldShowEmptyState) {
     const emptyTitle = groupLessonId
-      ? "We couldn't find that group lesson"
+      ? "We couldn't load that group lesson"
       : "We couldn't load that booking";
     const emptyCopy = groupLessonId
-      ? "The session may have filled or is no longer available. Explore other group lessons to keep the momentum going."
+      ? groupLessonError ||
+        "The session may have filled or is no longer available. Explore other group lessons to keep the momentum going."
       : "The booking details expired or were missing. Please return to the coach listings to choose an available lesson.";
     const emptyActionLabel = groupLessonId ? "View group lessons" : "Browse coaches";
     const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";
@@ -884,9 +1368,10 @@ const BookingConfirmationPage = () => {
               onClick={handleConfirm}
               disabled={isConfirmDisabled}
             >
-              {confirmButtonLabel}
+              {isConsumingCredits ? "Applying credits..." : confirmButtonLabel}
               <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
             </button>
+            {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
             <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed && isGroupLesson ? (
                   <div

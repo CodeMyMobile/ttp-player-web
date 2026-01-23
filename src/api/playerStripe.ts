@@ -5,6 +5,11 @@ export interface StripeSetupIntentResponse {
   [key: string]: unknown;
 }
 
+export interface StripePaymentIntentResponse {
+  client_secret: string;
+  [key: string]: unknown;
+}
+
 export interface StripeCardDetails {
   brand?: string;
   last4?: string;
@@ -40,6 +45,26 @@ export interface PlayerStripePaymentMethodListResponse {
 export const getPlayerStripeSetupIntent = (token: string) =>
   request<StripeSetupIntentResponse>("/player/stripe/setupintent", {
     token,
+  });
+
+export interface CreatePlayerStripePaymentIntentParams {
+  token: string;
+  lessonId: number | string;
+  paymentMethodId?: string;
+}
+
+export const createPlayerStripePaymentIntent = ({
+  token,
+  lessonId,
+  paymentMethodId,
+}: CreatePlayerStripePaymentIntentParams) =>
+  request<StripePaymentIntentResponse>("/player/stripe/paymentintent", {
+    method: "POST",
+    token,
+    body: {
+      lesson_id: lessonId,
+      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+    },
   });
 
 export const getPlayerStripePaymentMethods = (token: string) =>

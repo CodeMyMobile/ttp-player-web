@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -8,10 +8,20 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import moment from "moment";
 
+import {
+  fetchUpcomingGroupLessons,
+  fetchUpcomingGroupLessonById,
+  mapUpcomingGroupLesson,
+  mapUpcomingGroupLessonsResponse,
+  type GroupLesson,
+} from "../api/groupLessons";
 import MainLayout from "../components/MainLayout";
-import { findGroupLessonById } from "../data/mockGroupLessons";
 import { colors, typography } from "../lib/theme";
+import { useAuth } from "../context/AuthContext";
+import { getStoredAuthToken } from "../services/authToken";
+import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -72,8 +82,76 @@ const buildInitials = (name: string) => {
 const GroupLessonDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [lesson, setLesson] = useState<GroupLesson | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const lesson = useMemo(() => (id ? findGroupLessonById(id) : undefined), [id]);
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadLesson = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setLoadError("Missing authentication token.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        try {
+          const response = await fetchUpcomingGroupLessonById({
+            token,
+            lessonId: id,
+            signal: controller.signal,
+          });
+
+          if (cancelled) return;
+
+          setLesson(mapUpcomingGroupLesson(response.lesson));
+        } catch (error) {
+          if (cancelled) return;
+          const position = getStoredLocation() ?? DEFAULT_POSITION;
+          const fallbackResponse = await fetchUpcomingGroupLessons({
+            token,
+            perPage: 50,
+            page: 1,
+            position,
+            signal: controller.signal,
+          });
+
+          if (cancelled) return;
+
+          const mapped = mapUpcomingGroupLessonsResponse(fallbackResponse);
+          const found = mapped.lessons.find((item) => item.id === String(id));
+          setLesson(found ?? null);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : "Unable to load lesson.");
+        setLesson(null);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadLesson();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [id]);
 
   const themeVars = useMemo(
     () => ({
@@ -91,7 +169,96 @@ const GroupLessonDetailsPage = () => {
     [],
   );
 
-  if (!lesson) {
+  const currentUserIdentity = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    let storedUserId: string | undefined;
+    let storedEmail: string | undefined;
+    let storedPhone: string | undefined;
+    if (typeof window !== "undefined") {
+      try {
+        const loginRaw = localStorage.getItem("authLoginResponse");
+        const profileRaw = localStorage.getItem("playerPersonalDetails");
+        const login = loginRaw ? JSON.parse(loginRaw) : null;
+        const profile = profileRaw ? JSON.parse(profileRaw) : null;
+        const storedId =
+          login?.user_id ??
+          login?.profile?.user_id ??
+          profile?.user_id ??
+          profile?.id ??
+          undefined;
+        storedUserId = storedId != null ? String(storedId) : undefined;
+        storedEmail =
+          (login?.email as string | undefined) ??
+          (profile?.email as string | undefined);
+        storedPhone =
+          (login?.phone as string | undefined) ??
+          (profile?.phone as string | undefined);
+      } catch {
+        storedUserId = undefined;
+        storedEmail = undefined;
+        storedPhone = undefined;
+      }
+    }
+    const candidate =
+      record?.id ??
+      record?.user_id ??
+      record?.player_id ??
+      record?.profile_id ??
+      sessionRecord?.user_id ??
+      sessionRecord?.id;
+    const email =
+      (record?.email as string | undefined) ??
+      (record?.user_email as string | undefined) ??
+      (sessionRecord?.email as string | undefined);
+    const phone =
+      (record?.phone as string | undefined) ??
+      (record?.phone_number as string | undefined) ??
+      (sessionRecord?.phone as string | undefined);
+    return {
+      id: candidate != null ? String(candidate) : storedUserId,
+      email: email ? String(email).toLowerCase() : storedEmail?.toLowerCase(),
+      phone: phone ? String(phone) : storedPhone ? String(storedPhone) : undefined,
+    };
+  }, [user]);
+
+  const currentUserStatus = useMemo(() => {
+    const groupPlayers = lesson?.groupPlayers ?? [];
+    if (!groupPlayers.length) return undefined;
+    const playerRecord = groupPlayers.find((player) => {
+      if (currentUserIdentity.id && player.playerId != null) {
+        if (String(player.playerId) === currentUserIdentity.id) return true;
+      }
+      if (currentUserIdentity.email && player.email) {
+        if (player.email.toLowerCase() === currentUserIdentity.email) return true;
+      }
+      if (currentUserIdentity.phone && player.phone) {
+        if (String(player.phone) === currentUserIdentity.phone) return true;
+      }
+      return false;
+    });
+    if (!playerRecord) return undefined;
+    const resolved = playerRecord.paymentStatus ?? playerRecord.status;
+    const parsed = typeof resolved === "number" ? resolved : Number(resolved);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, [currentUserIdentity, lesson?.groupPlayers]);
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="group-lesson-details" style={themeVars}>
+          <div className="group-lesson-details__inner group-lesson-details__inner--empty">
+            <div className="group-lesson-details__empty">
+              <h1>Loading session…</h1>
+              <p>Hang tight while we load the details.</p>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (loadError || !lesson) {
     return (
       <MainLayout>
         <div className="group-lesson-details" style={themeVars}>
@@ -100,8 +267,12 @@ const GroupLessonDetailsPage = () => {
               <ArrowLeft aria-hidden /> Back to group lessons
             </Link>
             <div className="group-lesson-details__empty">
-              <h1>We couldn’t find that session</h1>
-              <p>The lesson may have been filled or removed. Browse the latest sessions to pick another time.</p>
+              <h1>{loadError ? "We couldn’t load that session" : "We couldn’t find that session"}</h1>
+              <p>
+                {loadError
+                  ? loadError
+                  : "The lesson may have been filled or removed. Browse the latest sessions to pick another time."}
+              </p>
               <Link to="/group-lessons" className="group-lesson-details__empty-action">
                 Explore group lessons
               </Link>
@@ -112,10 +283,23 @@ const GroupLessonDetailsPage = () => {
     );
   }
 
+  const isBooked = currentUserStatus === 1;
   const confirmedCount = lesson.participants.length;
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
-  const timeRange = buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
+  const timeRange = lesson.startDateTime && lesson.endDateTime
+    ? (() => {
+        const start = moment.utc(lesson.startDateTime);
+        const end = moment.utc(lesson.endDateTime);
+        if (start.isValid() && end.isValid()) {
+          return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+        }
+        return buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
+      })()
+    : buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
   const levelLabel = formatLevel(lesson.level);
+  const dateLabel = lesson.startDateTime
+    ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
+    : lesson.date;
 
   return (
     <MainLayout>
@@ -162,7 +346,7 @@ const GroupLessonDetailsPage = () => {
               </div>
               <div className="group-lesson-details__coach-meta">
                 <CalendarDays aria-hidden size={18} />
-                <span>{lesson.date}</span>
+                <span>{dateLabel}</span>
               </div>
               <div className="group-lesson-details__coach-meta">
                 <Clock aria-hidden size={18} />
@@ -254,23 +438,23 @@ const GroupLessonDetailsPage = () => {
                     <ShieldCheck aria-hidden size={18} /> Secure checkout powered by Matchplay
                   </li>
                   <li>
-                    <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
-                  </li>
-                  <li>
-                    <CalendarDays aria-hidden size={18} /> {lesson.date}
-                  </li>
+                  <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
+                </li>
+                <li>
+                  <CalendarDays aria-hidden size={18} /> {dateLabel}
+                </li>
                 </ul>
                 <button
                   type="button"
                   className="group-lesson-details__checkout-action"
-                  disabled={spotsRemaining === 0}
+                  disabled={spotsRemaining === 0 || isBooked}
                   onClick={() => {
                     navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                       state: { groupLessonId: lesson.id },
                     });
                   }}
                 >
-                  {spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
+                  {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
                 </button>
                 <p className="group-lesson-details__checkout-caption">
                   {spotsRemaining === 0
