@@ -41,9 +41,11 @@ import {
 import {
   getPlayerStripePaymentMethods,
   getPlayerStripeSetupIntent,
+  createPlayerStripePaymentIntent,
   type PlayerStripePaymentMethod,
   type PlayerStripePaymentMethodListResponse,
 } from "../api/playerStripe";
+import { joinLesson } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -105,6 +107,14 @@ const parseDurationToMinutes = (durationLabel: string) => {
   const [, durationPart] = match;
   const duration = Number.parseInt(durationPart, 10);
   return Number.isNaN(duration) ? null : duration;
+};
+
+const parsePriceToCents = (value?: string) => {
+  if (!value) return null;
+  if (/credit/i.test(value)) return null;
+  const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.round(numeric * 100);
 };
 
 const formatMinutesToTimeLabel = (totalMinutes: number) => {
@@ -292,6 +302,7 @@ const BookingConfirmationPage = () => {
   const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
   const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
@@ -795,12 +806,131 @@ const BookingConfirmationPage = () => {
   const isConfirmDisabled =
     isConfirmed ||
     isConsumingCredits ||
+    isProcessingPayment ||
     isUsingNewCard ||
     (groupLessonId ? groupLessonLoading : false) ||
     (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
 
   const handleConfirm = async () => {
     setConsumeError(null);
+
+    if (isUsingApplePay) {
+      if (!authToken) {
+        setConsumeError("Sign in to use Apple Pay.");
+        return;
+      }
+      if (!stripePromise) {
+        setConsumeError("Stripe isn't configured for Apple Pay.");
+        return;
+      }
+
+      const priceSource = groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "";
+      const amount = parsePriceToCents(priceSource);
+      if (!amount) {
+        setConsumeError("Missing payment amount for Apple Pay.");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      try {
+        const stripe = await stripePromise;
+        if (!stripe) {
+          throw new Error("Stripe is not available for Apple Pay.");
+        }
+
+        const paymentRequest = stripe.paymentRequest({
+          country: "US",
+          currency: "usd",
+          total: {
+            label: "The Tennis Plan",
+            amount,
+          },
+          requestPayerName: true,
+          requestPayerEmail: true,
+        });
+
+        const canPay = await paymentRequest.canMakePayment();
+        if (!canPay?.applePay) {
+          throw new Error("Apple Pay isn't available on this device.");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          paymentRequest.on("paymentmethod", async (event) => {
+            try {
+              const paymentMethodId = event.paymentMethod.id;
+              if (groupLesson) {
+                const coachId = groupLesson.coachId;
+                const locationId = groupLesson.locationId;
+                const startDateTime = groupLesson.startDateTime;
+                const endDateTime = groupLesson.endDateTime;
+                if (!coachId || !locationId || !startDateTime || !endDateTime) {
+                  throw new Error("Missing lesson details for Apple Pay.");
+                }
+                await joinLesson({
+                  token: authToken,
+                  lessonId: groupLesson.id,
+                  coachId,
+                  startDateTime,
+                  endDateTime,
+                  startDateTimeTz: startDateTime,
+                  endDateTimeTz: endDateTime,
+                  locationId,
+                  court: groupLesson.court ?? 0,
+                  status: "CONFIRMED",
+                  paymentMethodId,
+                });
+              } else {
+                const lessonIdForIntent = selectedSlot?.id ?? slotId;
+                if (!lessonIdForIntent) {
+                  throw new Error("Missing lesson details for Apple Pay.");
+                }
+                const intentResponse = await createPlayerStripePaymentIntent({
+                  token: authToken,
+                  lessonId: lessonIdForIntent,
+                  paymentMethodId,
+                });
+                const intentRecord = intentResponse as Record<string, unknown>;
+                const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
+                const clientSecret =
+                  (intentRecord?.client_secret as string | undefined) ??
+                  (nestedIntent?.client_secret as string | undefined);
+                if (!clientSecret) {
+                  throw new Error("Unable to start payment. Please try again.");
+                }
+                const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                  payment_method: paymentMethodId,
+                });
+                if (error) {
+                  throw new Error(error.message || "Apple Pay failed.");
+                }
+                const status = paymentIntent?.status?.toLowerCase();
+                if (status && status !== "succeeded") {
+                  throw new Error("Payment was not successful.");
+                }
+              }
+
+              event.complete("success");
+              resolve();
+            } catch (error) {
+              event.complete("fail");
+              reject(error);
+            }
+          });
+
+          paymentRequest.show().catch(reject);
+        });
+
+        setIsConfirmed(true);
+        if (groupLesson || !isGroupLesson) {
+          setIsConfirmationModalOpen(true);
+        }
+      } catch (error) {
+        setConsumeError(error instanceof Error ? error.message : "Apple Pay failed.");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+      return;
+    }
 
     if (isUsingCredits) {
       if (!authToken) {
@@ -1368,7 +1498,11 @@ const BookingConfirmationPage = () => {
               onClick={handleConfirm}
               disabled={isConfirmDisabled}
             >
-              {isConsumingCredits ? "Applying credits..." : confirmButtonLabel}
+              {isProcessingPayment
+                ? "Processing Apple Pay..."
+                : isConsumingCredits
+                  ? "Applying credits..."
+                  : confirmButtonLabel}
               <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
             </button>
             {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
