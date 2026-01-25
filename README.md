@@ -8,6 +8,14 @@ The `/find-coaches` route renders the pixel-faithful **Find Coaches** experience
 - **Mock data** for the listing sits in [`src/data/mockCoaches.ts`](src/data/mockCoaches.ts). Update or expand this file to adjust the sample coaches. The UI reads from this module only—no network calls are made.
 - **UI components** specific to the page live under [`src/components/coaches`](src/components/coaches). The page composition itself is in [`src/pages/FindCoaches.tsx`](src/pages/FindCoaches.tsx).
 
+## Credits functionality
+
+The `/credits` route now ships a dedicated **Lesson credits** experience that lets players browse their saved packages, review balances, and explore eligible lesson types for each coach.
+
+- **Credits page** lives in [`src/pages/CreditsPage.tsx`](src/pages/CreditsPage.tsx) with its styles in [`src/pages/CreditsPage.css`](src/pages/CreditsPage.css).
+- **Credits data** is sourced through the package credits APIs defined in [`src/api/playerPackages.ts`](src/api/playerPackages.ts).
+- **Navigation entry** for Credits is configured in [`src/components/MainLayout.tsx`](src/components/MainLayout.tsx).
+
 ### Local development
 
 ```bash
