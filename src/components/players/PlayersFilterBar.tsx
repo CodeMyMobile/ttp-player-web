@@ -20,12 +20,12 @@ type PlayersFilterBarProps = {
   genderOptions: string[];
   selectedGender: string;
   onGenderChange: (value: string) => void;
-  playTypeOptions: string[];
-  selectedPlayType: string;
-  onPlayTypeChange: (value: string) => void;
-  availabilityOptions: string[];
-  selectedAvailability: string;
-  onAvailabilityChange: (value: string) => void;
+  playTypeOptions?: string[];
+  selectedPlayType?: string;
+  onPlayTypeChange?: (value: string) => void;
+  availabilityOptions?: string[];
+  selectedAvailability?: string;
+  onAvailabilityChange?: (value: string) => void;
   verifiedOnly: boolean;
   onVerifiedOnlyChange: (value: boolean) => void;
 };
@@ -46,12 +46,12 @@ const PlayersFilterBar = ({
   genderOptions,
   selectedGender,
   onGenderChange,
-  playTypeOptions,
-  selectedPlayType,
-  onPlayTypeChange,
-  availabilityOptions,
-  selectedAvailability,
-  onAvailabilityChange,
+  playTypeOptions = ["All play types"],
+  selectedPlayType = "All play types",
+  onPlayTypeChange = () => undefined,
+  availabilityOptions = ["All availability"],
+  selectedAvailability = "All availability",
+  onAvailabilityChange = () => undefined,
   verifiedOnly,
   onVerifiedOnlyChange,
 }: PlayersFilterBarProps) => {
