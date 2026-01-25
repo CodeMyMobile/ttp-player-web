@@ -12,6 +12,9 @@ import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import type { MatchProfileDetails } from "../components/players/MatchProfileModal";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
+import MyProfileQuickView from "../components/players/MyProfileQuickView";
+import BestMatchCTA from "../components/players/BestMatchCTA";
+import BestMatchesPanel from "../components/players/BestMatchesPanel";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
@@ -64,6 +67,8 @@ type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
+const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Practice"];
+const availabilityOptions = ["Any availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
@@ -171,6 +176,19 @@ const buildLocationSearch = (location: SelectedLocation | null): string => {
 };
 
 type StoredMatchProfile = MatchProfileDetails;
+
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+};
 
 const formatAvailabilityList = (slots: string[]): string => {
   const cleaned = slots
@@ -288,6 +306,50 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   };
 };
 
+type BestMatch = {
+  id?: string;
+  name: string;
+  photo?: string;
+  avatarUrl?: string;
+  ntrp: string;
+  isVerified?: boolean;
+  court?: string;
+  courts?: string[];
+  matchScore: number;
+  matchReasons: string[];
+  sourcePlayer?: DirectoryPlayer;
+};
+
+const generateBestMatches = (players: DirectoryPlayer[]): BestMatch[] => {
+  return players.slice(0, 3).map((player, index) => ({
+    id: player.id,
+    name: player.name,
+    photo: player.profileImageUrl,
+    avatarUrl: player.profileImageUrl,
+    ntrp: player.level,
+    isVerified: player.verified,
+    courts: player.localCourts,
+    court: player.favoriteCourt,
+    matchScore: [95, 88, 82][index],
+    matchReasons: [
+      ["Same NTRP level", "Both available weekday mornings", "0.8 mi away"],
+      ["Close skill level", "Prefers competitive singles", "1.2 mi away"],
+      ["Same NTRP level", "Looking for doubles partner", "2.1 mi away"],
+    ][index],
+    sourcePlayer: player,
+  }));
+};
+
+const splitCourts = (value: string | null | undefined): string[] => {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((court) => court.trim())
+    .filter((court) => court.length > 0);
+};
+
 const extractSuggestedPlayers = (payload: unknown): SuggestedPlayerRecord[] => {
   if (Array.isArray(payload)) {
     return payload as SuggestedPlayerRecord[];
@@ -315,6 +377,8 @@ const FindPlayersPage = () => {
   const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
+  const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
+  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
@@ -342,6 +406,8 @@ const FindPlayersPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
+  const [showBestMatches, setShowBestMatches] = useState(false);
+  const isMobile = useIsMobile();
 
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationQuery = buildLocationSearch(locationFilter);
@@ -658,6 +724,19 @@ const FindPlayersPage = () => {
     [hasMatchProfile],
   );
 
+  const handleViewPlayerProfile = useCallback(
+    (nextPlayer: DirectoryPlayer) => {
+      navigate(`/players/${nextPlayer.id}`, {
+        state: { player: nextPlayer },
+      });
+    },
+    [navigate],
+  );
+
+  const handleRequestVerification = () => {
+    window.alert("We'll send your verification request to recent opponents.");
+  };
+
   const handleShareIntro = useCallback(
     (nextPlayer: Player) => {
       if (!matchProfile) {
@@ -738,6 +817,14 @@ const FindPlayersPage = () => {
     setSelectedGender(gender);
   };
 
+  const handlePlayTypeChange = (playType: string) => {
+    setSelectedPlayType(playType);
+  };
+
+  const handleAvailabilityChange = (availability: string) => {
+    setSelectedAvailability(availability);
+  };
+
   const handleVerifiedToggle = (next: boolean) => {
     setVerifiedOnly(next);
   };
@@ -749,6 +836,8 @@ const FindPlayersPage = () => {
     setAppliedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
     setSelectedGender(genderOptions[0]);
+    setSelectedPlayType(playTypeOptions[0]);
+    setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
     setMode("normal");
   };
@@ -790,14 +879,26 @@ const FindPlayersPage = () => {
 
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return matchesSearch && matchesLevel && matchesGender && matchesVerification;
+      const matchesPlayType =
+        selectedPlayType === "All play types" ||
+        player.matchPreferences.some((preference) =>
+          normalize(preference).includes(normalize(selectedPlayType)),
+        );
+
+      const matchesAvailability =
+        selectedAvailability === "Any availability" ||
+        player.availability.some((slot) => normalize(toCanonicalAvailability(slot)) === normalize(selectedAvailability));
+
+      return matchesSearch && matchesLevel && matchesGender && matchesPlayType && matchesAvailability && matchesVerification;
     });
   }, [
     mode,
     appliedSearchTerm,
     players,
+    selectedAvailability,
     selectedGender,
     selectedLevel,
+    selectedPlayType,
     verifiedOnly,
   ]);
 
@@ -822,6 +923,27 @@ const FindPlayersPage = () => {
     return "Matching you with players…";
   })();
 
+  const verificationCount = 2;
+  const isVerified = false;
+
+  const quickViewUser = {
+    name: displayName.trim() || "TTP Player",
+    ntrp: matchProfile?.level ?? "3.0",
+    isVerified,
+    verificationCount,
+    tagline: matchProfile?.about ?? "",
+    availability: matchProfile?.availability ?? [],
+    courts: splitCourts(matchProfile?.localCourts),
+  };
+
+  const bestMatches = useMemo(() => {
+    if (!hasMatchProfile) {
+      return [];
+    }
+    const sourcePlayers = filteredPlayers.length > 0 ? filteredPlayers : players;
+    return generateBestMatches(sourcePlayers);
+  }, [filteredPlayers, hasMatchProfile, players]);
+
   return (
     <MainLayout>
       <div className="find-players-page" style={themeVars}>
@@ -839,6 +961,15 @@ const FindPlayersPage = () => {
               </button>
             }
           />
+
+          {hasMatchProfile && (
+            <MyProfileQuickView
+              user={quickViewUser}
+              onEdit={() => setProfileModalOpen(true)}
+              onRequestVerification={handleRequestVerification}
+              isMobile={isMobile}
+            />
+          )}
 
           {!hasMatchProfile && status === "ready" && mode !== "error" && (
             <StateBanner
@@ -881,6 +1012,12 @@ const FindPlayersPage = () => {
             genderOptions={genderOptions}
             selectedGender={selectedGender}
             onGenderChange={handleGenderChange}
+            playTypeOptions={playTypeOptions}
+            selectedPlayType={selectedPlayType}
+            onPlayTypeChange={handlePlayTypeChange}
+            availabilityOptions={availabilityOptions}
+            selectedAvailability={selectedAvailability}
+            onAvailabilityChange={handleAvailabilityChange}
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
@@ -968,6 +1105,33 @@ const FindPlayersPage = () => {
             </section>
           ) : null}
 
+          {hasMatchProfile && (
+            <div style={{ marginBottom: "20px" }}>
+              <BestMatchCTA
+                onClick={() => setShowBestMatches((prev) => !prev)}
+                isMobile={isMobile}
+              />
+            </div>
+          )}
+
+          {hasMatchProfile && showBestMatches && bestMatches.length > 0 && (
+            <BestMatchesPanel
+              matches={bestMatches}
+              onClose={() => setShowBestMatches(false)}
+              onConnect={(player) => {
+                if (player.sourcePlayer) {
+                  openConnectModalForPlayer(player.sourcePlayer as DirectoryPlayer);
+                }
+              }}
+              onViewProfile={(player) => {
+                if (player.sourcePlayer) {
+                  handleViewPlayerProfile(player.sourcePlayer as DirectoryPlayer);
+                }
+              }}
+              isMobile={isMobile}
+            />
+          )}
+
           <span className="fc-results-count">{resultsCountLabel}</span>
 
           {status === "loading" && (
@@ -1012,11 +1176,7 @@ const FindPlayersPage = () => {
                   player={player}
                   canConnect={hasMatchProfile}
                   onConnect={openConnectModalForPlayer}
-                  onViewProfile={(nextPlayer) => {
-                    navigate(`/players/${nextPlayer.id}`, {
-                      state: { player: nextPlayer as DirectoryPlayer },
-                    });
-                  }}
+                  onViewProfile={(nextPlayer) => handleViewPlayerProfile(nextPlayer as DirectoryPlayer)}
                 />
               ))}
             </div>
