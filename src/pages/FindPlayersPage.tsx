@@ -357,6 +357,7 @@ type BestMatchPlayer = DirectoryPlayer & {
 const renderAvatar = (
   avatarUrl: string | undefined,
   initials: string,
+  label: string,
   size: string,
   borderWidth: string,
 ) => {
@@ -364,7 +365,7 @@ const renderAvatar = (
     return (
       <img
         src={avatarUrl}
-        alt={initials}
+        alt={label}
         style={{
           width: size,
           height: size,
@@ -379,7 +380,8 @@ const renderAvatar = (
 
   return (
     <div
-      aria-hidden
+      aria-label={label}
+      role="img"
       style={{
         width: size,
         height: size,
@@ -449,7 +451,7 @@ const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: M
           textAlign: isMobile ? "center" : "left",
         }}
       >
-        {renderAvatar(user.photo || user.avatarUrl, initials, avatarSize, "3px")}
+        {renderAvatar(user.photo || user.avatarUrl, initials, user.name, avatarSize, "3px")}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -1074,6 +1076,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
           {renderAvatar(
             player.profileImageUrl || undefined,
             player.initials || toInitials(player.name),
+            player.name,
             "48px",
             "2px",
           )}
@@ -1184,6 +1187,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
         {renderAvatar(
           player.profileImageUrl || undefined,
           player.initials || toInitials(player.name),
+          player.name,
           "52px",
           "2px",
         )}
