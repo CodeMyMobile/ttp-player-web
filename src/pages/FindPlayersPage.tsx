@@ -338,6 +338,7 @@ const useIsMobile = (breakpoint = 768) => {
 type ProfileQuickViewUser = {
   name: string;
   ntrp: string;
+  initials?: string;
   tagline?: string;
   bio?: string;
   availability?: string[];
@@ -351,6 +352,52 @@ type ProfileQuickViewUser = {
 type BestMatchPlayer = DirectoryPlayer & {
   matchScore: number;
   matchReasons: string[];
+};
+
+const renderAvatar = (
+  avatarUrl: string | undefined,
+  initials: string,
+  size: string,
+  borderWidth: string,
+) => {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={initials}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          border: `${borderWidth} solid white`,
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        backgroundColor: "#EDE9FE",
+        color: "#6D28D9",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "14px",
+        fontWeight: 600,
+        border: `${borderWidth} solid white`,
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+      }}
+    >
+      {initials}
+    </div>
+  );
 };
 
 const generateBestMatches = (playerList: DirectoryPlayer[]) =>
@@ -375,6 +422,8 @@ const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: M
   const isVerified = user?.isVerified ?? false;
   const verificationCount = user?.verificationCount ?? 2;
   const verificationsNeeded = 3;
+  const initials = user.initials || toInitials(user.name);
+  const avatarSize = isMobile ? "72px" : "64px";
 
   return (
     <div
@@ -400,18 +449,7 @@ const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: M
           textAlign: isMobile ? "center" : "left",
         }}
       >
-        <img
-          src={user.photo || user.avatarUrl}
-          alt={user.name}
-          style={{
-            width: isMobile ? "72px" : "64px",
-            height: isMobile ? "72px" : "64px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "3px solid white",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-          }}
-        />
+        {renderAvatar(user.photo || user.avatarUrl, initials, avatarSize, "3px")}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -649,7 +687,7 @@ const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: M
                   justifyContent: isMobile ? "center" : "flex-start",
                 }}
               >
-                {user.availability?.map((slot, idx) => (
+                {(user.availability?.length ? user.availability : ["Add availability"]).map((slot, idx) => (
                   <span
                     key={idx}
                     style={{
@@ -697,7 +735,7 @@ const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: M
                   alignItems: isMobile ? "center" : "flex-start",
                 }}
               >
-                {user.courts?.map((court, idx) => (
+                {(user.courts?.length ? user.courts : ["Add local courts"]).map((court, idx) => (
                   <div
                     key={idx}
                     style={{
@@ -1033,18 +1071,12 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
     {isMobile ? (
       <>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <img
-            src={player.profileImageUrl}
-            alt={player.name}
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "2px solid white",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-            }}
-          />
+          {renderAvatar(
+            player.profileImageUrl || undefined,
+            player.initials || toInitials(player.name),
+            "48px",
+            "2px",
+          )}
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
               <span style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>{player.name}</span>
@@ -1149,18 +1181,12 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
       </>
     ) : (
       <>
-        <img
-          src={player.profileImageUrl}
-          alt={player.name}
-          style={{
-            width: "52px",
-            height: "52px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "2px solid white",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-          }}
-        />
+        {renderAvatar(
+          player.profileImageUrl || undefined,
+          player.initials || toInitials(player.name),
+          "52px",
+          "2px",
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
@@ -1607,6 +1633,7 @@ const FindPlayersPage = () => {
     const name = trimmedName.length ? trimmedName : "TTP Player";
     return {
       name,
+      initials: toInitials(name),
       ntrp: matchProfile.level ?? "3.0",
       tagline: matchProfile.about || "Add a quick bio to help players get to know you.",
       bio: matchProfile.about,
