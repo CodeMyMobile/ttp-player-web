@@ -803,30 +803,36 @@ const FindPlayersPage = () => {
 
   const openConnectModalForPlayer = useCallback(
     (player: Player) => {
-      if (!hasMatchProfile) {
+      if (!hasProfile) {
         window.alert("Create your match profile to connect.");
         return;
       }
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasMatchProfile],
+    [hasProfile],
   );
 
   const handleShareIntro = useCallback(
     (nextPlayer: Player) => {
-      if (!matchProfile) {
+      if (!hasProfile) {
         window.alert("Create your match profile to connect.");
         return;
       }
 
+      const senderLevel = matchProfile?.level ?? currentUserProfile.ntrp ?? "3.0";
+      const preferredTimes = formatAvailabilityList(
+        matchProfile?.availability ?? currentUserProfile.availability ?? [],
+      );
+      const preferredCourt = matchProfile?.localCourts?.trim()
+        ? matchProfile.localCourts.trim()
+        : currentUserProfile.courts?.[0] ?? null;
+
       const trimmedDisplayName = displayName.trim();
       const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
-      const senderLevel = matchProfile?.level ?? "3.0";
-      const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
       const message =
         `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
-        `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
+        `player looking to hit ${preferredTimes} at one of our local courts${preferredCourt ? ` like ${preferredCourt}` : ""}. You can check out my profile here: ${profileShareUrl}. ` +
         "Let me know if you'd like to hit sometime.";
 
       const encodedMessage = encodeURIComponent(message);
@@ -844,15 +850,21 @@ const FindPlayersPage = () => {
 
       window.location.href = smsUrl;
     },
-    [displayName, matchProfile, profileShareUrl],
+    [currentUserProfile, displayName, hasProfile, matchProfile, profileShareUrl],
   );
 
   const handleCreateMatchPlayIntent = useCallback(
     (nextPlayer: Player) => {
-      if (!matchProfile) {
+      if (!hasProfile) {
         window.alert("Create your match profile to start building MatchPlay invites.");
         return;
       }
+
+      const senderLevel = matchProfile?.level ?? currentUserProfile.ntrp ?? "3.0";
+      const senderAvailability = matchProfile?.availability ?? currentUserProfile.availability ?? [];
+      const senderCourt = matchProfile?.localCourts?.trim()
+        ? matchProfile.localCourts.trim()
+        : currentUserProfile.courts?.[0] ?? null;
 
       const connectIntent: ConnectIntent = {
         invitee: {
@@ -862,16 +874,16 @@ const FindPlayersPage = () => {
           level: nextPlayer.level,
         },
         senderName: displayName.trim() || "You",
-        senderLevel: matchProfile.level,
-        suggestedAvailability: [...(matchProfile.availability ?? [])],
-        preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
+        senderLevel,
+        suggestedAvailability: [...senderAvailability],
+        preferredCourt: senderCourt,
         source: "find-players",
       };
 
       navigate("/matches/create", { state: { connectIntent } });
       closeConnectModal();
     },
-    [closeConnectModal, displayName, matchProfile, navigate],
+    [closeConnectModal, currentUserProfile, displayName, hasProfile, matchProfile, navigate],
   );
 
   const handleSearch = () => {
@@ -1251,7 +1263,7 @@ const FindPlayersPage = () => {
                 <PlayerCard
                   key={player.id}
                   player={player}
-                  canConnect={hasMatchProfile}
+                  canConnect={hasProfile}
                   onConnect={openConnectModalForPlayer}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {
@@ -1279,8 +1291,8 @@ const FindPlayersPage = () => {
             handleCreateMatchPlayIntent(connectModalPlayer);
           }
         }}
-        senderAvailability={matchProfile?.availability ?? []}
-        senderCourts={matchProfile?.localCourts ?? ""}
+        senderAvailability={matchProfile?.availability ?? currentUserProfile.availability ?? []}
+        senderCourts={matchProfile?.localCourts ?? currentUserProfile.courts?.join(", ") ?? ""}
       />
 
       <MatchProfileModal
