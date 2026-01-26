@@ -1926,6 +1926,10 @@ const extractLocationId = (slot?: BookingSlot) => {
           requestPayerName: true,
           requestPayerEmail: true,
         });
+        const canPay = await paymentRequest.canMakePayment();
+        if (!canPay?.applePay) {
+          throw new Error("Apple Pay isn't available on this device.");
+        }
 
         await new Promise<void>((resolve, reject) => {
           paymentRequest.on("paymentmethod", async (event) => {
