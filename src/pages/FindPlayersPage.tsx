@@ -28,6 +28,7 @@ import {
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import type { ConnectIntent } from "../types/matchPlay";
+import { useAuth } from "../context/AuthContext";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -390,10 +391,29 @@ const FindPlayersPage = () => {
   const [playerToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
+  const { user } = useAuth() as { user?: unknown };
   const hasMatchProfile = Boolean(matchProfile);
   const { displayName, avatarUrl } = usePlayerIdentity();
   const isMobile = useIsMobile();
-  const hasProfile = hasMatchProfile;
+  const userProfileRecord = user && typeof user === "object" ? (user as Record<string, unknown>) : null;
+  const playerProfile = (userProfileRecord?.playerProfile ?? userProfileRecord?.player_profile) as
+    | Record<string, unknown>
+    | undefined;
+  const isProfileComplete = (() => {
+    if (typeof playerProfile?.isComplete === "boolean") {
+      return playerProfile.isComplete;
+    }
+    if (typeof playerProfile?.is_complete === "boolean") {
+      return playerProfile.is_complete;
+    }
+    if (playerProfile) {
+      return true;
+    }
+    return undefined;
+  })();
+  const hasProfile = Boolean(
+    isProfileComplete === undefined ? hasMatchProfile || Boolean(playerToken) : isProfileComplete,
+  );
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
@@ -437,25 +457,74 @@ const FindPlayersPage = () => {
   })();
 
   const currentUserProfile = useMemo(() => {
-    const availability = matchProfile?.availability?.length
-      ? matchProfile.availability
-      : ["Weekdays AM", "Weekday PM", "Weekends"];
-    const courts = parseLocalCourts(matchProfile?.localCourts);
-    const about = matchProfile?.about?.trim();
+    const profileAvailability = ensureStringArray(playerProfile?.availability, toCanonicalAvailability);
+    const matchAvailability = matchProfile?.availability ?? [];
+    const availability =
+      profileAvailability.length > 0
+        ? profileAvailability
+        : matchAvailability.length > 0
+          ? matchAvailability
+          : ["Weekdays AM", "Weekday PM", "Weekends"];
+
+    const profileCourts = ensureStringArray(playerProfile?.courts ?? playerProfile?.courtLocations);
+    const matchCourts = parseLocalCourts(matchProfile?.localCourts);
+    const courts =
+      profileCourts.length > 0
+        ? profileCourts
+        : matchCourts.length > 0
+          ? matchCourts
+          : ["Local courts pending"];
+
+    const profileAbout =
+      (typeof playerProfile?.tagline === "string" && playerProfile.tagline.trim()) ||
+      (typeof playerProfile?.bio === "string" && playerProfile.bio.trim()) ||
+      (typeof playerProfile?.about === "string" && playerProfile.about.trim()) ||
+      (typeof playerProfile?.about_me === "string" && playerProfile.about_me.trim()) ||
+      "";
+    const about = profileAbout || matchProfile?.about?.trim() || "Share your playing style and availability.";
+
+    const profileLevel =
+      (typeof playerProfile?.ntrp === "string" && playerProfile.ntrp.trim()) ||
+      (typeof playerProfile?.level === "string" && playerProfile.level.trim()) ||
+      (typeof playerProfile?.skillLevel === "string" && playerProfile.skillLevel.trim()) ||
+      "";
+    const ntrp = profileLevel || matchProfile?.level || "3.0";
+
+    const profilePhoto =
+      (typeof playerProfile?.photo === "string" && playerProfile.photo.trim()) ||
+      (typeof playerProfile?.avatarUrl === "string" && playerProfile.avatarUrl.trim()) ||
+      (typeof playerProfile?.avatar_url === "string" && playerProfile.avatar_url.trim()) ||
+      (typeof playerProfile?.profileImageUrl === "string" && playerProfile.profileImageUrl.trim()) ||
+      (typeof playerProfile?.profile_image === "string" && playerProfile.profile_image.trim()) ||
+      "";
+    const profileVerified =
+      (playerProfile?.isVerified as boolean | undefined) ??
+      (playerProfile?.is_verified as boolean | undefined) ??
+      (userProfileRecord?.isVerified as boolean | undefined) ??
+      (userProfileRecord?.is_verified as boolean | undefined) ??
+      false;
+    const profileVerificationCount =
+      Number(
+        (playerProfile?.verificationCount as number | string | undefined) ??
+          (playerProfile?.verification_count as number | string | undefined) ??
+          (userProfileRecord?.verificationCount as number | string | undefined) ??
+          (userProfileRecord?.verification_count as number | string | undefined) ??
+          2,
+      ) || 0;
 
     return {
       name: displayName.trim() || "Paul",
-      photo: avatarUrl ?? undefined,
-      avatarUrl: avatarUrl ?? undefined,
-      ntrp: matchProfile?.level ?? "3.0",
-      isVerified: false,
-      verificationCount: 2,
-      tagline: about || "Share your playing style and availability.",
-      bio: about || "Share your playing style and availability.",
+      photo: profilePhoto || avatarUrl || undefined,
+      avatarUrl: profilePhoto || avatarUrl || undefined,
+      ntrp,
+      isVerified: profileVerified,
+      verificationCount: profileVerificationCount || 2,
+      tagline: about,
+      bio: about,
       availability,
-      courts: courts.length > 0 ? courts : ["Local courts pending"],
+      courts,
     };
-  }, [avatarUrl, displayName, matchProfile]);
+  }, [avatarUrl, displayName, matchProfile, playerProfile, userProfileRecord]);
 
   const applyLocationFilter = useCallback(
     (nextLocation: SelectedLocation | null) => {
