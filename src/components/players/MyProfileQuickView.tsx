@@ -18,6 +18,18 @@ interface MyProfileQuickViewProps {
   isMobile: boolean;
 }
 
+const toInitials = (name: string) => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return "TP";
+  }
+  const segments = trimmed.split(/\s+/).filter(Boolean);
+  if (segments.length === 1) {
+    return segments[0].slice(0, 2).toUpperCase();
+  }
+  return `${segments[0][0]}${segments[segments.length - 1][0]}`.toUpperCase();
+};
+
 const MyProfileQuickView: React.FC<MyProfileQuickViewProps> = ({
   user,
   onEdit,
@@ -27,6 +39,9 @@ const MyProfileQuickView: React.FC<MyProfileQuickViewProps> = ({
   const isVerified = user?.isVerified ?? false;
   const verificationCount = user?.verificationCount ?? 2;
   const verificationsNeeded = 3;
+  const imageSrc = user.photo || user.avatarUrl;
+  const availability = user.availability?.length ? user.availability : ["Add availability"];
+  const courts = user.courts?.length ? user.courts : ["Add local courts"];
 
   return (
     <div
@@ -52,18 +67,40 @@ const MyProfileQuickView: React.FC<MyProfileQuickViewProps> = ({
           textAlign: isMobile ? "center" : "left",
         }}
       >
-        <img
-          src={user.photo || user.avatarUrl}
-          alt={user.name}
-          style={{
-            width: isMobile ? "72px" : "64px",
-            height: isMobile ? "72px" : "64px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "3px solid white",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-          }}
-        />
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={user.name}
+            style={{
+              width: isMobile ? "72px" : "64px",
+              height: isMobile ? "72px" : "64px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "3px solid white",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+            }}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            style={{
+              width: isMobile ? "72px" : "64px",
+              height: isMobile ? "72px" : "64px",
+              borderRadius: "50%",
+              backgroundColor: "white",
+              border: "3px solid white",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "18px",
+              fontWeight: 600,
+              color: "#7C3AED",
+            }}
+          >
+            {toInitials(user.name)}
+          </div>
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -317,7 +354,7 @@ const MyProfileQuickView: React.FC<MyProfileQuickViewProps> = ({
                   justifyContent: isMobile ? "center" : "flex-start",
                 }}
               >
-                {user.availability?.map((slot, idx) => (
+                {availability.map((slot, idx) => (
                   <span
                     key={idx}
                     style={{
@@ -365,7 +402,7 @@ const MyProfileQuickView: React.FC<MyProfileQuickViewProps> = ({
                   alignItems: isMobile ? "center" : "flex-start",
                 }}
               >
-                {user.courts?.map((court, idx) => (
+                {courts.map((court, idx) => (
                   <div
                     key={idx}
                     style={{
