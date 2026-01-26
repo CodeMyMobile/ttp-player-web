@@ -138,6 +138,23 @@
   align-items: stretch;
 }
 
+.find-players-page .fc-filter__form {
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.find-players-page .fc-filter__search {
+  flex: 1 1 360px;
+  min-width: 280px;
+  width: auto;
+}
+
+.find-players-page .fc-filter__selects {
+  flex: 2 1 520px;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
 .fp-card {
   position: relative;
   display: flex;
