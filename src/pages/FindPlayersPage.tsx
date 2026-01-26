@@ -12,6 +12,9 @@ import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import type { MatchProfileDetails } from "../components/players/MatchProfileModal";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
+import MyProfileQuickView from "../components/players/MyProfileQuickView";
+import BestMatchCTA from "../components/players/BestMatchCTA";
+import BestMatchesPanel from "../components/players/BestMatchesPanel";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
@@ -60,10 +63,44 @@ type SuggestedPlayerRecord = {
 };
 
 type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
+type BestMatch = {
+  id: string;
+  name: string;
+  photo?: string;
+  avatarUrl?: string;
+  ntrp: string;
+  isVerified?: boolean;
+  court?: string;
+  courts?: string[];
+  matchScore: number;
+  matchReasons: string[];
+};
+
+const generateBestMatches = (availablePlayers: DirectoryPlayer[]): BestMatch[] => {
+  return availablePlayers.slice(0, 3).map((player, index) => ({
+    id: player.id,
+    name: player.name,
+    photo: player.profileImageUrl,
+    avatarUrl: player.profileImageUrl,
+    ntrp: player.level,
+    isVerified: player.verified,
+    court: player.favoriteCourt ?? player.localCourts?.[0],
+    courts: player.localCourts,
+    matchScore: [95, 88, 82][index] ?? 80,
+    matchReasons:
+      [
+        ["Same NTRP level", "Both available weekday mornings", "0.8 mi away"],
+        ["Close skill level", "Prefers competitive singles", "1.2 mi away"],
+        ["Same NTRP level", "Looking for doubles partner", "2.1 mi away"],
+      ][index] ?? [],
+  }));
+};
 
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
+const playTypeOptions = ["Play type", "Singles", "Doubles", "Competitive", "Social"];
+const availabilityOptions = ["Availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
@@ -131,6 +168,19 @@ const ensureStringArray = (value: unknown, normalizer?: (value: string) => strin
     return [normalizer ? normalizer(trimmed) : trimmed];
   }
   return [];
+};
+
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
 };
 
 const formatCoordinatesLabel = (coords: Coordinates | null) => {
@@ -204,6 +254,16 @@ const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
 
   return { about, level, playStyles, gender, localCourts, availability };
+};
+
+const parseLocalCourts = (courts: string | null | undefined): string[] => {
+  if (!courts) {
+    return [];
+  }
+  return courts
+    .split(",")
+    .map((court) => court.trim())
+    .filter((court) => court.length > 0);
 };
 
 const getStoredMatchProfile = (): StoredMatchProfile | null => {
@@ -315,7 +375,10 @@ const FindPlayersPage = () => {
   const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
+  const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
+  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [showBestMatches, setShowBestMatches] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
@@ -328,7 +391,9 @@ const FindPlayersPage = () => {
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
   const hasMatchProfile = Boolean(matchProfile);
-  const { displayName } = usePlayerIdentity();
+  const { displayName, avatarUrl } = usePlayerIdentity();
+  const isMobile = useIsMobile();
+  const hasProfile = hasMatchProfile;
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
@@ -370,6 +435,27 @@ const FindPlayersPage = () => {
 
     return resolvedLocationLabel || "";
   })();
+
+  const currentUserProfile = useMemo(() => {
+    const availability = matchProfile?.availability?.length
+      ? matchProfile.availability
+      : ["Weekdays AM", "Weekday PM", "Weekends"];
+    const courts = parseLocalCourts(matchProfile?.localCourts);
+    const about = matchProfile?.about?.trim();
+
+    return {
+      name: displayName.trim() || "Paul",
+      photo: avatarUrl ?? undefined,
+      avatarUrl: avatarUrl ?? undefined,
+      ntrp: matchProfile?.level ?? "3.0",
+      isVerified: false,
+      verificationCount: 2,
+      tagline: about || "Share your playing style and availability.",
+      bio: about || "Share your playing style and availability.",
+      availability,
+      courts: courts.length > 0 ? courts : ["Local courts pending"],
+    };
+  }, [avatarUrl, displayName, matchProfile]);
 
   const applyLocationFilter = useCallback(
     (nextLocation: SelectedLocation | null) => {
@@ -738,6 +824,14 @@ const FindPlayersPage = () => {
     setSelectedGender(gender);
   };
 
+  const handlePlayTypeChange = (playType: string) => {
+    setSelectedPlayType(playType);
+  };
+
+  const handleAvailabilityChange = (availability: string) => {
+    setSelectedAvailability(availability);
+  };
+
   const handleVerifiedToggle = (next: boolean) => {
     setVerifiedOnly(next);
   };
@@ -749,6 +843,8 @@ const FindPlayersPage = () => {
     setAppliedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
     setSelectedGender(genderOptions[0]);
+    setSelectedPlayType(playTypeOptions[0]);
+    setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
     setMode("normal");
   };
@@ -788,9 +884,28 @@ const FindPlayersPage = () => {
       const matchesGender =
         selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
 
+      const matchesPlayType =
+        selectedPlayType === playTypeOptions[0] ||
+        [...player.matchPreferences, ...player.hitTypes].some(
+          (preference) => normalize(preference) === normalize(selectedPlayType),
+        );
+
+      const matchesAvailability =
+        selectedAvailability === availabilityOptions[0] ||
+        player.availability.some(
+          (slot) => normalize(toCanonicalAvailability(slot)) === normalize(selectedAvailability),
+        );
+
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return matchesSearch && matchesLevel && matchesGender && matchesVerification;
+      return (
+        matchesSearch &&
+        matchesLevel &&
+        matchesGender &&
+        matchesPlayType &&
+        matchesAvailability &&
+        matchesVerification
+      );
     });
   }, [
     mode,
@@ -798,8 +913,17 @@ const FindPlayersPage = () => {
     players,
     selectedGender,
     selectedLevel,
+    selectedPlayType,
+    selectedAvailability,
     verifiedOnly,
   ]);
+
+  const bestMatches = useMemo(() => {
+    if (!hasProfile) {
+      return [];
+    }
+    return generateBestMatches(filteredPlayers);
+  }, [filteredPlayers, hasProfile]);
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
@@ -840,7 +964,18 @@ const FindPlayersPage = () => {
             }
           />
 
-          {!hasMatchProfile && status === "ready" && mode !== "error" && (
+          {hasProfile && status === "ready" && mode !== "error" && (
+            <MyProfileQuickView
+              user={currentUserProfile}
+              onEdit={() => setProfileModalOpen(true)}
+              onRequestVerification={() => {
+                window.alert("Verification requests are coming soon!");
+              }}
+              isMobile={isMobile}
+            />
+          )}
+
+          {!hasProfile && status === "ready" && mode !== "error" && (
             <StateBanner
               tone="empty"
               title="Create your player match profile"
@@ -878,9 +1013,15 @@ const FindPlayersPage = () => {
             levelOptions={levelOptions}
             selectedLevel={selectedLevel}
             onLevelChange={handleLevelChange}
+            playTypeOptions={playTypeOptions}
+            selectedPlayType={selectedPlayType}
+            onPlayTypeChange={handlePlayTypeChange}
             genderOptions={genderOptions}
             selectedGender={selectedGender}
             onGenderChange={handleGenderChange}
+            availabilityOptions={availabilityOptions}
+            selectedAvailability={selectedAvailability}
+            onAvailabilityChange={handleAvailabilityChange}
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
@@ -966,6 +1107,37 @@ const FindPlayersPage = () => {
                 </p>
               ) : null}
             </section>
+          ) : null}
+
+          {hasProfile ? (
+            <div style={{ marginBottom: "16px" }}>
+              <BestMatchCTA
+                onClick={() => setShowBestMatches((prev) => !prev)}
+                isMobile={isMobile}
+              />
+            </div>
+          ) : null}
+
+          {hasProfile && showBestMatches ? (
+            <BestMatchesPanel
+              matches={bestMatches}
+              onClose={() => setShowBestMatches(false)}
+              onConnect={(player) => {
+                const matchedPlayer = filteredPlayers.find((entry) => entry.id === player.id);
+                if (matchedPlayer) {
+                  openConnectModalForPlayer(matchedPlayer);
+                }
+              }}
+              onViewProfile={(player) => {
+                const matchedPlayer = filteredPlayers.find((entry) => entry.id === player.id);
+                if (matchedPlayer) {
+                  navigate(`/players/${matchedPlayer.id}`, {
+                    state: { player: matchedPlayer as DirectoryPlayer },
+                  });
+                }
+              }}
+              isMobile={isMobile}
+            />
           ) : null}
 
           <span className="fc-results-count">{resultsCountLabel}</span>
