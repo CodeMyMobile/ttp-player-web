@@ -1,6 +1,6 @@
 import moment from "moment";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -703,6 +703,8 @@ const CoachProfilePage = () => {
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<"credits" | "card" | "apple-pay">("card");
+  const stripeRef = useRef<Stripe | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [pendingLessonPayment, setPendingLessonPayment] = useState<ApiLesson | null>(null);
@@ -1593,6 +1595,10 @@ const CoachProfilePage = () => {
     const breakdown = buildPriceBreakdown(data.baseRate, data.discountPercentage);
     return breakdown;
   }, [buildPriceBreakdown, lessonTypeDetailMap, pendingBooking, pendingLessonPayment, resolveLessonPriceData]);
+  const applePayAmount = useMemo(
+    () => parseAmountToCents(pendingPriceSummary?.total),
+    [pendingPriceSummary?.total],
+  );
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -1601,6 +1607,47 @@ const CoachProfilePage = () => {
 
     return profile.location ?? coachingLocations[0];
   }, [coachingLocations, profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsApplePayReady(false);
+
+    if (!stripePromise || !applePayAmount) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) {
+        return;
+      }
+      stripeRef.current = stripe;
+      const paymentRequest = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+      const canPay = await paymentRequest.canMakePayment();
+      if (!cancelled) {
+        setIsApplePayReady(Boolean(canPay?.applePay));
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setIsApplePayReady(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayAmount]);
 
   const highlightChips = useMemo(() => {
     if (!profile?.highlightChips?.length) {
@@ -1848,10 +1895,12 @@ const extractLocationId = (slot?: BookingSlot) => {
         setPaymentMethodsError("Stripe isn't configured for Apple Pay.");
         return;
       }
-
-      const amount = parseAmountToCents(pendingPriceSummary?.total);
-      if (!amount) {
+      if (!applePayAmount) {
         setPaymentMethodsError("Missing payment amount for Apple Pay.");
+        return;
+      }
+      if (!isApplePayReady) {
+        setPaymentMethodsError("Apple Pay isn't available on this device.");
         return;
       }
 
@@ -1862,7 +1911,7 @@ const extractLocationId = (slot?: BookingSlot) => {
       setBookingInFlight(pendingLessonPayment ? `lesson-${pendingLessonPayment.id}` : pendingBooking?.slot.id ?? "apple-pay");
 
       try {
-        const stripe = await stripePromise;
+        const stripe = stripeRef.current;
         if (!stripe) {
           throw new Error("Stripe is not available for Apple Pay.");
         }
@@ -1872,16 +1921,11 @@ const extractLocationId = (slot?: BookingSlot) => {
           currency: "usd",
           total: {
             label: "The Tennis Plan",
-            amount,
+            amount: applePayAmount,
           },
           requestPayerName: true,
           requestPayerEmail: true,
         });
-
-        const canPay = await paymentRequest.canMakePayment();
-        if (!canPay?.applePay) {
-          throw new Error("Apple Pay isn't available on this device.");
-        }
 
         await new Promise<void>((resolve, reject) => {
           paymentRequest.on("paymentmethod", async (event) => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -18,7 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -270,6 +270,7 @@ const BookingConfirmationPage = () => {
   const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const stripeEnabled = Boolean(stripePromise);
+  const stripeRef = useRef<Stripe | null>(null);
 
   const coachIdFromState = state?.coachId;
   const dateIdFromState = state?.dateId;
@@ -307,6 +308,7 @@ const BookingConfirmationPage = () => {
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
   const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
   const resolvedCoachId = coachId ?? groupLesson?.coachId;
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
 
   const fetchPaymentMethods = useCallback(async () => {
     if (!authToken) {
@@ -378,6 +380,47 @@ const BookingConfirmationPage = () => {
     }
     void refreshSetupIntent();
   }, [refreshSetupIntent, stripeEnabled]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsApplePayReady(false);
+
+    if (!stripePromise || !applePayAmount) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) {
+        return;
+      }
+      stripeRef.current = stripe;
+      const paymentRequest = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+      const canPay = await paymentRequest.canMakePayment();
+      if (!cancelled) {
+        setIsApplePayReady(Boolean(canPay?.applePay));
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setIsApplePayReady(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayAmount]);
 
   useEffect(() => {
     if (paymentMethodsLoading || hasInitializedSelection) {
@@ -474,6 +517,10 @@ const BookingConfirmationPage = () => {
 
   const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
   const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
+  const applePayAmount = useMemo(
+    () => parsePriceToCents(groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? ""),
+    [groupLesson?.pricePerPlayer, selectedSlot?.price],
+  );
 
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
@@ -823,17 +870,18 @@ const BookingConfirmationPage = () => {
         setConsumeError("Stripe isn't configured for Apple Pay.");
         return;
       }
-
-      const priceSource = groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "";
-      const amount = parsePriceToCents(priceSource);
-      if (!amount) {
+      if (!applePayAmount) {
         setConsumeError("Missing payment amount for Apple Pay.");
+        return;
+      }
+      if (!isApplePayReady) {
+        setConsumeError("Apple Pay isn't available on this device.");
         return;
       }
 
       setIsProcessingPayment(true);
       try {
-        const stripe = await stripePromise;
+        const stripe = stripeRef.current;
         if (!stripe) {
           throw new Error("Stripe is not available for Apple Pay.");
         }
@@ -843,16 +891,11 @@ const BookingConfirmationPage = () => {
           currency: "usd",
           total: {
             label: "The Tennis Plan",
-            amount,
+            amount: applePayAmount,
           },
           requestPayerName: true,
           requestPayerEmail: true,
         });
-
-        const canPay = await paymentRequest.canMakePayment();
-        if (!canPay?.applePay) {
-          throw new Error("Apple Pay isn't available on this device.");
-        }
 
         await new Promise<void>((resolve, reject) => {
           paymentRequest.on("paymentmethod", async (event) => {
