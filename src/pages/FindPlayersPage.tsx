@@ -1035,13 +1035,15 @@ const FindPlayersPage = () => {
             title="Find Players"
             description="Connect with local players who match your level and style."
             actionSlot={
-              <button
-                type="button"
-                className="fc-button fc-button--secondary"
-                onClick={() => setProfileModalOpen(true)}
-              >
-                {hasMatchProfile ? "Edit match profile" : "Create match profile"}
-              </button>
+              hasProfile ? null : (
+                <button
+                  type="button"
+                  className="fc-button fc-button--secondary"
+                  onClick={() => setProfileModalOpen(true)}
+                >
+                  {hasMatchProfile ? "Edit match profile" : "Create match profile"}
+                </button>
+              )
             }
           />
 
