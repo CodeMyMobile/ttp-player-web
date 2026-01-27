@@ -18,7 +18,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
+import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+  type Stripe,
+} from "@stripe/stripe-js";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -309,6 +314,7 @@ const BookingConfirmationPage = () => {
   const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
   const resolvedCoachId = coachId ?? groupLesson?.coachId;
   const [isApplePayReady, setIsApplePayReady] = useState(false);
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
 
   const fetchPaymentMethods = useCallback(async () => {
     if (!authToken) {
@@ -384,6 +390,7 @@ const BookingConfirmationPage = () => {
   useEffect(() => {
     let cancelled = false;
     setIsApplePayReady(false);
+    setApplePayRequest(null);
 
     if (!stripePromise || !applePayAmount) {
       return () => {
@@ -408,19 +415,26 @@ const BookingConfirmationPage = () => {
         requestPayerEmail: true,
       });
       const canPay = await paymentRequest.canMakePayment();
+      if (!cancelled && canPay?.applePay) {
+        setIsApplePayReady(true);
+        setApplePayRequest(paymentRequest);
+        return;
+      }
       if (!cancelled) {
-        setIsApplePayReady(Boolean(canPay?.applePay));
+        setIsApplePayReady(false);
+        setApplePayRequest(null);
       }
     })().catch(() => {
       if (!cancelled) {
         setIsApplePayReady(false);
+        setApplePayRequest(null);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [applePayAmount]);
+  }, [applePayAmount, stripePromise]);
 
   useEffect(() => {
     if (paymentMethodsLoading || hasInitializedSelection) {
@@ -874,7 +888,7 @@ const BookingConfirmationPage = () => {
         setConsumeError("Missing payment amount for Apple Pay.");
         return;
       }
-      if (!isApplePayReady) {
+      if (!isApplePayReady || !applePayRequest) {
         setConsumeError("Apple Pay isn't available on this device.");
         return;
       }
@@ -886,23 +900,16 @@ const BookingConfirmationPage = () => {
           throw new Error("Stripe is not available for Apple Pay.");
         }
 
-        const paymentRequest = stripe.paymentRequest({
-          country: "US",
-          currency: "usd",
-          total: {
-            label: "The Tennis Plan",
-            amount: applePayAmount,
-          },
-          requestPayerName: true,
-          requestPayerEmail: true,
-        });
-        const canPay = await paymentRequest.canMakePayment();
-        if (!canPay?.applePay) {
-          throw new Error("Apple Pay isn't available on this device.");
-        }
-
         await new Promise<void>((resolve, reject) => {
-          paymentRequest.on("paymentmethod", async (event) => {
+          const request = applePayRequest;
+          request.update({
+            total: {
+              label: "The Tennis Plan",
+              amount: applePayAmount,
+            },
+          });
+
+          const handlePayment = async (event: PaymentRequestPaymentMethodEvent) => {
             try {
               const paymentMethodId = event.paymentMethod.id;
               if (groupLesson) {
@@ -944,15 +951,30 @@ const BookingConfirmationPage = () => {
                 if (!clientSecret) {
                   throw new Error("Unable to start payment. Please try again.");
                 }
-                const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-                  payment_method: paymentMethodId,
-                });
+                const { error, paymentIntent } = await stripe.confirmCardPayment(
+                  clientSecret,
+                  {
+                    payment_method: paymentMethodId,
+                  },
+                  { handleActions: false }
+                );
                 if (error) {
                   throw new Error(error.message || "Apple Pay failed.");
                 }
                 const status = paymentIntent?.status?.toLowerCase();
                 if (status && status !== "succeeded") {
-                  throw new Error("Payment was not successful.");
+                  if (status === "requires_action") {
+                    const { error: actionError, paymentIntent: actionIntent } = await stripe.confirmCardPayment(clientSecret);
+                    if (actionError) {
+                      throw new Error(actionError.message || "Apple Pay failed.");
+                    }
+                    const actionStatus = actionIntent?.status?.toLowerCase();
+                    if (actionStatus && actionStatus !== "succeeded") {
+                      throw new Error("Payment was not successful.");
+                    }
+                  } else {
+                    throw new Error("Payment was not successful.");
+                  }
                 }
               }
 
@@ -962,9 +984,22 @@ const BookingConfirmationPage = () => {
               event.complete("fail");
               reject(error);
             }
-          });
+          };
 
-          paymentRequest.show().catch(reject);
+          const handleCancel = () => {
+            reject(new Error("Apple Pay was canceled."));
+          };
+
+          request.once("paymentmethod", handlePayment);
+          request.once("cancel", handleCancel);
+
+          try {
+            request.show();
+          } catch (error) {
+            request.off("paymentmethod", handlePayment);
+            request.off("cancel", handleCancel);
+            reject(error);
+          }
         });
 
         setIsConfirmed(true);
