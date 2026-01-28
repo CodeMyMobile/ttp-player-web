@@ -316,6 +316,15 @@ const BookingConfirmationPage = () => {
   const [isApplePayReady, setIsApplePayReady] = useState(false);
   const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
 
+  const profile = resolvedCoachId != null ? findCoachProfile(resolvedCoachId) : undefined;
+
+  const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
+  const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
+  const applePayAmount = useMemo(
+    () => parsePriceToCents(groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? ""),
+    [groupLesson?.pricePerPlayer, selectedSlot?.price],
+  );
+
   const fetchPaymentMethods = useCallback(async () => {
     if (!authToken) {
       setPaymentMethodsError("Sign in to manage your saved cards.");
@@ -526,15 +535,6 @@ const BookingConfirmationPage = () => {
       controller.abort();
     };
   }, [authToken, groupLessonId]);
-
-  const profile = resolvedCoachId != null ? findCoachProfile(resolvedCoachId) : undefined;
-
-  const selectedDate = profile?.booking.availableDates.find((date) => date.id === dateId);
-  const selectedSlot = selectedDate?.slots.find((slot) => slot.id === slotId);
-  const applePayAmount = useMemo(
-    () => parsePriceToCents(groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? ""),
-    [groupLesson?.pricePerPlayer, selectedSlot?.price],
-  );
 
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
