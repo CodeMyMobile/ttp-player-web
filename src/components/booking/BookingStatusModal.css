@@ -249,6 +249,10 @@
   font-weight: 600;
 }
 
+.booking-status-modal__checklist li svg {
+  color: #16a34a;
+}
+
 .booking-status-modal__alert {
   display: flex;
   gap: 0.75rem;
