@@ -150,7 +150,9 @@ const BookingStatusModal = ({
           ) : (
             <ol className="booking-status-modal__stepper">
               <li className="booking-status-modal__step booking-status-modal__step--active">
-                <span className="booking-status-modal__step-index">1</span>
+                <span className="booking-status-modal__step-index booking-status-modal__step-index--active">
+                  <CheckCircle2 size={16} />
+                </span>
                 <span>Request sent to coach</span>
               </li>
               <li className="booking-status-modal__step">

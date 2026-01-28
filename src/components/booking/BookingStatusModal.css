@@ -223,6 +223,16 @@
   font-size: 0.85rem;
 }
 
+.booking-status-modal__step-index--active {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+}
+
+.booking-status-modal__step-index--active svg {
+  color: #fff;
+}
+
 .booking-status-modal__step-eta {
   font-size: 0.8rem;
   color: #94a3b8;
