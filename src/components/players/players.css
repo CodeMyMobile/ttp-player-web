@@ -138,6 +138,37 @@
   align-items: stretch;
 }
 
+.find-players-page .fc-filter__form {
+  flex-wrap: nowrap;
+  gap: 20px;
+}
+
+.find-players-page .fc-filter__search {
+  flex: 1 1 260px;
+  min-width: 240px;
+  width: auto;
+}
+
+.find-players-page .fc-filter__selects {
+  flex: 2 1 640px;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.find-players-page .fc-select__field {
+  min-width: 150px;
+}
+
+@media (max-width: 1024px) {
+  .find-players-page .fc-filter__form {
+    flex-wrap: wrap;
+  }
+
+  .find-players-page .fc-filter__selects {
+    justify-content: flex-start;
+  }
+}
+
 .fp-card {
   position: relative;
   display: flex;

@@ -20,6 +20,12 @@ type PlayersFilterBarProps = {
   genderOptions: string[];
   selectedGender: string;
   onGenderChange: (value: string) => void;
+  playTypeOptions?: string[];
+  selectedPlayType?: string;
+  onPlayTypeChange?: (value: string) => void;
+  availabilityOptions?: string[];
+  selectedAvailability?: string;
+  onAvailabilityChange?: (value: string) => void;
   verifiedOnly: boolean;
   onVerifiedOnlyChange: (value: boolean) => void;
 };
@@ -40,6 +46,12 @@ const PlayersFilterBar = ({
   genderOptions,
   selectedGender,
   onGenderChange,
+  playTypeOptions,
+  selectedPlayType,
+  onPlayTypeChange,
+  availabilityOptions,
+  selectedAvailability,
+  onAvailabilityChange,
   verifiedOnly,
   onVerifiedOnlyChange,
 }: PlayersFilterBarProps) => {
@@ -105,6 +117,24 @@ const PlayersFilterBar = ({
             <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
           </div>
 
+          {playTypeOptions && selectedPlayType && onPlayTypeChange ? (
+            <div className="fc-select">
+              <select
+                aria-label="Filter by play type"
+                value={selectedPlayType}
+                className="fc-select__field"
+                onChange={(event) => onPlayTypeChange(event.target.value)}
+              >
+                {playTypeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+            </div>
+          ) : null}
+
           <div className="fc-select">
             <select
               aria-label="Filter by gender"
@@ -120,6 +150,24 @@ const PlayersFilterBar = ({
             </select>
             <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
           </div>
+
+          {availabilityOptions && selectedAvailability && onAvailabilityChange ? (
+            <div className="fc-select">
+              <select
+                aria-label="Filter by availability"
+                value={selectedAvailability}
+                className="fc-select__field"
+                onChange={(event) => onAvailabilityChange(event.target.value)}
+              >
+                {availabilityOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+            </div>
+          ) : null}
 
           <label
             className={`fp-verified-toggle${verifiedOnly ? " fp-verified-toggle--active" : ""}`}
