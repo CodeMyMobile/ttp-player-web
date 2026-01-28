@@ -1,0 +1,291 @@
+.booking-status-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.booking-status-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+  padding: 2rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.booking-status-modal__close {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  border: none;
+  background: #f1f5f9;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.booking-status-modal__header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.booking-status-modal__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: rgba(34, 197, 94, 0.15);
+  display: grid;
+  place-items: center;
+  color: #16a34a;
+}
+
+.booking-status-modal__header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.booking-status-modal__header p {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+}
+
+.booking-status-modal__banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.booking-status-modal__banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.booking-status-modal__banner--pending {
+  background: rgba(251, 191, 36, 0.2);
+  color: #b45309;
+}
+
+.booking-status-modal__banner--confirmed {
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+}
+
+.booking-status-modal__lesson-card {
+  background: #f8fafc;
+  border-radius: 18px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.booking-status-modal__lesson-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.booking-status-modal__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #6366f1;
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.booking-status-modal__coach-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.booking-status-modal__lesson-meta {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.booking-status-modal__lesson-row {
+  display: flex;
+  gap: 0.75rem;
+  color: #475569;
+}
+
+.booking-status-modal__lesson-row svg {
+  color: #94a3b8;
+}
+
+.booking-status-modal__lesson-primary {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.booking-status-modal__lesson-secondary {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.booking-status-modal__amount {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.booking-status-modal__amount strong {
+  color: #4f46e5;
+}
+
+.booking-status-modal__lesson-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.booking-status-modal__ghost {
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #fff;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.booking-status-modal__steps h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.booking-status-modal__stepper,
+.booking-status-modal__checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.booking-status-modal__step {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.booking-status-modal__step--active {
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+}
+
+.booking-status-modal__step-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+}
+
+.booking-status-modal__step-eta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.booking-status-modal__checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.16);
+  color: #15803d;
+  font-weight: 600;
+}
+
+.booking-status-modal__alert {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.booking-status-modal__alert--info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.booking-status-modal__alert--warning {
+  background: rgba(251, 146, 60, 0.15);
+  color: #c2410c;
+}
+
+.booking-status-modal__footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.booking-status-modal__secondary,
+.booking-status-modal__primary {
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+
+.booking-status-modal__secondary {
+  border: 1px solid #cbd5f5;
+  background: #fff;
+  color: #334155;
+}
+
+.booking-status-modal__primary {
+  background: #4f46e5;
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .booking-status-modal {
+    padding: 1.5rem;
+  }
+}
