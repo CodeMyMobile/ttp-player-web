@@ -27,7 +27,7 @@ import {
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
-import BookingStatusModal, { type BookingStatus, type BookingStatusLesson } from "../components/booking/BookingStatusModal";
+import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import {
@@ -119,6 +119,11 @@ const parsePriceToCents = (value?: string) => {
   const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return Math.round(numeric * 100);
+};
+
+const formatLevelRange = (level: number) => {
+  const upperBound = (level + 0.5).toFixed(1);
+  return `${level.toFixed(1)} - ${upperBound}`;
 };
 
 const formatMinutesToTimeLabel = (totalMinutes: number) => {
@@ -1308,15 +1313,24 @@ const BookingConfirmationPage = () => {
       };
 
   const modalStatus: BookingStatus = isInstantlyConfirmed ? "CONFIRMED" : "PENDING";
-  const lessonSummary: BookingStatusLesson = {
+  const modalData = {
     coachName,
     coachInitials: buildInitials(coachName),
-    lessonType: lessonLabel,
-    duration: durationLabel ?? "60 min",
+    lessonTitle: isInstantlyConfirmed ? groupLesson?.title ?? lessonLabel : undefined,
+    lessonSubtitle: isInstantlyConfirmed ? groupLesson?.focus ?? undefined : undefined,
+    skillRange: isInstantlyConfirmed && groupLesson?.level ? formatLevelRange(groupLesson.level) : undefined,
+    lessonTypeLabel: lessonLabel,
+    isGroup: isInstantlyConfirmed ? Boolean(groupLesson) : Boolean(groupLesson),
+    durationMin: parseDurationToMinutes(durationLabel ?? "") ?? groupLesson?.durationMinutes ?? 60,
     dateLabel: lessonDateLabel ?? "Date TBD",
     timeLabel: timeRange ?? selectedSlot?.time ?? "Time TBD",
     locationName: locationLabel ?? "Location TBD",
-    locationAddress: groupLesson?.locationCity,
+    locationAddress: groupLesson?.locationCity ?? locationLabel ?? "Location TBD",
+    amountLabel: isInstantlyConfirmed ? "Amount charged" : "Lesson total",
+    amount: priceValue,
+    etaText: "~24 hrs",
+    cancellationPolicyText:
+      "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
   };
 
   const handleAddToCalendar = () => {
@@ -1632,15 +1646,14 @@ const BookingConfirmationPage = () => {
       </div>
       {isConfirmationModalOpen ? (
         <BookingStatusModal
+          open={isConfirmationModalOpen}
           status={modalStatus}
-          lesson={lessonSummary}
-          amount={priceValue}
-          etaText="~24 hrs"
+          data={modalData}
           onClose={() => setIsConfirmationModalOpen(false)}
           onPrimary={() => setIsConfirmationModalOpen(false)}
           onSecondary={() => navigate("/")}
           onAddToCalendar={handleAddToCalendar}
-          onShare={modalStatus === "CONFIRMED" ? handleShare : undefined}
+          onShareWithFriends={modalStatus === "CONFIRMED" ? handleShare : undefined}
         />
       ) : null}
     </MainLayout>
