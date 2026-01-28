@@ -1,10 +1,16 @@
 import moment from "moment";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { loadStripe } from "@stripe/stripe-js";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+  type Stripe,
+} from "@stripe/stripe-js";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
+  Apple,
   CalendarDays,
   CheckCircle2,
   Circle,
@@ -260,6 +266,13 @@ const parseMoney = (value?: number | string | null) => {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+};
+const parseAmountToCents = (value?: number | string | null) => {
+  const numeric = typeof value === "number" ? value : parseMoney(value);
+  if (!Number.isFinite(numeric) || !numeric || numeric <= 0) {
+    return null;
+  }
+  return Math.round(numeric * 100);
 };
 const discountCalc = (bill: number, discount = 0) => {
   const percentage = clampNumber(discount, 0, 100);
@@ -694,7 +707,10 @@ const CoachProfilePage = () => {
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
-  const [paymentChoice, setPaymentChoice] = useState<"credits" | "card">("card");
+  const [paymentChoice, setPaymentChoice] = useState<"credits" | "card" | "apple-pay">("card");
+  const stripeRef = useRef<Stripe | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [pendingLessonPayment, setPendingLessonPayment] = useState<ApiLesson | null>(null);
@@ -1585,6 +1601,10 @@ const CoachProfilePage = () => {
     const breakdown = buildPriceBreakdown(data.baseRate, data.discountPercentage);
     return breakdown;
   }, [buildPriceBreakdown, lessonTypeDetailMap, pendingBooking, pendingLessonPayment, resolveLessonPriceData]);
+  const applePayAmount = useMemo(
+    () => parseAmountToCents(pendingPriceSummary?.total),
+    [pendingPriceSummary?.total],
+  );
 
   const lessonLocationLabel = useMemo(() => {
     if (!profile) {
@@ -1593,6 +1613,55 @@ const CoachProfilePage = () => {
 
     return profile.location ?? coachingLocations[0];
   }, [coachingLocations, profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsApplePayReady(false);
+    setApplePayRequest(null);
+
+    if (!stripePromise || !applePayAmount) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) {
+        return;
+      }
+      stripeRef.current = stripe;
+      const paymentRequest = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+      const canPay = await paymentRequest.canMakePayment();
+      if (!cancelled && canPay?.applePay) {
+        setIsApplePayReady(true);
+        setApplePayRequest(paymentRequest);
+        return;
+      }
+      if (!cancelled) {
+        setIsApplePayReady(false);
+        setApplePayRequest(null);
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setIsApplePayReady(false);
+        setApplePayRequest(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayAmount, stripePromise]);
 
   const highlightChips = useMemo(() => {
     if (!profile?.highlightChips?.length) {
@@ -1832,6 +1901,170 @@ const extractLocationId = (slot?: BookingSlot) => {
     }
     if (!authToken) {
       setBookingError("Please select a lesson and sign in to continue.");
+      return;
+    }
+
+    if (paymentChoice === "apple-pay") {
+      if (!stripePromise) {
+        setPaymentMethodsError("Stripe isn't configured for Apple Pay.");
+        return;
+      }
+      if (!applePayAmount) {
+        setPaymentMethodsError("Missing payment amount for Apple Pay.");
+        return;
+      }
+      if (!isApplePayReady || !applePayRequest) {
+        setPaymentMethodsError("Apple Pay isn't available on this device.");
+        return;
+      }
+
+      setBookingError(null);
+      setBookingSuccess(null);
+      setPaymentMethodsError(null);
+      setConsumeError(null);
+      setBookingInFlight(pendingLessonPayment ? `lesson-${pendingLessonPayment.id}` : pendingBooking?.slot.id ?? "apple-pay");
+
+      try {
+        const stripe = stripeRef.current;
+        if (!stripe) {
+          throw new Error("Stripe is not available for Apple Pay.");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          const request = applePayRequest;
+          request.update({
+            total: {
+              label: "The Tennis Plan",
+              amount: applePayAmount,
+            },
+          });
+
+          const handlePayment = async (event: PaymentRequestPaymentMethodEvent) => {
+            try {
+              const paymentMethodId = event.paymentMethod.id;
+
+              if (pendingLessonPayment) {
+                if (isOpenGroupLesson(pendingLessonPayment)) {
+                  const record = pendingLessonPayment as Record<string, unknown>;
+                  const coachId = Number(record.coach_id ?? profile?.id);
+                  const locationId = Number(record.location_id ?? record.locationId);
+                  if (!Number.isFinite(coachId) || !Number.isFinite(locationId)) {
+                    throw new Error("Missing coach or location details for this lesson.");
+                  }
+                  await joinLesson({
+                    token: authToken,
+                    lessonId: pendingLessonPayment.id,
+                    coachId,
+                    startDateTime: pendingLessonPayment.start_date_time,
+                    endDateTime: pendingLessonPayment.end_date_time,
+                    startDateTimeTz: pendingLessonPayment.start_date_time,
+                    endDateTimeTz: pendingLessonPayment.end_date_time,
+                    locationId,
+                    court: record.court ?? 0,
+                    status: "CONFIRMED",
+                    paymentMethodId,
+                  });
+                } else {
+                  const intentResponse = await createPlayerStripePaymentIntent({
+                    token: authToken,
+                    lessonId: pendingLessonPayment.id,
+                    paymentMethodId,
+                  });
+                  const intentRecord = intentResponse as Record<string, unknown>;
+                  const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
+                  const clientSecret =
+                    (intentRecord?.client_secret as string | undefined) ??
+                    (nestedIntent?.client_secret as string | undefined);
+                  if (!clientSecret) {
+                    throw new Error("Unable to start payment. Please try again.");
+                  }
+                  const { error, paymentIntent } = await stripe.confirmCardPayment(
+                    clientSecret,
+                    {
+                      payment_method: paymentMethodId,
+                    },
+                    { handleActions: false }
+                  );
+                  if (error) {
+                    throw new Error(error.message || "Apple Pay failed.");
+                  }
+                  const status = paymentIntent?.status?.toLowerCase();
+                  if (status && status !== "succeeded") {
+                    if (status === "requires_action") {
+                      const { error: actionError, paymentIntent: actionIntent } =
+                        await stripe.confirmCardPayment(clientSecret);
+                      if (actionError) {
+                        throw new Error(actionError.message || "Apple Pay failed.");
+                      }
+                      const actionStatus = actionIntent?.status?.toLowerCase();
+                      if (actionStatus && actionStatus !== "succeeded") {
+                        throw new Error("Payment was not successful.");
+                      }
+                    } else {
+                      throw new Error("Payment was not successful.");
+                    }
+                  }
+                }
+              } else if (pendingBooking && profile) {
+                const coachId = Number(profile.id);
+                if (!Number.isFinite(coachId)) {
+                  throw new Error("Invalid coach information. Please refresh and try again.");
+                }
+                const { schedule, locationId, court } = pendingBooking;
+                await requestPrivateLesson({
+                  token: authToken,
+                  coachId,
+                  startDateTime: schedule.startDateTime,
+                  endDateTime: schedule.endDateTime,
+                  startDateTimeTz: schedule.startDateTimeTz,
+                  endDateTimeTz: schedule.endDateTimeTz,
+                  locationId,
+                  court,
+                  status: "PENDING",
+                  paymentMethodId,
+                });
+              } else {
+                throw new Error("Missing lesson details for Apple Pay.");
+              }
+
+              event.complete("success");
+              resolve();
+            } catch (error) {
+              event.complete("fail");
+              reject(error);
+            }
+          };
+
+          const handleCancel = () => {
+            reject(new Error("Apple Pay was canceled."));
+          };
+
+          request.once("paymentmethod", handlePayment);
+          request.once("cancel", handleCancel);
+
+          try {
+            request.show();
+          } catch (error) {
+            request.off("paymentmethod", handlePayment);
+            request.off("cancel", handleCancel);
+            reject(error);
+          }
+        });
+
+        if (pendingLessonPayment) {
+          setBookingSuccess("Payment confirmed. See you on court!");
+          applyLessonConfirmedStatus(pendingLessonPayment);
+        } else {
+          setBookingSuccess("Lesson request sent to your coach.");
+        }
+        closePaymentSheet();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Apple Pay failed.";
+        setPaymentMethodsError(message);
+        setBookingError(message);
+      } finally {
+        setBookingInFlight(null);
+      }
       return;
     }
 
@@ -3114,6 +3347,30 @@ const extractLocationId = (slot?: BookingSlot) => {
 
               <label
                 className={`coach-payment-choice${
+                  paymentChoice === "apple-pay" ? " coach-payment-choice--active" : ""
+                }${stripePromise ? "" : " coach-payment-choice--disabled"}`}
+              >
+                <input
+                  type="radio"
+                  name="payment-choice"
+                  value="apple-pay"
+                  checked={paymentChoice === "apple-pay"}
+                  onChange={() => setPaymentChoice("apple-pay")}
+                  disabled={!stripePromise}
+                />
+                <div className="coach-payment-choice__body">
+                  <div className="coach-payment-choice__title-row">
+                    <Apple aria-hidden size={16} />
+                    <span className="coach-payment-choice__title">Apple Pay</span>
+                  </div>
+                  <p className="coach-payment-choice__subtitle">
+                    {stripePromise ? "Pay instantly with your Apple Pay wallet." : "Stripe isn't configured for Apple Pay."}
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`coach-payment-choice${
                   paymentChoice === "card" ? " coach-payment-choice--active" : ""
                 }${paymentMethodsLoading ? " coach-payment-choice--disabled" : ""}`}
               >
@@ -3182,22 +3439,25 @@ const extractLocationId = (slot?: BookingSlot) => {
               <Link to="/settings/payment-methods" className="coach-payment-modal__link">
                 Manage payment methods
               </Link>
-              <button
-                type="button"
-                className="coach-payment-modal__confirm"
-                disabled={
-                  bookingInFlight !== null ||
-                  (paymentChoice === "card" && (!selectedPaymentMethodId || paymentMethodsLoading)) ||
-                  (paymentChoice === "credits" && (creditsLoading || !pendingEligibleCredits.length || consumingCredits))
-                }
-                onClick={() => void confirmBookLesson()}
-              >
-                {bookingInFlight || consumingCredits
-                  ? "Booking…"
-                  : paymentChoice === "credits"
-                    ? "Confirm with credits"
-                    : "Confirm & pay"}
-              </button>
+                <button
+                  type="button"
+                  className="coach-payment-modal__confirm"
+                  disabled={
+                    bookingInFlight !== null ||
+                    (paymentChoice === "card" && (!selectedPaymentMethodId || paymentMethodsLoading)) ||
+                    (paymentChoice === "credits" && (creditsLoading || !pendingEligibleCredits.length || consumingCredits)) ||
+                    (paymentChoice === "apple-pay" && !stripePromise)
+                  }
+                  onClick={() => void confirmBookLesson()}
+                >
+                  {bookingInFlight || consumingCredits
+                    ? "Booking…"
+                    : paymentChoice === "credits"
+                      ? "Confirm with credits"
+                      : paymentChoice === "apple-pay"
+                        ? "Confirm with Apple Pay"
+                        : "Confirm & pay"}
+                </button>
             </div>
           </div>
         </div>
