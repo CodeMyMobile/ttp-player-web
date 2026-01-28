@@ -178,9 +178,9 @@ const GroupLessonConfirmationModal = ({ lesson, onClose }: GroupLessonConfirmati
       <div className="group-lesson-confirmation" role="document">
         <header className="group-lesson-confirmation__header">
           <div className="group-lesson-confirmation__heading">
-            <span className="group-lesson-confirmation__eyebrow">You're booked</span>
+            <span className="group-lesson-confirmation__eyebrow">You are confirmed</span>
             <h2 id="group-lesson-confirmation-title">{lesson.title}</h2>
-            <p>See you on court! We've reserved your spot and emailed a receipt.</p>
+            <p>Your spot is locked in. We’ve reserved your place and emailed a receipt.</p>
           </div>
           <button type="button" className="group-lesson-confirmation__close" aria-label="Close confirmation" onClick={onClose}>
             <X size={18} strokeWidth={2.5} />

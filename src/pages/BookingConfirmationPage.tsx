@@ -539,7 +539,9 @@ const BookingConfirmationPage = () => {
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
   const isProfileGroupLesson = selectedSlot?.lessonType === "group";
+  const isProfileSemiPrivate = selectedSlot?.lessonType === "semi";
   const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
+  const isInstantlyConfirmed = isGroupLesson || isProfileSemiPrivate;
 
   const timeRange = groupLesson
     ? (() => {
@@ -1134,7 +1136,7 @@ const BookingConfirmationPage = () => {
     return new Date(privateLessonStart.getTime() + durationMinutes * 60 * 1000);
   }, [privateLessonStart, selectedSlot?.duration]);
 
-  const lessonStatusLabel = isGroupLesson ? "Confirmed" : "Pending coach approval";
+  const lessonStatusLabel = isInstantlyConfirmed ? "Booking confirmed" : "Awaiting coach response";
 
   const savedCardsSection = (
     <div className="payment-methods__group">
@@ -1317,7 +1319,7 @@ const BookingConfirmationPage = () => {
     </div>
   );
 
-  const nextStepsItems = isGroupLesson
+  const nextStepsItems = isInstantlyConfirmed
     ? [
         "Your spot is reserved immediately as long as space remains.",
         "We'll email your receipt and lesson details right away.",
@@ -1329,14 +1331,14 @@ const BookingConfirmationPage = () => {
         `Once approved, your booking is confirmed and payment is processed.`,
       ];
 
-  const confirmationStatus = isGroupLesson
+  const confirmationStatus = isInstantlyConfirmed
     ? {
-        title: "Lesson confirmed!",
-        copy: `You're all set for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
+        title: "You are confirmed",
+        copy: `Your spot is reserved for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
       }
     : {
-        title: "Booking request sent!",
-        copy: `We've notified ${coachFirstName}. You'll hear from us as soon as they confirm—your payment will only process after approval.`,
+        title: "Lesson Request sent",
+        copy: `Your request has been sent to ${coachFirstName} for confirmation. You'll receive an email as soon as the coach confirms.`,
       };
 
   const shouldShowEmptyState = groupLessonId
@@ -1645,6 +1647,8 @@ const BookingConfirmationPage = () => {
           locationLabel={locationLabel}
           statusLabel={lessonStatusLabel}
           statusCopy={confirmationStatus.copy}
+          eyebrow={confirmationStatus.title}
+          lessonDetailNote={isInstantlyConfirmed ? "Your spot is confirmed. We'll see you on court!" : undefined}
           onClose={() => setIsConfirmationModalOpen(false)}
           startDate={privateLessonStart}
           endDate={privateLessonEnd}

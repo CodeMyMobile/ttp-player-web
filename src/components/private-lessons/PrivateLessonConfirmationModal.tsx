@@ -21,6 +21,8 @@ type PrivateLessonConfirmationModalProps = {
   locationLabel?: string;
   statusLabel: string;
   statusCopy: string;
+  eyebrow?: string;
+  lessonDetailNote?: string;
   onClose: () => void;
   startDate?: Date;
   endDate?: Date;
@@ -85,6 +87,8 @@ const PrivateLessonConfirmationModal = ({
   locationLabel,
   statusLabel,
   statusCopy,
+  eyebrow = "Request submitted",
+  lessonDetailNote = "We'll lock in your spot once approved.",
   onClose,
   startDate,
   endDate,
@@ -198,7 +202,7 @@ const PrivateLessonConfirmationModal = ({
           <X size={18} strokeWidth={2.5} />
         </button>
         <header className="private-lesson-confirmation__header">
-          <span className="private-lesson-confirmation__eyebrow">Request submitted</span>
+          <span className="private-lesson-confirmation__eyebrow">{eyebrow}</span>
           <h2 id="private-lesson-confirmation-title">Lesson with {coachName}</h2>
           <p>{statusCopy}</p>
         </header>
@@ -238,7 +242,7 @@ const PrivateLessonConfirmationModal = ({
                 <CalendarPlus aria-hidden />
                 <div>
                   <span className="private-lesson-confirmation__detail-primary">{lessonLabel}</span>
-                  <span className="private-lesson-confirmation__detail-secondary">We'll lock in your spot once approved.</span>
+                  <span className="private-lesson-confirmation__detail-secondary">{lessonDetailNote}</span>
                 </div>
               </li>
               {locationLabel ? (
