@@ -15,6 +15,7 @@ import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
 import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
+import { fetchPlayerMatchProfile, savePlayerMatchProfile } from "../api/playerMatchProfile";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import {
@@ -67,6 +68,8 @@ const genderOptions = ["All genders", "Male", "Female", "Other"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
+const MATCH_PROFILE_SUCCESS_MESSAGE =
+  "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.";
 
 const normalize = (value: string) => value.trim().toLowerCase();
 
@@ -133,6 +136,19 @@ const ensureStringArray = (value: unknown, normalizer?: (value: string) => strin
   return [];
 };
 
+const pickStringField = (record: Record<string, unknown>, keys: string[], fallback = "") => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+  }
+  return fallback;
+};
+
 const formatCoordinatesLabel = (coords: Coordinates | null) => {
   if (!coords) {
     return "";
@@ -196,14 +212,40 @@ const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null => {
   }
 
   const record = value as Record<string, unknown>;
-  const level = typeof record.level === "string" && record.level.trim().length > 0 ? record.level.trim() : "3.0";
-  const about = typeof record.about === "string" ? record.about.trim() : "";
-  const gender = typeof record.gender === "string" ? record.gender.trim() : "";
-  const localCourts = typeof record.localCourts === "string" ? record.localCourts.trim() : "";
-  const playStyles = ensureStringArray(record.playStyles);
-  const availability = ensureStringArray(record.availability, toCanonicalAvailability);
+  const level = pickStringField(record, ["level", "ntrp_level", "ntrpLevel"], "3.0") || "3.0";
+  const about = pickStringField(record, ["about", "about_me", "bio"], "");
+  const gender = pickStringField(record, ["gender", "gender_identity", "genderIdentity"], "");
+  const localCourts = pickStringField(record, ["localCourts", "local_courts", "homeCourt", "home_court"], "");
+  const playStyles = ensureStringArray(
+    record.playStyles ??
+      record.play_styles ??
+      record.matchPreferences ??
+      record.match_preferences ??
+      record.playPreferences ??
+      record.play_preferences,
+  );
+  const availabilitySource =
+    record.availability ??
+    record.matchAvailability ??
+    record.match_availability ??
+    record.preferredAvailability ??
+    record.preferred_availability;
+  const availability = ensureStringArray(availabilitySource, toCanonicalAvailability);
+  const intensity = pickStringField(record, ["matchIntensity", "match_intensity", "intensity"], "");
+  const preferredFormats = ensureStringArray(record.preferredFormats ?? record.preferred_formats);
+  const homeCourt = pickStringField(record, ["homeCourt", "home_court"], "");
 
-  return { about, level, playStyles, gender, localCourts, availability };
+  return {
+    about,
+    level,
+    playStyles,
+    gender,
+    localCourts,
+    availability,
+    intensity: intensity || undefined,
+    preferredFormats,
+    homeCourt: homeCourt || (localCourts ? localCourts : undefined),
+  };
 };
 
 const getStoredMatchProfile = (): StoredMatchProfile | null => {
@@ -222,9 +264,13 @@ const getStoredMatchProfile = (): StoredMatchProfile | null => {
   }
 };
 
-const storeMatchProfile = (profile: StoredMatchProfile) => {
+const storeMatchProfile = (profile: StoredMatchProfile | null) => {
   try {
     if (typeof window === "undefined" || !window.localStorage) {
+      return;
+    }
+    if (!profile) {
+      window.localStorage.removeItem(MATCH_PROFILE_STORAGE_KEY);
       return;
     }
     window.localStorage.setItem(MATCH_PROFILE_STORAGE_KEY, JSON.stringify(profile));
@@ -342,6 +388,48 @@ const FindPlayersPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
+
+  useEffect(() => {
+    if (!playerToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadMatchProfile = async () => {
+      try {
+        const response = await fetchPlayerMatchProfile(playerToken);
+        if (cancelled) {
+          return;
+        }
+        const normalized = sanitizeMatchProfile(response);
+        if (normalized) {
+          setMatchProfile(normalized);
+          storeMatchProfile(normalized);
+        } else {
+          setMatchProfile(null);
+          storeMatchProfile(null);
+        }
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+        const status = (loadError as { status?: number } | undefined)?.status;
+        if (status === 404) {
+          setMatchProfile(null);
+          storeMatchProfile(null);
+          return;
+        }
+        console.error("Failed to load match profile", loadError);
+      }
+    };
+
+    loadMatchProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playerToken]);
 
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationQuery = buildLocationSearch(locationFilter);
@@ -640,6 +728,50 @@ const FindPlayersPage = () => {
     const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
     return `${origin}${normalizedPath}#/settings/match-profile`;
   }, []);
+
+  const handleMatchProfileComplete = useCallback(
+    async (profileDetails: MatchProfileDetails) => {
+      const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
+
+      if (!playerToken) {
+        setMatchProfile(normalizedProfile);
+        storeMatchProfile(normalizedProfile);
+        setProfileModalOpen(false);
+        window.alert(MATCH_PROFILE_SUCCESS_MESSAGE);
+        return;
+      }
+
+      try {
+        const response = await savePlayerMatchProfile({
+          token: playerToken,
+          profile: {
+            about: normalizedProfile.about,
+            level: normalizedProfile.level,
+            playStyles: normalizedProfile.playStyles,
+            gender: normalizedProfile.gender,
+            localCourts: normalizedProfile.localCourts,
+            availability: normalizedProfile.availability,
+            intensity: normalizedProfile.intensity ?? null,
+            preferredFormats: normalizedProfile.preferredFormats,
+            homeCourt: normalizedProfile.homeCourt ?? normalizedProfile.localCourts,
+          },
+        });
+        const persistedProfile = sanitizeMatchProfile(response) ?? normalizedProfile;
+        setMatchProfile(persistedProfile);
+        storeMatchProfile(persistedProfile);
+        setProfileModalOpen(false);
+        window.alert(MATCH_PROFILE_SUCCESS_MESSAGE);
+      } catch (saveError) {
+        console.error("Failed to save match profile", saveError);
+        const message =
+          saveError instanceof Error && saveError.message
+            ? saveError.message
+            : "We couldn't save your match profile. Please try again.";
+        throw new Error(message);
+      }
+    },
+    [playerToken],
+  );
 
   const closeConnectModal = useCallback(() => {
     setConnectModalOpen(false);
@@ -1046,15 +1178,7 @@ const FindPlayersPage = () => {
         isOpen={isProfileModalOpen}
         onClose={() => setProfileModalOpen(false)}
         initialProfile={matchProfile}
-        onComplete={(profileDetails) => {
-          const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
-          setMatchProfile(normalizedProfile);
-          storeMatchProfile(normalizedProfile);
-          setProfileModalOpen(false);
-          window.alert(
-            "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
-          );
-        }}
+        onComplete={handleMatchProfileComplete}
       />
     </MainLayout>
   );

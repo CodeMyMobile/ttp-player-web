@@ -78,6 +78,9 @@ export type MatchProfileDetails = {
   gender: string;
   localCourts: string;
   availability: string[];
+  intensity?: string | null;
+  preferredFormats?: string[];
+  homeCourt?: string | null;
 };
 
 const GENDER_OPTIONS = [
@@ -89,7 +92,7 @@ const GENDER_OPTIONS = [
 type MatchProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (profile: MatchProfileDetails) => void;
+  onComplete: (profile: MatchProfileDetails) => Promise<void> | void;
   initialProfile?: MatchProfileDetails | null;
 };
 
@@ -167,6 +170,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
   const [availability, setAvailability] = useState<string[]>(EMPTY_PROFILE.availability);
   const [touched, setTouched] = useState(false);
   const [placesStatus, setPlacesStatus] = useState<PlacesStatus>("idle");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -202,6 +207,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
       setAvailability(Array.isArray(nextProfile.availability) ? [...nextProfile.availability] : []);
       setLocalCourtPlaceId(null);
       setTouched(false);
+      setSubmitError(null);
+      setIsSubmitting(false);
     },
     [],
   );
@@ -257,10 +264,10 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
 
   const showCompletionError = touched && isSubmitDisabled;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setTouched(true);
-    if (isSubmitDisabled) {
+    if (isSubmitDisabled || isSubmitting) {
       return;
     }
 
@@ -273,7 +280,21 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
       availability: [...availability],
     };
 
-    onComplete(profileDetails);
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onComplete(profileDetails);
+    } catch (error) {
+      console.error("Failed to save match profile", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "We couldn't save your match profile. Please try again.";
+      setSubmitError(message);
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -643,13 +664,18 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                 <button
                   type="submit"
                   className="fc-button fc-button--primary"
-                  disabled={isSubmitDisabled}
-                  aria-disabled={isSubmitDisabled}
+                  disabled={isSubmitDisabled || isSubmitting}
+                  aria-disabled={isSubmitDisabled || isSubmitting}
                 >
-                  Save profile
+                  {isSubmitting ? "Saving…" : "Save profile"}
                 </button>
               </div>
             </div>
+            {submitError && (
+              <p className="match-profile-modal__submit-error" role="alert">
+                {submitError}
+              </p>
+            )}
           </footer>
         </form>
       </div>
