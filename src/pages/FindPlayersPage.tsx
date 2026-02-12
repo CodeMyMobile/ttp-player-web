@@ -1648,11 +1648,6 @@ const FindPlayersPage = () => {
     };
   }, [displayName, matchProfile]);
 
-  const bestMatches = useMemo(
-    () => (hasProfile ? generateBestMatches(filteredPlayers.length ? filteredPlayers : players) : []),
-    [filteredPlayers, hasProfile, players],
-  );
-
   const closeConnectModal = useCallback(() => {
     setConnectModalOpen(false);
     setConnectModalPlayer(null);
@@ -1836,6 +1831,11 @@ const FindPlayersPage = () => {
     selectedAvailability,
     verifiedOnly,
   ]);
+
+  const bestMatches = useMemo(
+    () => (hasProfile ? generateBestMatches(filteredPlayers.length ? filteredPlayers : players) : []),
+    [filteredPlayers, hasProfile, players],
+  );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
