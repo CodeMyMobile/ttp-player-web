@@ -131,6 +131,68 @@
   color: var(--fc-color-text-muted);
 }
 
+
+.fp-filter-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fp-results-legend {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: #047857;
+}
+
+.fp-range-filter {
+  min-width: 240px;
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fp-range-filter__label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.fp-range-filter__slider-wrap {
+  position: relative;
+  height: 24px;
+}
+
+.fp-range-filter__slider {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  accent-color: #6b46c1;
+}
+
+.fp-range-filter__slider::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+
+.fp-range-filter__slider::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+.fp-range-filter__values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b46c1;
+}
+
 .players-results-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -154,6 +216,11 @@
 .fp-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 28px 52px -26px rgba(79, 70, 229, 0.32);
+}
+
+.fp-card--verified {
+  border: 2px solid #a7f3d0;
+  box-shadow: 0 22px 42px -28px rgba(5, 150, 105, 0.35);
 }
 
 .fp-card__header {
@@ -216,6 +283,44 @@
   color: #0f172a;
 }
 
+.fp-card__meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.fp-card__active {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+}
+
+.fp-card__active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.fp-card__active--today .fp-card__active-dot {
+  background: #22c55e;
+}
+
+.fp-card__active--recent .fp-card__active-dot {
+  background: #f59e0b;
+}
+
+.fp-card__distance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+}
+
 .fp-card__location {
   margin: 0;
   font-size: 0.95rem;
@@ -254,9 +359,11 @@
 }
 
 .fp-card__badge--verified {
-  background: rgba(5, 150, 105, 0.18);
-  border: 1px solid rgba(5, 150, 105, 0.42);
-  color: #065f46;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+  border-radius: 999px;
+  font-weight: 700;
 }
 
 .fp-card__badge--verified svg {

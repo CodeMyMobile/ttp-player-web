@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, MapPin } from "lucide-react";
+import { MapPin, ShieldCheck } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
@@ -12,17 +12,28 @@ type PlayerCardProps = {
   onViewProfile?: (player: Player) => void;
 };
 
-const formatCourtLocation = (court: string) => {
-  const segments = court
-    .split(",")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
+const formatCourtLocation = (court: string) => court.split(",")[0]?.trim() || court.trim();
 
-  if (segments.length >= 2) {
-    return `${segments[0]}, ${segments[1]}`;
+const getLastActiveMeta = (lastActive: string) => {
+  if (!lastActive) {
+    return null;
   }
 
-  return court.trim();
+  const label = lastActive.trim();
+  if (!label) {
+    return null;
+  }
+
+  const normalized = label.toLowerCase();
+  if (normalized.includes("today")) {
+    return { label, tone: "today" as const };
+  }
+
+  if (/active\s+[23]d\s+ago/.test(normalized)) {
+    return { label, tone: "recent" as const };
+  }
+
+  return { label, tone: "older" as const };
 };
 
 const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
@@ -50,6 +61,8 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     return "";
   }, [player.bio]);
 
+  const lastActiveMeta = useMemo(() => getLastActiveMeta(player.lastActive), [player.lastActive]);
+
   const localCourts = useMemo(() => {
     const fallback = [player.favoriteCourt].filter(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
@@ -61,7 +74,10 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
   }, [player.favoriteCourt, player.localCourts]);
 
   return (
-    <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
+    <article
+      className={`fc-card fp-card${player.verified ? " fp-card--verified" : ""}`}
+      aria-label={`View ${player.name}'s match profile`}
+    >
       <header className="fp-card__header">
         <div className="fp-card__identity-block">
           <div className="fp-card__identity-media">
@@ -82,6 +98,20 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
           </div>
           <div className="fp-card__identity">
             <h3 className="fp-card__name">{player.name}</h3>
+            <div className="fp-card__meta-row">
+              {lastActiveMeta ? (
+                <span className={`fp-card__active fp-card__active--${lastActiveMeta.tone}`}>
+                  <span className="fp-card__active-dot" aria-hidden="true" />
+                  {lastActiveMeta.label}
+                </span>
+              ) : null}
+              {player.distanceMiles > 0 ? (
+                <span className="fp-card__distance">
+                  <MapPin size={13} aria-hidden="true" />
+                  {player.distanceMiles.toFixed(1)} mi
+                </span>
+              ) : null}
+            </div>
             <div
               className="fp-card__badges"
               aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
@@ -95,8 +125,8 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
                   aria-label="Verified rating"
                   title="Verified players have confirmed their identity and NTRP level through community reviews."
                 >
-                  <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
-                  Verified rating
+                  <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+                  Verified
                 </span>
               ) : null}
             </div>

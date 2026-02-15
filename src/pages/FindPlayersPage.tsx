@@ -59,13 +59,18 @@ type SuggestedPlayerRecord = {
   [key: string]: unknown;
 };
 
-type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
+type PlayerSort = "nearest" | "highest-rated" | "lowest-rated" | "recently-active" | "best-match";
+
+type DirectoryPlayer = Player & {
+  raw: SuggestedPlayerRecord;
+  distanceMiles: number;
+  lastActive: string;
+  lastActiveAt: string | null;
+};
 
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
-const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
 
-const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
 
 const normalize = (value: string) => value.trim().toLowerCase();
@@ -233,12 +238,155 @@ const storeMatchProfile = (profile: StoredMatchProfile) => {
   }
 };
 
-const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
+
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const getCoordinatesFromRecord = (record: Record<string, unknown>): Coordinates | null => {
+  const candidates: unknown[] = [
+    record.position,
+    record.coordinates,
+    record.coordinate,
+    record.coords,
+    record.location,
+    record.playerLocation,
+    record.player_location,
+    record.courtLocation,
+    record.court_location,
+    record,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+
+    const target = candidate as Record<string, unknown>;
+    const latitude = toFiniteNumber(target.latitude ?? target.lat);
+    const longitude = toFiniteNumber(target.longitude ?? target.lng ?? target.lon);
+
+    if (latitude !== null && longitude !== null) {
+      return { latitude, longitude };
+    }
+  }
+
+  return null;
+};
+
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const calculateDistanceMiles = (origin: Coordinates | null, destination: Coordinates | null): number | null => {
+  if (!origin || !destination) {
+    return null;
+  }
+
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRadians(destination.latitude - origin.latitude);
+  const dLon = toRadians(destination.longitude - origin.longitude);
+  const lat1 = toRadians(origin.latitude);
+  const lat2 = toRadians(destination.latitude);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusMiles * c;
+};
+
+const trimCourtLabel = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const parts = trimmed.split(",").map((segment) => segment.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return "";
+  }
+
+  const firstSegment = parts[0];
+  if (/(park|center|centre|club|courts|court|recreation|gym|tennis|facility|complex)/i.test(firstSegment)) {
+    return firstSegment;
+  }
+
+  return firstSegment;
+};
+
+const getLastActiveAt = (record: SuggestedPlayerRecord): string | null => {
+  const keys = [
+    "lastActiveAt",
+    "last_active_at",
+    "lastActive",
+    "last_active",
+    "updatedAt",
+    "updated_at",
+    "modifiedAt",
+    "modified_at",
+    "createdAt",
+    "created_at",
+  ] as const;
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value !== "string") {
+      continue;
+    }
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+
+  return null;
+};
+
+const formatLastActiveLabel = (lastActiveAt: string | null) => {
+  if (!lastActiveAt) {
+    return null;
+  }
+
+  const activeDate = new Date(lastActiveAt);
+  const diffMs = Date.now() - activeDate.getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) {
+    return { text: "Active today", tone: "today" as const };
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const daysAgo = Math.floor(diffMs / dayMs);
+
+  if (daysAgo <= 1) {
+    return { text: "Active today", tone: "today" as const };
+  }
+
+  if (daysAgo <= 3) {
+    return { text: `Active ${daysAgo}d ago`, tone: "recent" as const };
+  }
+
+  if (daysAgo <= 7) {
+    return { text: "Active this week", tone: "older" as const };
+  }
+
+  return { text: "Active this month", tone: "older" as const };
+};
+
+const mapSuggestedPlayer = (record: SuggestedPlayerRecord, origin: Coordinates | null): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
   const playerLocations = ensureStringArray(record.playerLocations);
   const courtLocations = ensureStringArray(record.playerCourtLocations);
   const lookingFor = ensureStringArray(record.lookingFor);
-  const location = playerLocations[0] ?? courtLocations[0] ?? "Location unavailable";
+  const location = trimCourtLabel(playerLocations[0] ?? courtLocations[0] ?? "Location unavailable");
   const initialsSource = record.full_name ?? record.email ?? "TTP Player";
   const skillLabel = typeof record.skillLevel === "string" ? record.skillLevel.trim() : "";
   const levelMatch = skillLabel.match(/NTRP\s*([0-9.]+)/i);
@@ -250,7 +398,10 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
     if (rawGender === "female") return "Female" as const;
     return "Other" as const;
   })();
-  const courts = courtLocations.length > 0 ? courtLocations : playerLocations;
+  const courts = (courtLocations.length > 0 ? courtLocations : playerLocations).map(trimCourtLabel).filter(Boolean);
+  const playerCoords = getCoordinatesFromRecord(record as Record<string, unknown>);
+  const distanceMiles = calculateDistanceMiles(origin, playerCoords) ?? 0;
+  const lastActiveAt = getLastActiveAt(record);
   const bio = typeof record.about_me === "string" && record.about_me.trim().length > 0
     ? record.about_me.trim()
     : "This player hasn\'t added a bio yet.";
@@ -262,7 +413,7 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
     profileImageUrl:
       typeof record.profile_picture === "string" ? record.profile_picture.trim() : "",
     location,
-    distanceMiles: 0,
+    distanceMiles,
     gender: normalizedGender,
     level: normalizedLevel,
     availability,
@@ -271,7 +422,8 @@ const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
     verified: Boolean(record.isLevelConfirmed),
     verificationCount,
     verificationSupporters: [],
-    lastActive: "Active recently",
+    lastActive: formatLastActiveLabel(lastActiveAt)?.text ?? "",
+    lastActiveAt,
     matchFrequency: "Match frequency unavailable",
     rating: 0,
     favoriteCourt: courts[0] ?? location,
@@ -313,7 +465,8 @@ const FindPlayersPage = () => {
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
   const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
-  const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
+  const [ntrpRange, setNtrpRange] = useState<[number, number]>([2.0, 5.0]);
+  const [selectedSort, setSelectedSort] = useState<PlayerSort>("nearest");
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
@@ -569,7 +722,7 @@ const FindPlayersPage = () => {
           return;
         }
         const suggestedPlayers = extractSuggestedPlayers(response);
-        const mapped = suggestedPlayers.map(mapSuggestedPlayer);
+        const mapped = suggestedPlayers.map((record) => mapSuggestedPlayer(record, position));
         setPlayers(mapped);
         setMode(mapped.length > 0 ? "normal" : "empty");
       } catch (requestError) {
@@ -730,10 +883,6 @@ const FindPlayersPage = () => {
     setMode("normal");
   };
 
-  const handleLevelChange = (level: string) => {
-    setSelectedLevel(level);
-  };
-
   const handleGenderChange = (gender: string) => {
     setSelectedGender(gender);
   };
@@ -747,11 +896,22 @@ const FindPlayersPage = () => {
     setAppliedSearchTerm("");
     setSelectedRadius(radiusOptions[1]);
     setAppliedRadius(radiusOptions[1]);
-    setSelectedLevel(levelOptions[0]);
+    setNtrpRange([2.0, 5.0]);
+    setSelectedSort("nearest");
     setSelectedGender(genderOptions[0]);
     setVerifiedOnly(false);
     setMode("normal");
   };
+
+  const currentUserLevel = Number.parseFloat(matchProfile?.level ?? "3.0") || 3;
+
+  const sortOptions: Array<{ label: string; value: PlayerSort }> = [
+    { label: "Nearest first", value: "nearest" },
+    { label: "Highest rated", value: "highest-rated" },
+    { label: "Lowest rated", value: "lowest-rated" },
+    { label: "Recently active", value: "recently-active" },
+    { label: "Best match", value: "best-match" },
+  ];
 
   const filteredPlayers = useMemo(() => {
     if (mode !== "normal") {
@@ -760,7 +920,7 @@ const FindPlayersPage = () => {
 
     const normalizedTerm = normalize(appliedSearchTerm);
 
-    return players.filter((player) => {
+    const filtered = players.filter((player) => {
       const matchesSearch = (() => {
         if (!normalizedTerm) {
           return true;
@@ -779,26 +939,60 @@ const FindPlayersPage = () => {
         return haystack.includes(normalizedTerm);
       })();
 
-      const matchesLevel =
-        selectedLevel === "All levels" ||
-        (selectedLevel === "4.5+"
-          ? Number.parseFloat(player.level) >= 4.5
-          : player.level === selectedLevel);
+      const playerLevel = Number.parseFloat(player.level);
+      const matchesLevelRange = Number.isFinite(playerLevel)
+        ? playerLevel >= ntrpRange[0] && playerLevel <= ntrpRange[1]
+        : true;
 
       const matchesGender =
         selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
 
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return matchesSearch && matchesLevel && matchesGender && matchesVerification;
+      return matchesSearch && matchesLevelRange && matchesGender && matchesVerification;
+    });
+
+    const getBestMatchScore = (player: DirectoryPlayer) => {
+      const level = Number.parseFloat(player.level);
+      const levelGap = Number.isFinite(level) ? Math.abs(level - currentUserLevel) : 2;
+      const distanceScore = player.distanceMiles > 0 ? Math.max(0, 1 - player.distanceMiles / 30) : 0.4;
+      const levelScore = Math.max(0, 1 - levelGap / 2);
+      const lastActiveAt = player.lastActiveAt ? new Date(player.lastActiveAt).getTime() : 0;
+      const daysAgo = lastActiveAt ? Math.max(0, (Date.now() - lastActiveAt) / (24 * 60 * 60 * 1000)) : 30;
+      const activityScore = Math.max(0, 1 - daysAgo / 30);
+
+      return distanceScore * 0.45 + levelScore * 0.35 + activityScore * 0.2;
+    };
+
+    return [...filtered].sort((a, b) => {
+      if (selectedSort === "highest-rated") {
+        return (Number.parseFloat(b.level) || 0) - (Number.parseFloat(a.level) || 0);
+      }
+      if (selectedSort === "lowest-rated") {
+        return (Number.parseFloat(a.level) || 0) - (Number.parseFloat(b.level) || 0);
+      }
+      if (selectedSort === "recently-active") {
+        const aTs = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+        const bTs = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+        return bTs - aTs;
+      }
+      if (selectedSort === "best-match") {
+        return getBestMatchScore(b) - getBestMatchScore(a);
+      }
+
+      const aDistance = a.distanceMiles > 0 ? a.distanceMiles : Number.POSITIVE_INFINITY;
+      const bDistance = b.distanceMiles > 0 ? b.distanceMiles : Number.POSITIVE_INFINITY;
+      return aDistance - bDistance;
     });
   }, [
     mode,
     appliedSearchTerm,
     players,
     selectedGender,
-    selectedLevel,
     verifiedOnly,
+    ntrpRange,
+    selectedSort,
+    currentUserLevel,
   ]);
 
   const shouldShowError = status === "ready" && mode === "error";
@@ -875,9 +1069,12 @@ const FindPlayersPage = () => {
             radiusOptions={radiusOptions}
             selectedRadius={selectedRadius}
             onRadiusChange={handleRadiusChange}
-            levelOptions={levelOptions}
-            selectedLevel={selectedLevel}
-            onLevelChange={handleLevelChange}
+            minLevel={ntrpRange[0]}
+            maxLevel={ntrpRange[1]}
+            onNtrpRangeChange={setNtrpRange}
+            sortOptions={sortOptions}
+            selectedSort={selectedSort}
+            onSortChange={(value) => setSelectedSort(value as PlayerSort)}
             genderOptions={genderOptions}
             selectedGender={selectedGender}
             onGenderChange={handleGenderChange}
@@ -968,7 +1165,10 @@ const FindPlayersPage = () => {
             </section>
           ) : null}
 
-          <span className="fc-results-count">{resultsCountLabel}</span>
+          <div className="fp-filter-meta">
+            <span className="fc-results-count">{resultsCountLabel}</span>
+            <span className="fp-results-legend">Green border = Verified rating</span>
+          </div>
 
           {status === "loading" && (
             <div className="players-results-grid">

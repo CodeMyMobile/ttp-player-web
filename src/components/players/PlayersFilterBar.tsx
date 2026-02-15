@@ -14,9 +14,12 @@ type PlayersFilterBarProps = {
   radiusOptions: string[];
   selectedRadius: string;
   onRadiusChange: (value: string) => void;
-  levelOptions: string[];
-  selectedLevel: string;
-  onLevelChange: (value: string) => void;
+  minLevel: number;
+  maxLevel: number;
+  onNtrpRangeChange: (nextRange: [number, number]) => void;
+  sortOptions: Array<{ label: string; value: string }>;
+  selectedSort: string;
+  onSortChange: (value: string) => void;
   genderOptions: string[];
   selectedGender: string;
   onGenderChange: (value: string) => void;
@@ -34,9 +37,12 @@ const PlayersFilterBar = ({
   radiusOptions,
   selectedRadius,
   onRadiusChange,
-  levelOptions,
-  selectedLevel,
-  onLevelChange,
+  minLevel,
+  maxLevel,
+  onNtrpRangeChange,
+  sortOptions,
+  selectedSort,
+  onSortChange,
   genderOptions,
   selectedGender,
   onGenderChange,
@@ -46,6 +52,18 @@ const PlayersFilterBar = ({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSearch();
+  };
+
+  const handleMinLevelChange = (value: string) => {
+    const nextMin = Number.parseFloat(value);
+    if (Number.isNaN(nextMin)) return;
+    onNtrpRangeChange([Math.min(nextMin, maxLevel), maxLevel]);
+  };
+
+  const handleMaxLevelChange = (value: string) => {
+    const nextMax = Number.parseFloat(value);
+    if (Number.isNaN(nextMax)) return;
+    onNtrpRangeChange([minLevel, Math.max(nextMax, minLevel)]);
   };
 
   return (
@@ -88,23 +106,36 @@ const PlayersFilterBar = ({
             onChange={(event) => onSearchTermChange(event.target.value)}
           />
         </div>
-        <div className="fc-filter__selects">
-          <div className="fc-select">
-            <select
-              aria-label="Filter by level"
-              value={selectedLevel}
-              className="fc-select__field"
-              onChange={(event) => onLevelChange(event.target.value)}
-            >
-              {levelOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+        <div className="fp-range-filter" aria-label="Filter by NTRP range">
+          <span className="fp-range-filter__label">NTRP</span>
+          <div className="fp-range-filter__slider-wrap">
+            <input
+              type="range"
+              min={2}
+              max={5}
+              step={0.5}
+              value={minLevel}
+              aria-label="Minimum NTRP level"
+              className="fp-range-filter__slider"
+              onChange={(event) => handleMinLevelChange(event.target.value)}
+            />
+            <input
+              type="range"
+              min={2}
+              max={5}
+              step={0.5}
+              value={maxLevel}
+              aria-label="Maximum NTRP level"
+              className="fp-range-filter__slider"
+              onChange={(event) => handleMaxLevelChange(event.target.value)}
+            />
           </div>
-
+          <div className="fp-range-filter__values">
+            <span>{minLevel.toFixed(1)}</span>
+            <span>{maxLevel.toFixed(1)}</span>
+          </div>
+        </div>
+        <div className="fc-filter__selects">
           <div className="fc-select">
             <select
               aria-label="Filter by gender"
@@ -115,6 +146,22 @@ const PlayersFilterBar = ({
               {genderOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+          </div>
+
+          <div className="fc-select">
+            <select
+              aria-label="Sort players"
+              value={selectedSort}
+              className="fc-select__field"
+              onChange={(event) => onSortChange(event.target.value)}
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
