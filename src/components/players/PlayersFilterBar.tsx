@@ -20,6 +20,12 @@ type PlayersFilterBarProps = {
   genderOptions: string[];
   selectedGender: string;
   onGenderChange: (value: string) => void;
+  playTypeOptions?: string[];
+  selectedPlayType?: string;
+  onPlayTypeChange?: (value: string) => void;
+  availabilityOptions?: string[];
+  selectedAvailability?: string;
+  onAvailabilityChange?: (value: string) => void;
   verifiedOnly: boolean;
   onVerifiedOnlyChange: (value: boolean) => void;
 };
@@ -40,6 +46,12 @@ const PlayersFilterBar = ({
   genderOptions,
   selectedGender,
   onGenderChange,
+  playTypeOptions = ["All play types"],
+  selectedPlayType = "All play types",
+  onPlayTypeChange = () => undefined,
+  availabilityOptions = ["All availability"],
+  selectedAvailability = "All availability",
+  onAvailabilityChange = () => undefined,
   verifiedOnly,
   onVerifiedOnlyChange,
 }: PlayersFilterBarProps) => {
@@ -113,6 +125,38 @@ const PlayersFilterBar = ({
               onChange={(event) => onGenderChange(event.target.value)}
             >
               {genderOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+          </div>
+
+          <div className="fc-select">
+            <select
+              aria-label="Filter by play type"
+              value={selectedPlayType}
+              className="fc-select__field"
+              onChange={(event) => onPlayTypeChange(event.target.value)}
+            >
+              {playTypeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
+          </div>
+
+          <div className="fc-select">
+            <select
+              aria-label="Filter by availability"
+              value={selectedAvailability}
+              className="fc-select__field"
+              onChange={(event) => onAvailabilityChange(event.target.value)}
+            >
+              {availabilityOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>

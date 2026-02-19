@@ -64,6 +64,8 @@ type DirectoryPlayer = Player & { raw: SuggestedPlayerRecord };
 const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
 const levelOptions = ["All levels", "2.5", "3.0", "3.5", "4.0", "4.5+"];
 const genderOptions = ["All genders", "Male", "Female", "Other"];
+const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Social"];
+const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
@@ -307,6 +309,987 @@ const extractSuggestedPlayers = (payload: unknown): SuggestedPlayerRecord[] => {
   return [];
 };
 
+const toCourtList = (value: string | string[] | undefined): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === "string" && item.trim().length > 0) as string[];
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+  return [];
+};
+
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+};
+
+type ProfileQuickViewUser = {
+  name: string;
+  ntrp: string;
+  initials?: string;
+  tagline?: string;
+  bio?: string;
+  availability?: string[];
+  courts?: string[];
+  photo?: string;
+  avatarUrl?: string;
+  isVerified?: boolean;
+  verificationCount?: number;
+};
+
+type BestMatchPlayer = DirectoryPlayer & {
+  matchScore: number;
+  matchReasons: string[];
+};
+
+const renderAvatar = (
+  avatarUrl: string | undefined,
+  initials: string,
+  label: string,
+  size: string,
+  borderWidth: string,
+) => {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={label}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          border: `${borderWidth} solid white`,
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-label={label}
+      role="img"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        backgroundColor: "#EDE9FE",
+        color: "#6D28D9",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "14px",
+        fontWeight: 600,
+        border: `${borderWidth} solid white`,
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+      }}
+    >
+      {initials}
+    </div>
+  );
+};
+
+const generateBestMatches = (playerList: DirectoryPlayer[]) =>
+  playerList.slice(0, 3).map((player, index) => ({
+    ...player,
+    matchScore: [95, 88, 82][index],
+    matchReasons: [
+      ["Same NTRP level", "Both available weekday mornings", "0.8 mi away"],
+      ["Close skill level", "Prefers competitive singles", "1.2 mi away"],
+      ["Same NTRP level", "Looking for doubles partner", "2.1 mi away"],
+    ][index],
+  }));
+
+type MyProfileQuickViewProps = {
+  user: ProfileQuickViewUser;
+  onEdit: () => void;
+  onRequestVerification: () => void;
+  isMobile: boolean;
+};
+
+const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: MyProfileQuickViewProps) => {
+  const isVerified = user?.isVerified ?? false;
+  const verificationCount = user?.verificationCount ?? 2;
+  const verificationsNeeded = 3;
+  const initials = user.initials || toInitials(user.name);
+  const avatarSize = isMobile ? "72px" : "64px";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "center" : "flex-start",
+        justifyContent: "space-between",
+        gap: "24px",
+        padding: isMobile ? "16px" : "20px 24px",
+        backgroundColor: "#F5F3FF",
+        borderRadius: "12px",
+        border: "1px solid #E9E3FF",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "center" : "flex-start",
+          gap: "16px",
+          flex: 1,
+          textAlign: isMobile ? "center" : "left",
+        }}
+      >
+        {renderAvatar(user.photo || user.avatarUrl, initials, user.name, avatarSize, "3px")}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginBottom: "4px",
+              justifyContent: isMobile ? "center" : "flex-start",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "16px",
+                fontWeight: 600,
+                color: "#111827",
+              }}
+            >
+              {user.name}
+            </h3>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "4px 10px",
+                  backgroundColor: "#7C3AED",
+                  color: "white",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  borderRadius: "20px",
+                }}
+              >
+                NTRP {user.ntrp}
+              </span>
+
+              {isVerified && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "4px 10px",
+                    backgroundColor: "#ECFDF5",
+                    color: "#059669",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    borderRadius: "20px",
+                    border: "1px solid #A7F3D0",
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
+                    <path
+                      d="M10 3L4.5 8.5L2 6"
+                      stroke="#059669"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Verified rating
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#6B7280" }}>
+            {user.tagline || user.bio}
+          </p>
+
+          {!isVerified && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: isMobile ? "stretch" : "center",
+                justifyContent: "space-between",
+                gap: isMobile ? "12px" : "16px",
+                padding: "12px 16px",
+                backgroundColor: "#FFFBEB",
+                borderRadius: "8px",
+                border: "1px solid #FDE68A",
+                marginBottom: "12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  flex: isMobile ? "none" : 1,
+                }}
+              >
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: "#FEF3C7",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 1L10.163 5.279L15 6.026L11.5 9.421L12.326 14.236L8 12.013L3.674 14.236L4.5 9.421L1 6.026L5.837 5.279L8 1Z"
+                      stroke="#F59E0B"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+
+                <div>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#92400E",
+                    }}
+                  >
+                    Get your rating verified
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#B45309" }}>
+                    {verificationCount} of {verificationsNeeded} player confirmations
+                  </span>
+                </div>
+
+                {!isMobile && (
+                  <div style={{ flex: 1, maxWidth: "120px" }}>
+                    <div
+                      style={{
+                        height: "6px",
+                        backgroundColor: "#FDE68A",
+                        borderRadius: "3px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${(verificationCount / verificationsNeeded) * 100}%`,
+                          backgroundColor: "#F59E0B",
+                          borderRadius: "3px",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={onRequestVerification}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "8px 14px",
+                  backgroundColor: "#F59E0B",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  borderRadius: "6px",
+                  border: "none",
+                  cursor: "pointer",
+                  width: isMobile ? "100%" : "auto",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginRight: 6 }}>
+                  <path
+                    d="M12.25 8.75V11.0833C12.25 11.3928 12.1271 11.6895 11.9083 11.9083C11.6895 12.1271 11.3928 12.25 11.0833 12.25H2.91667C2.60725 12.25 2.3105 12.1271 2.09171 11.9083C1.87292 11.6895 1.75 11.3928 1.75 11.0833V8.75"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9.91667 4.66667L7 1.75L4.08333 4.66667"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 1.75V8.75"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Request verification
+              </button>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? "16px" : "24px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                alignItems: isMobile ? "center" : "flex-start",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "#9CA3AF",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                }}
+              >
+                AVAILABILITY
+              </span>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "6px",
+                  justifyContent: isMobile ? "center" : "flex-start",
+                }}
+              >
+                {(user.availability?.length ? user.availability : ["Add availability"]).map((slot, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      padding: "4px 10px",
+                      backgroundColor: "white",
+                      color: "#374151",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      borderRadius: "20px",
+                      border: "1px solid #E5E7EB",
+                    }}
+                  >
+                    {slot}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                alignItems: isMobile ? "center" : "flex-start",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "#9CA3AF",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                }}
+              >
+                LOCAL COURTS
+              </span>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "4px",
+                  alignItems: isMobile ? "center" : "flex-start",
+                }}
+              >
+                {(user.courts?.length ? user.courts : ["Add local courts"]).map((court, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      fontSize: "13px",
+                      color: "#4B5563",
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginRight: 6 }}>
+                      <path
+                        d="M7 1.16667C4.42 1.16667 2.33333 3.25334 2.33333 5.83334C2.33333 9.04167 7 12.8333 7 12.8333C7 12.8333 11.6667 9.04167 11.6667 5.83334C11.6667 3.25334 9.58 1.16667 7 1.16667Z"
+                        stroke="#6B7280"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="7" cy="5.83333" r="1.75" stroke="#6B7280" strokeWidth="1.2" />
+                    </svg>
+                    <span>{court}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: isMobile ? "16px" : "0", width: isMobile ? "100%" : "auto" }}>
+        <button
+          type="button"
+          onClick={onEdit}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "10px 20px",
+            backgroundColor: "white",
+            color: "#7C3AED",
+            fontSize: "14px",
+            fontWeight: 500,
+            borderRadius: "8px",
+            border: "1px solid #E5E7EB",
+            cursor: "pointer",
+            width: isMobile ? "100%" : "auto",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: 6 }}>
+            <path
+              d="M11.333 2.00004C11.5081 1.82494 11.7169 1.68605 11.9471 1.59129C12.1773 1.49653 12.4244 1.44775 12.6738 1.44775C12.9232 1.44775 13.1703 1.49653 13.4005 1.59129C13.6307 1.68605 13.8395 1.82494 14.0147 2.00004C14.1898 2.17513 14.3287 2.38398 14.4234 2.61417C14.5182 2.84436 14.567 3.09145 14.567 3.34087C14.567 3.59029 14.5182 3.83738 14.4234 4.06757C14.3287 4.29776 14.1898 4.50661 14.0147 4.6817L5.00001 13.6964L1.33334 14.6667L2.30368 11.0001L11.333 2.00004Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Edit profile
+        </button>
+      </div>
+    </div>
+  );
+};
+
+type BestMatchCTAProps = {
+  onClick: () => void;
+  isMobile: boolean;
+};
+
+const BestMatchCTA = ({ onClick, isMobile }: BestMatchCTAProps) => (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: isMobile ? "stretch" : "center",
+      justifyContent: "space-between",
+      gap: "20px",
+      padding: isMobile ? "16px" : "20px 24px",
+      background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)",
+      borderRadius: "12px",
+      boxShadow: "0 4px 20px rgba(124, 58, 237, 0.3)",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        marginBottom: isMobile ? "14px" : "0",
+      }}
+    >
+      <div
+        style={{
+          width: isMobile ? "40px" : "48px",
+          height: isMobile ? "40px" : "48px",
+          borderRadius: "12px",
+          backgroundColor: "rgba(255, 255, 255, 0.2)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <svg width={isMobile ? "20" : "24"} height={isMobile ? "20" : "24"} viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2L14.944 8.062L21.656 9.018L16.828 13.698L17.888 20.382L12 17.262L6.112 20.382L7.172 13.698L2.344 9.018L9.056 8.062L12 2Z"
+            fill="white"
+          />
+        </svg>
+      </div>
+
+      <div>
+        <h4 style={{ margin: 0, fontSize: isMobile ? "16px" : "18px", fontWeight: 700, color: "white" }}>
+          Find your perfect tennis partner
+        </h4>
+        <p style={{ margin: "2px 0 0 0", fontSize: isMobile ? "13px" : "14px", color: "rgba(255, 255, 255, 0.85)" }}>
+          We&apos;ll match you based on skill, availability &amp; location
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: isMobile ? "14px 20px" : "14px 24px",
+        backgroundColor: "white",
+        color: "#7C3AED",
+        fontSize: "15px",
+        fontWeight: 600,
+        borderRadius: "10px",
+        border: "none",
+        cursor: "pointer",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+        width: isMobile ? "100%" : "auto",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginRight: 8 }}>
+        <path
+          d="M9 1L11.472 6.008L17 6.808L13 10.698L13.944 16.2L9 13.608L4.056 16.2L5 10.698L1 6.808L6.528 6.008L9 1Z"
+          fill="currentColor"
+        />
+      </svg>
+      Find my best match
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginLeft: 8 }}>
+        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  </div>
+);
+
+type BestMatchesPanelProps = {
+  matches: BestMatchPlayer[];
+  onClose: () => void;
+  onConnect: (player: DirectoryPlayer) => void;
+  onViewProfile: (player: DirectoryPlayer) => void;
+  isMobile: boolean;
+};
+
+const BestMatchesPanel = ({
+  matches,
+  onClose,
+  onConnect,
+  onViewProfile,
+  isMobile,
+}: BestMatchesPanelProps) => (
+  <div
+    style={{
+      backgroundColor: "white",
+      borderRadius: "12px",
+      border: "2px solid #E9D5FF",
+      marginBottom: "20px",
+      overflow: "hidden",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        padding: isMobile ? "14px 16px" : "16px 20px",
+        background: "linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)",
+        borderBottom: "1px solid #E9D5FF",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div
+          style={{
+            width: isMobile ? "36px" : "40px",
+            height: isMobile ? "36px" : "40px",
+            borderRadius: "10px",
+            backgroundColor: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(124, 58, 237, 0.15)",
+          }}
+        >
+          <svg width={isMobile ? "18" : "20"} height={isMobile ? "18" : "20"} viewBox="0 0 20 20" fill="none">
+            <path
+              d="M10 1L12.163 5.279L17 6.026L13.5 9.421L14.326 14.236L10 12.013L5.674 14.236L6.5 9.421L3 6.026L7.837 5.279L10 1Z"
+              fill="#7C3AED"
+            />
+          </svg>
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: isMobile ? "15px" : "16px", fontWeight: 600, color: "#111827" }}>
+            Your Best Matches
+          </h3>
+          <p style={{ margin: "2px 0 0 0", fontSize: isMobile ? "12px" : "13px", color: "#6B7280" }}>
+            {isMobile
+              ? "Matched by skill, availability & location"
+              : "Players matched by skill level, availability, location & play style"}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "8px",
+          backgroundColor: "white",
+          border: "1px solid #E5E7EB",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M12 4L4 12M4 4L12 12" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+
+    <div
+      style={{
+        padding: isMobile ? "12px" : "16px 20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+      }}
+    >
+      {matches.map((player, idx) => (
+        <BestMatchCard
+          key={player.id || idx}
+          player={player}
+          onConnect={() => onConnect(player)}
+          onViewProfile={() => onViewProfile(player)}
+          isMobile={isMobile}
+        />
+      ))}
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: isMobile ? "10px" : "12px",
+        padding: isMobile ? "12px 16px" : "14px 20px",
+        backgroundColor: "#F9FAFB",
+        borderTop: "1px solid #E5E7EB",
+      }}
+    >
+      <span style={{ fontSize: "13px", color: "#6B7280" }}>Want better matches?</span>
+      <button
+        type="button"
+        style={{
+          padding: "6px 14px",
+          backgroundColor: "white",
+          color: "#7C3AED",
+          fontSize: "13px",
+          fontWeight: 500,
+          borderRadius: "6px",
+          border: "1px solid #E9D5FF",
+          cursor: "pointer",
+          width: isMobile ? "100%" : "auto",
+        }}
+      >
+        Complete your profile
+      </button>
+    </div>
+  </div>
+);
+
+type BestMatchCardProps = {
+  player: BestMatchPlayer;
+  onConnect: () => void;
+  onViewProfile: () => void;
+  isMobile: boolean;
+};
+
+const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatchCardProps) => (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: isMobile ? "stretch" : "center",
+      gap: "14px",
+      padding: isMobile ? "16px 14px 14px" : "14px 16px",
+      paddingTop: isMobile ? "20px" : "14px",
+      backgroundColor: "#FAFAFA",
+      borderRadius: "10px",
+      border: "1px solid #E5E7EB",
+      position: "relative",
+    }}
+  >
+    <div
+      style={{
+        position: "absolute",
+        top: "-8px",
+        left: "16px",
+        display: "flex",
+        alignItems: "baseline",
+        gap: "2px",
+        padding: "4px 10px",
+        background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)",
+        borderRadius: "12px",
+        boxShadow: "0 2px 6px rgba(124, 58, 237, 0.3)",
+      }}
+    >
+      <span style={{ fontSize: "13px", fontWeight: 700, color: "white" }}>{player.matchScore}%</span>
+      <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.8)" }}>match</span>
+    </div>
+
+    {isMobile ? (
+      <>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {renderAvatar(
+            player.profileImageUrl || undefined,
+            player.initials || toInitials(player.name),
+            player.name,
+            "48px",
+            "2px",
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <span style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>{player.name}</span>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  color: "white",
+                  backgroundColor: "#7C3AED",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                }}
+              >
+                NTRP {player.level}
+              </span>
+              {player.verified && (
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
+                  <path
+                    d="M10 5L6 9L4 7"
+                    stroke="#059669"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", fontSize: "12px", color: "#6B7280" }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
+                <path
+                  d="M6 1C3.79 1 2 2.79 2 5C2 7.75 6 11 6 11C6 11 10 7.75 10 5C10 2.79 8.21 1 6 1Z"
+                  stroke="#9CA3AF"
+                  strokeWidth="1.2"
+                />
+                <circle cx="6" cy="5" r="1.5" stroke="#9CA3AF" strokeWidth="1.2" />
+              </svg>
+              {player.favoriteCourt || player.localCourts?.[0]}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", margin: "12px 0" }}>
+          {player.matchReasons?.map((reason, ridx) => (
+            <span
+              key={ridx}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                fontSize: "11px",
+                color: "#059669",
+                backgroundColor: "#ECFDF5",
+                padding: "3px 8px",
+                borderRadius: "10px",
+                border: "1px solid #A7F3D0",
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginRight: 4 }}>
+                <path d="M8 3L4 7L2 5" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {reason}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            type="button"
+            onClick={onConnect}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              backgroundColor: "#7C3AED",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 500,
+              borderRadius: "6px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Connect
+          </button>
+          <button
+            type="button"
+            onClick={onViewProfile}
+            style={{
+              flex: 1,
+              padding: "8px 16px",
+              backgroundColor: "white",
+              color: "#374151",
+              fontSize: "13px",
+              fontWeight: 500,
+              borderRadius: "6px",
+              border: "1px solid #E5E7EB",
+              cursor: "pointer",
+            }}
+          >
+            View
+          </button>
+        </div>
+      </>
+    ) : (
+      <>
+        {renderAvatar(
+          player.profileImageUrl || undefined,
+          player.initials || toInitials(player.name),
+          player.name,
+          "52px",
+          "2px",
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#111827" }}>{player.name}</span>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 500,
+                color: "white",
+                backgroundColor: "#7C3AED",
+                padding: "2px 8px",
+                borderRadius: "12px",
+              }}
+            >
+              NTRP {player.level}
+            </span>
+            {player.verified && (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" fill="#ECFDF5" stroke="#A7F3D0" />
+                <path d="M10 5L6 9L4 7" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+            {player.matchReasons?.map((reason, ridx) => (
+              <span
+                key={ridx}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  fontSize: "11px",
+                  color: "#059669",
+                  backgroundColor: "#ECFDF5",
+                  padding: "3px 8px",
+                  borderRadius: "10px",
+                  border: "1px solid #A7F3D0",
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginRight: 4 }}>
+                  <path d="M8 3L4 7L2 5" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {reason}
+              </span>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", fontSize: "12px", color: "#6B7280" }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
+              <path
+                d="M6 1C3.79 1 2 2.79 2 5C2 7.75 6 11 6 11C6 11 10 7.75 10 5C10 2.79 8.21 1 6 1Z"
+                stroke="#9CA3AF"
+                strokeWidth="1.2"
+              />
+              <circle cx="6" cy="5" r="1.5" stroke="#9CA3AF" strokeWidth="1.2" />
+            </svg>
+            {player.favoriteCourt || player.localCourts?.[0]}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <button
+            type="button"
+            onClick={onConnect}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#7C3AED",
+              color: "white",
+              fontSize: "13px",
+              fontWeight: 500,
+              borderRadius: "6px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Connect
+          </button>
+          <button
+            type="button"
+            onClick={onViewProfile}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "white",
+              color: "#374151",
+              fontSize: "13px",
+              fontWeight: 500,
+              borderRadius: "6px",
+              border: "1px solid #E5E7EB",
+              cursor: "pointer",
+            }}
+          >
+            View
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+);
+
 const FindPlayersPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -315,12 +1298,15 @@ const FindPlayersPage = () => {
   const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
   const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
   const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
+  const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
+  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
+  const [showBestMatches, setShowBestMatches] = useState(false);
   const [connectModalPlayer, setConnectModalPlayer] = useState<Player | null>(null);
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
@@ -328,6 +1314,8 @@ const FindPlayersPage = () => {
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
   const hasMatchProfile = Boolean(matchProfile);
+  const hasProfile = hasMatchProfile;
+  const isMobile = useIsMobile();
   const { displayName } = usePlayerIdentity();
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
@@ -641,6 +1629,25 @@ const FindPlayersPage = () => {
     return `${origin}${normalizedPath}#/settings/match-profile`;
   }, []);
 
+  const profileQuickViewUser = useMemo(() => {
+    if (!matchProfile) {
+      return null;
+    }
+    const trimmedName = displayName.trim();
+    const name = trimmedName.length ? trimmedName : "TTP Player";
+    return {
+      name,
+      initials: toInitials(name),
+      ntrp: matchProfile.level ?? "3.0",
+      tagline: matchProfile.about || "Add a quick bio to help players get to know you.",
+      bio: matchProfile.about,
+      availability: (matchProfile.availability ?? []).map((slot) => toCanonicalAvailability(slot)),
+      courts: toCourtList(matchProfile.localCourts),
+      isVerified: false,
+      verificationCount: 2,
+    };
+  }, [displayName, matchProfile]);
+
   const closeConnectModal = useCallback(() => {
     setConnectModalOpen(false);
     setConnectModalPlayer(null);
@@ -738,6 +1745,14 @@ const FindPlayersPage = () => {
     setSelectedGender(gender);
   };
 
+  const handlePlayTypeChange = (playType: string) => {
+    setSelectedPlayType(playType);
+  };
+
+  const handleAvailabilityChange = (availability: string) => {
+    setSelectedAvailability(availability);
+  };
+
   const handleVerifiedToggle = (next: boolean) => {
     setVerifiedOnly(next);
   };
@@ -749,6 +1764,8 @@ const FindPlayersPage = () => {
     setAppliedRadius(radiusOptions[1]);
     setSelectedLevel(levelOptions[0]);
     setSelectedGender(genderOptions[0]);
+    setSelectedPlayType(playTypeOptions[0]);
+    setSelectedAvailability(availabilityOptions[0]);
     setVerifiedOnly(false);
     setMode("normal");
   };
@@ -788,9 +1805,21 @@ const FindPlayersPage = () => {
       const matchesGender =
         selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
 
+      const matchesPlayType =
+        selectedPlayType === "All play types" ||
+        player.matchPreferences.some((preference) =>
+          normalize(preference).includes(normalize(selectedPlayType)),
+        );
+
+      const matchesAvailability =
+        selectedAvailability === "All availability" ||
+        player.availability.some(
+          (slot) => normalize(toCanonicalAvailability(slot)) === normalize(selectedAvailability),
+        );
+
       const matchesVerification = !verifiedOnly || player.verified;
 
-      return matchesSearch && matchesLevel && matchesGender && matchesVerification;
+      return matchesSearch && matchesLevel && matchesGender && matchesPlayType && matchesAvailability && matchesVerification;
     });
   }, [
     mode,
@@ -798,8 +1827,15 @@ const FindPlayersPage = () => {
     players,
     selectedGender,
     selectedLevel,
+    selectedPlayType,
+    selectedAvailability,
     verifiedOnly,
   ]);
+
+  const bestMatches = useMemo(
+    () => (hasProfile ? generateBestMatches(filteredPlayers.length ? filteredPlayers : players) : []),
+    [filteredPlayers, hasProfile, players],
+  );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
@@ -840,7 +1876,18 @@ const FindPlayersPage = () => {
             }
           />
 
-          {!hasMatchProfile && status === "ready" && mode !== "error" && (
+          {hasProfile && profileQuickViewUser ? (
+            <MyProfileQuickView
+              user={profileQuickViewUser}
+              onEdit={() => setProfileModalOpen(true)}
+              onRequestVerification={() => {
+                window.alert("Verification requests are coming soon.");
+              }}
+              isMobile={isMobile}
+            />
+          ) : null}
+
+          {!hasProfile && status === "ready" && mode !== "error" && (
             <StateBanner
               tone="empty"
               title="Create your player match profile"
@@ -881,6 +1928,12 @@ const FindPlayersPage = () => {
             genderOptions={genderOptions}
             selectedGender={selectedGender}
             onGenderChange={handleGenderChange}
+            playTypeOptions={playTypeOptions}
+            selectedPlayType={selectedPlayType}
+            onPlayTypeChange={handlePlayTypeChange}
+            availabilityOptions={availabilityOptions}
+            selectedAvailability={selectedAvailability}
+            onAvailabilityChange={handleAvailabilityChange}
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
@@ -966,6 +2019,25 @@ const FindPlayersPage = () => {
                 </p>
               ) : null}
             </section>
+          ) : null}
+
+          {hasProfile ? (
+            <BestMatchCTA
+              onClick={() => setShowBestMatches((prev) => !prev)}
+              isMobile={isMobile}
+            />
+          ) : null}
+
+          {hasProfile && showBestMatches ? (
+            <BestMatchesPanel
+              matches={bestMatches}
+              onClose={() => setShowBestMatches(false)}
+              onConnect={(player) => openConnectModalForPlayer(player)}
+              onViewProfile={(player) => {
+                navigate(`/players/${player.id}`, { state: { player } });
+              }}
+              isMobile={isMobile}
+            />
           ) : null}
 
           <span className="fc-results-count">{resultsCountLabel}</span>
