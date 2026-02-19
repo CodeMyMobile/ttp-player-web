@@ -27,8 +27,7 @@ import {
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
-import GroupLessonConfirmationModal from "../components/group-lessons/GroupLessonConfirmationModal";
-import PrivateLessonConfirmationModal from "../components/private-lessons/PrivateLessonConfirmationModal";
+import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
 import {
@@ -120,6 +119,11 @@ const parsePriceToCents = (value?: string) => {
   const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return Math.round(numeric * 100);
+};
+
+const formatLevelRange = (level: number) => {
+  const upperBound = (level + 0.5).toFixed(1);
+  return `${level.toFixed(1)} - ${upperBound}`;
 };
 
 const formatMinutesToTimeLabel = (totalMinutes: number) => {
@@ -255,6 +259,13 @@ const extractNumericLessonId = (value: unknown) => {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+};
+
+const buildInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  const [first, second] = parts;
+  return `${first?.[0] ?? ""}${second?.[0] ?? ""}`.toUpperCase();
 };
 
 const BookingConfirmationPage = () => {
@@ -539,7 +550,9 @@ const BookingConfirmationPage = () => {
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
   const isProfileGroupLesson = selectedSlot?.lessonType === "group";
+  const isProfileSemiPrivate = selectedSlot?.lessonType === "semi";
   const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
+  const isInstantlyConfirmed = isGroupLesson || isProfileSemiPrivate;
 
   const timeRange = groupLesson
     ? (() => {
@@ -1096,46 +1109,6 @@ const BookingConfirmationPage = () => {
     }
   };
 
-  const privateLessonStart = useMemo(() => {
-    if (isGroupLesson || !selectedDate || !selectedSlot) {
-      return undefined;
-    }
-
-    const startMinutes = parseTimeToMinutes(selectedSlot.time);
-    if (startMinutes == null) {
-      return undefined;
-    }
-
-    const [yearPart, monthPart, dayPart] = (selectedDate.id ?? "").split("-");
-    const year = Number.parseInt(yearPart ?? "", 10);
-    const month = Number.parseInt(monthPart ?? "", 10);
-    const day = Number.parseInt(dayPart ?? "", 10);
-
-    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
-      return undefined;
-    }
-
-    const hours = Math.floor(startMinutes / 60);
-    const minutes = startMinutes % 60;
-    const startDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
-    return startDate;
-  }, [isGroupLesson, selectedDate, selectedSlot]);
-
-  const privateLessonEnd = useMemo(() => {
-    if (!privateLessonStart || !selectedSlot?.duration) {
-      return undefined;
-    }
-
-    const durationMinutes = parseDurationToMinutes(selectedSlot.duration);
-    if (durationMinutes == null) {
-      return undefined;
-    }
-
-    return new Date(privateLessonStart.getTime() + durationMinutes * 60 * 1000);
-  }, [privateLessonStart, selectedSlot?.duration]);
-
-  const lessonStatusLabel = isGroupLesson ? "Confirmed" : "Pending coach approval";
-
   const savedCardsSection = (
     <div className="payment-methods__group">
       <span className="payment-methods__group-label">Saved cards</span>
@@ -1317,7 +1290,7 @@ const BookingConfirmationPage = () => {
     </div>
   );
 
-  const nextStepsItems = isGroupLesson
+  const nextStepsItems = isInstantlyConfirmed
     ? [
         "Your spot is reserved immediately as long as space remains.",
         "We'll email your receipt and lesson details right away.",
@@ -1329,15 +1302,51 @@ const BookingConfirmationPage = () => {
         `Once approved, your booking is confirmed and payment is processed.`,
       ];
 
-  const confirmationStatus = isGroupLesson
+  const confirmationStatus = isInstantlyConfirmed
     ? {
-        title: "Lesson confirmed!",
-        copy: `You're all set for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
+        title: "You are confirmed",
+        copy: `Your spot is reserved for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
       }
     : {
-        title: "Booking request sent!",
-        copy: `We've notified ${coachFirstName}. You'll hear from us as soon as they confirm—your payment will only process after approval.`,
+        title: "Lesson Request sent",
+        copy: `Your request has been sent to ${coachFirstName} for confirmation. You'll receive an email as soon as the coach confirms.`,
       };
+
+  const modalStatus: BookingStatus = isInstantlyConfirmed ? "CONFIRMED" : "PENDING";
+  const modalData = {
+    coachName,
+    coachInitials: buildInitials(coachName),
+    lessonTitle: isInstantlyConfirmed ? groupLesson?.title ?? lessonLabel : undefined,
+    lessonSubtitle: isInstantlyConfirmed ? groupLesson?.focus ?? undefined : undefined,
+    skillRange: isInstantlyConfirmed && groupLesson?.level ? formatLevelRange(groupLesson.level) : undefined,
+    lessonTypeLabel: lessonLabel,
+    isGroup: isInstantlyConfirmed ? Boolean(groupLesson) : Boolean(groupLesson),
+    durationMin: parseDurationToMinutes(durationLabel ?? "") ?? groupLesson?.durationMinutes ?? 60,
+    dateLabel: lessonDateLabel ?? "Date TBD",
+    timeLabel: timeRange ?? selectedSlot?.time ?? "Time TBD",
+    locationName: locationLabel ?? "Location TBD",
+    locationAddress: groupLesson?.locationCity ?? locationLabel ?? "Location TBD",
+    amountLabel: isInstantlyConfirmed ? "Amount charged" : "Lesson total",
+    amount: priceValue,
+    etaText: "~24 hrs",
+    cancellationPolicyText:
+      "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
+  };
+
+  const handleAddToCalendar = () => {
+    window.alert("Calendar integration is coming soon.");
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      void navigator.share({
+        title: lessonLabel,
+        text: `Join me for ${lessonLabel} with ${coachName}.`,
+      });
+      return;
+    }
+    window.alert("Sharing isn't available on this device.");
+  };
 
   const shouldShowEmptyState = groupLessonId
     ? !groupLessonLoading && !groupLesson
@@ -1635,25 +1644,16 @@ const BookingConfirmationPage = () => {
           </div>
         </div>
       </div>
-      {isConfirmationModalOpen && !isGroupLesson ? (
-        <PrivateLessonConfirmationModal
-          coachName={coachName}
-          coachTitle={coachTitle}
-          lessonLabel={lessonLabel}
-          dateLabel={lessonDateLabel}
-          timeRange={timeRange}
-          locationLabel={locationLabel}
-          statusLabel={lessonStatusLabel}
-          statusCopy={confirmationStatus.copy}
+      {isConfirmationModalOpen ? (
+        <BookingStatusModal
+          open={isConfirmationModalOpen}
+          status={modalStatus}
+          data={modalData}
           onClose={() => setIsConfirmationModalOpen(false)}
-          startDate={privateLessonStart}
-          endDate={privateLessonEnd}
-        />
-      ) : null}
-      {isConfirmationModalOpen && groupLesson ? (
-        <GroupLessonConfirmationModal
-          lesson={groupLesson}
-          onClose={() => setIsConfirmationModalOpen(false)}
+          onPrimary={() => setIsConfirmationModalOpen(false)}
+          onSecondary={() => navigate("/")}
+          onAddToCalendar={handleAddToCalendar}
+          onShareWithFriends={modalStatus === "CONFIRMED" ? handleShare : undefined}
         />
       ) : null}
     </MainLayout>

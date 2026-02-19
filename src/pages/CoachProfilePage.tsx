@@ -55,6 +55,7 @@ import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
 import { getStoredAuthToken } from "../services/authToken";
 import LessonDetailCard from "../components/LessonDetailCard";
+import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -108,6 +109,28 @@ type BookingSelections = {
 
 type BookingDate = CoachProfile["booking"]["availableDates"][number];
 type BookingSlot = BookingDate["slots"][number];
+
+type BookingConfirmationData = {
+  status: BookingStatus;
+  data: {
+    coachName: string;
+    coachInitials: string;
+    lessonTitle?: string;
+    lessonSubtitle?: string;
+    skillRange?: string;
+    lessonTypeLabel: string;
+    isGroup?: boolean;
+    durationMin: number;
+    dateLabel: string;
+    timeLabel: string;
+    locationName: string;
+    locationAddress: string;
+    amountLabel: string;
+    amount: string;
+    etaText?: string;
+    cancellationPolicyText: string;
+  };
+};
 type DateEntry = {
   date: BookingDate;
   slots: BookingSlot[];
@@ -280,6 +303,18 @@ const discountCalc = (bill: number, discount = 0) => {
 };
 const percentageCalc = (percentage: number, amount: number) =>
   Math.round(((percentage / 100) * amount) * 100) / 100;
+
+const buildInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  const [first, second] = parts;
+  return `${first?.[0] ?? ""}${second?.[0] ?? ""}`.toUpperCase();
+};
+
+const formatLevelRange = (level: number) => {
+  const upperBound = (level + 0.5).toFixed(1);
+  return `${level.toFixed(1)} - ${upperBound}`;
+};
 
 const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
   const label = lessonTypes?.[0];
@@ -702,6 +737,7 @@ const CoachProfilePage = () => {
   const [bookingInFlight, setBookingInFlight] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmationData | null>(null);
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
@@ -1257,6 +1293,105 @@ const CoachProfilePage = () => {
         ? record.metadata_title.trim()
         : lesson.metadata?.title ?? "";
     return metadataTitle || lessonTypeName || "Group lesson";
+  };
+
+  const isInstantlyConfirmedLesson = (lesson?: ApiLesson, slot?: BookingSlot) => {
+    if (lesson) {
+      return resolveLessonTypeId(lesson) !== "private";
+    }
+    const slotType = String(slot?.lessonType ?? "").toLowerCase();
+    return slotType === "group" || slotType === "semi" || slotType === "semi_private";
+  };
+
+  const resolveLessonLocationLabel = (lesson?: ApiLesson, slot?: BookingSlot) => {
+    const record = lesson as Record<string, unknown> | undefined;
+    return (
+      slot?.location ??
+      (record?.location_name as string | undefined) ??
+      (record?.locationName as string | undefined) ??
+      (record?.location as string | undefined) ??
+      profile?.location ??
+      profile?.coachingLocations?.[0] ??
+      "Location TBD"
+    );
+  };
+
+  const buildBookingConfirmationDetails = ({
+    lesson,
+    slot,
+    schedule,
+    locationLabel,
+  }: {
+    lesson?: ApiLesson;
+    slot?: BookingSlot;
+    schedule?: {
+      startDateTimeTz?: string;
+      endDateTimeTz?: string;
+    };
+    locationLabel?: string;
+  }): BookingConfirmationData => {
+    const isConfirmed = isInstantlyConfirmedLesson(lesson, slot);
+    const lessonTypeDetail =
+      slot && lessonTypeDetailMap[slot.lessonType] ? lessonTypeDetailMap[slot.lessonType] : undefined;
+    const startDate = schedule?.startDateTimeTz
+      ? new Date(schedule.startDateTimeTz)
+      : lesson?.start_date_time
+        ? new Date(lesson.start_date_time)
+        : undefined;
+    const endDate = schedule?.endDateTimeTz
+      ? new Date(schedule.endDateTimeTz)
+      : lesson?.end_date_time
+        ? new Date(lesson.end_date_time)
+        : undefined;
+    const startMoment = startDate ? moment(startDate) : undefined;
+    const endMoment = endDate ? moment(endDate) : undefined;
+    const dateLabel = startMoment?.isValid() ? startMoment.format("dddd, MMM D") : undefined;
+    const timeRange =
+      startMoment?.isValid() && endMoment?.isValid()
+        ? `${startMoment.format("h:mm A")} – ${endMoment.format("h:mm A")}`
+        : slot?.time && slot?.duration
+          ? buildTimeRangeLabel(slot.time, slot.duration)
+          : undefined;
+    const resolvedLessonLabel =
+      resolveLessonDisplayTitle(lesson) ??
+      lessonDetails.find((detail) => detail.id === slot?.lessonType)?.label ??
+      (slot?.lessonType === "private" ? "Private lesson" : "Group lesson");
+    const priceData = resolveLessonPriceData(lesson, slot, lessonTypeDetail);
+    const priceBreakdown = buildPriceBreakdown(priceData.baseRate, priceData.discountPercentage);
+    const totalAmount = priceBreakdown?.total ?? priceData.baseRate ?? 0;
+    const amountLabel = isConfirmed ? "Amount charged" : "Lesson total";
+    const record = lesson as Record<string, unknown> | undefined;
+    const lessonTitle = isConfirmed ? resolveLessonDisplayTitle(lesson) ?? resolvedLessonLabel : undefined;
+    const lessonSubtitle = isConfirmed ? (record?.focus as string | undefined) : undefined;
+    const levelValue = typeof record?.level === "number" ? (record?.level as number) : undefined;
+    const durationMinutes =
+      parseDurationToMinutes(lessonTypeDetail?.duration ?? slot?.duration ?? "") ??
+      parseDurationToMinutes((record?.duration as string | undefined) ?? "") ??
+      60;
+    const isGroup = lesson ? resolveLessonTypeId(lesson) !== "private" : slot?.lessonType !== "private";
+
+    return {
+      status: isConfirmed ? "CONFIRMED" : "PENDING",
+      data: {
+        coachName: coachDisplayName,
+        coachInitials: buildInitials(coachDisplayName),
+        lessonTitle,
+        lessonSubtitle,
+        skillRange: levelValue != null ? formatLevelRange(levelValue) : undefined,
+        lessonTypeLabel: resolvedLessonLabel,
+        isGroup,
+        durationMin: durationMinutes,
+        dateLabel: dateLabel ?? "Date TBD",
+        timeLabel: timeRange ?? "Time TBD",
+        locationName: locationLabel ?? "Location TBD",
+        locationAddress: locationLabel ?? "Location TBD",
+        amountLabel,
+        amount: formatCurrency(totalAmount) ?? `$${totalAmount}`,
+        etaText: "~24 hrs",
+        cancellationPolicyText:
+          "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
+      },
+    };
   };
 
   const shouldBlockSlot = (lesson?: ApiLesson) => {
@@ -2051,12 +2186,17 @@ const extractLocationId = (slot?: BookingSlot) => {
           }
         });
 
+        const confirmationDetails = buildBookingConfirmationDetails({
+          lesson: pendingLessonPayment ?? undefined,
+          slot: pendingBooking?.slot,
+          schedule: pendingBooking?.schedule,
+          locationLabel: resolveLessonLocationLabel(pendingLessonPayment ?? undefined, pendingBooking?.slot),
+        });
+        setBookingConfirmation(confirmationDetails);
         if (pendingLessonPayment) {
-          setBookingSuccess("Payment confirmed. See you on court!");
           applyLessonConfirmedStatus(pendingLessonPayment);
-        } else {
-          setBookingSuccess("Lesson request sent to your coach.");
         }
+        setBookingSuccess(null);
         closePaymentSheet();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Apple Pay failed.";
@@ -2130,7 +2270,16 @@ const extractLocationId = (slot?: BookingSlot) => {
           }
         }
 
-        setBookingSuccess("Payment confirmed. See you on court!");
+        const confirmationDetails = buildBookingConfirmationDetails({
+          lesson: pendingLessonPayment,
+          schedule: {
+            startDateTimeTz: pendingLessonPayment.start_date_time,
+            endDateTimeTz: pendingLessonPayment.end_date_time,
+          },
+          locationLabel: resolveLessonLocationLabel(pendingLessonPayment),
+        });
+        setBookingConfirmation(confirmationDetails);
+        setBookingSuccess(null);
         applyLessonConfirmedStatus(pendingLessonPayment);
         closePaymentSheet();
       } catch (err) {
@@ -2191,7 +2340,13 @@ const extractLocationId = (slot?: BookingSlot) => {
               lessonId,
               purchaseId: bestPurchase?.id,
             });
-            setBookingSuccess("Lesson request sent. We’re holding your credit until the coach confirms.");
+            const confirmationDetails = buildBookingConfirmationDetails({
+              slot,
+              schedule,
+              locationLabel: resolveLessonLocationLabel(undefined, slot),
+            });
+            setBookingConfirmation(confirmationDetails);
+            setBookingSuccess(null);
             closePaymentSheet();
           } catch (err) {
             const message =
@@ -2251,7 +2406,13 @@ const extractLocationId = (slot?: BookingSlot) => {
         status: "PENDING",
         paymentMethodId: selectedPaymentMethodId,
       });
-      setBookingSuccess("Lesson request sent to your coach.");
+      const confirmationDetails = buildBookingConfirmationDetails({
+        slot,
+        schedule,
+        locationLabel: resolveLessonLocationLabel(undefined, slot),
+      });
+      setBookingConfirmation(confirmationDetails);
+      setBookingSuccess(null);
       closePaymentSheet();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not book this lesson.";
@@ -3462,6 +3623,27 @@ const extractLocationId = (slot?: BookingSlot) => {
           </div>
         </div>
       )}
+      {bookingConfirmation ? (
+        <BookingStatusModal
+          open={Boolean(bookingConfirmation)}
+          status={bookingConfirmation.status}
+          data={bookingConfirmation.data}
+          onClose={() => setBookingConfirmation(null)}
+          onPrimary={() => setBookingConfirmation(null)}
+          onSecondary={() => navigate("/")}
+          onAddToCalendar={() => window.alert("Calendar integration is coming soon.")}
+          onShareWithFriends={() => {
+            if (navigator.share) {
+              void navigator.share({
+                title: bookingConfirmation.data.lessonTypeLabel,
+                text: `Join me for ${bookingConfirmation.data.lessonTypeLabel} with ${bookingConfirmation.data.coachName}.`,
+              });
+              return;
+            }
+            window.alert("Sharing isn't available on this device.");
+          }}
+        />
+      ) : null}
     </MainLayout>
   );
 };

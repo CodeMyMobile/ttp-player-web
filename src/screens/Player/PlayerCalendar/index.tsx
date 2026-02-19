@@ -80,6 +80,60 @@ type DateRange = {
 
 type SessionTab = "all" | "private" | "group";
 
+type ConfirmationStatus = "request" | "confirmed";
+
+type BookingConfirmation = {
+  title: string;
+  subtitle: string;
+  statusLabel: string;
+  tone: ConfirmationStatus;
+  lessonTitle: string;
+  coachName: string;
+  dateLabel: string;
+  timeRange: string;
+  locationLabel?: string;
+  priceLabel?: string;
+};
+
+const isConfirmedLessonType = (lesson: Lesson) => {
+  const normalizedType = (lesson.lesson_type_name || "").toLowerCase();
+  const playerLimit = lesson.player_limit ?? 0;
+  return normalizedType.includes("group") || normalizedType.includes("semi") || playerLimit > 1;
+};
+
+const buildConfirmationDetails = (lesson: Lesson, tone: ConfirmationStatus): BookingConfirmation => {
+  const start = moment(lesson.start_date_time);
+  const end = moment(lesson.end_date_time);
+  const lessonTitle =
+    lesson.metadata?.title || lesson.metadata_title || lesson.lesson_type_name || "Lesson session";
+  const locationLabel = lesson.location_name || (lesson as { location?: string }).location;
+  const priceLabel =
+    typeof lesson.price_per_person === "number" ? `$${lesson.price_per_person.toFixed(2)}` : undefined;
+  const copy =
+    tone === "confirmed"
+      ? {
+          title: "You are confirmed",
+          subtitle: "Your spot is locked in. We’ll see you on court!",
+          statusLabel: "Booking confirmed",
+        }
+      : {
+          title: "Lesson Request sent",
+          subtitle: "Your request has been sent to your coach for confirmation.",
+          statusLabel: "Awaiting coach response",
+        };
+
+  return {
+    ...copy,
+    tone,
+    lessonTitle,
+    coachName: lesson.coach_name || "Coach",
+    dateLabel: start.format("dddd, MMM D"),
+    timeRange: `${start.format("h:mm A")} – ${end.format("h:mm A")}`,
+    locationLabel,
+    priceLabel,
+  };
+};
+
 interface CoachAvailabilitySlot {
   start_time: string;
   end_time: string;
@@ -369,6 +423,7 @@ const PlayerCalendar = () => {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestTimeRange, setRequestTimeRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
 
   const authToken = useMemo(
     () => getStoredAuthToken({ preferScheme: "token" }) ?? undefined,
@@ -1134,11 +1189,16 @@ const PlayerCalendar = () => {
 
   const handleBookLesson = async () => {
     if (!selectedLesson || !authToken) return;
+    const lesson = selectedLesson;
     setMutationLoading(true);
     try {
-      await bookLesson({ lessonId: selectedLesson.id, token: authToken });
-      window.alert("Lesson booked successfully!");
-      await refetchLessons();
+      await bookLesson({ lessonId: lesson.id, token: authToken });
+      const tone: ConfirmationStatus = isConfirmedLessonType(lesson) ? "confirmed" : "request";
+      const confirmationDetails = buildConfirmationDetails(lesson, tone);
+      await loadLessons();
+      closeModal();
+      setBookingConfirmation(confirmationDetails);
+      setMutationLoading(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to book lesson.";
       window.alert(message);
@@ -1233,9 +1293,20 @@ const PlayerCalendar = () => {
         locationId: slot.locationId,
         court: slot.court ?? 0,
       });
-      window.alert("Lesson request sent successfully!");
+      const requestLesson: Lesson = {
+        id: 0,
+        coach_id: coachId,
+        coach_name: requestSlot.coachName,
+        location_id: Number(slot.locationId),
+        location_name: slot.location || "Location TBD",
+        start_date_time: startLocal.toISOString(),
+        end_date_time: endLocal.toISOString(),
+        lesson_type_name: "Private lesson",
+      };
+      setBookingConfirmation(buildConfirmationDetails(requestLesson, "request"));
       setRequestModalOpen(false);
       setRequestSlot(null);
+      setRequestTimeRange({ start: "", end: "" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to send request.";
       setRequestError(message);
@@ -1900,6 +1971,67 @@ const PlayerCalendar = () => {
                 disabled={requestLoading}
               >
                 {requestLoading ? "Sending..." : "Send request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {bookingConfirmation ? (
+        <div role="dialog" aria-modal="true" className="player-calendar__modal">
+          <div className="player-calendar__modal-card">
+            <div className="player-calendar__modal-header">
+              <div className="player-calendar__modal-header-row">
+                <div>
+                  <h2>{bookingConfirmation.title}</h2>
+                  <p>{bookingConfirmation.subtitle}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBookingConfirmation(null)}
+                  aria-label="Close confirmation modal"
+                  className="player-calendar__close-btn"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="player-calendar__modal-body">
+              <div className={`player-calendar__confirmation-status player-calendar__confirmation-status--${bookingConfirmation.tone}`}>
+                <span>{bookingConfirmation.statusLabel}</span>
+              </div>
+              <div className="player-calendar__modal-row">
+                <span>Coach</span>
+                <span>{bookingConfirmation.coachName}</span>
+              </div>
+              <div className="player-calendar__modal-row">
+                <span>Session</span>
+                <span>{bookingConfirmation.lessonTitle}</span>
+              </div>
+              <div className="player-calendar__modal-row">
+                <span>Date</span>
+                <span>{bookingConfirmation.dateLabel}</span>
+              </div>
+              <div className="player-calendar__modal-row">
+                <span>Time</span>
+                <span>{bookingConfirmation.timeRange}</span>
+              </div>
+              {bookingConfirmation.locationLabel ? (
+                <div className="player-calendar__modal-row">
+                  <span>Location</span>
+                  <span>{bookingConfirmation.locationLabel}</span>
+                </div>
+              ) : null}
+              {bookingConfirmation.priceLabel ? (
+                <div className="player-calendar__modal-row">
+                  <span>Price</span>
+                  <span>{bookingConfirmation.priceLabel}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="player-calendar__modal-footer">
+              <button type="button" className="player-calendar__modal-primary" onClick={() => setBookingConfirmation(null)}>
+                Got it
               </button>
             </div>
           </div>
