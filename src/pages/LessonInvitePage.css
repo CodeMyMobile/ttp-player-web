@@ -1,0 +1,95 @@
+.lesson-invite-page {
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+
+.lesson-invite-card {
+  width: min(540px, 100%);
+}
+
+.lesson-invite-card__summary {
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-invite-card__summary p {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+}
+
+.lesson-invite-card__status {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.lesson-invite-card__spinner {
+  animation: lesson-invite-spin 1s linear infinite;
+}
+
+.lesson-invite-card__payment {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lesson-invite-card__payment h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.lesson-invite-card__payment p {
+  margin: 0;
+  color: #475569;
+}
+
+.lesson-invite-card__saved-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-invite-card__saved-methods label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.lesson-invite-card__saved-methods select {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 15px;
+  background: #ffffff;
+}
+
+.lesson-invite-card__saved-methods select:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+}
+
+.lesson-invite-card__alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes lesson-invite-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

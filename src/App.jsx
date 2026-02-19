@@ -12,6 +12,7 @@ import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import LessonInvitePage from "./pages/LessonInvitePage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
@@ -76,6 +77,10 @@ const AppRoutes = () => (
           <ForgotPasswordPage />
         </AuthRedirectRoute>
       )}
+    />
+    <Route
+      path="/li/:token"
+      element={<LessonInvitePage />}
     />
     <Route
       path="/"
@@ -207,6 +212,14 @@ const AppRoutes = () => (
     />
     <Route
       path="/group-lessons/:id"
+      element={(
+        <ProtectedRoute>
+          <GroupLessonDetailsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/player/lesson/:id"
       element={(
         <ProtectedRoute>
           <GroupLessonDetailsPage />
