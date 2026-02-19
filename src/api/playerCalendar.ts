@@ -67,6 +67,25 @@ export interface CoachLessonsByDateParams {
   date: string;
 }
 
+export interface GoogleCalendarEvent {
+  id?: string | number;
+  start?: string | { dateTime?: string; date?: string };
+  end?: string | { dateTime?: string; date?: string };
+  start_time?: string;
+  end_time?: string;
+  start_date_time?: string;
+  end_date_time?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  [key: string]: unknown;
+}
+
+export interface GetCoachGoogleCalendarEventsParams {
+  coachId: number;
+  timeMin: string;
+  timeMax: string;
+}
+
 const safeJson = async <T>(response: Response): Promise<T | null> => {
   if (response.status === 204) {
     return null;
@@ -191,4 +210,29 @@ export const getCoachLessonsById = async ({ coachId, date }: CoachLessonsByDateP
 
   const json = await safeJson<Record<string, unknown>>(response);
   return extractArray<Lesson>(json, ["data", "results", "items", "lessons"]);
+};
+
+export const getCoachGoogleCalendarSyncedEvents = async ({
+  coachId,
+  timeMin,
+  timeMax,
+}: GetCoachGoogleCalendarEventsParams) => {
+  if (!coachId || !timeMin || !timeMax) return [];
+
+  const params = new URLSearchParams({
+    coach_id: String(coachId),
+    timeMin,
+    timeMax,
+  }).toString();
+
+  const response = await apiRequest(`/player/coach/google-calendar/synced-events?${params}`, {
+    method: "GET",
+  });
+
+  if (!response?.ok) {
+    throw new Error("Failed to fetch Google Calendar synced events");
+  }
+
+  const json = await safeJson<Record<string, unknown> | GoogleCalendarEvent[] | null>(response);
+  return extractArray<GoogleCalendarEvent>(json, ["data", "results", "items", "events"]);
 };
