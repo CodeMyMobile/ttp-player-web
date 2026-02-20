@@ -130,6 +130,7 @@ const buildScheduleItems = (lessons = [], type) =>
         .join(" ");
       const coachName =
         pickString(
+          lesson.full_name,
           lesson.coach_name,
           lesson.coachName,
           lesson.instructor_name,
@@ -145,7 +146,7 @@ const buildScheduleItems = (lessons = [], type) =>
             ? `Coach ${coachName}`
             : null;
 
-      const locationLabel =
+      const locationBase =
         pickString(
           lesson.location_name,
           lesson.locationName,
@@ -168,14 +169,28 @@ const buildScheduleItems = (lessons = [], type) =>
           lesson?.venue?.title,
           lesson?.coach_location?.name,
         );
+      const courtValue = lesson.court ?? lesson.court_id ?? lesson.courtId;
+      const hasCourt =
+        courtValue !== null &&
+        courtValue !== undefined &&
+        String(courtValue).trim() !== "" &&
+        Number(courtValue) !== 0;
+      const locationLabel = locationBase && hasCourt ? `${locationBase}, Court#${courtValue}` : locationBase;
 
       const rawStatus =
-        pickString(lesson.status, lesson.registration_status, lesson.booking_status, lesson.lesson_status) ||
+        lesson.status ??
+        lesson.registration_status ??
+        lesson.booking_status ??
+        lesson.lesson_status ??
         null;
-      const statusLabel = rawStatus ? formatStatusLabel(rawStatus) : null;
+      const statusLabel = rawStatus === null ? null : formatStatusLabel(rawStatus);
+      const lessonTypeLabel = pickString(lesson.lesson_type_name, lesson.program_type, lesson.type);
+      const isPrivateLesson =
+        lessonTypeLabel?.toLowerCase() === "private" || Number(lesson.lessontype_id ?? lesson.lesson_type_id) === 1;
 
       const title =
         pickString(
+          lesson?.metadata?.title,
           lesson.title,
           lesson.lesson_title,
           lesson.name,
@@ -183,10 +198,14 @@ const buildScheduleItems = (lessons = [], type) =>
           lesson.program_name,
           lesson.series_name,
           lesson.description,
-        ) || (type === "group" ? "Group Session" : "Private Lesson");
+        ) ||
+        (isPrivateLesson ? coachName : null) ||
+        lessonTypeLabel ||
+        (type === "group" ? "Group Session" : "Private Lesson");
 
       const badgeLabel =
-        type === "group"
+        lessonTypeLabel ||
+        (type === "group"
           ? "Group Session"
           : pickString(
               lesson.program_type,
@@ -194,7 +213,7 @@ const buildScheduleItems = (lessons = [], type) =>
               lesson.program_label,
               lesson.category,
               lesson.type,
-            );
+            ));
 
       const durationLabel = formatDurationLabel(startAt, endAt);
       const dayLabel = startAt ? moment(startAt).format("ddd, MMM D") : null;
@@ -207,6 +226,7 @@ const buildScheduleItems = (lessons = [], type) =>
 
       return {
         id,
+        lessonId: lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? null,
         title,
         coachLabel,
         locationLabel: locationLabel ?? "Location TBD",
@@ -1057,6 +1077,15 @@ const DashboardPage = () => {
     navigate(`/player/lesson/${activity.lessonId}`);
   };
 
+  const handleViewScheduleItem = (item) => {
+    if (!item?.lessonId) return;
+    if (item.type === "group") {
+      navigate(`/group-lessons/${item.lessonId}`);
+      return;
+    }
+    navigate(`/player/lesson/${item.lessonId}`);
+  };
+
   return (
     <MainLayout>
       <section className="play-hero">
@@ -1346,7 +1375,23 @@ const DashboardPage = () => {
         ) : (
           <div className="schedule-condensed">
             {scheduleState.items.slice(0, 3).map((item) => (
-              <article key={item.id} className="schedule-condensed__card">
+              <article
+                key={item.id}
+                className="schedule-condensed__card"
+                role={item.lessonId ? "button" : undefined}
+                tabIndex={item.lessonId ? 0 : undefined}
+                onClick={item.lessonId ? () => handleViewScheduleItem(item) : undefined}
+                onKeyDown={
+                  item.lessonId
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleViewScheduleItem(item);
+                        }
+                      }
+                    : undefined
+                }
+              >
                 <div className="schedule-condensed__time">
                   <span>{item.timeLabel}</span>
                   <span>{item.secondaryLabel}</span>
