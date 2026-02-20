@@ -24,6 +24,7 @@ import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
+import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
@@ -222,7 +223,7 @@ const AppRoutes = () => (
       path="/player/lesson/:id"
       element={(
         <ProtectedRoute>
-          <GroupLessonDetailsPage />
+          <PlayerLessonDetailsPage />
         </ProtectedRoute>
       )}
     />

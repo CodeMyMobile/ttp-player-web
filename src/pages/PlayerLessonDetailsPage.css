@@ -1,0 +1,35 @@
+.player-lesson-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.player-lesson-details__back {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.player-lesson-details__back:hover {
+  color: #1e293b;
+}
+
+.player-lesson-details__empty {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.player-lesson-details__empty--error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b91c1c;
+}

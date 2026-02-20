@@ -226,13 +226,13 @@ const extractFallbackLessonPath = (...payloads: Array<Record<string, unknown> | 
       (value) => (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.trim()),
     );
     if (typeof lessonId === "number") {
-      return `/group-lessons/${lessonId}`;
+      return `/player/lesson/${lessonId}`;
     }
     if (typeof lessonId === "string" && lessonId.trim()) {
-      return `/group-lessons/${lessonId.trim()}`;
+      return `/player/lesson/${lessonId.trim()}`;
     }
   }
-  return "/group-lessons";
+  return "/player/calendar";
 };
 
 const redirectTo = (target: string) => {
