@@ -59,7 +59,13 @@ const parseNumber = (...values) => {
 };
 
 const formatStatusLabel = (value) => {
-  if (!value) return null;
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") {
+    if (value === 0) return "Pending";
+    if (value === 1) return "Confirmed";
+    if (value === 2) return "Cancelled";
+    return `Status ${value}`;
+  }
   return value
     .toString()
     .replace(/[_]+/g, " ")
@@ -71,6 +77,7 @@ const formatStatusLabel = (value) => {
 
 const extractLessons = (response) => {
   if (!response) return [];
+  if (Array.isArray(response.lessons)) return response.lessons;
   if (Array.isArray(response.data)) return response.data;
   if (Array.isArray(response.results)) return response.results;
   if (Array.isArray(response.items)) return response.items;
@@ -280,21 +287,29 @@ const buildActivityItems = (lessons = []) =>
       const currentSpots = parseNumber(lesson.current_player_count, lesson.currentPlayerCount, lesson.players_joined) ?? 0;
       const spotsRemaining =
         type === "group" && totalSpots !== null ? Math.max(Math.round(totalSpots - currentSpots), 0) : null;
-      const rawStatus = pickString(lesson.status, lesson.booking_status, lesson.payment_status, lesson.lesson_status);
+      const rawStatus =
+        lesson.status ??
+        lesson.booking_status ??
+        lesson.payment_status ??
+        lesson.lesson_status ??
+        null;
+      const coachName = pickString(
+        lesson.full_name,
+        lesson.coach_name,
+        lesson.coachName,
+        lesson?.coach?.name,
+      );
+      const titleFromCoach = coachName ? `Coach ${coachName}` : null;
+      const metadataTitle = pickString(lesson?.metadata?.title);
+      const finalTitle = metadataTitle || titleFromCoach || (type === "group" ? "Group Session" : "Private Lesson");
 
       return {
         id: `activity-${type}-${lessonId ?? startAt.toISOString()}`,
         lessonId: lessonId != null ? String(lessonId) : null,
         type,
         title:
-          pickString(
-            lesson?.metadata?.title,
-            lesson.title,
-            lesson.lesson_title,
-            lesson.name,
-            lesson.lesson_name,
-            lesson.program_name,
-          ) || (type === "group" ? "Group Session" : "Private Lesson"),
+          pickString(lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name, lesson.program_name) ||
+          finalTitle,
         venue:
           pickString(
             lesson.location_name,
