@@ -539,7 +539,7 @@ const isActionBlocked = (statusCode: InviteStatusCode) =>
 const LessonInvitePage = () => {
   const params = useParams<{ token?: string }>();
   const location = useLocation();
-  const { isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout, establishSession } = useAuth();
 
   const token = useMemo(
     () => extractInviteTokenFromRoute({ paramsToken: params.token, pathname: location.pathname, hash: location.hash }),
@@ -629,10 +629,11 @@ const LessonInvitePage = () => {
       localStorage.setItem("refreshToken", claimResponse.refresh_token);
     }
     localStorage.setItem("authLoginResponse", JSON.stringify(claimResponse));
+    establishSession(claimResponse as Record<string, unknown>);
     const normalized = getStoredAuthToken({ preferScheme: "token" });
     setSessionToken(normalized);
     return accessToken ?? null;
-  }, []);
+  }, [establishSession]);
 
   const completeFlow = useCallback(
     (responsePayload: LessonInviteActionResponse | null) => {
