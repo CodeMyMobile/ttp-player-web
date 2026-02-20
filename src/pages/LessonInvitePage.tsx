@@ -58,6 +58,11 @@ type InvitePreviewData = {
   totalLabel: string;
 };
 
+type InviteStatusPill = {
+  label: string;
+  tone: "success" | "pending" | "neutral" | "danger";
+};
+
 const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
   import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
@@ -432,6 +437,34 @@ const resolvePreviewData = (payload: LessonInviteBeginResponse | null): InvitePr
   };
 };
 
+const resolveLessonStatusPills = (payload: LessonInviteBeginResponse | null): InviteStatusPill[] => {
+  if (!payload) return [];
+  const lesson = payload.lesson as Record<string, unknown> | undefined;
+  if (!lesson) return [];
+
+  const pills: InviteStatusPill[] = [];
+  const lessonStatus = typeof lesson.status === "number" ? lesson.status : Number(lesson.status);
+  const paymentRequired = payload.paymentRequired === true || payload.requires_payment === true;
+
+  if (Number.isFinite(lessonStatus)) {
+    if (lessonStatus === 1) {
+      pills.push({ label: "Lesson Confirmed", tone: "success" });
+    } else if (lessonStatus === 0 && paymentRequired) {
+      pills.push({ label: "Payment Pending", tone: "pending" });
+    } else if (lessonStatus === 0) {
+      pills.push({ label: "Pending", tone: "pending" });
+    } else if (lessonStatus === 2) {
+      pills.push({ label: "Cancelled", tone: "danger" });
+    }
+  }
+
+  if (lesson.is_upcoming === true) {
+    pills.push({ label: "Upcoming", tone: "neutral" });
+  }
+
+  return pills;
+};
+
 const isActionBlocked = (statusCode: InviteStatusCode) =>
   statusCode === "expired" ||
   statusCode === "not_found" ||
@@ -506,6 +539,7 @@ const LessonInvitePage = () => {
   const title = resolveTitle(invitePayload);
   const metaLines = resolveMetaLines(invitePayload);
   const preview = useMemo(() => resolvePreviewData(invitePayload), [invitePayload]);
+  const lessonStatusPills = useMemo(() => resolveLessonStatusPills(invitePayload), [invitePayload]);
   const stripeEnabled = Boolean(stripePromise);
 
   const persistClaimSession = useCallback((claimResponse: LessonInviteClaimResponse) => {
@@ -964,6 +998,16 @@ const LessonInvitePage = () => {
             <span className="lesson-invite-total-label">Lesson Total</span>
             <span className="lesson-invite-total-value">{preview.totalLabel}</span>
           </section>
+
+          {lessonStatusPills.length > 0 ? (
+            <section className="lesson-invite-status-pills">
+              {lessonStatusPills.map((pill) => (
+                <span key={pill.label} className={`lesson-invite-status-pill lesson-invite-status-pill--${pill.tone}`}>
+                  {pill.label}
+                </span>
+              ))}
+            </section>
+          ) : null}
 
           {metaLines.length > 0 ? (
             <div className="lesson-invite-card__summary">
