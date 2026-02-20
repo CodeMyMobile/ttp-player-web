@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -23,7 +23,17 @@ import { decideInviteNextAction, extractInviteTokenFromRoute } from "../utils/le
 
 import "./LessonInvitePage.css";
 
-type InviteStatusCode = "expired" | "full" | "not_found" | "invite_mismatch" | "lesson_full" | "payment_required" | null;
+type InviteStatusCode =
+  | "expired"
+  | "full"
+  | "not_found"
+  | "invite_mismatch"
+  | "lesson_full"
+  | "payment_required"
+  | "lesson_archived"
+  | "coach_stripe_missing"
+  | "pricing_error"
+  | null;
 
 type NormalizedPaymentMethod = {
   id: string;
@@ -45,7 +55,9 @@ const lowercase = (value: unknown) => (typeof value === "string" ? value.trim().
 
 const resolveErrorCode = (error: unknown): InviteStatusCode => {
   if (!error || typeof error !== "object") return null;
-  const err = error as Error & { data?: Record<string, unknown> };
+  const err = error as Error & { data?: Record<string, unknown>; status?: number };
+  if (err.status === 404) return "not_found";
+  if (err.status === 410) return "lesson_archived";
   const codeCandidates = [
     err.data?.error_code,
     err.data?.code,
@@ -57,6 +69,9 @@ const resolveErrorCode = (error: unknown): InviteStatusCode => {
   if (code.includes("expired")) return "expired";
   if (code.includes("not_found") || code.includes("not found")) return "not_found";
   if (code.includes("invite_mismatch")) return "invite_mismatch";
+  if (code.includes("lesson_archived")) return "lesson_archived";
+  if (code.includes("coach_stripe_missing")) return "coach_stripe_missing";
+  if (code.includes("pricing")) return "pricing_error";
   if (code.includes("lesson_full")) return "lesson_full";
   if (code.includes("payment_required")) return "payment_required";
   if (code.includes("full")) return "full";
@@ -68,7 +83,11 @@ const errorMessageForCode = (code: InviteStatusCode) => {
   if (code === "full" || code === "lesson_full") return "This lesson is already full.";
   if (code === "not_found") return "We couldn’t find this invite.";
   if (code === "invite_mismatch") return "This invite does not match your account.";
+  if (code === "lesson_archived") return "This lesson is no longer available.";
   if (code === "payment_required") return "Payment is required to claim this invite.";
+  if (code === "coach_stripe_missing" || code === "pricing_error") {
+    return "This lesson cannot be paid online right now. Please contact support.";
+  }
   return null;
 };
 
@@ -77,6 +96,7 @@ const resolveInviteStatusCode = (payload: LessonInviteBeginResponse | null): Inv
   const statusRaw = lowercase(payload.status || payload.state);
   if (!statusRaw) return null;
   if (statusRaw.includes("expired")) return "expired";
+  if (statusRaw.includes("lesson_archived") || statusRaw.includes("archived")) return "lesson_archived";
   if (statusRaw.includes("not_found") || statusRaw.includes("not found")) return "not_found";
   if (statusRaw.includes("lesson_full")) return "lesson_full";
   if (statusRaw.includes("full")) return "full";
@@ -239,12 +259,16 @@ const resolveMetaLines = (payload: LessonInviteBeginResponse | null) => {
 };
 
 const isActionBlocked = (statusCode: InviteStatusCode) =>
-  statusCode === "expired" || statusCode === "not_found" || statusCode === "full" || statusCode === "lesson_full";
+  statusCode === "expired" ||
+  statusCode === "not_found" ||
+  statusCode === "full" ||
+  statusCode === "lesson_full" ||
+  statusCode === "lesson_archived";
 
 const LessonInvitePage = () => {
   const params = useParams<{ token?: string }>();
   const location = useLocation();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const token = useMemo(
     () => extractInviteTokenFromRoute({ paramsToken: params.token, pathname: location.pathname, hash: location.hash }),
     [location.hash, location.pathname, params.token],
@@ -254,16 +278,13 @@ const LessonInvitePage = () => {
   const [beginLoading, setBeginLoading] = useState(true);
   const [beginError, setBeginError] = useState<string | null>(null);
   const [beginStatusCode, setBeginStatusCode] = useState<InviteStatusCode>(null);
-  const [formState, setFormState] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
+  const [autoClaiming, setAutoClaiming] = useState(false);
+  const [autoClaimAttempted, setAutoClaimAttempted] = useState(false);
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(getStoredAuthToken({ preferScheme: "token" }));
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionStatusCode, setActionStatusCode] = useState<InviteStatusCode>(null);
   const [accepting, setAccepting] = useState(false);
   const [acceptCompleted, setAcceptCompleted] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -279,16 +300,19 @@ const LessonInvitePage = () => {
 
   const pageStatusCode = beginStatusCode || resolveInviteStatusCode(invitePayload);
   const blockedInvite = isActionBlocked(pageStatusCode);
+  const requiresPaymentFromError = actionStatusCode === "payment_required";
   const actionType = useMemo(
     () => decideInviteNextAction({ beginPayload: invitePayload, claimPayload }),
     [claimPayload, invitePayload],
   );
+  const shouldShowPayment = actionType === "pay" || requiresPaymentFromError;
+  const mismatchState = pageStatusCode === "invite_mismatch" || actionStatusCode === "invite_mismatch";
   const title = resolveTitle(invitePayload);
   const metaLines = resolveMetaLines(invitePayload);
   const stripeEnabled = Boolean(stripePromise);
 
   const persistClaimSession = useCallback(
-    (claimResponse: LessonInviteClaimResponse, submittedForm: typeof formState) => {
+    (claimResponse: LessonInviteClaimResponse) => {
       const accessToken = claimResponse.access_token;
       const refreshToken = claimResponse.refresh_token;
 
@@ -302,9 +326,6 @@ const LessonInvitePage = () => {
         "authLoginResponse",
         JSON.stringify({
           ...claimResponse,
-          email: submittedForm.email,
-          full_name: submittedForm.fullName,
-          phone: submittedForm.phone,
         }),
       );
 
@@ -330,6 +351,7 @@ const LessonInvitePage = () => {
       setAccepting(true);
       setAcceptCompleted(false);
       setActionError(null);
+      setActionStatusCode(null);
       setSuccessMessage(null);
       try {
         const response = await acceptLessonInvite(token, authToken);
@@ -338,6 +360,7 @@ const LessonInvitePage = () => {
         completeFlow(response);
       } catch (error) {
         const code = resolveErrorCode(error);
+        setActionStatusCode(code);
         const message = errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to accept invite.");
         setActionError(message);
       } finally {
@@ -356,6 +379,7 @@ const LessonInvitePage = () => {
       }
       setPaying(true);
       setActionError(null);
+      setActionStatusCode(null);
       setSuccessMessage(null);
       try {
         const response = await payLessonInvite({
@@ -373,6 +397,7 @@ const LessonInvitePage = () => {
         completeFlow(response);
       } catch (error) {
         const code = resolveErrorCode(error);
+        setActionStatusCode(code);
         const message = errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to complete payment.");
         setActionError(message);
       } finally {
@@ -383,7 +408,7 @@ const LessonInvitePage = () => {
   );
 
   const loadPaymentContext = useCallback(async () => {
-    if (!sessionToken || !stripeEnabled || actionType !== "pay") {
+    if (!sessionToken || !stripeEnabled || (!requiresPaymentFromError && actionType !== "pay")) {
       return;
     }
 
@@ -391,6 +416,7 @@ const LessonInvitePage = () => {
     setPaymentMethodsLoading(true);
     setSetupIntentError(null);
     setPaymentMethodsError(null);
+    setActionStatusCode(null);
 
     try {
       const [setupResult, methodsResult] = await Promise.all([
@@ -410,6 +436,8 @@ const LessonInvitePage = () => {
       const defaultMethod = normalizedMethods.find((method) => method.isDefault);
       setSelectedPaymentMethodId(defaultMethod?.id || normalizedMethods[0]?.id || "");
     } catch (error) {
+      const code = resolveErrorCode(error);
+      setActionStatusCode(code);
       const message = error instanceof Error ? error.message : "Unable to load payment options.";
       setSetupIntentClientSecret(null);
       setSetupIntentError(message);
@@ -419,7 +447,7 @@ const LessonInvitePage = () => {
       setSetupIntentLoading(false);
       setPaymentMethodsLoading(false);
     }
-  }, [actionType, sessionToken, stripeEnabled]);
+  }, [actionType, requiresPaymentFromError, sessionToken, stripeEnabled]);
 
   useEffect(() => {
     const storedToken = getStoredAuthToken({ preferScheme: "token" });
@@ -468,12 +496,12 @@ const LessonInvitePage = () => {
   }, [token]);
 
   useEffect(() => {
-    if (!sessionToken || beginLoading || blockedInvite || !token) {
+    if (!sessionToken || beginLoading || blockedInvite || mismatchState || !token) {
       acceptTriggeredRef.current = false;
       return;
     }
 
-    if (actionType !== "accept") {
+    if (shouldShowPayment) {
       acceptTriggeredRef.current = false;
       return;
     }
@@ -481,38 +509,45 @@ const LessonInvitePage = () => {
     if (acceptTriggeredRef.current) return;
     acceptTriggeredRef.current = true;
     void runAccept(sessionToken);
-  }, [actionType, beginLoading, blockedInvite, runAccept, sessionToken, token]);
+  }, [beginLoading, blockedInvite, mismatchState, runAccept, sessionToken, shouldShowPayment, token]);
 
   useEffect(() => {
-    if (!sessionToken || actionType !== "pay" || blockedInvite) {
+    if (!sessionToken || !shouldShowPayment || blockedInvite) {
       return;
     }
     void loadPaymentContext();
-  }, [actionType, blockedInvite, loadPaymentContext, sessionToken]);
+  }, [blockedInvite, loadPaymentContext, sessionToken, shouldShowPayment]);
 
-  const handleClaimSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!token || claimLoading) return;
+  const runAutoClaim = useCallback(async () => {
+    if (!token || claimLoading || autoClaiming) return;
+    setAutoClaiming(true);
     setClaimLoading(true);
+    setAutoClaimAttempted(true);
     setClaimError(null);
     setActionError(null);
+    setActionStatusCode(null);
     try {
-      const response = await claimLessonInvite(token, {
-        fullName: formState.fullName.trim(),
-        email: formState.email.trim(),
-        phone: formState.phone.trim() || undefined,
-        password: formState.password,
-      });
+      const response = await claimLessonInvite(token);
       setClaimPayload(response);
-      persistClaimSession(response, formState);
+      persistClaimSession(response);
     } catch (error) {
       const code = resolveErrorCode(error);
+      setActionStatusCode(code);
       const message = errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to claim invite.");
       setClaimError(message);
     } finally {
       setClaimLoading(false);
+      setAutoClaiming(false);
     }
-  };
+  }, [autoClaiming, claimLoading, persistClaimSession, token]);
+
+  useEffect(() => {
+    if (authLoading || beginLoading || blockedInvite || sessionToken || !token) {
+      return;
+    }
+    if (autoClaimAttempted) return;
+    void runAutoClaim();
+  }, [authLoading, autoClaimAttempted, beginLoading, blockedInvite, runAutoClaim, sessionToken, token]);
 
   return (
     <div className="auth-page lesson-invite-page">
@@ -541,58 +576,24 @@ const LessonInvitePage = () => {
 
         {!beginLoading && !blockedInvite && !sessionToken ? (
           <>
-            {claimError ? <div className="error-message">{claimError}</div> : null}
-            <form onSubmit={handleClaimSubmit}>
-              <div className="form-group">
-                <label htmlFor="invite-full-name">Full name</label>
-                <input
-                  id="invite-full-name"
-                  value={formState.fullName}
-                  onChange={(event) => setFormState((current) => ({ ...current, fullName: event.target.value }))}
-                  required
-                  autoComplete="name"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="invite-email">Email</label>
-                <input
-                  id="invite-email"
-                  type="email"
-                  value={formState.email}
-                  onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="invite-phone">Phone</label>
-                <input
-                  id="invite-phone"
-                  value={formState.phone}
-                  onChange={(event) => setFormState((current) => ({ ...current, phone: event.target.value }))}
-                  autoComplete="tel"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="invite-password">Password</label>
-                <input
-                  id="invite-password"
-                  type="password"
-                  value={formState.password}
-                  onChange={(event) => setFormState((current) => ({ ...current, password: event.target.value }))}
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-              <button type="submit" className="primary-button" disabled={claimLoading}>
-                {claimLoading ? "Claiming…" : "Claim invite"}
-              </button>
-            </form>
+            {claimLoading || autoClaiming ? (
+              <p className="lesson-invite-card__status" role="status">
+                <Loader2 size={16} className="lesson-invite-card__spinner" aria-hidden />
+                Claiming your invite…
+              </p>
+            ) : null}
+            {claimError ? (
+              <>
+                <div className="error-message">{claimError}</div>
+                <button type="button" className="primary-button" onClick={() => void runAutoClaim()} disabled={claimLoading}>
+                  {claimLoading ? "Retrying…" : "Retry claim"}
+                </button>
+              </>
+            ) : null}
           </>
         ) : null}
 
-        {!beginLoading && !blockedInvite && sessionToken && actionType === "accept" ? (
+        {!beginLoading && !blockedInvite && sessionToken && !shouldShowPayment ? (
           <p className="lesson-invite-card__status" role="status">
             {accepting ? (
               <>
@@ -613,7 +614,7 @@ const LessonInvitePage = () => {
           </p>
         ) : null}
 
-        {!beginLoading && !blockedInvite && sessionToken && actionType === "pay" ? (
+        {!beginLoading && !blockedInvite && sessionToken && shouldShowPayment ? (
           <section className="lesson-invite-card__payment">
             <h2>Complete payment</h2>
             <p>Choose a saved card or add a new one to finish accepting this invite.</p>
@@ -623,6 +624,10 @@ const LessonInvitePage = () => {
                 <AlertCircle size={16} aria-hidden />
                 <span>{actionError}</span>
               </div>
+            ) : null}
+
+            {actionStatusCode === "coach_stripe_missing" || actionStatusCode === "pricing_error" ? (
+              <div className="error-message">Payments are temporarily unavailable for this invite. Please contact support.</div>
             ) : null}
 
             {successMessage ? <div className="success-message">{successMessage}</div> : null}
@@ -692,6 +697,17 @@ const LessonInvitePage = () => {
 
         {!beginLoading && blockedInvite && pageStatusCode ? (
           <div className="error-message">{errorMessageForCode(pageStatusCode) || "This invite can’t be claimed."}</div>
+        ) : null}
+
+        {!beginLoading && mismatchState ? (
+          <div className="lesson-invite-card__mismatch">
+            <div className="error-message">This invite is for another account.</div>
+            {sessionToken ? (
+              <button type="button" className="secondary-link lesson-invite-card__signout" onClick={logout}>
+                Sign out and continue with another account
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

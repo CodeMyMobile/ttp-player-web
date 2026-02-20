@@ -2,10 +2,10 @@ import { request } from "./http";
 import type { PlayerStripePaymentMethod, PlayerStripePaymentMethodListResponse, StripeSetupIntentResponse } from "./playerStripe";
 
 export interface LessonInviteClaimPayload {
-  fullName: string;
-  email: string;
+  fullName?: string;
+  email?: string;
   phone?: string;
-  password: string;
+  password?: string;
 }
 
 export interface LessonInviteClaimResponse {
@@ -43,15 +43,14 @@ export const beginLessonInvite = (token: string) =>
     method: "POST",
   });
 
-export const claimLessonInvite = (token: string, payload: LessonInviteClaimPayload) =>
+export const claimLessonInvite = (token: string, payload: LessonInviteClaimPayload = {}) =>
   request<LessonInviteClaimResponse>(`/lesson-invites/${normalizeInviteToken(token)}/claim`, {
     method: "POST",
     body: {
-      full_name: payload.fullName,
-      fullName: payload.fullName,
-      email: payload.email,
-      phone: payload.phone,
-      password: payload.password,
+      ...(payload.fullName ? { full_name: payload.fullName, fullName: payload.fullName } : {}),
+      ...(payload.email ? { email: payload.email } : {}),
+      ...(payload.phone ? { phone: payload.phone } : {}),
+      ...(payload.password ? { password: payload.password } : {}),
     },
   });
 
