@@ -174,8 +174,31 @@
 .lesson-invite-total-card {
   padding: 14px;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-invite-total-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.lesson-invite-total-row-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.lesson-invite-total-row-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lesson-invite-total-row--total {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  margin-top: 4px;
 }
 
 .lesson-invite-total-label {

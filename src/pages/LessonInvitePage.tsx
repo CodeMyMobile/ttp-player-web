@@ -66,6 +66,7 @@ type InvitePreviewData = {
   durationLabel: string;
   locationLabel: string;
   totalLabel: string;
+  pricingRows: Array<{ label: string; value: string }>;
 };
 
 type InviteStatusPill = {
@@ -409,24 +410,62 @@ const resolvePreviewData = (payload: LessonInviteBeginResponse | null): InvitePr
     (typeof invite.location_name === "string" ? invite.location_name : null) ||
     "Tennis court";
 
-  const totalRaw =
-    lesson?.group_price_per_person ??
-    lesson?.price_per_person ??
-    lesson?.hourly_rate ??
-    coach?.hourly_rate ??
-    payload?.price_per_person ??
-    payload?.price ??
-    invite.price_per_person ??
-    invite.price ??
-    null;
+  const parseMoney = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number.parseFloat(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+  };
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  const discountCalc = (bill: number, discount = 0) => {
+    const percentage = clamp(discount, 0, 100);
+    return Math.round((bill - (bill * percentage) / 100) * 100) / 100;
+  };
+  const percentageCalc = (percentage: number, amount: number) =>
+    Math.round(((percentage / 100) * amount) * 100) / 100;
+
+  const groupPriceValue =
+    parseMoney(lesson?.price_per_person) ??
+    parseMoney(lesson?.group_price_per_person) ??
+    parseMoney(payload?.price_per_person) ??
+    parseMoney(invite.price_per_person);
+  const hourlyRateValue =
+    parseMoney(lesson?.hourly_rate) ??
+    parseMoney(coach?.hourly_rate) ??
+    parseMoney(payload?.price) ??
+    parseMoney(invite.price);
+  const discountPercentage = parseMoney(lesson?.discount_percentage) ?? 0;
+  const baseRate = groupPriceValue ?? hourlyRateValue;
+  const discountedRate = baseRate != null ? discountCalc(baseRate, discountPercentage) : null;
+  const creditFee = discountedRate != null ? percentageCalc(3, discountedRate) : null;
+  const serviceFee = discountedRate != null ? 1 : null;
+  const totalFee =
+    discountedRate != null && creditFee != null && serviceFee != null ? discountedRate + creditFee + serviceFee : null;
+
+  const pricingRows: Array<{ label: string; value: string }> = [];
+  if (discountedRate != null) {
+    pricingRows.push({
+      label: groupPriceValue != null ? "Coach fee (per player)" : "Coach fee",
+      value: `$${discountedRate.toFixed(2)}`,
+    });
+  }
+  if (creditFee != null) {
+    pricingRows.push({ label: "Credit 3%", value: `$${creditFee.toFixed(2)}` });
+  }
+  if (serviceFee != null) {
+    pricingRows.push({ label: "Service fee", value: `$${serviceFee.toFixed(2)}` });
+  }
+  if (discountPercentage > 0) {
+    pricingRows.push({ label: "Discount", value: `${discountPercentage}%` });
+  }
 
   const totalLabel =
-    typeof totalRaw === "number"
-      ? `$${totalRaw.toFixed(2)}`
-      : typeof totalRaw === "string" && totalRaw.trim()
-        ? totalRaw.trim().startsWith("$")
-          ? totalRaw.trim()
-          : `$${totalRaw.trim()}`
+    totalFee != null
+      ? `$${totalFee.toFixed(2)}`
+      : baseRate != null
+        ? `$${baseRate.toFixed(2)}`
         : "TBD";
 
   const dateLabel = startAt
@@ -458,6 +497,7 @@ const resolvePreviewData = (payload: LessonInviteBeginResponse | null): InvitePr
         : computeDurationLabel(startAt, endAt)),
     locationLabel: location,
     totalLabel,
+    pricingRows,
   };
 };
 
@@ -1056,8 +1096,25 @@ const LessonInvitePage = () => {
           </section>
 
           <section className="lesson-invite-total-card">
-            <span className="lesson-invite-total-label">Lesson Total</span>
-            <span className="lesson-invite-total-value">{preview.totalLabel}</span>
+            {preview.pricingRows.length > 0 ? (
+              <>
+                {preview.pricingRows.map((row) => (
+                  <div key={`${row.label}-${row.value}`} className="lesson-invite-total-row">
+                    <span className="lesson-invite-total-row-label">{row.label}</span>
+                    <span className="lesson-invite-total-row-value">{row.value}</span>
+                  </div>
+                ))}
+                <div className="lesson-invite-total-row lesson-invite-total-row--total">
+                  <span className="lesson-invite-total-label">Lesson Total</span>
+                  <span className="lesson-invite-total-value">{preview.totalLabel}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="lesson-invite-total-label">Lesson Total</span>
+                <span className="lesson-invite-total-value">{preview.totalLabel}</span>
+              </>
+            )}
           </section>
 
           {lessonStatusPills.length > 0 ? (
