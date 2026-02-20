@@ -15,13 +15,16 @@ import {
   getLessonInviteStripePaymentMethods,
   getLessonInviteStripeSetupIntent,
   payLessonInvite,
+  quickSignupLessonInvite,
   rejectLessonInvite,
   type LessonInviteActionResponse,
   type LessonInviteBeginResponse,
   type LessonInviteClaimResponse,
+  type LessonInviteQuickSignupResponse,
 } from "../api/lessonInvites";
 import type { PlayerStripePaymentMethod, PlayerStripePaymentMethodListResponse } from "../api/playerStripe";
 import { decideInviteNextAction, extractInviteTokenFromRoute } from "../utils/lessonInviteFlow";
+import { useLessonInviteStepMachine } from "../hooks/useLessonInviteStepMachine";
 
 import "./LessonInvitePage.css";
 
@@ -35,6 +38,13 @@ type InviteStatusCode =
   | "lesson_archived"
   | "coach_stripe_missing"
   | "pricing_error"
+  | "email_in_use"
+  | "full_name_required"
+  | "email_required"
+  | "password_required"
+  | "password_too_short"
+  | "password_mismatch"
+  | "invalid_status"
   | null;
 
 type NormalizedPaymentMethod = {
@@ -93,6 +103,13 @@ const resolveErrorCode = (error: unknown): InviteStatusCode => {
   if (code.includes("lesson_archived") || code.includes("archived")) return "lesson_archived";
   if (code.includes("coach_stripe_missing")) return "coach_stripe_missing";
   if (code.includes("pricing")) return "pricing_error";
+  if (code.includes("email_in_use")) return "email_in_use";
+  if (code.includes("full_name_required")) return "full_name_required";
+  if (code.includes("email_required")) return "email_required";
+  if (code.includes("password_required")) return "password_required";
+  if (code.includes("password_too_short")) return "password_too_short";
+  if (code.includes("password_mismatch")) return "password_mismatch";
+  if (code.includes("invalid_status")) return "invalid_status";
   if (code.includes("lesson_full")) return "lesson_full";
   if (code.includes("payment_required")) return "payment_required";
   if (code.includes("full")) return "full";
@@ -105,7 +122,14 @@ const errorMessageForCode = (code: InviteStatusCode) => {
   if (code === "not_found") return "We couldn’t find this invite.";
   if (code === "invite_mismatch") return "This invite is for another account.";
   if (code === "lesson_archived") return "This lesson is no longer available.";
+  if (code === "invalid_status") return "This invite can no longer be used.";
   if (code === "payment_required") return "Payment is required to claim this invite.";
+  if (code === "email_in_use") return "That email is already in use. Please sign in with it.";
+  if (code === "full_name_required") return "First and last name are required.";
+  if (code === "email_required") return "Email is required.";
+  if (code === "password_required") return "Password is required.";
+  if (code === "password_too_short") return "Password must be at least 8 characters.";
+  if (code === "password_mismatch") return "Password confirmation does not match.";
   if (code === "coach_stripe_missing" || code === "pricing_error") {
     return "This lesson cannot be paid online right now. Please contact support.";
   }
@@ -492,13 +516,16 @@ const LessonInvitePage = () => {
   const [autoClaimAttempted, setAutoClaimAttempted] = useState(false);
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
-  const [showClaimForm, setShowClaimForm] = useState(false);
-  const [claimForm, setClaimForm] = useState({
-    fullName: "",
+  const [quickSignupForm, setQuickSignupForm] = useState({
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     password: "",
+    confirmPassword: "",
   });
+  const [quickSignupLoading, setQuickSignupLoading] = useState(false);
+  const [quickSignupError, setQuickSignupError] = useState<string | null>(null);
 
   const [flowScreen, setFlowScreen] = useState<"preview" | "decline" | "declined">("preview");
   const [declineReason, setDeclineReason] = useState("Schedule conflict");
@@ -524,6 +551,7 @@ const LessonInvitePage = () => {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [retryingFlow, setRetryingFlow] = useState(false);
+  const { step, goPreview, goQuickSignup, goPayment, goDone } = useLessonInviteStepMachine("preview");
 
   const pageStatusCode = beginStatusCode || resolveInviteStatusCode(invitePayload);
   const blockedInvite = isActionBlocked(pageStatusCode);
@@ -534,13 +562,23 @@ const LessonInvitePage = () => {
   );
   const shouldShowPayment = actionType === "pay" || requiresPaymentFromError;
   const authTokenForCalls = (claimPayload?.access_token as string | undefined) || sessionToken;
-  const showPaymentPanel = Boolean(authTokenForCalls) && shouldShowPayment && confirmStarted;
+  // Always require Step 3A for invitee claim flows before payment/accept.
+  const shouldUseQuickSignup = true;
+  const showPaymentPanel = step === "payment" && Boolean(authTokenForCalls) && shouldShowPayment;
   const mismatchState = pageStatusCode === "invite_mismatch" || actionStatusCode === "invite_mismatch";
   const title = resolveTitle(invitePayload);
   const metaLines = resolveMetaLines(invitePayload);
   const preview = useMemo(() => resolvePreviewData(invitePayload), [invitePayload]);
   const lessonStatusPills = useMemo(() => resolveLessonStatusPills(invitePayload), [invitePayload]);
   const stripeEnabled = Boolean(stripePromise);
+  const quickSignupValid = useMemo(() => {
+    if (!quickSignupForm.firstName.trim()) return false;
+    if (!quickSignupForm.lastName.trim()) return false;
+    if (!quickSignupForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quickSignupForm.email.trim())) return false;
+    if (quickSignupForm.password.length < 8) return false;
+    if (quickSignupForm.confirmPassword !== quickSignupForm.password) return false;
+    return true;
+  }, [quickSignupForm]);
 
   const persistClaimSession = useCallback((claimResponse: LessonInviteClaimResponse) => {
     const accessToken = claimResponse.access_token;
@@ -683,6 +721,7 @@ const LessonInvitePage = () => {
 
   const runAutoClaim = useCallback(async () => {
     if (!token || claimLoading || autoClaiming) return;
+    if (shouldUseQuickSignup) return;
     setAutoClaiming(true);
     setClaimLoading(true);
     setAutoClaimAttempted(true);
@@ -693,19 +732,23 @@ const LessonInvitePage = () => {
       const response = await claimLessonInvite(token);
       setClaimPayload(response);
       persistClaimSession(response);
-      setShowClaimForm(false);
+      if (confirmStarted) {
+        if (response.requires_payment === true || response.paymentRequired === true || shouldShowPayment) {
+          goPayment();
+        } else {
+          completeFlow(response as LessonInviteActionResponse);
+          goDone();
+        }
+      }
     } catch (error) {
       const code = resolveErrorCode(error);
       setActionStatusCode(code);
       setClaimError(errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to claim invite."));
-      if (code !== "not_found" && code !== "expired" && code !== "lesson_full" && code !== "full") {
-        setShowClaimForm(true);
-      }
     } finally {
       setClaimLoading(false);
       setAutoClaiming(false);
     }
-  }, [autoClaiming, claimLoading, persistClaimSession, token]);
+  }, [autoClaiming, claimLoading, completeFlow, confirmStarted, goDone, goPayment, persistClaimSession, shouldShowPayment, shouldUseQuickSignup, token]);
 
   const retryInviteFlow = useCallback(async () => {
     if (!token || retryingFlow) return;
@@ -725,12 +768,7 @@ const LessonInvitePage = () => {
       beginCompleted = true;
       setInvitePayload(beginResponse);
 
-      const claimResponse = await claimLessonInvite(token, showClaimForm ? {
-        fullName: claimForm.fullName.trim() || undefined,
-        email: claimForm.email.trim() || undefined,
-        phone: claimForm.phone.trim() || undefined,
-        password: claimForm.password.trim() || undefined,
-      } : {});
+      const claimResponse = await claimLessonInvite(token);
       claimCompleted = true;
       setClaimPayload(claimResponse);
 
@@ -769,45 +807,64 @@ const LessonInvitePage = () => {
     } finally {
       setRetryingFlow(false);
     }
-  }, [
-    claimForm.email,
-    claimForm.fullName,
-    claimForm.password,
-    claimForm.phone,
-    persistClaimSession,
-    retryingFlow,
-    showClaimForm,
-    token,
-  ]);
+  }, [persistClaimSession, retryingFlow, token]);
 
-  const handleClaimFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleQuickSignupSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!token || claimLoading) return;
-    setClaimLoading(true);
-    setClaimError(null);
+    if (!token || quickSignupLoading || !quickSignupValid) return;
+
+    setQuickSignupLoading(true);
+    setQuickSignupError(null);
+    setActionStatusCode(null);
+
     try {
-      const response = await claimLessonInvite(token, {
-        fullName: claimForm.fullName.trim() || undefined,
-        email: claimForm.email.trim() || undefined,
-        phone: claimForm.phone.trim() || undefined,
-        password: claimForm.password.trim() || undefined,
-      });
-      setClaimPayload(response);
+      const response = await quickSignupLessonInvite(
+        token,
+        {
+          firstName: quickSignupForm.firstName.trim(),
+          lastName: quickSignupForm.lastName.trim(),
+          email: quickSignupForm.email.trim(),
+          phone: quickSignupForm.phone.trim() || undefined,
+          password: quickSignupForm.password,
+          confirmPassword: quickSignupForm.confirmPassword,
+        },
+        invitePayload?.quickSignup?.endpoint,
+      );
+
+      setClaimPayload(response as LessonInviteQuickSignupResponse);
       persistClaimSession(response);
-      setShowClaimForm(false);
+
+      const requiresPayment = response.requires_payment === true || response.paymentRequired === true;
+      if (requiresPayment) {
+        goPayment();
+        return;
+      }
+
+      completeFlow(response as LessonInviteActionResponse);
+      goDone();
     } catch (error) {
       const code = resolveErrorCode(error);
       setActionStatusCode(code);
-      setClaimError(errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to claim invite."));
+      setQuickSignupError(errorMessageForCode(code) || (error instanceof Error ? error.message : "Unable to complete quick signup."));
     } finally {
-      setClaimLoading(false);
+      setQuickSignupLoading(false);
     }
   };
 
   const handleConfirmClick = () => {
     setConfirmStarted(true);
+    setQuickSignupError(null);
+    setClaimError(null);
+    if (shouldUseQuickSignup) {
+      goQuickSignup();
+      return;
+    }
     if (!authTokenForCalls) {
       void runAutoClaim();
+      return;
+    }
+    if (shouldShowPayment) {
+      goPayment();
       return;
     }
     if (!shouldShowPayment) {
@@ -828,12 +885,10 @@ const LessonInvitePage = () => {
 
       let authToken = authTokenForCalls;
       if (!authToken) {
-        const claimResponse = await claimLessonInvite(token, showClaimForm ? {
-          fullName: claimForm.fullName.trim() || undefined,
-          email: claimForm.email.trim() || undefined,
-          phone: claimForm.phone.trim() || undefined,
-          password: claimForm.password.trim() || undefined,
-        } : {});
+        if (shouldUseQuickSignup) {
+          throw new Error("Complete quick signup first to decline this invite.");
+        }
+        const claimResponse = await claimLessonInvite(token);
         setClaimPayload(claimResponse);
         persistClaimSession(claimResponse);
         authToken = claimResponse.access_token || getStoredAuthToken({ preferScheme: "token" });
@@ -855,13 +910,9 @@ const LessonInvitePage = () => {
     }
   }, [
     authTokenForCalls,
-    claimForm.email,
-    claimForm.fullName,
-    claimForm.password,
-    claimForm.phone,
     persistClaimSession,
     rejecting,
-    showClaimForm,
+    shouldUseQuickSignup,
     token,
   ]);
 
@@ -893,6 +944,16 @@ const LessonInvitePage = () => {
       .then((payload) => {
         if (cancelled) return;
         setInvitePayload(payload);
+        const prefill = payload.quickSignup?.prefill;
+        if (prefill) {
+          setQuickSignupForm((prev) => ({
+            ...prev,
+            firstName: typeof prefill.first_name === "string" ? prefill.first_name : prev.firstName,
+            lastName: typeof prefill.last_name === "string" ? prefill.last_name : prev.lastName,
+            email: typeof prefill.email === "string" ? prefill.email : prev.email,
+            phone: typeof prefill.phone === "string" ? prefill.phone : prev.phone,
+          }));
+        }
       })
       .catch((error) => {
         if (cancelled) return;
@@ -911,12 +972,12 @@ const LessonInvitePage = () => {
   }, [token]);
 
   useEffect(() => {
-    if (authLoading || beginLoading || blockedInvite || sessionToken || !token) {
+    if (authLoading || beginLoading || blockedInvite || sessionToken || !token || shouldUseQuickSignup) {
       return;
     }
     if (autoClaimAttempted) return;
     void runAutoClaim();
-  }, [authLoading, autoClaimAttempted, beginLoading, blockedInvite, runAutoClaim, sessionToken, token]);
+  }, [authLoading, autoClaimAttempted, beginLoading, blockedInvite, runAutoClaim, sessionToken, shouldUseQuickSignup, token]);
 
   useEffect(() => {
     if (!authTokenForCalls || beginLoading || blockedInvite || mismatchState || !token || !confirmStarted) {
@@ -1108,42 +1169,66 @@ const LessonInvitePage = () => {
                 </button>
               ) : null}
 
-              {showClaimForm && !sessionToken ? (
-                <form className="lesson-invite-claim-form" onSubmit={handleClaimFormSubmit}>
-                  <h2>Quick signup</h2>
+              {step === "quickSignup" && shouldUseQuickSignup ? (
+                <form className="lesson-invite-claim-form" onSubmit={handleQuickSignupSubmit}>
+                  <h2>Create account</h2>
+                  <p className="lesson-invite-card__status">Set your password to claim your account and continue.</p>
+                  {quickSignupError ? <div className="error-message">{quickSignupError}</div> : null}
                   <input
                     className="form-input"
-                    placeholder="Full name"
-                    value={claimForm.fullName}
-                    onChange={(event) => setClaimForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                    placeholder="First name"
+                    value={quickSignupForm.firstName}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                    required
+                  />
+                  <input
+                    className="form-input"
+                    placeholder="Last name"
+                    value={quickSignupForm.lastName}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                    required
                   />
                   <input
                     className="form-input"
                     type="email"
                     placeholder="Email"
-                    value={claimForm.email}
-                    onChange={(event) => setClaimForm((prev) => ({ ...prev, email: event.target.value }))}
+                    value={quickSignupForm.email}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, email: event.target.value }))}
+                    required
                   />
                   <input
                     className="form-input"
                     placeholder="Phone"
-                    value={claimForm.phone}
-                    onChange={(event) => setClaimForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    value={quickSignupForm.phone}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, phone: event.target.value }))}
                   />
                   <input
                     className="form-input"
                     type="password"
-                    placeholder="Password"
-                    value={claimForm.password}
-                    onChange={(event) => setClaimForm((prev) => ({ ...prev, password: event.target.value }))}
+                    placeholder="Password (min 8)"
+                    value={quickSignupForm.password}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, password: event.target.value }))}
+                    required
+                    minLength={8}
                   />
-                  <button type="submit" className="primary-button" disabled={claimLoading}>
-                    {claimLoading ? "Claiming…" : "Continue"}
+                  <input
+                    className="form-input"
+                    type="password"
+                    placeholder="Confirm password"
+                    value={quickSignupForm.confirmPassword}
+                    onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                    required
+                  />
+                  <button type="submit" className="primary-button" disabled={quickSignupLoading || !quickSignupValid}>
+                    {quickSignupLoading ? "Creating account…" : "Continue to payment"}
+                  </button>
+                  <button type="button" className="lesson-invite-ghost-button" onClick={goPreview} disabled={quickSignupLoading}>
+                    Back
                   </button>
                 </form>
               ) : null}
 
-              {!showPaymentPanel && !accepting && !acceptCompleted ? (
+              {!showPaymentPanel && !accepting && !acceptCompleted && step !== "quickSignup" ? (
                 <div className="lesson-invite-actions">
                   <button type="button" className="lesson-invite-confirm-button" onClick={handleConfirmClick} disabled={claimLoading}>
                     Confirm & Pay

@@ -20,6 +20,21 @@ export interface LessonInviteClaimResponse {
   [key: string]: unknown;
 }
 
+export interface LessonInviteQuickSignupPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface LessonInviteQuickSignupResponse extends LessonInviteClaimResponse {
+  user_id?: number | string;
+  user_type?: number | string;
+  profile?: Record<string, unknown>;
+}
+
 export type LessonInviteBeginResponse = {
   status?: string;
   state?: string;
@@ -27,6 +42,18 @@ export type LessonInviteBeginResponse = {
   requires_payment?: boolean;
   redirect?: string;
   redirect_url?: string;
+  quickSignup?: {
+    required?: boolean;
+    endpoint?: string;
+    prefill?: {
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+      phone?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 };
 
@@ -38,6 +65,25 @@ export interface LessonInviteActionResponse {
 }
 
 const normalizeInviteToken = (token: string) => encodeURIComponent(token.trim());
+
+const normalizeInviteEndpoint = (token: string, endpoint: string | null | undefined, suffix: string) => {
+  const fallback = `/lesson-invites/${normalizeInviteToken(token)}/${suffix}`;
+  if (!endpoint || !endpoint.trim()) {
+    return fallback;
+  }
+
+  const raw = endpoint.trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  if (raw.startsWith("/api/")) {
+    return raw.slice(4);
+  }
+  if (raw === "/api") {
+    return fallback;
+  }
+  return raw;
+};
 
 export const beginLessonInvite = (token: string) =>
   request<LessonInviteBeginResponse>(`/lesson-invites/${normalizeInviteToken(token)}/begin`, {
@@ -54,6 +100,28 @@ export const claimLessonInvite = (token: string, payload: LessonInviteClaimPaylo
       ...(payload.password ? { password: payload.password } : {}),
     },
   });
+
+export const quickSignupLessonInvite = (
+  token: string,
+  payload: LessonInviteQuickSignupPayload,
+  endpoint?: string | null,
+) =>
+  request<LessonInviteQuickSignupResponse>(
+    normalizeInviteEndpoint(token, endpoint, "quick-signup"),
+    {
+      method: "POST",
+      body: {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        fullName: `${payload.firstName} ${payload.lastName}`.trim(),
+        full_name: `${payload.firstName} ${payload.lastName}`.trim(),
+        email: payload.email,
+        ...(payload.phone ? { phone: payload.phone } : {}),
+        password: payload.password,
+        confirmPassword: payload.confirmPassword,
+      },
+    },
+  );
 
 export const acceptLessonInvite = (token: string, authToken: string) =>
   request<LessonInviteActionResponse>(`/lesson-invites/${normalizeInviteToken(token)}/accept`, {
@@ -101,6 +169,7 @@ export const payLessonInvite = ({ token, authToken, paymentMethodId, payEndpoint
     {
       method: "POST",
       token: authToken,
+      authScheme: "Bearer",
       body: {
         payment_method_id: paymentMethodId,
       },
