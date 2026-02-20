@@ -74,9 +74,30 @@ interface PayLessonInviteParams {
   payEndpoint?: string | null;
 }
 
+const normalizePayEndpoint = (token: string, payEndpoint?: string | null) => {
+  const fallback = `/lesson-invites/${normalizeInviteToken(token)}/pay`;
+  if (!payEndpoint || !payEndpoint.trim()) {
+    return fallback;
+  }
+
+  const raw = payEndpoint.trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  // API base already includes "/api", so strip duplicated prefix from backend-provided paths.
+  if (raw.startsWith("/api/")) {
+    return raw.slice(4);
+  }
+  if (raw === "/api") {
+    return fallback;
+  }
+  return raw;
+};
+
 export const payLessonInvite = ({ token, authToken, paymentMethodId, payEndpoint }: PayLessonInviteParams) =>
   request<LessonInviteActionResponse>(
-    payEndpoint?.trim() || `/lesson-invites/${normalizeInviteToken(token)}/pay`,
+    normalizePayEndpoint(token, payEndpoint),
     {
       method: "POST",
       token: authToken,
