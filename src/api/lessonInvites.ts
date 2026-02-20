@@ -31,6 +31,7 @@ export type LessonInviteBeginResponse = {
 };
 
 export interface LessonInviteActionResponse {
+  message?: string;
   redirect?: string;
   redirect_url?: string;
   [key: string]: unknown;
@@ -56,6 +57,12 @@ export const claimLessonInvite = (token: string, payload: LessonInviteClaimPaylo
 
 export const acceptLessonInvite = (token: string, authToken: string) =>
   request<LessonInviteActionResponse>(`/lesson-invites/${normalizeInviteToken(token)}/accept`, {
+    method: "POST",
+    token: authToken,
+  });
+
+export const rejectLessonInvite = (token: string, authToken: string) =>
+  request<LessonInviteActionResponse>(`/lesson-invites/${normalizeInviteToken(token)}/reject`, {
     method: "POST",
     token: authToken,
   });
