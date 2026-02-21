@@ -508,15 +508,12 @@ const resolveLessonStatusPills = (payload: LessonInviteBeginResponse | null): In
 
   const pills: InviteStatusPill[] = [];
   const lessonStatus = typeof lesson.status === "number" ? lesson.status : Number(lesson.status);
-  const paymentRequired = payload.paymentRequired === true || payload.requires_payment === true;
 
   if (Number.isFinite(lessonStatus)) {
     if (lessonStatus === 1) {
       pills.push({ label: "Lesson Confirmed", tone: "success" });
-    } else if (lessonStatus === 0 && paymentRequired) {
-      pills.push({ label: "Payment Pending", tone: "pending" });
     } else if (lessonStatus === 0) {
-      pills.push({ label: "Pending", tone: "pending" });
+      pills.push({ label: "Payment Pending", tone: "pending" });
     } else if (lessonStatus === 2) {
       pills.push({ label: "Cancelled", tone: "danger" });
     }

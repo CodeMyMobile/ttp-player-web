@@ -8,7 +8,6 @@ import {
   bookLesson,
   cancelBooking,
   fetchAvailableLessons,
-  fetchPlayerBookings,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   requestPrivateLesson,
@@ -668,7 +667,7 @@ const PlayerCalendar = () => {
         selectedDay !== "all" && moment(selectedDay, moment.ISO_8601, true).isValid()
           ? moment(selectedDay)
           : null;
-      const [lessonsResponse, bookingsResponse, coachDayLessons] = await Promise.all([
+      const [lessonsResponse, coachDayLessons] = await Promise.all([
         fetchAvailableLessons({
           token: authToken,
           start_date: dateRange.start.format("YYYY-MM-DD"),
@@ -678,7 +677,6 @@ const PlayerCalendar = () => {
           location_id: locationIdParam,
           level: levelParam,
         }),
-        fetchPlayerBookings({ token: authToken }),
         coachIdParam && selectedDayMoment
           ? fetchCoachLessonsByDate({
               token: authToken,
@@ -701,7 +699,9 @@ const PlayerCalendar = () => {
         });
         return Array.from(merged.values());
       })();
-      const fetchedBookings = bookingsResponse?.data ?? [];
+      const fetchedBookings = mergedLessons
+        .filter((lesson) => Boolean(lesson.player_has_booking))
+        .map((lesson) => lesson.id);
       const availabilityPayload = Array.isArray(
         (lessonsResponse as { availability_by_coach?: CoachAvailability[] })?.availability_by_coach,
       )
