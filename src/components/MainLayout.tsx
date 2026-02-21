@@ -3,17 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
-import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
+import { Bell, ChevronDown, CreditCard, LogOut, MessageCircle, ShieldX, Target, UserRound } from "lucide-react";
 
 const navLinks = [
-  { label: "Home", to: "/" },
   { label: "Browse Matches", to: "/matches" },
   { label: "Find Players", to: "/find-players" },
   { label: "Group Lessons", to: "/group-lessons" },
-  { label: "Find Coaches", to: "/find-coaches" },
-  { label: "My Coaches", to: "/my-coaches" },
-  { label: "Credits", to: "/credits" },
-  { label: "My Activity", href: "#activity" },
+  { label: "Coaches", to: "/find-coaches" },
 ];
 
 interface MainLayoutProps {
@@ -50,10 +46,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <div className="dashboard-page">
       <header className="main-nav">
-        <div className="brand">
+        <Link className="brand" to="/" aria-label="Matchplay home">
           <div className="brand-badge">MP</div>
           <span>Matchplay</span>
-        </div>
+        </Link>
         <nav className="nav-links">
           {navLinks.map((link) =>
             link.to ? (
@@ -72,6 +68,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           )}
         </nav>
         <div className="header-actions">
+          <button type="button" className="notification-button" aria-label="Open messages">
+            <MessageCircle size={20} aria-hidden="true" />
+          </button>
           <button type="button" className="notification-button" aria-label="View notifications">
             <Bell size={20} aria-hidden="true" />
             <span className="notification-indicator" aria-hidden="true" />
