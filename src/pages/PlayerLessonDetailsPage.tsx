@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+  type Stripe,
+} from "@stripe/stripe-js";
 
 import MainLayout from "../components/MainLayout";
 import LessonDetailCard from "../components/LessonDetailCard";
@@ -47,6 +52,19 @@ const parseLessonStatus = (lesson: Lesson | null) => {
   return parseNumber(record.status);
 };
 
+const parseMoney = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseFloat(value.replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
 const resolveLessonTypeForCredits = (lesson: Lesson | null) => {
   if (!lesson) return "private";
   const record = lesson as Record<string, unknown>;
@@ -72,7 +90,7 @@ const PlayerLessonDetailsPage = () => {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentChoice, setPaymentChoice] = useState<"card" | "credits">("card");
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "credits" | "apple-pay">("card");
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -87,8 +105,27 @@ const PlayerLessonDetailsPage = () => {
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [creditsError, setCreditsError] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
 
   const token = useMemo(() => getStoredAuthToken({ preferScheme: "token" }) ?? null, []);
+  const lessonTotalAmountCents = useMemo(() => {
+    if (!lesson) return null;
+    const record = lesson as Record<string, unknown>;
+    const baseRate =
+      parseMoney(lesson.price_per_person) ??
+      parseMoney(record.group_price_per_person) ??
+      parseMoney(record.hourly_rate) ??
+      parseMoney(record.price);
+    if (!baseRate || baseRate <= 0) {
+      return null;
+    }
+    const discountPercentage = parseMoney(record.discount_percentage) ?? 0;
+    const discountedRate = baseRate - (baseRate * Math.max(Math.min(discountPercentage, 100), 0)) / 100;
+    const creditFee = discountedRate * 0.03;
+    const total = discountedRate + creditFee + 1;
+    return Math.round(total * 100);
+  }, [lesson]);
 
   const loadLesson = useCallback(
     async (signal?: AbortSignal) => {
@@ -219,6 +256,45 @@ const PlayerLessonDetailsPage = () => {
     };
   }, [isPaymentPending, lesson, token]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setIsApplePayReady(false);
+    setApplePayRequest(null);
+    if (!isPaymentPending || !stripePromise || !lessonTotalAmountCents || lessonTotalAmountCents <= 0) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) return;
+      const request = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: lessonTotalAmountCents,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+      const canPay = await request.canMakePayment();
+      if (!cancelled && canPay?.applePay) {
+        setIsApplePayReady(true);
+        setApplePayRequest(request);
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setIsApplePayReady(false);
+        setApplePayRequest(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPaymentPending, lessonTotalAmountCents]);
+
   const handleCardAdded = useCallback(async () => {
     if (!token) return;
     try {
@@ -239,7 +315,76 @@ const PlayerLessonDetailsPage = () => {
     setActionError(null);
     setActionSuccess(null);
     try {
-      if (paymentChoice === "credits") {
+      if (paymentChoice === "apple-pay") {
+        if (!applePayRequest || !isApplePayReady) {
+          throw new Error("Apple Pay is not available on this device.");
+        }
+        const stripe = await stripePromise;
+        if (!stripe) {
+          throw new Error("Stripe is unavailable.");
+        }
+        await new Promise<void>((resolve, reject) => {
+          const request = applePayRequest;
+          const handlePaymentMethod = async (event: PaymentRequestPaymentMethodEvent) => {
+            try {
+              const intentResponse = await createPlayerStripePaymentIntent({
+                token,
+                lessonId: lesson.id,
+                paymentMethodId: event.paymentMethod.id,
+              });
+              const intentRecord = intentResponse as Record<string, unknown>;
+              const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
+              const clientSecret =
+                (intentRecord?.client_secret as string | undefined) ??
+                (nestedIntent?.client_secret as string | undefined);
+              if (!clientSecret) {
+                throw new Error("Unable to initialize payment.");
+              }
+              const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+                clientSecret,
+                { payment_method: event.paymentMethod.id },
+                { handleActions: false },
+              );
+              if (confirmError) {
+                throw new Error(confirmError.message || "Apple Pay failed.");
+              }
+              const paymentStatus = paymentIntent?.status?.toLowerCase();
+              if (paymentStatus === "requires_action") {
+                const { error: actionError, paymentIntent: actionIntent } = await stripe.confirmCardPayment(clientSecret);
+                if (actionError) {
+                  throw new Error(actionError.message || "Apple Pay failed.");
+                }
+                const actionStatus = actionIntent?.status?.toLowerCase();
+                if (actionStatus && actionStatus !== "succeeded") {
+                  throw new Error("Payment was not successful.");
+                }
+              } else if (paymentStatus && paymentStatus !== "succeeded") {
+                throw new Error("Payment was not successful.");
+              }
+              event.complete("success");
+              resolve();
+            } catch (error) {
+              event.complete("fail");
+              reject(error);
+            } finally {
+              request.off("paymentmethod", handlePaymentMethod);
+              request.off("cancel", handleCancel);
+            }
+          };
+          const handleCancel = () => {
+            request.off("paymentmethod", handlePaymentMethod);
+            request.off("cancel", handleCancel);
+            reject(new Error("Apple Pay was cancelled."));
+          };
+          request.on("paymentmethod", handlePaymentMethod);
+          request.on("cancel", handleCancel);
+          request.show().catch((error) => {
+            request.off("paymentmethod", handlePaymentMethod);
+            request.off("cancel", handleCancel);
+            reject(error);
+          });
+        });
+      } else if (paymentChoice === "credits") {
         const coachId = parseNumber((lesson as Record<string, unknown>).coach_id);
         if (!coachId) throw new Error("Missing coach details for this lesson.");
         if (!selectedCreditId) throw new Error("Select a credit package to continue.");
@@ -290,7 +435,16 @@ const PlayerLessonDetailsPage = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [lesson, loadLesson, paymentChoice, selectedCreditId, selectedPaymentMethodId, token]);
+  }, [
+    applePayRequest,
+    isApplePayReady,
+    lesson,
+    loadLesson,
+    paymentChoice,
+    selectedCreditId,
+    selectedPaymentMethodId,
+    token,
+  ]);
 
   const content = useMemo(() => {
     if (loading) {
@@ -343,6 +497,16 @@ const PlayerLessonDetailsPage = () => {
                   <input
                     type="radio"
                     name="payment-choice"
+                    checked={paymentChoice === "apple-pay"}
+                    onChange={() => setPaymentChoice("apple-pay")}
+                    disabled={!isApplePayReady}
+                  />
+                  Apple Pay
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="payment-choice"
                     checked={paymentChoice === "card"}
                     onChange={() => setPaymentChoice("card")}
                   />
@@ -367,6 +531,14 @@ const PlayerLessonDetailsPage = () => {
                       ))}
                     </select>
                   ) : null}
+                </div>
+              ) : paymentChoice === "apple-pay" ? (
+                <div className="player-lesson-details__payment-block">
+                  <p>
+                    {isApplePayReady
+                      ? "Pay instantly with Apple Pay."
+                      : "Apple Pay is not available on this device/browser."}
+                  </p>
                 </div>
               ) : (
                 <div className="player-lesson-details__payment-block">
@@ -407,10 +579,15 @@ const PlayerLessonDetailsPage = () => {
                 disabled={
                   submitting ||
                   (paymentChoice === "card" && !selectedPaymentMethodId) ||
-                  (paymentChoice === "credits" && !selectedCreditId)
+                  (paymentChoice === "credits" && !selectedCreditId) ||
+                  (paymentChoice === "apple-pay" && !isApplePayReady)
                 }
               >
-                {submitting ? "Processing…" : "Accept Lesson"}
+                {submitting
+                  ? "Processing…"
+                  : paymentChoice === "apple-pay"
+                    ? "Accept with Apple Pay"
+                    : "Accept Lesson"}
               </button>
             </>
           ) : null}
@@ -427,6 +604,7 @@ const PlayerLessonDetailsPage = () => {
     handleAcceptAndPay,
     handleCardAdded,
     isConfirmed,
+    isApplePayReady,
     isPaymentPending,
     lesson,
     loading,
