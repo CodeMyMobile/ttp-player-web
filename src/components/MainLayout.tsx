@@ -47,7 +47,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     <div className="dashboard-page">
       <header className="main-nav mobile-header">
         <Link className="brand mobile-header-left header-left" to="/" aria-label="Matchplay home">
-          <div className="brand-badge mobile-logo">MP</div>
+          <div className="brand-badge mobile-logo">🎾</div>
           <span className="mobile-brand">Matchplay</span>
         </Link>
         <nav className="nav-links desktop-nav-links">
