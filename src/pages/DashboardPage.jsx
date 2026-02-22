@@ -253,24 +253,22 @@ const DashboardPage = () => {
     <MainLayout>
       <div className="home-redesign">
         <div className="home-redesign__main">
-          <section className="hero-cards">
+          <section className="hero-cards hero-scroll">
             <button type="button" className="hero-card hero-card--match" onClick={() => navigate("/matches/create")}>
-              <div className="hero-card__icon" aria-hidden="true">🎾</div>
-              <div className="hero-card__mobile-title">Create Match</div>
-              <div className="hero-card__desktop-copy">
-                <h2>🎾 Create a Match</h2>
-                <p>Organize singles or doubles play</p>
+              <div className="hero-icon" aria-hidden="true">🎾</div>
+              <div className="hero-content">
+                <div className="hero-title">Create a Match</div>
+                <div className="hero-subtitle">Organize singles or doubles</div>
               </div>
-              <span>→</span>
+              <div className="hero-arrow" aria-hidden="true">→</div>
             </button>
             <button type="button" className="hero-card hero-card--lesson" onClick={() => navigate("/find-coaches")}>
-              <div className="hero-card__icon" aria-hidden="true">⭐</div>
-              <div className="hero-card__mobile-title">Book Lesson</div>
-              <div className="hero-card__desktop-copy">
-                <h2>⭐ Book a Lesson</h2>
-                <p>Find a coach near you</p>
+              <div className="hero-icon" aria-hidden="true">⭐</div>
+              <div className="hero-content">
+                <div className="hero-title">Book a Lesson</div>
+                <div className="hero-subtitle">Find a coach near you</div>
               </div>
-              <span>→</span>
+              <div className="hero-arrow" aria-hidden="true">→</div>
             </button>
           </section>
 
