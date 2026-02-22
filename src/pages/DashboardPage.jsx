@@ -1,7 +1,7 @@
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin, Star } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { getPlayerFutureGroupLessons, getPlayerFutureLessons } from "../api/playerHome";
 import MainLayout from "../components/MainLayout";
 import { getStoredAuthToken } from "../services/authToken";
@@ -255,19 +255,49 @@ const DashboardPage = () => {
         <div className="home-redesign__main">
           <section className="hero-cards">
             <button type="button" className="hero-card hero-card--match" onClick={() => navigate("/matches/create")}>
-              <div>
+              <div className="hero-card__icon" aria-hidden="true">🎾</div>
+              <div className="hero-card__mobile-title">Create Match</div>
+              <div className="hero-card__desktop-copy">
                 <h2>🎾 Create a Match</h2>
                 <p>Organize singles or doubles play</p>
               </div>
               <span>→</span>
             </button>
             <button type="button" className="hero-card hero-card--lesson" onClick={() => navigate("/find-coaches")}>
-              <div>
+              <div className="hero-card__icon" aria-hidden="true">⭐</div>
+              <div className="hero-card__mobile-title">Book Lesson</div>
+              <div className="hero-card__desktop-copy">
                 <h2>⭐ Book a Lesson</h2>
                 <p>Find a coach near you</p>
               </div>
               <span>→</span>
             </button>
+          </section>
+
+          <section className="schedule-section-mobile">
+            <div className="schedule-header-mobile">
+              <span className="schedule-title-mobile">My Schedule</span>
+              <button type="button" className="schedule-link-mobile" onClick={() => navigate("/player/calendar")}>View All →</button>
+            </div>
+            <div className="schedule-items-mobile">
+              {scheduleState.status === "ready" && scheduleState.items.length > 0 ? (
+                scheduleState.items.map((item) => (
+                  <article key={`mobile-${item.id}`} className="schedule-item-mobile">
+                    <span className={`schedule-type ${item.type === "group" ? "group" : "lesson"}`} />
+                    <div className="schedule-time-mobile">
+                      <div className="schedule-time-value">{item.time.split(" ")[0]}</div>
+                      <div className="schedule-time-period">{item.time.split(" ")[1] ?? ""}</div>
+                    </div>
+                    <div className="schedule-content-mobile">
+                      <div className="schedule-item-title-mobile">{item.type === "lesson" ? `${item.title} ${item.coachLabel ?? ""}` : item.title}</div>
+                      <div className="schedule-meta-mobile">{item.locationLabel}</div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <p className="sidebar-empty">No upcoming sessions yet.</p>
+              )}
+            </div>
           </section>
 
           <section className="date-selector-v2">
@@ -312,29 +342,32 @@ const DashboardPage = () => {
           </section>
 
           <section className="filter-bar-v2">
-            <button type="button" className="filter-item">📍 {locationState.locationName || "Los Angeles"} ▾</button>
-            <button
-              type="button"
-              className="filter-item"
-              onClick={() => {
-                const index = distanceOptions.indexOf(distanceFilter);
-                const next = distanceOptions[(index + 1) % distanceOptions.length];
-                setDistanceFilter(next);
-              }}
-            >
-              📏 {distanceFilter} mi ▾
-            </button>
-            <span className="filter-divider" />
-            {filterOptions.map((option) => (
+            <div className="filter-row-v2">
+              <button type="button" className="filter-item">📍 {locationState.locationName || "Los Angeles"} ▾</button>
               <button
-                key={option.id}
                 type="button"
-                className={`filter-tab${activeFilter === option.id ? " active" : ""}`}
-                onClick={() => setActiveFilter(option.id)}
+                className="filter-item"
+                onClick={() => {
+                  const index = distanceOptions.indexOf(distanceFilter);
+                  const next = distanceOptions[(index + 1) % distanceOptions.length];
+                  setDistanceFilter(next);
+                }}
               >
-                {option.label} <span>{typeCounts[option.id]}</span>
+                📏 {distanceFilter} mi ▾
               </button>
-            ))}
+            </div>
+            <div className="filter-tabs-v2">
+              {filterOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`filter-tab${activeFilter === option.id ? " active" : ""}`}
+                  onClick={() => setActiveFilter(option.id)}
+                >
+                  {option.label} <span>{typeCounts[option.id]}</span>
+                </button>
+              ))}
+            </div>
           </section>
 
           <section className="available-section">
@@ -424,6 +457,29 @@ const DashboardPage = () => {
           </section>
         </aside>
       </div>
+
+      <nav className="bottom-nav-mobile" aria-label="Mobile navigation">
+        <NavLink to="/" end className={({ isActive }) => `bottom-nav-mobile__item${isActive ? " active" : ""}`}>
+          <span className="bottom-nav-mobile__icon" aria-hidden="true">🏠</span>
+          Home
+        </NavLink>
+        <NavLink to="/matches" className={({ isActive }) => `bottom-nav-mobile__item${isActive ? " active" : ""}`}>
+          <span className="bottom-nav-mobile__icon" aria-hidden="true">🎾</span>
+          Matches
+        </NavLink>
+        <NavLink to="/find-players" className={({ isActive }) => `bottom-nav-mobile__item${isActive ? " active" : ""}`}>
+          <span className="bottom-nav-mobile__icon" aria-hidden="true">🔍</span>
+          Players
+        </NavLink>
+        <NavLink to="/group-lessons" className={({ isActive }) => `bottom-nav-mobile__item${isActive ? " active" : ""}`}>
+          <span className="bottom-nav-mobile__icon" aria-hidden="true">👥</span>
+          Groups
+        </NavLink>
+        <NavLink to="/find-coaches" className={({ isActive }) => `bottom-nav-mobile__item${isActive ? " active" : ""}`}>
+          <span className="bottom-nav-mobile__icon" aria-hidden="true">🎓</span>
+          Coaches
+        </NavLink>
+      </nav>
     </MainLayout>
   );
 };

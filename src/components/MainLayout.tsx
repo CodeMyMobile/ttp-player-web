@@ -45,12 +45,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   return (
     <div className="dashboard-page">
-      <header className="main-nav">
-        <Link className="brand" to="/" aria-label="Matchplay home">
-          <div className="brand-badge">MP</div>
-          <span>Matchplay</span>
+      <header className="main-nav mobile-header">
+        <Link className="brand mobile-header-left" to="/" aria-label="Matchplay home">
+          <div className="brand-badge mobile-logo">MP</div>
+          <span className="mobile-brand">Matchplay</span>
         </Link>
-        <nav className="nav-links">
+        <nav className="nav-links desktop-nav-links">
           {navLinks.map((link) =>
             link.to ? (
               <NavLink
@@ -67,13 +67,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             ),
           )}
         </nav>
-        <div className="header-actions">
-          <button type="button" className="notification-button" aria-label="Open messages">
+        <div className="header-actions mobile-header-right">
+          <button type="button" className="notification-button mobile-header-btn" aria-label="Open messages">
             <MessageCircle size={20} aria-hidden="true" />
           </button>
-          <button type="button" className="notification-button" aria-label="View notifications">
+          <button type="button" className="notification-button mobile-header-btn" aria-label="View notifications">
             <Bell size={20} aria-hidden="true" />
             <span className="notification-indicator" aria-hidden="true" />
+            <span className="mobile-badge" aria-hidden="true">3</span>
           </button>
           <div className="user-menu" ref={userMenuRef}>
             <button
@@ -84,7 +85,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               aria-haspopup="menu"
               aria-label="Open profile menu"
             >
-              <div className={`user-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
+              <div className={`user-avatar mobile-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
                 ) : (

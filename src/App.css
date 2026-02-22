@@ -130,6 +130,10 @@
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
 }
 
+.mobile-badge {
+  display: none;
+}
+
 .user-menu {
   position: relative;
 }
@@ -2349,6 +2353,11 @@
   gap: 16px;
 }
 
+.schedule-section-mobile,
+.bottom-nav-mobile {
+  display: none;
+}
+
 .hero-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2390,6 +2399,15 @@
 
 .hero-card--match { background: linear-gradient(135deg, #10b981, #059669); }
 .hero-card--lesson { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+.hero-card__icon,
+.hero-card__mobile-title {
+  display: none;
+}
+
+.hero-card__desktop-copy {
+  display: block;
+}
 
 .date-selector-v2,
 .filter-bar-v2,
@@ -2460,6 +2478,17 @@
   align-items: center;
   gap: 10px;
   padding: 14px 20px;
+}
+
+.filter-row-v2,
+.filter-tabs-v2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-tabs-v2 {
+  flex: 1;
 }
 
 .filter-item {
@@ -2735,5 +2764,296 @@
 
   .hero-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .main-nav.mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 120;
+    padding: 12px 16px;
+    border-radius: 0;
+    border-bottom: 1px solid #f1f5f9;
+    box-shadow: none;
+    margin: -24px -24px 0;
+  }
+
+  .desktop-nav-links {
+    display: none;
+  }
+
+  .mobile-header-left {
+    gap: 10px;
+  }
+
+  .mobile-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    font-size: 0;
+  }
+
+  .mobile-brand {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .mobile-header-right {
+    gap: 8px;
+  }
+
+  .mobile-header-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f1f5f9;
+  }
+
+  .notification-indicator {
+    display: none;
+  }
+
+  .mobile-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    border: 2px solid #fff;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobile-avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .home-redesign {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-bottom: 90px;
+  }
+
+  .home-redesign__sidebar {
+    display: none;
+  }
+
+  .hero-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hero-card {
+    padding: 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .hero-card__desktop-copy,
+  .hero-card > span {
+    display: none;
+  }
+
+  .hero-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+  }
+
+  .hero-card__mobile-title {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .schedule-section-mobile {
+    display: block;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    margin-top: 6px;
+  }
+
+  .schedule-header-mobile {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .schedule-title-mobile { font-size: 15px; font-weight: 700; color: #1e293b; }
+  .schedule-link-mobile { border: 0; background: transparent; color: #8b5cf6; font-size: 13px; font-weight: 600; }
+
+  .schedule-items-mobile {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .schedule-items-mobile::-webkit-scrollbar { display: none; }
+
+  .schedule-item-mobile {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-radius: 10px;
+    min-width: 170px;
+  }
+
+  .schedule-time-mobile { display: flex; flex-direction: column; }
+  .schedule-time-value { font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1; }
+  .schedule-time-period { font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .schedule-item-title-mobile { font-size: 13px; font-weight: 600; color: #1e293b; }
+  .schedule-meta-mobile { font-size: 12px; color: #64748b; }
+
+  .date-selector-v2 {
+    gap: 6px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .date-nav-btn { width: 32px; height: 32px; flex-shrink: 0; }
+  .date-option { padding: 8px 12px; min-width: 56px; }
+  .date-option strong { font-size: 16px; font-weight: 700; }
+  .date-calendar-btn { padding: 8px 10px; min-width: 48px; }
+
+  .filter-bar-v2 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .filter-row-v2 {
+    display: flex;
+    gap: 8px;
+  }
+
+  .filter-item {
+    flex: 1;
+    padding: 10px 14px;
+    background: #fff;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .filter-tabs-v2 {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .filter-tab {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .filter-tab span {
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  .available-section {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .activity-list-v2 { gap: 12px; }
+
+  .activity-card-v2 {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    padding: 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .activity-content {
+    width: 100%;
+  }
+
+  .activity-meta-row {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .activity-right {
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid #f1f5f9;
+    padding: 14px 0 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .activity-btn { padding: 12px 28px; font-size: 14px; }
+
+  .bottom-nav-mobile {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    justify-content: space-around;
+    padding: 10px 8px 20px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .bottom-nav-mobile__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-decoration: none;
+  }
+
+  .bottom-nav-mobile__item.active {
+    color: #8b5cf6;
+  }
+
+  .bottom-nav-mobile__icon {
+    font-size: 22px;
+    line-height: 1;
   }
 }
