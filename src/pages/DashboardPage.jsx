@@ -242,6 +242,20 @@ const DashboardPage = () => {
     };
   }, []);
 
+
+  const openDatePicker = () => {
+    const input = datePickerRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
+  };
+
   const filterOptions = [
     { id: "all", label: "All" },
     { id: "match", label: "Matches" },
@@ -327,7 +341,7 @@ const DashboardPage = () => {
             <button
               type="button"
               className="date-calendar-btn"
-              onClick={() => datePickerRef.current?.showPicker?.()}
+              onClick={openDatePicker}
             >
               <CalendarDays size={14} /> Pick Date
             </button>
