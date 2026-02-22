@@ -272,7 +272,7 @@ const DashboardPage = () => {
               <div className="hero-icon" aria-hidden="true">🎾</div>
               <div className="hero-content">
                 <div className="hero-title">Create a Match</div>
-                <div className="hero-subtitle">Organize singles or doubles</div>
+                <div className="hero-subtitle">Singles or doubles play</div>
               </div>
               <div className="hero-arrow" aria-hidden="true">→</div>
             </button>
@@ -280,7 +280,7 @@ const DashboardPage = () => {
               <div className="hero-icon" aria-hidden="true">⭐</div>
               <div className="hero-content">
                 <div className="hero-title">Book a Lesson</div>
-                <div className="hero-subtitle">Find a coach near you</div>
+                <div className="hero-subtitle">Find a coach nearby</div>
               </div>
               <div className="hero-arrow" aria-hidden="true">→</div>
             </button>
@@ -398,17 +398,19 @@ const DashboardPage = () => {
                 });
                 return (
                   <article key={activity.id} className="activity-card-v2">
-                    <div className={`activity-type-icon ${meta.typeClass}`}>{meta.icon}</div>
-                    <div className="activity-content">
-                      <div className="activity-top-row">
-                        <span className={`activity-type-label ${meta.typeClass}`}>{meta.label}</span>
-                        {activity.badge ? <span className="activity-badge">{activity.badge}</span> : null}
-                      </div>
-                      <h3>{activity.title}</h3>
-                      <div className="activity-meta-row">
-                        <span><Clock3 size={13} /> {startLabel}</span>
-                        <span><MapPin size={13} /> {activity.venue} · {activity.distance}</span>
-                        <span><Star size={13} /> {activity.level}</span>
+                    <div className="activity-main-row">
+                      <div className={`activity-type-icon ${meta.typeClass}`}>{meta.icon}</div>
+                      <div className="activity-content">
+                        <div className="activity-top-row">
+                          <span className={`activity-type-label ${meta.typeClass}`}>{meta.label}</span>
+                          {activity.badge ? <span className="activity-badge">{activity.badge}</span> : null}
+                        </div>
+                        <h3>{activity.title}</h3>
+                        <div className="activity-meta-row">
+                          <span><Clock3 size={13} /> {startLabel}</span>
+                          <span><MapPin size={13} /> {activity.venue} · {activity.distance}</span>
+                          <span><Star size={13} /> {activity.level}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="activity-right">

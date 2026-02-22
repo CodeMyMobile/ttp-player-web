@@ -2947,7 +2947,7 @@
   }
 
   .hero-card {
-    flex: 0 0 280px;
+    flex: 0 0 260px;
     padding: 20px;
     border-radius: 16px;
     gap: 14px;
@@ -3018,6 +3018,8 @@
     gap: 6px;
     padding: 12px;
     overflow-x: auto;
+    box-shadow: none;
+    border-bottom: 0;
   }
 
   .date-nav-btn { width: 32px; height: 32px; flex-shrink: 0; }
@@ -3088,7 +3090,14 @@
     border-radius: 14px;
     border: 1px solid #e2e8f0;
     padding: 16px;
+    display: flex;
     flex-direction: column;
+    gap: 12px;
+  }
+
+  .activity-main-row {
+    display: flex;
+    align-items: flex-start;
     gap: 12px;
   }
 
