@@ -2976,6 +2976,10 @@
     display: none;
   }
 
+  .hero-arrow {
+    display: none;
+  }
+
   .schedule-section-mobile {
     display: block;
     background: #fff;
