@@ -1357,7 +1357,7 @@ const DashboardPage = () => {
         <div className="section-header schedule-header">
           <div>
             <h2 className="section-title">My Schedule</h2>
-            <p className="section-subtitle">Your upcoming matches and coaching sessions for the day.</p>
+            <p className="section-subtitle">All your upcoming coaching sessions.</p>
           </div>
         </div>
         {scheduleState.status === "loading" || scheduleState.status === "idle" ? (
@@ -1374,7 +1374,7 @@ const DashboardPage = () => {
           </div>
         ) : (
           <div className="schedule-condensed">
-            {scheduleState.items.slice(0, 3).map((item) => (
+            {scheduleState.items.map((item) => (
               <article
                 key={item.id}
                 className="schedule-condensed__card"
