@@ -2948,22 +2948,24 @@
   .hero-card {
     min-width: 0;
     max-width: 100%;
-    padding: 14px;
+    padding: 12px;
     border-radius: 14px;
     gap: 10px;
+    align-items: center;
     box-sizing: border-box;
   }
 
   .hero-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    font-size: 22px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
   }
 
   .hero-title {
-    font-size: 12px;
-    line-height: 1.2;
+    font-size: 14px;
+    line-height: 1.25;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -2971,12 +2973,7 @@
   }
 
   .hero-subtitle {
-    font-size: 10px;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    opacity: 0.9;
+    display: none;
   }
 
   .schedule-section-mobile {
