@@ -85,6 +85,16 @@ const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<str
   return [] as PlayerStripePaymentMethod[];
 };
 
+const extractIntentStatus = (response: Record<string, unknown>) => {
+  const nestedIntent = response.payment_intent as Record<string, unknown> | undefined;
+  const raw =
+    response.status ??
+    response.payment_intent_status ??
+    nestedIntent?.status ??
+    (response.paymentIntent as Record<string, unknown> | undefined)?.status;
+  return typeof raw === "string" ? raw.toLowerCase() : "";
+};
+
 const PlayerLessonDetailsPage = () => {
   const { id } = useParams<{ id?: string }>();
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -333,6 +343,12 @@ const PlayerLessonDetailsPage = () => {
                 paymentMethodId: event.paymentMethod.id,
               });
               const intentRecord = intentResponse as Record<string, unknown>;
+              const intentStatus = extractIntentStatus(intentRecord);
+              if (intentStatus === "succeeded") {
+                event.complete("success");
+                resolve();
+                return;
+              }
               const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
               const clientSecret =
                 (intentRecord?.client_secret as string | undefined) ??
@@ -408,6 +424,12 @@ const PlayerLessonDetailsPage = () => {
           paymentMethodId: selectedPaymentMethodId,
         });
         const intentRecord = intentResponse as Record<string, unknown>;
+        const intentStatusFromApi = extractIntentStatus(intentRecord);
+        if (intentStatusFromApi === "succeeded") {
+          await loadLesson();
+          setActionSuccess("Lesson accepted successfully.");
+          return;
+        }
         const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
         const clientSecret =
           (intentRecord?.client_secret as string | undefined) ??
