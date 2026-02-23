@@ -2937,21 +2937,31 @@
   .hero-scroll {
     display: flex;
     gap: 12px;
-    padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 16px 16px 8px;
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-snap-type: x proximity;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .hero-scroll::-webkit-scrollbar {
     display: none;
+    width: 0;
+    height: 0;
   }
 
   .hero-card {
     flex: 0 0 260px;
+    max-width: calc(100vw - 76px);
     padding: 20px;
     border-radius: 16px;
     gap: 14px;
     scroll-snap-align: start;
+    box-sizing: border-box;
   }
 
   .hero-icon {
@@ -3016,16 +3026,28 @@
 
   .date-selector-v2 {
     gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 12px;
     overflow-x: auto;
+    overflow-y: hidden;
     box-shadow: none;
     border-bottom: 0;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .date-nav-btn { width: 32px; height: 32px; flex-shrink: 0; }
-  .date-option { padding: 8px 12px; min-width: 56px; }
+  .date-option { padding: 8px 10px; min-width: 52px; flex-shrink: 0; }
   .date-option strong { font-size: 16px; font-weight: 700; }
-  .date-calendar-btn { padding: 8px 10px; min-width: 48px; }
+  .date-calendar-btn { padding: 8px 10px; min-width: 48px; flex-shrink: 0; }
+
+  .date-selector-v2::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 
   .filter-bar-v2 {
     flex-direction: column;
