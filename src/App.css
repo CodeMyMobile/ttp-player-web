@@ -2484,8 +2484,34 @@
   color: #334155;
 }
 
-.date-option strong { font-size: 13px; }
-.date-option span { font-size: 12px; color: #64748b; }
+.date-option .date-day {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.date-option .date-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.date-option .date-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.date-option.selected .date-day,
+.date-option.selected .date-count {
+  color: #8b5cf6;
+}
+
+.date-option.selected .date-num {
+  color: #7c3aed;
+}
 
 .date-option.selected {
   border: 2px solid #8b5cf6;
@@ -3041,7 +3067,9 @@
 
   .date-nav-btn { width: 32px; height: 32px; flex-shrink: 0; }
   .date-option { padding: 8px 10px; min-width: 52px; flex-shrink: 0; }
-  .date-option strong { font-size: 16px; font-weight: 700; }
+  .date-option .date-day { font-size: 10px; }
+  .date-option .date-num { font-size: 18px; }
+  .date-option .date-count { font-size: 10px; }
   .date-calendar-btn { padding: 8px 10px; min-width: 48px; flex-shrink: 0; }
 
   .date-selector-v2::-webkit-scrollbar {

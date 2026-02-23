@@ -321,8 +321,8 @@ const DashboardPage = () => {
               className={`date-option${dateFilter.type === "all" ? " selected" : ""}`}
               onClick={() => setDateFilter({ type: "all" })}
             >
-              <strong>ALL</strong>
-              <span>{typeCounts.all} events</span>
+              <span className="date-day">ALL</span>
+              <span className="date-count">{typeCounts.all} events</span>
             </button>
             {dayOptions.map((day) => (
               <button
@@ -331,8 +331,9 @@ const DashboardPage = () => {
                 className={`date-option${dateFilter.type === "day" && dateFilter.iso === day.value ? " selected" : ""}`}
                 onClick={() => setDateFilter({ type: "day", iso: day.value })}
               >
-                <strong>{day.label} {day.date}</strong>
-                <span>{day.events} event{day.events === 1 ? "" : "s"}</span>
+                <span className="date-day">{day.label}</span>
+                <span className="date-num">{day.date}</span>
+                <span className="date-count">{day.events} event{day.events === 1 ? "" : "s"}</span>
               </button>
             ))}
             <button type="button" className="date-nav-btn" onClick={() => setWeekOffset((prev) => prev + 1)}>
