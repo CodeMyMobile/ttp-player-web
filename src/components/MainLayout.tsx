@@ -3,17 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
-import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
+import { Bell, ChevronDown, CreditCard, LogOut, MessageCircle, ShieldX, Target, UserRound } from "lucide-react";
 
 const navLinks = [
-  { label: "Home", to: "/" },
   { label: "Browse Matches", to: "/matches" },
   { label: "Find Players", to: "/find-players" },
   { label: "Group Lessons", to: "/group-lessons" },
-  { label: "Find Coaches", to: "/find-coaches" },
-  { label: "My Coaches", to: "/my-coaches" },
-  { label: "Credits", to: "/credits" },
-  { label: "My Activity", href: "#activity" },
+  { label: "Coaches", to: "/find-coaches" },
 ];
 
 interface MainLayoutProps {
@@ -49,12 +45,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   return (
     <div className="dashboard-page">
-      <header className="main-nav">
-        <div className="brand">
-          <div className="brand-badge">MP</div>
-          <span>Matchplay</span>
-        </div>
-        <nav className="nav-links">
+      <header className="main-nav mobile-header">
+        <Link className="brand mobile-header-left header-left" to="/" aria-label="Matchplay home">
+          <div className="brand-badge mobile-logo">🎾</div>
+          <span className="mobile-brand">Matchplay</span>
+        </Link>
+        <nav className="nav-links desktop-nav-links">
           {navLinks.map((link) =>
             link.to ? (
               <NavLink
@@ -71,10 +67,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             ),
           )}
         </nav>
-        <div className="header-actions">
-          <button type="button" className="notification-button" aria-label="View notifications">
+        <div className="header-actions mobile-header-right header-right">
+          <button type="button" className="notification-button mobile-header-btn icon-btn" aria-label="Open messages">
+            <MessageCircle size={20} aria-hidden="true" />
+          </button>
+          <button type="button" className="notification-button mobile-header-btn icon-btn" aria-label="View notifications">
             <Bell size={20} aria-hidden="true" />
             <span className="notification-indicator" aria-hidden="true" />
+            <span className="mobile-badge" aria-hidden="true">3</span>
           </button>
           <div className="user-menu" ref={userMenuRef}>
             <button
@@ -85,7 +85,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               aria-haspopup="menu"
               aria-label="Open profile menu"
             >
-              <div className={`user-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
+              <div className={`user-avatar mobile-avatar avatar${avatarUrl ? " user-avatar--image" : ""}`}>
                 {avatarUrl ? (
                   <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
                 ) : (
