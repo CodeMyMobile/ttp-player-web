@@ -49,7 +49,7 @@ import {
   type PlayerStripePaymentMethod,
   type PlayerStripePaymentMethodListResponse,
 } from "../api/playerStripe";
-import { joinLesson } from "../api/playerLessons";
+import { bookGroupLessonWithCard } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -925,25 +925,14 @@ const BookingConfirmationPage = () => {
           const handlePayment = async (event: PaymentRequestPaymentMethodEvent) => {
             try {
               const paymentMethodId = event.paymentMethod.id;
-              if (groupLesson) {
-                const coachId = groupLesson.coachId;
-                const locationId = groupLesson.locationId;
-                const startDateTime = groupLesson.startDateTime;
-                const endDateTime = groupLesson.endDateTime;
-                if (!coachId || !locationId || !startDateTime || !endDateTime) {
+              if (isGroupLesson) {
+                const lessonIdForBooking = groupLesson?.id ?? selectedSlot?.id ?? slotId;
+                if (!lessonIdForBooking) {
                   throw new Error("Missing lesson details for Apple Pay.");
                 }
-                await joinLesson({
+                await bookGroupLessonWithCard({
                   token: authToken,
-                  lessonId: groupLesson.id,
-                  coachId,
-                  startDateTime,
-                  endDateTime,
-                  startDateTimeTz: startDateTime,
-                  endDateTimeTz: endDateTime,
-                  locationId,
-                  court: groupLesson.court ?? 0,
-                  status: "CONFIRMED",
+                  lessonId: lessonIdForBooking,
                   paymentMethodId,
                 });
               } else {

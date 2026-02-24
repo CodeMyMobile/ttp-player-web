@@ -44,9 +44,9 @@ import {
 import {
   type Lesson as ApiLesson,
   type CoachScheduleEntry,
+  bookGroupLessonWithCard,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
-  joinLesson,
   requestPrivateLesson,
   type NewLessonResponse,
 } from "../api/playerLessons";
@@ -2148,23 +2148,9 @@ const extractLocationId = (slot?: BookingSlot) => {
 
               if (pendingLessonPayment) {
                 if (isOpenGroupLesson(pendingLessonPayment)) {
-                  const record = pendingLessonPayment as Record<string, unknown>;
-                  const coachId = Number(record.coach_id ?? profile?.id);
-                  const locationId = Number(record.location_id ?? record.locationId);
-                  if (!Number.isFinite(coachId) || !Number.isFinite(locationId)) {
-                    throw new Error("Missing coach or location details for this lesson.");
-                  }
-                  await joinLesson({
+                  await bookGroupLessonWithCard({
                     token: authToken,
                     lessonId: pendingLessonPayment.id,
-                    coachId,
-                    startDateTime: pendingLessonPayment.start_date_time,
-                    endDateTime: pendingLessonPayment.end_date_time,
-                    startDateTimeTz: pendingLessonPayment.start_date_time,
-                    endDateTimeTz: pendingLessonPayment.end_date_time,
-                    locationId,
-                    court: record.court ?? 0,
-                    status: "CONFIRMED",
                     paymentMethodId,
                   });
                 } else {
@@ -2287,23 +2273,9 @@ const extractLocationId = (slot?: BookingSlot) => {
 
       try {
         if (isOpenGroupLesson(pendingLessonPayment)) {
-          const record = pendingLessonPayment as Record<string, unknown>;
-          const coachId = Number(record.coach_id ?? profile?.id);
-          const locationId = Number(record.location_id ?? record.locationId);
-          if (!Number.isFinite(coachId) || !Number.isFinite(locationId)) {
-            throw new Error("Missing coach or location details for this lesson.");
-          }
-          await joinLesson({
+          await bookGroupLessonWithCard({
             token: authToken,
             lessonId: pendingLessonPayment.id,
-            coachId,
-            startDateTime: pendingLessonPayment.start_date_time,
-            endDateTime: pendingLessonPayment.end_date_time,
-            startDateTimeTz: pendingLessonPayment.start_date_time,
-            endDateTimeTz: pendingLessonPayment.end_date_time,
-            locationId,
-            court: record.court ?? 0,
-            status: "CONFIRMED",
             paymentMethodId: selectedPaymentMethodId,
           });
         } else {
