@@ -1,3 +1,4 @@
+import moment from "moment";
 import { useEffect, useRef } from "react";
 
 export type BookingStatus = "PENDING" | "CONFIRMED";
@@ -69,6 +70,25 @@ const DotIcon = ({ className }: { className?: string }) => (
   <span className={`inline-block h-2 w-2 rounded-full ${className}`} />
 );
 
+const formatTimeLabel = (value: string) => {
+  console.log("formatTimeLabel", value);
+  if (!value || !value.includes("T")) {
+    return value;
+  }
+  const separatorMatch = value.match(/\s[–-]\s/);
+  if (separatorMatch) {
+    const separator = separatorMatch[0];
+    const [startRaw, endRaw] = value.split(separator);
+    const start = moment.utc(startRaw.trim());
+    const end = moment.utc(endRaw.trim());
+    if (start.isValid() && end.isValid()) {
+      return `${start.local().format("h:mm A")} – ${end.local().format("h:mm A")}`;
+    }
+  }
+  const parsed = moment.utc(value.trim());
+  return parsed.isValid() ? parsed.local().format("h:mm A") : value;
+};
+
 const BookingStatusModal = ({
   open,
   status,
@@ -124,7 +144,9 @@ const BookingStatusModal = ({
     "Payment processed",
   ];
   const confirmedSteps = ["Your spot is reserved", "Payment processed", "Confirmation email sent"];
-
+  const timeLabel = formatTimeLabel(data.timeLabel);
+console.log("data", data);
+console.log("timeLabel", timeLabel);
   return (
     <div
       ref={overlayRef}
@@ -214,7 +236,7 @@ const BookingStatusModal = ({
               </div>
               <div>
                 <div className="font-semibold text-gray-900">{data.dateLabel}</div>
-                <div className="text-sm text-gray-500">{data.timeLabel}</div>
+                <div className="text-sm text-gray-500">{timeLabel}</div>
               </div>
             </div>
             <div className="flex items-start gap-3">

@@ -20,9 +20,11 @@ import {
   getCoachLocation,
   getCoachScheduleById,
   getCoachScheduleByIdAndLocation,
+  getCoachGoogleCalendarSyncedEvents,
   type PlayerCoach,
   type CoachLocation,
   type CoachScheduleEntry,
+  type GoogleCalendarEvent,
 } from "../../../api/playerCalendar";
 import ResultsHeader from "../../../components/coaches/ResultsHeader";
 import MainLayout from "../../../components/MainLayout";
@@ -351,6 +353,43 @@ const formatAvailabilityWindow = (startIso: string, endIso: string) => {
   return `${start.format("MMM D, h:mm A")} – ${end.format("h:mm A")}`;
 };
 
+const extractEventTimestamp = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const typed = value as { dateTime?: string; date?: string };
+    return typed.dateTime || typed.date || null;
+  }
+  return null;
+};
+
+const resolveEventTimestamp = (event: GoogleCalendarEvent, key: "start" | "end") => {
+  const directValue =
+    key === "start"
+      ? event.start_time || event.startDateTime || event.start_date_time || event.start
+      : event.end_time || event.endDateTime || event.end_date_time || event.end;
+  return extractEventTimestamp(directValue);
+};
+
+const buildEventRanges = (events: GoogleCalendarEvent[]) =>
+  events
+    .map((event) => {
+      const startValue = resolveEventTimestamp(event, "start");
+      const endValue = resolveEventTimestamp(event, "end");
+      if (!startValue || !endValue) return null;
+      const start = moment(startValue);
+      const end = moment(endValue);
+      if (!start.isValid() || !end.isValid() || !start.isBefore(end)) return null;
+      return { start, end };
+    })
+    .filter((range): range is { start: moment.Moment; end: moment.Moment } => Boolean(range));
+
+const isBlockedByEvents = (
+  start: moment.Moment,
+  end: moment.Moment,
+  blocked: Array<{ start: moment.Moment; end: moment.Moment }>,
+) =>
+  blocked.some((range) => start.isBefore(range.end) && end.isAfter(range.start));
+
 // Split a long availability window into 1-hour slots (HH:mm:ss format) for easier rendering.
 const splitIntoSlots = (availability?: { from?: string | null; to?: string | null }) => {
   if (!availability?.from || !availability?.to) return [];
@@ -404,6 +443,8 @@ const PlayerCalendar = () => {
   const [coachScheduleByDay, setCoachScheduleByDay] = useState<Record<string, CoachScheduleEntry[]>>({});
   const [coachScheduleLoading, setCoachScheduleLoading] = useState(false);
   const [apiCoachAvailability, setApiCoachAvailability] = useState<CoachAvailability[]>([]);
+  const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [googleCalendarCoachId, setGoogleCalendarCoachId] = useState<number | null>(null);
   const [requestSlot, setRequestSlot] = useState<{
     coachId: number;
     coachName: string;
@@ -610,6 +651,60 @@ const PlayerCalendar = () => {
       cancelled = true;
     };
   }, [authToken, coachFilter, locationFilter, selectedDay]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!authToken) {
+      setGoogleCalendarEvents([]);
+      setGoogleCalendarCoachId(null);
+      return;
+    }
+
+    if (!coachFilter || coachFilter === "all") {
+      setGoogleCalendarEvents([]);
+      setGoogleCalendarCoachId(null);
+      return;
+    }
+
+    const coachId = Number(coachFilter);
+    if (Number.isNaN(coachId)) {
+      setGoogleCalendarEvents([]);
+      setGoogleCalendarCoachId(null);
+      return;
+    }
+
+    const timeMin = dateRange.start.clone().utc().startOf("day").toISOString();
+    const timeMax = dateRange.end.clone().utc().endOf("day").toISOString();
+
+    const fetchSyncedEvents = async () => {
+      try {
+        const events = await getCoachGoogleCalendarSyncedEvents({
+          coachId,
+          timeMin,
+          timeMax,
+        });
+        if (cancelled) return;
+        setGoogleCalendarEvents(events ?? []);
+        setGoogleCalendarCoachId(coachId);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load Google Calendar synced events", err);
+          setGoogleCalendarEvents([]);
+          setGoogleCalendarCoachId(coachId);
+        }
+      } finally {
+        if (!cancelled) {
+        }
+      }
+    };
+
+    fetchSyncedEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, coachFilter, dateRange.end, dateRange.start]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1029,6 +1124,10 @@ const PlayerCalendar = () => {
   }, [coachFilter, coachScheduleByDay, resolveScheduleDate]);
 
   const availabilityCards = useMemo(() => {
+    const blockedRanges = buildEventRanges(googleCalendarEvents);
+    const shouldFilterBlocked = (coachId: number) =>
+      Boolean(blockedRanges.length && googleCalendarCoachId && coachId === googleCalendarCoachId);
+
     const buildFromApi = (collection: CoachAvailability[]) =>
       collection
         .map((coach) => ({
@@ -1040,8 +1139,8 @@ const PlayerCalendar = () => {
               ?.map((day) => ({
                 label: day.day || moment(day.date).format("dddd"),
                 date: day.date,
-                slots:
-                  day.slots?.map((slot, index) => ({
+                slots: (day.slots ?? [])
+                  .map((slot, index) => ({
                     id: slot.schedule_id ?? `${coach.coach_id}-${day.date}-${index}`,
                     primaryLabel: formatAvailabilityWindow(slot.start_time, slot.end_time),
                     location: slot.location,
@@ -1054,7 +1153,15 @@ const PlayerCalendar = () => {
                     court: slot.court,
                     apiStart: slot.start_time,
                     apiEnd: slot.end_time,
-                  })) ?? [],
+                  }))
+                  .filter((slot) => {
+                    if (!shouldFilterBlocked(coach.coach_id)) return true;
+                    if (!slot.apiStart || !slot.apiEnd) return true;
+                    const slotStart = moment(slot.apiStart);
+                    const slotEnd = moment(slot.apiEnd);
+                    if (!slotStart.isValid() || !slotEnd.isValid()) return true;
+                    return !isBlockedByEvents(slotStart, slotEnd, blockedRanges);
+                  }),
               }))
               .filter((day) => day.slots.length > 0) ?? [],
         }))
@@ -1072,6 +1179,7 @@ const PlayerCalendar = () => {
     if (coachFilter !== "all" && derivedCoachSchedule.length) {
       const coachIdNumeric = parseFilterId(coachFilter);
       if (!coachIdNumeric) return [];
+      const filterScheduleSlots = shouldFilterBlocked(coachIdNumeric);
       return [
         {
           coachId: coachIdNumeric,
@@ -1080,30 +1188,49 @@ const PlayerCalendar = () => {
           days: derivedCoachSchedule.map((day) => ({
             label: day.label,
             date: day.matchDate?.format("YYYY-MM-DD"),
-            slots: day.slots.map((slot) => ({
-              id: slot.id,
-              primaryLabel: day.matchDate
-                ? `${day.matchDate.format("MMM D")} • ${formatScheduleSlot(slot.from, slot.to)}`
-                : formatScheduleSlot(slot.from, slot.to),
-              location: slot.location,
-              locationId:
-                typeof slot.locationId === "number"
-                  ? slot.locationId
-                  : slot.locationId
-                    ? Number(slot.locationId)
-                    : undefined,
-              court: slot.court,
-              scheduleFrom: slot.from,
-              scheduleTo: slot.to,
-              scheduleDate: day.matchDate?.format("YYYY-MM-DD"),
-            })),
+            slots: day.slots
+              .map((slot) => ({
+                id: slot.id,
+                primaryLabel: day.matchDate
+                  ? `${day.matchDate.format("MMM D")} • ${formatScheduleSlot(slot.from, slot.to)}`
+                  : formatScheduleSlot(slot.from, slot.to),
+                location: slot.location,
+                locationId:
+                  typeof slot.locationId === "number"
+                    ? slot.locationId
+                    : slot.locationId
+                      ? Number(slot.locationId)
+                      : undefined,
+                court: slot.court,
+                scheduleFrom: slot.from,
+                scheduleTo: slot.to,
+                scheduleDate: day.matchDate?.format("YYYY-MM-DD"),
+              }))
+              .filter((slot) => {
+                if (!filterScheduleSlots) return true;
+                if (!slot.scheduleDate || !slot.scheduleFrom || !slot.scheduleTo) return true;
+                const slotStart = moment(
+                  `${slot.scheduleDate} ${slot.scheduleFrom}`,
+                  "YYYY-MM-DD HH:mm:ss",
+                );
+                const slotEnd = moment(`${slot.scheduleDate} ${slot.scheduleTo}`, "YYYY-MM-DD HH:mm:ss");
+                if (!slotStart.isValid() || !slotEnd.isValid()) return true;
+                return !isBlockedByEvents(slotStart, slotEnd, blockedRanges);
+              }),
           })),
         },
       ];
     }
 
     return [];
-  }, [apiCoachAvailability, coachFilter, derivedCoachSchedule, selectedCoachName]);
+  }, [
+    apiCoachAvailability,
+    coachFilter,
+    derivedCoachSchedule,
+    googleCalendarCoachId,
+    googleCalendarEvents,
+    selectedCoachName,
+  ]);
 
   const handleRequestSlot = useCallback(
     (

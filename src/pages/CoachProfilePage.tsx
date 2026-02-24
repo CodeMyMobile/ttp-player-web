@@ -50,6 +50,10 @@ import {
   requestPrivateLesson,
   type NewLessonResponse,
 } from "../api/playerLessons";
+import {
+  getCoachGoogleCalendarSyncedEvents,
+  type GoogleCalendarEvent,
+} from "../api/playerCalendar";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
@@ -260,6 +264,47 @@ const buildScheduleMoment = (isoDate: string, time?: string) => {
   // Treat schedule times as UTC so they align with the mobile app’s handling
   const combined = moment.utc(`${isoDate}T${normalizedTime}`, ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"], true);
   return combined.isValid() ? combined : null;
+};
+
+const extractEventTimestamp = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const typed = value as { dateTime?: string; date?: string };
+    return typed.dateTime || typed.date || null;
+  }
+  return null;
+};
+
+const resolveEventTimestamp = (event: GoogleCalendarEvent, key: "start" | "end") => {
+  const directValue =
+    key === "start"
+      ? event.start_time || event.startDateTime || event.start_date_time || event.start
+      : event.end_time || event.endDateTime || event.end_date_time || event.end;
+  return extractEventTimestamp(directValue);
+};
+
+const buildEventRanges = (events: GoogleCalendarEvent[]) =>
+  events
+    .map((event) => {
+      const startValue = resolveEventTimestamp(event, "start");
+      const endValue = resolveEventTimestamp(event, "end");
+      if (!startValue || !endValue) return null;
+      const start = moment.utc(startValue);
+      const end = moment.utc(endValue);
+      if (!start.isValid() || !end.isValid() || !start.isBefore(end)) return null;
+      return { start, end };
+    })
+    .filter((range): range is { start: moment.Moment; end: moment.Moment } => Boolean(range));
+
+const isSlotBlockedByEvents = (
+  slot: { startDateTime?: string; endDateTime?: string },
+  ranges: Array<{ start: moment.Moment; end: moment.Moment }>,
+) => {
+  if (!ranges.length || !slot.startDateTime || !slot.endDateTime) return false;
+  const start = moment.utc(slot.startDateTime);
+  const end = moment.utc(slot.endDateTime);
+  if (!start.isValid() || !end.isValid()) return false;
+  return ranges.some((range) => start.isBefore(range.end) && end.isAfter(range.start));
 };
 
 const formatCurrency = (value?: number | string | null) => {
@@ -810,6 +855,27 @@ const CoachProfilePage = () => {
     const loadSchedule = async () => {
       setScheduleLoading(true);
       const days: BookingDate[] = [];
+      let blockedRanges: Array<{ start: moment.Moment; end: moment.Moment }> = [];
+
+      if (authToken) {
+        try {
+          const timeMin = moment.utc().startOf("day").toISOString();
+          const timeMax = moment
+            .utc()
+            .add(SCHEDULE_WINDOW_DAYS - 1, "days")
+            .endOf("day")
+            .toISOString();
+          const events = await getCoachGoogleCalendarSyncedEvents({
+            coachId,
+            timeMin,
+            timeMax,
+          });
+          blockedRanges = buildEventRanges(events ?? []);
+        } catch (err) {
+          console.error("Failed to fetch Google Calendar synced events", err);
+          blockedRanges = [];
+        }
+      }
 
       try {
         for (let offset = 0; offset < SCHEDULE_WINDOW_DAYS; offset += 1) {
@@ -877,7 +943,9 @@ const CoachProfilePage = () => {
               const slotStart = slot.startDateTime
                 ? moment(slot.startDateTime).format("HH:mm")
                 : moment(slot.time, ["h:mm A", "HH:mm"]).format("HH:mm");
-              return slotStart ? !lessonTimes.has(slotStart) : true;
+              const blockedByLesson = slotStart ? lessonTimes.has(slotStart) : false;
+              const blockedByCalendar = isSlotBlockedByEvents(slot, blockedRanges);
+              return !blockedByLesson && !blockedByCalendar;
             });
 
           if (slots.length) {
