@@ -1,0 +1,636 @@
+.lesson-invite-page {
+  padding: 24px;
+}
+
+.lesson-invite-phone {
+  width: min(360px, 100%);
+  background: #ffffff;
+  border-radius: 30px;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+}
+
+.lesson-invite-simple-header {
+  padding: 26px 20px 16px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.lesson-invite-brand-logo {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+
+.lesson-invite-brand-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.lesson-invite-content {
+  background: #f8fafc;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lesson-invite-coach-card,
+.lesson-invite-lesson-card,
+.lesson-invite-total-card,
+.lesson-invite-card__summary,
+.lesson-invite-card__payment,
+.lesson-invite-done,
+.lesson-invite-decline,
+.lesson-invite-claim-form {
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.lesson-invite-coach-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.lesson-invite-coach-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.lesson-invite-coach-avatar--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lesson-invite-coach-info {
+  flex: 1;
+}
+
+.lesson-invite-coach-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #8b5cf6;
+}
+
+.lesson-invite-coach-name {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.lesson-invite-coach-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.lesson-invite-lesson-card {
+  padding: 14px;
+}
+
+.lesson-invite-lesson-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+.lesson-invite-lesson-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.lesson-invite-lesson-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.lesson-invite-lesson-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  color: #475569;
+}
+
+.lesson-invite-lesson-icon--purple {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.lesson-invite-lesson-icon--blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.lesson-invite-lesson-icon--green {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.lesson-invite-lesson-detail {
+  flex: 1;
+}
+
+.lesson-invite-lesson-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.lesson-invite-lesson-value {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lesson-invite-total-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-invite-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lesson-invite-total-row-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.lesson-invite-total-row-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lesson-invite-total-row--total {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.lesson-invite-total-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lesson-invite-total-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #8b5cf6;
+}
+
+.lesson-invite-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lesson-invite-status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lesson-invite-status-pill--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.lesson-invite-status-pill--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.lesson-invite-status-pill--neutral {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.lesson-invite-status-pill--danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.lesson-invite-card__summary {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lesson-invite-card__summary p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.lesson-invite-card__status {
+  margin: 0;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-invite-card__spinner {
+  animation: lesson-invite-spin 1s linear infinite;
+}
+
+.lesson-invite-actions {
+  padding: 4px 0;
+}
+
+.lesson-invite-confirm-button,
+.lesson-invite-danger-button,
+.primary-button {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-invite-confirm-button,
+.primary-button {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
+.lesson-invite-confirm-button:hover,
+.primary-button:hover {
+  background: #7c3aed;
+}
+
+.lesson-invite-confirm-button:disabled,
+.primary-button:disabled,
+.lesson-invite-danger-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.lesson-invite-decline-link,
+.lesson-invite-ghost-button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.lesson-invite-decline-link {
+  margin-top: 8px;
+}
+
+.lesson-invite-card__payment {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-invite-card__payment h2,
+.lesson-invite-decline h2,
+.lesson-invite-done h2,
+.lesson-invite-claim-form h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.lesson-invite-card__payment p,
+.lesson-invite-done p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.lesson-invite-payment-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lesson-invite-payment-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7c3aed;
+  text-decoration: none;
+}
+
+.lesson-invite-payment-link:hover {
+  text-decoration: underline;
+}
+
+.lesson-invite-payment-link-hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.lesson-invite-card__saved-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-invite-card__saved-methods label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.lesson-invite-card__saved-methods select,
+.form-input,
+.lesson-invite-message {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 12px;
+}
+
+.lesson-invite-card__saved-methods select:focus,
+.form-input:focus,
+.lesson-invite-message:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  background: #ffffff;
+}
+
+.lesson-invite-card__alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-invite-card__mismatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-invite-card__signout {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  color: #8b5cf6;
+  cursor: pointer;
+}
+
+.lesson-invite-decline {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-invite-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-invite-reason {
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  text-align: left;
+  font-size: 14px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.lesson-invite-reason--selected {
+  border-color: #8b5cf6;
+  background: #faf5ff;
+}
+
+.lesson-invite-danger-button {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.lesson-invite-done {
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.lesson-invite-done-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+}
+
+.lesson-invite-done-icon--red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.lesson-invite-info-card {
+  width: 100%;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+}
+
+.lesson-invite-info-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.lesson-invite-info-card p + p {
+  margin-top: 6px;
+}
+
+.lesson-invite-claim-form {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error-message,
+.success-message {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.success-message {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.lesson-invite-card__payment .payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 10px;
+}
+
+.lesson-invite-card__payment .payment-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lesson-invite-card__payment .payment-form__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.lesson-invite-card__payment .payment-form__input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 14px;
+  padding: 12px;
+}
+
+.lesson-invite-card__payment .payment-form__input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  background: #ffffff;
+}
+
+.lesson-invite-card__payment .payment-form__stripe {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.lesson-invite-card__payment .payment-form__stripe--invalid {
+  border-color: #dc2626;
+}
+
+.lesson-invite-card__payment .payment-form__status {
+  margin: 0;
+  font-size: 12px;
+}
+
+.lesson-invite-card__payment .payment-form__status--error {
+  color: #b91c1c;
+}
+
+.lesson-invite-card__payment .payment-form__status--success {
+  color: #166534;
+}
+
+.lesson-invite-card__payment .payment-form__status--inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+}
+
+.lesson-invite-card__payment .payment-form__submit {
+  border: none;
+  border-radius: 12px;
+  background: #8b5cf6;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.lesson-invite-card__payment .payment-form__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.lesson-invite-card__payment .payment-form__spinner {
+  width: 14px;
+  height: 14px;
+  animation: lesson-invite-spin 1s linear infinite;
+}
+
+@keyframes lesson-invite-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 420px) {
+  .lesson-invite-page {
+    padding: 10px;
+  }
+
+  .lesson-invite-phone {
+    border-radius: 18px;
+  }
+}

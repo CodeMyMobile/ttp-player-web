@@ -47,6 +47,22 @@ export const AuthProvider = ({ children }) => {
     return response;
   }, []);
 
+  const establishSession = useCallback((response) => {
+    if (!response || typeof response !== "object") return;
+    const profile = response.profile || response.user || null;
+    if (profile) {
+      setUser(profile);
+    } else {
+      setUser((prev) => prev ?? null);
+    }
+    if (typeof response.email === "string" && response.email.trim()) {
+      setLastEmail(response.email.trim());
+    } else if (typeof profile?.email === "string" && profile.email.trim()) {
+      setLastEmail(profile.email.trim());
+    }
+    setIsAuthenticated(true);
+  }, []);
+
   const value = useMemo(
     () => ({
       isAuthenticated,
@@ -55,9 +71,10 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       forgotPassword,
+      establishSession,
       lastEmail,
     }),
-    [forgotPassword, isAuthenticated, lastEmail, loading, login, logout, user],
+    [establishSession, forgotPassword, isAuthenticated, lastEmail, loading, login, logout, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

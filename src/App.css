@@ -1043,6 +1043,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 18px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 
 .schedule-condensed__card {
@@ -1985,6 +1989,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 18px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 
 .schedule-condensed__card {
@@ -2261,6 +2269,7 @@
 
   .schedule-condensed {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    max-height: 460px;
   }
 }
 

@@ -147,6 +147,18 @@ export interface BookLessonParams {
   lessonId: number;
 }
 
+export interface FetchPlayerLessonByIdParams {
+  token: string;
+  lessonId: number | string;
+  signal?: AbortSignal;
+}
+
+export const fetchPlayerLessonById = ({ token, lessonId, signal }: FetchPlayerLessonByIdParams) =>
+  request<Lesson | { lesson?: Lesson }>(`/player/lesson/${lessonId}`, {
+    token,
+    signal,
+  });
+
 export const bookLesson = ({ token, lessonId }: BookLessonParams) =>
   request(`/player/lessons/${lessonId}/book`, {
     method: "POST",

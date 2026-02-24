@@ -1,0 +1,112 @@
+.player-lesson-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.player-lesson-details__back {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.player-lesson-details__back:hover {
+  color: #1e293b;
+}
+
+.player-lesson-details__empty {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.player-lesson-details__empty--error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b91c1c;
+}
+
+.player-lesson-details__status-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-lesson-details__status-pending {
+  margin: 0;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.player-lesson-details__status-success {
+  margin: 0;
+  color: #166534;
+  font-weight: 600;
+}
+
+.player-lesson-details__status-error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.player-lesson-details__payment-choice {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.player-lesson-details__payment-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.player-lesson-details__payment-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-lesson-details__payment-block p {
+  margin: 0;
+  color: #475569;
+}
+
+.player-lesson-details__payment-block select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.player-lesson-details__accept {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.player-lesson-details__accept:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

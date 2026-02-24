@@ -12,6 +12,7 @@ import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import LessonInvitePage from "./pages/LessonInvitePage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
@@ -23,6 +24,7 @@ import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
+import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
@@ -76,6 +78,10 @@ const AppRoutes = () => (
           <ForgotPasswordPage />
         </AuthRedirectRoute>
       )}
+    />
+    <Route
+      path="/li/:token"
+      element={<LessonInvitePage />}
     />
     <Route
       path="/"
@@ -210,6 +216,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <GroupLessonDetailsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/player/lesson/:id"
+      element={(
+        <ProtectedRoute>
+          <PlayerLessonDetailsPage />
         </ProtectedRoute>
       )}
     />
