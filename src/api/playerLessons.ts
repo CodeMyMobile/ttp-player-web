@@ -179,6 +179,12 @@ export interface JoinLessonParams {
   paymentMethodId?: string;
 }
 
+export interface BookGroupLessonWithCardParams {
+  token: string;
+  lessonId: number | string;
+  paymentMethodId: string;
+}
+
 export const joinLesson = ({
   token,
   lessonId,
@@ -205,6 +211,16 @@ export const joinLesson = ({
       status,
       court,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+    },
+  });
+
+export const bookGroupLessonWithCard = ({ token, lessonId, paymentMethodId }: BookGroupLessonWithCardParams) =>
+  request(`/player/lesson/${lessonId}/book`, {
+    method: "POST",
+    token,
+    authScheme: "Token",
+    body: {
+      payment_method_id: paymentMethodId,
     },
   });
 

@@ -11,7 +11,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import LessonDetailCard from "../components/LessonDetailCard";
-import { fetchPlayerLessonById, type Lesson } from "../api/playerLessons";
+import { bookGroupLessonWithCard, fetchPlayerLessonById, type Lesson } from "../api/playerLessons";
 import {
   createPlayerStripePaymentIntent,
   getPlayerStripePaymentMethods,
@@ -74,6 +74,15 @@ const resolveLessonTypeForCredits = (lesson: Lesson | null) => {
     return "group";
   }
   return "private";
+};
+
+const isGroupLessonType = (lesson: Lesson | null) => {
+  if (!lesson) return false;
+  const record = lesson as Record<string, unknown>;
+  const typeId = parseNumber(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
+  if (typeId === 3) return true;
+  const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+  return typeLabel.includes("group") || typeLabel.includes("open group");
 };
 
 const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<string, unknown> | null | undefined) => {
@@ -337,6 +346,16 @@ const PlayerLessonDetailsPage = () => {
           const request = applePayRequest;
           const handlePaymentMethod = async (event: PaymentRequestPaymentMethodEvent) => {
             try {
+              if (isGroupLessonType(lesson)) {
+                await bookGroupLessonWithCard({
+                  token,
+                  lessonId: lesson.id,
+                  paymentMethodId: event.paymentMethod.id,
+                });
+                event.complete("success");
+                resolve();
+                return;
+              }
               const intentResponse = await createPlayerStripePaymentIntent({
                 token,
                 lessonId: lesson.id,
@@ -415,39 +434,47 @@ const PlayerLessonDetailsPage = () => {
         if (!selectedPaymentMethodId) {
           throw new Error("Select a payment method to continue.");
         }
-        if (!stripePromise) {
-          throw new Error("Stripe is not configured in this environment.");
-        }
-        const intentResponse = await createPlayerStripePaymentIntent({
-          token,
-          lessonId: lesson.id,
-          paymentMethodId: selectedPaymentMethodId,
-        });
-        const intentRecord = intentResponse as Record<string, unknown>;
-        const intentStatusFromApi = extractIntentStatus(intentRecord);
-        if (intentStatusFromApi === "succeeded") {
-          await loadLesson();
-          setActionSuccess("Lesson accepted successfully.");
-          return;
-        }
-        const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
-        const clientSecret =
-          (intentRecord?.client_secret as string | undefined) ??
-          (nestedIntent?.client_secret as string | undefined);
-        if (!clientSecret) {
-          throw new Error("Unable to initialize payment.");
-        }
-        const stripe = await stripePromise;
-        if (!stripe) throw new Error("Stripe is unavailable.");
-        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: selectedPaymentMethodId,
-        });
-        if (stripeError) {
-          throw new Error(stripeError.message || "Card payment failed.");
-        }
-        const intentStatus = paymentIntent?.status?.toLowerCase();
-        if (intentStatus && intentStatus !== "succeeded") {
-          throw new Error("Payment was not successful.");
+        if (isGroupLessonType(lesson)) {
+          await bookGroupLessonWithCard({
+            token,
+            lessonId: lesson.id,
+            paymentMethodId: selectedPaymentMethodId,
+          });
+        } else {
+          if (!stripePromise) {
+            throw new Error("Stripe is not configured in this environment.");
+          }
+          const intentResponse = await createPlayerStripePaymentIntent({
+            token,
+            lessonId: lesson.id,
+            paymentMethodId: selectedPaymentMethodId,
+          });
+          const intentRecord = intentResponse as Record<string, unknown>;
+          const intentStatusFromApi = extractIntentStatus(intentRecord);
+          if (intentStatusFromApi === "succeeded") {
+            await loadLesson();
+            setActionSuccess("Lesson accepted successfully.");
+            return;
+          }
+          const nestedIntent = intentRecord?.payment_intent as Record<string, unknown> | undefined;
+          const clientSecret =
+            (intentRecord?.client_secret as string | undefined) ??
+            (nestedIntent?.client_secret as string | undefined);
+          if (!clientSecret) {
+            throw new Error("Unable to initialize payment.");
+          }
+          const stripe = await stripePromise;
+          if (!stripe) throw new Error("Stripe is unavailable.");
+          const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: selectedPaymentMethodId,
+          });
+          if (stripeError) {
+            throw new Error(stripeError.message || "Card payment failed.");
+          }
+          const intentStatus = paymentIntent?.status?.toLowerCase();
+          if (intentStatus && intentStatus !== "succeeded") {
+            throw new Error("Payment was not successful.");
+          }
         }
       }
       await loadLesson();
