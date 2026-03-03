@@ -2051,7 +2051,8 @@ const extractLocationId = (slot?: BookingSlot) => {
     setBookingError(null);
     setBookingSuccess(null);
     setConsumeError(null);
-    setPaymentChoice("card");
+    const lessonType = resolveLessonTypeId(lesson);
+    setPaymentChoice(eligibleCreditsForLessonType(lessonType).length > 0 ? "credits" : "card");
     setPaymentSheetOpen(true);
     await loadPaymentMethods();
   };
@@ -2263,6 +2264,79 @@ const extractLocationId = (slot?: BookingSlot) => {
     }
 
     if (pendingLessonPayment) {
+      if (paymentChoice === "credits") {
+        if (!pendingEligibleCredits.length) {
+          setConsumeError("No eligible credits available for this lesson type.");
+          return;
+        }
+        setBookingError(null);
+        setBookingSuccess(null);
+        setConsumeError(null);
+        setBookingInFlight(`lesson-${pendingLessonPayment.id}`);
+        setConsumingCredits(true);
+
+        try {
+          const coachId = Number((pendingLessonPayment as Record<string, unknown>).coach_id ?? profile?.id);
+          if (!Number.isFinite(coachId)) {
+            throw new Error("Invalid coach information. Please refresh and try again.");
+          }
+          await consumePackageCredits({
+            token: authToken,
+            coachId,
+            lessonType: resolveLessonTypeId(pendingLessonPayment),
+            lessonId: pendingLessonPayment.id,
+            purchaseId: pendingEligibleCredits[0]?.id,
+          });
+
+          const confirmationDetails = buildBookingConfirmationDetails({
+            lesson: pendingLessonPayment,
+            schedule: {
+              startDateTimeTz: pendingLessonPayment.start_date_time,
+              endDateTimeTz: pendingLessonPayment.end_date_time,
+            },
+            locationLabel: resolveLessonLocationLabel(pendingLessonPayment),
+          });
+          setBookingConfirmation(confirmationDetails);
+          setBookingSuccess(null);
+          applyLessonConfirmedStatus(pendingLessonPayment);
+          closePaymentSheet();
+
+          try {
+            const refreshed = await fetchPackageCredits({
+              token: authToken,
+              coachId,
+              includeExpired: false,
+            });
+            setPackageCredits(refreshed?.purchases ?? []);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unable to refresh credits.";
+            setCreditsError(message);
+          }
+          try {
+            const refreshedBalance = await fetchPackageCreditsBalance({
+              token: authToken,
+              coachId,
+            });
+            setCreditsBalance(refreshedBalance ?? null);
+          } catch {
+            setCreditsBalance(null);
+          }
+        } catch (err) {
+          const code = (err as Error & { data?: { code?: string } })?.data?.code;
+          const fallbackMessage =
+            code === "lesson_type_not_allowed"
+              ? "This package can't be used for this lesson type."
+              : "Unable to use credits for this lesson.";
+          const message = err instanceof Error ? err.message : fallbackMessage;
+          setConsumeError(message || fallbackMessage);
+          setBookingError(message || fallbackMessage);
+        } finally {
+          setConsumingCredits(false);
+          setBookingInFlight(null);
+        }
+        return;
+      }
+
       if (!selectedPaymentMethodId) {
         setPaymentMethodsError("Choose a payment method to confirm this lesson.");
         return;

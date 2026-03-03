@@ -69,10 +69,9 @@ const resolveLessonTypeForCredits = (lesson: Lesson | null) => {
   if (!lesson) return "private";
   const record = lesson as Record<string, unknown>;
   const typeId = parseNumber(record.lessontype_id ?? record.lesson_type_id ?? record.lessonTypeId);
-  const typeLabel = String(record.lesson_type_name ?? "").toLowerCase();
-  if (typeId === 2 || typeId === 3 || typeId === 4 || typeLabel.includes("group") || typeLabel.includes("semi")) {
-    return "group";
-  }
+  const typeLabel = String(record.lesson_type_name ?? record.lessonTypeName ?? "").toLowerCase();
+  if (typeId === 2 || typeLabel.includes("semi")) return "semi";
+  if (typeId === 3 || typeId === 4 || typeLabel.includes("group") || typeLabel.includes("open group")) return "group";
   return "private";
 };
 
