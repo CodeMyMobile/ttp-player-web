@@ -54,6 +54,7 @@ import {
   getCoachGoogleCalendarSyncedEvents,
   type GoogleCalendarEvent,
 } from "../api/playerCalendar";
+import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import type { CoachProfile } from "../data/mockCoachProfiles";
@@ -2280,6 +2281,31 @@ const extractLocationId = (slot?: BookingSlot) => {
           if (!Number.isFinite(coachId)) {
             throw new Error("Invalid coach information. Please refresh and try again.");
           }
+
+          const refreshCreditsState = async () => {
+            try {
+              const refreshed = await fetchPackageCredits({
+                token: authToken,
+                coachId,
+                includeExpired: false,
+              });
+              setPackageCredits(refreshed?.purchases ?? []);
+              setCreditsError(null);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "Unable to refresh credits.";
+              setCreditsError(message);
+            }
+            try {
+              const refreshedBalance = await fetchPackageCreditsBalance({
+                token: authToken,
+                coachId,
+              });
+              setCreditsBalance(refreshedBalance ?? null);
+            } catch {
+              setCreditsBalance(null);
+            }
+          };
+
           await consumePackageCredits({
             token: authToken,
             coachId,
@@ -2287,6 +2313,16 @@ const extractLocationId = (slot?: BookingSlot) => {
             lessonId: pendingLessonPayment.id,
             purchaseId: pendingEligibleCredits[0]?.id,
           });
+
+          setBookingSuccess("Package credit reserved. Finalizing lesson confirmation...");
+          await refreshCreditsState();
+
+          await updatePlayerLesson({
+            token: authToken,
+            lessonId: pendingLessonPayment.id,
+            status: "CONFIRMED",
+          });
+          await refreshCreditsState();
 
           const confirmationDetails = buildBookingConfirmationDetails({
             lesson: pendingLessonPayment,
@@ -2300,34 +2336,18 @@ const extractLocationId = (slot?: BookingSlot) => {
           setBookingSuccess(null);
           applyLessonConfirmedStatus(pendingLessonPayment);
           closePaymentSheet();
-
-          try {
-            const refreshed = await fetchPackageCredits({
-              token: authToken,
-              coachId,
-              includeExpired: false,
-            });
-            setPackageCredits(refreshed?.purchases ?? []);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : "Unable to refresh credits.";
-            setCreditsError(message);
-          }
-          try {
-            const refreshedBalance = await fetchPackageCreditsBalance({
-              token: authToken,
-              coachId,
-            });
-            setCreditsBalance(refreshedBalance ?? null);
-          } catch {
-            setCreditsBalance(null);
-          }
         } catch (err) {
-          const code = (err as Error & { data?: { code?: string } })?.data?.code;
+          const errorData = (err as Error & { data?: { error?: string; detail?: string; message?: string; code?: string } })?.data;
+          const code = errorData?.code;
           const fallbackMessage =
             code === "lesson_type_not_allowed"
               ? "This package can't be used for this lesson type."
               : "Unable to use credits for this lesson.";
-          const message = err instanceof Error ? err.message : fallbackMessage;
+          const message =
+            errorData?.error ??
+            errorData?.detail ??
+            errorData?.message ??
+            (err instanceof Error ? err.message : fallbackMessage);
           setConsumeError(message || fallbackMessage);
           setBookingError(message || fallbackMessage);
         } finally {
