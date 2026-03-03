@@ -84,6 +84,38 @@ const extractLessons = (response) => {
   return [];
 };
 
+
+const extractPagination = (response, fallbackPage = 1) => {
+  const meta = response?.meta ?? {};
+  const pagination = meta?.pagination ?? meta ?? response?.pagination ?? response ?? {};
+
+  const currentPage =
+    (typeof pagination?.current_page === "number" && pagination.current_page) ||
+    (typeof pagination?.currentPage === "number" && pagination.currentPage) ||
+    (typeof pagination?.page === "number" && pagination.page) ||
+    fallbackPage;
+
+  const totalPages =
+    (typeof pagination?.total_pages === "number" && pagination.total_pages) ||
+    (typeof pagination?.totalPages === "number" && pagination.totalPages) ||
+    (typeof pagination?.last_page === "number" && pagination.last_page) ||
+    null;
+
+  const total =
+    (typeof pagination?.total === "number" && pagination.total) ||
+    (typeof meta?.total === "number" && meta.total) ||
+    (typeof response?.total === "number" && response.total) ||
+    null;
+
+  const perPage =
+    (typeof pagination?.per_page === "number" && pagination.per_page) ||
+    (typeof pagination?.perPage === "number" && pagination.perPage) ||
+    (typeof response?.per_page === "number" && response.per_page) ||
+    (typeof response?.perPage === "number" && response.perPage) ||
+    null;
+
+  return { currentPage, totalPages, total, perPage };
+};
 const resolveLessonKind = (lesson) => {
   const limit = parseNumber(lesson.player_limit, lesson.playerLimit, lesson.max_players, lesson.player_capacity);
   const typeValue = pickString(lesson.lesson_type_name, lesson.type, lesson.lesson_type, lesson.program_type) || "";
@@ -627,7 +659,13 @@ const DashboardPage = () => {
   const [customRangeEnd, setCustomRangeEnd] = useState("");
   const [customRangeError, setCustomRangeError] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
-  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityPagination, setActivityPagination] = useState({
+    page: 1,
+    totalPages: null,
+    total: null,
+    perPage: 25,
+  });
   const [showQuickBook, setShowQuickBook] = useState(false);
 
   const distanceOptions = ["5", "10", "15", "20", "all"];
@@ -703,14 +741,7 @@ const DashboardPage = () => {
       );
   }, [activeFilter, scopedActivities]);
 
-  useEffect(() => {
-    setShowAllActivities(false);
-  }, [activeFilter, dateFilter]);
-
-  const displayedActivities = showAllActivities
-    ? filteredActivities
-    : filteredActivities.slice(0, 3);
-  const remainingActivityCount = filteredActivities.length - displayedActivities.length;
+  const displayedActivities = filteredActivities;
 
   const selectedDayMeta =
     dateFilter.type === "day"
@@ -961,6 +992,7 @@ const DashboardPage = () => {
       if (!token) {
         setScheduleState({ status: "unauthenticated", items: [], error: null });
         setActivityState({ status: "unauthenticated", items: [], error: null });
+        setActivityPagination({ page: 1, totalPages: null, total: null, perPage: 25 });
         return;
       }
 
@@ -979,12 +1011,21 @@ const DashboardPage = () => {
         const lessonsResponse = await getPlayerFutureLessons({
           token,
           perPage: 25,
+          page: activityPage,
           signal: controller.signal,
         });
 
         if (cancelled) return;
 
         const upcomingLessons = extractLessons(lessonsResponse);
+        const pagination = extractPagination(lessonsResponse, activityPage);
+        setActivityPagination({
+          page: pagination.currentPage,
+          totalPages: pagination.totalPages,
+          total: pagination.total,
+          perPage: pagination.perPage ?? 25,
+        });
+
         const privateLessons = buildScheduleItems(
           upcomingLessons.filter((lesson) => resolveLessonKind(lesson) !== "group"),
           "lesson",
@@ -1039,7 +1080,7 @@ const DashboardPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [activityPage]);
 
   const locationChipLabel = () => {
     if (locationState.status === "ready") {
@@ -1336,19 +1377,31 @@ const DashboardPage = () => {
                 <ActivityCard key={activity.id} activity={activity} onAction={handleViewActivity} />
               ))}
             </div>
-            {filteredActivities.length > 3 ? (
-              <div className="activity-feed__more">
-                <button
-                  type="button"
-                  className="activity-feed__more-button"
-                  onClick={() => setShowAllActivities((previous) => !previous)}
-                >
-                  {showAllActivities
-                    ? "Show Less"
-                    : `Show More${remainingActivityCount > 0 ? ` (${remainingActivityCount})` : ""}`}
-                </button>
-              </div>
-            ) : null}
+            <div className="activity-feed__more">
+              <button
+                type="button"
+                className="activity-feed__more-button"
+                onClick={() => setActivityPage((previous) => Math.max(previous - 1, 1))}
+                disabled={activityState.status === "loading" || activityPagination.page <= 1}
+              >
+                Previous
+              </button>
+              <span className="activity-feed__pagination-status">
+                Page {activityPagination.page}
+                {activityPagination.totalPages ? ` of ${activityPagination.totalPages}` : ""}
+              </span>
+              <button
+                type="button"
+                className="activity-feed__more-button"
+                onClick={() => setActivityPage((previous) => previous + 1)}
+                disabled={
+                  activityState.status === "loading" ||
+                  (activityPagination.totalPages ? activityPagination.page >= activityPagination.totalPages : false)
+                }
+              >
+                Next
+              </button>
+            </div>
           </>
         )}
       </section>
