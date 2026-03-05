@@ -3,6 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import {
+  extractNotificationList,
+  getNotificationCount,
+  getNotifications,
+  type PlayerNotification,
+} from "../api/notification";
+import { getStoredAuthToken } from "../services/authToken";
 import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
 
 const navLinks = [
@@ -24,7 +31,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const { logout } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
+  const [isNotificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<PlayerNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotificationsLoading, setNotificationsLoading] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
   const userMenuItems = [
     { label: "Player profile", to: "/settings/profile", icon: UserRound },
@@ -38,6 +50,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -46,6 +61,54 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const token = getStoredAuthToken({ preferScheme: "token" });
+    if (!token) return;
+
+    const controller = new AbortController();
+
+    getNotificationCount({ token, signal: controller.signal })
+      .then((response) => {
+        const data = (response as { data?: { unread?: number } }).data ?? response;
+        const unread = Number(data?.unread ?? 0);
+        setUnreadCount(Number.isFinite(unread) ? unread : 0);
+      })
+      .catch(() => {
+        setUnreadCount(0);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const loadNotifications = async () => {
+    const token = getStoredAuthToken({ preferScheme: "token" });
+    if (!token) return;
+
+    setNotificationsLoading(true);
+
+    try {
+      const response = await getNotifications({ token, perPage: 10, page: 1 });
+      setNotifications(extractNotificationList(response));
+    } catch {
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const formatNotificationDate = (notification: PlayerNotification) => {
+    const rawValue = notification.createdAt ?? notification.created_at;
+    if (!rawValue || typeof rawValue !== "string") return "";
+    const parsed = new Date(rawValue);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(parsed);
+  };
 
   return (
     <div className="dashboard-page">
@@ -72,10 +135,62 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           )}
         </nav>
         <div className="header-actions">
-          <button type="button" className="notification-button" aria-label="View notifications">
-            <Bell size={20} aria-hidden="true" />
-            <span className="notification-indicator" aria-hidden="true" />
-          </button>
+          <div className="notifications-menu" ref={notificationRef}>
+            <button
+              type="button"
+              className="notification-button"
+              aria-label="View notifications"
+              aria-haspopup="menu"
+              aria-expanded={isNotificationsOpen}
+              onClick={() => {
+                const nextState = !isNotificationsOpen;
+                setNotificationsOpen(nextState);
+                if (nextState) {
+                  loadNotifications();
+                }
+              }}
+            >
+              <Bell size={20} aria-hidden="true" />
+              {unreadCount > 0 && <span className="notification-indicator" aria-hidden="true" />}
+            </button>
+            {isNotificationsOpen && (
+              <div className="notifications-dropdown" role="menu" aria-label="Notifications">
+                <div className="notifications-dropdown__header">
+                  <h3>Notifications</h3>
+                  {unreadCount > 0 && <span>{unreadCount} unread</span>}
+                </div>
+                {isNotificationsLoading ? (
+                  <p className="notifications-dropdown__empty">Loading notifications…</p>
+                ) : notifications.length === 0 ? (
+                  <p className="notifications-dropdown__empty">No notifications yet.</p>
+                ) : (
+                  <ul className="notifications-list">
+                    {notifications.map((notification, index) => {
+                      const key = notification.id ?? `${notification.title ?? "notification"}-${index}`;
+                      const content = notification.message ?? notification.body ?? "New update available.";
+
+                      return (
+                        <li key={key} className="notifications-list__item">
+                          <p className="notifications-list__title">{notification.title ?? "Notification"}</p>
+                          <p className="notifications-list__body">{content}</p>
+                          <p className="notifications-list__time">{formatNotificationDate(notification)}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <div className="notifications-dropdown__footer">
+                  <Link
+                    to="/notifications"
+                    className="notifications-dropdown__see-all"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    See all notifications
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="user-menu" ref={userMenuRef}>
             <button
               type="button"
