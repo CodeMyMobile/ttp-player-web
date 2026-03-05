@@ -3,7 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
-import { getNotificationCount, getNotifications, type PlayerNotification } from "../api/notification";
+import {
+  extractNotificationList,
+  getNotificationCount,
+  getNotifications,
+  type PlayerNotification,
+} from "../api/notification";
 import { getStoredAuthToken } from "../services/authToken";
 import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
 
@@ -84,10 +89,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
     try {
       const response = await getNotifications({ token, perPage: 10, page: 1 });
-      const resolved = Array.isArray(response)
-        ? response
-        : response?.data ?? response?.notifications ?? [];
-      setNotifications(Array.isArray(resolved) ? resolved : []);
+      setNotifications(extractNotificationList(response));
     } catch {
       setNotifications([]);
     } finally {
@@ -177,6 +179,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     })}
                   </ul>
                 )}
+                <div className="notifications-dropdown__footer">
+                  <Link
+                    to="/notifications"
+                    className="notifications-dropdown__see-all"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    See all notifications
+                  </Link>
+                </div>
               </div>
             )}
           </div>

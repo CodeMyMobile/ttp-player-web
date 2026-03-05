@@ -27,6 +27,7 @@ import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
 import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import "./App.css";
 
@@ -168,6 +169,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CreditsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/notifications"
+      element={(
+        <ProtectedRoute>
+          <NotificationsPage />
         </ProtectedRoute>
       )}
     />

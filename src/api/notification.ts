@@ -7,15 +7,27 @@ export interface NotificationPaginationParams {
   signal?: AbortSignal;
 }
 
+export interface NotificationLesson {
+  id?: number;
+  start_date_time?: string;
+  end_date_time?: string;
+  location?: string;
+  [key: string]: unknown;
+}
+
 export interface PlayerNotification {
   id?: number | string;
+  profile_url?: string;
   title?: string;
   message?: string;
-  body?: string;
-  createdAt?: string;
   created_at?: string;
-  read?: boolean;
-  isRead?: boolean;
+  createdAt?: string;
+  seen?: boolean;
+  entity_id?: number;
+  entity?: number;
+  action?: number;
+  actor_id?: number;
+  lesson?: NotificationLesson;
   [key: string]: unknown;
 }
 
@@ -25,8 +37,20 @@ export interface NotificationCount {
   [key: string]: unknown;
 }
 
+export type NotificationListResponse =
+  | PlayerNotification[]
+  | { data?: PlayerNotification[]; notifications?: PlayerNotification[] };
+
+export const extractNotificationList = (response: NotificationListResponse | null | undefined): PlayerNotification[] => {
+  if (!response) return [];
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.notifications)) return response.notifications;
+  return [];
+};
+
 export const getNotifications = async ({ token, perPage = 10, page = 1, signal }: NotificationPaginationParams) =>
-  request<PlayerNotification[] | { data?: PlayerNotification[]; notifications?: PlayerNotification[] }>("/notification", {
+  request<NotificationListResponse>("/notification", {
     token,
     signal,
     query: {
