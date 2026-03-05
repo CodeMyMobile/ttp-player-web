@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import MainLayout from "../components/MainLayout";
+import LessonDetailCard from "../components/LessonDetailCard";
 import { extractNotificationList, getNotifications, type PlayerNotification } from "../api/notification";
+import type { Lesson } from "../api/playerLessons";
 import { getStoredAuthToken } from "../services/authToken";
 
 const DEFAULT_PER_PAGE = 10;
@@ -17,6 +20,34 @@ const formatNotificationDate = (notification: PlayerNotification) => {
     hour: "numeric",
     minute: "2-digit",
   }).format(parsed);
+};
+
+const toNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const mapNotificationLessonToCardLesson = (notification: PlayerNotification): Lesson | null => {
+  const lesson = notification.lesson;
+  if (!lesson?.id || !lesson.start_date_time || !lesson.end_date_time) return null;
+
+  return {
+    id: toNumber(lesson.id),
+    coach_id: toNumber(notification.actor_id),
+    coach_name: notification.title ?? "Coach",
+    location_id: toNumber(lesson.location_id),
+    location_name: lesson.location,
+    start_date_time: lesson.start_date_time,
+    end_date_time: lesson.end_date_time,
+    lesson_type_name: lesson.lesson_type_name,
+    price_per_person: toNumber(lesson.hourly_rate),
+    player_limit: Array.isArray(lesson.group_players) ? lesson.group_players.length : undefined,
+    current_player_count: Array.isArray(lesson.group_players) ? lesson.group_players.length : undefined,
+    metadata: {
+      title: `${lesson.lesson_type_name ?? "Lesson"} lesson`,
+      description: notification.message ?? "",
+    },
+  };
 };
 
 const NotificationsPage = () => {
@@ -106,20 +137,35 @@ const NotificationsPage = () => {
             <ul className="notifications-page__list">
               {notifications.map((notification, index) => {
                 const key = notification.id ?? `${notification.title ?? "notification"}-${index}`;
+                const lessonForCard = mapNotificationLessonToCardLesson(notification);
+
                 return (
                   <li key={key} className="notifications-page__item">
-                    {notification.profile_url ? (
-                      <img src={notification.profile_url} alt="Sender" className="notifications-page__avatar" />
-                    ) : (
-                      <div className="notifications-page__avatar notifications-page__avatar--fallback" aria-hidden="true">
-                        {notification.title?.slice(0, 1) ?? "N"}
+                    <div className="notifications-page__summary">
+                      {notification.profile_url ? (
+                        <img src={notification.profile_url} alt="Sender" className="notifications-page__avatar" />
+                      ) : (
+                        <div className="notifications-page__avatar notifications-page__avatar--fallback" aria-hidden="true">
+                          {notification.title?.slice(0, 1) ?? "N"}
+                        </div>
+                      )}
+                      <div className="notifications-page__content">
+                        <p className="notifications-page__title">{notification.title ?? "Notification"}</p>
+                        <p className="notifications-page__message">{notification.message ?? "New update available."}</p>
+                        <p className="notifications-page__time">{formatNotificationDate(notification)}</p>
+                      </div>
+                    </div>
+
+                    {lessonForCard && (
+                      <div className="notifications-page__lesson-card">
+                        <LessonDetailCard lesson={lessonForCard} />
+                        <div className="notifications-page__lesson-actions">
+                          <Link to={`/player/lesson/${lessonForCard.id}`} className="notifications-page__lesson-link">
+                            View lesson details
+                          </Link>
+                        </div>
                       </div>
                     )}
-                    <div className="notifications-page__content">
-                      <p className="notifications-page__title">{notification.title ?? "Notification"}</p>
-                      <p className="notifications-page__message">{notification.message ?? "New update available."}</p>
-                      <p className="notifications-page__time">{formatNotificationDate(notification)}</p>
-                    </div>
                   </li>
                 );
               })}

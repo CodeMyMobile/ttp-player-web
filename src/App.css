@@ -2485,11 +2485,10 @@
 }
 
 .notifications-page__item {
-  display: flex;
-  gap: 12px;
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 14px;
   padding: 12px;
+  background: #fff;
 }
 
 .notifications-page__avatar {
@@ -2510,6 +2509,27 @@
 
 .notifications-page__content {
   min-width: 0;
+}
+
+.notifications-page__summary {
+  display: flex;
+  gap: 12px;
+}
+
+.notifications-page__lesson-card {
+  margin-top: 12px;
+}
+
+.notifications-page__lesson-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.notifications-page__lesson-link {
+  color: #15803d;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .notifications-page__title {

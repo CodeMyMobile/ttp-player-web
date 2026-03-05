@@ -7,11 +7,36 @@ export interface NotificationPaginationParams {
   signal?: AbortSignal;
 }
 
+export interface NotificationGroupPlayer {
+  player_id?: number;
+  full_name?: string;
+  email?: string;
+  profile_picture?: string;
+  status?: number;
+  [key: string]: unknown;
+}
+
 export interface NotificationLesson {
   id?: number;
+  player_id?: number;
   start_date_time?: string;
   end_date_time?: string;
+  status?: number;
+  court?: number | null;
+  location_id?: number;
+  created_by?: number;
+  updated_by?: number;
+  payment_method_id?: string | null;
+  full_name?: string;
+  latitude?: string | null;
+  longitude?: string | null;
   location?: string;
+  hourly_rate?: number | string | null;
+  group_lesson_price_id?: number | null;
+  group_price_per_person?: number | string | null;
+  discount_percentage?: number | null;
+  lesson_type_name?: string;
+  group_players?: NotificationGroupPlayer[] | null;
   [key: string]: unknown;
 }
 
