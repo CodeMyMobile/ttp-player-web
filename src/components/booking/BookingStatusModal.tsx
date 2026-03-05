@@ -150,14 +150,17 @@ console.log("timeLabel", timeLabel);
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 py-4 sm:px-4"
       role="dialog"
       aria-modal="true"
       onClick={(event) => {
         if (event.target === overlayRef.current) onClose();
       }}
     >
-      <div ref={modalRef} className="w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-xl">
+      <div
+        ref={modalRef}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-[420px] overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
+      >
         <button
           onClick={onClose}
           className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -166,12 +169,12 @@ console.log("timeLabel", timeLabel);
           ×
         </button>
 
-        <div className="mt-2 flex gap-4">
+        <div className="mt-2 flex gap-3 sm:gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
             <CheckIcon className="h-6 w-6 text-emerald-600" />
           </div>
           <div>
-            <h2 className="text-[22px] font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-gray-900 sm:text-[22px]">
               {isPending ? "Lesson request sent!" : "You’re booked!"}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
@@ -329,7 +332,7 @@ console.log("timeLabel", timeLabel);
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             onClick={onSecondary}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
