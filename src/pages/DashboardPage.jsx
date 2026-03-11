@@ -1,6 +1,7 @@
 import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, MapPin } from "lucide-react";
+import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { getPlayerFutureLessons } from "../api/playerHome";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -170,7 +171,7 @@ const DashboardPage = () => {
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
-  const [locationName] = useState("Venice");
+  const [locationName, setLocationName] = useState("Venice");
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
   useEffect(() => {
@@ -247,6 +248,11 @@ const DashboardPage = () => {
   };
 
   const scheduleItems = scheduleState.items;
+
+  const handlePlaceSelected = (place) => {
+    const nextLocation = pickString(place?.name, place?.formatted_address);
+    if (nextLocation) setLocationName(nextLocation);
+  };
 
   return (
     <div className="player-home">
@@ -364,7 +370,18 @@ const DashboardPage = () => {
           <div className="ph-location-sheet" onClick={(event) => event.stopPropagation()}>
             <div className="handle" />
             <h3>Choose Location</h3>
-            <div className="search">🔍 Search courts or neighborhoods...</div>
+            <div className="search">
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="🔍 Search courts or neighborhoods..."
+                className="ph-location-search-input"
+                onPlaceSelected={handlePlaceSelected}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "name"],
+                }}
+              />
+            </div>
             <p className="section">CURRENT</p>
             <div className="current">📍 Venice, CA <span>✓</span></div>
             <p className="section">NEARBY COURTS</p>
