@@ -1,9 +1,10 @@
 import moment from "moment";
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, ChevronRight, MapPin, Search, Star } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, ChevronDown, ChevronRight, CreditCard, LogOut, MapPin, Search, ShieldX, Star, Target, UserRound } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { normalizeMatchRecord } from "../api/matches";
+import { useAuth } from "../context/AuthContext";
 import { getPlayerDiscoverNearby, getPlayerFutureLessons } from "../api/playerHome";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
@@ -451,9 +452,17 @@ const navItems = [
   { icon: "👤", label: "Profile", to: "/settings/profile" },
 ];
 
+const userMenuItems = [
+  { label: "Player profile", to: "/settings/profile", icon: UserRound },
+  { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+  { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
+  { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
+];
+
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { displayName, initials } = usePlayerIdentity();
+  const { logout } = useAuth();
+  const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const [scheduleState, setScheduleState] = useState({ status: "idle", items: [], error: null });
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
@@ -466,6 +475,19 @@ const DashboardPage = () => {
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -772,9 +794,59 @@ const DashboardPage = () => {
             <span>{locationName}</span>
             <ChevronDown size={14} />
           </button>
-          <button className="ph-avatar" type="button">
-            {initials || "PC"}
-          </button>
+          <div className="ph-user-menu" ref={userMenuRef}>
+            <button
+              className="ph-user-trigger"
+              type="button"
+              onClick={() => setIsUserMenuOpen((open) => !open)}
+              aria-expanded={isUserMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Open profile menu"
+            >
+              <span className={`ph-avatar${avatarUrl ? " has-image" : ""}`}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
+                ) : (
+                  initials || "PC"
+                )}
+              </span>
+              <span className="ph-user-copy">
+                <strong>{firstName}</strong>
+                <small>Settings</small>
+              </span>
+              <ChevronDown size={16} />
+            </button>
+
+            {isUserMenuOpen ? (
+              <div className="ph-user-dropdown" role="menu">
+                {userMenuItems.map(({ label, to, icon: Icon }) => (
+                  <Link
+                    key={label}
+                    to={to}
+                    className="ph-user-menu-item"
+                    role="menuitem"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  >
+                    <Icon size={16} />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+
+                <button
+                  type="button"
+                  className="ph-user-menu-item ph-user-menu-item-danger"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    logout();
+                  }}
+                >
+                  <LogOut size={16} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
