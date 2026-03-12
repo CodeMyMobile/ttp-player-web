@@ -1,11 +1,19 @@
 import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, MapPin } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, MapPin, Search, Star } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
-import { getPlayerFutureLessons } from "../api/playerHome";
+import { normalizeMatchRecord } from "../api/matches";
+import { getPlayerDiscoverNearby, getPlayerFutureLessons } from "../api/playerHome";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
+import {
+  DEFAULT_POSITION,
+  getStoredLocation,
+  getStoredLocationLabel,
+  storeLocation,
+  storeLocationLabel,
+} from "../utils/userLocation";
 import "./DashboardPage.css";
 
 const pickString = (...values) => {
@@ -33,6 +41,17 @@ const parseNumber = (...values) => {
     }
   }
   return null;
+};
+
+const firstObject = (...values) => values.find((value) => value && typeof value === "object" && !Array.isArray(value)) ?? null;
+
+const extractCollection = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.data)) return value.data;
+  if (Array.isArray(value.results)) return value.results;
+  if (Array.isArray(value.items)) return value.items;
+  return [];
 };
 
 const extractLessons = (response) => {
@@ -63,6 +82,155 @@ const formatStatusLabel = (value) => {
     .join(" ");
 };
 
+const getTypeConfig = (type) => {
+  if (type === "group") {
+    return {
+      badge: "👥",
+      label: "Group Lesson",
+      className: "group",
+      availability: "Open spots",
+    };
+  }
+
+  if (type === "match") {
+    return {
+      badge: "🏆",
+      label: "Match",
+      className: "match",
+      availability: "Open",
+    };
+  }
+
+  return {
+    badge: "🎾",
+    label: "Private Lesson",
+    className: "lesson",
+    availability: "Available",
+  };
+};
+
+const parseNearbyDate = (...values) => {
+  for (const value of values) {
+    const parsed = parseDate(value);
+    if (parsed) return parsed;
+  }
+  return null;
+};
+
+const weekdayIndexMap = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+};
+
+const buildDateFromAvailability = (dayName, fromTime) => {
+  const weekdayIndex = weekdayIndexMap[(dayName || "").toUpperCase()];
+  if (weekdayIndex === undefined || !fromTime) return null;
+
+  const [hours = "0", minutes = "0", seconds = "0"] = String(fromTime).split(":");
+  const target = moment().day(weekdayIndex).hour(Number(hours)).minute(Number(minutes)).second(Number(seconds));
+
+  if (target.isBefore(moment())) {
+    target.add(7, "days");
+  }
+
+  return target.toDate();
+};
+
+const formatCoachTitle = (record) => {
+  const coachName = pickString(
+    record.full_name,
+    record.coach_name,
+    record.coachName,
+    record.name,
+    record.title,
+    record?.coach?.name,
+  );
+  return coachName ? `Coach ${coachName}` : "Private Lesson";
+};
+
+const buildCoachActivities = (records = []) =>
+  records
+    .flatMap((record) => {
+      const coach = firstObject(record.coach, record.coach_profile, record.profile);
+      const coachId = record.coach_id ?? record.coachId ?? coach?.id ?? record.id ?? null;
+      const coachName = pickString(
+        record.full_name,
+        record.coach_name,
+        record.coachName,
+        coach?.name,
+        [coach?.firstName, coach?.lastName].filter(Boolean).join(" "),
+      );
+      const initials = coachName
+        ? coachName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((name) => name.charAt(0).toUpperCase())
+            .join("")
+        : "TP";
+      const rating = parseNumber(record.rating, record.coach_rating, coach?.rating);
+      const availabilityWindows = Array.isArray(record.availability) ? record.availability : [];
+
+      return availabilityWindows
+        .map((slot, index) => {
+          const startAt =
+            parseNearbyDate(
+              slot.start_date_time,
+              slot.start_time,
+              slot.startTime,
+              slot.start_at,
+              slot.date_time,
+            ) || buildDateFromAvailability(slot.day, slot.from);
+
+          if (!startAt) return null;
+
+          const location =
+            pickString(
+              slot.location_name,
+              slot.locationName,
+              record.location_name,
+              record.locationName,
+              record.location,
+              coach?.location,
+            ) || "Location TBD";
+
+          return {
+            id: `coach-${coachId ?? "unknown"}-${index}-${startAt.toISOString()}`,
+            lessonId: coachId != null ? String(coachId) : null,
+            type: "private",
+            label: "Private Lesson",
+            typeClassName: "lesson",
+            title: formatCoachTitle({ ...record, coach }),
+            time: moment(startAt).format("h:mm A"),
+            dayKey: moment(startAt).format("YYYY-MM-DD"),
+            location,
+            rating,
+            price: parseNumber(record.price_per_person, record.hourly_rate, record.price, coach?.hourlyRate),
+            status:
+              pickString(
+                record.availability_status,
+                record.status,
+                slot.day && slot.from && slot.to ? `${slot.day} ${slot.from.slice(0, 5)}-${slot.to.slice(0, 5)}` : null,
+              ) || "Available",
+            remainingSpots: null,
+            avatar: initials,
+            avatarBadge: "🎾",
+            destination: coachId != null ? `/coaches/${coachId}` : null,
+          };
+        })
+        .filter(Boolean);
+    })
+    .sort(
+      (a, b) =>
+        moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
+        moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
+    );
+
 const buildScheduleItems = (lessons = []) =>
   lessons
     .map((lesson) => {
@@ -88,7 +256,12 @@ const buildScheduleItems = (lessons = []) =>
         id: `${type}-${lessonId ?? startAt.toISOString()}`,
         lessonId: lessonId != null ? String(lessonId) : null,
         type,
-        time: `${moment(startAt).format("ddd")} · ${moment(startAt).format("h:mm A")}`,
+        time: moment(startAt).calendar(null, {
+          sameDay: "[Today] · h:mm A",
+          nextDay: "[Tomorrow] · h:mm A",
+          nextWeek: "ddd · h:mm A",
+          sameElse: "ddd · h:mm A",
+        }),
         title,
         location:
           pickString(
@@ -101,6 +274,7 @@ const buildScheduleItems = (lessons = []) =>
           ) || "Location TBD",
         status: formatStatusLabel(lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         startTime: startAt.toISOString(),
+        icon: getTypeConfig(type).badge,
       };
     })
     .filter(Boolean)
@@ -123,16 +297,44 @@ const buildActivityItems = (lessons = []) =>
       const type = resolveLessonKind(lesson);
       const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
       const coachName = pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name);
-      const label = type === "group" ? "GROUP LESSON" : "PRIVATE LESSON";
+      const title =
+        pickString(
+          lesson.title,
+          lesson.lesson_title,
+          lesson.name,
+          lesson.lesson_name,
+          lesson.program_name,
+          lesson?.metadata?.title,
+        ) ||
+        (type === "group" ? "Intermediate Drills" : coachName ? `Coach ${coachName}` : "Private Lesson");
+      const typeConfig = getTypeConfig(type);
+      const rating = parseNumber(lesson.rating, lesson.coach_rating, lesson?.coach?.rating);
+      const capacity = parseNumber(lesson.player_limit, lesson.playerLimit, lesson.max_players, lesson.player_capacity);
+      const booked = parseNumber(
+        lesson.booked_players,
+        lesson.bookedPlayers,
+        lesson.players_booked,
+        lesson.player_count,
+        Array.isArray(lesson.group_players) ? lesson.group_players.length : null,
+      );
+      const remainingSpots =
+        capacity !== null && booked !== null ? Math.max(capacity - booked, 0) : null;
+      const initials = coachName
+        ? coachName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((name) => name.charAt(0).toUpperCase())
+            .join("")
+        : "TP";
 
       return {
         id: `act-${lessonId ?? startAt.toISOString()}`,
         lessonId: lessonId != null ? String(lessonId) : null,
         type,
-        label,
-        title:
-          pickString(lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name, lesson.program_name) ||
-          (type === "group" ? "Intermediate Drills" : coachName ? `Coach ${coachName}` : "Private Lesson"),
+        label: typeConfig.label,
+        typeClassName: typeConfig.className,
+        title,
         time: moment(startAt).format("h:mm A"),
         dayKey: moment(startAt).format("YYYY-MM-DD"),
         location:
@@ -144,23 +346,109 @@ const buildActivityItems = (lessons = []) =>
             lesson.court_name,
             lesson.facility_name,
           ) || "Location TBD",
+        coachName,
+        rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
+        status: formatStatusLabel(lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
+        remainingSpots,
+        avatar: type === "private" ? initials : typeConfig.badge,
+        avatarBadge: typeConfig.badge,
+        extraMeta:
+          type === "group" && remainingSpots !== null
+            ? `${remainingSpots} spot${remainingSpots === 1 ? "" : "s"} left`
+            : null,
+        destination:
+          lessonId != null
+            ? type === "group"
+              ? `/group-lessons/${lessonId}`
+              : `/player/lesson/${lessonId}`
+            : null,
       };
     })
     .filter(Boolean)
     .sort((a, b) => moment(a.dayKey).valueOf() - moment(b.dayKey).valueOf());
 
+const buildMatchActivities = (records = []) =>
+  records
+    .map((record) => {
+      const startAt = parseNearbyDate(
+        record.match_date_time,
+        record.start_date_time,
+        record.start_time,
+        record.startTime,
+        record.start_at,
+        record.date_time,
+        record.match_date,
+        record.scheduled_at,
+      );
+      if (!startAt) return null;
+
+      const normalizedMatch = normalizeMatchRecord(record);
+      const matchId = record.id ?? record.match_id ?? record.matchId ?? normalizedMatch.id ?? null;
+      const playersJoined = normalizedMatch.playersJoined ?? 0;
+      const totalSpots = normalizedMatch.totalSpots ?? playersJoined;
+      const remainingSpots = normalizedMatch.playersNeeded ?? Math.max(totalSpots - playersJoined, 0);
+      const availabilityLabel =
+        totalSpots > 0
+          ? remainingSpots === 0
+            ? "Match is full"
+            : `${remainingSpots} spot${remainingSpots === 1 ? "" : "s"} available`
+          : "Spots available";
+      const playersLabel =
+        totalSpots > 0
+          ? `${playersJoined}/${totalSpots} players`
+          : `${playersJoined} player${playersJoined === 1 ? "" : "s"}`;
+
+      return {
+        id: `match-${matchId ?? startAt.toISOString()}`,
+        lessonId: matchId != null ? String(matchId) : null,
+        type: "match",
+        label: normalizedMatch.access ? `${normalizedMatch.access} Match` : "Match",
+        typeClassName: "match",
+        title: normalizedMatch.format ? `${normalizedMatch.format} Match` : "Open Match",
+        time: moment(startAt).format("h:mm A"),
+        dayKey: moment(startAt).format("YYYY-MM-DD"),
+        location: normalizedMatch.location || "Location TBD",
+        rating: null,
+        price: null,
+        status: availabilityLabel,
+        remainingSpots,
+        avatar: "🏆",
+        avatarBadge: "🏆",
+        extraMeta: [playersLabel, normalizedMatch.distance].filter(Boolean).join(" · "),
+        highlight: normalizedMatch.level?.summary || formatStatusLabel(record.status) || "Open",
+        destination: matchId != null ? `/matches/${matchId}` : null,
+      };
+    })
+    .filter(Boolean);
+
 const quickActions = [
-  { icon: "👤", label: "Find a Coach", to: "/coaches" },
-  { icon: "👥", label: "Group Lessons", to: "/group-lessons" },
-  { icon: "🏆", label: "Match Play", to: "/matches" },
-  { icon: "🔍", label: "Find Players", to: "/find-players" },
+  { icon: "👤", label: "Find a Coach", labelShort: "Find a\nCoach", to: "/coaches" },
+  { icon: "👥", label: "Group Lessons", labelShort: "Group\nLessons", to: "/group-lessons" },
+  { icon: "🏆", label: "Match Play", labelShort: "Match\nPlay", to: "/matches" },
+  { icon: "🔍", label: "Find Players", labelShort: "Find\nPlayers", to: "/find-players" },
 ];
 
 const locationItems = [
-  { name: "Penmar Recreation Center", detail: "1341 Lake St, Venice", distance: "0.8 mi" },
-  { name: "Venice Beach Courts", detail: "Ocean Front Walk", distance: "1.2 mi" },
-  { name: "Mar Vista Recreation Center", detail: "11430 Woodbine St", distance: "2.1 mi" },
+  {
+    name: "Venice, CA",
+    detail: "Using your device location",
+    distance: "Current",
+    current: true,
+    icon: "📍",
+    latitude: 33.985,
+    longitude: -118.4695,
+  },
+  { name: "Penmar Recreation Center", detail: "1341 Lake St, Venice", distance: "0.8 mi", icon: "🎾", latitude: 34.0016, longitude: -118.4602 },
+  { name: "Venice Beach Courts", detail: "Ocean Front Walk", distance: "1.2 mi", icon: "🎾", latitude: 33.9863, longitude: -118.4721 },
+  { name: "Mar Vista Recreation Center", detail: "11430 Woodbine St", distance: "2.1 mi", icon: "🎾", latitude: 34.0037, longitude: -118.4298 },
+];
+
+const navItems = [
+  { icon: "🏠", label: "Home", to: "/", active: true },
+  { icon: "🏆", label: "Post Match", to: "/matches/create" },
+  { icon: "🔔", label: "Alerts", to: "/notifications", badge: 2 },
+  { icon: "👤", label: "Profile", to: "/settings/profile" },
 ];
 
 const DashboardPage = () => {
@@ -171,7 +459,12 @@ const DashboardPage = () => {
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
-  const [locationName, setLocationName] = useState("Venice");
+  const [locationName, setLocationName] = useState(getStoredLocationLabel() || "Venice, CA");
+  const [locationPosition, setLocationPosition] = useState(getStoredLocation() ?? DEFAULT_POSITION);
+  const [searchRadius, setSearchRadius] = useState(5);
+  const [locationSearchTerm, setLocationSearchTerm] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
   useEffect(() => {
@@ -190,11 +483,44 @@ const DashboardPage = () => {
       setActivityState((prev) => ({ ...prev, status: "loading", error: null }));
 
       try {
-        const response = await getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal });
+        const [futureLessonsResponse, nearbyResponse] = await Promise.all([
+          getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal }),
+          getPlayerDiscoverNearby({
+            token,
+            location: locationPosition,
+            radius: searchRadius,
+            filters: {
+              startDate: moment().format("YYYY-MM-DD"),
+              endDate: moment().add(14, "days").format("YYYY-MM-DD"),
+              level: "All",
+            },
+            search: "",
+            matchSearch: "",
+            coachesPage: 1,
+            coachesPerPage: 12,
+            lessonsPage: 1,
+            lessonsPerPage: 12,
+            matchesPage: 1,
+            matchesPerPage: 12,
+            signal: controller.signal,
+          }),
+        ]);
         if (cancelled) return;
-        const lessons = extractLessons(response);
+        const lessons = extractLessons(futureLessonsResponse);
+        const coachActivities = buildCoachActivities(extractCollection(nearbyResponse?.coaches_availability));
+        const groupActivities = buildActivityItems(extractCollection(nearbyResponse?.group_lessons));
+        const matchActivities = buildMatchActivities(extractCollection(nearbyResponse?.match_play));
+
         setScheduleState({ status: "ready", items: buildScheduleItems(lessons), error: null });
-        setActivityState({ status: "ready", items: buildActivityItems(lessons), error: null });
+        setActivityState({
+          status: "ready",
+          items: [...coachActivities, ...groupActivities, ...matchActivities].sort(
+            (a, b) =>
+              moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
+              moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
+          ),
+          error: null,
+        });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "Unable to load home feed.";
@@ -209,25 +535,30 @@ const DashboardPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [locationPosition, searchRadius]);
 
   const dayTabs = useMemo(
-    () => Array.from({ length: 8 }).map((_, index) => {
-      const day = moment().add(index, "days");
-      const key = day.format("YYYY-MM-DD");
-      const count = activityState.items.filter((item) => item.dayKey === key).length;
-      return {
-        key,
-        label: index === 0 ? "Today" : day.format("ddd"),
-        date: day.format("D"),
-        count,
-      };
-    }),
+    () =>
+      Array.from({ length: 8 }).map((_, index) => {
+        const day = moment().add(index, "days");
+        const key = day.format("YYYY-MM-DD");
+        const count = activityState.items.filter((item) => item.dayKey === key).length;
+        return {
+          key,
+          label: index === 0 ? "Today" : day.format("ddd"),
+          fullDate: day.format("MMM D"),
+          date: day.format("D"),
+          count,
+        };
+      }),
     [activityState.items],
   );
 
   const filteredActivities = useMemo(
-    () => activityState.items.filter((item) => item.dayKey === selectedDay).filter((item) => (selectedType === "all" ? true : item.type === selectedType)),
+    () =>
+      activityState.items
+        .filter((item) => item.dayKey === selectedDay)
+        .filter((item) => (selectedType === "all" ? true : item.type === selectedType)),
     [activityState.items, selectedDay, selectedType],
   );
 
@@ -237,119 +568,370 @@ const DashboardPage = () => {
       all: sameDay.length,
       private: sameDay.filter((item) => item.type === "private").length,
       group: sameDay.filter((item) => item.type === "group").length,
-      match: 0,
+      match: sameDay.filter((item) => item.type === "match").length,
     };
   }, [activityState.items, selectedDay]);
 
+  const selectedDayLabel =
+    dayTabs.find((day) => day.key === selectedDay)?.fullDate ?? moment(selectedDay).format("MMM D");
+  const scheduleItems = scheduleState.items;
+  const hasSchedule = scheduleState.status === "ready" && scheduleItems.length > 0;
+  const welcomeSubtitle = hasSchedule
+    ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
+    : "Browse lessons, groups, and matches near you";
+
   const onOpenActivity = (activity) => {
-    if (!activity.lessonId) return;
-    if (activity.type === "group") navigate(`/group-lessons/${activity.lessonId}`);
-    else navigate(`/player/lesson/${activity.lessonId}`);
+    if (!activity.destination) return;
+    navigate(activity.destination);
   };
 
-  const scheduleItems = scheduleState.items;
+  const applyLocationSelection = ({ label, latitude, longitude }) => {
+    const nextPosition = { latitude, longitude };
+    setLocationName(label);
+    setLocationPosition(nextPosition);
+    setLocationSearchTerm(label);
+    setLocationError("");
+    storeLocation(nextPosition);
+    storeLocationLabel(label);
+    setIsLocationOpen(false);
+  };
 
   const handlePlaceSelected = (place) => {
-    const nextLocation = pickString(place?.name, place?.formatted_address);
-    if (nextLocation) setLocationName(nextLocation);
+    if (!place) {
+      setLocationError("Please choose a location from the suggestions.");
+      return;
+    }
+
+    const latitude = place.geometry?.location?.lat?.();
+    const longitude = place.geometry?.location?.lng?.();
+    const label = pickString(place?.formatted_address, place?.name, locationSearchTerm);
+
+    if (
+      !label ||
+      typeof latitude !== "number" ||
+      Number.isNaN(latitude) ||
+      typeof longitude !== "number" ||
+      Number.isNaN(longitude)
+    ) {
+      setLocationError("We couldn't read that location. Try another search result.");
+      return;
+    }
+
+    applyLocationSelection({ label, latitude, longitude });
   };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is unavailable in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        applyLocationSelection({
+          label: "Current location",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setIsDetectingLocation(false);
+      },
+      () => {
+        setIsDetectingLocation(false);
+        setLocationError("We couldn't access your current location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  };
+
+  const renderLocationPicker = () => (
+    <div className="ph-location-sheet" onClick={(event) => event.stopPropagation()}>
+      <div className="ph-location-handle" />
+      <h3 className="ph-location-title">Choose Location</h3>
+
+      <p className="ph-location-section-title">Use Current Location</p>
+      <button
+        type="button"
+        className="ph-location-current"
+        onClick={handleUseCurrentLocation}
+      >
+        <span className="ph-location-current-icon">📍</span>
+        <span className="ph-location-current-copy">
+          <strong>{isDetectingLocation ? "Detecting location..." : "Use my current location"}</strong>
+          <small>{isDetectingLocation ? "Checking your device coordinates" : "Update results around your device"}</small>
+        </span>
+        <span className="ph-location-check">✓</span>
+      </button>
+
+      <p className="ph-location-section-title">Enter a Location</p>
+      <div className="ph-location-search">
+        <Search size={16} />
+        <Autocomplete
+          apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+          placeholder="City, neighborhood or zip code..."
+          className="ph-location-search-input"
+          value={locationSearchTerm}
+          onChange={(event) => {
+            setLocationSearchTerm(event.target.value);
+            if (locationError) setLocationError("");
+          }}
+          onPlaceSelected={handlePlaceSelected}
+          options={{
+            types: ["geocode", "establishment"],
+            fields: ["formatted_address", "geometry", "name", "address_components"],
+          }}
+        />
+      </div>
+
+      <div className="ph-location-list">
+        {locationItems.slice(1).map((item) => (
+          <button
+            key={item.name}
+            type="button"
+            className="ph-location-item"
+            onClick={() =>
+              applyLocationSelection({
+                label: item.name,
+                latitude: item.latitude,
+                longitude: item.longitude,
+              })
+            }
+          >
+            <span className="ph-location-item-icon">{item.icon}</span>
+            <span className="ph-location-item-copy">
+              <strong>{item.name}</strong>
+              <small>{item.detail}</small>
+            </span>
+            <span className="ph-location-item-distance">{item.distance}</span>
+          </button>
+        ))}
+      </div>
+
+      {locationError ? <p className="ph-location-error">{locationError}</p> : null}
+      {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+        <p className="ph-location-tip">Add `VITE_GOOGLE_API_KEY` to enable Google location suggestions.</p>
+      ) : null}
+
+      <div className="ph-location-radius">
+        <div className="ph-location-radius-head">
+          <span>Search Radius</span>
+          <strong>{searchRadius} miles</strong>
+        </div>
+        <input
+          type="range"
+          min="1"
+          max="25"
+          step="1"
+          value={searchRadius}
+          onChange={(event) => setSearchRadius(Number(event.target.value))}
+          className="ph-location-slider-input"
+          aria-label="Search Radius"
+          style={{
+            background: `linear-gradient(90deg, var(--ph-purple) 0%, var(--ph-purple) ${((searchRadius - 1) / 24) * 100}%, var(--ph-border) ${((searchRadius - 1) / 24) * 100}%, var(--ph-border) 100%)`,
+          }}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="player-home">
       <header className="ph-header">
-        <div className="ph-brand"><span>🎾</span><strong>The Tennis <em>Plan</em></strong></div>
-        <nav className="ph-nav-desktop">
-          <Link className="active" to="/">🏠 Home</Link>
-          <Link to="/matches/create">🏆 Post Match</Link>
-          <Link to="/notifications">🔔 Alerts <span className="badge">2</span></Link>
-        </nav>
+        <div className="ph-header-left">
+          <Link className="ph-brand" to="/">
+            <span className="ph-brand-mark">🎾</span>
+            <strong>
+              The Tennis <em>Plan</em>
+            </strong>
+          </Link>
+
+          <nav className="ph-nav-desktop" aria-label="Primary">
+            {navItems.slice(0, 3).map((item) => (
+              <Link key={item.label} className={item.active ? "active" : ""} to={item.to}>
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+                {item.badge ? <span className="badge">{item.badge}</span> : null}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
         <div className="ph-header-right">
-          <button className="ph-location" type="button" onClick={() => setIsLocationOpen(true)}>
-            <MapPin size={14} /> {locationName} <ChevronDown size={14} />
+          <button
+            className="ph-location"
+            type="button"
+            onClick={() => {
+              setLocationSearchTerm(locationName);
+              setLocationError("");
+              setIsLocationOpen(true);
+            }}
+          >
+            <MapPin size={14} />
+            <span>{locationName}</span>
+            <ChevronDown size={14} />
           </button>
-          <button className="ph-avatar" type="button">{initials || "PC"}</button>
+          <button className="ph-avatar" type="button">
+            {initials || "PC"}
+          </button>
         </div>
       </header>
 
       <main className="ph-main">
         <section className="ph-welcome">
           <h1>Welcome back, {firstName}! 👋</h1>
-          <p>You have {scheduleItems.length} sessions this week</p>
+          <p>{welcomeSubtitle}</p>
         </section>
 
-        <section className="ph-quick-actions">
+        <section className="ph-quick-actions" aria-label="Quick actions">
           {quickActions.map((action) => (
             <Link key={action.label} to={action.to} className="ph-quick-action">
-              <span>{action.icon}</span>
-              <span>{action.label}</span>
+              <span className="ph-quick-action-icon">{action.icon}</span>
+              <span className="ph-quick-action-label">
+                <span className="desktop-copy">{action.label}</span>
+                <span className="mobile-copy">
+                  {action.labelShort.split("\n").map((segment) => (
+                    <span key={segment}>{segment}</span>
+                  ))}
+                </span>
+              </span>
             </Link>
           ))}
         </section>
 
         <section className="ph-content-grid">
-          {scheduleState.status === "ready" && scheduleItems.length > 0 ? (
+          {hasSchedule ? (
             <aside className="ph-schedule">
-              <div className="ph-card-head">
+              <div className="ph-section-head">
                 <h2>📅 My Schedule</h2>
                 <Link to="/player/calendar">View All →</Link>
               </div>
+
               {scheduleItems.slice(0, 3).map((item) => (
-                <button key={item.id} type="button" className="ph-schedule-item" onClick={() => item.lessonId && navigate(item.type === "group" ? `/group-lessons/${item.lessonId}` : `/player/lesson/${item.lessonId}`)}>
-                  <div>
-                    <p>{item.time}</p>
-                    <h3>{item.title}</h3>
-                    <small>📍 {item.location}</small>
-                  </div>
-                  <span>›</span>
+                <button
+                  key={item.id}
+                  type="button"
+                  className="ph-schedule-item"
+                  onClick={() =>
+                    item.lessonId &&
+                    navigate(item.type === "group" ? `/group-lessons/${item.lessonId}` : `/player/lesson/${item.lessonId}`)
+                  }
+                >
+                  <span className="ph-schedule-icon">{item.icon}</span>
+                  <span className="ph-schedule-copy">
+                    <small>{item.time}</small>
+                    <strong>{item.title}</strong>
+                    <span>📍 {item.location}</span>
+                  </span>
+                  <ChevronRight size={18} className="ph-schedule-arrow" />
                 </button>
               ))}
             </aside>
           ) : null}
 
           <section className="ph-play-today">
-            <div className="ph-card-head"><h2>Play Today</h2></div>
+            <div className="ph-play-head">
+              <h2>Play Today</h2>
+              <span>{selectedDayLabel}</span>
+            </div>
 
-            <div className="ph-day-tabs">
+            <div className="ph-day-tabs" aria-label="Available days">
               {dayTabs.map((day) => (
-                <button key={day.key} type="button" className={`ph-day-tab${selectedDay === day.key ? " active" : ""}`} onClick={() => setSelectedDay(day.key)}>
-                  <span>{day.label}</span>
+                <button
+                  key={day.key}
+                  type="button"
+                  className={`ph-day-tab${selectedDay === day.key ? " active" : ""}`}
+                  onClick={() => setSelectedDay(day.key)}
+                >
+                  <span className="ph-day-tab-label">{day.label}</span>
                   <strong>{day.date}</strong>
                   <small>{day.count}</small>
                 </button>
               ))}
-              <button type="button" className="ph-day-tab picker"><CalendarDays size={14} /><small>Pick</small></button>
+
+              <button type="button" className="ph-day-tab picker">
+                <span className="ph-picker-icon">
+                  <CalendarDays size={15} />
+                </span>
+                <strong>Pick</strong>
+              </button>
             </div>
 
-            <div className="ph-type-tabs">
-              <button type="button" className={selectedType === "all" ? "active" : ""} onClick={() => setSelectedType("all")}>All {counts.all}</button>
-              <button type="button" className={selectedType === "private" ? "active" : ""} onClick={() => setSelectedType("private")}>Lessons</button>
-              <button type="button" className={selectedType === "group" ? "active" : ""} onClick={() => setSelectedType("group")}>Groups</button>
-              <button type="button" className={selectedType === "match" ? "active" : ""} onClick={() => setSelectedType("match")}>Matches</button>
+            <div className="ph-type-tabs" aria-label="Activity type filters">
+              <button type="button" className={selectedType === "all" ? "active" : ""} onClick={() => setSelectedType("all")}>
+                <span>All</span>
+                <small>{counts.all}</small>
+              </button>
+              <button type="button" className={selectedType === "private" ? "active" : ""} onClick={() => setSelectedType("private")}>
+                <span>Lessons</span>
+                <small>{counts.private}</small>
+              </button>
+              <button type="button" className={selectedType === "group" ? "active" : ""} onClick={() => setSelectedType("group")}>
+                <span>Groups</span>
+                <small>{counts.group}</small>
+              </button>
+              <button type="button" className={selectedType === "match" ? "active" : ""} onClick={() => setSelectedType("match")}>
+                <span>Matches</span>
+                <small>{counts.match}</small>
+              </button>
             </div>
 
             {activityState.status === "loading" || activityState.status === "idle" ? (
               <div className="ph-feedback">Loading activities…</div>
+            ) : activityState.status === "error" ? (
+              <div className="ph-feedback">{activityState.error || "Unable to load activities."}</div>
             ) : filteredActivities.length === 0 ? (
               <div className="ph-empty">
-                <div>📅</div>
-                <h3>Nothing available today</h3>
-                <p>Check tomorrow or post your own match</p>
+                <div className="ph-empty-icon">📅</div>
+                <h3>No activities for this date</h3>
+                <p>Try another day or create your own match listing.</p>
                 <Link to="/matches/create">🏆 Post a Match</Link>
               </div>
             ) : (
               <div className="ph-activities">
                 {filteredActivities.map((activity) => (
-                  <button key={activity.id} type="button" className={`ph-activity ${activity.type}`} onClick={() => onOpenActivity(activity)}>
-                    <div className="avatar">{activity.type === "group" ? "👥" : "SM"}</div>
-                    <div>
-                      <p className="label">{activity.label}</p>
-                      <h3>{activity.title}</h3>
-                      <small>📍 {activity.location}</small>
-                    </div>
-                    <div className="meta">
-                      <p>{activity.time}</p>
-                      <strong>{activity.price ? `$${activity.price}` : "Available"}</strong>
-                    </div>
+                  <button
+                    key={activity.id}
+                    type="button"
+                    className={`ph-activity ${activity.typeClassName}`}
+                    onClick={() => onOpenActivity(activity)}
+                  >
+                    <span className="ph-activity-avatar">
+                      <span>{activity.avatar}</span>
+                      <span className="ph-activity-avatar-badge">{activity.avatarBadge}</span>
+                    </span>
+
+                    <span className="ph-activity-copy">
+                      <span className="ph-activity-topline">
+                        <span className={`ph-activity-label ${activity.typeClassName}`}>{activity.label}</span>
+                        <span className="ph-activity-time">{activity.time}</span>
+                      </span>
+                      <strong>{activity.title}</strong>
+                      <span className="ph-activity-meta">
+                        <MapPin size={12} />
+                        <span>{activity.location}</span>
+                        {activity.rating ? (
+                          <>
+                            <span className="ph-activity-meta-sep">·</span>
+                            <Star size={12} fill="currentColor" />
+                            <span>{activity.rating.toFixed(1)}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      {activity.extraMeta ? <span className="ph-activity-extra">{activity.extraMeta}</span> : null}
+                    </span>
+
+                    <span className="ph-activity-side">
+                      <strong>
+                        {activity.highlight || (activity.price ? `$${activity.price}` : activity.type === "match" ? "Open" : "Free")}
+                      </strong>
+                      <small>
+                        {activity.remainingSpots !== null
+                          ? `${activity.remainingSpots} spot${activity.remainingSpots === 1 ? "" : "s"}`
+                          : activity.status || getTypeConfig(activity.type).availability}
+                      </small>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -358,41 +940,21 @@ const DashboardPage = () => {
         </section>
       </main>
 
-      <nav className="ph-bottom-nav">
-        <Link className="active" to="/">🏠<span>Home</span></Link>
-        <Link to="/matches/create">🏆<span>Post Match</span></Link>
-        <Link to="/notifications">🔔<span>Alerts</span></Link>
-        <Link to="/settings/profile">👤<span>Profile</span></Link>
+      <nav className="ph-bottom-nav" aria-label="Mobile navigation">
+        {navItems.map((item) => (
+          <Link key={item.label} className={item.active ? "active" : ""} to={item.to}>
+            <span className="ph-bottom-nav-icon">
+              {item.icon}
+              {item.badge ? <span className="ph-bottom-nav-badge">{item.badge}</span> : null}
+            </span>
+            <span>{item.label}</span>
+          </Link>
+        ))}
       </nav>
 
       {isLocationOpen ? (
         <div className="ph-location-overlay" onClick={() => setIsLocationOpen(false)}>
-          <div className="ph-location-sheet" onClick={(event) => event.stopPropagation()}>
-            <div className="handle" />
-            <h3>Choose Location</h3>
-            <div className="search">
-              <Autocomplete
-                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                placeholder="🔍 Search courts or neighborhoods..."
-                className="ph-location-search-input"
-                onPlaceSelected={handlePlaceSelected}
-                options={{
-                  types: ["geocode", "establishment"],
-                  fields: ["formatted_address", "name"],
-                }}
-              />
-            </div>
-            <p className="section">CURRENT</p>
-            <div className="current">📍 Venice, CA <span>✓</span></div>
-            <p className="section">NEARBY COURTS</p>
-            {locationItems.map((item) => (
-              <div key={item.name} className="location-item">
-                <div><strong>🎾 {item.name}</strong><small>{item.detail}</small></div>
-                <span>{item.distance}</span>
-              </div>
-            ))}
-            <div className="radius"><span>Search Radius</span><strong>5 mi</strong></div>
-          </div>
+          {renderLocationPicker()}
         </div>
       ) : null}
     </div>

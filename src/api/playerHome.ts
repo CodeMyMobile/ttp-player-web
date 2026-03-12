@@ -74,6 +74,46 @@ export interface PlayerFutureLessonsParams extends PaginationParams {
   signal?: AbortSignal;
 }
 
+export interface PlayerDiscoverNearbyFilters {
+  startDate?: string;
+  endDate?: string;
+  level?: string;
+  [key: string]: unknown;
+}
+
+export interface PlayerDiscoverNearbyParams {
+  token: string;
+  location?: PositionPayload;
+  radius?: number;
+  filters?: PlayerDiscoverNearbyFilters;
+  search?: string;
+  matchSearch?: string;
+  coachesPage?: number;
+  coachesPerPage?: number;
+  lessonsPage?: number;
+  lessonsPerPage?: number;
+  matchesPage?: number;
+  matchesPerPage?: number;
+  signal?: AbortSignal;
+}
+
+export interface PlayerDiscoverNearbyResponse {
+  search_area?: unknown;
+  coaches_availability?: {
+    data?: LessonSummary[] | Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  group_lessons?: {
+    data?: LessonSummary[] | Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  match_play?: {
+    data?: Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  [key: string]: unknown;
+}
+
 export const getPlayerFutureLessons = async ({
   token,
   perPage,
@@ -89,6 +129,43 @@ export const getPlayerFutureLessons = async ({
       perPage: finalPerPage,
       page,
     },
+  });
+};
+
+export const getPlayerDiscoverNearby = async ({
+  token,
+  location,
+  radius = 5,
+  filters = {},
+  search = "",
+  matchSearch = "",
+  coachesPage = 1,
+  coachesPerPage = 10,
+  lessonsPage = 1,
+  lessonsPerPage = 10,
+  matchesPage = 1,
+  matchesPerPage = 10,
+  signal,
+}: PlayerDiscoverNearbyParams) => {
+  const finalLocation = normalizePosition(location, getStoredLocation() ?? DEFAULT_POSITION) ?? DEFAULT_POSITION;
+
+  return request<PlayerDiscoverNearbyResponse>("/player/discover/nearby", {
+    method: "POST",
+    token,
+    signal,
+    body: buildBody({
+      location: finalLocation,
+      radius,
+      filters,
+      search,
+      matchSearch,
+      coachesPage,
+      coachesPerPage,
+      lessonsPage,
+      lessonsPerPage,
+      matchesPage,
+      matchesPerPage,
+    }),
   });
 };
 
