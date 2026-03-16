@@ -424,7 +424,7 @@ const buildMatchActivities = (records = []) =>
     .filter(Boolean);
 
 const quickActions = [
-  { icon: "👤", label: "Find a Coach", labelShort: "Find a\nCoach", to: "/coaches" },
+  { icon: "👤", label: "Find a Coach", labelShort: "Find a\nCoach", to: "/find-coaches" },
   { icon: "👥", label: "Group Lessons", labelShort: "Group\nLessons", to: "/group-lessons" },
   { icon: "🏆", label: "Match Play", labelShort: "Match\nPlay", to: "/matches" },
   { icon: "🔍", label: "Find Players", labelShort: "Find\nPlayers", to: "/find-players" },
