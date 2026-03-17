@@ -561,7 +561,7 @@ const DashboardPage = () => {
 
   const dayTabs = useMemo(
     () =>
-      Array.from({ length: 8 }).map((_, index) => {
+      Array.from({ length: 7 }).map((_, index) => {
         const day = moment().add(index, "days");
         const key = day.format("YYYY-MM-DD");
         const count = activityState.items.filter((item) => item.dayKey === key).length;
