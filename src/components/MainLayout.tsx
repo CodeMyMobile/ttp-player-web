@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import {
@@ -11,6 +11,7 @@ import {
 } from "../api/notification";
 import { getStoredAuthToken } from "../services/authToken";
 import { Bell, ChevronDown, CreditCard, LogOut, ShieldX, Target, UserRound } from "lucide-react";
+import "../pages/DashboardPage.css";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -25,17 +26,27 @@ const navLinks = [
 
 interface MainLayoutProps {
   children: ReactNode;
+  mobileChrome?: "default" | "home";
 }
 
-const MainLayout = ({ children }: MainLayoutProps) => {
+const homeMobileNavItems = [
+  { icon: "🏠", label: "Home", to: "/" },
+  { icon: "🏆", label: "Post Match", to: "/matches/create" },
+  { icon: "🔔", label: "Alerts", to: "/notifications" },
+  { icon: "👤", label: "Profile", to: "/settings/profile" },
+];
+
+const MainLayout = ({ children, mobileChrome = "default" }: MainLayoutProps) => {
   const { logout } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
+  const location = useLocation();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<PlayerNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationsLoading, setNotificationsLoading] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
   const userMenuItems = [
@@ -45,9 +56,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
   ];
 
+  const firstName = displayName?.split(" ")?.[0] || "Player";
+  const isHomeMobileChrome = mobileChrome === "home";
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const clickedInsideDesktopMenu = userMenuRef.current?.contains(event.target as Node);
+      const clickedInsideMobileMenu = mobileUserMenuRef.current?.contains(event.target as Node);
+
+      if (!clickedInsideDesktopMenu && !clickedInsideMobileMenu) {
         setUserMenuOpen(false);
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -111,7 +128,76 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   };
 
   return (
-    <div className="dashboard-page">
+    <div className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}`}>
+      {isHomeMobileChrome ? (
+        <header className="ph-header main-layout-home-mobile-header">
+          <div className="ph-header-left">
+            <Link className="ph-brand" to="/">
+              <span className="ph-brand-mark">🎾</span>
+              <strong>
+                The Tennis <em>Plan</em>
+              </strong>
+            </Link>
+          </div>
+
+          <div className="ph-header-right">
+            <div className="ph-user-menu" ref={mobileUserMenuRef}>
+              <button
+                className="ph-user-trigger"
+                type="button"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open profile menu"
+              >
+                <span className={`ph-avatar${avatarUrl ? " has-image" : ""}`}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
+                  ) : (
+                    initials
+                  )}
+                </span>
+                <span className="ph-user-copy">
+                  <strong>{firstName}</strong>
+                  <small>Settings</small>
+                </span>
+                <ChevronDown size={16} />
+              </button>
+
+              {isUserMenuOpen ? (
+                <div className="ph-user-dropdown" role="menu">
+                  {userMenuItems.map(({ label, to, icon: Icon }) => (
+                    <Link
+                      key={label}
+                      to={to}
+                      className="ph-user-menu-item"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Icon size={16} />
+                      <span>{label}</span>
+                    </Link>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="ph-user-menu-item ph-user-menu-item-danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+      ) : null}
+
       <header className="main-nav">
         <div className="brand">
           <div className="brand-badge">MP</div>
@@ -241,6 +327,27 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         </div>
       </header>
       <main className="main-layout__content">{children}</main>
+      {isHomeMobileChrome ? (
+        <nav className="ph-bottom-nav main-layout-home-mobile-nav" aria-label="Mobile navigation">
+          {homeMobileNavItems.map((item) => {
+            const isActive =
+              item.to === "/"
+                ? location.pathname === item.to
+                : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+            const badge = item.to === "/notifications" && unreadCount > 0 ? unreadCount : null;
+
+            return (
+              <NavLink key={item.label} className={isActive ? "active" : ""} to={item.to}>
+                <span className="ph-bottom-nav-icon">
+                  {item.icon}
+                  {badge ? <span className="ph-bottom-nav-badge">{badge}</span> : null}
+                </span>
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+      ) : null}
     </div>
   );
 };

@@ -300,6 +300,11 @@
   width: 100%;
 }
 
+.main-layout-home-mobile-header,
+.main-layout-home-mobile-nav {
+  display: none;
+}
+
 .play-hero {
   background: #ffffff;
   border-radius: 24px;
@@ -2058,6 +2063,42 @@
 }
 
 @media (max-width: 600px) {
+  .dashboard-page--home-mobile {
+    max-width: none;
+    gap: 0;
+  }
+
+  .dashboard-page--home-mobile > .main-nav {
+    display: none;
+  }
+
+  .dashboard-page--home-mobile > .main-layout__content {
+    gap: 0;
+  }
+
+  .dashboard-page--home-mobile > .main-layout-home-mobile-header,
+  .dashboard-page--home-mobile > .main-layout-home-mobile-nav {
+    display: flex;
+  }
+
+  .dashboard-page--home-mobile .settings-page {
+    padding-top: 16px;
+    padding-bottom: 112px;
+  }
+
+  .dashboard-page--home-mobile .settings-page__inner {
+    gap: 20px;
+  }
+
+  .dashboard-page--home-mobile .settings-hero {
+    padding: 28px 22px;
+    border-radius: 24px;
+  }
+
+  .dashboard-page--home-mobile .settings-section {
+    gap: 20px;
+  }
+
   .main-nav {
     flex-direction: column;
     align-items: flex-start;

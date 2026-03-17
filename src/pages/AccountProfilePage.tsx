@@ -5,7 +5,7 @@ import "./PlayerSettingsPages.css";
 
 const AccountProfilePage = () => {
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home">
       <div className="settings-page">
         <div className="settings-page__inner">
           <header className="settings-hero">
