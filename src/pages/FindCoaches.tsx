@@ -8,14 +8,11 @@ import {
   MapPin,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Star,
-  Target,
 } from "lucide-react";
 
-import CoachMatchQuestionnaire from "../components/coaches/CoachMatchQuestionnaire";
-import BookLessonModal from "../components/coaches/BookLessonModal";
 import MainLayout from "../components/MainLayout";
+import { fetchCoachProfile } from "../api/coachProfile";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -44,6 +41,7 @@ type FilterGroupKey = "levels" | "formats" | "availability";
 type CoachCardModel = Coach & {
   initials: string;
   verified: boolean;
+  studentCount: number | null;
   distanceMiles: number | null;
   cityLabel: string;
   hourlyRateValue: number | null;
@@ -148,10 +146,15 @@ const buildInitials = (name: string) =>
     .join("") || "TC";
 
 const deriveFormats = (record: Record<string, unknown>) => {
+  const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
   const formats = toStringArray(record.formats ?? record.lesson_formats ?? record.lesson_types);
   if (formats.length > 0) return formats;
   const result = ["Private"];
-  if (parseNumberValue(record.group_rate) !== null || pickFirstString(record.group_rate)) {
+  if (
+    parseNumberValue(record.group_rate) !== null ||
+    pickFirstString(record.group_rate) ||
+    parseNumberValue(pricing.group ?? pricing.group_price) !== null
+  ) {
     result.push("Group");
   }
   return result;
@@ -165,81 +168,164 @@ const deriveAvailabilityWindows = (record: Record<string, unknown>) => {
   return ["Weekday Mornings", "Weekends"];
 };
 
+const parseStudentCountFromHighlights = (highlights: Array<Record<string, unknown>>) => {
+  for (const highlight of highlights) {
+    const label = pickFirstString(highlight.label);
+    const match = label.match(/(\d+)/);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+};
+
+const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string, unknown>): CoachCardModel => {
+  const booking = (profile.booking as Record<string, unknown> | undefined) ?? {};
+  const bookingDates = Array.isArray(booking.availableDates)
+    ? (booking.availableDates as Array<Record<string, unknown>>)
+    : [];
+  const lessonTypes = Array.isArray(booking.lessonTypes)
+    ? (booking.lessonTypes as Array<Record<string, unknown>>)
+    : [];
+  const highlightChips = Array.isArray(profile.highlightChips)
+    ? (profile.highlightChips as Array<Record<string, unknown>>)
+    : [];
+  const metrics = Array.isArray(profile.metrics)
+    ? (profile.metrics as Array<Record<string, unknown>>)
+    : [];
+  const coachingLocations = toStringArray(profile.coachingLocations);
+  const profileLocations = Array.isArray(profile.locations)
+    ? (profile.locations as Array<Record<string, unknown>>).map((location) => pickFirstString(location.label))
+    : [];
+  const availabilityWindows =
+    bookingDates.length > 0
+      ? bookingDates.map((date) => {
+          const label = pickFirstString(date.label);
+          const totalSlots = parseNumberValue(date.totalSlots);
+          return totalSlots && totalSlots > 0 ? `${label} (${totalSlots} slot${totalSlots === 1 ? "" : "s"})` : label;
+        }).filter(Boolean)
+      : toStringArray(profile.availability);
+
+  const lessonTypeLabels = lessonTypes.map((lessonType) => pickFirstString(lessonType.label)).filter(Boolean);
+  const privateMetric = metrics.find((metric) => pickFirstString(metric.label).toLowerCase() === "private");
+  const privateValue = pickFirstString(privateMetric?.value);
+  const groupLessonType = lessonTypes.find((lessonType) => pickFirstString(lessonType.id).toLowerCase() === "group");
+  const groupValue = pickFirstString(groupLessonType?.price);
+  const studentCount =
+    parseNumberValue(profile.studentCount ?? profile.student_count) ?? parseStudentCountFromHighlights(highlightChips);
+
+  return {
+    ...coach,
+    name: pickFirstString(profile.fullName, coach.name) || coach.name,
+    initials: pickFirstString(profile.initials) || coach.initials,
+    bio: pickFirstString(profile.about, coach.bio) || coach.bio,
+    summary: pickFirstString(profile.about, coach.summary) || coach.summary,
+    yearsExperience: parseNumberValue(profile.experienceYears ?? profile.experience_years) ?? coach.yearsExperience,
+    certifications: toStringArray(profile.certifications),
+    specialties: toStringArray(profile.specialties),
+    courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
+    levels: toStringArray(profile.levels),
+    formats: lessonTypeLabels.length > 0 ? lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")) : coach.formats,
+    languages: toStringArray(profile.languages),
+    availability: availabilityWindows[0] || coach.availability,
+    availabilityWindows: availabilityWindows.length > 0 ? availabilityWindows : coach.availabilityWindows,
+    lessonRates: {
+      private: privateValue || coach.lessonRates.private,
+      group: groupValue || coach.lessonRates.group,
+    },
+    hourlyRateValue:
+      parseNumberValue(privateValue.replace?.(/[^\d.]/g, "")) ?? coach.hourlyRateValue,
+    groupRateValue:
+      parseNumberValue(groupValue.replace?.(/[^\d.]/g, "")) ?? coach.groupRateValue,
+    pricePerHour: `${privateValue || coach.lessonRates.private}/hr`,
+    imageUrl: pickImageUrl({ ...coach, profilePicture: profile.profilePicture }),
+    cityLabel: coachingLocations[0] || profileLocations[0] || coach.cityLabel,
+    location: coachingLocations[0] || profileLocations[0] || coach.location,
+    studentCount: studentCount ?? coach.studentCount,
+    tags:
+      toStringArray(profile.specialties).length > 0
+        ? toStringArray(profile.specialties).slice(0, 3)
+        : coach.tags,
+  };
+};
+
 const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: number): CoachCardModel => {
+  const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
+  const primaryLocation = (record.primary_location as Record<string, unknown> | undefined) ?? undefined;
+  const locationRecords = Array.isArray(record.locations)
+    ? (record.locations as Array<Record<string, unknown>>)
+    : [];
   const idCandidate =
     record.id ?? record.coach_id ?? record.player_coach_id ?? record.user_id ?? record.uuid ?? `${fallbackIndex}`;
-  const firstName = pickFirstString(record.first_name, record.firstName);
-  const lastName = pickFirstString(record.last_name, record.lastName);
   const displayName =
-    pickFirstString(record.name, record.full_name, record.fullName, record.coach_name) ||
-    [firstName, lastName].filter(Boolean).join(" ") ||
+    pickFirstString(record.full_name, record.fullName, record.name, record.coach_name, record.coachName) ||
     `Coach ${fallbackIndex + 1}`;
+  const certifications = toStringArray(record.certifications ?? record.certification ?? []);
+  const locations = locationRecords
+    .map((location) => pickFirstString(location.label, location.name, location.title))
+    .filter(Boolean);
   const cityLabel =
     pickFirstString(
+      primaryLocation?.label,
+      record.city_label,
       record.location,
       record.city,
       record.city_name,
-      record.state,
-      [record.city, record.state].filter(Boolean).join(", "),
       record.facility,
       record.club_name,
-    ) || "Multiple locations";
-  const hourlyRate = parseNumberValue(record.hourly_rate ?? record.price_per_hour ?? record.hourlyRate ?? record.rate);
+    ) || locations[0] || "Multiple locations";
+  const hourlyRate = parseNumberValue(
+    record.hourly_rate ?? pricing.hourly ?? pricing.private ?? record.price_per_hour ?? record.hourlyRate ?? record.rate,
+  );
   const hourlyRateDisplay =
-    hourlyRate !== null
-      ? `$${hourlyRate.toFixed(0)}`
-      : typeof record.hourly_rate === "string"
-        ? String(record.hourly_rate)
-        : "$85";
-  const groupRateValue = parseNumberValue(record.group_rate);
+    hourlyRate !== null ? `$${hourlyRate.toFixed(0)}` : "$0";
+  const groupRateValue = parseNumberValue(record.group_rate ?? pricing.group ?? pricing.group_price ?? record.price_group);
   const groupRateDisplay =
-    groupRateValue !== null
-      ? `$${groupRateValue.toFixed(0)}`
-      : pickFirstString(record.group_rate, "$45");
+    groupRateValue !== null ? `$${groupRateValue.toFixed(0)}` : "";
   const summary =
     pickFirstString(
+      record.about_me,
       record.summary,
       record.bio,
       record.about,
       record.description,
       (record.profile as Record<string, unknown> | undefined)?.summary,
       (record.profile as Record<string, unknown> | undefined)?.bio,
-    ) || "Certified tennis professional helping players level up.";
+    ) || "Tennis coach profile coming soon.";
   const experience =
     parseNumberValue(
       record.years_experience ?? record.experience_years ?? record.yearsExperience ?? record.experience,
-    ) ?? 5;
-  const certifications = toStringArray(record.certifications ?? record.certification ?? []);
-  const courts = toStringArray(record.courts ?? record.locations ?? record.venues ?? []);
+    ) ?? 0;
+  const courts = locations.length > 0 ? locations : toStringArray(record.courts ?? record.venues ?? []);
   const levels = toStringArray(record.levels ?? record.focus_levels ?? record.skill_levels ?? []);
   const specialties = toStringArray(
     record.specialties ?? record.speciality ?? record.specialty ?? record.tags ?? [],
   );
   const languages = toStringArray(record.languages ?? record.language ?? []);
-  const availabilitySummary =
-    pickFirstString(
-      record.availability,
-      record.schedule_summary,
-      record.next_available,
-      record.availability_summary,
-    ) || "Flexible schedule";
-  const nextLessonDay = pickFirstString(record.next_lesson_day, record.next_available_day, "Next opening");
-  const nextLessonTime = pickFirstString(record.next_lesson_time, record.next_available_time, "Flexible times");
-  const nextLessonCourt = pickFirstString(record.next_lesson_court, record.next_available_location, cityLabel);
+  const availabilityWindows = deriveAvailabilityWindows(record);
+  const availabilitySummary = availabilityWindows[0] || "Availability on request";
+  const nextLessonDay = availabilityWindows[0] || "Availability";
+  const nextLessonTime = availabilityWindows[1] || "";
+  const nextLessonCourt = cityLabel;
   const ratingValue =
-    parseNumberValue(record.review_score ?? record.rating ?? record.rating_value ?? record.score) ?? 5;
+    parseNumberValue(record.review_score ?? record.rating ?? record.rating_value ?? record.score) ?? 0;
   const ratingCount =
     parseNumberValue(
       record.review_count ?? record.reviews_count ?? record.rating_count ?? record.total_reviews,
     ) ?? 0;
-  const distanceMiles = parseNumberValue(record.distance_miles ?? record.distanceMiles ?? record.distance);
+  const distanceMiles = parseNumberValue(
+    record.distance_miles ??
+      record.distanceMiles ??
+      record.distance ??
+      primaryLocation?.distanceMiles,
+  );
   const formats = deriveFormats(record);
-  const availabilityWindows = deriveAvailabilityWindows(record);
   const highlightCandidates: CoachHighlight[] = [];
   if (cityLabel) highlightCandidates.push({ icon: "map", label: cityLabel });
   highlightCandidates.push({ icon: "calendar", label: availabilitySummary });
   if (specialties.length > 0) highlightCandidates.push({ icon: "spark", label: specialties[0] });
-  else highlightCandidates.push({ icon: "users", label: "Private & group lessons" });
+  else if (formats.length > 0) highlightCandidates.push({ icon: "users", label: formats.join(" · ") });
 
   const numericId = (() => {
     if (typeof idCandidate === "number" && Number.isFinite(idCandidate)) return idCandidate;
@@ -251,15 +337,16 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   return {
     id: numericId,
     name: displayName,
-    initials: buildInitials(displayName),
+    initials: pickFirstString(record.initials) || buildInitials(displayName),
     title:
-      pickFirstString(record.title, record.headline, record.speciality, record.specialty, record.role, "Tennis Professional") ||
+      pickFirstString(record.title, record.headline, certifications[0], record.speciality, record.specialty, record.role, "Tennis Coach") ||
       "Tennis Professional",
     rating: ratingValue,
     reviewCount: ratingCount,
+    studentCount: parseNumberValue(record.student_count ?? record.studentCount),
     location: cityLabel,
-    pricePerHour: hourlyRateDisplay,
-    availabilityTag: pickFirstString(record.availability_status, record.status, "Available"),
+    pricePerHour: `${hourlyRateDisplay}/hr`,
+    availabilityTag: availabilitySummary,
     featured: Boolean(record.is_featured || record.featured),
     summary,
     bio: summary,
@@ -267,12 +354,12 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
     certifications,
     courts: courts.length > 0 ? courts : [cityLabel],
     levels: levels.length > 0 ? levels : ["Beginner", "Intermediate"],
-    specialties: specialties.length > 0 ? specialties : ["Technique", "Strategy"],
+    specialties,
     lessonRates: {
       private: hourlyRateDisplay,
-      group: groupRateDisplay,
+      group: groupRateDisplay || hourlyRateDisplay,
     },
-    languages: languages.length > 0 ? languages : ["English"],
+    languages,
     availability: availabilitySummary,
     nextAvailableLesson: {
       day: nextLessonDay,
@@ -280,7 +367,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
       court: nextLessonCourt,
     },
     highlights: highlightCandidates,
-    tags: specialties.length > 0 ? specialties.slice(0, 3) : ["Footwork", "Serve", "Strategy"],
+    tags: specialties.length > 0 ? specialties.slice(0, 3) : formats.slice(0, 1),
     imageUrl: pickImageUrl(record),
     verified: certifications.length > 0,
     distanceMiles,
@@ -302,7 +389,6 @@ const FindCoaches = () => {
   const [sortBy, setSortBy] = useState("distance");
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
-  const [selectedCoach, setSelectedCoach] = useState<CoachCardModel | null>(null);
   const [coaches, setCoaches] = useState<CoachCardModel[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [storedToken] = useState(() =>
@@ -446,7 +532,17 @@ const FindCoaches = () => {
       }
 
       const payload = await response.json();
-      const normalized = extractCoachArray(payload).map((coach, index) => mapCoachRecordToCard(coach, index));
+      const baseCards = extractCoachArray(payload).map((coach, index) => mapCoachRecordToCard(coach, index));
+      const normalized = await Promise.all(
+        baseCards.map(async (coach) => {
+          try {
+            const profile = await fetchCoachProfile(coach.id);
+            return mergeCoachProfileIntoCard(coach, profile as Record<string, unknown>);
+          } catch {
+            return coach;
+          }
+        }),
+      );
       setCoaches(normalized);
       setMode(normalized.length > 0 ? "normal" : "empty");
     } catch (requestError) {
@@ -564,6 +660,7 @@ const FindCoaches = () => {
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
 
+  const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
   const resultsCountLabel =
     status === "loading"
       ? "Finding coaches..."
@@ -571,7 +668,7 @@ const FindCoaches = () => {
         ? "Unable to load coaches"
         : shouldShowEmpty
           ? "No coaches found"
-          : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near ${locationLabel}`;
+          : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
 
   return (
     <MainLayout>
@@ -640,21 +737,17 @@ const FindCoaches = () => {
         </section>
 
         <div className="fcv2-shell">
-          <section className="fcv2-hero">
-            <div className="fcv2-hero-copy">
-              <p className="fcv2-eyebrow">Find a Coach</p>
-              <h1>Book trusted tennis coaches near you.</h1>
-              <p className="fcv2-subtitle">
-                Search by coach name, location, and distance, then narrow results by level, format, and availability.
+          <section className="fcv2-page-head">
+            <div className="fcv2-page-head-copy">
+              <h1>Find a Coach</h1>
+              <p>
+                <span>📍 {locationShortLabel}</span>
+                <span>·</span>
+                <span>{resultsCountLabel}</span>
               </p>
             </div>
 
-            <div className="fcv2-hero-actions">
-              <div className="fcv2-results-pill">
-                <MapPin size={14} />
-                <span>{resultsCountLabel}</span>
-              </div>
-
+            <div className="fcv2-page-head-actions">
               <select
                 value={sortBy}
                 onChange={(event) => setSortBy(event.target.value)}
@@ -701,6 +794,16 @@ const FindCoaches = () => {
                 <ChevronDown size={16} />
               </button>
 
+              <button
+                type="button"
+                className="fcv2-filter-summary"
+                onClick={detectCurrentLocation}
+                disabled={isDetectingLocation}
+              >
+                <MapPin size={15} />
+                <span>{isDetectingLocation ? "Detecting..." : "Use current location"}</span>
+              </button>
+
               <div className="fcv2-radius-group" aria-label="Distance filter">
                 {radiusOptions.map((radius) => (
                   <button
@@ -713,11 +816,6 @@ const FindCoaches = () => {
                   </button>
                 ))}
               </div>
-
-              <button type="button" className="fcv2-filter-summary" onClick={() => setShowFiltersSheet(true)}>
-                <SlidersHorizontal size={15} />
-                <span>{activeFilterCount > 0 ? `${activeFilterCount} filters active` : "Refine results"}</span>
-              </button>
             </div>
 
             {showLocationPicker ? (
@@ -837,7 +935,7 @@ const FindCoaches = () => {
                 </div>
               ) : null}
 
-              {visibleAvailabilityOptions.length > 0 ? (
+              {visibleAvailabilityOptions.length > 0 || activeFilterCount > 0 ? (
                 <div className="fcv2-chip-row">
                   <span>When</span>
                   {visibleAvailabilityOptions.map((availability) => (
@@ -859,10 +957,11 @@ const FindCoaches = () => {
                 </div>
               ) : null}
             </div>
-          </section>
 
-          <section className="fcv2-matchmaker">
-            <CoachMatchQuestionnaire onComplete={() => fetchCoaches()} />
+            <button type="button" className="fcv2-mobile-filter-button fcv2-desktop-filter-button" onClick={() => setShowFiltersSheet(true)}>
+              <SlidersHorizontal size={15} />
+              <span>{activeFilterCount > 0 ? `${activeFilterCount} filters active` : "More filters"}</span>
+            </button>
           </section>
 
           {status === "loading" ? (
@@ -915,24 +1014,31 @@ const FindCoaches = () => {
 
                       <div className="fcv2-card-title-block">
                         <h2>{coach.name}</h2>
-                        <div className="fcv2-card-certifications">
-                          {coach.certifications.slice(0, 2).map((certification) => (
-                            <span key={certification}>{certification}</span>
-                          ))}
-                        </div>
+                        {coach.certifications.length > 0 ? (
+                          <div className="fcv2-card-certifications">
+                            {coach.certifications.slice(0, 2).map((certification) => (
+                              <span key={certification}>{certification}</span>
+                            ))}
+                          </div>
+                        ) : null}
                         <div className="fcv2-card-meta">
-                          <span className="rating">
-                            <Star size={13} fill="currentColor" />
-                            {coach.rating.toFixed(1)}
-                          </span>
-                          <span>({coach.reviewCount})</span>
+                          {coach.reviewCount > 0 ? (
+                            <>
+                              <span className="rating">
+                                <Star size={13} fill="currentColor" />
+                                {coach.rating.toFixed(1)}
+                              </span>
+                              <span>({coach.reviewCount})</span>
+                            </>
+                          ) : null}
+                          {coach.reviewCount === 0 && coach.studentCount ? <span>{coach.studentCount} students</span> : null}
                           {coach.distanceMiles !== null ? <span>{coach.distanceMiles.toFixed(1)} mi</span> : null}
                         </div>
                       </div>
                     </div>
 
                     <div className="fcv2-card-price">
-                      <strong>{coach.pricePerHour.replace("/hr", "")}</strong>
+                      <strong>{coach.hourlyRateValue !== null ? coach.hourlyRateValue.toFixed(0) : "0"}</strong>
                       <span>/hr</span>
                       {coach.groupRateValue !== null ? <small>{coach.lessonRates.group} group</small> : null}
                     </div>
@@ -948,17 +1054,18 @@ const FindCoaches = () => {
                   </div>
 
                   <div className="fcv2-card-footer">
-                    <div className={`fcv2-card-availability${coach.nextAvailableLesson.time ? " is-open" : ""}`}>
+                    <div className={`fcv2-card-availability${coach.availabilityWindows.length > 0 ? " is-open" : ""}`}>
                       <span className="dot" />
-                      <span>{coach.nextAvailableLesson.time ? `${coach.nextAvailableLesson.day} ${coach.nextAvailableLesson.time}` : coach.availabilityTag}</span>
+                      <span>
+                        {coach.availabilityWindows.length > 0
+                          ? `${coach.availabilityWindows.length} availability window${coach.availabilityWindows.length === 1 ? "" : "s"}`
+                          : "Availability on request"}
+                      </span>
                     </div>
 
                     <div className="fcv2-card-actions">
                       <button type="button" className="ghost" onClick={() => navigate(`/coaches/${coach.id}`)}>
                         View profile
-                      </button>
-                      <button type="button" className="primary" onClick={() => setSelectedCoach(coach)}>
-                        Book lesson
                       </button>
                     </div>
                   </div>
@@ -967,15 +1074,6 @@ const FindCoaches = () => {
             </section>
           ) : null}
         </div>
-
-        {selectedCoach ? (
-          <BookLessonModal
-            coach={selectedCoach}
-            onClose={() => {
-              setSelectedCoach(null);
-            }}
-          />
-        ) : null}
 
         {showFiltersSheet ? (
           <div className="fcv2-mobile-sheet-overlay" onClick={() => setShowFiltersSheet(false)}>
