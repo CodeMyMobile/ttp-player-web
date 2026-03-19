@@ -118,6 +118,30 @@ const parseNearbyDate = (...values) => {
   return null;
 };
 
+const formatDisplayLocation = (value) => {
+  const label = pickString(value);
+  if (!label) return "Location TBD";
+
+  if (/^\d/.test(label)) {
+    return label.split(",")[0]?.trim() || label;
+  }
+
+  const trimmedName = label.replace(/\s+\d{1,6}\b.*$/, "").trim();
+  if (trimmedName) return trimmedName;
+
+  return label.split(",")[0]?.trim() || label;
+};
+
+const formatDistance = (value) => {
+  const distance = parseNumber(value);
+  return distance === null ? null : `${distance.toFixed(distance < 10 ? 1 : 0)} mi`;
+};
+
+const isFutureNearbyActivity = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.valueOf())) return false;
+  return moment(date).isSameOrAfter(moment(), "minute");
+};
+
 const weekdayIndexMap = {
   SUNDAY: 0,
   MONDAY: 1,
@@ -189,8 +213,9 @@ const buildCoachActivities = (records = []) =>
             ) || buildDateFromAvailability(slot.day, slot.from);
 
           if (!startAt) return null;
+          if (!isFutureNearbyActivity(startAt)) return null;
 
-          const location =
+          const locationLabel =
             pickString(
               slot.location_name,
               slot.locationName,
@@ -199,6 +224,8 @@ const buildCoachActivities = (records = []) =>
               record.location,
               coach?.location,
             ) || "Location TBD";
+          const location = formatDisplayLocation(locationLabel);
+          const distanceLabel = formatDistance(slot.distance_miles ?? record.distance_miles ?? coach?.distance);
 
           return {
             id: `coach-${coachId ?? "unknown"}-${index}-${startAt.toISOString()}`,
@@ -209,17 +236,20 @@ const buildCoachActivities = (records = []) =>
             title: formatCoachTitle({ ...record, coach }),
             time: moment(startAt).format("h:mm A"),
             dayKey: moment(startAt).format("YYYY-MM-DD"),
+            startTime: startAt.toISOString(),
             location,
+            secondaryMeta: distanceLabel,
             rating,
             price: parseNumber(record.price_per_person, record.hourly_rate, record.price, coach?.hourlyRate),
             status:
               pickString(
                 record.availability_status,
                 record.status,
-                slot.day && slot.from && slot.to ? `${slot.day} ${slot.from.slice(0, 5)}-${slot.to.slice(0, 5)}` : null,
+                "Available",
               ) || "Available",
             remainingSpots: null,
             avatar: initials,
+            avatarUrl: pickString(record.profile_picture, coach?.profile_picture, coach?.avatarUrl),
             avatarBadge: "🎾",
             destination: coachId != null ? `/coaches/${coachId}` : null,
           };
@@ -294,6 +324,7 @@ const buildActivityItems = (lessons = []) =>
           lesson.start_date_time,
       );
       if (!startAt) return null;
+      if (!isFutureNearbyActivity(startAt)) return null;
 
       const type = resolveLessonKind(lesson);
       const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
@@ -328,6 +359,21 @@ const buildActivityItems = (lessons = []) =>
             .map((name) => name.charAt(0).toUpperCase())
             .join("")
         : "TP";
+      const location = formatDisplayLocation(
+        pickString(
+          lesson.location_name,
+          lesson.locationName,
+          lesson.location,
+          lesson.location_label,
+          lesson.court_name,
+          lesson.facility_name,
+        ) || "Location TBD",
+      );
+      const distanceLabel = formatDistance(lesson.distance_miles ?? lesson.distanceMiles ?? lesson.distance);
+      const secondaryMeta =
+        type === "group"
+          ? [coachName ? `Coach ${coachName}` : null, distanceLabel].filter(Boolean).join(" · ")
+          : distanceLabel;
 
       return {
         id: `act-${lessonId ?? startAt.toISOString()}`,
@@ -338,21 +384,16 @@ const buildActivityItems = (lessons = []) =>
         title,
         time: moment(startAt).format("h:mm A"),
         dayKey: moment(startAt).format("YYYY-MM-DD"),
-        location:
-          pickString(
-            lesson.location_name,
-            lesson.locationName,
-            lesson.location,
-            lesson.location_label,
-            lesson.court_name,
-            lesson.facility_name,
-          ) || "Location TBD",
+        startTime: startAt.toISOString(),
+        location,
+        secondaryMeta,
         coachName,
         rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
         status: formatStatusLabel(lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         remainingSpots,
         avatar: type === "private" ? initials : typeConfig.badge,
+        avatarUrl: pickString(lesson.profile_picture, lesson?.coach?.profile_picture, lesson?.coach?.avatarUrl),
         avatarBadge: typeConfig.badge,
         extraMeta:
           type === "group" && remainingSpots !== null
@@ -383,6 +424,7 @@ const buildMatchActivities = (records = []) =>
         record.scheduled_at,
       );
       if (!startAt) return null;
+      if (!isFutureNearbyActivity(startAt)) return null;
 
       const normalizedMatch = normalizeMatchRecord(record);
       const matchId = record.id ?? record.match_id ?? record.matchId ?? normalizedMatch.id ?? null;
@@ -409,15 +451,17 @@ const buildMatchActivities = (records = []) =>
         title: normalizedMatch.format ? `${normalizedMatch.format} Match` : "Open Match",
         time: moment(startAt).format("h:mm A"),
         dayKey: moment(startAt).format("YYYY-MM-DD"),
-        location: normalizedMatch.location || "Location TBD",
+        startTime: startAt.toISOString(),
+        location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
+        secondaryMeta: normalizedMatch.level?.summary || normalizedMatch.distance || null,
         rating: null,
         price: null,
         status: availabilityLabel,
         remainingSpots,
         avatar: "🏆",
         avatarBadge: "🏆",
-        extraMeta: [playersLabel, normalizedMatch.distance].filter(Boolean).join(" · "),
-        highlight: normalizedMatch.level?.summary || formatStatusLabel(record.status) || "Open",
+        extraMeta: playersLabel,
+        highlight: formatStatusLabel(record.status) || "Open",
         destination: matchId != null ? `/matches/${matchId}` : null,
       };
     })
@@ -468,6 +512,7 @@ const DashboardPage = () => {
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
+  const [activityWindowStart, setActivityWindowStart] = useState(moment().startOf("day").toISOString());
   const [locationName, setLocationName] = useState(getStoredLocationLabel() || "Venice, CA");
   const [locationPosition, setLocationPosition] = useState(getStoredLocation() ?? DEFAULT_POSITION);
   const [searchRadius, setSearchRadius] = useState(5);
@@ -504,50 +549,70 @@ const DashboardPage = () => {
       setScheduleState((prev) => ({ ...prev, status: "loading", error: null }));
       setActivityState((prev) => ({ ...prev, status: "loading", error: null }));
 
-      try {
-        const [futureLessonsResponse, nearbyResponse] = await Promise.all([
-          getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal }),
-          getPlayerDiscoverNearby({
-            token,
-            location: locationPosition,
-            radius: searchRadius,
-            filters: {
-              startDate: moment().format("YYYY-MM-DD"),
-              endDate: moment().add(14, "days").format("YYYY-MM-DD"),
-              level: "All",
-            },
-            search: "",
-            matchSearch: "",
-            coachesPage: 1,
-            coachesPerPage: 12,
-            lessonsPage: 1,
-            lessonsPerPage: 12,
-            matchesPage: 1,
-            matchesPerPage: 12,
-            signal: controller.signal,
-          }),
-        ]);
-        if (cancelled) return;
-        const lessons = extractLessons(futureLessonsResponse);
+      const [futureLessonsResult, nearbyResult] = await Promise.allSettled([
+        getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal }),
+        getPlayerDiscoverNearby({
+          token,
+          location: locationPosition,
+          radius: searchRadius,
+          filters: {
+            startDate: moment().format("YYYY-MM-DD"),
+            endDate: moment().add(14, "days").format("YYYY-MM-DD"),
+            level: "All",
+          },
+          search: "",
+          matchSearch: "",
+          coachesPage: 1,
+          coachesPerPage: 12,
+          lessonsPage: 1,
+          lessonsPerPage: 12,
+          matchesPage: 1,
+          matchesPerPage: 12,
+          signal: controller.signal,
+        }),
+      ]);
+      if (cancelled) return;
+
+      if (futureLessonsResult.status === "fulfilled") {
+        const lessons = extractLessons(futureLessonsResult.value);
+        setScheduleState({ status: "ready", items: buildScheduleItems(lessons), error: null });
+      } else {
+        const scheduleMessage =
+          futureLessonsResult.reason instanceof Error
+            ? futureLessonsResult.reason.message
+            : "Unable to load your schedule.";
+        setScheduleState({ status: "error", items: [], error: scheduleMessage });
+      }
+
+      if (nearbyResult.status === "fulfilled") {
+        const nearbyResponse = nearbyResult.value;
         const coachActivities = buildCoachActivities(extractCollection(nearbyResponse?.coaches_availability));
         const groupActivities = buildActivityItems(extractCollection(nearbyResponse?.group_lessons));
         const matchActivities = buildMatchActivities(extractCollection(nearbyResponse?.match_play));
+        const nextActivities = [...coachActivities, ...groupActivities, ...matchActivities].sort(
+          (a, b) =>
+            moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
+            moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
+        );
+        const nextWindowStart =
+          parseNearbyDate(nearbyResponse?.search_area?.window_start) ??
+          parseNearbyDate(nextActivities[0]?.startTime) ??
+          moment().startOf("day").toDate();
+        const nextSelectedDay =
+          nextActivities.find((item) => moment(item.dayKey, "YYYY-MM-DD", true).isValid())?.dayKey ??
+          moment(nextWindowStart).format("YYYY-MM-DD");
 
-        setScheduleState({ status: "ready", items: buildScheduleItems(lessons), error: null });
+        setActivityWindowStart(moment(nextWindowStart).startOf("day").toISOString());
+        setSelectedDay(nextSelectedDay);
         setActivityState({
           status: "ready",
-          items: [...coachActivities, ...groupActivities, ...matchActivities].sort(
-            (a, b) =>
-              moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
-              moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
-          ),
+          items: nextActivities,
           error: null,
         });
-      } catch (error) {
-        if (cancelled) return;
-        const message = error instanceof Error ? error.message : "Unable to load home feed.";
-        setScheduleState({ status: "error", items: [], error: message });
-        setActivityState({ status: "error", items: [], error: message });
+      } else {
+        const activityMessage =
+          nearbyResult.reason instanceof Error ? nearbyResult.reason.message : "Unable to load nearby activities.";
+        setActivityState({ status: "error", items: [], error: activityMessage });
       }
     };
 
@@ -562,7 +627,7 @@ const DashboardPage = () => {
   const dayTabs = useMemo(
     () =>
       Array.from({ length: 7 }).map((_, index) => {
-        const day = moment().add(index, "days");
+        const day = moment(activityWindowStart).add(index, "days");
         const key = day.format("YYYY-MM-DD");
         const count = activityState.items.filter((item) => item.dayKey === key).length;
         return {
@@ -573,7 +638,7 @@ const DashboardPage = () => {
           count,
         };
       }),
-    [activityState.items],
+    [activityState.items, activityWindowStart],
   );
 
   useEffect(() => {
@@ -612,7 +677,7 @@ const DashboardPage = () => {
   const hasSchedule = scheduleState.status === "ready" && scheduleItems.length > 0;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
-    : "Browse lessons, groups, and matches near you";
+    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, and matches`;
 
   const onOpenActivity = (activity) => {
     if (!activity.destination) return;
@@ -982,7 +1047,11 @@ const DashboardPage = () => {
                     onClick={() => onOpenActivity(activity)}
                   >
                     <span className="ph-activity-avatar">
-                      <span>{activity.avatar}</span>
+                      {activity.avatarUrl ? (
+                        <img src={activity.avatarUrl} alt={activity.title} />
+                      ) : (
+                        <span>{activity.avatar}</span>
+                      )}
                       <span className="ph-activity-avatar-badge">{activity.avatarBadge}</span>
                     </span>
 
@@ -1000,6 +1069,11 @@ const DashboardPage = () => {
                             <span className="ph-activity-meta-sep">·</span>
                             <Star size={12} fill="currentColor" />
                             <span>{activity.rating.toFixed(1)}</span>
+                          </>
+                        ) : activity.secondaryMeta ? (
+                          <>
+                            <span className="ph-activity-meta-sep">·</span>
+                            <span>{activity.secondaryMeta}</span>
                           </>
                         ) : null}
                       </span>
