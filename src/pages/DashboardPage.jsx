@@ -333,7 +333,16 @@ const buildScheduleItems = (lessons = []) =>
 const buildActivityItems = (lessons = []) =>
   lessons
     .map((lesson) => {
-      const startAt = parseDate(
+      const zonedStart = parseNearbyMoment(
+        lesson.startTime ??
+          lesson.start_time ??
+          lesson.start_at ??
+          lesson.start ??
+          lesson.startDate ??
+          lesson.starts_at ??
+          lesson.start_date_time,
+      );
+      const startAt = zonedStart?.toDate() ?? parseDate(
         lesson.startTime ??
           lesson.start_time ??
           lesson.start_at ??
