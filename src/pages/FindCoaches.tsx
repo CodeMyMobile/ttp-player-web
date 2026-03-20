@@ -1060,7 +1060,7 @@ const FindCoaches = () => {
                       <span className="dot" />
                       <span>
                         {coach.availabilityWindows.length > 0
-                          ? `${coach.availabilityWindows.length} availability window${coach.availabilityWindows.length === 1 ? "" : "s"}`
+                          ? `${coach.availabilityWindows.length} slot${coach.availabilityWindows.length === 1 ? "" : "s"} this week`
                           : "Availability on request"}
                       </span>
                     </div>
