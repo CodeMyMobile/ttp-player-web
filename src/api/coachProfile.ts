@@ -41,8 +41,9 @@ const extractCoachProfile = (payload: unknown): CoachProfileRecord | undefined =
   return payload as CoachProfileRecord;
 };
 
-export const fetchCoachProfile = async (coachId: number, options?: FetchCoachProfileOptions) => {
-  if (!coachId) {
+export const fetchCoachProfile = async (coachId: number | string, options?: FetchCoachProfileOptions) => {
+  const id = String(coachId ?? "").trim();
+  if (!id) {
     throw new Error("Coach ID is required to load the profile.");
   }
 
@@ -56,7 +57,7 @@ export const fetchCoachProfile = async (coachId: number, options?: FetchCoachPro
 
   const query = params.toString();
   const response = await apiRequest(
-    `/player/coach/profile/${coachId}${query ? `?${query}` : ""}`,
+    `/player/coach/profile/${id}${query ? `?${query}` : ""}`,
     {
       method: "GET",
       signal: options?.signal,
