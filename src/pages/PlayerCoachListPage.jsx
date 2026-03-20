@@ -8,10 +8,11 @@ import {
 } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Calendar,
+  Clock3,
   Loader2,
   MapPin,
   RefreshCcw,
@@ -20,14 +21,23 @@ import {
   Star,
   Users2,
 } from "lucide-react";
+import moment from "moment";
 import api, { unwrap } from "../services/api";
 import { API_BASE_URL } from "../api/config";
 import { useAuth } from "../context/AuthContext";
 import useDebouncedValue from "../hooks/useDebouncedValue";
+import {
+  fetchAvailableLessons,
+  fetchCoachLessonsByDate,
+  fetchCoachSchedule,
+} from "../api/playerLessons";
 import "./PlayerCoachListPage.css";
 
 const PER_PAGE = 10;
 const DEFAULT_RADIUS = 10;
+const AVAILABILITY_WINDOW_DAYS = 12;
+const PRIVATE_SLOT_LIMIT = 4;
+const AVAILABILITY_LOOKAHEAD_DAYS = 16;
 const DYNAMIC_FILTERS_ENDPOINT =
   import.meta.env.VITE_PLAYER_FILTERS_ENDPOINT ?? "/player/filters";
 const ENABLE_DYNAMIC_FILTERS =
@@ -46,6 +56,111 @@ const sanitizeLocationSearch = (location) => {
     return "";
   }
   return label;
+};
+
+const normalizeScheduleDay = (day) => (day ?? "").trim().toUpperCase();
+
+const buildScheduleMoment = (isoDate, time) => {
+  if (!isoDate || !time) return null;
+  const normalizedTime = time.length === 5 ? `${time}:00` : time;
+  const combined = moment(
+    `${isoDate}T${normalizedTime}`,
+    ["YYYY-MM-DDTHH:mm:ss", "YYYY-MM-DDTHH:mm"],
+    true,
+  );
+  return combined.isValid() ? combined : null;
+};
+
+const resolveScheduleLocation = (entry) => {
+  const candidates = [entry.location, entry.location_name, entry.court_name, entry.court];
+  const postalRegex = /\b\d{5}(?:-\d{4})?\b/;
+  const label = candidates.find(
+    (candidate) => typeof candidate === "string" && candidate.trim() && !postalRegex.test(candidate.trim()),
+  );
+  return label?.trim();
+};
+
+const buildSlotsFromScheduleEntry = (entry, isoDate, priceLabel = "$0", fallbackIndex = 0) => {
+  const startMoment = buildScheduleMoment(isoDate, entry.from);
+  if (!startMoment) return [];
+  const endMoment = buildScheduleMoment(isoDate, entry.to);
+  const slotIdBase =
+    entry.id !== undefined && entry.id !== null ? String(entry.id) : `${fallbackIndex}`;
+  const slots = [];
+
+  if (endMoment && endMoment.isAfter(startMoment)) {
+    let cursor = startMoment.clone();
+    let segmentIndex = 0;
+    while (cursor.isBefore(endMoment)) {
+      const segmentEnd = cursor.clone().add(1, "hour");
+      if (segmentEnd.isAfter(endMoment)) break;
+      slots.push({
+        id: `${isoDate}-${slotIdBase}-seg-${segmentIndex}`,
+        time: cursor.format("h:mm A"),
+        lessonType: "private",
+        duration: `${segmentEnd.diff(cursor, "minutes")} min`,
+        price: priceLabel,
+        spotsRemaining: 1,
+        location: resolveScheduleLocation(entry),
+        scheduleMeta: {
+          startDateTime: cursor.clone().utc().toISOString(),
+          endDateTime: segmentEnd.clone().utc().toISOString(),
+          startDateTimeTz: cursor.toISOString(),
+          endDateTimeTz: segmentEnd.toISOString(),
+          locationId: entry.location_id,
+          court: entry.court ?? null,
+        },
+      });
+      cursor = segmentEnd;
+      segmentIndex += 1;
+    }
+  }
+
+  if (slots.length) return slots;
+
+  const durationMinutes = endMoment ? Math.max(endMoment.diff(startMoment, "minutes"), 0) : null;
+  const computedDuration =
+    durationMinutes && Number.isFinite(durationMinutes) && durationMinutes > 0 ? durationMinutes : 60;
+  const derivedEndMoment = endMoment ?? startMoment.clone().add(computedDuration, "minutes");
+
+  return [
+    {
+      id: `${isoDate}-${slotIdBase}`,
+      time: startMoment.format("h:mm A"),
+      lessonType: "private",
+      duration: `${computedDuration} min`,
+      price: priceLabel,
+      spotsRemaining: 1,
+      location: resolveScheduleLocation(entry),
+      scheduleMeta: {
+        startDateTime: startMoment.clone().utc().toISOString(),
+        endDateTime: derivedEndMoment.clone().utc().toISOString(),
+        startDateTimeTz: startMoment.toISOString(),
+        endDateTimeTz: derivedEndMoment.toISOString(),
+        locationId: entry.location_id,
+        court: entry.court ?? null,
+      },
+    },
+  ];
+};
+
+const pickCoachLocationLabel = (coach) => {
+  if (!coach) return "";
+  const postalRegex = /\b\d{5}(?:-\d{4})?\b/;
+  const candidates = [
+    ...(Array.isArray(coach.locationPlaces) ? coach.locationPlaces.map((item) => item?.label) : []),
+    ...(Array.isArray(coach.locationList) ? coach.locationList : []),
+    coach.location,
+    coach.location_name,
+    coach.facility,
+    coach.city && coach.state ? `${coach.city}, ${coach.state}` : null,
+    coach.city,
+    coach.state,
+  ];
+  const label = candidates.find(
+    (entry) => typeof entry === "string" && entry.trim() && !postalRegex.test(entry.trim()),
+  );
+  return label?.trim() ?? "Location TBD";
 };
 
 const parseCoachList = (payload) => {
@@ -1264,11 +1379,341 @@ const CoachCard = ({ coach, variant = "standard" }) => {
   );
 };
 
+const MyCoachBookingCard = ({ coach, authToken }) => {
+  const [privateSlots, setPrivateSlots] = useState([]);
+  const [groupClasses, setGroupClasses] = useState([]);
+  const [selection, setSelection] = useState(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
+
+  const coachName = coach?.name ?? "Coach";
+  const locationLabel = pickCoachLocationLabel(coach);
+  const hourlyRateLabel = coach?.hourlyRate || (coach?.hourlyRateValue ? `$${coach.hourlyRateValue.toFixed(0)}/hr` : "");
+
+  const upcomingLesson = useMemo(() => {
+    const dateCandidate =
+      coach?.next_lesson_date ||
+      coach?.nextLessonDate ||
+      coach?.next_lesson_day ||
+      coach?.nextLessonDay;
+    const timeCandidate = coach?.next_lesson_time || coach?.nextLessonTime;
+    const typeCandidate = (coach?.next_lesson_type || coach?.nextLessonType || "").toString().toLowerCase();
+    const isGroup = typeCandidate.includes("group");
+    const isPrivate = typeCandidate.includes("private") || (!typeCandidate && !isGroup);
+    if (!dateCandidate && !timeCandidate) return null;
+    return {
+      date: dateCandidate,
+      time: timeCandidate,
+      label: [dateCandidate, timeCandidate].filter(Boolean).join(" · "),
+      tone: isGroup ? "group" : isPrivate ? "private" : "info",
+    };
+  }, [coach?.nextLessonDate, coach?.nextLessonDay, coach?.nextLessonTime, coach?.nextLessonType, coach?.next_lesson_date, coach?.next_lesson_day, coach?.next_lesson_time, coach?.next_lesson_type]);
+
+  useEffect(() => {
+    if (!coach?.id) return;
+    let cancelled = false;
+    const loadAvailability = async () => {
+      setLoadingSlots(true);
+      setError(null);
+      const collectedSlots = [];
+      const hourlyLabel = hourlyRateLabel || "$0";
+
+      for (let offset = 0; offset < AVAILABILITY_LOOKAHEAD_DAYS; offset += 1) {
+        if (collectedSlots.length >= PRIVATE_SLOT_LIMIT) break;
+        const dateMoment = moment().add(offset, "days");
+        const isoDate = dateMoment.format("YYYY-MM-DD");
+        const weekday = dateMoment.format("dddd").toUpperCase();
+        let scheduleEntries = [];
+        try {
+          scheduleEntries = await fetchCoachSchedule({
+            token: authToken ?? "",
+            coachId: coach.id,
+            day: weekday,
+          });
+        } catch (err) {
+          scheduleEntries = [];
+        }
+
+        if (!scheduleEntries.length) continue;
+
+        let bookedLessons = [];
+        try {
+          bookedLessons = await fetchCoachLessonsByDate({
+            token: authToken ?? undefined,
+            coachId: coach.id,
+            date: isoDate,
+          });
+        } catch (err) {
+          bookedLessons = [];
+        }
+
+        const bookedTimes = new Set(
+          bookedLessons
+            .map((lesson) => moment(lesson.start_date_time).format("HH:mm"))
+            .filter(Boolean),
+        );
+
+        const dailySlots = scheduleEntries
+          .flatMap((entry, index) => buildSlotsFromScheduleEntry(entry, isoDate, hourlyLabel, index))
+          .filter((slot) => {
+            const slotStart = slot.scheduleMeta?.startDateTimeTz
+              ? moment(slot.scheduleMeta.startDateTimeTz).format("HH:mm")
+              : moment(`${isoDate} ${slot.time}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm"]).format("HH:mm");
+            return slotStart ? !bookedTimes.has(slotStart) : true;
+          })
+          .map((slot) => ({
+            ...slot,
+            isoDate,
+            dayLabel: dateMoment.format("ddd"),
+          }));
+
+        collectedSlots.push(...dailySlots);
+      }
+
+      if (!cancelled) {
+        setPrivateSlots(collectedSlots.slice(0, PRIVATE_SLOT_LIMIT));
+      }
+
+      try {
+        const startIso = moment().format("YYYY-MM-DD");
+        const endIso = moment().add(AVAILABILITY_WINDOW_DAYS, "days").format("YYYY-MM-DD");
+        const lessonsResponse = await fetchAvailableLessons({
+          token: authToken ?? "",
+          start_date: startIso,
+          end_date: endIso,
+          coach_id: Number(coach.id),
+        });
+        const lessonData = Array.isArray(lessonsResponse?.data) ? lessonsResponse.data : [];
+        const groups = lessonData
+          .filter((lesson) => {
+            const typeLabel = (lesson.lesson_type_name ?? lesson.metadata?.title ?? "").toString().toLowerCase();
+            return typeLabel.includes("group") || (lesson.player_limit ?? 1) > 1;
+          })
+          .map((lesson) => ({
+            id: lesson.id,
+            title: lesson.metadata?.title ?? lesson.metadata_title ?? lesson.lesson_type_name ?? "Group Class",
+            start: moment(lesson.start_date_time),
+            end: moment(lesson.end_date_time),
+            duration: lesson.end_date_time
+              ? `${moment(lesson.end_date_time).diff(moment(lesson.start_date_time), "minutes")} min`
+              : "60 min",
+            spotsRemaining:
+              Math.max((lesson.player_limit ?? 0) - (lesson.current_player_count ?? 0), 0) || null,
+            price: lesson.price_per_person ?? null,
+            location: lesson.location_name,
+          }));
+        if (!cancelled) {
+          setGroupClasses(groups);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setGroupClasses([]);
+          setError("Unable to load availability right now.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingSlots(false);
+        }
+      }
+    };
+
+    void loadAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, coach.id, hourlyRateLabel]);
+
+  const buttonLabel = useMemo(() => {
+    if (!selection) return "Select a time to book";
+    if (selection.type === "group") {
+      const pricePart = selection.lesson.price ? ` — $${selection.lesson.price}` : "";
+      return `Book ${selection.lesson.title}${pricePart}`;
+    }
+    return `Book Private — ${selection.slot.dayLabel} at ${selection.slot.time} — ${selection.slot.price}`;
+  }, [selection]);
+
+  const buttonTone = selection?.type === "group" ? "group" : selection ? "private" : "disabled";
+
+  const handleBook = useCallback(() => {
+    if (!selection) return;
+    const destination = `/coaches/${coach.slug || coach.id}`;
+
+    if (selection.type === "group") {
+      navigate(`${destination}?lessonId=${selection.lesson.id}&type=group`, {
+        state: {
+          preselectedLesson: selection.lesson,
+          coach,
+        },
+      });
+      return;
+    }
+
+    const start = selection.slot.scheduleMeta?.startDateTimeTz;
+    const end = selection.slot.scheduleMeta?.endDateTimeTz;
+    const query = [
+      "bookingType=private",
+      start ? `start=${encodeURIComponent(start)}` : null,
+      end ? `end=${encodeURIComponent(end)}` : null,
+    ]
+      .filter(Boolean)
+      .join("&");
+
+    navigate(query ? `${destination}?${query}` : destination, {
+      state: {
+        preselectedSlot: selection.slot,
+        coach,
+      },
+    });
+  }, [coach, navigate, selection]);
+
+  return (
+    <article className="my-coach-card">
+      <header className="my-coach-card__header">
+        <div className="my-coach-card__identity">
+          <div className="my-coach-card__avatar" aria-hidden>{coach?.avatar ? <img src={coach.avatar} alt="" /> : <span>{coachName.slice(0, 1)}</span>}</div>
+          <div>
+            <p className="my-coach-card__eyebrow">My Coach</p>
+            <h3 className="my-coach-card__name">{coachName}</h3>
+            <div className="my-coach-card__location">
+              <MapPin size={14} aria-hidden />
+              <span>{locationLabel}</span>
+            </div>
+          </div>
+        </div>
+        {hourlyRateLabel ? <span className="my-coach-card__rate">{hourlyRateLabel}</span> : null}
+      </header>
+
+      {upcomingLesson ? (
+        <div className={`my-coach-card__banner ${upcomingLesson.tone}`}>
+          <div className="my-coach-card__banner-label">Upcoming lesson</div>
+          <div className="my-coach-card__banner-content">
+            <Calendar size={16} aria-hidden />
+            <span>{upcomingLesson.label}</span>
+            <span className="my-coach-card__pill">{upcomingLesson.tone === "group" ? "Group" : "Private"}</span>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="my-coach-card__section">
+        <div className="my-coach-card__section-header">
+          <div className="my-coach-card__section-title">
+            <div className="label">Private lessons</div>
+            <p>Select a time to book quickly.</p>
+          </div>
+          {hourlyRateLabel ? <span className="my-coach-card__badge">{hourlyRateLabel}</span> : null}
+        </div>
+        <div className="my-coach-card__slots">
+          {loadingSlots && !privateSlots.length ? (
+            <div className="my-coach-card__loading">
+              <Loader2 className="spin" size={16} aria-hidden /> Loading times
+            </div>
+          ) : null}
+          {privateSlots.slice(0, PRIVATE_SLOT_LIMIT).map((slot) => {
+            const isSelected = selection?.type === "private" && selection.slot.id === slot.id;
+            return (
+              <button
+                key={slot.id}
+                type="button"
+                className={`my-coach-card__slot${isSelected ? " selected" : ""}`}
+                onClick={() =>
+                  setSelection((prev) =>
+                    prev?.type === "private" && prev.slot.id === slot.id
+                      ? null
+                      : {
+                          type: "private",
+                          slot,
+                        },
+                  )
+                }
+              >
+                <div className="my-coach-card__slot-day">{slot.dayLabel}</div>
+                <div className="my-coach-card__slot-time">{slot.time}</div>
+              </button>
+            );
+          })}
+          {!loadingSlots && !privateSlots.length ? (
+            <p className="my-coach-card__muted">No upcoming private slots in the next two weeks.</p>
+          ) : null}
+        </div>
+        <Link to={`/coaches/${coach.slug || coach.id}`} className="my-coach-card__link">
+          All times <ArrowRight size={14} aria-hidden />
+        </Link>
+      </section>
+
+      {groupClasses.length ? (
+        <section className="my-coach-card__section">
+          <div className="my-coach-card__section-header group">
+            <div className="my-coach-card__section-title">
+              <div className="label">Group classes</div>
+              <p>Join a class with available spots.</p>
+            </div>
+          </div>
+          <div className="my-coach-card__classes">
+            {groupClasses.map((lesson) => {
+              const isSelected = selection?.type === "group" && selection.lesson.id === lesson.id;
+              return (
+                <button
+                  key={lesson.id}
+                  type="button"
+                  className={`my-coach-card__class${isSelected ? " selected" : ""}`}
+                  onClick={() =>
+                    setSelection((prev) =>
+                      prev?.type === "group" && prev.lesson.id === lesson.id
+                        ? null
+                        : { type: "group", lesson },
+                    )
+                  }
+                >
+                  <div>
+                    <div className="my-coach-card__class-title">{lesson.title}</div>
+                    <div className="my-coach-card__class-meta">
+                      <Clock3 size={14} aria-hidden />
+                      <span>
+                        {lesson.start.format("ddd, MMM D")} · {lesson.start.format("h:mm A")} ({lesson.duration})
+                      </span>
+                    </div>
+                    <div className="my-coach-card__class-meta">
+                      <Users2 size={14} aria-hidden />
+                      <span>
+                        {lesson.spotsRemaining !== null ? `${lesson.spotsRemaining} spots left` : "Open enrollment"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="my-coach-card__class-price">
+                    {lesson.price ? `$${lesson.price}` : "See price"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <Link to={`/coaches/${coach.slug || coach.id}`} className="my-coach-card__link group">
+            All classes <ArrowRight size={14} aria-hidden />
+          </Link>
+        </section>
+      ) : null}
+
+      {error ? <p className="my-coach-card__error">{error}</p> : null}
+
+      <button
+        type="button"
+        className={`my-coach-card__cta ${buttonTone}`}
+        disabled={!selection}
+        aria-disabled={!selection}
+        onClick={handleBook}
+      >
+        {buttonLabel}
+      </button>
+    </article>
+  );
+};
+
 const PlayerCoachListPage = () => {
   const { user } = useAuth();
   const playerToken =
     user?.session?.access_token ?? user?.access_token ?? user?.token ?? null;
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("my");
   const [allCoachPlayers, setAllCoachPlayers] = useState([]);
   const [addedCoachPlayers, setAddedCoachPlayers] = useState([]);
   const [allCoachesPage, setAllCoachesPage] = useState(1);
@@ -1930,13 +2375,27 @@ const PlayerCoachListPage = () => {
   const isActiveLoading = activeTab === "all" ? allMiniLoader : addedMiniLoader;
   const activeListEnd = activeTab === "all" ? isAllCoachesListEnd : isMyCoachesListEnd;
   const activeSentinelRef = activeTab === "all" ? allListSentinelRef : myListSentinelRef;
+  const pendingCoaches = useMemo(
+    () => addedCoachPlayers.filter((coach) => normalizeRosterStatus(coach) === "pending"),
+    [addedCoachPlayers],
+  );
+  const confirmedMyCoaches = useMemo(
+    () => addedCoachPlayers.filter((coach) => normalizeRosterStatus(coach) !== "pending"),
+    [addedCoachPlayers],
+  );
   const featuredCoaches = activeTab === "all" ? activeList.slice(0, 2) : [];
-  const remainingCoaches = activeTab === "all" ? activeList.slice(2) : activeList;
+  const remainingCoaches = activeTab === "all" ? activeList.slice(2) : confirmedMyCoaches;
   const resultsHeading = activeTab === "all" ? "All Coaches" : "My Coaches";
   const resultsDescription =
     activeTab === "all"
       ? "Browse certified coaches tailored to your goals."
-      : "Coaches you have already connected with.";
+      : "Book time with coaches you already work with—no discovery required.";
+  const heroTitle =
+    activeTab === "my" ? "Book your next lesson in seconds" : "Find Your Perfect Coach";
+  const heroSubtitle =
+    activeTab === "my"
+      ? "See real availability, pick a time, and confirm without leaving this page."
+      : "Get matched with certified tennis professionals in your area.";
   const showInitialLoader = isActiveLoading && !activeList.length;
   const showEmptyState = !isActiveLoading && !activeList.length;
 
@@ -2030,174 +2489,259 @@ const PlayerCoachListPage = () => {
 
   return (
     <div className="coach-list-page">
-      <header className="coach-hero">
-        <div className="coach-hero-copy">
-          <p className="coach-hero-eyebrow">Player Experience</p>
-          <h1>Find Your Perfect Coach</h1>
-          <p className="coach-hero-subtitle">
-            Get matched with certified tennis professionals in your area.
-          </p>
-          <div className="coach-tab-bar" role="tablist" aria-label="Coach views">
+      {activeTab === "my" ? (
+        <header className="my-booking-hero">
+          <div className="my-booking-hero__content">
+            <p className="coach-hero-eyebrow">My Coaches</p>
+            <h1>Book your next lesson in seconds</h1>
+            <p className="coach-hero-subtitle">
+              See real availability, pick a time, and confirm without leaving this page.
+            </p>
+            <div className="my-booking-hero__chips" role="tablist" aria-label="Coach views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected
+                className="coach-tab active"
+                onClick={() => {
+                  setActiveTab("my");
+                  resetMyPagination();
+                }}
+              >
+                <SlidersHorizontal size={16} aria-hidden />
+                Quick book
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={false}
+                className="coach-tab"
+                onClick={() => {
+                  setActiveTab("all");
+                  resetAllPagination();
+                }}
+              >
+                <Users2 size={16} aria-hidden />
+                Browse all coaches
+              </button>
+            </div>
+            <div className="my-booking-hero__meta">
+              <div>
+                <p className="label">Connected coaches</p>
+                <p className="my-booking-hero__meta-value">{confirmedMyCoaches.length}</p>
+              </div>
+              <div>
+                <p className="label">Pending approvals</p>
+                <p className="my-booking-hero__meta-value">{pendingCoaches.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="my-booking-hero__cta">
+            <div className="my-booking-hero__badge">Lightning-fast booking</div>
+            <p>Tap a slot on a coach card to prefill the booking button instantly.</p>
+          </div>
+        </header>
+      ) : (
+        <header className="coach-hero">
+          <div className="coach-hero-copy">
+            <p className="coach-hero-eyebrow">Player Experience</p>
+            <h1>{heroTitle}</h1>
+            <p className="coach-hero-subtitle">{heroSubtitle}</p>
+            <div className="coach-tab-bar" role="tablist" aria-label="Coach views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "all"}
+                className={`coach-tab${activeTab === "all" ? " active" : ""}`}
+                onClick={() => {
+                  setActiveTab("all");
+                  resetAllPagination();
+                }}
+              >
+                <Users2 size={16} aria-hidden />
+                All Coaches
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "my"}
+                className={`coach-tab${activeTab === "my" ? " active" : ""}`}
+                onClick={() => {
+                  setActiveTab("my");
+                  resetMyPagination();
+                }}
+              >
+                <SlidersHorizontal size={16} aria-hidden />
+                My Coaches
+              </button>
+            </div>
+          </div>
+          <dl className="coach-hero-stats">
+            <div className="coach-hero-stat">
+              <dt>Available Coaches</dt>
+              <dd>{heroStats.available.toLocaleString()}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Avg Rating</dt>
+              <dd>{heroStats.avgRating ?? "—"}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Avg Hourly Rate</dt>
+              <dd>{heroStats.avgHourlyRate ?? "—"}</dd>
+            </div>
+            <div className="coach-hero-stat">
+              <dt>Lessons Booked</dt>
+              <dd>{heroStats.lessons ?? "—"}</dd>
+            </div>
+          </dl>
+        </header>
+      )}
+
+      {activeTab === "my" ? (
+        <section className="my-booking-toolbar" aria-label="Quick booking filters">
+          <div className="my-booking-toolbar__controls">
+            <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
+              <Search size={16} aria-hidden />
+              <input
+                type="search"
+                value={nameDraft}
+                onChange={handleSearchChange}
+                placeholder="Search your coaches…"
+                aria-label="Search my coaches by name"
+              />
+              {nameDraft ? (
+                <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
+                  <span className="sr-only">Clear search</span>
+                  ×
+                </button>
+              ) : null}
+            </form>
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "all"}
-              className={`coach-tab${activeTab === "all" ? " active" : ""}`}
-              onClick={() => {
-                setActiveTab("all");
-                resetAllPagination();
-              }}
+              className="refresh-button"
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              <Users2 size={16} aria-hidden />
-              All Coaches
+              {refreshing ? <Loader2 className="spin" size={16} aria-hidden /> : <RefreshCcw size={16} aria-hidden />}
+              Refresh availability
             </button>
+          </div>
+          <p className="my-booking-toolbar__hint">Select a time on any card to activate the booking button.</p>
+        </section>
+      ) : (
+        <section className="coach-controls" aria-label="Search and filters">
+          <div className="coach-controls-bar">
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "my"}
-              className={`coach-tab${activeTab === "my" ? " active" : ""}`}
+              className="coach-location-trigger"
               onClick={() => {
-                setActiveTab("my");
-                resetMyPagination();
+                setFocusFilterSection("location");
+                setOpenFilter("filters");
               }}
+              aria-label={
+                locationFilter?.address
+                  ? `Change location from ${locationFilter.address}`
+                  : "Select a location"
+              }
+              aria-haspopup="dialog"
+            >
+              <MapPin size={16} aria-hidden />
+              <span>
+                {locationFilter?.address
+                  ? locationFilter.address
+                  : debouncedUserPos?.latitude && debouncedUserPos?.longitude
+                    ? "Current location"
+                    : "Select location"}
+              </span>
+            </button>
+            <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
+              <Search size={16} aria-hidden />
+              <input
+                type="search"
+                value={nameDraft}
+                onChange={handleSearchChange}
+                placeholder="Search coaches by name…"
+                aria-label="Search coaches by name"
+              />
+              {nameDraft ? (
+                <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
+                  <span className="sr-only">Clear search</span>
+                  ×
+                </button>
+              ) : null}
+            </form>
+            <button
+              type="button"
+              className="coach-filters-toggle"
+              onClick={() => {
+                setFocusFilterSection(null);
+                setOpenFilter("filters");
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={openFilter === "filters"}
             >
               <SlidersHorizontal size={16} aria-hidden />
-              My Coaches
+              Filters
             </button>
-          </div>
-        </div>
-        <dl className="coach-hero-stats">
-          <div className="coach-hero-stat">
-            <dt>Available Coaches</dt>
-            <dd>{heroStats.available.toLocaleString()}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Avg Rating</dt>
-            <dd>{heroStats.avgRating ?? "—"}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Avg Hourly Rate</dt>
-            <dd>{heroStats.avgHourlyRate ?? "—"}</dd>
-          </div>
-          <div className="coach-hero-stat">
-            <dt>Lessons Booked</dt>
-            <dd>{heroStats.lessons ?? "—"}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <section className="coach-controls" aria-label="Search and filters">
-        <div className="coach-controls-bar">
-          <button
-            type="button"
-            className="coach-location-trigger"
-            onClick={() => {
-              setFocusFilterSection("location");
-              setOpenFilter("filters");
-            }}
-            aria-label={
-              locationFilter?.address
-                ? `Change location from ${locationFilter.address}`
-                : "Select a location"
-            }
-            aria-haspopup="dialog"
-          >
-            <MapPin size={16} aria-hidden />
-            <span>
-              {locationFilter?.address
-                ? locationFilter.address
-                : debouncedUserPos?.latitude && debouncedUserPos?.longitude
-                  ? "Current location"
-                  : "Select location"}
-            </span>
-          </button>
-          <form className="coach-search" role="search" onSubmit={handleSearchSubmit}>
-            <Search size={16} aria-hidden />
-            <input
-              type="search"
-              value={nameDraft}
-              onChange={handleSearchChange}
-              placeholder="Search coaches by name…"
-              aria-label="Search coaches by name"
-            />
-            {nameDraft ? (
-              <button type="button" className="coach-search-clear" onClick={handleSearchClear}>
-                <span className="sr-only">Clear search</span>
-                ×
-              </button>
-            ) : null}
-          </form>
-          <button
-            type="button"
-            className="coach-filters-toggle"
-            onClick={() => {
-              setFocusFilterSection(null);
-              setOpenFilter("filters");
-            }}
-            aria-haspopup="dialog"
-            aria-expanded={openFilter === "filters"}
-          >
-            <SlidersHorizontal size={16} aria-hidden />
-            Filters
-          </button>
-          <div className="coach-sort">
-            <label htmlFor="coach-sort-select">Sort by</label>
-            <select
-              id="coach-sort-select"
-              value={sortValue}
-              onChange={handleSortChange}
-              aria-label="Sort coaches"
-            >
-              <option value="recommended">Recommended</option>
-              <option value="price">Price</option>
-              <option value="rating">Rating</option>
-              <option value="distance">Distance</option>
-            </select>
-          </div>
-        </div>
-        <div
-          id="coach-specialty-chips"
-          className="coach-chip-toolbar"
-          role="toolbar"
-          aria-label="Specialty filters"
-        >
-          {specialtyChips.map((chip) => {
-            const isSelected = specialtySelection.includes(chip.value);
-            return (
-              <button
-                key={chip.value}
-                type="button"
-                className={`coach-chip${isSelected ? " selected" : ""}`}
-                onClick={() => toggleSpecialty(chip.value)}
-                aria-pressed={isSelected}
+            <div className="coach-sort">
+              <label htmlFor="coach-sort-select">Sort by</label>
+              <select
+                id="coach-sort-select"
+                value={sortValue}
+                onChange={handleSortChange}
+                aria-label="Sort coaches"
               >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-        {dynamicFilterPills.some((pill) => pill.isActive) ? (
-          <div className="coach-active-filters" role="list" aria-label="Active filters">
-            {dynamicFilterPills
-              .filter((pill) => pill.isActive)
-              .map((pill) => (
-                <button
-                  type="button"
-                  key={pill.key}
-                  className="filter-pill"
-                  role="listitem"
-                  onClick={() => {
-                    setFocusFilterSection(pill.key);
-                    setOpenFilter("filters");
-                  }}
-                  aria-haspopup="dialog"
-                >
-                  <span>{pill.label}</span>
-                </button>
-              ))}
+                <option value="recommended">Recommended</option>
+                <option value="price">Price</option>
+                <option value="rating">Rating</option>
+                <option value="distance">Distance</option>
+              </select>
+            </div>
           </div>
-        ) : null}
-      </section>
+          <div
+            id="coach-specialty-chips"
+            className="coach-chip-toolbar"
+            role="toolbar"
+            aria-label="Specialty filters"
+          >
+            {specialtyChips.map((chip) => {
+              const isSelected = specialtySelection.includes(chip.value);
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  className={`coach-chip${isSelected ? " selected" : ""}`}
+                  onClick={() => toggleSpecialty(chip.value)}
+                  aria-pressed={isSelected}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+          {dynamicFilterPills.some((pill) => pill.isActive) ? (
+            <div className="coach-active-filters" role="list" aria-label="Active filters">
+              {dynamicFilterPills
+                .filter((pill) => pill.isActive)
+                .map((pill) => (
+                  <button
+                    type="button"
+                    key={pill.key}
+                    className="filter-pill"
+                    role="listitem"
+                    onClick={() => {
+                      setFocusFilterSection(pill.key);
+                      setOpenFilter("filters");
+                    }}
+                    aria-haspopup="dialog"
+                  >
+                    <span>{pill.label}</span>
+                  </button>
+                ))}
+            </div>
+          ) : null}
+        </section>
+      )}
 
       <div className="coach-results-header">
         <div>
@@ -2279,27 +2823,83 @@ const PlayerCoachListPage = () => {
               </section>
             ) : null}
 
-            <section className="coach-section" aria-labelledby="all-coaches-heading">
-              <div className="coach-section-header">
-                <h3 id="all-coaches-heading">{resultsHeading}</h3>
-                <p>{resultsDescription}</p>
-              </div>
-              <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
-                {remainingCoaches.map((coach) => (
-                  <CoachCard
-                    key={coach.id}
-                    coach={coach}
-                    variant={activeTab === "all" ? "standard" : "compact"}
-                  />
-                ))}
-              </div>
-              <div ref={activeSentinelRef} className="list-sentinel" aria-hidden>
-                {isActiveLoading && activeList.length ? (
-                  <Loader2 className="spin" size={20} aria-hidden />
-                ) : null}
-                {activeListEnd ? <span>End of results</span> : null}
-              </div>
-            </section>
+            {activeTab === "my" ? (
+              <section className="coach-section" aria-labelledby="my-coaches-heading">
+                <div className="coach-section-header">
+                  <h3 id="my-coaches-heading">My Coaches</h3>
+                  <p>Tap a slot to lock in your next lesson.</p>
+                </div>
+                <div className="my-coaches-grid">
+                  {remainingCoaches.map((coach) => (
+                    <MyCoachBookingCard key={coach.id} coach={coach} authToken={playerToken} />
+                  ))}
+                </div>
+                <div ref={activeSentinelRef} className="list-sentinel" aria-hidden>
+                  {isActiveLoading && activeList.length ? (
+                    <Loader2 className="spin" size={20} aria-hidden />
+                  ) : null}
+                  {activeListEnd ? <span>End of results</span> : null}
+                </div>
+              </section>
+            ) : (
+              <section className="coach-section" aria-labelledby="all-coaches-heading">
+                <div className="coach-section-header">
+                  <h3 id="all-coaches-heading">{resultsHeading}</h3>
+                  <p>{resultsDescription}</p>
+                </div>
+                <div className={`coach-grid ${activeTab === "all" ? "all" : "mine"}`}>
+                  {remainingCoaches.map((coach) => (
+                    <CoachCard
+                      key={coach.id}
+                      coach={coach}
+                      variant={activeTab === "all" ? "standard" : "compact"}
+                    />
+                  ))}
+                </div>
+                <div ref={activeSentinelRef} className="list-sentinel" aria-hidden>
+                  {isActiveLoading && activeList.length ? (
+                    <Loader2 className="spin" size={20} aria-hidden />
+                  ) : null}
+                  {activeListEnd ? <span>End of results</span> : null}
+                </div>
+              </section>
+            )}
+
+            {activeTab === "my" && pendingCoaches.length ? (
+              <section className="pending-coaches" aria-labelledby="pending-coaches-heading">
+                <div className="coach-section-header">
+                  <h3 id="pending-coaches-heading">Pending Approval</h3>
+                  <p>Requests that are awaiting coach confirmation.</p>
+                </div>
+                <ul className="pending-coaches__list">
+                  {pendingCoaches.map((coach) => {
+                    const initials = (coach.name ?? "Coach").slice(0, 2).toUpperCase();
+                    const requestDate =
+                      coach.requested_at || coach.request_date || coach.created_at || coach.createdAt || null;
+                    const requestLabel = requestDate
+                      ? moment(requestDate).format("MMM D, YYYY")
+                      : "Recently requested";
+                    return (
+                      <li key={coach.id} className="pending-coach-row">
+                        <div className="pending-coach-row__identity">
+                          <div className="pending-coach-row__avatar" aria-hidden>
+                            {coach.avatar ? <img src={coach.avatar} alt="" /> : <span>{initials}</span>}
+                          </div>
+                          <div>
+                            <p className="pending-coach-row__name">{coach.name ?? "Coach"}</p>
+                            <p className="pending-coach-row__status">Awaiting approval · Requested {requestLabel}</p>
+                          </div>
+                        </div>
+                        <div className="pending-coach-row__actions">
+                          <button type="button" className="ghost">View</button>
+                          <button type="button" className="text">Cancel</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
           </Fragment>
         ) : null}
       </section>
