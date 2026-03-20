@@ -91,6 +91,9 @@ type MatchProfileModalProps = {
   onClose: () => void;
   onComplete: (profile: MatchProfileDetails) => void;
   initialProfile?: MatchProfileDetails | null;
+  isSubmitting?: boolean;
+  submitError?: string | null;
+  submitLabel?: string;
 };
 
 const DEFAULT_LEVEL = "3.0";
@@ -108,7 +111,9 @@ type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
 
 let placesScriptPromise: Promise<void> | null = null;
 
-const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
+const GOOGLE_PLACES_API_KEY =
+  (import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined) ??
+  (import.meta.env.VITE_GOOGLE_API_KEY as string | undefined);
 
 const loadGooglePlacesScript = () => {
   if (typeof window === "undefined") {
@@ -147,7 +152,15 @@ const loadGooglePlacesScript = () => {
   return placesScriptPromise;
 };
 
-const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: MatchProfileModalProps) => {
+const MatchProfileModal = ({
+  isOpen,
+  onClose,
+  onComplete,
+  initialProfile,
+  isSubmitting = false,
+  submitError = null,
+  submitLabel,
+}: MatchProfileModalProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -254,6 +267,9 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
       requiresCourtVerification
     );
   }, [about, gender, availability, requiresCourtVerification]);
+
+  const isFinalSubmitDisabled = isSubmitDisabled || isSubmitting;
+  const finalSubmitLabel = isSubmitting ? "Saving…" : submitLabel ?? "Save profile";
 
   const showCompletionError = touched && isSubmitDisabled;
 
@@ -636,6 +652,11 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                   Please complete your full profile before saving.
                 </p>
               )}
+              {submitError ? (
+                <p className="match-profile-modal__submit-error" role="alert">
+                  {submitError}
+                </p>
+              ) : null}
               <div className="match-profile-modal__buttons">
                 <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
                   Cancel
@@ -643,10 +664,10 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                 <button
                   type="submit"
                   className="fc-button fc-button--primary"
-                  disabled={isSubmitDisabled}
-                  aria-disabled={isSubmitDisabled}
+                  disabled={isFinalSubmitDisabled}
+                  aria-disabled={isFinalSubmitDisabled}
                 >
-                  Save profile
+                  {finalSubmitLabel}
                 </button>
               </div>
             </div>
