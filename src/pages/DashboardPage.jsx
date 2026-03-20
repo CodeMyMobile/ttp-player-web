@@ -118,6 +118,15 @@ const parseNearbyDate = (...values) => {
   return null;
 };
 
+const parseNearbyMoment = (...values) => {
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = moment.parseZone(value);
+    if (parsed.isValid()) return parsed;
+  }
+  return null;
+};
+
 const formatDisplayLocation = (value) => {
   const label = pickString(value);
   if (!label) return "Location TBD";
@@ -203,14 +212,15 @@ const buildCoachActivities = (records = []) =>
 
       return availabilityWindows
         .map((slot, index) => {
-          const startAt =
-            parseNearbyDate(
+          const zonedStart =
+            parseNearbyMoment(
               slot.start_date_time,
               slot.start_time,
               slot.startTime,
               slot.start_at,
               slot.date_time,
-            ) || buildDateFromAvailability(slot.day, slot.from);
+            );
+          const startAt = zonedStart?.toDate() || buildDateFromAvailability(slot.day, slot.from);
 
           if (!startAt) return null;
           if (!isFutureNearbyActivity(startAt)) return null;
@@ -234,9 +244,9 @@ const buildCoachActivities = (records = []) =>
             label: "Private Lesson",
             typeClassName: "lesson",
             title: formatCoachTitle({ ...record, coach }),
-            time: moment(startAt).format("h:mm A"),
-            dayKey: moment(startAt).format("YYYY-MM-DD"),
-            startTime: startAt.toISOString(),
+            time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
+            dayKey: slot.date || (zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD")),
+            startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
             location,
             secondaryMeta: distanceLabel,
             rating,
@@ -265,7 +275,16 @@ const buildCoachActivities = (records = []) =>
 const buildScheduleItems = (lessons = []) =>
   lessons
     .map((lesson) => {
-      const startAt = parseDate(
+      const zonedStart = parseNearbyMoment(
+        lesson.startTime ??
+          lesson.start_time ??
+          lesson.start_at ??
+          lesson.start ??
+          lesson.startDate ??
+          lesson.starts_at ??
+          lesson.start_date_time,
+      );
+      const startAt = zonedStart?.toDate() ?? parseDate(
         lesson.startTime ??
           lesson.start_time ??
           lesson.start_at ??
@@ -382,9 +401,9 @@ const buildActivityItems = (lessons = []) =>
         label: typeConfig.label,
         typeClassName: typeConfig.className,
         title,
-        time: moment(startAt).format("h:mm A"),
-        dayKey: moment(startAt).format("YYYY-MM-DD"),
-        startTime: startAt.toISOString(),
+        time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
+        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
         location,
         secondaryMeta,
         coachName,
@@ -413,7 +432,17 @@ const buildActivityItems = (lessons = []) =>
 const buildMatchActivities = (records = []) =>
   records
     .map((record) => {
-      const startAt = parseNearbyDate(
+      const zonedStart = parseNearbyMoment(
+        record.match_date_time,
+        record.start_date_time,
+        record.start_time,
+        record.startTime,
+        record.start_at,
+        record.date_time,
+        record.match_date,
+        record.scheduled_at,
+      );
+      const startAt = zonedStart?.toDate() ?? parseNearbyDate(
         record.match_date_time,
         record.start_date_time,
         record.start_time,
@@ -449,9 +478,9 @@ const buildMatchActivities = (records = []) =>
         label: normalizedMatch.access ? `${normalizedMatch.access} Match` : "Match",
         typeClassName: "match",
         title: normalizedMatch.format ? `${normalizedMatch.format} Match` : "Open Match",
-        time: moment(startAt).format("h:mm A"),
-        dayKey: moment(startAt).format("YYYY-MM-DD"),
-        startTime: startAt.toISOString(),
+        time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
+        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
         location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
         secondaryMeta: normalizedMatch.level?.summary || normalizedMatch.distance || null,
         rating: null,
