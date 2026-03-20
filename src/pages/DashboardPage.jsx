@@ -146,6 +146,12 @@ const formatDistance = (value) => {
   return distance === null ? null : `${distance.toFixed(distance < 10 ? 1 : 0)} mi`;
 };
 
+const formatClockTime = (value) => {
+  if (!value) return null;
+  const parsed = moment(value, ["HH:mm:ss", "HH:mm"], true);
+  return parsed.isValid() ? parsed.format("h A") : null;
+};
+
 const isFutureNearbyActivity = (date) => {
   if (!(date instanceof Date) || Number.isNaN(date.valueOf())) return false;
   return moment(date).isSameOrAfter(moment(), "minute");
@@ -236,6 +242,10 @@ const buildCoachActivities = (records = []) =>
             ) || "Location TBD";
           const location = formatDisplayLocation(locationLabel);
           const distanceLabel = formatDistance(slot.distance_miles ?? record.distance_miles ?? coach?.distance);
+          const availabilityText =
+            slot.from && slot.to
+              ? `Available ${formatClockTime(slot.from) ?? slot.from} – ${formatClockTime(slot.to) ?? slot.to}`
+              : null;
 
           return {
             id: `coach-${coachId ?? "unknown"}-${index}-${startAt.toISOString()}`,
@@ -249,6 +259,7 @@ const buildCoachActivities = (records = []) =>
             startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
             location,
             secondaryMeta: distanceLabel,
+            availabilityText,
             rating,
             price: parseNumber(record.price_per_person, record.hourly_rate, record.price, coach?.hourlyRate),
             status:
@@ -1096,9 +1107,12 @@ const DashboardPage = () => {
                     <span className="ph-activity-copy">
                       <span className="ph-activity-topline">
                         <span className={`ph-activity-label ${activity.typeClassName}`}>{activity.label}</span>
-                        <span className="ph-activity-time">{activity.time}</span>
+                        {activity.type !== "private" ? <span className="ph-activity-time">{activity.time}</span> : null}
                       </span>
                       <strong>{activity.title}</strong>
+                      {activity.type === "private" && activity.availabilityText ? (
+                        <span className="ph-activity-availability">{activity.availabilityText}</span>
+                      ) : null}
                       <span className="ph-activity-meta">
                         <MapPin size={12} />
                         <span>{activity.location}</span>
