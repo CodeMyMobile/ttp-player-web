@@ -670,6 +670,90 @@ const FindCoaches = () => {
           ? "No coaches found"
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
 
+  const renderLocationPickerPanel = () => (
+    <section className="fcv2-location-panel" id="coach-location-picker" aria-label="Location picker">
+      <div className="fcv2-location-panel-head">
+        <div>
+          <p className="fcv2-location-label">Location search</p>
+          <h2>Choose where to search</h2>
+        </div>
+        <button type="button" onClick={closeLocationPicker}>
+          Close
+        </button>
+      </div>
+
+      <div className="fcv2-location-search">
+        <Search size={16} />
+        <Autocomplete
+          apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+          placeholder="City, neighborhood, club, or court"
+          className="fcv2-location-input"
+          value={locationSearchTerm}
+          onChange={(event) => setLocationSearchTerm(event.target.value)}
+          onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+            if (!place) {
+              setGeoError("Please choose a location from the suggestions.");
+              return;
+            }
+
+            const latitude = place.geometry?.location?.lat?.();
+            const longitude = place.geometry?.location?.lng?.();
+            const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
+
+            if (
+              typeof latitude === "number" &&
+              !Number.isNaN(latitude) &&
+              typeof longitude === "number" &&
+              !Number.isNaN(longitude)
+            ) {
+              applyLocationFilter({ label, latitude, longitude });
+            } else {
+              setGeoError("We couldn't read that location's coordinates. Try another search.");
+            }
+          }}
+          options={{
+            types: ["geocode", "establishment"],
+            fields: ["formatted_address", "geometry", "name", "address_components"],
+          }}
+        />
+      </div>
+
+      <div className="fcv2-location-actions">
+        <button
+          type="button"
+          className="fcv2-location-detect"
+          onClick={detectCurrentLocation}
+          disabled={isDetectingLocation}
+        >
+          {isDetectingLocation ? "Detecting location..." : "Use my current location"}
+        </button>
+        {hasLocationFilter ? (
+          <button type="button" className="fcv2-location-clear" onClick={() => applyLocationFilter(null)}>
+            Clear location
+          </button>
+        ) : null}
+      </div>
+
+      <div className="fcv2-location-summary">
+        <strong>Selected location</strong>
+        <p>
+          {locationFilter
+            ? locationFilter.label
+            : position
+              ? `Lat ${position.latitude.toFixed(4)}, Lng ${position.longitude.toFixed(4)}`
+              : "No location selected yet."}
+        </p>
+      </div>
+
+      {geoError ? <p className="fcv2-location-error">{geoError}</p> : null}
+      {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+        <p className="fcv2-location-tip">
+          Add `VITE_GOOGLE_API_KEY` to enable Google Places suggestions.
+        </p>
+      ) : null}
+    </section>
+  );
+
   return (
     <MainLayout>
       <div className="fcv2-page">
@@ -818,89 +902,7 @@ const FindCoaches = () => {
               </div>
             </div>
 
-            {showLocationPicker ? (
-              <section className="fcv2-location-panel" id="coach-location-picker" aria-label="Location picker">
-                <div className="fcv2-location-panel-head">
-                  <div>
-                    <p className="fcv2-location-label">Location search</p>
-                    <h2>Choose where to search</h2>
-                  </div>
-                  <button type="button" onClick={closeLocationPicker}>
-                    Close
-                  </button>
-                </div>
-
-                <div className="fcv2-location-search">
-                  <Search size={16} />
-                  <Autocomplete
-                    apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                    placeholder="City, neighborhood, club, or court"
-                    className="fcv2-location-input"
-                    value={locationSearchTerm}
-                    onChange={(event) => setLocationSearchTerm(event.target.value)}
-                    onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
-                      if (!place) {
-                        setGeoError("Please choose a location from the suggestions.");
-                        return;
-                      }
-
-                      const latitude = place.geometry?.location?.lat?.();
-                      const longitude = place.geometry?.location?.lng?.();
-                      const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
-
-                      if (
-                        typeof latitude === "number" &&
-                        !Number.isNaN(latitude) &&
-                        typeof longitude === "number" &&
-                        !Number.isNaN(longitude)
-                      ) {
-                        applyLocationFilter({ label, latitude, longitude });
-                      } else {
-                        setGeoError("We couldn't read that location's coordinates. Try another search.");
-                      }
-                    }}
-                    options={{
-                      types: ["geocode", "establishment"],
-                      fields: ["formatted_address", "geometry", "name", "address_components"],
-                    }}
-                  />
-                </div>
-
-                <div className="fcv2-location-actions">
-                  <button
-                    type="button"
-                    className="fcv2-location-detect"
-                    onClick={detectCurrentLocation}
-                    disabled={isDetectingLocation}
-                  >
-                    {isDetectingLocation ? "Detecting location..." : "Use my current location"}
-                  </button>
-                  {hasLocationFilter ? (
-                    <button type="button" className="fcv2-location-clear" onClick={() => applyLocationFilter(null)}>
-                      Clear location
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="fcv2-location-summary">
-                  <strong>Selected location</strong>
-                  <p>
-                    {locationFilter
-                      ? locationFilter.label
-                      : position
-                        ? `Lat ${position.latitude.toFixed(4)}, Lng ${position.longitude.toFixed(4)}`
-                        : "No location selected yet."}
-                  </p>
-                </div>
-
-                {geoError ? <p className="fcv2-location-error">{geoError}</p> : null}
-                {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-                  <p className="fcv2-location-tip">
-                    Add `VITE_GOOGLE_API_KEY` to enable Google Places suggestions.
-                  </p>
-                ) : null}
-              </section>
-            ) : null}
+            {showLocationPicker ? renderLocationPickerPanel() : null}
 
             <div className="fcv2-chip-sections">
               {levelOptions.length > 0 ? (
@@ -1038,7 +1040,7 @@ const FindCoaches = () => {
                     </div>
 
                     <div className="fcv2-card-price">
-                      <strong>{coach.hourlyRateValue !== null ? coach.hourlyRateValue.toFixed(0) : "0"}</strong>
+                      <strong>{coach.lessonRates.private || "$0"}</strong>
                       <span>/hr</span>
                       {coach.groupRateValue !== null ? <small>{coach.lessonRates.group} group</small> : null}
                     </div>
@@ -1175,6 +1177,12 @@ const FindCoaches = () => {
                 </button>
               </div>
             </aside>
+          </div>
+        ) : null}
+
+        {showLocationPicker ? (
+          <div className="fcv2-location-overlay" onClick={closeLocationPicker}>
+            <div onClick={(event) => event.stopPropagation()}>{renderLocationPickerPanel()}</div>
           </div>
         ) : null}
 
