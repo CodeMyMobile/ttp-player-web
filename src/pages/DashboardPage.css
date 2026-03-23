@@ -1091,6 +1091,94 @@
   background: rgba(15, 23, 42, 0.4);
 }
 
+.ph-date-range-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.ph-date-range-sheet {
+  width: 100%;
+  padding: 18px 20px 24px;
+  background: #fff;
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.ph-date-range-handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.ph-date-range-sheet h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ph-date-range-sheet p {
+  margin-top: 6px;
+  color: var(--ph-muted);
+  font-size: 13px;
+}
+
+.ph-date-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ph-date-range-field span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ph-muted);
+}
+
+.ph-date-range-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--ph-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ph-text);
+  font: inherit;
+}
+
+.ph-date-range-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.ph-date-range-clear,
+.ph-date-range-apply {
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ph-date-range-clear {
+  background: #f1f5f9;
+  color: var(--ph-muted);
+}
+
+.ph-date-range-apply {
+  background: linear-gradient(135deg, var(--ph-purple), var(--ph-purple-deep));
+  color: #fff;
+}
+
 .ph-location-sheet {
   width: 100%;
   padding: 18px 20px 40px;
@@ -1622,6 +1710,13 @@
     background: transparent;
   }
 
+  .ph-date-range-overlay {
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 76px 32px 0;
+    background: rgba(15, 23, 42, 0.22);
+  }
+
   .ph-location-sheet {
     width: 380px;
     padding: 22px;
@@ -1631,6 +1726,18 @@
   }
 
   .ph-location-handle {
+    display: none;
+  }
+
+  .ph-date-range-sheet {
+    width: 380px;
+    padding: 22px;
+    border: 1px solid var(--ph-border);
+    border-radius: 18px;
+    box-shadow: var(--ph-shadow);
+  }
+
+  .ph-date-range-handle {
     display: none;
   }
 

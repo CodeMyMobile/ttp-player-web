@@ -819,6 +819,11 @@ const DashboardPage = () => {
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
   const [activityWindowStart, setActivityWindowStart] = useState(moment().startOf("day").toISOString());
+  const [activityWindowEnd, setActivityWindowEnd] = useState(moment().add(6, "days").endOf("day").toISOString());
+  const [activityFilterStart, setActivityFilterStart] = useState(moment().format("YYYY-MM-DD"));
+  const [activityFilterEnd, setActivityFilterEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
+  const [draftRangeStart, setDraftRangeStart] = useState(moment().format("YYYY-MM-DD"));
+  const [draftRangeEnd, setDraftRangeEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
   const [locationName, setLocationName] = useState(getStoredLocationLabel() || "Venice, CA");
   const [locationPosition, setLocationPosition] = useState(getStoredLocation() ?? DEFAULT_POSITION);
   const [searchRadius, setSearchRadius] = useState(5);
@@ -826,6 +831,7 @@ const DashboardPage = () => {
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
+  const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
 
@@ -864,8 +870,8 @@ const DashboardPage = () => {
           location: locationPosition,
           radius: searchRadius,
           filters: {
-            startDate: moment().format("YYYY-MM-DD"),
-            endDate: moment().add(14, "days").format("YYYY-MM-DD"),
+            startDate: activityFilterStart,
+            endDate: activityFilterEnd,
             level: "All",
           },
           search: "",
@@ -933,13 +939,19 @@ const DashboardPage = () => {
         );
         const nextWindowStart =
           parseNearbyDate(nearbyResponse?.search_area?.window_start) ??
+          parseNearbyDate(activityFilterStart) ??
           parseNearbyDate(nextActivities[0]?.startTime) ??
           moment().startOf("day").toDate();
+        const nextWindowEnd =
+          parseNearbyDate(nearbyResponse?.search_area?.window_end) ??
+          parseNearbyDate(activityFilterEnd) ??
+          moment(nextWindowStart).add(6, "days").endOf("day").toDate();
         const nextSelectedDay =
           nextActivities.find((item) => moment(item.dayKey, "YYYY-MM-DD", true).isValid())?.dayKey ??
           moment(nextWindowStart).format("YYYY-MM-DD");
 
         setActivityWindowStart(moment(nextWindowStart).startOf("day").toISOString());
+        setActivityWindowEnd(moment(nextWindowEnd).endOf("day").toISOString());
         setSelectedDay(nextSelectedDay);
         setActivityState({
           status: "ready",
@@ -959,23 +971,29 @@ const DashboardPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [locationPosition, searchRadius, user]);
+  }, [activityFilterEnd, activityFilterStart, locationPosition, searchRadius, user]);
 
   const dayTabs = useMemo(
-    () =>
-      Array.from({ length: 7 }).map((_, index) => {
+    () => {
+      const start = moment(activityWindowStart);
+      const end = moment(activityWindowEnd);
+      const safeEnd = end.isBefore(start, "day") ? start.clone() : end;
+      const dayCount = Math.max(safeEnd.startOf("day").diff(start.startOf("day"), "days") + 1, 1);
+
+      return Array.from({ length: dayCount }).map((_, index) => {
         const day = moment(activityWindowStart).add(index, "days");
         const key = day.format("YYYY-MM-DD");
         const count = activityState.items.filter((item) => item.dayKey === key).length;
         return {
           key,
-          label: index === 0 ? "Today" : day.format("ddd"),
+          label: day.isSame(moment(), "day") ? "Today" : day.format("ddd"),
           fullDate: day.format("MMM D"),
           date: day.format("D"),
           count,
         };
-      }),
-    [activityState.items, activityWindowStart],
+      });
+    },
+    [activityState.items, activityWindowEnd, activityWindowStart],
   );
 
   useEffect(() => {
@@ -1112,6 +1130,28 @@ const DashboardPage = () => {
     storeLocation(nextPosition);
     storeLocationLabel(label);
     setIsLocationOpen(false);
+  };
+
+  const applyDateRange = () => {
+    const start = moment(draftRangeStart, "YYYY-MM-DD", true);
+    const end = moment(draftRangeEnd, "YYYY-MM-DD", true);
+    if (!start.isValid() || !end.isValid()) return;
+
+    const normalizedStart = start.format("YYYY-MM-DD");
+    const normalizedEnd = (end.isBefore(start, "day") ? start : end).format("YYYY-MM-DD");
+
+    setActivityFilterStart(normalizedStart);
+    setActivityFilterEnd(normalizedEnd);
+    setActivityWindowStart(moment(normalizedStart).startOf("day").toISOString());
+    setActivityWindowEnd(moment(normalizedEnd).endOf("day").toISOString());
+    setSelectedDay(normalizedStart);
+    setIsDateRangeOpen(false);
+  };
+
+  const openDateRangePicker = () => {
+    setDraftRangeStart(activityFilterStart);
+    setDraftRangeEnd(activityFilterEnd);
+    setIsDateRangeOpen(true);
   };
 
   const handlePlaceSelected = (place) => {
@@ -1492,7 +1532,7 @@ const DashboardPage = () => {
                 </button>
               ))}
 
-              <button type="button" className="ph-day-tab picker">
+              <button type="button" className="ph-day-tab picker" onClick={openDateRangePicker}>
                 <span className="ph-picker-icon">
                   <CalendarDays size={15} />
                 </span>
@@ -1609,6 +1649,66 @@ const DashboardPage = () => {
       {isLocationOpen ? (
         <div className="ph-location-overlay" onClick={() => setIsLocationOpen(false)}>
           {renderLocationPicker()}
+        </div>
+      ) : null}
+
+      {isDateRangeOpen ? (
+        <div className="ph-date-range-overlay" onClick={() => setIsDateRangeOpen(false)}>
+          <div className="ph-date-range-sheet" onClick={(event) => event.stopPropagation()}>
+            <div className="ph-date-range-handle" />
+            <h3>Choose Date Range</h3>
+            <p>Update the day tabs from a start date to an end date.</p>
+
+            <label className="ph-date-range-field">
+              <span>From</span>
+              <input
+                type="date"
+                value={draftRangeStart}
+                max={draftRangeEnd}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDraftRangeStart(nextValue);
+                  if (moment(draftRangeEnd).isBefore(moment(nextValue), "day")) {
+                    setDraftRangeEnd(nextValue);
+                  }
+                }}
+              />
+            </label>
+
+            <label className="ph-date-range-field">
+              <span>To</span>
+              <input
+                type="date"
+                value={draftRangeEnd}
+                min={draftRangeStart}
+                onChange={(event) => setDraftRangeEnd(event.target.value)}
+              />
+            </label>
+
+            <div className="ph-date-range-actions">
+              <button
+                type="button"
+                className="ph-date-range-clear"
+                onClick={() => {
+                  const defaultStart = moment().format("YYYY-MM-DD");
+                  const defaultEnd = moment().add(6, "days").format("YYYY-MM-DD");
+                  setDraftRangeStart(defaultStart);
+                  setDraftRangeEnd(defaultEnd);
+                  setActivityFilterStart(defaultStart);
+                  setActivityFilterEnd(defaultEnd);
+                  setActivityWindowStart(moment(defaultStart).startOf("day").toISOString());
+                  setActivityWindowEnd(moment(defaultEnd).endOf("day").toISOString());
+                  setSelectedDay(defaultStart);
+                  setIsDateRangeOpen(false);
+                }}
+              >
+                Reset
+              </button>
+              <button type="button" className="ph-date-range-apply" onClick={applyDateRange}>
+                Apply
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
