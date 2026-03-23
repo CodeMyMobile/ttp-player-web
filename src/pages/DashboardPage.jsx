@@ -128,6 +128,13 @@ const parseNearbyMoment = (...values) => {
   return null;
 };
 
+const getApiDayKey = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+};
+
 const formatDisplayLocation = (value) => {
   const label = pickString(value);
   if (!label) return "Location TBD";
@@ -818,8 +825,8 @@ const DashboardPage = () => {
   const [inviteState, setInviteState] = useState({ status: "idle", items: [], error: null });
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
-  const [activityWindowStart, setActivityWindowStart] = useState(moment().startOf("day").toISOString());
-  const [activityWindowEnd, setActivityWindowEnd] = useState(moment().add(6, "days").endOf("day").toISOString());
+  const [activityWindowStart, setActivityWindowStart] = useState(moment().format("YYYY-MM-DD"));
+  const [activityWindowEnd, setActivityWindowEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
   const [activityFilterStart, setActivityFilterStart] = useState(moment().format("YYYY-MM-DD"));
   const [activityFilterEnd, setActivityFilterEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
   const [draftRangeStart, setDraftRangeStart] = useState(moment().format("YYYY-MM-DD"));
@@ -938,20 +945,20 @@ const DashboardPage = () => {
             moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
         );
         const nextWindowStart =
-          parseNearbyDate(nearbyResponse?.search_area?.window_start) ??
-          parseNearbyDate(activityFilterStart) ??
-          parseNearbyDate(nextActivities[0]?.startTime) ??
-          moment().startOf("day").toDate();
+          getApiDayKey(nearbyResponse?.search_area?.window_start) ??
+          activityFilterStart ??
+          nextActivities[0]?.dayKey ??
+          moment().format("YYYY-MM-DD");
         const nextWindowEnd =
-          parseNearbyDate(nearbyResponse?.search_area?.window_end) ??
-          parseNearbyDate(activityFilterEnd) ??
-          moment(nextWindowStart).add(6, "days").endOf("day").toDate();
+          getApiDayKey(nearbyResponse?.search_area?.window_end) ??
+          activityFilterEnd ??
+          moment(nextWindowStart, "YYYY-MM-DD").add(6, "days").format("YYYY-MM-DD");
         const nextSelectedDay =
           nextActivities.find((item) => moment(item.dayKey, "YYYY-MM-DD", true).isValid())?.dayKey ??
-          moment(nextWindowStart).format("YYYY-MM-DD");
+          nextWindowStart;
 
-        setActivityWindowStart(moment(nextWindowStart).startOf("day").toISOString());
-        setActivityWindowEnd(moment(nextWindowEnd).endOf("day").toISOString());
+        setActivityWindowStart(nextWindowStart);
+        setActivityWindowEnd(nextWindowEnd);
         setSelectedDay(nextSelectedDay);
         setActivityState({
           status: "ready",
@@ -975,8 +982,8 @@ const DashboardPage = () => {
 
   const dayTabs = useMemo(
     () => {
-      const start = moment(activityWindowStart);
-      const end = moment(activityWindowEnd);
+      const start = moment(activityWindowStart, "YYYY-MM-DD", true);
+      const end = moment(activityWindowEnd, "YYYY-MM-DD", true);
       const safeEnd = end.isBefore(start, "day") ? start.clone() : end;
       const dayCount = Math.max(safeEnd.startOf("day").diff(start.startOf("day"), "days") + 1, 1);
       const tabs = [
@@ -995,7 +1002,7 @@ const DashboardPage = () => {
       return [
         ...tabs,
         ...Array.from({ length: dayCount }).map((_, index) => {
-        const day = moment(activityWindowStart).add(index, "days");
+        const day = moment(activityWindowStart, "YYYY-MM-DD").add(index, "days");
         const key = day.format("YYYY-MM-DD");
         const count = activityState.items.filter((item) => item.dayKey === key).length;
         return {
@@ -1146,8 +1153,8 @@ const DashboardPage = () => {
 
     setActivityFilterStart(normalizedStart);
     setActivityFilterEnd(normalizedEnd);
-    setActivityWindowStart(moment(normalizedStart).startOf("day").toISOString());
-    setActivityWindowEnd(moment(normalizedEnd).endOf("day").toISOString());
+    setActivityWindowStart(normalizedStart);
+    setActivityWindowEnd(normalizedEnd);
     setSelectedDay(normalizedStart);
     setIsDateRangeOpen(false);
   };
@@ -1708,8 +1715,8 @@ const DashboardPage = () => {
                   setDraftRangeEnd(defaultEnd);
                   setActivityFilterStart(defaultStart);
                   setActivityFilterEnd(defaultEnd);
-                  setActivityWindowStart(moment(defaultStart).startOf("day").toISOString());
-                  setActivityWindowEnd(moment(defaultEnd).endOf("day").toISOString());
+                  setActivityWindowStart(defaultStart);
+                  setActivityWindowEnd(defaultEnd);
                   setSelectedDay(defaultStart);
                   setIsDateRangeOpen(false);
                 }}
