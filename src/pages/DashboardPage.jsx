@@ -1610,7 +1610,7 @@ const DashboardPage = () => {
                         <span className={`ph-activity-label ${activity.typeClassName}`}>{activity.label}</span>
                         {selectedDay === "all" ? (
                           <span className="ph-activity-time">
-                            {moment(activity.startTime).format("ddd h:mm A")}
+                            {moment(activity.startTime).format("ddd, MMM D · h:mm A")}
                           </span>
                         ) : activity.type !== "private" ? (
                           <span className="ph-activity-time">{activity.time}</span>
@@ -1620,7 +1620,7 @@ const DashboardPage = () => {
                       {activity.type === "private" && activity.availabilityText ? (
                         <span className="ph-activity-availability">{activity.availabilityText}</span>
                       ) : activity.type === "private" && selectedDay === "all" ? (
-                        <span className="ph-activity-availability">{moment(activity.startTime).format("ddd h:mm A")}</span>
+                        <span className="ph-activity-availability">{moment(activity.startTime).format("ddd, MMM D · h:mm A")}</span>
                       ) : null}
                       <span className="ph-activity-meta">
                         <MapPin size={12} />
