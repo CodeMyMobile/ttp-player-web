@@ -1011,19 +1011,6 @@ const DashboardPage = () => {
     [activityState.items, activityWindowEnd, activityWindowStart],
   );
 
-  useEffect(() => {
-    if (activityState.status !== "ready" || activityState.items.length === 0) return;
-    if (selectedDay === "all") return;
-
-    const selectedDayHasActivities = activityState.items.some((item) => item.dayKey === selectedDay);
-    if (selectedDayHasActivities) return;
-
-    const firstAvailableDay = dayTabs.find((day) => day.key !== "all" && day.count > 0)?.key;
-    if (firstAvailableDay && firstAvailableDay !== selectedDay) {
-      setSelectedDay(firstAvailableDay);
-    }
-  }, [activityState.items, activityState.status, dayTabs, selectedDay]);
-
   const filteredActivities = useMemo(
     () =>
       activityState.items
