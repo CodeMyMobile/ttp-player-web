@@ -979,8 +979,22 @@ const DashboardPage = () => {
       const end = moment(activityWindowEnd);
       const safeEnd = end.isBefore(start, "day") ? start.clone() : end;
       const dayCount = Math.max(safeEnd.startOf("day").diff(start.startOf("day"), "days") + 1, 1);
+      const tabs = [
+        {
+          key: "all",
+          label: "All",
+          fullDate:
+            start.isSame(safeEnd, "day")
+              ? start.format("MMM D")
+              : `${start.format("MMM D")} - ${safeEnd.format("MMM D")}`,
+          date: "Wk",
+          count: activityState.items.length,
+        },
+      ];
 
-      return Array.from({ length: dayCount }).map((_, index) => {
+      return [
+        ...tabs,
+        ...Array.from({ length: dayCount }).map((_, index) => {
         const day = moment(activityWindowStart).add(index, "days");
         const key = day.format("YYYY-MM-DD");
         const count = activityState.items.filter((item) => item.dayKey === key).length;
@@ -991,18 +1005,20 @@ const DashboardPage = () => {
           date: day.format("D"),
           count,
         };
-      });
+        }),
+      ];
     },
     [activityState.items, activityWindowEnd, activityWindowStart],
   );
 
   useEffect(() => {
     if (activityState.status !== "ready" || activityState.items.length === 0) return;
+    if (selectedDay === "all") return;
 
     const selectedDayHasActivities = activityState.items.some((item) => item.dayKey === selectedDay);
     if (selectedDayHasActivities) return;
 
-    const firstAvailableDay = dayTabs.find((day) => day.count > 0)?.key;
+    const firstAvailableDay = dayTabs.find((day) => day.key !== "all" && day.count > 0)?.key;
     if (firstAvailableDay && firstAvailableDay !== selectedDay) {
       setSelectedDay(firstAvailableDay);
     }
@@ -1011,13 +1027,13 @@ const DashboardPage = () => {
   const filteredActivities = useMemo(
     () =>
       activityState.items
-        .filter((item) => item.dayKey === selectedDay)
+        .filter((item) => (selectedDay === "all" ? true : item.dayKey === selectedDay))
         .filter((item) => (selectedType === "all" ? true : item.type === selectedType)),
     [activityState.items, selectedDay, selectedType],
   );
 
   const counts = useMemo(() => {
-    const sameDay = activityState.items.filter((item) => item.dayKey === selectedDay);
+    const sameDay = activityState.items.filter((item) => (selectedDay === "all" ? true : item.dayKey === selectedDay));
     return {
       all: sameDay.length,
       private: sameDay.filter((item) => item.type === "private").length,
@@ -1027,7 +1043,8 @@ const DashboardPage = () => {
   }, [activityState.items, selectedDay]);
 
   const selectedDayLabel =
-    dayTabs.find((day) => day.key === selectedDay)?.fullDate ?? moment(selectedDay).format("MMM D");
+    dayTabs.find((day) => day.key === selectedDay)?.fullDate ??
+    (selectedDay === "all" ? dayTabs[0]?.fullDate : moment(selectedDay).format("MMM D"));
   const scheduleItems = scheduleState.items;
   const hasSchedule = scheduleState.status === "ready" && scheduleItems.length > 0;
   const inviteItems = inviteState.items;
@@ -1591,11 +1608,19 @@ const DashboardPage = () => {
                     <span className="ph-activity-copy">
                       <span className="ph-activity-topline">
                         <span className={`ph-activity-label ${activity.typeClassName}`}>{activity.label}</span>
-                        {activity.type !== "private" ? <span className="ph-activity-time">{activity.time}</span> : null}
+                        {selectedDay === "all" ? (
+                          <span className="ph-activity-time">
+                            {moment(activity.startTime).format("ddd h:mm A")}
+                          </span>
+                        ) : activity.type !== "private" ? (
+                          <span className="ph-activity-time">{activity.time}</span>
+                        ) : null}
                       </span>
                       <strong>{activity.title}</strong>
                       {activity.type === "private" && activity.availabilityText ? (
                         <span className="ph-activity-availability">{activity.availabilityText}</span>
+                      ) : activity.type === "private" && selectedDay === "all" ? (
+                        <span className="ph-activity-availability">{moment(activity.startTime).format("ddd h:mm A")}</span>
                       ) : null}
                       <span className="ph-activity-meta">
                         <MapPin size={12} />
