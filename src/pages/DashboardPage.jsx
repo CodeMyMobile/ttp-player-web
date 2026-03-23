@@ -953,9 +953,12 @@ const DashboardPage = () => {
           getApiDayKey(nearbyResponse?.search_area?.window_end) ??
           activityFilterEnd ??
           moment(nextWindowStart, "YYYY-MM-DD").add(6, "days").format("YYYY-MM-DD");
+        const todayKey = moment().format("YYYY-MM-DD");
+        const hasTodayActivities = nextActivities.some((item) => item.dayKey === todayKey);
         const nextSelectedDay =
-          nextActivities.find((item) => moment(item.dayKey, "YYYY-MM-DD", true).isValid())?.dayKey ??
-          nextWindowStart;
+          hasTodayActivities
+            ? todayKey
+            : "all";
 
         setActivityWindowStart(nextWindowStart);
         setActivityWindowEnd(nextWindowEnd);
