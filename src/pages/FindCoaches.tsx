@@ -392,7 +392,7 @@ const FindCoaches = () => {
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
   const playerToken = user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
-  const [position, setPosition] = useState<Coordinates | null>(DEFAULT_POSITION);
+  const [position, setPosition] = useState<Coordinates | null>(null);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
   const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
   const [showCoachMatchSurvey, setShowCoachMatchSurvey] = useState(false);
@@ -402,6 +402,9 @@ const FindCoaches = () => {
   const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
   const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
   const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
+  const [locationPermissionPrompt, setLocationPermissionPrompt] = useState<string | null>(null);
+  const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
+  const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(false);
 
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
@@ -424,10 +427,41 @@ const FindCoaches = () => {
     setLocationFilter(null);
     setLocationSearchTerm("");
     setMode("normal");
-    setPosition({ ...DEFAULT_POSITION });
+    setPosition(null);
     storeLocation(null);
     storeLocationLabel(null);
   }, []);
+
+  const requestCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setHasResolvedInitialLocation(true);
+      setLocationPermissionPrompt("Enable location permission in your browser to see coaches near you.");
+      return;
+    }
+
+    setIsResolvingCurrentLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (nextPosition) => {
+        setIsResolvingCurrentLocation(false);
+        setHasResolvedInitialLocation(true);
+        setLocationPermissionPrompt(null);
+        applyLocationFilter({
+          label: "Current location",
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
+          isCurrentLocation: true,
+        });
+      },
+      () => {
+        setIsResolvingCurrentLocation(false);
+        setHasResolvedInitialLocation(true);
+        setLocationPermissionPrompt(
+          "Enable location permission in your browser to see coaches near your current location.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  }, [applyLocationFilter]);
 
   const openCoachMatchSurvey = useCallback(async () => {
     if (!playerToken || coachMatchLoading) return;
@@ -485,12 +519,29 @@ const FindCoaches = () => {
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
 
+  useEffect(() => {
+    requestCurrentLocation();
+  }, [requestCurrentLocation]);
+
   const fetchCoaches = useCallback(async () => {
     if (!playerToken) {
       setCoaches([]);
       setStatus("ready");
       setMode("error");
       setError("Please sign in to search for coaches.");
+      return;
+    }
+
+    if (!position) {
+      if (!hasResolvedInitialLocation) {
+        setStatus("loading");
+        return;
+      }
+
+      setCoaches([]);
+      setStatus("ready");
+      setMode("error");
+      setError("Enable location permission to see coaches near your current location.");
       return;
     }
 
@@ -571,6 +622,7 @@ const FindCoaches = () => {
   }, [
     appliedRadius,
     appliedSearchTerm,
+    hasResolvedInitialLocation,
     playerToken,
     locationSearchTerm,
     position?.latitude,
@@ -766,6 +818,18 @@ const FindCoaches = () => {
                 Search
               </button>
             </div>
+
+            {locationPermissionPrompt ? (
+              <section className="fcv2-location-permission-banner" aria-label="Location permission">
+                <div>
+                  <strong>Enable location</strong>
+                  <p>{locationPermissionPrompt}</p>
+                </div>
+                <button type="button" onClick={requestCurrentLocation} disabled={isResolvingCurrentLocation}>
+                  {isResolvingCurrentLocation ? "Checking..." : "Enable location"}
+                </button>
+              </section>
+            ) : null}
 
             <section className="fcv2-coach-match-banner" aria-label="Find my coach">
               <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
