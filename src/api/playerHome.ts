@@ -344,9 +344,98 @@ export interface PlayerTokenOnlyParams {
   token: string;
 }
 
+export interface SurveyOptionGroupDetails {
+  id: number | null;
+  name: string | null;
+}
+
+export interface SurveyQuestionOption {
+  id?: number | string;
+  optionText?: string;
+  optionDescription?: string;
+  label?: string;
+  description?: string;
+  value?: unknown;
+  [key: string]: unknown;
+}
+
+export interface SurveyQuestion {
+  id: number | string;
+  survey_section_id?: number | string;
+  input_type_id?: number | string;
+  question_subtext?: string | null;
+  question_text?: string | Record<string, unknown> | null;
+  answer_required?: boolean;
+  option_group_id?: number | string | null;
+  allow_multiple_option_answers?: boolean | null;
+  sort_order?: number;
+  status?: number;
+  created_at?: string;
+  updated_at?: string;
+  placeholder_text?: string | null;
+  question_code?: string | null;
+  questionType: string;
+  placeholderText?: string | null;
+  optiongroupdetails?: SurveyOptionGroupDetails;
+  options?: SurveyQuestionOption[];
+  answerText?: unknown;
+  answerMetadata?: Record<string, unknown> | null;
+  defaultValue?: unknown;
+  questionSettings?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface SurveyQuestionListResponse {
+  total?: string | number;
+  perPage?: string | number;
+  currentPage?: string | number;
+  totalPages?: string | number;
+  questions?: SurveyQuestion[];
+  [key: string]: unknown;
+}
+
+export interface SurveyAnsweredResponse {
+  questions?: SurveyQuestion[];
+  answers?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface SubmitSurveyAnswersParams extends PlayerTokenOnlyParams {
+  surveyAnswers: Record<string, unknown> | Array<Record<string, unknown>>;
+}
+
 export const getAllLocation = async ({ token }: PlayerTokenOnlyParams) =>
   request<Record<string, unknown>>("/player/locations-geojson", {
     token,
+  });
+
+export const submitSurveyAnswers = async ({
+  token,
+  surveyAnswers,
+}: SubmitSurveyAnswersParams) =>
+  request<Record<string, unknown>>("/player/surveys/submit", {
+    method: "POST",
+    token,
+    body: surveyAnswers,
+  });
+
+export const getAllSurveyQuestion = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyQuestionListResponse>("/player/surveys/questions", {
+    token,
+  });
+
+export const getAllSurveyQuestionAnswered = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyAnsweredResponse>("/player/surveys/answered", {
+    token,
+  });
+
+export const deleteUserAnswers = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/answers/remove", {
+    method: "DELETE",
+    token,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+    },
   });
 
 export interface RecordExternalLessonClickParams extends PlayerTokenOnlyParams {

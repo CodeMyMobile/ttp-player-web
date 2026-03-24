@@ -1,52 +1,124 @@
-import { useState } from "react";
-import { Check, Clock, MapPin, Target } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { AlertTriangle, ClipboardList, PencilLine, RefreshCcw, Target } from "lucide-react";
+
 import MainLayout from "../components/MainLayout";
+import { useAuth } from "../context/AuthContext";
+import {
+  deleteUserAnswers,
+  getAllSurveyQuestion,
+  getAllSurveyQuestionAnswered,
+} from "../api/playerHome";
+import { getStoredAuthToken } from "../services/authToken";
+import {
+  extractSurveyQuestions,
+  formatSurveyAnswer,
+  hasSurveyAnswer,
+  type NormalizedSurveyQuestion,
+} from "../utils/surveyQuestionnaire";
 
 import "./PlayerSettingsPages.css";
 
-const availabilitySlots = [
-  "Early mornings",
-  "Weekday afternoons",
-  "Weekday evenings",
-  "Weekend mornings",
-  "Weekend afternoons",
-  "Weekend evenings",
-];
-
-const matchIntensities = [
-  { id: "competitive", label: "Competitive play", description: "USTA league or tournament focused" },
-  { id: "balanced", label: "Balanced", description: "Mix of rally sessions and competitive sets" },
-  { id: "casual", label: "Casual hits", description: "Easy going hits with rally focus" },
-];
-
-const preferredFormats = [
-  { id: "singles", label: "Singles" },
-  { id: "doubles", label: "Doubles" },
-  { id: "mixed", label: "Mixed doubles" },
-  { id: "drills", label: "Live-ball drills" },
-  { id: "fitness", label: "Cardio tennis" },
-];
-
 const PlayerMatchProfilePage = () => {
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([
-    "Weekday evenings",
-    "Weekend mornings",
-  ]);
-  const [intensity, setIntensity] = useState("balanced");
-  const [formats, setFormats] = useState<string[]>(["singles", "doubles"]);
-  const [homeBase, setHomeBase] = useState("Austin Tennis Center");
+  const location = useLocation();
+  const { user } = useAuth();
+  const storedToken = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+  const playerToken =
+    user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
 
-  const toggleAvailability = (slot: string) => {
-    setSelectedAvailability((current) =>
-      current.includes(slot) ? current.filter((item) => item !== slot) : [...current, slot]
-    );
+  const [questions, setQuestions] = useState<NormalizedSurveyQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAnsweredQuestions = async (nextMode: "initial" | "refresh" = "initial") => {
+    if (!playerToken) {
+      setQuestions([]);
+      setError("Please sign in to view your match profile.");
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    if (nextMode === "initial") setLoading(true);
+    if (nextMode === "refresh") setRefreshing(true);
+    setError(null);
+
+    try {
+      const [allQuestionsResponse, answeredResponse] = await Promise.all([
+        getAllSurveyQuestion({ token: playerToken }),
+        getAllSurveyQuestionAnswered({ token: playerToken }),
+      ]);
+
+      const allQuestions = extractSurveyQuestions(allQuestionsResponse);
+      const answeredQuestions = extractSurveyQuestions(answeredResponse);
+      const answeredById = new Map(
+        answeredQuestions.map((question) => [String(question.questionId), question]),
+      );
+
+      const mergedQuestions =
+        allQuestions.length > 0
+          ? allQuestions.map((question) => {
+              const answered = answeredById.get(String(question.questionId));
+              return answered ? { ...question, ...answered } : question;
+            })
+          : answeredQuestions;
+
+      setQuestions(mergedQuestions);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't load your match profile right now.",
+      );
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const toggleFormat = (id: string) => {
-    setFormats((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+  useEffect(() => {
+    loadAnsweredQuestions();
+  }, [playerToken]);
+
+  const { answeredQuestions, hasUnansweredQuestions } = useMemo(() => {
+    const answered = questions.filter((question) => hasSurveyAnswer(question));
+    const missing = questions.some((question) => question.answerRequired && !hasSurveyAnswer(question));
+    return {
+      answeredQuestions: answered,
+      hasUnansweredQuestions: missing,
+    };
+  }, [questions]);
+
+  const handleRemoveFromSearch = async () => {
+    if (!playerToken || removing) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to remove your player match profile data from search?",
     );
+    if (!confirmed) return;
+
+    setRemoving(true);
+    setError(null);
+    try {
+      await deleteUserAnswers({ token: playerToken });
+      await loadAnsweredQuestions("refresh");
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't remove your profile data right now.",
+      );
+    } finally {
+      setRemoving(false);
+    }
   };
+
+  const savedMessage =
+    location.state && typeof location.state === "object" && "saved" in location.state
+      ? "Your player match profile is live."
+      : null;
 
   return (
     <MainLayout>
@@ -59,141 +131,107 @@ const PlayerMatchProfilePage = () => {
             </span>
             <h1 className="settings-hero__title">Player match profile</h1>
             <p className="settings-hero__subtitle">
-              Tell other players how and when you like to compete so we can suggest better partners and session ideas.
+              Review the answers used to match you with other players, then update them whenever your availability or preferences change.
             </p>
           </header>
 
-          <section className="settings-section">
-            <div className="match-profile__layout">
-              <div className="match-profile__main">
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">
-                      <Clock size={20} aria-hidden="true" />
-                      Match availability
-                    </h2>
-                    <p className="match-card__description">Choose the windows when you&apos;re generally open to play.</p>
-                  </div>
-                  <div className="match-availability">
-                    {availabilitySlots.map((slot) => {
-                      const selected = selectedAvailability.includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => toggleAvailability(slot)}
-                          className={`match-availability__slot${selected ? " match-availability__slot--selected" : ""}`}
-                          aria-pressed={selected}
-                        >
-                          <span className="match-availability__label">{slot}</span>
-                          {selected ? (
-                            <span className="match-availability__status">
-                              <Check size={12} aria-hidden="true" />
-                              Selected
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </article>
+          {savedMessage ? (
+            <div className="match-profile-banner match-profile-banner--success">{savedMessage}</div>
+          ) : null}
 
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">Match intensity</h2>
-                    <p className="match-card__description">Let others know how competitive you&apos;d like sessions to be.</p>
-                  </div>
-                  <div className="match-intensity">
-                    {matchIntensities.map((option) => {
-                      const selected = intensity === option.id;
-                      return (
-                        <label
-                          key={option.id}
-                          className={`match-intensity__option${selected ? " match-intensity__option--selected" : ""}`}
-                        >
-                          <input
-                            type="radio"
-                            name="match-intensity"
-                            value={option.id}
-                            checked={selected}
-                            onChange={() => setIntensity(option.id)}
-                            className="visually-hidden"
-                          />
-                          <span className="match-intensity__label">{option.label}</span>
-                          <span className="match-intensity__detail">{option.description}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </article>
-
-                <article className="match-card">
-                  <div className="match-card__heading">
-                    <h2 className="match-card__title">Preferred formats</h2>
-                    <p className="match-card__description">
-                      Highlight the type of play you&apos;re hoping to schedule with new connections.
-                    </p>
-                  </div>
-                  <div className="match-formats">
-                    {preferredFormats.map((format) => {
-                      const selected = formats.includes(format.id);
-                      return (
-                        <button
-                          key={format.id}
-                          type="button"
-                          onClick={() => toggleFormat(format.id)}
-                          className={`match-format-chip${selected ? " match-format-chip--selected" : ""}`}
-                          aria-pressed={selected}
-                        >
-                          {format.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </article>
+          {hasUnansweredQuestions ? (
+            <div className="match-profile-banner match-profile-banner--warning">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <div>
+                <strong>You have new questions to answer.</strong>
+                <p>Complete them to improve your match results and visibility in search.</p>
               </div>
+              <Link to="/settings/match-profile/edit" className="match-profile-banner__action">
+                Edit my player match profile
+              </Link>
+            </div>
+          ) : null}
 
-              <aside className="match-sidebar">
-                <div className="match-sidebar__card">
-                  <h3 className="match-sidebar__title">
-                    <MapPin size={18} aria-hidden="true" />
-                    Home courts
-                  </h3>
-                  <p className="match-sidebar__note">
-                    Share the courts where you typically host or prefer to meet.
-                  </p>
-                  <div className="match-sidebar__field">
-                    <span className="match-sidebar__label">Primary facility</span>
-                    <input
-                      type="text"
-                      value={homeBase}
-                      onChange={(event) => setHomeBase(event.target.value)}
-                      placeholder="Add your go-to courts"
-                      className="match-sidebar__input"
-                    />
-                    <p className="match-sidebar__note">
-                      We&apos;ll use this to estimate travel distance for other players.
+          <section className="settings-section">
+            <div className="match-profile-view">
+              <div className="settings-card">
+                <div className="match-profile-view__header">
+                  <div>
+                    <h2 className="settings-card__title">Saved answers</h2>
+                    <p className="settings-card__subtitle">
+                      This is the information other matchmaking flows use when building suggestions.
                     </p>
+                  </div>
+                  <div className="match-profile-view__header-actions">
+                    <button
+                      type="button"
+                      className="match-profile-inline-button"
+                      onClick={() => loadAnsweredQuestions("refresh")}
+                      disabled={refreshing || loading}
+                    >
+                      <RefreshCcw size={16} aria-hidden="true" />
+                      {refreshing ? "Refreshing…" : "Refresh"}
+                    </button>
+                    <Link to="/settings/match-profile/edit" className="match-profile-inline-button match-profile-inline-button--primary">
+                      <PencilLine size={16} aria-hidden="true" />
+                      {answeredQuestions.length > 0 ? "Edit profile" : "Create profile"}
+                    </Link>
                   </div>
                 </div>
 
-                <div className="match-sidebar__tips">
-                  <h3>Tips</h3>
-                  <ul>
-                    <li>✓ Pick at least two availability windows to match faster.</li>
-                    <li>✓ Competitive preferences help us pair you with similar goals.</li>
-                    <li>✓ Update your home courts when you travel to new cities.</li>
-                  </ul>
-                </div>
-              </aside>
+                {loading ? (
+                  <div className="match-profile-empty">
+                    <ClipboardList size={28} aria-hidden="true" />
+                    <h3>Loading your answers…</h3>
+                  </div>
+                ) : error ? (
+                  <div className="match-profile-empty match-profile-empty--error">
+                    <AlertTriangle size={28} aria-hidden="true" />
+                    <h3>Unable to load your profile</h3>
+                    <p>{error}</p>
+                  </div>
+                ) : answeredQuestions.length > 0 ? (
+                  <>
+                    <div className="match-profile-answer-list">
+                      {answeredQuestions.map((item) => (
+                        <article key={String(item.questionId)} className="match-profile-answer-card">
+                          <p className="match-profile-answer-card__label">{item.questionText}</p>
+                          <pre className="match-profile-answer-card__value">{formatSurveyAnswer(item)}</pre>
+                        </article>
+                      ))}
+                    </div>
+                    {!hasUnansweredQuestions ? (
+                      <div className="match-profile-danger-zone">
+                        <div>
+                          <h3>Remove me from search</h3>
+                          <p>
+                            This removes your saved player match profile answers so you no longer appear in player matching based on this questionnaire.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="match-profile-inline-button match-profile-inline-button--danger"
+                          onClick={handleRemoveFromSearch}
+                          disabled={removing}
+                        >
+                          {removing ? "Removing…" : "Remove Me from Search"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="match-profile-empty">
+                    <ClipboardList size={28} aria-hidden="true" />
+                    <h3>No answers available yet</h3>
+                    <p>Create your player match profile to start showing up in matchmaking results.</p>
+                    <Link to="/settings/match-profile/edit" className="match-profile-inline-button match-profile-inline-button--primary">
+                      Build my match profile
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
-
-          <div className="settings-save">
-            <button type="button" className="settings-save__button">
-              Save match profile
-            </button>
-          </div>
         </div>
       </div>
     </MainLayout>

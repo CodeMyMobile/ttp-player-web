@@ -1,6 +1,8 @@
 import PropTypes from "prop-types";
 import { Component } from "react";
 
+import AddressPicker from "./AddressPicker";
+import TennisCourtPicker from "./TennisCourtPicker";
 import "./SimpleSurvey.css";
 
 const isDefined = (value) => value !== undefined && value !== null;
@@ -481,28 +483,24 @@ class SimpleSurvey extends Component {
   renderAddressPicker = () => {
     const question = this.getCurrentQuestion();
     const answer = this.getCurrentAnswer();
-    const currentValue = answer?.value?.formattedAddress ?? answer?.value ?? question.answerMetadata?.value ?? "";
+    const currentValue =
+      answer?.value ?? question.answerMetadata?.value ?? question.defaultValue ?? null;
 
     return (
       <div className="simple-survey__question" style={this.props.containerStyle}>
         {this.renderQuestionText(question)}
-        <input
-          className="simple-survey__field"
-          type="text"
-          value={typeof currentValue === "string" ? currentValue : ""}
-          placeholder={question.placeholderText || "Search or enter an address"}
-          onChange={(event) =>
+        <AddressPicker
+          onSelect={(selectedAddress) =>
             this.updateAnswer({
               questionId: this.getQuestionKey(question),
-              value: {
-                formattedAddress: event.target.value,
-              },
+              value: selectedAddress,
             })
           }
+          initialAddress={currentValue}
+          latitude={this.props.userPos?.latitude ?? 0}
+          longitude={this.props.userPos?.longitude ?? 0}
+          userPos={this.props.userPos}
         />
-        <p className="simple-survey__helper">
-          Web placeholder for the native address picker. Wire your Google Places component here later.
-        </p>
         {this.renderNavButtons()}
       </div>
     );
@@ -572,31 +570,25 @@ class SimpleSurvey extends Component {
     const question = this.getCurrentQuestion();
     const answer = this.getCurrentAnswer();
     const currentValue = Array.isArray(answer?.value)
-      ? answer.value.map((entry) => entry.formattedAddress || entry).join("\n")
-      : "";
+      ? answer.value
+      : Array.isArray(question.answerMetadata?.value)
+        ? question.answerMetadata.value
+        : [];
 
     return (
       <div className="simple-survey__question" style={this.props.containerStyle}>
         {this.renderQuestionText(question)}
-        <textarea
-          className="simple-survey__textarea"
-          value={currentValue}
-          placeholder={question.placeholderText || "Enter one court or address per line"}
-          onChange={(event) => {
-            const items = event.target.value
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((formattedAddress) => ({ formattedAddress }));
+        <TennisCourtPicker
+          onSelect={(selectedCourts) =>
             this.updateAnswer({
               questionId: this.getQuestionKey(question),
-              value: items,
-            });
-          }}
+              value: selectedCourts,
+            })
+          }
+          latitude={this.props.userPos?.latitude ?? 0}
+          longitude={this.props.userPos?.longitude ?? 0}
+          initialSelectedCourts={currentValue}
         />
-        <p className="simple-survey__helper">
-          Web placeholder for the native tennis court picker. Replace with your searchable court picker later.
-        </p>
         {this.renderNavButtons()}
       </div>
     );

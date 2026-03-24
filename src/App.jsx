@@ -18,6 +18,7 @@ import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
+import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
@@ -257,6 +258,30 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <PlayerMatchProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/match-profile/edit"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfileEditPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/match-profile"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/match-profile/edit"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfileEditPage />
         </ProtectedRoute>
       )}
     />
