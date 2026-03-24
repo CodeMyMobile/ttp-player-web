@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
+import { getReverseCodeLocation } from "../../api/locations";
 
 const hasCoordinates = (value) =>
   value &&
@@ -58,28 +59,42 @@ const AddressPicker = ({ onSelect, latitude = 0, longitude = 0, userPos, initial
           : null;
 
     if (!target || didAutofillFromLocation.current) return;
-    if (!window.google?.maps?.Geocoder) return;
+    let isMounted = true;
 
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode(
-      { location: { lat: target.latitude, lng: target.longitude } },
-      (results, status) => {
-        if (status !== "OK" || !results?.[0]) return;
+    const fetchReverseGeocode = async () => {
+      try {
+        setInputValue("Fetching location");
+        const response = await getReverseCodeLocation(target.latitude, target.longitude);
+        if (!response.ok) {
+          if (isMounted) setInputValue("Error");
+          return;
+        }
+        const payload = await response.json();
+        const result = payload?.results?.[0];
+        if (!result || !isMounted) return;
         didAutofillFromLocation.current = true;
-        const result = results[0];
         const nextValue = result.formatted_address || "";
         setInputValue(nextValue);
         onSelectRef.current?.({
           formattedAddress: nextValue,
           geometry: {
             location: {
-              lat: target.latitude,
-              lng: target.longitude,
+              lat: result.geometry?.location?.lat ?? target.latitude,
+              lng: result.geometry?.location?.lng ?? target.longitude,
             },
           },
+          raw: result,
         });
-      },
-    );
+      } catch {
+        if (isMounted) setInputValue("Error");
+      }
+    };
+
+    fetchReverseGeocode();
+
+    return () => {
+      isMounted = false;
+    };
   }, [latitude, longitude, userPos?.latitude, userPos?.longitude]);
 
   return (

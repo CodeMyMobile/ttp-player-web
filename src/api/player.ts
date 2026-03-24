@@ -35,7 +35,7 @@ export const getPlayerUpcomingLessons = async (token: string) =>
   });
 
 export const getDynamicFilters = async (token: string) =>
-  request<Record<string, unknown>>("/player/dynamic_filters", {
+  request<Record<string, unknown>>("/player/filters", {
     token,
   });
 

@@ -1,0 +1,156 @@
+.filter-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-menu__pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.filter-menu__pill {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 1px solid #dbe4ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-menu__pill.is-active {
+  border-color: #53b17a;
+  color: #53b17a;
+}
+
+.filter-menu__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.filter-menu__modal {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.2);
+}
+
+.filter-menu__modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.filter-menu__modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.filter-menu__modal-head button {
+  border: 0;
+  background: none;
+  color: #53b17a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-menu__modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.filter-menu__label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.filter-menu__input,
+.filter-menu__select {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.filter-menu__apply {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #53b17a;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-menu__checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-menu__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: none;
+  color: #1e293b;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-menu__checkbox-box {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.filter-menu__checkbox-box.is-checked {
+  border-color: #53b17a;
+  background: #53b17a;
+}
+
+.filter-menu__checkbox-tick {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #fff;
+}

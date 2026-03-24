@@ -1,19 +1,14 @@
-/// <reference types="google.maps" />
-
-import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
-  ChevronDown,
-  MapPin,
   Search,
-  SlidersHorizontal,
   Star,
   X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import FilterMenu from "../components/FilterMenu";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
@@ -48,8 +43,6 @@ type SelectedLocation = {
   isCurrentLocation?: boolean;
 };
 
-type FilterGroupKey = "levels" | "formats" | "availability";
-
 type CoachCardModel = Coach & {
   initials: string;
   verified: boolean;
@@ -62,15 +55,7 @@ type CoachCardModel = Coach & {
   formats: string[];
 };
 
-const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
-const availabilityOptions = ["Weekday Mornings", "Weekday Afternoons", "Weekday Evenings", "Weekends"];
-
-const parseRadius = (radius: string) => {
-  const match = radius.match(/(\d+)/);
-  if (!match) return undefined;
-  const value = Number(match[1]);
-  return Number.isFinite(value) ? value : undefined;
-};
+const DEFAULT_RADIUS = 10;
 
 const toStringArray = (value: unknown): string[] => {
   if (!value) return [];
@@ -396,8 +381,8 @@ const FindCoaches = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
-  const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
+  const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
+  const [appliedRadius, setAppliedRadius] = useState<number>(DEFAULT_RADIUS);
   const [sortBy, setSortBy] = useState("distance");
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
@@ -410,8 +395,6 @@ const FindCoaches = () => {
   const [position, setPosition] = useState<Coordinates | null>(DEFAULT_POSITION);
   const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
   const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [showCoachMatchSurvey, setShowCoachMatchSurvey] = useState(false);
   const [coachMatchQuestions, setCoachMatchQuestions] = useState<NormalizedSurveyQuestion[]>([]);
   const [coachMatchLoading, setCoachMatchLoading] = useState(false);
@@ -419,13 +402,6 @@ const FindCoaches = () => {
   const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
   const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
   const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
-  const [geoError, setGeoError] = useState("");
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Record<FilterGroupKey, string[]>>({
-    levels: [],
-    formats: [],
-    availability: [],
-  });
 
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
@@ -441,52 +417,17 @@ const FindCoaches = () => {
       storeLocationLabel(nextLocation.label);
       setLocationFilter(nextLocation);
       setLocationSearchTerm(nextLocation.label);
-      setGeoError("");
-      setShowLocationPicker(false);
       setMode("normal");
       return;
     }
 
     setLocationFilter(null);
     setLocationSearchTerm("");
-    setGeoError("");
-    setShowLocationPicker(false);
     setMode("normal");
     setPosition({ ...DEFAULT_POSITION });
     storeLocation(null);
     storeLocationLabel(null);
   }, []);
-
-  const detectCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoError("Location detection is not supported in this browser.");
-      return;
-    }
-
-    setIsDetectingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (nextPosition) => {
-        setIsDetectingLocation(false);
-        applyLocationFilter({
-          label: "Current location",
-          latitude: nextPosition.coords.latitude,
-          longitude: nextPosition.coords.longitude,
-          isCurrentLocation: true,
-        });
-      },
-      (nextError) => {
-        setIsDetectingLocation(false);
-        setGeoError(nextError.message || "We couldn't detect your location. Please allow access and try again.");
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-  }, [applyLocationFilter]);
-
-  const closeLocationPicker = useCallback(() => {
-    setShowLocationPicker(false);
-    setGeoError("");
-    setLocationSearchTerm(locationFilter?.label ?? "");
-  }, [locationFilter?.label]);
 
   const openCoachMatchSurvey = useCallback(async () => {
     if (!playerToken || coachMatchLoading) return;
@@ -557,14 +498,13 @@ const FindCoaches = () => {
     setError(null);
 
     try {
-      const radiusValue = parseRadius(appliedRadius);
       const searchValue = appliedSearchTerm.trim();
       const params = new URLSearchParams({
         perPage: "12",
         page: "1",
         search: searchValue,
       });
-      if (typeof radiusValue === "number") params.set("radius", radiusValue.toString());
+      params.set("radius", appliedRadius.toString());
 
       const positionPayload =
         position && typeof position.latitude === "number" && typeof position.longitude === "number"
@@ -651,7 +591,7 @@ const FindCoaches = () => {
     setAppliedSearchTerm(trimmed);
   };
 
-  const handleRadiusChange = (radius: string) => {
+  const handleRadiusChange = (radius: number) => {
     setSelectedRadius(radius);
     setMode("normal");
     if (radius === appliedRadius) {
@@ -661,73 +601,58 @@ const FindCoaches = () => {
     setAppliedRadius(radius);
   };
 
-  const toggleFilter = (key: FilterGroupKey, value: string) => {
-    setActiveFilters((prev) => {
-      const current = prev[key];
-      return {
-        ...prev,
-        [key]: current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
-      };
-    });
-  };
-
   const resetFilters = () => {
     setSearchTerm("");
     setAppliedSearchTerm("");
-    setSelectedRadius(radiusOptions[1]);
-    setAppliedRadius(radiusOptions[1]);
-    setActiveFilters({ levels: [], formats: [], availability: [] });
+    setSelectedRadius(DEFAULT_RADIUS);
+    setAppliedRadius(DEFAULT_RADIUS);
     applyLocationFilter(null);
   };
 
-  const levelOptions = useMemo(
-    () => Array.from(new Set(coaches.flatMap((coach) => coach.levels))).slice(0, 6),
-    [coaches],
-  );
+  const handleFilterChange = useCallback(
+    ({ type, value }: { type: string; value?: unknown }) => {
+      if (type === "location") {
+        const locationValue = value as
+          | { formatted_address?: string; lat?: number; lng?: number }
+          | undefined;
+        const latitude = locationValue?.lat;
+        const longitude = locationValue?.lng;
+        if (typeof latitude === "number" && typeof longitude === "number") {
+          applyLocationFilter({
+            label: locationValue?.formatted_address || "Selected location",
+            latitude,
+            longitude,
+          });
+        }
+        return;
+      }
 
-  const formatOptions = useMemo(
-    () => Array.from(new Set(coaches.flatMap((coach) => coach.formats))),
-    [coaches],
-  );
+      if (type === "name") {
+        const nextName = typeof value === "string" ? value : "";
+        setSearchTerm(nextName);
+        setAppliedSearchTerm(nextName.trim());
+        setMode("normal");
+        return;
+      }
 
-  const visibleAvailabilityOptions = useMemo(
-    () =>
-      availabilityOptions.filter((option) =>
-        coaches.some((coach) => coach.availabilityWindows.includes(option)),
-      ),
-    [coaches],
+      if (type === "clear") {
+        resetFilters();
+      }
+    },
+    [applyLocationFilter],
   );
 
   const filteredCoaches = useMemo(() => {
     if (mode !== "normal") return [];
 
-    const next = coaches
-      .filter((coach) => {
-        if (activeFilters.levels.length > 0 && !activeFilters.levels.some((level) => coach.levels.includes(level))) {
-          return false;
-        }
-        if (activeFilters.formats.length > 0 && !activeFilters.formats.some((format) => coach.formats.includes(format))) {
-          return false;
-        }
-        if (
-          activeFilters.availability.length > 0 &&
-          !activeFilters.availability.some((availability) => coach.availabilityWindows.includes(availability))
-        ) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
+    return [...coaches].sort((a, b) => {
         if (sortBy === "rating") return b.rating - a.rating;
         if (sortBy === "price_asc") return (a.hourlyRateValue ?? Number.MAX_SAFE_INTEGER) - (b.hourlyRateValue ?? Number.MAX_SAFE_INTEGER);
         if (sortBy === "price_desc") return (b.hourlyRateValue ?? 0) - (a.hourlyRateValue ?? 0);
         return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
       });
+  }, [coaches, mode, sortBy]);
 
-    return next;
-  }, [activeFilters, coaches, mode, sortBy]);
-
-  const activeFilterCount = Object.values(activeFilters).flat().length;
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
@@ -743,90 +668,6 @@ const FindCoaches = () => {
           ? "No coaches found"
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
 
-  const renderLocationPickerPanel = () => (
-    <section className="fcv2-location-panel" id="coach-location-picker" aria-label="Location picker">
-      <div className="fcv2-location-panel-head">
-        <div>
-          <p className="fcv2-location-label">Location search</p>
-          <h2>Choose where to search</h2>
-        </div>
-        <button type="button" onClick={closeLocationPicker}>
-          Close
-        </button>
-      </div>
-
-      <div className="fcv2-location-search">
-        <Search size={16} />
-        <Autocomplete
-          apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-          placeholder="City, neighborhood, club, or court"
-          className="fcv2-location-input"
-          value={locationSearchTerm}
-          onChange={(event) => setLocationSearchTerm(event.target.value)}
-          onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
-            if (!place) {
-              setGeoError("Please choose a location from the suggestions.");
-              return;
-            }
-
-            const latitude = place.geometry?.location?.lat?.();
-            const longitude = place.geometry?.location?.lng?.();
-            const label = place.formatted_address || place.name || locationSearchTerm || "Custom location";
-
-            if (
-              typeof latitude === "number" &&
-              !Number.isNaN(latitude) &&
-              typeof longitude === "number" &&
-              !Number.isNaN(longitude)
-            ) {
-              applyLocationFilter({ label, latitude, longitude });
-            } else {
-              setGeoError("We couldn't read that location's coordinates. Try another search.");
-            }
-          }}
-          options={{
-            types: ["geocode", "establishment"],
-            fields: ["formatted_address", "geometry", "name", "address_components"],
-          }}
-        />
-      </div>
-
-      <div className="fcv2-location-actions">
-        <button
-          type="button"
-          className="fcv2-location-detect"
-          onClick={detectCurrentLocation}
-          disabled={isDetectingLocation}
-        >
-          {isDetectingLocation ? "Detecting location..." : "Use my current location"}
-        </button>
-        {hasLocationFilter ? (
-          <button type="button" className="fcv2-location-clear" onClick={() => applyLocationFilter(null)}>
-            Clear location
-          </button>
-        ) : null}
-      </div>
-
-      <div className="fcv2-location-summary">
-        <strong>Selected location</strong>
-        <p>
-          {locationFilter
-            ? locationFilter.label
-            : position
-              ? `Lat ${position.latitude.toFixed(4)}, Lng ${position.longitude.toFixed(4)}`
-              : "No location selected yet."}
-        </p>
-      </div>
-
-      {geoError ? <p className="fcv2-location-error">{geoError}</p> : null}
-      {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-        <p className="fcv2-location-tip">
-          Add `VITE_GOOGLE_API_KEY` to enable Google Places suggestions.
-        </p>
-      ) : null}
-    </section>
-  );
-
   return (
     <MainLayout>
       <div className="fcv2-page">
@@ -837,20 +678,6 @@ const FindCoaches = () => {
               The Tennis <em>Plan</em>
             </span>
           </div>
-
-          <button
-            type="button"
-            className="fcv2-mobile-location"
-            onClick={() => {
-              setGeoError("");
-              setLocationSearchTerm(locationFilter?.label ?? "");
-              setShowLocationPicker(true);
-            }}
-          >
-            <MapPin size={14} />
-            <span>{locationLabel}</span>
-            <ChevronDown size={14} />
-          </button>
         </header>
 
         <section className="fcv2-mobile-search-block">
@@ -881,15 +708,6 @@ const FindCoaches = () => {
                 aria-label="Search coaches"
               />
             </div>
-
-            <button
-              type="button"
-              className="fcv2-mobile-filter-button"
-              onClick={() => setShowFiltersSheet(true)}
-            >
-              <SlidersHorizontal size={15} />
-              <span>{activeFilterCount > 0 ? activeFilterCount : "Filter"}</span>
-            </button>
           </div>
         </section>
 
@@ -948,108 +766,18 @@ const FindCoaches = () => {
                 </button>
               </div>
             </section>
-
-            <div className="fcv2-toolbar">
-              <button
-                type="button"
-                className={`fcv2-location-button${showLocationPicker ? " is-open" : ""}`}
-                onClick={() => {
-                  setGeoError("");
-                  setLocationSearchTerm(locationFilter?.label ?? "");
-                  setShowLocationPicker((prev) => !prev);
-                }}
-              >
-                <MapPin size={16} />
-                <span>{locationLabel}</span>
-                <ChevronDown size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="fcv2-filter-summary"
-                onClick={detectCurrentLocation}
-                disabled={isDetectingLocation}
-              >
-                <MapPin size={15} />
-                <span>{isDetectingLocation ? "Detecting..." : "Use current location"}</span>
-              </button>
-
-              <div className="fcv2-radius-group" aria-label="Distance filter">
-                {radiusOptions.map((radius) => (
-                  <button
-                    key={radius}
-                    type="button"
-                    className={selectedRadius === radius ? "active" : ""}
-                    onClick={() => handleRadiusChange(radius)}
-                  >
-                    {radius}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {showLocationPicker ? renderLocationPickerPanel() : null}
-
-            <div className="fcv2-chip-sections">
-              {levelOptions.length > 0 ? (
-                <div className="fcv2-chip-row">
-                  <span>Level</span>
-                  {levelOptions.map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      className={activeFilters.levels.includes(level) ? "active" : ""}
-                      onClick={() => toggleFilter("levels", level)}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {formatOptions.length > 0 ? (
-                <div className="fcv2-chip-row">
-                  <span>Format</span>
-                  {formatOptions.map((format) => (
-                    <button
-                      key={format}
-                      type="button"
-                      className={activeFilters.formats.includes(format) ? "active" : ""}
-                      onClick={() => toggleFilter("formats", format)}
-                    >
-                      {format}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {visibleAvailabilityOptions.length > 0 || activeFilterCount > 0 ? (
-                <div className="fcv2-chip-row">
-                  <span>When</span>
-                  {visibleAvailabilityOptions.map((availability) => (
-                    <button
-                      key={availability}
-                      type="button"
-                      className={activeFilters.availability.includes(availability) ? "active" : ""}
-                      onClick={() => toggleFilter("availability", availability)}
-                    >
-                      {availability.replace("Weekday ", "")}
-                    </button>
-                  ))}
-
-                  {activeFilterCount > 0 ? (
-                    <button type="button" className="fcv2-clear-chip" onClick={() => setActiveFilters({ levels: [], formats: [], availability: [] })}>
-                      Clear {activeFilterCount}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            <button type="button" className="fcv2-mobile-filter-button fcv2-desktop-filter-button" onClick={() => setShowFiltersSheet(true)}>
-              <SlidersHorizontal size={15} />
-              <span>{activeFilterCount > 0 ? `${activeFilterCount} filters active` : "More filters"}</span>
-            </button>
+            <FilterMenu
+              onFilterChange={handleFilterChange}
+              userPos={{
+                latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+              }}
+              showName
+              radius={selectedRadius}
+              onRadiusChange={handleRadiusChange}
+              isCoachSearch
+              token={playerToken ?? undefined}
+            />
           </section>
 
           {status === "loading" ? (
@@ -1162,115 +890,6 @@ const FindCoaches = () => {
             </section>
           ) : null}
         </div>
-
-        {showFiltersSheet ? (
-          <div className="fcv2-mobile-sheet-overlay" onClick={() => setShowFiltersSheet(false)}>
-            <aside className="fcv2-mobile-filter-sheet" onClick={(event) => event.stopPropagation()}>
-              <div className="fcv2-mobile-sheet-head">
-                <div>
-                  <p>Refine results</p>
-                  <h2>Filters</h2>
-                </div>
-                <button type="button" onClick={() => setShowFiltersSheet(false)}>
-                  Close
-                </button>
-              </div>
-
-              <div className="fcv2-mobile-filter-section">
-                <span>Distance</span>
-                <div className="fcv2-mobile-filter-chips">
-                  {radiusOptions.map((radius) => (
-                    <button
-                      key={radius}
-                      type="button"
-                      className={selectedRadius === radius ? "active" : ""}
-                      onClick={() => handleRadiusChange(radius)}
-                    >
-                      {radius}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {levelOptions.length > 0 ? (
-                <div className="fcv2-mobile-filter-section">
-                  <span>Player level</span>
-                  <div className="fcv2-mobile-filter-chips">
-                    {levelOptions.map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        className={activeFilters.levels.includes(level) ? "active" : ""}
-                        onClick={() => toggleFilter("levels", level)}
-                      >
-                        {level}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {formatOptions.length > 0 ? (
-                <div className="fcv2-mobile-filter-section">
-                  <span>Format</span>
-                  <div className="fcv2-mobile-filter-chips">
-                    {formatOptions.map((format) => (
-                      <button
-                        key={format}
-                        type="button"
-                        className={activeFilters.formats.includes(format) ? "active" : ""}
-                        onClick={() => toggleFilter("formats", format)}
-                      >
-                        {format}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {visibleAvailabilityOptions.length > 0 ? (
-                <div className="fcv2-mobile-filter-section">
-                  <span>Availability</span>
-                  <div className="fcv2-mobile-filter-chips">
-                    {visibleAvailabilityOptions.map((availability) => (
-                      <button
-                        key={availability}
-                        type="button"
-                        className={activeFilters.availability.includes(availability) ? "active" : ""}
-                        onClick={() => toggleFilter("availability", availability)}
-                      >
-                        {availability}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="fcv2-mobile-sheet-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setActiveFilters({ levels: [], formats: [], availability: [] });
-                    setSelectedRadius(radiusOptions[1]);
-                    setAppliedRadius(radiusOptions[1]);
-                  }}
-                >
-                  Clear
-                </button>
-                <button type="button" className="primary" onClick={() => setShowFiltersSheet(false)}>
-                  Apply filters
-                </button>
-              </div>
-            </aside>
-          </div>
-        ) : null}
-
-        {showLocationPicker ? (
-          <div className="fcv2-location-overlay" onClick={closeLocationPicker}>
-            <div onClick={(event) => event.stopPropagation()}>{renderLocationPickerPanel()}</div>
-          </div>
-        ) : null}
 
         {showCoachMatchSurvey ? (
           <div className="fcv2-coach-match-modal" onClick={() => setShowCoachMatchSurvey(false)}>

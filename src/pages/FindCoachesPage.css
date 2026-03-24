@@ -306,6 +306,37 @@
   color: #7c3aed;
 }
 
+.fcv2-radius-slider {
+  margin-bottom: 18px;
+  padding: 16px 18px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.fcv2-radius-slider__copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fcv2-radius-slider__copy span {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.fcv2-radius-slider__copy strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
 .fcv2-radius-group {
   display: flex;
   flex-wrap: wrap;
@@ -810,6 +841,25 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.fcv2-mobile-filter-input,
+.fcv2-mobile-filter-location {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #1e293b;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fcv2-mobile-filter-location {
+  text-align: left;
+  cursor: pointer;
 }
 
 .fcv2-mobile-filter-chips {
