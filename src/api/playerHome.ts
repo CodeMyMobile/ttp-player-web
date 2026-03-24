@@ -429,6 +429,25 @@ export const getAllSurveyQuestionAnswered = async ({ token }: PlayerTokenOnlyPar
     token,
   });
 
+export const getCoachMatchSurveyQuestions = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyQuestionListResponse>("/player/surveys/coach-match/questions", {
+    token,
+  });
+
+export interface SubmitCoachMatchSurveyAnswersParams extends PlayerTokenOnlyParams {
+  surveyAnswers: Record<string, unknown> | Array<Record<string, unknown>>;
+}
+
+export const submitCoachMatchSurveyAnswers = async ({
+  token,
+  surveyAnswers,
+}: SubmitCoachMatchSurveyAnswersParams) =>
+  request<Record<string, unknown>>("/player/surveys/coach-match/submit", {
+    method: "POST",
+    token,
+    body: surveyAnswers,
+  });
+
 export const deleteUserAnswers = async ({ token }: PlayerTokenOnlyParams) =>
   request<Record<string, unknown>>("/player/answers/remove", {
     method: "DELETE",

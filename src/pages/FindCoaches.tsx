@@ -4,25 +4,37 @@ import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   ChevronDown,
   MapPin,
   Search,
   SlidersHorizontal,
   Star,
+  X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import { fetchCoachProfile } from "../api/coachProfile";
+import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
+import {
+  getCoachMatchSurveyQuestions,
+  submitCoachMatchSurveyAnswers,
+} from "../api/playerHome";
 import {
   DEFAULT_POSITION,
   storeLocation,
   storeLocationLabel,
   type Coordinates,
 } from "../utils/userLocation";
+import {
+  buildSurveySubmissionPayload,
+  extractSurveyQuestions,
+  type NormalizedSurveyQuestion,
+} from "../utils/surveyQuestionnaire";
 
 import "./FindCoachesPage.css";
 
@@ -400,6 +412,13 @@ const FindCoaches = () => {
   const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [showCoachMatchSurvey, setShowCoachMatchSurvey] = useState(false);
+  const [coachMatchQuestions, setCoachMatchQuestions] = useState<NormalizedSurveyQuestion[]>([]);
+  const [coachMatchLoading, setCoachMatchLoading] = useState(false);
+  const [coachMatchSubmitting, setCoachMatchSubmitting] = useState(false);
+  const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
+  const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
+  const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
   const [geoError, setGeoError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<FilterGroupKey, string[]>>({
@@ -468,6 +487,58 @@ const FindCoaches = () => {
     setGeoError("");
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
+
+  const openCoachMatchSurvey = useCallback(async () => {
+    if (!playerToken || coachMatchLoading) return;
+
+    setShowCoachMatchSurvey(true);
+    setCoachMatchError(null);
+    setCoachMatchSubmitted(false);
+
+    if (coachMatchQuestions.length > 0) {
+      return;
+    }
+
+    setCoachMatchLoading(true);
+    try {
+      const response = await getCoachMatchSurveyQuestions({ token: playerToken });
+      setCoachMatchQuestions(extractSurveyQuestions(response));
+    } catch (requestError) {
+      setCoachMatchError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't load the coach match questionnaire right now.",
+      );
+    } finally {
+      setCoachMatchLoading(false);
+    }
+  }, [coachMatchLoading, coachMatchQuestions.length, playerToken]);
+
+  const handleCoachMatchSurveyFinished = useCallback(
+    async (answers: Array<Record<string, unknown>>) => {
+      if (!playerToken || coachMatchSubmitting) return;
+
+      setCoachMatchSubmitting(true);
+      setCoachMatchError(null);
+
+      try {
+        await submitCoachMatchSurveyAnswers({
+          token: playerToken,
+          surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
+        });
+        setCoachMatchSubmitted(true);
+      } catch (requestError) {
+        setCoachMatchError(
+          requestError instanceof Error
+            ? requestError.message
+            : "We couldn't submit your coach match answers right now.",
+        );
+      } finally {
+        setCoachMatchSubmitting(false);
+      }
+    },
+    [coachMatchQuestions, coachMatchSubmitting, playerToken],
+  );
 
   useEffect(() => {
     setLocationSearchTerm(locationFilter?.label ?? "");
@@ -865,6 +936,19 @@ const FindCoaches = () => {
               </button>
             </div>
 
+            <section className="fcv2-coach-match-banner" aria-label="Find my coach">
+              <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
+              <div className="fcv2-coach-match-banner__content">
+                <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
+                <div className="fcv2-coach-match-banner__copy">
+                  Answer 5 quick questions and we&apos;ll find your best match.
+                </div>
+                <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
+                  Find my coach →
+                </button>
+              </div>
+            </section>
+
             <div className="fcv2-toolbar">
               <button
                 type="button"
@@ -1185,6 +1269,61 @@ const FindCoaches = () => {
         {showLocationPicker ? (
           <div className="fcv2-location-overlay" onClick={closeLocationPicker}>
             <div onClick={(event) => event.stopPropagation()}>{renderLocationPickerPanel()}</div>
+          </div>
+        ) : null}
+
+        {showCoachMatchSurvey ? (
+          <div className="fcv2-coach-match-modal" onClick={() => setShowCoachMatchSurvey(false)}>
+            <div className="fcv2-coach-match-modal__card" onClick={(event) => event.stopPropagation()}>
+              <div className="fcv2-coach-match-modal__head">
+                <div>
+                  <p>Coach match</p>
+                  <h2>Find my coach</h2>
+                  {coachMatchQuestions.length > 0 ? (
+                    <span>
+                      Question {coachMatchCurrentIndex + 1} of {coachMatchQuestions.length}
+                    </span>
+                  ) : null}
+                </div>
+                <button type="button" onClick={() => setShowCoachMatchSurvey(false)} aria-label="Close coach match survey">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {coachMatchLoading ? (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>Loading questionnaire…</h3>
+                </div>
+              ) : coachMatchSubmitted ? (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>Your coach match profile is saved</h3>
+                  <p>We&apos;ll use these answers to improve your coach recommendations.</p>
+                  <button
+                    type="button"
+                    className="fcv2-coach-match-banner__button"
+                    onClick={() => setShowCoachMatchSurvey(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : coachMatchError ? (
+                <div className="fcv2-coach-match-modal__state fcv2-coach-match-modal__state--error">
+                  <AlertTriangle size={22} aria-hidden="true" />
+                  <h3>Unable to load coach questions</h3>
+                  <p>{coachMatchError}</p>
+                </div>
+              ) : coachMatchQuestions.length > 0 ? (
+                <SimpleSurvey
+                  survey={coachMatchQuestions}
+                  onCurrentQuestionIndexChange={setCoachMatchCurrentIndex}
+                  onSurveyFinished={handleCoachMatchSurveyFinished}
+                />
+              ) : (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>No coach questionnaire available</h3>
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
 
