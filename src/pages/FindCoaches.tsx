@@ -709,6 +709,19 @@ const FindCoaches = () => {
               />
             </div>
           </div>
+
+          <FilterMenu
+            onFilterChange={handleFilterChange}
+            userPos={{
+              latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+              longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+            }}
+            showName
+            radius={selectedRadius}
+            onRadiusChange={handleRadiusChange}
+            isCoachSearch
+            token={playerToken ?? undefined}
+          />
         </section>
 
         <div className="fcv2-shell">

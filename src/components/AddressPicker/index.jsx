@@ -38,21 +38,23 @@ const AddressPicker = ({ onSelect, latitude = 0, longitude = 0, userPos }) => {
       }
     };
 
+    const targetLatitude = latitude || userPos?.latitude || 0;
+    const targetLongitude = longitude || userPos?.longitude || 0;
+
     if (
       initialLoadRef.current &&
-      userPos?.latitude &&
-      userPos?.longitude &&
-      latitude === 0 &&
-      longitude === 0
+      targetLatitude &&
+      targetLongitude &&
+      !inputValue
     ) {
       initialLoadRef.current = false;
-      handlePlaceSelect(userPos.latitude, userPos.longitude);
+      handlePlaceSelect(targetLatitude, targetLongitude);
     }
 
     return () => {
       isMounted = false;
     };
-  }, [latitude, longitude, userPos?.latitude, userPos?.longitude]);
+  }, [inputValue, latitude, longitude, userPos?.latitude, userPos?.longitude]);
 
   return (
     <div className="address-picker">
