@@ -495,10 +495,6 @@ const FindCoaches = () => {
       });
       if (typeof radiusValue === "number") params.set("radius", radiusValue.toString());
 
-      const locationSearchValue =
-        locationFilter && !locationFilter.isCurrentLocation ? locationFilter.label.trim() : "";
-      if (locationSearchValue) params.set("locationSearch", locationSearchValue);
-
       const positionPayload =
         position && typeof position.latitude === "number" && typeof position.longitude === "number"
           ? {
@@ -508,6 +504,13 @@ const FindCoaches = () => {
               longitudeDelta: 0.25,
             }
           : null;
+
+      // When a place is chosen from Google autocomplete, use its coordinates for lookup
+      // instead of sending the human-readable place label in the query string.
+      if (!positionPayload) {
+        const locationSearchValue = locationSearchTerm.trim();
+        if (locationSearchValue) params.set("locationSearch", locationSearchValue);
+      }
 
       const response = await api(`player/getchecklocation?${params.toString()}`, {
         method: "POST",
@@ -558,8 +561,7 @@ const FindCoaches = () => {
     appliedRadius,
     appliedSearchTerm,
     playerToken,
-    locationFilter?.label,
-    locationFilter?.isCurrentLocation,
+    locationSearchTerm,
     position?.latitude,
     position?.longitude,
   ]);
