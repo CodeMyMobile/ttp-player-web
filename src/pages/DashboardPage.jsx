@@ -841,6 +841,7 @@ const DashboardPage = () => {
   const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const hasRequestedInitialLocationRef = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1217,6 +1218,27 @@ const DashboardPage = () => {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
   };
+
+  useEffect(() => {
+    if (hasRequestedInitialLocationRef.current) return;
+    if (!navigator.geolocation) return;
+
+    hasRequestedInitialLocationRef.current = true;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        applyLocationSelection({
+          label: "Current location",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      () => {
+        // Keep the stored/default location if permission is unavailable on initial load.
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  }, []);
 
   const renderLocationPicker = () => (
     <div className="ph-location-sheet" onClick={(event) => event.stopPropagation()}>
