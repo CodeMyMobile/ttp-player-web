@@ -438,6 +438,57 @@ export interface SubmitCoachMatchSurveyAnswersParams extends PlayerTokenOnlyPara
   surveyAnswers: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
+export interface CoachMatchRecommendationBreakdown {
+  level?: number;
+  goals?: number;
+  format?: number;
+  schedule?: number;
+  budget?: number;
+  bonus?: number;
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationPrices {
+  private?: number | null;
+  semi?: number | null;
+  group?: number | null;
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationItem {
+  coach_id: number;
+  name?: string;
+  profileImage?: string;
+  bio?: string;
+  experience_years?: string;
+  levels?: string[];
+  specialties?: string[];
+  formats?: string[];
+  prices?: CoachMatchRecommendationPrices;
+  languages?: string[];
+  home_courts?: string[];
+  charges_enabled?: boolean;
+  score?: number;
+  breakdown?: CoachMatchRecommendationBreakdown;
+  reasons?: string[];
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationsResponse {
+  total?: number;
+  perPage?: number;
+  currentPage?: number;
+  totalPages?: number;
+  recommendations?: CoachMatchRecommendationItem[];
+  [key: string]: unknown;
+}
+
+export interface GetCoachMatchRecommendationsParams extends PlayerTokenOnlyParams {
+  perPage?: number;
+  page?: number;
+  search?: string;
+}
+
 export const submitCoachMatchSurveyAnswers = async ({
   token,
   surveyAnswers,
@@ -446,6 +497,21 @@ export const submitCoachMatchSurveyAnswers = async ({
     method: "POST",
     token,
     body: surveyAnswers,
+  });
+
+export const getCoachMatchRecommendations = async ({
+  token,
+  perPage = 10,
+  page = 1,
+  search = "",
+}: GetCoachMatchRecommendationsParams) =>
+  request<CoachMatchRecommendationsResponse>("/player/coach-match/recommendations", {
+    token,
+    query: {
+      perPage,
+      page,
+      search,
+    },
   });
 
 export const deleteUserAnswers = async ({ token }: PlayerTokenOnlyParams) =>

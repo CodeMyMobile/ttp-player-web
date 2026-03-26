@@ -184,6 +184,24 @@
   cursor: pointer;
 }
 
+.fcv2-coach-match-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fcv2-coach-match-banner__secondary {
+  padding: 7px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .fcv2-coach-match-modal {
   position: fixed;
   inset: 0;
@@ -272,6 +290,24 @@
 
 .fcv2-coach-match-modal__state--error {
   color: #991b1b;
+}
+
+.fcv2-coach-match-modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fcv2-coach-match-modal__ghost {
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 16px;
+  cursor: pointer;
 }
 
 .fcv2-search-bar {

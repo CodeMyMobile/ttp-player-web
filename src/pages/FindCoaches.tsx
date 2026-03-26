@@ -838,9 +838,18 @@ const FindCoaches = () => {
                 <div className="fcv2-coach-match-banner__copy">
                   Answer 5 quick questions and we&apos;ll find your best match.
                 </div>
-                <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
-                  Find my coach →
-                </button>
+                <div className="fcv2-coach-match-banner__actions">
+                  <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
+                    Find my coach →
+                  </button>
+                  <button
+                    type="button"
+                    className="fcv2-coach-match-banner__secondary"
+                    onClick={() => navigate("/coach-match/recommendations")}
+                  >
+                    Explore recommended coaches
+                  </button>
+                </div>
               </div>
             </section>
             <FilterMenu
@@ -994,13 +1003,25 @@ const FindCoaches = () => {
                 <div className="fcv2-coach-match-modal__state">
                   <h3>Your coach match profile is saved</h3>
                   <p>We&apos;ll use these answers to improve your coach recommendations.</p>
-                  <button
-                    type="button"
-                    className="fcv2-coach-match-banner__button"
-                    onClick={() => setShowCoachMatchSurvey(false)}
-                  >
-                    Close
-                  </button>
+                  <div className="fcv2-coach-match-modal__actions">
+                    <button
+                      type="button"
+                      className="fcv2-coach-match-modal__ghost"
+                      onClick={() => setShowCoachMatchSurvey(false)}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      className="fcv2-coach-match-banner__button"
+                      onClick={() => {
+                        setShowCoachMatchSurvey(false);
+                        navigate("/coach-match/recommendations");
+                      }}
+                    >
+                      View matches
+                    </button>
+                  </div>
                 </div>
               ) : coachMatchError ? (
                 <div className="fcv2-coach-match-modal__state fcv2-coach-match-modal__state--error">
