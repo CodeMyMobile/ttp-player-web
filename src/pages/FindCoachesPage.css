@@ -1187,6 +1187,31 @@
     gap: 8px;
   }
 
+  .fcv2-mobile-search-block .fcv2-location-permission-banner,
+  .fcv2-mobile-search-block .fcv2-coach-match-banner {
+    margin-top: 10px;
+    margin-bottom: 0;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-banner {
+    padding: 12px;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-banner__icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-banner__actions {
+    flex-direction: column;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-banner__button,
+  .fcv2-mobile-search-block .fcv2-coach-match-banner__secondary {
+    width: 100%;
+  }
+
   .fcv2-mobile-search-input {
     flex: 1;
     display: flex;

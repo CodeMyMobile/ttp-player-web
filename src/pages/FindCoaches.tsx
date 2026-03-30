@@ -762,6 +762,40 @@ const FindCoaches = () => {
             </div>
           </div>
 
+          {locationPermissionPrompt ? (
+            <section className="fcv2-location-permission-banner" aria-label="Location permission">
+              <div>
+                <strong>Enable location</strong>
+                <p>{locationPermissionPrompt}</p>
+              </div>
+              <button type="button" onClick={requestCurrentLocation} disabled={isResolvingCurrentLocation}>
+                {isResolvingCurrentLocation ? "Checking..." : "Enable location"}
+              </button>
+            </section>
+          ) : null}
+
+          <section className="fcv2-coach-match-banner" aria-label="Find my coach">
+            <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
+            <div className="fcv2-coach-match-banner__content">
+              <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
+              <div className="fcv2-coach-match-banner__copy">
+                Answer 5 quick questions and we&apos;ll find your best match.
+              </div>
+              <div className="fcv2-coach-match-banner__actions">
+                <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
+                  Find my coach →
+                </button>
+                <button
+                  type="button"
+                  className="fcv2-coach-match-banner__secondary"
+                  onClick={() => navigate("/coach-match/recommendations")}
+                >
+                  Explore recommended coaches
+                </button>
+              </div>
+            </div>
+          </section>
+
           <FilterMenu
             onFilterChange={handleFilterChange}
             userPos={{
