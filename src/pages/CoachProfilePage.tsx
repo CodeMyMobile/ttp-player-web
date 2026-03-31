@@ -383,6 +383,7 @@ const CoachProfilePage = () => {
   const languages = profile?.languages ?? [];
   const levels = profile?.levels ?? [];
   const coachingLocations = profile?.coachingLocations?.length ? profile.coachingLocations : profile?.courts ?? [];
+  const primaryLocationLabel = profile?.location ?? coachingLocations[0] ?? "Court TBD";
   const bookingLessonTypes = profile?.booking?.lessonTypes ?? [];
   const privateType = bookingLessonTypes.find((item) => item.id === "private");
   const groupType = bookingLessonTypes.find((item) => item.id === "group");
@@ -492,10 +493,28 @@ const CoachProfilePage = () => {
         const isoDate = currentDay.format("YYYY-MM-DD");
         const weekday = currentDay.format("dddd").toUpperCase();
 
-        const [scheduleEntries, lessons] = await Promise.all([
-          fetchCoachSchedule({ token: authToken, coachId: profile.id, day: weekday }).catch(() => [] as CoachScheduleEntry[]),
-          fetchCoachLessonsByDate({ token: authToken, coachId: profile.id, date: isoDate }).catch(() => [] as Lesson[]),
-        ]);
+        const scheduleEntries = await fetchCoachSchedule({
+          token: authToken,
+          coachId: profile.id,
+          day: weekday,
+        }).catch(() => [] as CoachScheduleEntry[]);
+
+        if (!scheduleEntries.length) {
+          nextDays.push({
+            isoDate,
+            dayLabel: currentDay.format("ddd"),
+            dateLabel: currentDay.format("MMM D"),
+            shortDateLabel: currentDay.format("D"),
+            slots: [],
+          });
+          continue;
+        }
+
+        const lessons = await fetchCoachLessonsByDate({
+          token: authToken,
+          coachId: profile.id,
+          date: isoDate,
+        }).catch(() => [] as Lesson[]);
 
         const occupiedRanges = lessons
           .map((lesson) => ({
@@ -529,7 +548,7 @@ const CoachProfilePage = () => {
                 timeLabel: cursor.format("h:mm A"),
                 durationLabel: "1 hr",
                 durationMin: 60,
-                court: String(entry.location_name ?? entry.location ?? coachingLocations[0] ?? "Court TBD"),
+                court: String(entry.location_name ?? entry.location ?? primaryLocationLabel),
                 priceLabel: privatePriceLabel,
                 start: cursor.toISOString(),
                 end: slotEnd.toISOString(),
@@ -568,7 +587,7 @@ const CoachProfilePage = () => {
               timeLabel: start.local().format("h:mm A"),
               durationLabel: end.isValid() ? `${end.diff(start, "minutes")} min` : groupType?.duration ?? "1 hr",
               durationMin: end.isValid() ? end.diff(start, "minutes") : 60,
-              court: lesson.location_name ?? coachingLocations[0] ?? "Court TBD",
+              court: lesson.location_name ?? primaryLocationLabel,
               priceLabel: formatCurrency(lesson.price_per_person) ?? groupPriceLabel ?? "$0",
               start: lesson.start_date_time,
               end: lesson.end_date_time,
@@ -604,7 +623,7 @@ const CoachProfilePage = () => {
     return () => {
       active = false;
     };
-  }, [authToken, coachingLocations, groupPriceLabel, groupType?.duration, privatePriceLabel, profile?.id]);
+  }, [authToken, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
 
   const availableCredits = useMemo(() => {
     const balance = creditsBalance?.available;

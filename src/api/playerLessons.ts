@@ -121,16 +121,24 @@ export const fetchCoachLessonsByDate = async ({ token, coachId, date }: FetchCoa
     return [];
   }
 
-  const response = await request<Lesson[]>(`/player/coach/lessons/date/${coachId}`, {
-    token,
-    query: { date },
-  });
+  try {
+    const response = await request<Lesson[]>(`/player/coach/lessons/date/${coachId}`, {
+      token,
+      query: { date },
+    });
 
-  if (!response) {
-    return [];
+    if (!response) {
+      return [];
+    }
+
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (status === 404) {
+      return [];
+    }
+    throw error;
   }
-
-  return Array.isArray(response) ? response : [];
 };
 
 export interface FetchPlayerBookingsParams {
