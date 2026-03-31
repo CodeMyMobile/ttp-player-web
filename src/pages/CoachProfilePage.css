@@ -54,6 +54,159 @@
   overscroll-behavior-x: none;
 }
 
+.coach-profile-fixed-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-fixed-chrome__header,
+.coach-profile-fixed-chrome__tabs,
+.coach-profile-fixed-chrome__coach {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 10px 20px;
+}
+
+.coach-profile-fixed-chrome__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coach-profile-fixed-chrome__back,
+.coach-profile-fixed-chrome__message {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 600;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+}
+
+.coach-profile-fixed-chrome__tabs {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.coach-profile-fixed-chrome__tab {
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+}
+
+.coach-profile-fixed-chrome__tab--active {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+
+.coach-profile-fixed-chrome__coach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.coach-profile-fixed-chrome__coach-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.coach-profile-fixed-chrome__coach-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.coach-profile-fixed-chrome__coach-copy span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coach-profile-fixed-chrome__coach-price {
+  margin-left: auto;
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+.coach-profile-bio {
+  margin-top: 16px;
+}
+
+.coach-profile-bio__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.coach-profile-bio__text--expanded {
+  display: block;
+}
+
+.coach-profile-bio__toggle {
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.coach-profile-about-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.coach-profile-about-grid > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.coach-profile-about-grid strong {
+  display: block;
+  font-size: 14px;
+}
+
+.coach-profile-about-grid span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coach-profile-credit-strip {
+  margin: 0 0 12px;
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+  background: #f5f3ff;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #6d28d9;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.coach-profile-credit-strip button {
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 700;
+}
+
 @supports not (overflow-x: clip) {
   .coach-profile-page {
     overflow-x: hidden;

@@ -780,6 +780,13 @@ const CoachProfilePage = () => {
   const [selection, setSelection] = useState<BookingSelections>(() => ({
     lessonType: "all",
   }));
+  const [showFullBio, setShowFullBio] = useState(false);
+  const profileScrollRef = useRef<HTMLDivElement | null>(null);
+  const packagesRef = useRef<HTMLElement | null>(null);
+  const aboutRef = useRef<HTMLElement | null>(null);
+  const specialtiesRef = useRef<HTMLElement | null>(null);
+  const courtsRef = useRef<HTMLElement | null>(null);
+  const [activeTab, setActiveTab] = useState<"about" | "specialties" | "courts">("about");
   const [bookingInFlight, setBookingInFlight] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
@@ -1637,8 +1644,8 @@ const CoachProfilePage = () => {
 
   const lessonFilters = [
     { id: "all", label: "All", ariaLabel: "All lesson formats" },
-    { id: "private", label: "Privates", ariaLabel: "Private lessons" },
-    { id: "group", label: "Groups", ariaLabel: "Group sessions" },
+    { id: "private", label: "Private", ariaLabel: "Private lessons" },
+    { id: "group", label: "Group", ariaLabel: "Group sessions" },
   ];
 
   const playerLessonCredits = useMemo(() => {
@@ -1787,6 +1794,10 @@ const CoachProfilePage = () => {
   const selectedDate = selectedDateEntry?.date;
 
   const filteredSlots = selectedDateEntry?.slots ?? [];
+  const slotsThisWeek = useMemo(
+    () => availableDates.reduce((sum, date) => sum + (date.totalSlots ?? date.slots.length ?? 0), 0),
+    [availableDates],
+  );
 
   const lessonTypeDetailMap = useMemo(() => {
     return bookingLessonTypes.reduce(
@@ -1874,6 +1885,30 @@ const CoachProfilePage = () => {
 
     return profile.highlightChips.filter((chip) => !/utr/i.test(chip.label));
   }, [profile]);
+  const experienceLabel = useMemo(
+    () => highlightChips.find((chip) => /year|yrs|experience/i.test(chip.label))?.label ?? "Experience listed",
+    [highlightChips],
+  );
+  const studentsLabel = useMemo(
+    () => highlightChips.find((chip) => /student/i.test(chip.label))?.label ?? "Students coached",
+    [highlightChips],
+  );
+
+  const scrollToSection = (section: "about" | "specialties" | "courts") => {
+    setActiveTab(section);
+    const targetMap = {
+      about: aboutRef,
+      specialties: specialtiesRef,
+      courts: courtsRef,
+    };
+    const target = targetMap[section].current;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const scrollToPackages = () => {
+    packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const resolveIsoDate = (date?: BookingDate) => {
     if (!date) return undefined;
@@ -2637,7 +2672,45 @@ const extractLocationId = (slot?: BookingSlot) => {
                 rosterError={rosterStatusError ?? undefined}
                 rosterLoading={rosterStatusLoading}
               />
-              <section className="coach-profile-hero">
+              <section className="coach-profile-hero" ref={profileScrollRef}>
+                <div className="coach-profile-fixed-chrome">
+                  <div className="coach-profile-fixed-chrome__header">
+                    <Link to="/find-coaches" className="coach-profile-fixed-chrome__back">
+                      <ArrowLeft size={16} /> Coaches
+                    </Link>
+                    <button type="button" className="coach-profile-fixed-chrome__message">
+                      <MessageCircle size={16} /> Message
+                    </button>
+                  </div>
+                  <div className="coach-profile-fixed-chrome__tabs">
+                    {([
+                      ["about", "About"],
+                      ["specialties", "Specialties"],
+                      ["courts", "Courts"],
+                    ] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`coach-profile-fixed-chrome__tab${
+                          activeTab === key ? " coach-profile-fixed-chrome__tab--active" : ""
+                        }`}
+                        onClick={() => scrollToSection(key)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="coach-profile-fixed-chrome__coach">
+                    <img src={coachAvatar} alt={coachDisplayName} className="coach-profile-fixed-chrome__coach-avatar" />
+                    <div className="coach-profile-fixed-chrome__coach-copy">
+                      <strong>{coachDisplayName}</strong>
+                      <span>{certifications[0] ?? coachTitle}</span>
+                    </div>
+                    <div className="coach-profile-fixed-chrome__coach-price">
+                      {lessonDetails.find((lesson) => lesson.id === "private")?.price ?? "Pricing available"}
+                    </div>
+                  </div>
+                </div>
                 <div className="coach-profile-hero__inner">
                   <div className="coach-profile-identity coach-profile-hero__identity">
                     <div className="coach-profile-identity__avatar-block">
@@ -2684,6 +2757,18 @@ const extractLocationId = (slot?: BookingSlot) => {
                             );
                           })}
                         </div>
+                        <div className="coach-profile-bio">
+                          <p className={`coach-profile-bio__text${showFullBio ? " coach-profile-bio__text--expanded" : ""}`}>
+                            {profile.about}
+                          </p>
+                          <button
+                            type="button"
+                            className="coach-profile-bio__toggle"
+                            onClick={() => setShowFullBio((prev) => !prev)}
+                          >
+                            {showFullBio ? "See less" : "See more"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2696,12 +2781,16 @@ const extractLocationId = (slot?: BookingSlot) => {
                   <div className="coach-profile-layout">
                     <section className="coach-profile-main">
                       <section className="coach-profile-sections">
-                        <div className="coach-profile-panel coach-profile-panel--about">
+                        <div ref={aboutRef} className="coach-profile-panel coach-profile-panel--about">
                           <div className="coach-profile-panel__header">
                             <h2 className="coach-profile-panel__title">About {coachFirstName}</h2>
                             <MessageCircle className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
-                          <p className="coach-profile-about__copy">{profile.about}</p>
+                          <div className="coach-profile-about-grid">
+                            <div><strong>{experienceLabel}</strong><span>Experience</span></div>
+                            <div><strong>{studentsLabel}</strong><span>Students</span></div>
+                            <div><strong>{languages.join(", ") || "—"}</strong><span>Languages</span></div>
+                          </div>
                           {certifications.length > 0 && (
                             <div className="coach-profile-certifications">
                               {certifications.map((certification) => (
@@ -2714,7 +2803,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                           )}
                         </div>
 
-                        <div className="coach-profile-panel">
+                        <div ref={specialtiesRef} className="coach-profile-panel">
                           <div className="coach-profile-panel__header">
                             <h2 className="coach-profile-panel__title">Specialties</h2>
                             <Sparkles className="coach-profile-panel__icon" strokeWidth={2.4} />
@@ -2731,9 +2820,9 @@ const extractLocationId = (slot?: BookingSlot) => {
                           )}
                         </div>
 
-                        <div className="coach-profile-panel">
+                        <div ref={courtsRef} className="coach-profile-panel">
                           <div className="coach-profile-panel__header">
-                            <h2 className="coach-profile-panel__title">Coaching Locations</h2>
+                            <h2 className="coach-profile-panel__title">Courts</h2>
                             <MapPin className="coach-profile-panel__icon" strokeWidth={2.4} />
                           </div>
                           <p className="coach-profile-panel__copy">Certified to coach at these nearby courts and clubs.</p>
@@ -2773,7 +2862,7 @@ const extractLocationId = (slot?: BookingSlot) => {
                               ))}
                             </ul>
                           )}
-                          <div className="coach-profile-packages">
+                          <div className="coach-profile-packages" ref={packagesRef}>
                             <div className="coach-profile-packages__header">
                               <div className="coach-profile-packages__intro">
                                 <h3 className="coach-profile-packages__title">Package deals</h3>
@@ -2903,10 +2992,20 @@ const extractLocationId = (slot?: BookingSlot) => {
                     <div className="coach-booking__header">
                       <div className="coach-booking__header-copy">
                         <h2 className="coach-booking__title">{bookingHeadline}</h2>
-                        <p className="coach-booking__subtitle">Select your preferred date and time</p>
+                        <p className="coach-booking__subtitle">
+                          {slotsThisWeek > 0 ? `${slotsThisWeek} slots this week` : "No slots this week"}
+                        </p>
                       </div>
                       <CalendarDays className="coach-booking__icon" strokeWidth={2.4} />
                     </div>
+                    {hasCreditsRemaining ? (
+                      <div className="coach-profile-credit-strip">
+                        <span>{availableCredits} credits · can be applied at booking</span>
+                        <button type="button" onClick={scrollToPackages}>
+                          Top up
+                        </button>
+                      </div>
+                    ) : null}
 
                     <div className="coach-booking__wallet">
                       <div
