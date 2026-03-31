@@ -246,6 +246,14 @@ export interface RequestPrivateLessonParams {
   court?: number | string | null;
   status?: string;
   paymentMethodId?: string;
+  metadata?: {
+    session_prep?: {
+      who_for?: "myself" | "my_child";
+      level?: "Beginner" | "Beginner+" | "Intermediate" | "Intermediate+" | "Advanced" | "Competitive";
+      goals?: string[];
+      note?: string;
+    };
+  };
 }
 
 export interface NewLessonResponse {
@@ -269,6 +277,7 @@ export const requestPrivateLesson = ({
   court = 0,
   status = "PENDING",
   paymentMethodId,
+  metadata,
 }: RequestPrivateLessonParams) =>
   request<NewLessonResponse>("/player/newlesson", {
     method: "POST",
@@ -283,5 +292,6 @@ export const requestPrivateLesson = ({
       court,
       status,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+      ...(metadata ? { metadata } : {}),
     },
   });
