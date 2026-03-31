@@ -374,6 +374,8 @@ const CoachProfilePage = () => {
   const coachFirstName = coachName.split(" ")[0] ?? "Coach";
   const coachAvatar = profile?.imageUrl ?? profile?.profilePicture ?? "";
   const coachTitle = profile?.title ?? profile?.headlineBadge ?? "Tennis Coach";
+  const coachContact = (profile as CoachProfileRecord & { contact?: { phone?: string; email?: string } } | undefined)?.contact;
+  const coachPhone = coachContact?.phone?.trim() ?? "";
   const aboutCopy = profile?.about ?? profile?.bio ?? profile?.summary ?? "";
   const certifications = profile?.certifications ?? [];
   const specialties = profile?.specialties ?? [];
@@ -923,6 +925,13 @@ const CoachProfilePage = () => {
   };
 
   const canContinueIntro = Boolean(introForm.level && introForm.goals.length);
+  const smsHref = coachPhone ? `smsto:${coachPhone}` : "";
+  const handleMessageCoach = () => {
+    if (!smsHref || typeof window === "undefined") {
+      return;
+    }
+    window.location.href = smsHref;
+  };
 
   if (loading) {
     return (
@@ -976,7 +985,12 @@ const CoachProfilePage = () => {
               <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
                 <ArrowLeft size={16} /> Coaches
               </button>
-              <button type="button" className="coach-profile-top-action coach-profile-top-action--ghost">
+              <button
+                type="button"
+                className="coach-profile-top-action coach-profile-top-action--ghost"
+                onClick={handleMessageCoach}
+                disabled={!smsHref}
+              >
                 <MessageCircle size={16} /> Message
               </button>
             </div>
@@ -1227,7 +1241,7 @@ const CoachProfilePage = () => {
                         <button type="button" onClick={() => setSelectedDate("all")}>
                           See all availability
                         </button>
-                        <button type="button" className="is-secondary">
+                        <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
                           Message coach
                         </button>
                       </div>
@@ -1541,7 +1555,7 @@ const CoachProfilePage = () => {
                       <button type="button" onClick={() => setSelectedDate("all")}>
                         See all availability
                       </button>
-                      <button type="button" className="is-secondary">
+                      <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
                         Message coach
                       </button>
                     </div>
