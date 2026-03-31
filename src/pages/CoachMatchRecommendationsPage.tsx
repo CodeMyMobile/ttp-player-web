@@ -35,7 +35,7 @@ const CoachMatchRecommendationsPage = () => {
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "questionnaire-required">("loading");
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<CoachMatchRecommendationItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -77,6 +77,19 @@ const CoachMatchRecommendationsPage = () => {
         setStatus("ready");
       } catch (requestError) {
         if (cancelled) return;
+        const errorData = (requestError as Error & { status?: number; data?: { detail?: string } })?.data;
+        const errorStatus = (requestError as Error & { status?: number })?.status;
+        const detail = errorData?.detail;
+
+        if (errorStatus === 400 && detail === "coach_match_answers_required") {
+          setStatus("questionnaire-required");
+          setError(null);
+          setItems([]);
+          setTotal(0);
+          setTotalPages(1);
+          return;
+        }
+
         setStatus("error");
         setError(
           requestError instanceof Error
@@ -103,7 +116,7 @@ const CoachMatchRecommendationsPage = () => {
               <p className="coach-match-page__eyebrow">Coach Matchmaking</p>
               <h1>Recommended Coaches</h1>
               <p className="coach-match-page__subtitle">
-                Personalized coach matches ranked from your player coach-match survey.
+                Personalized coach matches ranked from your player coach-match questionnaire.
               </p>
             </div>
             <div className="coach-match-page__header-actions">
@@ -139,9 +152,36 @@ const CoachMatchRecommendationsPage = () => {
               </button>
             </div>
             <p className="coach-match-page__results">
-              {status === "loading" ? "Loading recommendations..." : `${total} recommended coach${total === 1 ? "" : "es"}`}
+              {status === "loading"
+                ? "Loading recommendations..."
+                : status === "questionnaire-required"
+                  ? "Questionnaire required"
+                  : `${total} recommended coach${total === 1 ? "" : "es"}`}
             </p>
           </section>
+
+          {status === "questionnaire-required" ? (
+            <section className="coach-match-page__state">
+              <h2>Complete your questionnaire first</h2>
+              <p>
+                We need your coach-match answers before we can recommend coaches. Start with the
+                <strong> Find my coach </strong>
+                questionnaire on Find Coaches.
+              </p>
+              <div className="coach-match-page__state-actions">
+                <Link
+                  to="/find-coaches"
+                  className="coach-match-page__primary-link"
+                  state={{ openCoachMatchSurvey: true }}
+                >
+                  Go to Find my coach
+                </Link>
+                <Link to="/find-coaches" className="coach-match-page__secondary-link">
+                  Back to coach search
+                </Link>
+              </div>
+            </section>
+          ) : null}
 
           {status === "error" ? (
             <section className="coach-match-page__state">

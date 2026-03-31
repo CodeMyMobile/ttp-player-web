@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Search,
@@ -377,6 +377,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
 };
 
 const FindCoaches = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -488,6 +489,23 @@ const FindCoaches = () => {
       setCoachMatchLoading(false);
     }
   }, [coachMatchLoading, coachMatchQuestions.length, playerToken]);
+
+  useEffect(() => {
+    if (!location.state || typeof location.state !== "object") {
+      return;
+    }
+
+    const shouldOpenCoachMatchSurvey = Boolean(
+      (location.state as { openCoachMatchSurvey?: boolean }).openCoachMatchSurvey,
+    );
+
+    if (!shouldOpenCoachMatchSurvey) {
+      return;
+    }
+
+    void openCoachMatchSurvey();
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate, openCoachMatchSurvey]);
 
   const handleCoachMatchSurveyFinished = useCallback(
     async (answers: Array<Record<string, unknown>>) => {

@@ -146,6 +146,13 @@
   margin: 0;
 }
 
+.coach-match-page__state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
 .coach-match-page__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -376,6 +383,10 @@
 
   .coach-match-card {
     padding: 18px;
+  }
+
+  .coach-match-page__state-actions {
+    width: 100%;
   }
 
   .coach-match-card__meta-grid {
