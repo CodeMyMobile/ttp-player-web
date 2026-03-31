@@ -11,6 +11,7 @@ import {
   Globe,
   MapPin,
   MessageCircle,
+  Package,
   Users,
   Wallet,
   X,
