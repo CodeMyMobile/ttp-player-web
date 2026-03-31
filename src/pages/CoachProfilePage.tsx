@@ -932,6 +932,12 @@ const CoachProfilePage = () => {
     }
     window.location.href = smsHref;
   };
+  const handleOpenPurchaseModal = () => {
+    if (!profile?.id) {
+      return;
+    }
+    navigate(`/coaches/${profile.id}/purchase`);
+  };
 
   if (loading) {
     return (
@@ -1260,34 +1266,45 @@ const CoachProfilePage = () => {
                   {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
                   {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
                   {!packagesLoading && !packagesError ? (
-                    <div className="coach-package-list">
-                      {filteredPackages.length > 0 ? (
-                        filteredPackages.map((pkg, index) => {
-                          const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                          const perSession = parseCurrency(pkg.total_price)
-                            ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                            : undefined;
-                          return (
-                            <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
-                              <div className="coach-package-card__top">
-                                <div>
-                                  <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                                  <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                    <>
+                      <div className="coach-package-list">
+                        {filteredPackages.length > 0 ? (
+                          filteredPackages.map((pkg, index) => {
+                            const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
+                            const perSession = parseCurrency(pkg.total_price)
+                              ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
+                              : undefined;
+                            return (
+                              <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
+                                <div className="coach-package-card__top">
+                                  <div>
+                                    <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
+                                    <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                                  </div>
+                                  {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
                                 </div>
-                                {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                              </div>
-                              <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
-                              <div className="coach-package-card__price">
-                                <strong>{total}</strong>
-                                <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                              </div>
-                            </article>
-                          );
-                        })
-                      ) : (
-                        <div className="coach-empty-card">No packages are available for this filter yet.</div>
-                      )}
-                    </div>
+                                <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
+                                <div className="coach-package-card__price">
+                                  <strong>{total}</strong>
+                                  <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
+                                </div>
+                              </article>
+                            );
+                          })
+                        ) : (
+                          <div className="coach-empty-card">No packages are available for this filter yet.</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="coach-profile-packages__action"
+                        onClick={handleOpenPurchaseModal}
+                        disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
+                      >
+                        <Package aria-hidden />
+                        <span>Purchase credits</span>
+                      </button>
+                    </>
                   ) : null}
                 </section>
               </aside>
@@ -1574,34 +1591,45 @@ const CoachProfilePage = () => {
                 {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
                 {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
                 {!packagesLoading && !packagesError ? (
-                  <div className="coach-package-list">
-                    {filteredPackages.length > 0 ? (
-                      filteredPackages.map((pkg, index) => {
-                        const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                        const perSession = parseCurrency(pkg.total_price)
-                          ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                          : undefined;
-                        return (
-                          <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
-                            <div className="coach-package-card__top">
-                              <div>
-                                <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                                <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                  <>
+                    <div className="coach-package-list">
+                      {filteredPackages.length > 0 ? (
+                        filteredPackages.map((pkg, index) => {
+                          const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
+                          const perSession = parseCurrency(pkg.total_price)
+                            ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
+                            : undefined;
+                          return (
+                            <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
+                              <div className="coach-package-card__top">
+                                <div>
+                                  <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
+                                  <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                                </div>
+                                {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
                               </div>
-                              {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                            </div>
-                            <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
-                            <div className="coach-package-card__price">
-                              <strong>{total}</strong>
-                              <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                            </div>
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <div className="coach-empty-card">No packages are available for this filter yet.</div>
-                    )}
-                  </div>
+                              <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
+                              <div className="coach-package-card__price">
+                                <strong>{total}</strong>
+                                <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
+                              </div>
+                            </article>
+                          );
+                        })
+                      ) : (
+                        <div className="coach-empty-card">No packages are available for this filter yet.</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="coach-profile-packages__action"
+                      onClick={handleOpenPurchaseModal}
+                      disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
+                    >
+                      <Package aria-hidden />
+                      <span>Purchase credits</span>
+                    </button>
+                  </>
                 ) : null}
               </section>
             </aside>
