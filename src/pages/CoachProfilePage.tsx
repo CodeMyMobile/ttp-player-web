@@ -987,6 +987,242 @@ const CoachProfilePage = () => {
     }
     navigate(`/coaches/${profile.id}/purchase`);
   };
+  const availabilityLabels = useMemo(() => {
+    if (Array.isArray(profile?.availability)) {
+      return profile.availability.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    }
+    if (typeof profile?.availability === "string") {
+      return profile.availability
+        .split(/[•,|]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, [profile?.availability]);
+
+  const renderBookingPanel = (variant: "mobile" | "desktop") => (
+    <aside className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}`}>
+      <div className="coach-profile-price-card coach-profile-booking-block">
+        <div className="coach-profile-price-card__row">
+          <div>
+            <p className="coach-profile-price-card__eyebrow">from</p>
+            <h3>{privatePriceLabel}</h3>
+            <p className="coach-profile-price-card__unit">/hr private</p>
+          </div>
+        </div>
+        {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
+        <div className={`coach-profile-availability coach-profile-availability--inline${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
+          <span className="coach-profile-availability__dot" />
+          <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
+        </div>
+      </div>
+
+      {availableCredits > 0 ? (
+        <div className="coach-credit-strip coach-profile-booking-block">
+          <div className="coach-credit-strip__copy">
+            <Wallet size={16} />
+            <div>
+              <span>{availableCredits} private credits</span>
+              <small>auto-applied at checkout</small>
+            </div>
+          </div>
+          <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            Top up
+          </button>
+        </div>
+      ) : null}
+
+      <section className="coach-booking-card coach-profile-booking-block">
+        <div className="coach-profile-section__header coach-profile-section__header--compact">
+          <h2>Book a lesson</h2>
+        </div>
+
+        <div className="coach-booking-toggle">
+          {(["all", "private", "group"] as LessonTypeFilter[])
+            .filter((type) => type !== "group" || Boolean(groupPriceLabel))
+            .map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={bookingType === type ? "is-active" : ""}
+                onClick={() => setBookingType(type)}
+              >
+                {type === "all" ? "All" : type === "private" ? "Private" : "Group"}
+              </button>
+            ))}
+        </div>
+
+        <div className="coach-day-strip">
+          <button
+            type="button"
+            className={selectedDate === "all" ? "coach-day-chip is-active" : "coach-day-chip"}
+            onClick={() => setSelectedDate("all")}
+          >
+            <span>All</span>
+          </button>
+          {activeDays.map((day) => (
+            <button
+              key={day.isoDate}
+              type="button"
+              className={selectedDate === day.isoDate ? "coach-day-chip is-active" : "coach-day-chip"}
+              onClick={() => setSelectedDate(day.isoDate)}
+            >
+              <span>{day.dayLabel}</span>
+              <small>{day.shortDateLabel}</small>
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`coach-day-chip coach-day-chip--icon${showDatePicker ? " is-active" : ""}`}
+            onClick={() => setShowDatePicker((value) => !value)}
+            aria-label="Pick a date"
+          >
+            <CalendarDays size={16} />
+          </button>
+        </div>
+
+        {showDatePicker ? (
+          <div className="coach-date-picker">
+            <input
+              type="date"
+              onChange={(event) => {
+                setSelectedDate(event.target.value);
+                setShowDatePicker(false);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {scheduleLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
+        {!scheduleLoading && visibleSlots.length > 0 ? (
+          <div className="coach-slot-list coach-slot-list--aside">
+            {visibleSlots.map((slot) =>
+              slot.type === "private" ? (
+                <article key={slot.id} className="coach-slot coach-slot--private">
+                  <div className="coach-slot__main">
+                    <p className="coach-slot__time">
+                      {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
+                    </p>
+                    <div className="coach-slot__meta">
+                      <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
+                      <span>{slot.court}</span>
+                      <span>{slot.durationLabel}</span>
+                    </div>
+                  </div>
+                  <div className="coach-slot__actions">
+                    <strong>{slot.priceLabel}</strong>
+                    <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
+                      {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book"}
+                    </button>
+                  </div>
+                </article>
+              ) : (
+                <article key={slot.id} className="coach-slot coach-slot--group">
+                  <div className="coach-slot__card-head">
+                    <div>
+                      <h3>{slot.className}</h3>
+                      <div className="coach-slot__meta">
+                        <span className="coach-profile-pill coach-profile-pill--green">Group</span>
+                        <span className="coach-profile-pill coach-profile-pill--gold">{slot.level}</span>
+                      </div>
+                    </div>
+                    <div className="coach-slot__price-stack">
+                      <strong>{slot.priceLabel}</strong>
+                      {slot.spotsLeft != null && slot.totalSpots != null ? (
+                        <small>
+                          {slot.spotsLeft}/{slot.totalSpots} spots
+                        </small>
+                      ) : null}
+                    </div>
+                  </div>
+                  <p className="coach-slot__description">{slot.description}</p>
+                  <div className="coach-slot__footer">
+                    <div>
+                      <p>
+                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel} · {slot.durationLabel}
+                      </p>
+                      <small>{slot.court}</small>
+                    </div>
+                    <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
+                      {slot.bookingState === "confirmed" ? "Booked" : "Reserve spot"}
+                    </button>
+                  </div>
+                </article>
+              ),
+            )}
+          </div>
+        ) : null}
+
+        {!scheduleLoading && visibleSlots.length === 0 ? (
+          <div className="coach-empty-card coach-empty-card--purple">
+            <strong>No lessons for this filter</strong>
+            <p>
+              {nextAvailableSlot
+                ? `Next available: ${nextAvailableSlot.dayLabel} ${nextAvailableSlot.dateLabel} · ${nextAvailableSlot.timeLabel}`
+                : "No availability posted yet."}
+            </p>
+            <div className="coach-empty-card__actions">
+              <button type="button" onClick={() => setSelectedDate("all")}>
+                See all availability
+              </button>
+              <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
+                Message coach
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section ref={variant === "desktop" ? packagesRef : undefined} className="coach-profile-section coach-profile-section--packages coach-profile-booking-block">
+        <div className="coach-profile-section__header coach-profile-section__header--compact">
+          <h2>Lesson packages</h2>
+        </div>
+
+        {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
+        {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
+        {!packagesLoading && !packagesError ? (
+          <>
+            <div className="coach-package-list">
+              {filteredPackages.length > 0 ? (
+                filteredPackages.map((pkg, index) => {
+                  const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
+                  const perSession = parseCurrency(pkg.total_price)
+                    ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
+                    : undefined;
+                  return (
+                    <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
+                      <div className="coach-package-card__top">
+                        <div>
+                          <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
+                          <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                        </div>
+                        {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
+                      </div>
+                      <div className="coach-package-card__price">
+                        <strong>{total}</strong>
+                        <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="coach-empty-card">No packages are available for this filter yet.</div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="coach-profile-packages__action"
+              onClick={handleOpenPurchaseModal}
+              disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
+            >
+              <Package aria-hidden />
+              <span>Purchase credits</span>
+            </button>
+          </>
+        ) : null}
+      </section>
+    </aside>
+  );
 
   if (loading) {
     return (
@@ -1022,7 +1258,7 @@ const CoachProfilePage = () => {
   return (
     <MainLayout>
       <div className="coach-profile-page">
-        <div className="coach-profile-shell">
+        <div className="coach-profile-shell coach-profile-shell--layout">
           <JoinMyRosterBanner
             coachName={coachName}
             rosterStatus={rosterStatus}
@@ -1035,63 +1271,41 @@ const CoachProfilePage = () => {
             rosterLoading={rosterLoading}
           />
 
-          <div className="coach-profile-sticky-chrome">
-            <div className="coach-profile-sticky-chrome__header">
-              <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
-                <ArrowLeft size={16} /> Coaches
-              </button>
-              <button
-                type="button"
-                className="coach-profile-top-action coach-profile-top-action--ghost"
-                onClick={handleMessageCoach}
-                disabled={!smsHref}
-              >
-                <MessageCircle size={16} /> Message
-              </button>
-            </div>
-
-            <div className="coach-profile-sticky-chrome__tabs">
-              {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
-                  onClick={() => scrollToSection(tab)}
-                >
-                  {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
-                </button>
-              ))}
-            </div>
-
-            <div className="coach-profile-mini-bar">
-              <div className="coach-profile-mini-bar__coach">
-                {coachAvatar ? (
-                  <img src={coachAvatar} alt="" className="coach-profile-mini-bar__avatar" />
-                ) : (
-                  <span className="coach-profile-mini-bar__avatar coach-profile-mini-bar__avatar--fallback">{buildInitials(coachName)}</span>
-                )}
-                <div>
-                  <p className="coach-profile-mini-bar__name">{coachName}</p>
-                  <p className="coach-profile-mini-bar__meta">{certifications[0] ?? coachTitle}</p>
-                </div>
-              </div>
-              <span className="coach-profile-mini-bar__price">{privatePriceLabel}</span>
-            </div>
-          </div>
-
           <div className="coach-profile-layout-v2">
             <div className="coach-profile-main-v2">
+              <div className="coach-profile-back-row">
+                <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
+                  <ArrowLeft size={16} /> Find a Coach
+                </button>
+              </div>
+
               <section className="coach-profile-hero-v2">
                 <div className="coach-profile-hero-v2__identity">
-                  {coachAvatar ? (
-                    <img src={coachAvatar} alt={coachName} className="coach-profile-hero-v2__avatar" />
-                  ) : (
-                    <div className="coach-profile-hero-v2__avatar coach-profile-hero-v2__avatar--fallback">{buildInitials(coachName)}</div>
-                  )}
+                  <div className="coach-profile-hero-v2__avatar-wrap">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt={coachName} className="coach-profile-hero-v2__avatar" />
+                    ) : (
+                      <div className="coach-profile-hero-v2__avatar coach-profile-hero-v2__avatar--fallback">{buildInitials(coachName)}</div>
+                    )}
+                    <span className="coach-profile-verified-badge" aria-label="Verified coach">
+                      <CheckCircle2 size={18} />
+                    </span>
+                  </div>
                   <div className="coach-profile-hero-v2__copy">
-                    <div className="coach-profile-hero-v2__eyebrow">Coach profile</div>
-                    <h1>{coachName}</h1>
-                    <p className="coach-profile-hero-v2__title">{coachTitle}</p>
+                    <div className="coach-profile-hero-v2__header">
+                      <div>
+                        <h1>{coachName}</h1>
+                        <p className="coach-profile-hero-v2__title">{coachTitle}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="coach-profile-top-action coach-profile-top-action--outline"
+                        onClick={handleMessageCoach}
+                        disabled={!smsHref}
+                      >
+                        <MessageCircle size={16} /> Message
+                      </button>
+                    </div>
                     <div className="coach-profile-hero-v2__chips">
                       {certifications.map((item) => (
                         <span key={item} className="coach-profile-pill coach-profile-pill--purple">
@@ -1101,7 +1315,7 @@ const CoachProfilePage = () => {
                     </div>
                     <div className="coach-profile-hero-v2__stats">
                       <span>
-                        <MapPin size={14} /> {profile.location}
+                        <MapPin size={14} /> {primaryLocationLabel}
                       </span>
                       <span>
                         <Users size={14} /> {studentsLabel}
@@ -1110,255 +1324,32 @@ const CoachProfilePage = () => {
                         <Clock3 size={14} /> {experienceLabel}
                       </span>
                     </div>
+                    <p className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
+                    {aboutCopy.length > 220 ? (
+                      <button type="button" className="coach-profile-inline-link" onClick={() => setBioExpanded((value) => !value)}>
+                        {bioExpanded ? "See less" : "See more"}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </section>
 
-              <section className="coach-profile-section coach-profile-section--bio">
-                <div className="coach-profile-section__header">
-                  <h2>Bio</h2>
-                </div>
-                <p className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
-                {aboutCopy.length > 180 ? (
-                  <button type="button" className="coach-profile-inline-link" onClick={() => setBioExpanded((value) => !value)}>
-                    {bioExpanded ? "See less" : "See more"}
+              {renderBookingPanel("mobile")}
+
+              <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
+                {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
+                    onClick={() => scrollToSection(tab)}
+                  >
+                    {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
                   </button>
-                ) : null}
-              </section>
+                ))}
+              </div>
 
-              {availableCredits > 0 ? (
-                <section className="coach-credit-strip-mobile">
-                  <div>
-                    <strong>{availableCredits} credits</strong>
-                    <span>can be applied at booking</span>
-                  </div>
-                  <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                    Top up
-                  </button>
-                </section>
-              ) : null}
-
-              <aside className="coach-profile-aside-v2 coach-profile-aside-v2--mobile">
-                <div className="coach-profile-price-card">
-                  <div className="coach-profile-price-card__row">
-                    <div>
-                      <p className="coach-profile-price-card__eyebrow">from</p>
-                      <h3>{privatePriceLabel}</h3>
-                    </div>
-                    <div className={`coach-profile-availability${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
-                      {slotsThisWeek > 0 ? `${slotsThisWeek} slots this week` : "No slots this week"}
-                    </div>
-                  </div>
-                  {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel} group</p> : null}
-                </div>
-
-                {availableCredits > 0 ? (
-                  <div className="coach-credit-strip">
-                    <div className="coach-credit-strip__copy">
-                      <Wallet size={16} />
-                      <span>{availableCredits} credits</span>
-                      <small>can be applied at booking</small>
-                    </div>
-                    <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                      Top up
-                    </button>
-                  </div>
-                ) : null}
-
-                <section className="coach-booking-card">
-                  <div className="coach-profile-section__header">
-                    <h2>Book a lesson</h2>
-                  </div>
-
-                  <div className="coach-booking-toggle">
-                    {(["all", "private", "group"] as LessonTypeFilter[])
-                      .filter((type) => type !== "group" || Boolean(groupPriceLabel))
-                      .map((type) => (
-                        <button
-                          key={type}
-                          type="button"
-                          className={bookingType === type ? "is-active" : ""}
-                          onClick={() => setBookingType(type)}
-                        >
-                          {type === "all" ? "All" : type === "private" ? "Private" : "Group"}
-                        </button>
-                      ))}
-                  </div>
-
-                  <div className="coach-day-strip">
-                    <button
-                      type="button"
-                      className={selectedDate === "all" ? "coach-day-chip is-active" : "coach-day-chip"}
-                      onClick={() => setSelectedDate("all")}
-                    >
-                      <span>All</span>
-                    </button>
-                    {activeDays.map((day) => (
-                      <button
-                        key={day.isoDate}
-                        type="button"
-                        className={selectedDate === day.isoDate ? "coach-day-chip is-active" : "coach-day-chip"}
-                        onClick={() => setSelectedDate(day.isoDate)}
-                      >
-                        <span>{day.dayLabel}</span>
-                        <small>{day.shortDateLabel}</small>
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className={`coach-day-chip coach-day-chip--icon${showDatePicker ? " is-active" : ""}`}
-                      onClick={() => setShowDatePicker((value) => !value)}
-                    >
-                      <CalendarDays size={16} />
-                    </button>
-                  </div>
-
-                  {showDatePicker ? (
-                    <div className="coach-date-picker">
-                      <input
-                        type="date"
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setSelectedDate(value);
-                          setShowDatePicker(false);
-                        }}
-                      />
-                    </div>
-                  ) : null}
-
-                  {scheduleLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
-
-                  {!scheduleLoading && visibleSlots.length > 0 ? (
-                    <div className="coach-slot-list">
-                      {visibleSlots.map((slot) =>
-                        slot.type === "private" ? (
-                          <article key={slot.id} className="coach-slot coach-slot--private">
-                            <div className="coach-slot__main">
-                              <p className="coach-slot__time">
-                                {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                              </p>
-                              <div className="coach-slot__meta">
-                                <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                                <span>{slot.court}</span>
-                                <span>{slot.durationLabel}</span>
-                              </div>
-                            </div>
-                            <div className="coach-slot__actions">
-                              <strong>{slot.priceLabel}</strong>
-                              <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
-                                {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book"}
-                              </button>
-                            </div>
-                          </article>
-                        ) : (
-                          <article key={slot.id} className="coach-slot coach-slot--group">
-                            <div className="coach-slot__card-head">
-                              <div>
-                                <h3>{slot.className}</h3>
-                                <div className="coach-slot__meta">
-                                  <span className="coach-profile-pill coach-profile-pill--green">Group</span>
-                                  <span className="coach-profile-pill coach-profile-pill--amber">{slot.durationLabel}</span>
-                                  <span className="coach-profile-pill coach-profile-pill--gold">{slot.level}</span>
-                                </div>
-                              </div>
-                              <strong>{slot.priceLabel}</strong>
-                            </div>
-                            <p className="coach-slot__description">{slot.description}</p>
-                            <div className="coach-slot__footer">
-                              <div>
-                                <p>
-                                  {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                                </p>
-                                <small>
-                                  {slot.court}
-                                  {slot.spotsLeft != null && slot.totalSpots != null ? ` · ${slot.spotsLeft}/${slot.totalSpots} spots left` : ""}
-                                </small>
-                              </div>
-                              <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
-                                {slot.bookingState === "confirmed" ? "Booked" : "Reserve spot"}
-                              </button>
-                            </div>
-                          </article>
-                        ),
-                      )}
-                    </div>
-                  ) : null}
-
-                  {!scheduleLoading && visibleSlots.length === 0 ? (
-                    <div className="coach-empty-card coach-empty-card--purple">
-                      <strong>No lessons for this filter</strong>
-                      <p>
-                        {nextAvailableSlot
-                          ? `Next available: ${nextAvailableSlot.dayLabel} ${nextAvailableSlot.dateLabel} · ${nextAvailableSlot.timeLabel}`
-                          : "No availability posted yet."}
-                      </p>
-                      <div className="coach-empty-card__actions">
-                        <button type="button" onClick={() => setSelectedDate("all")}>
-                          See all availability
-                        </button>
-                        <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
-                          Message coach
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </section>
-
-                <section ref={packagesRef} className="coach-profile-section coach-profile-section--packages">
-                  <div className="coach-profile-section__header">
-                    <h2>Packages</h2>
-                    <span className="coach-profile-section__caption">
-                      {availableCredits > 0 ? `${availableCredits} credits available` : "Top up lesson credits"}
-                    </span>
-                  </div>
-
-                  {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
-                  {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
-                  {!packagesLoading && !packagesError ? (
-                    <>
-                      <div className="coach-package-list">
-                        {filteredPackages.length > 0 ? (
-                          filteredPackages.map((pkg, index) => {
-                            const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                            const perSession = parseCurrency(pkg.total_price)
-                              ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                              : undefined;
-                            return (
-                              <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
-                                <div className="coach-package-card__top">
-                                  <div>
-                                    <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                                    <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
-                                  </div>
-                                  {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                                </div>
-                                <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
-                                <div className="coach-package-card__price">
-                                  <strong>{total}</strong>
-                                  <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                                </div>
-                              </article>
-                            );
-                          })
-                        ) : (
-                          <div className="coach-empty-card">No packages are available for this filter yet.</div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        className="coach-profile-packages__action"
-                        onClick={handleOpenPurchaseModal}
-                        disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
-                      >
-                        <Package aria-hidden />
-                        <span>Purchase credits</span>
-                      </button>
-                    </>
-                  ) : null}
-                </section>
-              </aside>
-
-              <section ref={aboutRef} className="coach-profile-section" id="about">
+              <section ref={aboutRef} className="coach-profile-section coach-profile-section--split" id="about">
                 <div className="coach-profile-section__header">
                   <h2>About</h2>
                 </div>
@@ -1391,17 +1382,10 @@ const CoachProfilePage = () => {
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <h3>Pricing</h3>
-                    <div className="coach-chip-row">
-                      <span className="coach-profile-pill coach-profile-pill--white">{privatePriceLabel} private</span>
-                      {groupPriceLabel ? <span className="coach-profile-pill coach-profile-pill--white">{groupPriceLabel} group</span> : null}
-                    </div>
-                  </div>
                 </div>
               </section>
 
-              <section ref={specialtiesRef} className="coach-profile-section" id="specialties">
+              <section ref={specialtiesRef} className="coach-profile-section coach-profile-section--split" id="specialties">
                 <div className="coach-profile-section__header">
                   <h2>Specialties</h2>
                 </div>
@@ -1439,13 +1423,17 @@ const CoachProfilePage = () => {
                   <div>
                     <h3>Availability</h3>
                     <div className="coach-chip-row">
-                      <span className="coach-profile-pill coach-profile-pill--green">{profile.availability}</span>
+                      {(availabilityLabels.length ? availabilityLabels : [profile?.availability || "Schedule shared after booking"]).map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--green">
+                          {item}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
               </section>
 
-              <section ref={courtsRef} className="coach-profile-section" id="courts">
+              <section ref={courtsRef} className="coach-profile-section coach-profile-section--split" id="courts">
                 <div className="coach-profile-section__header">
                   <h2>Courts</h2>
                 </div>
@@ -1465,223 +1453,7 @@ const CoachProfilePage = () => {
               </section>
             </div>
 
-            <aside className="coach-profile-aside-v2 coach-profile-aside-v2--desktop">
-              <div className="coach-profile-price-card">
-                <div className="coach-profile-price-card__row">
-                  <div>
-                    <p className="coach-profile-price-card__eyebrow">from</p>
-                    <h3>{privatePriceLabel}</h3>
-                  </div>
-                  <div className={`coach-profile-availability${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
-                    {slotsThisWeek > 0 ? `${slotsThisWeek} slots this week` : "No slots this week"}
-                  </div>
-                </div>
-                {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel} group</p> : null}
-              </div>
-
-              {availableCredits > 0 ? (
-                <div className="coach-credit-strip">
-                  <div className="coach-credit-strip__copy">
-                    <Wallet size={16} />
-                    <span>{availableCredits} credits</span>
-                    <small>can be applied at booking</small>
-                  </div>
-                  <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                    Top up
-                  </button>
-                </div>
-              ) : null}
-
-              <section className="coach-booking-card">
-                <div className="coach-profile-section__header">
-                  <h2>Book a lesson</h2>
-                </div>
-
-                <div className="coach-booking-toggle">
-                  {(["all", "private", "group"] as LessonTypeFilter[])
-                    .filter((type) => type !== "group" || Boolean(groupPriceLabel))
-                    .map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        className={bookingType === type ? "is-active" : ""}
-                        onClick={() => setBookingType(type)}
-                      >
-                        {type === "all" ? "All" : type === "private" ? "Private" : "Group"}
-                      </button>
-                    ))}
-                </div>
-
-                <div className="coach-day-strip">
-                  <button
-                    type="button"
-                    className={selectedDate === "all" ? "coach-day-chip is-active" : "coach-day-chip"}
-                    onClick={() => setSelectedDate("all")}
-                  >
-                    <span>All</span>
-                  </button>
-                  {activeDays.map((day) => (
-                    <button
-                      key={day.isoDate}
-                      type="button"
-                      className={selectedDate === day.isoDate ? "coach-day-chip is-active" : "coach-day-chip"}
-                      onClick={() => setSelectedDate(day.isoDate)}
-                    >
-                      <span>{day.dayLabel}</span>
-                      <small>{day.shortDateLabel}</small>
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`coach-day-chip coach-day-chip--icon${showDatePicker ? " is-active" : ""}`}
-                    onClick={() => setShowDatePicker((value) => !value)}
-                  >
-                    <CalendarDays size={16} />
-                  </button>
-                </div>
-
-                {showDatePicker ? (
-                  <div className="coach-date-picker">
-                    <input
-                      type="date"
-                      onChange={(event) => {
-                        setSelectedDate(event.target.value);
-                        setShowDatePicker(false);
-                      }}
-                    />
-                  </div>
-                ) : null}
-
-                {scheduleLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
-                {!scheduleLoading && visibleSlots.length > 0 ? (
-                  <div className="coach-slot-list coach-slot-list--aside">
-                    {visibleSlots.map((slot) =>
-                      slot.type === "private" ? (
-                        <article key={slot.id} className="coach-slot coach-slot--private">
-                          <div className="coach-slot__main">
-                            <p className="coach-slot__time">
-                              {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                            </p>
-                            <div className="coach-slot__meta">
-                              <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                              <span>{slot.court}</span>
-                              <span>{slot.durationLabel}</span>
-                            </div>
-                          </div>
-                          <div className="coach-slot__actions">
-                            <strong>{slot.priceLabel}</strong>
-                            <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
-                              {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book"}
-                            </button>
-                          </div>
-                        </article>
-                      ) : (
-                        <article key={slot.id} className="coach-slot coach-slot--group">
-                          <div className="coach-slot__card-head">
-                            <div>
-                              <h3>{slot.className}</h3>
-                              <div className="coach-slot__meta">
-                                <span className="coach-profile-pill coach-profile-pill--green">Group</span>
-                                <span className="coach-profile-pill coach-profile-pill--amber">{slot.durationLabel}</span>
-                                <span className="coach-profile-pill coach-profile-pill--gold">{slot.level}</span>
-                              </div>
-                            </div>
-                            <strong>{slot.priceLabel}</strong>
-                          </div>
-                          <p className="coach-slot__description">{slot.description}</p>
-                          <div className="coach-slot__footer">
-                            <div>
-                              <p>
-                                {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                              </p>
-                              <small>
-                                {slot.court}
-                                {slot.spotsLeft != null && slot.totalSpots != null ? ` · ${slot.spotsLeft}/${slot.totalSpots} spots left` : ""}
-                              </small>
-                            </div>
-                            <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
-                              {slot.bookingState === "confirmed" ? "Booked" : "Reserve spot"}
-                            </button>
-                          </div>
-                        </article>
-                      ),
-                    )}
-                  </div>
-                ) : null}
-
-                {!scheduleLoading && visibleSlots.length === 0 ? (
-                  <div className="coach-empty-card coach-empty-card--purple">
-                    <strong>No lessons for this filter</strong>
-                    <p>
-                      {nextAvailableSlot
-                        ? `Next available: ${nextAvailableSlot.dayLabel} ${nextAvailableSlot.dateLabel} · ${nextAvailableSlot.timeLabel}`
-                        : "No availability posted yet."}
-                    </p>
-                    <div className="coach-empty-card__actions">
-                      <button type="button" onClick={() => setSelectedDate("all")}>
-                        See all availability
-                      </button>
-                      <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
-                        Message coach
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="coach-profile-section coach-profile-section--packages">
-                <div className="coach-profile-section__header">
-                  <h2>Packages</h2>
-                  <span className="coach-profile-section__caption">
-                    {availableCredits > 0 ? `${availableCredits} credits available` : "Top up lesson credits"}
-                  </span>
-                </div>
-
-                {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
-                {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
-                {!packagesLoading && !packagesError ? (
-                  <>
-                    <div className="coach-package-list">
-                      {filteredPackages.length > 0 ? (
-                        filteredPackages.map((pkg, index) => {
-                          const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                          const perSession = parseCurrency(pkg.total_price)
-                            ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                            : undefined;
-                          return (
-                            <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
-                              <div className="coach-package-card__top">
-                                <div>
-                                  <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                                  <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
-                                </div>
-                                {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                              </div>
-                              <p>{pkg.description || "Flexible credits that can be applied when you book."}</p>
-                              <div className="coach-package-card__price">
-                                <strong>{total}</strong>
-                                <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                              </div>
-                            </article>
-                          );
-                        })
-                      ) : (
-                        <div className="coach-empty-card">No packages are available for this filter yet.</div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="coach-profile-packages__action"
-                      onClick={handleOpenPurchaseModal}
-                      disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
-                    >
-                      <Package aria-hidden />
-                      <span>Purchase credits</span>
-                    </button>
-                  </>
-                ) : null}
-              </section>
-            </aside>
+            {renderBookingPanel("desktop")}
           </div>
         </div>
 
