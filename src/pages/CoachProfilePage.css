@@ -912,6 +912,10 @@
   position: fixed;
   inset: 0;
   z-index: 50;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
 }
 
 .coach-booking-flow__backdrop {
@@ -922,10 +926,12 @@
 
 .coach-booking-flow__panel {
   position: relative;
-  width: min(720px, calc(100% - 24px));
-  max-height: calc(100vh - 24px);
-  margin: 12px auto;
-  overflow: auto;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 24px);
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: 28px;
   background: #fff;
   box-shadow: 0 40px 120px -60px rgba(15, 23, 42, 0.55);
@@ -1298,6 +1304,10 @@
   position: fixed;
   inset: 0;
   z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
 }
 
 .coach-payment-modal__backdrop {
@@ -1308,8 +1318,12 @@
 
 .coach-payment-modal__panel {
   position: relative;
-  width: min(560px, calc(100% - 24px));
-  margin: 24px auto;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 24px);
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: 28px;
   background: #fff;
   padding: 24px;

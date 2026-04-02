@@ -725,6 +725,7 @@ const CoachProfilePage = () => {
   }, [firstBookingKey]);
 
   const hasPrefill = Boolean(onboardingPrefill.who || onboardingPrefill.level || onboardingPrefill.goals.length);
+  const modalOpen = bookingOpen || paymentSheetOpen || Boolean(bookingConfirmation);
 
   const sectionRefs: Record<AnchorTab, RefObject<HTMLElement>> = {
     about: aboutRef as RefObject<HTMLElement>,
@@ -759,6 +760,34 @@ const CoachProfilePage = () => {
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!modalOpen || typeof window === "undefined") return;
+
+    const scrollY = window.scrollY;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    const previousBodyOverflow = bodyStyle.overflow;
+    const previousBodyPosition = bodyStyle.position;
+    const previousBodyTop = bodyStyle.top;
+    const previousBodyWidth = bodyStyle.width;
+    const previousHtmlOverflow = htmlStyle.overflow;
+
+    htmlStyle.overflow = "hidden";
+    bodyStyle.overflow = "hidden";
+    bodyStyle.position = "fixed";
+    bodyStyle.top = `-${scrollY}px`;
+    bodyStyle.width = "100%";
+
+    return () => {
+      htmlStyle.overflow = previousHtmlOverflow;
+      bodyStyle.overflow = previousBodyOverflow;
+      bodyStyle.position = previousBodyPosition;
+      bodyStyle.top = previousBodyTop;
+      bodyStyle.width = previousBodyWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [modalOpen]);
 
   const openBookingFlow = (slot: LoadedSlot) => {
     setSelectedSlot(slot);
