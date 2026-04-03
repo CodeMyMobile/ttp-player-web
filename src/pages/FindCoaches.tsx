@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Search,
+  Sparkles,
   Star,
   X,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import {
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
 
+import "./CoachMatchRecommendationsPage.css";
 import "./FindCoachesPage.css";
 
 type Mode = "normal" | "empty" | "error";
@@ -53,6 +55,9 @@ type CoachCardModel = Coach & {
   groupRateValue: number | null;
   availabilityWindows: string[];
   formats: string[];
+  matchScore: number;
+  matchReasons: string[];
+  semiRateValue: number | null;
 };
 
 const DEFAULT_RADIUS = 10;
@@ -96,6 +101,16 @@ const parseNumberValue = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+};
+
+const formatMoney = (value: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? `$${numeric.toFixed(0)}` : null;
+};
+
+const formatExperience = (value: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? `${numeric.toFixed(0)} years` : "Experience not listed";
 };
 
 const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
@@ -249,6 +264,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
 
 const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: number): CoachCardModel => {
   const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
+  const recommendation = (record.recommendation as Record<string, unknown> | undefined) ?? {};
   const primaryLocation = (record.primary_location as Record<string, unknown> | undefined) ?? undefined;
   const locationRecords = Array.isArray(record.locations)
     ? (record.locations as Array<Record<string, unknown>>)
@@ -278,6 +294,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   const hourlyRateDisplay =
     hourlyRate !== null ? `$${hourlyRate.toFixed(0)}` : "$0";
   const groupRateValue = parseNumberValue(record.group_rate ?? pricing.group ?? pricing.group_price ?? record.price_group);
+  const semiRateValue = parseNumberValue(record.price_semi ?? pricing.semi ?? pricing.semi_private);
   const groupRateDisplay =
     groupRateValue !== null ? `$${groupRateValue.toFixed(0)}` : "";
   const summary =
@@ -318,6 +335,9 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
       primaryLocation?.distanceMiles,
   );
   const formats = deriveFormats(record);
+  const matchScore =
+    parseNumberValue(record.score ?? recommendation.score) ?? 0;
+  const matchReasons = toStringArray(record.reasons ?? recommendation.reasons);
   const highlightCandidates: CoachHighlight[] = [];
   if (cityLabel) highlightCandidates.push({ icon: "map", label: cityLabel });
   highlightCandidates.push({ icon: "calendar", label: availabilitySummary });
@@ -371,8 +391,11 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
     cityLabel,
     hourlyRateValue: hourlyRate,
     groupRateValue,
+    semiRateValue,
     availabilityWindows,
     formats,
+    matchScore,
+    matchReasons,
   };
 };
 
@@ -919,14 +942,9 @@ const FindCoaches = () => {
           </section>
 
           {status === "loading" ? (
-            <section className="fcv2-grid">
+            <section className="fcv2-grid coach-match-page__grid">
               {Array.from({ length: 6 }).map((_, index) => (
-                <article key={index} className="fcv2-card fcv2-card-skeleton" aria-hidden="true">
-                  <div className="fcv2-skeleton fcv2-skeleton-avatar" />
-                  <div className="fcv2-skeleton fcv2-skeleton-title" />
-                  <div className="fcv2-skeleton fcv2-skeleton-line" />
-                  <div className="fcv2-skeleton fcv2-skeleton-line short" />
-                </article>
+                <article key={index} className="coach-match-card coach-match-card--skeleton" aria-hidden="true" />
               ))}
             </section>
           ) : null}
@@ -954,74 +972,83 @@ const FindCoaches = () => {
           ) : null}
 
           {shouldShowResults ? (
-            <section className="fcv2-grid">
+            <section className="fcv2-grid coach-match-page__grid">
               {filteredCoaches.map((coach) => (
-                <article key={coach.id} className="fcv2-card">
-                  <div className="fcv2-card-head">
-                    <div className="fcv2-card-profile">
-                      <div className="fcv2-card-avatar-wrap">
-                        <div className="fcv2-card-avatar">
-                          {coach.imageUrl ? <img src={coach.imageUrl} alt={coach.name} /> : coach.initials}
-                        </div>
-                        {coach.verified ? <span className="fcv2-verified-badge">✓</span> : null}
-                      </div>
-
-                      <div className="fcv2-card-title-block">
+                <article key={coach.id} className="coach-match-card">
+                  <div className="coach-match-card__top">
+                    <div className="coach-match-card__profile">
+                      {coach.imageUrl ? (
+                        <img src={coach.imageUrl} alt={coach.name} />
+                      ) : (
+                        <div className="coach-match-card__avatar-fallback">{coach.initials}</div>
+                      )}
+                      <div>
                         <h2>{coach.name}</h2>
-                        {coach.certifications.length > 0 ? (
-                          <div className="fcv2-card-certifications">
-                            {coach.certifications.slice(0, 2).map((certification) => (
-                              <span key={certification}>{certification}</span>
-                            ))}
-                          </div>
-                        ) : null}
-                        <div className="fcv2-card-meta">
-                          {coach.reviewCount > 0 ? (
-                            <>
-                              <span className="rating">
-                                <Star size={13} fill="currentColor" />
-                                {coach.rating.toFixed(1)}
-                              </span>
-                              <span>({coach.reviewCount})</span>
-                            </>
-                          ) : null}
-                          {coach.reviewCount === 0 && coach.studentCount ? <span>{coach.studentCount} students</span> : null}
-                          {coach.distanceMiles !== null ? <span>{coach.distanceMiles.toFixed(1)} mi</span> : null}
-                        </div>
+                        <p>{formatExperience(coach.yearsExperience)}</p>
                       </div>
                     </div>
 
-                    <div className="fcv2-card-price">
-                      <strong>{coach.lessonRates.private || "$0"}</strong>
-                      <span>/hr</span>
-                      {coach.groupRateValue !== null ? <small>{coach.lessonRates.group} group</small> : null}
+                    <div className="coach-match-card__score">
+                      <Sparkles size={16} />
+                      <strong>{coach.matchScore}</strong>
+                      <span>match score</span>
                     </div>
                   </div>
 
-                  <p className="fcv2-card-bio">{coach.bio}</p>
+                  <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
 
-                  <div className="fcv2-card-tags">
-                    {coach.specialties.slice(0, 3).map((specialty) => (
-                      <span key={specialty}>{specialty}</span>
+                  <div className="coach-match-card__chips">
+                    {coach.levels.slice(0, 2).map((level) => (
+                      <span key={`level-${coach.id}-${level}`}>{level}</span>
                     ))}
-                    {coach.formats[0] ? <span className="format">{coach.formats[0]}</span> : null}
+                    {coach.formats.slice(0, 2).map((format) => (
+                      <span key={`format-${coach.id}-${format}`}>{format}</span>
+                    ))}
+                    {coach.specialties.slice(0, 2).map((specialty) => (
+                      <span key={`specialty-${coach.id}-${specialty}`}>{specialty}</span>
+                    ))}
                   </div>
 
-                  <div className="fcv2-card-footer">
-                    <div className={`fcv2-card-availability${coach.availabilityWindows.length > 0 ? " is-open" : ""}`}>
-                      <span className="dot" />
-                      <span>
-                        {coach.availabilityWindows.length > 0
-                          ? `${coach.availabilityWindows.length} slot${coach.availabilityWindows.length === 1 ? "" : "s"} this week`
-                          : "Availability on request"}
-                      </span>
+                  <div className="coach-match-card__meta-grid">
+                    <div>
+                      <span>Private</span>
+                      <strong>{formatMoney(coach.hourlyRateValue) || "N/A"}</strong>
                     </div>
+                    <div>
+                      <span>Semi</span>
+                      <strong>{formatMoney(coach.semiRateValue) || "N/A"}</strong>
+                    </div>
+                    <div>
+                      <span>Group</span>
+                      <strong>{formatMoney(coach.groupRateValue) || "N/A"}</strong>
+                    </div>
+                    <div>
+                      <span>Languages</span>
+                      <strong>{coach.languages.slice(0, 2).join(", ") || "N/A"}</strong>
+                    </div>
+                  </div>
 
-                    <div className="fcv2-card-actions">
-                      <button type="button" className="ghost" onClick={() => navigate(`/coaches/${coach.id}`)}>
-                        View profile
-                      </button>
+                  <div className="coach-match-card__breakdown">
+                    <div className="coach-match-card__breakdown-title">
+                      <Star size={14} />
+                      <span>Why this coach matches</span>
                     </div>
+                    <ul>
+                      {coach.matchReasons.length > 0 ? (
+                        coach.matchReasons.map((reason) => <li key={`${coach.id}-${reason}`}>{reason}</li>)
+                      ) : (
+                        <li>No reasons provided</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="coach-match-card__footer">
+                    <div className="coach-match-card__courts">
+                      {coach.courts[0] || coach.cityLabel || "Home courts not listed"}
+                    </div>
+                    <Link to={`/coaches/${coach.id}`} className="coach-match-card__action">
+                      View profile
+                    </Link>
                   </div>
                 </article>
               ))}

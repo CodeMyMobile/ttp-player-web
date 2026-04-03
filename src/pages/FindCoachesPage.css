@@ -613,209 +613,9 @@
   gap: 20px;
 }
 
-.fcv2-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 22px;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.fcv2-card:hover {
-  transform: translateY(-2px);
-  border-color: #c4b5fd;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.09);
-}
-
-.fcv2-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.fcv2-card-profile {
-  display: flex;
-  gap: 14px;
-  min-width: 0;
-}
-
-.fcv2-card-avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.fcv2-card-avatar {
-  width: 58px;
-  height: 58px;
-  overflow: hidden;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.fcv2-card-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.fcv2-verified-badge {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #8b5cf6;
-  color: #fff;
-  border: 2px solid #fff;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.fcv2-card-title-block {
-  min-width: 0;
-}
-
-.fcv2-card-title-block h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  line-height: 1.2;
-}
-
-.fcv2-card-certifications,
-.fcv2-card-tags,
-.fcv2-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.fcv2-card-certifications span {
-  padding: 3px 8px;
-  border-radius: 8px;
-  border: 1px solid #ddd6fe;
-  background: #ede9fe;
-  color: #7c3aed;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.fcv2-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.fcv2-card-meta .rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #d97706;
-}
-
-.fcv2-card-price {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.fcv2-card-price strong {
-  display: block;
-  font-size: 30px;
-  line-height: 0.95;
-}
-
-.fcv2-card-price span,
-.fcv2-card-price small {
-  display: block;
-  color: #64748b;
-}
-
-.fcv2-card-price small {
-  margin-top: 4px;
-  color: #7c3aed;
-  font-weight: 700;
-}
-
-.fcv2-card-bio {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.fcv2-card-tags span {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.fcv2-card-tags .format {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.fcv2-card-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: center;
-  margin-top: auto;
-}
-
-.fcv2-card-availability {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.fcv2-card-availability .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #cbd5e1;
-}
-
-.fcv2-card-availability.is-open .dot {
-  background: #22c55e;
-}
-
-.fcv2-card-actions {
-  width: 100%;
-  justify-content: stretch;
-}
-
-.fcv2-card-actions .ghost {
-  text-decoration: none;
-  flex: 1;
-  width: 100%;
-  padding: 10px;
-  border: 1.5px solid #8b5cf6;
-  border-radius: 11px;
-  background: #fff;
-  color: #8b5cf6;
-  text-align: center;
+.fcv2-grid.coach-match-page__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
 }
 
 .fcv2-state {
@@ -997,47 +797,6 @@
   color: #fff;
 }
 
-.fcv2-card-skeleton {
-  pointer-events: none;
-}
-
-.fcv2-skeleton {
-  border-radius: 12px;
-  background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
-  background-size: 200% 100%;
-  animation: fcv2-shimmer 1.4s infinite;
-}
-
-.fcv2-skeleton-avatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-}
-
-.fcv2-skeleton-title {
-  width: 65%;
-  height: 22px;
-}
-
-.fcv2-skeleton-line {
-  width: 100%;
-  height: 14px;
-}
-
-.fcv2-skeleton-line.short {
-  width: 80%;
-}
-
-@keyframes fcv2-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
 @media (max-width: 900px) {
   .fcv2-shell {
     padding: 24px 16px 40px;
@@ -1047,22 +806,8 @@
     padding-bottom: 16px;
   }
 
-  .fcv2-card-head,
-  .fcv2-card-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .fcv2-card-price {
-    text-align: left;
-  }
-
-  .fcv2-card-actions {
-    justify-content: stretch;
-  }
-
-  .fcv2-card-actions button {
-    flex: 1;
+  .fcv2-grid.coach-match-page__grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1312,73 +1057,10 @@
     gap: 12px;
   }
 
-  .fcv2-card {
-    gap: 14px;
-    padding: 16px;
-    border-radius: 16px;
-    box-shadow: none;
-  }
-
-  .fcv2-card-head {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .fcv2-card-profile {
-    gap: 13px;
-  }
-
-  .fcv2-card-avatar {
-    width: 58px;
-    height: 58px;
-    font-size: 18px;
-  }
-
-  .fcv2-card-title-block h2 {
-    font-size: 16px;
-    padding-right: 0;
-  }
-
-  .fcv2-card-certifications span {
-    font-size: 10px;
-  }
-
-  .fcv2-card-price {
-    text-align: right;
-  }
-
-  .fcv2-card-price strong {
-    font-size: 26px;
-  }
-
-  .fcv2-card-bio {
-    font-size: 12px;
-    line-height: 1.55;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-  }
-
-  .fcv2-card-tags span {
-    padding: 5px 11px;
-    font-size: 11px;
-  }
-
-  .fcv2-card-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #f1f5f9;
-  }
-
-  .fcv2-card-actions {
-    width: 100%;
-  }
-
-  .fcv2-card-actions .primary {
-    display: none;
+  .fcv2-grid.coach-match-page__grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .fcv2-location-panel {
