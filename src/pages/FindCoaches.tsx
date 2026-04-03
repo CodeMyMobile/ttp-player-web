@@ -22,6 +22,8 @@ import {
 } from "../api/playerHome";
 import {
   DEFAULT_POSITION,
+  getStoredLocation,
+  getStoredLocationLabel,
   storeLocation,
   storeLocationLabel,
   type Coordinates,
@@ -61,6 +63,17 @@ type CoachCardModel = Coach & {
 };
 
 const DEFAULT_RADIUS = 10;
+
+const getInitialSelectedLocation = (): SelectedLocation | null => {
+  const storedLocation = getStoredLocation();
+  if (!storedLocation) return null;
+
+  return {
+    label: getStoredLocationLabel() ?? "Selected location",
+    latitude: storedLocation.latitude,
+    longitude: storedLocation.longitude,
+  };
+};
 
 const toStringArray = (value: unknown): string[] => {
   if (!value) return [];
@@ -416,9 +429,17 @@ const FindCoaches = () => {
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
   const playerToken = user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
-  const [position, setPosition] = useState<Coordinates | null>(null);
-  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(null);
-  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => getInitialSelectedLocation());
+  const [position, setPosition] = useState<Coordinates | null>(() => {
+    const storedLocation = getStoredLocation();
+    return storedLocation
+      ? {
+          latitude: storedLocation.latitude,
+          longitude: storedLocation.longitude,
+        }
+      : null;
+  });
+  const [locationSearchTerm, setLocationSearchTerm] = useState(() => getInitialSelectedLocation()?.label ?? "");
   const [showCoachMatchSurvey, setShowCoachMatchSurvey] = useState(false);
   const [coachMatchQuestions, setCoachMatchQuestions] = useState<NormalizedSurveyQuestion[]>([]);
   const [coachMatchLoading, setCoachMatchLoading] = useState(false);
@@ -428,7 +449,7 @@ const FindCoaches = () => {
   const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
   const [locationPermissionPrompt, setLocationPermissionPrompt] = useState<string | null>(null);
   const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
-  const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(false);
+  const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(() => Boolean(getStoredLocation()));
 
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
@@ -561,6 +582,7 @@ const FindCoaches = () => {
   }, [locationFilter?.label]);
 
   useEffect(() => {
+    if (getStoredLocation()) return;
     requestCurrentLocation();
   }, [requestCurrentLocation]);
 
