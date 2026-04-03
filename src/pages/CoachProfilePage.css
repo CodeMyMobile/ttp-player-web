@@ -13,21 +13,21 @@
   max-width: 1280px;
   height: 560px;
   margin: 0 auto;
-  border-radius: 32px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(237, 233, 254, 0.72));
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(237, 233, 254, 0.7));
   border: 1px solid #e2e8f0;
 }
 
 .coach-profile-shell {
   max-width: 1320px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 20px 24px 32px;
 }
 
 .coach-profile-shell--layout {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .coach-profile-empty {
@@ -36,7 +36,7 @@
   padding: 48px;
   border-radius: 28px;
   border: 1px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.96);
   text-align: center;
   box-shadow: 0 32px 80px -56px rgba(15, 23, 42, 0.35);
 }
@@ -80,16 +80,20 @@
 .coach-profile-layout-v2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
+  gap: 0;
   align-items: start;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
 }
 
 .coach-profile-main-v2 {
   min-width: 0;
+  background: #fff;
 }
 
 .coach-profile-back-row {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .coach-profile-top-action {
@@ -99,8 +103,8 @@
   border: 0;
   background: transparent;
   color: #475569;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -111,10 +115,10 @@
 
 .coach-profile-top-action--outline {
   border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   color: #475569;
-  padding: 10px 16px;
+  padding: 9px 16px;
 }
 
 .coach-profile-hero-v2,
@@ -122,28 +126,27 @@
 .coach-profile-price-card,
 .coach-booking-card {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 18px 40px -34px rgba(15, 23, 42, 0.24);
+  border: 0;
+  box-shadow: none;
 }
 
 .coach-profile-hero-v2,
 .coach-profile-section,
 .coach-profile-price-card,
 .coach-booking-card,
-.coach-credit-strip,
-.coach-credit-strip-mobile {
+.coach-credit-strip {
   border-radius: 0;
 }
 
 .coach-profile-hero-v2 {
-  padding: 36px 40px 32px;
-  border-radius: 22px 22px 0 0;
+  padding: 28px 32px 30px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .coach-profile-hero-v2__identity {
   display: flex;
   align-items: flex-start;
-  gap: 24px;
+  gap: 20px;
 }
 
 .coach-profile-hero-v2__avatar-wrap {
@@ -152,8 +155,8 @@
 }
 
 .coach-profile-hero-v2__avatar {
-  width: 96px;
-  height: 96px;
+  width: 84px;
+  height: 84px;
   border-radius: 999px;
   object-fit: cover;
   flex-shrink: 0;
@@ -162,18 +165,18 @@
 .coach-profile-hero-v2__avatar--fallback {
   display: grid;
   place-items: center;
-  background: #8b5cf6;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
   color: #fff;
-  font-size: 32px;
+  font-size: 31px;
   font-weight: 800;
 }
 
 .coach-profile-verified-badge {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 28px;
-  height: 28px;
+  right: -1px;
+  bottom: -1px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: #8b5cf6;
   color: #fff;
@@ -194,6 +197,18 @@
   align-items: flex-start;
 }
 
+.coach-profile-hero-v2__header-copy {
+  min-width: 0;
+}
+
+.coach-profile-hero-v2__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .coach-profile-hero-v2__copy h1,
 .coach-profile-section__header h2,
 .coach-slot__card-head h3,
@@ -203,14 +218,22 @@
 }
 
 .coach-profile-hero-v2__copy h1 {
-  font-size: 30px;
-  line-height: 1.08;
+  font-size: 24px;
+  line-height: 1.05;
+  font-weight: 800;
 }
 
 .coach-profile-hero-v2__title {
-  margin: 8px 0 0;
-  color: #475569;
-  font-size: 15px;
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.coach-profile-hero-v2__location-note {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .coach-profile-hero-v2__chips,
@@ -222,16 +245,16 @@
 }
 
 .coach-profile-hero-v2__chips {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .coach-profile-hero-v2__stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 0;
+  margin-top: 12px;
   color: #64748b;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -241,15 +264,26 @@
   gap: 6px;
 }
 
+.coach-profile-hero-v2__stats span + span::before {
+  content: "•";
+  color: #cbd5e1;
+  margin: 0 10px;
+}
+
 .coach-profile-bio {
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   color: #475569;
   line-height: 1.75;
-  font-size: 14.5px;
+  font-size: 14px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  max-width: 760px;
+}
+
+.coach-profile-bio--expanded {
+  display: block;
 }
 
 .coach-profile-hero-v2__eyebrow,
@@ -262,49 +296,6 @@
   color: #94a3b8;
 }
 
-.coach-profile-section {
-  padding: 36px 40px;
-  border-top: 0;
-  border-radius: 0;
-}
-
-.coach-profile-section__header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.coach-profile-section__header h2 {
-  font-size: 13px;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
-}
-
-.coach-profile-section__header--compact h2 {
-  color: #0f172a;
-  font-size: 18px;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.coach-profile-section__caption {
-  font-size: 13px;
-  color: #7c3aed;
-  font-weight: 700;
-}
-
-.coach-profile-bio {
-  margin: 20px 0 0;
-}
-
-.coach-profile-bio--expanded {
-  display: block;
-}
-
 .coach-profile-inline-link {
   margin-top: 12px;
   border: 0;
@@ -315,10 +306,39 @@
   padding: 0;
 }
 
+.coach-profile-section {
+  padding: 28px 32px 32px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-profile-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.coach-profile-section__header h2 {
+  font-size: 13px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.coach-profile-section__header--compact h2 {
+  color: #0f172a;
+  font-size: 18px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .coach-profile-booking-rail {
   display: flex;
   flex-direction: column;
   gap: 0;
+  background: #fff;
 }
 
 .coach-profile-booking-rail--desktop {
@@ -327,37 +347,31 @@
 
 .coach-profile-booking-rail--mobile {
   margin-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
-.coach-profile-booking-block + .coach-profile-booking-block {
-  border-top: 0;
-}
-
-.coach-credit-strip-mobile,
 .coach-credit-strip {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px 24px;
+  padding: 10px 20px;
   background: #ede9fe;
-  border-color: #ddd6fe;
+  border-top: 1px solid #ddd6fe;
+  border-bottom: 1px solid #ddd6fe;
 }
 
-.coach-credit-strip-mobile strong,
 .coach-credit-strip strong {
   display: block;
   font-size: 14px;
 }
 
-.coach-credit-strip-mobile span,
 .coach-credit-strip small {
   color: #6d28d9;
   font-size: 12px;
   font-weight: 600;
 }
 
-.coach-credit-strip-mobile button,
 .coach-credit-strip button {
   border: 0;
   background: transparent;
@@ -367,8 +381,8 @@
 }
 
 .coach-profile-price-card {
-  padding: 24px;
-  border-radius: 22px 22px 0 0;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .coach-profile-price-card__row {
@@ -378,21 +392,29 @@
   gap: 6px;
 }
 
+.coach-profile-price-card__value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
 .coach-profile-price-card h3 {
   margin: 0;
-  font-size: 36px;
+  font-size: 44px;
   line-height: 1;
+  letter-spacing: -0.04em;
 }
 
 .coach-profile-price-card__unit {
-  margin: 4px 0 0;
+  margin: 0;
   color: #94a3b8;
   font-size: 14px;
 }
 
 .coach-profile-price-card__sub {
-  margin: 10px 0 0;
-  font-size: 14px;
+  margin: 8px 0 0;
+  font-size: 13px;
   color: #7c3aed;
   font-weight: 700;
 }
@@ -401,7 +423,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
@@ -439,7 +461,7 @@
 }
 
 .coach-booking-card {
-  padding: 20px 24px 24px;
+  padding: 18px 20px 22px;
 }
 
 .coach-booking-toggle {
@@ -466,10 +488,10 @@
 .coach-booking-toggle button {
   border: 0;
   background: transparent;
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: 8px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -481,7 +503,7 @@
 }
 
 .coach-day-strip {
-  margin-top: 16px;
+  margin-top: 14px;
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -489,19 +511,19 @@
 }
 
 .coach-day-chip {
-  min-width: 56px;
+  min-width: 46px;
   border: 1px solid #e2e8f0;
   background: #fff;
   color: #475569;
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .coach-day-chip small {
@@ -516,7 +538,7 @@
 }
 
 .coach-day-chip--icon {
-  min-width: 46px;
+  min-width: 40px;
   justify-content: center;
   flex-direction: row;
 }
@@ -538,7 +560,7 @@
 }
 
 .coach-slot-list {
-  margin-top: 16px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -546,8 +568,8 @@
 
 .coach-slot {
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px;
+  border-radius: 12px;
+  padding: 12px 14px;
   background: #f8fafc;
 }
 
@@ -568,6 +590,7 @@
 .coach-slot__time {
   font-size: 13px;
   font-weight: 800;
+  color: #334155;
 }
 
 .coach-slot__meta {
@@ -575,6 +598,12 @@
   color: #64748b;
   font-size: 11px;
   font-weight: 600;
+}
+
+.coach-slot__meta-location::before {
+  content: "•";
+  color: #f97316;
+  margin-right: 6px;
 }
 
 .coach-slot__actions {
@@ -596,22 +625,19 @@
 .coach-secondary-button,
 .coach-payment-option {
   border: 0;
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
 .coach-slot button,
 .coach-primary-button,
 .coach-payment-option,
-.coach-empty-card__actions button:not(.is-secondary) {
-  background: #8b5cf6;
+.coach-empty-card__actions button:not(.is-secondary),
+.coach-payment-modal__confirm {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
   color: #fff;
   font-weight: 800;
   padding: 10px 14px;
-}
-
-.coach-slot--group {
-  background: #f8fafc;
 }
 
 .coach-slot__card-head,
@@ -786,17 +812,19 @@
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 18px;
-  background: #f8fafc;
+  background: #fbfdff;
 }
 
 .coach-detail-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
 }
 
 .coach-detail-card svg {
-  color: #7c3aed;
+  color: #8b5cf6;
 }
 
 .coach-detail-card span,
@@ -816,20 +844,21 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  margin-top: 28px;
+  margin-top: 22px;
 }
 
 .coach-detail-stack h3 {
   margin: 0 0 10px;
-  font-size: 13px;
+  font-size: 12px;
   color: #475569;
+  font-weight: 700;
 }
 
 .coach-profile-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-size: 12px;
@@ -855,21 +884,20 @@
 
 .coach-profile-pill--blue {
   background: #eff6ff;
+  border-color: #bfdbfe;
   color: #2563eb;
 }
 
 .coach-profile-pill--green {
   background: #f0fdf4;
+  border-color: #bbf7d0;
   color: #15803d;
 }
 
-.coach-profile-pill--amber {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
+.coach-profile-pill--amber,
 .coach-profile-pill--gold {
   background: #fffbeb;
+  border-color: #fde68a;
   color: #b45309;
 }
 
@@ -913,14 +941,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 28px;
+  padding: 0 32px;
   background: #fff;
-  border-inline: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
-}
-
-.coach-profile-sticky-chrome--inline {
-  border-top: 0;
 }
 
 .coach-profile-tab {
@@ -930,7 +953,7 @@
   color: #64748b;
   padding: 14px 0;
   margin-right: 24px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -943,7 +966,6 @@
 @media (min-width: 1024px) {
   .coach-profile-layout-v2 {
     grid-template-columns: minmax(0, 1fr) 400px;
-    gap: 0;
   }
 
   .coach-profile-main-v2 {
@@ -954,18 +976,11 @@
     display: flex;
     position: sticky;
     top: 72px;
+    min-height: calc(100vh - 90px);
   }
 
   .coach-profile-booking-rail--mobile {
     display: none;
-  }
-
-  .coach-profile-booking-rail--desktop .coach-profile-booking-block:first-child {
-    border-radius: 0;
-  }
-
-  .coach-profile-booking-rail--desktop .coach-profile-booking-block:last-child {
-    border-radius: 0 0 22px 0;
   }
 }
 
@@ -974,11 +989,7 @@
     padding: 16px;
   }
 
-  .coach-profile-hero-v2,
-  .coach-profile-section,
-  .coach-profile-price-card,
-  .coach-booking-card,
-  .coach-credit-strip {
+  .coach-profile-layout-v2 {
     border-radius: 20px;
   }
 
@@ -991,10 +1002,13 @@
     align-items: flex-start;
   }
 
+  .coach-profile-hero-v2__actions {
+    align-items: flex-start;
+  }
+
   .coach-profile-sticky-chrome {
     padding: 0 20px;
     border-top: 1px solid #e2e8f0;
-    border-radius: 20px 20px 0 0;
   }
 
   .coach-detail-grid,
@@ -1018,6 +1032,10 @@
   .coach-profile-sticky-chrome {
     padding: 0 20px;
     overflow-x: auto;
+  }
+
+  .coach-profile-hero-v2__stats span + span::before {
+    margin: 0 8px;
   }
 }
 
@@ -1080,7 +1098,6 @@
 }
 
 .coach-booking-step__coach-card,
-.coach-saved-card,
 .coach-summary-table div,
 .coach-total-box,
 .coach-prefill-banner,
@@ -1121,9 +1138,6 @@
 .coach-booking-step__coach-card p,
 .coach-booking-step__coach-card strong,
 .coach-form-group label,
-.coach-saved-cards h3,
-.coach-saved-card strong,
-.coach-policy-card,
 .coach-payment-option span,
 .coach-apple-pay-wordmark {
   margin: 0;
@@ -1235,10 +1249,6 @@
   gap: 12px;
 }
 
-.coach-total-box--top {
-  margin-top: 0;
-}
-
 .coach-upsell-card {
   position: relative;
   margin-top: 18px;
@@ -1273,8 +1283,7 @@
 }
 
 .coach-upsell-card__actions,
-.coach-calendar-actions,
-.coach-new-card-form__row {
+.coach-calendar-actions {
   display: grid;
   gap: 10px;
 }
@@ -1282,21 +1291,6 @@
 .coach-upsell-card__actions {
   margin-top: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.coach-payment-options {
-  margin-top: 20px;
-  display: grid;
-  gap: 12px;
-}
-
-.coach-payment-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 15px 16px;
-  text-align: center;
 }
 
 .coach-payment-option small {
@@ -1315,86 +1309,9 @@
   letter-spacing: -0.02em;
 }
 
-.coach-saved-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.coach-saved-cards h3 {
-  font-size: 16px;
-}
-
-.coach-saved-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #dbe3ef;
-  background: #fff;
-  cursor: pointer;
-}
-
-.coach-saved-card.is-active {
-  border-color: #8b5cf6;
-  background: #faf5ff;
-}
-
-.coach-saved-card span,
-.coach-saved-card small {
-  display: block;
-  margin-top: 4px;
-  color: #64748b;
-}
-
-.coach-saved-card__meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.coach-saved-card__meta small {
-  margin: 0;
-  color: #7c3aed;
-  font-weight: 800;
-}
-
-.coach-saved-card--new {
-  border-style: dashed;
-}
-
-.coach-new-card-form {
-  margin-top: 18px;
-}
-
-.coach-new-card-form__row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .coach-field-note {
   margin: 10px 0 0;
   font-size: 12px;
-}
-
-.coach-booking-step--success {
-  text-align: center;
-}
-
-.coach-success-check {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #f0fdf4;
-  color: #16a34a;
-}
-
-.coach-booking-step--success p {
-  margin: 10px 0 0;
-  color: #64748b;
 }
 
 .coach-calendar-actions {
@@ -1482,7 +1399,6 @@
 
 .coach-payment-modal__hint,
 .coach-payment-modal__error,
-.coach-payment-modal__empty,
 .coach-payment-modal__link {
   margin-top: 14px;
 }
@@ -1594,24 +1510,6 @@
 .coach-payment-modal__confirm {
   border: 0;
   border-radius: 14px;
-  background: #8b5cf6;
-  color: #fff;
   padding: 12px 18px;
   font-weight: 800;
-  cursor: pointer;
-}
-
-.coach-payment-modal__confirm:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-@media (max-width: 959px) {
-  .coach-empty-card__actions,
-  .coach-calendar-actions,
-  .coach-upsell-card__actions,
-  .coach-new-card-form__row,
-  .coach-booking-step__footer {
-    grid-template-columns: 1fr;
-  }
 }

@@ -31,6 +31,7 @@ import {
 } from "../api/playerPackages";
 import {
   bookGroupLessonWithCard,
+  fetchAvailableLessons,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   type CoachScheduleEntry,
@@ -77,6 +78,48 @@ type LoadedSlot = {
   courtValue?: number | string | null;
   sourceLessonId?: number;
   bookingState?: "pending" | "confirmed";
+};
+
+type ApiBookingSlot = {
+  id?: string;
+  time?: string;
+  duration?: string;
+  price?: string;
+  lessonType?: string;
+  title?: string;
+  location?: string;
+  locationId?: number | null;
+  court?: number | string | null;
+  lessonStatus?: string | null;
+  spotsRemaining?: number;
+};
+
+type ApiBookingDate = {
+  id?: string;
+  day?: string;
+  date?: string;
+  label?: string;
+  slots?: ApiBookingSlot[];
+};
+
+type AvailableLessonSlot = {
+  start_time?: string;
+  end_time?: string;
+  duration_minutes?: number;
+  schedule_id?: number;
+  location_id?: number | null;
+  location?: string;
+  court?: number | string | null;
+};
+
+type AvailableLessonDay = {
+  date?: string;
+  day?: string;
+  slots?: AvailableLessonSlot[];
+};
+
+type AvailableLessonsResponse = {
+  availability?: AvailableLessonDay[];
 };
 
 type DayGroup = {
@@ -247,6 +290,16 @@ const parseDurationMinutes = (label?: string) => {
   return 60;
 };
 
+const normalizeDurationLabel = (label?: string) => {
+  if (!label) return "1 hr";
+  const minutes = parseDurationMinutes(label);
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hr${hours === 1 ? "" : "s"}`;
+  }
+  return `${minutes} min`;
+};
+
 const parseClock = (isoDate: string, value?: string) => {
   if (!value) return null;
   const parsed = moment(`${isoDate} ${value}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm", moment.ISO_8601], true);
@@ -256,6 +309,78 @@ const parseClock = (isoDate: string, value?: string) => {
 const resolveLessonType = (lesson: Lesson) => {
   const label = String(lesson.lesson_type_name ?? "").toLowerCase();
   return label.includes("group") ? "group" : "private";
+};
+
+const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
+  const start = moment(lesson.start_date_time);
+  const end = lesson.end_date_time ? moment(lesson.end_date_time) : null;
+  if (!start.isValid()) return null;
+
+  const type = resolveLessonType(lesson);
+  const durationMin = end?.isValid() ? Math.max(end.diff(start, "minutes"), 1) : 60;
+  const totalSpots = Number(lesson.player_limit ?? 0) || undefined;
+  const currentPlayers = Number(lesson.current_player_count ?? 0) || 0;
+  const spotsLeft = totalSpots ? Math.max(totalSpots - currentPlayers, 0) : undefined;
+
+  return {
+    id: `${start.format("YYYY-MM-DD")}-${type}-${lesson.id}`,
+    type,
+    isoDate: start.format("YYYY-MM-DD"),
+    dayLabel: start.format("ddd"),
+    dateLabel: start.format("MMM D"),
+    timeLabel: start.format("h:mm A"),
+    durationLabel: normalizeDurationLabel(`${durationMin} min`),
+    durationMin,
+    court: lesson.location_name ?? "Court TBD",
+    priceLabel: formatCurrency(lesson.price_per_person) ?? "$0",
+    start: lesson.start_date_time,
+    end: lesson.end_date_time ?? start.clone().add(durationMin, "minutes").toISOString(),
+    className: type === "group" ? lesson.metadata?.title ?? lesson.metadata_title ?? "Group lesson" : undefined,
+    level: type === "group" ? lesson.metadata?.level ?? lesson.metadata_level ?? "All levels" : undefined,
+    description: type === "group" ? lesson.metadata?.description ?? "Live coached group session." : undefined,
+    spotsLeft,
+    totalSpots,
+    locationId: lesson.location_id ?? null,
+    courtValue: null,
+    sourceLessonId: lesson.id,
+    bookingState: lesson.player_has_booking ? "confirmed" : undefined,
+  };
+};
+
+const mapAvailabilitySlotToLoadedSlot = (
+  day: AvailableLessonDay,
+  slot: AvailableLessonSlot,
+  index: number,
+  privatePriceLabel: string,
+): LoadedSlot | null => {
+  const start = slot.start_time ? moment(slot.start_time) : null;
+  const end = slot.end_time ? moment(slot.end_time) : null;
+  if (!start?.isValid()) return null;
+
+  const isoDate = day.date ?? start.format("YYYY-MM-DD");
+  const durationMin =
+    typeof slot.duration_minutes === "number" && slot.duration_minutes > 0
+      ? slot.duration_minutes
+      : end?.isValid()
+        ? Math.max(end.diff(start, "minutes"), 1)
+        : 60;
+
+  return {
+    id: `${isoDate}-private-${slot.schedule_id ?? index}`,
+    type: "private",
+    isoDate,
+    dayLabel: start.format("ddd"),
+    dateLabel: start.format("MMM D"),
+    timeLabel: start.format("h:mm A"),
+    durationLabel: normalizeDurationLabel(`${durationMin} min`),
+    durationMin,
+    court: slot.location ?? "Court TBD",
+    priceLabel: privatePriceLabel,
+    start: start.toISOString(),
+    end: end?.isValid() ? end.toISOString() : start.clone().add(durationMin, "minutes").toISOString(),
+    locationId: slot.location_id ?? null,
+    courtValue: slot.court ?? null,
+  };
 };
 
 const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
@@ -338,6 +463,7 @@ const CoachProfilePage = () => {
 
   const [bookingType, setBookingType] = useState<LessonTypeFilter>("all");
   const [selectedDate, setSelectedDate] = useState<string>("all");
+  const [pendingSelectedDate, setPendingSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<AnchorTab>("about");
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -351,6 +477,7 @@ const CoachProfilePage = () => {
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [datePickerLoading, setDatePickerLoading] = useState(false);
   const [slotsByDay, setSlotsByDay] = useState<DayGroup[]>([]);
   const [bookingStep, setBookingStep] = useState<BookingStep>("confirm");
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -375,6 +502,13 @@ const CoachProfilePage = () => {
   const coachFirstName = coachName.split(" ")[0] ?? "Coach";
   const coachAvatar = profile?.imageUrl ?? profile?.profilePicture ?? "";
   const coachTitle = profile?.title ?? profile?.headlineBadge ?? "Tennis Coach";
+  const apiProfile = profile as CoachProfileRecord & {
+    pricing?: { private?: number; semiPrivate?: number; group?: number };
+    studentCount?: number;
+    experienceYears?: string;
+    formats?: string[];
+    booking?: CoachProfileRecord["booking"] & { availableDates?: ApiBookingDate[] };
+  };
   const coachContact = (profile as CoachProfileRecord & { contact?: { phone?: string; email?: string } } | undefined)?.contact;
   const coachPhone = coachContact?.phone?.trim() ?? "";
   const aboutCopy = profile?.about ?? profile?.bio ?? profile?.summary ?? "";
@@ -387,16 +521,29 @@ const CoachProfilePage = () => {
   const bookingLessonTypes = profile?.booking?.lessonTypes ?? [];
   const privateType = bookingLessonTypes.find((item) => item.id === "private");
   const groupType = bookingLessonTypes.find((item) => item.id === "group");
-  const privatePriceLabel = privateType?.price ?? profile?.lessonRates?.private ?? profile?.pricePerHour ?? "$0";
-  const groupPriceLabel = groupType?.price ?? profile?.lessonRates?.group ?? undefined;
+  const pricing = apiProfile?.pricing;
+  const privatePriceLabel =
+    privateType?.price ??
+    profile?.lessonRates?.private ??
+    formatCurrency(pricing?.private) ??
+    profile?.pricePerHour ??
+    "$0";
+  const groupPriceLabel = groupType?.price ?? profile?.lessonRates?.group ?? formatCurrency(pricing?.group) ?? undefined;
   const metrics = [
     ...(profile?.highlightChips?.map((chip) => chip.label) ?? []),
     ...(profile?.metrics?.map((metric) => `${metric.value} ${metric.label}`) ?? []),
   ];
+  const distanceLabel = extractMetricNumber(metrics, /(\d+(?:\.\d+)?)\s*(?:mi|mile)s?\b/i);
   const experienceLabel = profile?.yearsExperience
     ? `${profile.yearsExperience} years`
-    : extractMetricNumber(metrics, /(\d+\+?)\s*years?/i) ?? "Experienced";
-  const studentsLabel = extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
+    : apiProfile?.experienceYears
+      ? `${apiProfile.experienceYears} yrs`
+      : extractMetricNumber(metrics, /(\d+(?:-\d+)?\+?)\s*yrs?/i) ?? extractMetricNumber(metrics, /(\d+\+?)\s*years?/i) ?? "Experienced";
+  const studentsLabel =
+    typeof apiProfile?.studentCount === "number"
+      ? `${apiProfile.studentCount}+`
+      : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
+  const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
   const playerId =
     user?.session?.user_id ??
     user?.id ??
@@ -486,6 +633,61 @@ const CoachProfilePage = () => {
     setScheduleLoading(true);
 
     const loadAvailability = async () => {
+      const availableDates = apiProfile?.booking?.availableDates ?? [];
+      if (availableDates.length) {
+        const nextDays = availableDates.map((day): DayGroup => {
+          const isoDate = day.id ?? "";
+          const slots = (day.slots ?? []).map((slot, index): LoadedSlot => {
+            const lessonType = String(slot.lessonType ?? "private").toLowerCase();
+            const type = lessonType.includes("group") ? "group" : "private";
+            const durationLabel = normalizeDurationLabel(slot.duration);
+            const durationMin = parseDurationMinutes(slot.duration);
+            const parsedStart = parseClock(isoDate, slot.time);
+            const parsedEnd = parsedStart ? parsedStart.clone().add(durationMin, "minutes") : null;
+            const bookingState =
+              slot.lessonStatus === "CONFIRMED"
+                ? "confirmed"
+                : slot.lessonStatus === "PENDING"
+                  ? "pending"
+                  : undefined;
+
+            return {
+              id: slot.id ?? `${isoDate}-${type}-${index}`,
+              type,
+              isoDate,
+              dayLabel: day.day ?? moment(isoDate).format("ddd"),
+              dateLabel: day.label ?? moment(isoDate).format("MMM D"),
+              timeLabel: slot.time ?? "Time TBD",
+              durationLabel,
+              durationMin,
+              court: slot.location ?? slot.title ?? primaryLocationLabel,
+              priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
+              start: parsedStart?.toISOString() ?? `${isoDate}T09:00:00`,
+              end: parsedEnd?.toISOString() ?? `${isoDate}T10:00:00`,
+              className: type === "group" ? slot.title ?? "Group lesson" : undefined,
+              spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
+              locationId: slot.locationId ?? null,
+              courtValue: slot.court ?? null,
+              bookingState,
+            };
+          });
+
+          return {
+            isoDate,
+            dayLabel: day.day ?? moment(isoDate).format("ddd"),
+            dateLabel: day.label ?? moment(isoDate).format("MMM D"),
+            shortDateLabel: day.date ?? moment(isoDate).format("D"),
+            slots,
+          };
+        });
+
+        if (active) {
+          setSlotsByDay(nextDays);
+          setScheduleLoading(false);
+        }
+        return;
+      }
+
       const nextDays: DayGroup[] = [];
 
       for (let offset = 0; offset < SCHEDULE_WINDOW_DAYS; offset += 1) {
@@ -653,9 +855,10 @@ const CoachProfilePage = () => {
 
   useEffect(() => {
     if (selectedDate === "all") return;
-    if (activeDays.some((day) => day.isoDate === selectedDate)) return;
+    if (pendingSelectedDate === selectedDate) return;
+    if (slotsByDay.some((day) => day.isoDate === selectedDate)) return;
     setSelectedDate(activeDays[0]?.isoDate ?? "all");
-  }, [activeDays, selectedDate]);
+  }, [activeDays, pendingSelectedDate, selectedDate, slotsByDay]);
 
   const visibleSlots = useMemo(() => {
     if (selectedDate === "all") {
@@ -999,12 +1202,101 @@ const CoachProfilePage = () => {
     }
     return [];
   }, [profile?.availability]);
+  const lessonFormatLabels = useMemo(() => {
+    if (bookingLessonTypes.length) {
+      return bookingLessonTypes.map((item) => item.label);
+    }
+    if (Array.isArray(apiProfile?.formats) && apiProfile.formats.length) {
+      return apiProfile.formats.map((item) => {
+        const normalized = item.toLowerCase();
+        if (normalized === "semi") return "Semi-private lesson";
+        if (normalized === "group") return "Group lesson";
+        if (normalized === "private") return "Private lesson";
+        return item;
+      });
+    }
+    return ["Private lesson", "Group lesson"];
+  }, [apiProfile?.formats, bookingLessonTypes]);
+  const handleDateSelection = async (isoDate: string) => {
+    if (!isoDate) return;
+
+    setPendingSelectedDate(isoDate);
+    setSelectedDate(isoDate);
+    setShowDatePicker(false);
+
+    if (slotsByDay.some((day) => day.isoDate === isoDate)) {
+      setPendingSelectedDate(null);
+      return;
+    }
+
+    if (!authToken || !profile?.id) {
+      setSlotsByDay((prev) =>
+        [...prev, {
+          isoDate,
+          dayLabel: moment(isoDate).format("ddd"),
+          dateLabel: moment(isoDate).format("MMM D"),
+          shortDateLabel: moment(isoDate).format("D"),
+          slots: [],
+        }].sort((a, b) => moment(a.isoDate).valueOf() - moment(b.isoDate).valueOf()),
+      );
+      setSelectedDate(isoDate);
+      setPendingSelectedDate(null);
+      return;
+    }
+
+    setDatePickerLoading(true);
+    try {
+      const response = (await fetchAvailableLessons({
+        token: authToken,
+        coach_id: Number(profile.id),
+        start_date: isoDate,
+        end_date: isoDate,
+      })) as AvailableLessonsResponse & { data?: Lesson[] };
+      const availability = Array.isArray(response?.availability) ? response.availability : [];
+      const slots = availability
+        .flatMap((day) =>
+          (day.slots ?? []).map((slot, index) => mapAvailabilitySlotToLoadedSlot(day, slot, index, privatePriceLabel)),
+        )
+        .concat(
+          Array.isArray(response?.data)
+            ? response.data.map((lesson) => mapAvailableLessonToSlot(lesson))
+            : [],
+        )
+        .filter((slot): slot is LoadedSlot => Boolean(slot))
+        .sort((a, b) => moment(a.start).valueOf() - moment(b.start).valueOf());
+
+      setSlotsByDay((prev) =>
+        [...prev.filter((day) => day.isoDate !== isoDate), {
+          isoDate,
+          dayLabel: moment(isoDate).format("ddd"),
+          dateLabel: moment(isoDate).format("MMM D"),
+          shortDateLabel: moment(isoDate).format("D"),
+          slots,
+        }].sort((a, b) => moment(a.isoDate).valueOf() - moment(b.isoDate).valueOf()),
+      );
+      setSelectedDate(isoDate);
+    } catch {
+      setSlotsByDay((prev) =>
+        [...prev.filter((day) => day.isoDate !== isoDate), {
+          isoDate,
+          dayLabel: moment(isoDate).format("ddd"),
+          dateLabel: moment(isoDate).format("MMM D"),
+          shortDateLabel: moment(isoDate).format("D"),
+          slots: [],
+        }].sort((a, b) => moment(a.isoDate).valueOf() - moment(b.isoDate).valueOf()),
+      );
+      setSelectedDate(isoDate);
+    } finally {
+      setPendingSelectedDate(null);
+      setDatePickerLoading(false);
+    }
+  };
 
   const renderBookingPanel = (variant: "mobile" | "desktop") => (
     <aside className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}`}>
       <div className="coach-profile-price-card coach-profile-booking-block">
         <div className="coach-profile-price-card__row">
-          <div>
+          <div className="coach-profile-price-card__value">
             <p className="coach-profile-price-card__eyebrow">from</p>
             <h3>{privatePriceLabel}</h3>
             <p className="coach-profile-price-card__unit">/hr private</p>
@@ -1086,15 +1378,14 @@ const CoachProfilePage = () => {
             <input
               type="date"
               onChange={(event) => {
-                setSelectedDate(event.target.value);
-                setShowDatePicker(false);
+                void handleDateSelection(event.target.value);
               }}
             />
           </div>
         ) : null}
 
-        {scheduleLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
-        {!scheduleLoading && visibleSlots.length > 0 ? (
+        {scheduleLoading || datePickerLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
+        {!scheduleLoading && !datePickerLoading && visibleSlots.length > 0 ? (
           <div className="coach-slot-list coach-slot-list--aside">
             {visibleSlots.map((slot) =>
               slot.type === "private" ? (
@@ -1105,7 +1396,7 @@ const CoachProfilePage = () => {
                     </p>
                     <div className="coach-slot__meta">
                       <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                      <span>{slot.court}</span>
+                      <span className="coach-slot__meta-location">{slot.court}</span>
                       <span>{slot.durationLabel}</span>
                     </div>
                   </div>
@@ -1153,7 +1444,7 @@ const CoachProfilePage = () => {
           </div>
         ) : null}
 
-        {!scheduleLoading && visibleSlots.length === 0 ? (
+        {!scheduleLoading && !datePickerLoading && visibleSlots.length === 0 ? (
           <div className="coach-empty-card coach-empty-card--purple">
             <strong>No lessons for this filter</strong>
             <p>
@@ -1293,18 +1584,21 @@ const CoachProfilePage = () => {
                   </div>
                   <div className="coach-profile-hero-v2__copy">
                     <div className="coach-profile-hero-v2__header">
-                      <div>
+                      <div className="coach-profile-hero-v2__header-copy">
                         <h1>{coachName}</h1>
                         <p className="coach-profile-hero-v2__title">{coachTitle}</p>
                       </div>
-                      <button
-                        type="button"
-                        className="coach-profile-top-action coach-profile-top-action--outline"
-                        onClick={handleMessageCoach}
-                        disabled={!smsHref}
-                      >
-                        <MessageCircle size={16} /> Message
-                      </button>
+                      <div className="coach-profile-hero-v2__actions">
+                        <button
+                          type="button"
+                          className="coach-profile-top-action coach-profile-top-action--outline"
+                          onClick={handleMessageCoach}
+                          disabled={!smsHref}
+                        >
+                          <MessageCircle size={16} /> Message
+                        </button>
+                        <span className="coach-profile-hero-v2__location-note">{heroLocationLabel}</span>
+                      </div>
                     </div>
                     <div className="coach-profile-hero-v2__chips">
                       {certifications.map((item) => (
@@ -1315,13 +1609,13 @@ const CoachProfilePage = () => {
                     </div>
                     <div className="coach-profile-hero-v2__stats">
                       <span>
-                        <MapPin size={14} /> {primaryLocationLabel}
+                        <MapPin size={14} /> {distanceLabel ? `${distanceLabel} away` : heroLocationLabel}
+                      </span>
+                      <span>
+                        <Clock3 size={14} /> {experienceLabel} exp
                       </span>
                       <span>
                         <Users size={14} /> {studentsLabel}
-                      </span>
-                      <span>
-                        <Clock3 size={14} /> {experienceLabel}
                       </span>
                     </div>
                     <p className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
@@ -1355,7 +1649,7 @@ const CoachProfilePage = () => {
                 </div>
                 <div className="coach-detail-grid">
                   <article className="coach-detail-card">
-                    <Clock3 size={18} />
+                    <CalendarDays size={18} />
                     <span>Experience</span>
                     <strong>{experienceLabel}</strong>
                   </article>
@@ -1401,7 +1695,7 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
                   <div>
-                    <h3>Levels</h3>
+                    <h3>Player levels</h3>
                     <div className="coach-chip-row">
                       {levels.map((item) => (
                         <span key={item} className="coach-profile-pill coach-profile-pill--purple">
@@ -1411,9 +1705,9 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
                   <div>
-                    <h3>Formats</h3>
+                    <h3>Lesson formats</h3>
                     <div className="coach-chip-row">
-                      {(bookingLessonTypes.length ? bookingLessonTypes.map((item) => item.label) : ["Private lesson", "Group lesson"]).map((item) => (
+                      {lessonFormatLabels.map((item) => (
                         <span key={item} className="coach-profile-pill coach-profile-pill--blue">
                           {item}
                         </span>
