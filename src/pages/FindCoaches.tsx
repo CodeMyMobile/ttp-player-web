@@ -826,13 +826,13 @@ const FindCoaches = () => {
                 <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
                   Find my coach →
                 </button>
-                <button
+                {/* <button
                   type="button"
                   className="fcv2-coach-match-banner__secondary"
                   onClick={() => navigate("/coach-match/recommendations")}
                 >
                   Explore recommended coaches
-                </button>
+                </button> */}
               </div>
             </div>
           </section>
@@ -917,13 +917,13 @@ const FindCoaches = () => {
                   <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
                     Find my coach →
                   </button>
-                  <button
+                  {/* <button
                     type="button"
                     className="fcv2-coach-match-banner__secondary"
                     onClick={() => navigate("/coach-match/recommendations")}
                   >
                     Explore recommended coaches
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </section>
