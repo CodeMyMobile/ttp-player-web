@@ -1550,7 +1550,7 @@ const CoachProfilePage = () => {
     <MainLayout>
       <div className="coach-profile-page">
         <div className="coach-profile-shell coach-profile-shell--layout">
-          <JoinMyRosterBanner
+          {/* <JoinMyRosterBanner
             coachName={coachName}
             rosterStatus={rosterStatus}
             canRequest={Boolean(authToken)}
@@ -1560,7 +1560,7 @@ const CoachProfilePage = () => {
             joinSuccess={requestJoinSuccess}
             rosterError={rosterError ?? undefined}
             rosterLoading={rosterLoading}
-          />
+          /> */}
 
           <div className="coach-profile-layout-v2">
             <div className="coach-profile-main-v2">
