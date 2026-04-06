@@ -1221,19 +1221,21 @@ const FindCoaches = () => {
                         </div>
                       </div>
 
-                      <div
-                        className={[
-                          "coach-match-card__score-badge",
-                          hasStrongMatch ? "is-strong" : "",
-                          hasMidMatch ? "is-mid" : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        <Sparkles size={14} />
-                        <strong>{matchPercent}%</strong>
-                        <span>match</span>
-                      </div>
+                      {matchPercent > 0 ? (
+                        <div
+                          className={[
+                            "coach-match-card__score-badge",
+                            hasStrongMatch ? "is-strong" : "",
+                            hasMidMatch ? "is-mid" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <Sparkles size={14} />
+                          <strong>{matchPercent}%</strong>
+                          <span>match</span>
+                        </div>
+                      ) : null}
 
                       <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
                     </div>
