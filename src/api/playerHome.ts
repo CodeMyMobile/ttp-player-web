@@ -499,6 +499,15 @@ export const submitCoachMatchSurveyAnswers = async ({
     body: surveyAnswers,
   });
 
+export const clearCoachMatchSurveyAnswers = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/surveys/coach-match/clear-all", {
+    method: "DELETE",
+    token,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+    },
+  });
+
 export const getCoachMatchRecommendations = async ({
   token,
   perPage = 10,

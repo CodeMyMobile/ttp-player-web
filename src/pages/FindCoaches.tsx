@@ -17,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
 import {
+  clearCoachMatchSurveyAnswers,
   getCoachMatchSurveyQuestions,
   submitCoachMatchSurveyAnswers,
 } from "../api/playerHome";
@@ -545,6 +546,7 @@ const FindCoaches = () => {
   const [coachMatchQuestions, setCoachMatchQuestions] = useState<NormalizedSurveyQuestion[]>([]);
   const [coachMatchLoading, setCoachMatchLoading] = useState(false);
   const [coachMatchSubmitting, setCoachMatchSubmitting] = useState(false);
+  const [coachMatchClearing, setCoachMatchClearing] = useState(false);
   const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
   const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
   const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
@@ -652,11 +654,6 @@ const FindCoaches = () => {
 
     await loadCoachMatchQuestions({ showLoader: true, surfaceError: true });
   }, [coachMatchLoading, coachMatchQuestions.length, loadCoachMatchQuestions, playerToken]);
-
-  const clearCoachMatchSummary = useCallback(() => {
-    setCoachMatchSummaryDismissed(true);
-    setCoachMatchSubmitted(false);
-  }, []);
 
   useEffect(() => {
     if (!location.state || typeof location.state !== "object") {
@@ -831,6 +828,30 @@ const FindCoaches = () => {
     fetchCoaches();
   }, [fetchCoaches]);
 
+  const clearCoachMatchSummary = useCallback(async () => {
+    if (!playerToken || coachMatchClearing) return;
+
+    setCoachMatchClearing(true);
+    setCoachMatchError(null);
+
+    try {
+      await clearCoachMatchSurveyAnswers({ token: playerToken });
+      setCoachMatchQuestions([]);
+      setCoachMatchSummaryDismissed(true);
+      setCoachMatchSubmitted(false);
+      await loadCoachMatchQuestions();
+      await fetchCoaches();
+    } catch (requestError) {
+      setCoachMatchError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't clear your coach match answers right now.",
+      );
+    } finally {
+      setCoachMatchClearing(false);
+    }
+  }, [coachMatchClearing, fetchCoaches, loadCoachMatchQuestions, playerToken]);
+
   const handleSearch = () => {
     const trimmed = searchTerm.trim();
     setMode("normal");
@@ -944,7 +965,7 @@ const FindCoaches = () => {
             Edit ✏️
           </button>
           <button type="button" className="fcv2-coach-match-summary__clear" onClick={clearCoachMatchSummary}>
-            Clear
+            {coachMatchClearing ? "Clearing..." : "Clear"}
           </button>
         </div>
       </section>
