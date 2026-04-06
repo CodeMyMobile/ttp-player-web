@@ -170,6 +170,23 @@
   box-shadow: 0 20px 42px rgba(15, 23, 42, 0.08);
 }
 
+.coach-match-card--find {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.coach-match-card--find:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+}
+
 .coach-match-card--skeleton {
   min-height: 320px;
   background:
@@ -183,6 +200,24 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.coach-match-card__head {
+  position: relative;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-match-card__identity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.coach-match-card__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .coach-match-card__profile {
@@ -204,6 +239,121 @@
   justify-content: center;
   font-size: 20px;
   font-weight: 800;
+}
+
+.coach-match-card__avatar-image,
+.coach-match-card__avatar-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.coach-match-card__avatar-image {
+  display: block;
+  background: #e2e8f0;
+}
+
+.coach-match-card__verified-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.coach-match-card__identity-copy {
+  flex: 1;
+  min-width: 0;
+  padding-right: 72px;
+}
+
+.coach-match-card__identity-copy h2 {
+  margin: 0 0 4px;
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.coach-match-card__certifications {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.coach-match-card__certifications span {
+  padding: 2px 8px;
+  border: 1px solid #ddd6fe;
+  border-radius: 6px;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.coach-match-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.coach-match-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #d97706;
+  font-weight: 800;
+}
+
+.coach-match-card__stats-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.coach-match-card__price {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.coach-match-card__price strong {
+  display: block;
+  color: #1e293b;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.coach-match-card__price span {
+  display: block;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.coach-match-card__price em {
+  display: block;
+  margin-top: 2px;
+  color: #7c3aed;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .coach-match-card__profile h2 {
@@ -229,6 +379,46 @@
   color: #0f766e;
 }
 
+.coach-match-card__score-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  min-width: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.coach-match-card__score-badge.is-mid {
+  border-color: #ddd6fe;
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.coach-match-card__score-badge.is-strong {
+  border-color: #bbf7d0;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.coach-match-card__score-badge strong {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.coach-match-card__score-badge span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .coach-match-card__score strong {
   font-size: 28px;
   line-height: 1;
@@ -247,10 +437,27 @@
   line-height: 1.6;
 }
 
+.coach-match-card--find .coach-match-card__bio {
+  display: -webkit-box;
+  overflow: hidden;
+  padding-right: 72px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .coach-match-card__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.coach-match-card--find .coach-match-card__chips {
+  gap: 6px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .coach-match-card__chips span {
@@ -260,6 +467,21 @@
   color: #0f172a;
   font-size: 12px;
   font-weight: 700;
+}
+
+.coach-match-card__chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.coach-match-card__chip--format {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .coach-match-card__meta-grid {
@@ -295,6 +517,13 @@
   background: #f8fafc;
 }
 
+.coach-match-card--find .coach-match-card__breakdown {
+  padding: 12px 20px;
+  border-radius: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
 .coach-match-card__breakdown-title {
   display: flex;
   align-items: center;
@@ -305,10 +534,40 @@
   font-weight: 800;
 }
 
+.coach-match-card--find .coach-match-card__breakdown-title {
+  margin-bottom: 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .coach-match-card__breakdown ul {
   margin: 0;
   padding-left: 18px;
   color: #334155;
+}
+
+.coach-match-card--find .coach-match-card__breakdown ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.coach-match-card--find .coach-match-card__breakdown li {
+  position: relative;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.coach-match-card--find .coach-match-card__breakdown li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #7c3aed;
+  font-weight: 800;
 }
 
 .coach-match-card__breakdown li + li {
@@ -322,10 +581,62 @@
   gap: 16px;
 }
 
+.coach-match-card--find .coach-match-card__footer {
+  margin-top: auto;
+  padding: 14px 20px 18px;
+}
+
 .coach-match-card__courts {
   color: #475569;
   font-size: 13px;
   font-weight: 600;
+}
+
+.coach-match-card__availability {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.coach-match-card__availability-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.coach-match-card__availability-dot.is-open {
+  background: #22c55e;
+}
+
+.coach-match-card__availability strong,
+.coach-match-card__availability span {
+  display: block;
+}
+
+.coach-match-card__availability strong {
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coach-match-card__availability span {
+  overflow: hidden;
+  max-width: 100%;
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.coach-match-card__action--ghost {
+  min-height: auto;
+  padding: 9px 18px;
+  border: 1.5px solid #8b5cf6;
+  background: #fff;
+  color: #8b5cf6;
 }
 
 .coach-match-page__pagination {
@@ -385,11 +696,49 @@
     padding: 18px;
   }
 
+  .coach-match-card--find {
+    padding: 0;
+  }
+
   .coach-match-page__state-actions {
     width: 100%;
   }
 
   .coach-match-card__meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .coach-match-card--find .coach-match-card__head {
+    padding: 18px 16px 14px;
+  }
+
+  .coach-match-card__identity-row,
+  .coach-match-card--find .coach-match-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .coach-match-card__identity-copy,
+  .coach-match-card--find .coach-match-card__bio {
+    padding-right: 0;
+  }
+
+  .coach-match-card__score-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: auto;
+    margin-bottom: 0;
+  }
+
+  .coach-match-card--find .coach-match-card__chips,
+  .coach-match-card--find .coach-match-card__breakdown,
+  .coach-match-card--find .coach-match-card__footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .coach-match-card__action--ghost {
+    width: 100%;
   }
 }
