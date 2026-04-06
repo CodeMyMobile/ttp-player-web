@@ -31,6 +31,8 @@ import {
 import {
   buildSurveySubmissionPayload,
   extractSurveyQuestions,
+  formatSurveyAnswer,
+  hasSurveyAnswer,
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
 
@@ -63,6 +65,11 @@ type CoachCardModel = Coach & {
 };
 
 const DEFAULT_RADIUS = 10;
+
+type CoachMatchSummaryItem = {
+  label: string;
+  value: string;
+};
 
 const getInitialSelectedLocation = (): SelectedLocation | null => {
   const storedLocation = getStoredLocation();
@@ -412,6 +419,45 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   };
 };
 
+const findCoachMatchQuestion = (
+  questions: NormalizedSurveyQuestion[],
+  matcher: (question: NormalizedSurveyQuestion) => boolean,
+) => questions.find(matcher);
+
+const getCoachMatchSummaryItems = (questions: NormalizedSurveyQuestion[]): CoachMatchSummaryItem[] => {
+  const answeredQuestions = questions.filter((question) => hasSurveyAnswer(question));
+  if (answeredQuestions.length === 0) return [];
+
+  const getValue = (matcher: (question: NormalizedSurveyQuestion) => boolean) => {
+    const question = findCoachMatchQuestion(answeredQuestions, matcher);
+    return question ? formatSurveyAnswer(question).trim() : "";
+  };
+
+  return [
+    { label: "Who", value: "Myself" },
+    {
+      label: "Level",
+      value: getValue((question) => question.questionText.toLowerCase().includes("current level")),
+    },
+    {
+      label: "Goals",
+      value: getValue((question) => question.questionText.toLowerCase().includes("want to improve")),
+    },
+    {
+      label: "Format",
+      value: getValue((question) => question.questionText.toLowerCase().includes("prefer to learn")),
+    },
+    {
+      label: "When",
+      value: getValue((question) => question.questionText.toLowerCase().includes("usually free")),
+    },
+    {
+      label: "Budget",
+      value: getValue((question) => question.questionText.toLowerCase().includes("budget per lesson")),
+    },
+  ].filter((item) => item.value);
+};
+
 const FindCoaches = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -447,6 +493,7 @@ const FindCoaches = () => {
   const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
   const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
   const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
+  const [coachMatchSummaryDismissed, setCoachMatchSummaryDismissed] = useState(false);
   const [locationPermissionPrompt, setLocationPermissionPrompt] = useState<string | null>(null);
   const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
   const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(() => Boolean(getStoredLocation()));
@@ -508,31 +555,53 @@ const FindCoaches = () => {
     );
   }, [applyLocationFilter]);
 
+  const loadCoachMatchQuestions = useCallback(
+    async ({ showLoader = false, surfaceError = false }: { showLoader?: boolean; surfaceError?: boolean } = {}) => {
+      if (!playerToken) return [];
+
+      if (showLoader) setCoachMatchLoading(true);
+      if (surfaceError) setCoachMatchError(null);
+
+      try {
+        const response = await getCoachMatchSurveyQuestions({ token: playerToken });
+        const questions = extractSurveyQuestions(response);
+        setCoachMatchQuestions(questions);
+        return questions;
+      } catch (requestError) {
+        if (surfaceError) {
+          setCoachMatchError(
+            requestError instanceof Error
+              ? requestError.message
+              : "We couldn't load the coach match questionnaire right now.",
+          );
+        }
+        return [];
+      } finally {
+        if (showLoader) setCoachMatchLoading(false);
+      }
+    },
+    [playerToken],
+  );
+
   const openCoachMatchSurvey = useCallback(async () => {
     if (!playerToken || coachMatchLoading) return;
 
     setShowCoachMatchSurvey(true);
     setCoachMatchError(null);
     setCoachMatchSubmitted(false);
+    setCoachMatchSummaryDismissed(false);
 
     if (coachMatchQuestions.length > 0) {
       return;
     }
 
-    setCoachMatchLoading(true);
-    try {
-      const response = await getCoachMatchSurveyQuestions({ token: playerToken });
-      setCoachMatchQuestions(extractSurveyQuestions(response));
-    } catch (requestError) {
-      setCoachMatchError(
-        requestError instanceof Error
-          ? requestError.message
-          : "We couldn't load the coach match questionnaire right now.",
-      );
-    } finally {
-      setCoachMatchLoading(false);
-    }
-  }, [coachMatchLoading, coachMatchQuestions.length, playerToken]);
+    await loadCoachMatchQuestions({ showLoader: true, surfaceError: true });
+  }, [coachMatchLoading, coachMatchQuestions.length, loadCoachMatchQuestions, playerToken]);
+
+  const clearCoachMatchSummary = useCallback(() => {
+    setCoachMatchSummaryDismissed(true);
+    setCoachMatchSubmitted(false);
+  }, []);
 
   useEffect(() => {
     if (!location.state || typeof location.state !== "object") {
@@ -563,6 +632,8 @@ const FindCoaches = () => {
           token: playerToken,
           surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
         });
+        await loadCoachMatchQuestions();
+        setCoachMatchSummaryDismissed(false);
         setCoachMatchSubmitted(true);
       } catch (requestError) {
         setCoachMatchError(
@@ -574,7 +645,7 @@ const FindCoaches = () => {
         setCoachMatchSubmitting(false);
       }
     },
-    [coachMatchQuestions, coachMatchSubmitting, playerToken],
+    [coachMatchQuestions, coachMatchSubmitting, loadCoachMatchQuestions, playerToken],
   );
 
   useEffect(() => {
@@ -585,6 +656,15 @@ const FindCoaches = () => {
     if (getStoredLocation()) return;
     requestCurrentLocation();
   }, [requestCurrentLocation]);
+
+  useEffect(() => {
+    if (!playerToken) {
+      setCoachMatchQuestions([]);
+      return;
+    }
+
+    void loadCoachMatchQuestions();
+  }, [loadCoachMatchQuestions, playerToken]);
 
   const fetchCoaches = useCallback(async () => {
     if (!playerToken) {
@@ -774,6 +854,12 @@ const FindCoaches = () => {
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
 
   const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
+  const coachMatchSummaryItems = useMemo(
+    () => getCoachMatchSummaryItems(coachMatchQuestions),
+    [coachMatchQuestions],
+  );
+  const shouldShowCoachMatchSummary =
+    !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
   const resultsCountLabel =
     status === "loading"
       ? "Finding coaches..."
@@ -782,6 +868,42 @@ const FindCoaches = () => {
         : shouldShowEmpty
           ? "No coaches found"
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
+  const renderCoachMatchPanel = () =>
+    shouldShowCoachMatchSummary ? (
+      <section className="fcv2-coach-match-summary" aria-label="Matched for you">
+        <span className="fcv2-coach-match-summary__title">🎾 Matched for you</span>
+        {coachMatchSummaryItems.map((item) => (
+          <div key={item.label} className="fcv2-coach-match-summary__pill">
+            <span className="fcv2-coach-match-summary__pill-label">{item.label}</span>
+            <span className="fcv2-coach-match-summary__pill-separator">·</span>
+            <span className="fcv2-coach-match-summary__pill-value">{item.value}</span>
+          </div>
+        ))}
+        <div className="fcv2-coach-match-summary__actions">
+          <button type="button" className="fcv2-coach-match-summary__edit" onClick={openCoachMatchSurvey}>
+            Edit ✏️
+          </button>
+          <button type="button" className="fcv2-coach-match-summary__clear" onClick={clearCoachMatchSummary}>
+            Clear
+          </button>
+        </div>
+      </section>
+    ) : (
+      <section className="fcv2-coach-match-banner" aria-label="Find my coach">
+        <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
+        <div className="fcv2-coach-match-banner__content">
+          <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
+          <div className="fcv2-coach-match-banner__copy">
+            Answer 5 quick questions and we&apos;ll find your best match.
+          </div>
+          <div className="fcv2-coach-match-banner__actions">
+            <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
+              Find my coach →
+            </button>
+          </div>
+        </div>
+      </section>
+    );
 
   return (
     <MainLayout>
@@ -837,27 +959,7 @@ const FindCoaches = () => {
             </section>
           ) : null}
 
-          <section className="fcv2-coach-match-banner" aria-label="Find my coach">
-            <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
-            <div className="fcv2-coach-match-banner__content">
-              <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
-              <div className="fcv2-coach-match-banner__copy">
-                Answer 5 quick questions and we&apos;ll find your best match.
-              </div>
-              <div className="fcv2-coach-match-banner__actions">
-                <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
-                  Find my coach →
-                </button>
-                {/* <button
-                  type="button"
-                  className="fcv2-coach-match-banner__secondary"
-                  onClick={() => navigate("/coach-match/recommendations")}
-                >
-                  Explore recommended coaches
-                </button> */}
-              </div>
-            </div>
-          </section>
+          {renderCoachMatchPanel()}
 
           <FilterMenu
             onFilterChange={handleFilterChange}
@@ -928,27 +1030,7 @@ const FindCoaches = () => {
               </section>
             ) : null}
 
-            <section className="fcv2-coach-match-banner" aria-label="Find my coach">
-              <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
-              <div className="fcv2-coach-match-banner__content">
-                <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
-                <div className="fcv2-coach-match-banner__copy">
-                  Answer 5 quick questions and we&apos;ll find your best match.
-                </div>
-                <div className="fcv2-coach-match-banner__actions">
-                  <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
-                    Find my coach →
-                  </button>
-                  {/* <button
-                    type="button"
-                    className="fcv2-coach-match-banner__secondary"
-                    onClick={() => navigate("/coach-match/recommendations")}
-                  >
-                    Explore recommended coaches
-                  </button> */}
-                </div>
-              </div>
-            </section>
+            {renderCoachMatchPanel()}
             <FilterMenu
               onFilterChange={handleFilterChange}
               userPos={{

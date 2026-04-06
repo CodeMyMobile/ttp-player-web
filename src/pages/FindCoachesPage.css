@@ -97,6 +97,83 @@
   background: #ede9fe;
 }
 
+.fcv2-coach-match-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 8px 14px;
+  border: 1.5px solid #ddd6fe;
+  border-radius: 10px;
+  background: #ede9fe;
+}
+
+.fcv2-coach-match-summary__title {
+  margin-right: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #7c3aed;
+}
+
+.fcv2-coach-match-summary__pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid #ddd6fe;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.fcv2-coach-match-summary__pill-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.fcv2-coach-match-summary__pill-separator {
+  font-size: 10px;
+  color: #ddd6fe;
+}
+
+.fcv2-coach-match-summary__pill-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.fcv2-coach-match-summary__actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.fcv2-coach-match-summary__edit {
+  padding: 4px 10px;
+  border: 1px solid #ddd6fe;
+  border-radius: 6px;
+  background: #fff;
+  color: #7c3aed;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fcv2-coach-match-summary__clear {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .fcv2-location-permission-banner {
   display: flex;
   align-items: center;
@@ -933,12 +1010,17 @@
   }
 
   .fcv2-mobile-search-block .fcv2-location-permission-banner,
-  .fcv2-mobile-search-block .fcv2-coach-match-banner {
+  .fcv2-mobile-search-block .fcv2-coach-match-banner,
+  .fcv2-mobile-search-block .fcv2-coach-match-summary {
     margin-top: 10px;
     margin-bottom: 0;
   }
 
   .fcv2-mobile-search-block .fcv2-coach-match-banner {
+    padding: 12px;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-summary {
     padding: 12px;
   }
 
@@ -952,9 +1034,19 @@
     flex-direction: column;
   }
 
+  .fcv2-mobile-search-block .fcv2-coach-match-summary__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .fcv2-mobile-search-block .fcv2-coach-match-banner__button,
   .fcv2-mobile-search-block .fcv2-coach-match-banner__secondary {
     width: 100%;
+  }
+
+  .fcv2-mobile-search-block .fcv2-coach-match-summary__edit,
+  .fcv2-mobile-search-block .fcv2-coach-match-summary__clear {
+    flex: 1 1 0;
   }
 
   .fcv2-mobile-search-input {
