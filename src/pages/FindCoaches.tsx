@@ -123,6 +123,42 @@ const parseNumberValue = (value: unknown): number | null => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  zh: "Chinese",
+};
+
+const toTitleCase = (value: string) =>
+  value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const normalizeDisplayLabel = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) return "";
+
+  const lower = normalized.toLowerCase();
+  if (LANGUAGE_LABELS[lower]) return LANGUAGE_LABELS[lower];
+  if (lower === "semi") return "Semi-Private";
+  if (lower === "semi private") return "Semi-Private";
+  if (lower === "weekday_mornings") return "Weekday Mornings";
+  if (lower === "weekday_afternoons") return "Weekday Afternoons";
+  if (lower === "weekday_evenings") return "Weekday Evenings";
+
+  return toTitleCase(normalized);
+};
+
+const normalizeDisplayArray = (values: string[]) =>
+  values
+    .map((value) => normalizeDisplayLabel(value))
+    .filter(Boolean);
+
 const formatMoney = (value: unknown) => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? `$${numeric.toFixed(0)}` : null;
@@ -179,7 +215,9 @@ const buildInitials = (name: string) =>
 
 const deriveFormats = (record: Record<string, unknown>) => {
   const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
-  const formats = toStringArray(record.formats ?? record.lesson_formats ?? record.lesson_types);
+  const formats = normalizeDisplayArray(
+    toStringArray(record.formats ?? record.lesson_formats ?? record.lesson_types),
+  );
   if (formats.length > 0) return formats;
   const result = ["Private"];
   if (
@@ -193,8 +231,10 @@ const deriveFormats = (record: Record<string, unknown>) => {
 };
 
 const deriveAvailabilityWindows = (record: Record<string, unknown>) => {
-  const explicit = toStringArray(
-    record.availability_windows ?? record.availability_labels ?? record.available_times ?? record.availability,
+  const explicit = normalizeDisplayArray(
+    toStringArray(
+      record.availability_windows ?? record.availability_labels ?? record.available_times ?? record.availability,
+    ),
   );
   if (explicit.length > 0) return explicit;
   return ["Weekday Mornings", "Weekends"];
@@ -254,12 +294,15 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     bio: pickFirstString(profile.about, coach.bio) || coach.bio,
     summary: pickFirstString(profile.about, coach.summary) || coach.summary,
     yearsExperience: parseNumberValue(profile.experienceYears ?? profile.experience_years) ?? coach.yearsExperience,
-    certifications: toStringArray(profile.certifications),
-    specialties: toStringArray(profile.specialties),
+    certifications: normalizeDisplayArray(toStringArray(profile.certifications)),
+    specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
     courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
-    levels: toStringArray(profile.levels),
-    formats: lessonTypeLabels.length > 0 ? lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")) : coach.formats,
-    languages: toStringArray(profile.languages),
+    levels: normalizeDisplayArray(toStringArray(profile.levels)),
+    formats:
+      lessonTypeLabels.length > 0
+        ? normalizeDisplayArray(lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")))
+        : coach.formats,
+    languages: normalizeDisplayArray(toStringArray(profile.languages)),
     availability: availabilityWindows[0] || coach.availability,
     availabilityWindows: availabilityWindows.length > 0 ? availabilityWindows : coach.availabilityWindows,
     lessonRates: {
@@ -277,7 +320,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     studentCount: studentCount ?? coach.studentCount,
     tags:
       toStringArray(profile.specialties).length > 0
-        ? toStringArray(profile.specialties).slice(0, 3)
+        ? normalizeDisplayArray(toStringArray(profile.specialties)).slice(0, 3)
         : coach.tags,
   };
 };
@@ -285,6 +328,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
 const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: number): CoachCardModel => {
   const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
   const recommendation = (record.recommendation as Record<string, unknown> | undefined) ?? {};
+  const recommendationPrices = (recommendation.prices as Record<string, unknown> | undefined) ?? {};
   const primaryLocation = (record.primary_location as Record<string, unknown> | undefined) ?? undefined;
   const locationRecords = Array.isArray(record.locations)
     ? (record.locations as Array<Record<string, unknown>>)
@@ -294,7 +338,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   const displayName =
     pickFirstString(record.full_name, record.fullName, record.name, record.coach_name, record.coachName) ||
     `Coach ${fallbackIndex + 1}`;
-  const certifications = toStringArray(record.certifications ?? record.certification ?? []);
+  const certifications = normalizeDisplayArray(toStringArray(record.certifications ?? record.certification ?? []));
   const locations = locationRecords
     .map((location) => pickFirstString(location.label, location.name, location.title))
     .filter(Boolean);
@@ -309,12 +353,23 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
       record.club_name,
     ) || locations[0] || "Multiple locations";
   const hourlyRate = parseNumberValue(
-    record.hourly_rate ?? pricing.hourly ?? pricing.private ?? record.price_per_hour ?? record.hourlyRate ?? record.rate,
+    record.hourly_rate ??
+      record.price_private ??
+      pricing.hourly ??
+      pricing.private ??
+      recommendationPrices.private ??
+      record.price_per_hour ??
+      record.hourlyRate ??
+      record.rate,
   );
   const hourlyRateDisplay =
     hourlyRate !== null ? `$${hourlyRate.toFixed(0)}` : "$0";
-  const groupRateValue = parseNumberValue(record.group_rate ?? pricing.group ?? pricing.group_price ?? record.price_group);
-  const semiRateValue = parseNumberValue(record.price_semi ?? pricing.semi ?? pricing.semi_private);
+  const groupRateValue = parseNumberValue(
+    record.group_rate ?? pricing.group ?? pricing.group_price ?? recommendationPrices.group ?? record.price_group,
+  );
+  const semiRateValue = parseNumberValue(
+    record.price_semi ?? pricing.semi ?? pricing.semi_private ?? recommendationPrices.semi,
+  );
   const groupRateDisplay =
     groupRateValue !== null ? `$${groupRateValue.toFixed(0)}` : "";
   const summary =
@@ -332,11 +387,11 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
       record.years_experience ?? record.experience_years ?? record.yearsExperience ?? record.experience,
     ) ?? 0;
   const courts = locations.length > 0 ? locations : toStringArray(record.courts ?? record.venues ?? []);
-  const levels = toStringArray(record.levels ?? record.focus_levels ?? record.skill_levels ?? []);
-  const specialties = toStringArray(
+  const levels = normalizeDisplayArray(toStringArray(record.levels ?? record.focus_levels ?? record.skill_levels ?? []));
+  const specialties = normalizeDisplayArray(toStringArray(
     record.specialties ?? record.speciality ?? record.specialty ?? record.tags ?? [],
-  );
-  const languages = toStringArray(record.languages ?? record.language ?? []);
+  ));
+  const languages = normalizeDisplayArray(toStringArray(record.languages ?? record.language ?? []));
   const availabilityWindows = deriveAvailabilityWindows(record);
   const availabilitySummary = availabilityWindows[0] || "Availability on request";
   const nextLessonDay = availabilityWindows[0] || "Availability";
@@ -864,6 +919,7 @@ const FindCoaches = () => {
     () => Math.max(...filteredCoaches.map((coach) => coach.matchScore), 1),
     [filteredCoaches],
   );
+  const shouldNormalizeCoachScores = coachMatchMaxScore <= 25;
   const resultsCountLabel =
     status === "loading"
       ? "Finding coaches..."
@@ -1082,7 +1138,9 @@ const FindCoaches = () => {
           {shouldShowResults ? (
             <section className="fcv2-grid coach-match-page__grid">
               {filteredCoaches.map((coach) => {
-                const matchPercent = Math.round((coach.matchScore / coachMatchMaxScore) * 100);
+                const matchPercent = shouldNormalizeCoachScores
+                  ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
+                  : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
                 const hasStrongMatch = matchPercent >= 80;
                 const hasMidMatch = matchPercent >= 50 && matchPercent < 80;
                 const chipValues = [
