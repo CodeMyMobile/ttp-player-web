@@ -1110,14 +1110,6 @@ const FindCoaches = () => {
                         <div className="coach-match-card__identity-copy">
                           <h2>{coach.name}</h2>
 
-                          {coach.certifications.length > 0 ? (
-                            <div className="coach-match-card__certifications">
-                              {coach.certifications.slice(0, 2).map((certification) => (
-                                <span key={`${coach.id}-${certification}`}>{certification}</span>
-                              ))}
-                            </div>
-                          ) : null}
-
                           <div className="coach-match-card__stats">
                             <span className="coach-match-card__rating">
                               <Star size={13} fill="currentColor" />
@@ -1128,11 +1120,25 @@ const FindCoaches = () => {
                             <span>{formatDistance(coach.distanceMiles)}</span>
                           </div>
                         </div>
+                      </div>
+
+                      <div className="coach-match-card__price-row">
+                        {coach.certifications.length > 0 ? (
+                          <div className="coach-match-card__certifications">
+                            {coach.certifications.slice(0, 2).map((certification) => (
+                              <span key={`${coach.id}-${certification}`}>{certification}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div />
+                        )}
 
                         <div className="coach-match-card__price">
-                          <strong>{primaryRate || "N/A"}</strong>
-                          <span>/hr</span>
-                          {groupRate ? <em>{groupRate} group</em> : null}
+                          <div className="coach-match-card__price-main">
+                            <span className="coach-match-card__price-currency">$</span>
+                            <strong>{primaryRate ? primaryRate.replace("$", "") : "N/A"}</strong>
+                          </div>
+                          <span>{groupRate ? `/hr · group ${groupRate}` : "/hr"}</span>
                         </div>
                       </div>
 

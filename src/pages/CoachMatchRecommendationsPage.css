@@ -289,7 +289,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .coach-match-card__certifications span {
@@ -330,6 +330,33 @@
 .coach-match-card__price {
   flex-shrink: 0;
   text-align: right;
+}
+
+.coach-match-card__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-match-card__price-row > :first-child {
+  min-width: 0;
+}
+
+.coach-match-card__price-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 1px;
+}
+
+.coach-match-card__price-currency {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .coach-match-card__price strong {
@@ -712,15 +739,70 @@
     padding: 18px 16px 14px;
   }
 
-  .coach-match-card__identity-row,
+  .coach-match-card__identity-row {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 13px;
+    margin-bottom: 14px;
+  }
+
   .coach-match-card--find .coach-match-card__footer {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .coach-match-card__identity-copy,
+  .coach-match-card__avatar-image,
+  .coach-match-card__avatar-fallback {
+    width: 58px;
+    height: 58px;
+  }
+
+  .coach-match-card__verified-badge {
+    width: 18px;
+    height: 18px;
+    right: 0;
+    bottom: 1px;
+    font-size: 9px;
+  }
+
+  .coach-match-card__identity-copy {
+    padding-top: 2px;
+    padding-right: 76px;
+  }
+
+  .coach-match-card__identity-copy h2 {
+    margin-bottom: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .coach-match-card__stats {
+    gap: 5px;
+    flex-wrap: nowrap;
+    font-size: 11px;
+  }
+
+  .coach-match-card__rating {
+    font-size: 12px;
+  }
+
+  .coach-match-card__stats-dot {
+    width: 3px;
+    height: 3px;
+  }
+
   .coach-match-card--find .coach-match-card__bio {
     padding-right: 0;
+  }
+
+  .coach-match-card__price-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .coach-match-card__price strong {
+    font-size: 26px;
   }
 
   .coach-match-card__score-badge {
