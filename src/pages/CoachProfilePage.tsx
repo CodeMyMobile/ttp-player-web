@@ -179,20 +179,6 @@ const LEVEL_OPTIONS = [
   "Competitive",
 ];
 
-const MOCK_PAYMENT_METHODS: PlayerStripePaymentMethod[] = [
-  {
-    id: "mock-visa",
-    card: { brand: "Visa", last4: "4242", exp_month: 12, exp_year: 2028 },
-    billing_details: { name: "Player Default" },
-    is_default: true,
-  },
-  {
-    id: "mock-mastercard",
-    card: { brand: "Mastercard", last4: "4444", exp_month: 8, exp_year: 2027 },
-    billing_details: { name: "Player Backup" },
-  },
-];
-
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
@@ -675,15 +661,21 @@ const CoachProfilePage = () => {
         const methods = Array.isArray(response)
           ? response
           : response?.payment_methods ?? response?.data ?? response?.results ?? [];
-        const nextMethods = methods.length ? methods : MOCK_PAYMENT_METHODS;
-        setPaymentMethods(nextMethods);
-        setSelectedPaymentMethodId(nextMethods.find((item) => item.is_default)?.id ?? nextMethods[0]?.id ?? "");
+        setPaymentMethods(methods);
+        setSelectedPaymentMethodId(methods.find((item) => item.is_default)?.id ?? methods[0]?.id ?? "");
       })
       .catch((err) => {
         if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
-          setPaymentMethods(MOCK_PAYMENT_METHODS);
-          setSelectedPaymentMethodId(MOCK_PAYMENT_METHODS[0].id);
-          setPaymentMethodsError(null);
+          setPaymentMethods([]);
+          setSelectedPaymentMethodId("");
+          const status = (err as Error & { status?: number })?.status;
+          setPaymentMethodsError(
+            status === 402
+              ? "Add a payment method before booking this lesson."
+              : err instanceof Error
+                ? err.message
+                : "Unable to load payment methods.",
+          );
         }
       })
       .finally(() => {
@@ -1159,6 +1151,20 @@ const CoachProfilePage = () => {
   const openPaymentSheet = (choice: "credits" | "card" | "apple-pay" = "card") => {
     if (!isLoggedIn) {
       openAuthPrompt(selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: choice } : undefined);
+      return;
+    }
+
+    if (choice === "card" && !paymentMethodsLoading && paymentMethods.length === 0) {
+      navigate("/settings/payment-methods", {
+        state: {
+          from: {
+            pathname: location.pathname,
+            search: location.search,
+            hash: location.hash,
+            state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+          },
+        },
+      });
       return;
     }
 
@@ -2159,6 +2165,14 @@ const CoachProfilePage = () => {
                   </div>
                 </label>
               </div>
+
+              {paymentChoice === "card" && !paymentMethodsLoading && paymentMethods.length === 0 ? (
+                <div className="coach-payment-modal__empty">
+                  <strong>No payment method on file</strong>
+                  <p>Add a card before booking this lesson.</p>
+                  <Link to="/settings/payment-methods">Add payment method</Link>
+                </div>
+              ) : null}
 
               {paymentChoice === "card" && paymentMethods.length > 0 ? (
                 <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
