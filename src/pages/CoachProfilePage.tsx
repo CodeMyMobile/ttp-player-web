@@ -1,6 +1,6 @@
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Apple,
@@ -193,7 +193,7 @@ const MOCK_PAYMENT_METHODS: PlayerStripePaymentMethod[] = [
   },
 ];
 
-const useCoachProfile = (id?: string) => {
+const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -220,7 +220,7 @@ const useCoachProfile = (id?: string) => {
     setLoading(true);
     setError(undefined);
 
-    fetchCoachProfile(coachId, { signal: controller.signal })
+    fetchCoachProfile(coachId, { signal: controller.signal, token })
       .then((data) => {
         if (!active) return;
         setProfile(data);
@@ -244,7 +244,7 @@ const useCoachProfile = (id?: string) => {
       active = false;
       controller.abort();
     };
-  }, [id]);
+  }, [id, token]);
 
   return { loading, profile, error };
 };
@@ -442,14 +442,17 @@ const downloadIcs = (slot: LoadedSlot, coachName: string) => {
 const CoachProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { loading, profile, error: profileError } = useCoachProfile(id);
-  const authToken =
+  const location = useLocation();
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const rawAuthToken =
     user?.session?.access_token ??
     user?.access_token ??
     user?.token ??
     getStoredAuthToken({ preferScheme: "token" }) ??
     undefined;
+  const authToken = isAuthenticated ? rawAuthToken : undefined;
+  const isLoggedIn = Boolean(isAuthenticated && authToken);
+  const { loading, profile, error: profileError } = useCoachProfile(id, authToken);
 
   const {
     rosterStatus,
@@ -492,11 +495,16 @@ const CoachProfilePage = () => {
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>("");
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
+  const [bookingFocusActive, setBookingFocusActive] = useState(false);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
   const courtsRef = useRef<HTMLElement | null>(null);
   const packagesRef = useRef<HTMLElement | null>(null);
+  const desktopBookingRef = useRef<HTMLElement | null>(null);
+  const mobileBookingRef = useRef<HTMLElement | null>(null);
 
   const coachName = profile?.name ?? profile?.fullName ?? "Coach";
   const coachFirstName = coachName.split(" ")[0] ?? "Coach";
@@ -559,21 +567,57 @@ const CoachProfilePage = () => {
     })();
   const firstBookingKey = `coach-first-booking:${profile?.id ?? "coach"}:${playerId}`;
 
+  const redirectToLogin = (returnState?: Record<string, unknown>) => {
+    navigate("/login", {
+      state: {
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+          state: { focusBookCta: true, ...returnState },
+        },
+      },
+    });
+  };
+
+  const openAuthPrompt = (returnState?: Record<string, unknown>) => {
+    setAuthPromptReturnState({ focusBookCta: true, ...returnState });
+    setAuthPromptOpen(true);
+  };
+
+  const continueToAuth = (mode: "signin" | "signup") => {
+    navigate("/login", {
+      state: {
+        mode,
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+          state: authPromptReturnState ?? { focusBookCta: true },
+        },
+      },
+    });
+  };
+
+  const handlePrivateAuthError = (err: unknown) => {
+    const status = (err as Error & { status?: number })?.status;
+    if (status === 401 || status === 403) {
+      logout?.();
+      redirectToLogin({ reason: "session-expired" });
+      return true;
+    }
+    return false;
+  };
+
   useEffect(() => {
-    if (!profile?.id || !authToken) {
+    if (!profile?.id) {
       setPackages([]);
-      setPackageCredits([]);
-      setCreditsBalance(null);
-      setPaymentMethods([]);
       return;
     }
 
     const controller = new AbortController();
     setPackagesLoading(true);
-    setCreditsLoading(true);
-    setPaymentMethodsLoading(true);
     setPackagesError(null);
-    setPaymentMethodsError(null);
 
     fetchCoachPackages({ token: authToken, coachId: profile.id, signal: controller.signal })
       .then((data) => setPackages((data?.packages ?? []).filter((item) => item.is_active !== false)))
@@ -587,10 +631,32 @@ const CoachProfilePage = () => {
         if (!controller.signal.aborted) setPackagesLoading(false);
       });
 
+    return () => controller.abort();
+  }, [authToken, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || authLoading) return;
+
+    if (!isLoggedIn || !authToken) {
+      setPackageCredits([]);
+      setCreditsBalance(null);
+      setPaymentMethods([]);
+      setPaymentMethodsLoading(false);
+      setCreditsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setCreditsLoading(true);
+    setPaymentMethodsLoading(true);
+    setPaymentMethodsError(null);
+
     fetchPackageCredits({ token: authToken, coachId: profile.id, includeExpired: false, signal: controller.signal })
       .then((data) => setPackageCredits(data?.purchases ?? []))
-      .catch(() => {
-        if (!controller.signal.aborted) setPackageCredits([]);
+      .catch((err) => {
+        if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
+          setPackageCredits([]);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setCreditsLoading(false);
@@ -598,8 +664,10 @@ const CoachProfilePage = () => {
 
     fetchPackageCreditsBalance({ token: authToken, coachId: profile.id, signal: controller.signal })
       .then((data) => setCreditsBalance(data ?? null))
-      .catch(() => {
-        if (!controller.signal.aborted) setCreditsBalance(null);
+      .catch((err) => {
+        if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
+          setCreditsBalance(null);
+        }
       });
 
     getPlayerStripePaymentMethods(authToken)
@@ -611,20 +679,22 @@ const CoachProfilePage = () => {
         setPaymentMethods(nextMethods);
         setSelectedPaymentMethodId(nextMethods.find((item) => item.is_default)?.id ?? nextMethods[0]?.id ?? "");
       })
-      .catch(() => {
-        setPaymentMethods(MOCK_PAYMENT_METHODS);
-        setSelectedPaymentMethodId(MOCK_PAYMENT_METHODS[0].id);
-        setPaymentMethodsError(null);
+      .catch((err) => {
+        if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
+          setPaymentMethods(MOCK_PAYMENT_METHODS);
+          setSelectedPaymentMethodId(MOCK_PAYMENT_METHODS[0].id);
+          setPaymentMethodsError(null);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setPaymentMethodsLoading(false);
       });
 
     return () => controller.abort();
-  }, [authToken, profile?.id]);
+  }, [authLoading, authToken, isLoggedIn, profile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || !authToken) {
+    if (!profile?.id) {
       setSlotsByDay([]);
       return;
     }
@@ -683,6 +753,14 @@ const CoachProfilePage = () => {
 
         if (active) {
           setSlotsByDay(nextDays);
+          setScheduleLoading(false);
+        }
+        return;
+      }
+
+      if (!authToken) {
+        if (active) {
+          setSlotsByDay([]);
           setScheduleLoading(false);
         }
         return;
@@ -825,7 +903,7 @@ const CoachProfilePage = () => {
     return () => {
       active = false;
     };
-  }, [authToken, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
+  }, [authToken, apiProfile?.booking?.availableDates, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
 
   const availableCredits = useMemo(() => {
     const balance = creditsBalance?.available;
@@ -866,6 +944,69 @@ const CoachProfilePage = () => {
     }
     return activeDays.find((day) => day.isoDate === selectedDate)?.slots ?? [];
   }, [activeDays, selectedDate]);
+
+  const isFirstBooking = useMemo(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(firstBookingKey) !== "completed";
+  }, [firstBookingKey]);
+
+  useEffect(() => {
+    const resumeState = location.state as
+      | {
+          resumeBookingSlotId?: string;
+          resumePaymentChoice?: "credits" | "card" | "apple-pay";
+          focusBookCta?: boolean;
+          purchaseAfterAuth?: boolean;
+        }
+      | null
+      | undefined;
+    const resumeBookingSlotId = resumeState?.resumeBookingSlotId;
+    if (!isLoggedIn || !resumeState || bookingOpen || paymentSheetOpen) return;
+
+    if (resumeState.focusBookCta) {
+      setBookingFocusActive(true);
+      const bookingNode =
+        (desktopBookingRef.current && window.getComputedStyle(desktopBookingRef.current).display !== "none"
+          ? desktopBookingRef.current
+          : mobileBookingRef.current) ?? desktopBookingRef.current;
+      bookingNode?.scrollIntoView({ behavior: "smooth", block: "center" });
+      bookingNode?.focus?.({ preventScroll: true });
+      window.setTimeout(() => setBookingFocusActive(false), 3500);
+    }
+
+    if (resumeState.purchaseAfterAuth && profile?.id) {
+      navigate(`/coaches/${profile.id}/purchase`, { replace: true });
+      return;
+    }
+
+    if (!resumeBookingSlotId) {
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
+    const slot = slotsByDay.flatMap((day) => day.slots).find((entry) => entry.id === resumeBookingSlotId);
+    if (!slot) return;
+
+    setSelectedSlot(slot);
+    if (resumeState?.resumePaymentChoice) {
+      setPaymentChoice(resumeState.resumePaymentChoice);
+      setPaymentSheetOpen(true);
+    } else {
+      setBookingStep(isFirstBooking ? "about" : "confirm");
+      setBookingOpen(true);
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [
+    bookingOpen,
+    isFirstBooking,
+    isLoggedIn,
+    location.pathname,
+    location.state,
+    navigate,
+    paymentSheetOpen,
+    profile?.id,
+    slotsByDay,
+  ]);
 
   const nextAvailableSlot = visibleSlots[0] ?? activeDays.flatMap((day) => day.slots)[0] ?? null;
   const slotsThisWeek = activeDays.reduce((sum, day) => sum + day.slots.length, 0);
@@ -921,11 +1062,6 @@ const CoachProfilePage = () => {
       note: current.note,
     }));
   }, [onboardingPrefill]);
-
-  const isFirstBooking = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem(firstBookingKey) !== "completed";
-  }, [firstBookingKey]);
 
   const hasPrefill = Boolean(onboardingPrefill.who || onboardingPrefill.level || onboardingPrefill.goals.length);
   const modalOpen = bookingOpen || paymentSheetOpen || Boolean(bookingConfirmation);
@@ -993,6 +1129,11 @@ const CoachProfilePage = () => {
   }, [modalOpen]);
 
   const openBookingFlow = (slot: LoadedSlot) => {
+    if (!isLoggedIn) {
+      openAuthPrompt({ resumeBookingSlotId: slot.id });
+      return;
+    }
+
     setSelectedSlot(slot);
     setBookingStep(isFirstBooking ? "about" : "confirm");
     setBookingOpen(true);
@@ -1016,6 +1157,11 @@ const CoachProfilePage = () => {
   };
 
   const openPaymentSheet = (choice: "credits" | "card" | "apple-pay" = "card") => {
+    if (!isLoggedIn) {
+      openAuthPrompt(selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: choice } : undefined);
+      return;
+    }
+
     setPaymentChoice(choice);
     setPaymentSheetOpen(true);
     setBookingOpen(false);
@@ -1082,8 +1228,13 @@ const CoachProfilePage = () => {
   });
 
   const confirmBookLesson = async () => {
-    if (!selectedSlot || !authToken || !profile?.id) {
-      setBookingError("Please select a lesson and sign in to continue.");
+    if (!selectedSlot || !profile?.id) {
+      setBookingError("Please select a lesson to continue.");
+      return;
+    }
+
+    if (!authToken || !isLoggedIn) {
+      redirectToLogin({ resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: paymentChoice });
       return;
     }
 
@@ -1167,6 +1318,9 @@ const CoachProfilePage = () => {
       closePaymentSheet();
       setSelectedSlot(null);
     } catch (err) {
+      if (handlePrivateAuthError(err)) {
+        return;
+      }
       const message = err instanceof Error ? err.message : "Unable to complete this booking.";
       setBookingError(message);
       setPaymentMethodsError(message);
@@ -1186,6 +1340,13 @@ const CoachProfilePage = () => {
   };
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
+      return;
+    }
+    if (!isLoggedIn) {
+      openAuthPrompt({
+        purchaseAfterAuth: true,
+        focusBookCta: true,
+      });
       return;
     }
     navigate(`/coaches/${profile.id}/purchase`);
@@ -1293,7 +1454,11 @@ const CoachProfilePage = () => {
   };
 
   const renderBookingPanel = (variant: "mobile" | "desktop") => (
-    <aside className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}`}>
+    <aside
+      ref={variant === "desktop" ? desktopBookingRef : mobileBookingRef}
+      className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}${bookingFocusActive ? " coach-profile-booking-rail--focus" : ""}`}
+      tabIndex={-1}
+    >
       <div className="coach-profile-price-card coach-profile-booking-block">
         <div className="coach-profile-price-card__row">
           <div className="coach-profile-price-card__value">
@@ -1907,7 +2072,7 @@ const CoachProfilePage = () => {
                       <strong>Buy 10-pack</strong>
                       <span>Mock 15% discount until coach portal pricing is wired.</span>
                       <div className="coach-upsell-card__actions">
-                        <button type="button" className="coach-primary-button coach-primary-button--small">Buy 10-pack</button>
+                        <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>Buy 10-pack</button>
                         <button type="button" className="coach-secondary-button coach-secondary-button--small">Just this lesson</button>
                       </div>
                     </div>
@@ -2079,6 +2244,63 @@ const CoachProfilePage = () => {
               }
             }}
           />
+        ) : null}
+
+        {authPromptOpen ? (
+          <div className="coach-auth-sheet" role="dialog" aria-modal="true" aria-label="Sign up to book">
+            <button
+              type="button"
+              className="coach-auth-sheet__backdrop"
+              aria-label="Close sign up prompt"
+              onClick={() => setAuthPromptOpen(false)}
+            />
+            <div className="coach-auth-sheet__panel">
+              <button
+                type="button"
+                className="coach-auth-sheet__close"
+                aria-label="Close sign up prompt"
+                onClick={() => setAuthPromptOpen(false)}
+              >
+                <X size={18} />
+              </button>
+              <div className="coach-auth-sheet__handle" />
+              <div className="coach-auth-sheet__coach">
+                {coachAvatar ? (
+                  <img src={coachAvatar} alt="" />
+                ) : (
+                  <span>{buildInitials(coachName)}</span>
+                )}
+                <div>
+                  <small>You&apos;re booking with</small>
+                  <strong>{coachName}</strong>
+                  <p>
+                    {privatePriceLabel}/hr
+                    {slotsThisWeek > 0 ? ` · ${slotsThisWeek} slots this week` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="coach-auth-sheet__copy">
+                <h2>Create a free account to book</h2>
+                <p>Sign up in 30 seconds to request a lesson with {coachFirstName}.</p>
+              </div>
+              <div className="coach-auth-sheet__actions">
+                <button type="button" className="coach-auth-sheet__primary" onClick={() => continueToAuth("signup")}>
+                  Create free account
+                </button>
+                <div className="coach-auth-sheet__divider">
+                  <span />
+                  <small>or</small>
+                  <span />
+                </div>
+                <button type="button" className="coach-auth-sheet__secondary" onClick={() => continueToAuth("signin")}>
+                  Sign in to existing account
+                </button>
+              </div>
+              <p className="coach-auth-sheet__legal">
+                By continuing you agree to our Terms of Service and Privacy Policy.
+              </p>
+            </div>
+          </div>
         ) : null}
       </div>
     </MainLayout>

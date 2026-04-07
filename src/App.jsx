@@ -57,8 +57,15 @@ const AuthRedirectRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    const from = location.state?.from?.pathname || "/";
-    return <Navigate to={from} replace />;
+    const from = location.state?.from;
+    const to = from
+      ? {
+          pathname: from.pathname || "/",
+          search: from.search || "",
+          hash: from.hash || "",
+        }
+      : "/";
+    return <Navigate to={to} replace state={from?.state} />;
   }
 
   return children;
@@ -208,11 +215,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/coaches/:id"
-      element={(
-        <ProtectedRoute>
-          <CoachProfilePage />
-        </ProtectedRoute>
-      )}
+      element={<CoachProfilePage />}
     />
     <Route
       path="/coaches/:id/purchase"

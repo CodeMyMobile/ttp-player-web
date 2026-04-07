@@ -1,5 +1,5 @@
 import type { CoachProfile } from "../data/mockCoachProfiles";
-import apiRequest from "../utils/apiRequest";
+import { request } from "./http";
 
 export type CoachProfileRecord = CoachProfile & {
   fullName?: string;
@@ -10,18 +10,7 @@ export type FetchCoachProfileOptions = {
   day?: string;
   location?: string;
   signal?: AbortSignal;
-};
-
-const safeJson = async <T>(response: Response): Promise<T | null> => {
-  if (response.status === 204) {
-    return null;
-  }
-
-  try {
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
+  token?: string;
 };
 
 const extractCoachProfile = (payload: unknown): CoachProfileRecord | undefined => {
@@ -55,21 +44,14 @@ export const fetchCoachProfile = async (coachId: number, options?: FetchCoachPro
   }
 
   const query = params.toString();
-  const response = await apiRequest(
+  const payload = await request<Record<string, unknown> | null>(
     `/player/coach/profile/${coachId}${query ? `?${query}` : ""}`,
     {
       method: "GET",
       signal: options?.signal,
+      token: options?.token,
     },
   );
-
-  if (!response?.ok) {
-    const error = new Error("Failed to fetch coach profile.");
-    (error as Error & { status?: number }).status = response?.status;
-    throw error;
-  }
-
-  const payload = await safeJson<Record<string, unknown>>(response);
   const profile = extractCoachProfile(payload);
   if (!profile) {
     throw new Error("Coach profile response was empty.");

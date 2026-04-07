@@ -1993,6 +1993,13 @@
   text-align: center;
 }
 
+button.secondary-link {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
 .error-message {
   color: #dc2626;
   background: rgba(220, 38, 38, 0.1);

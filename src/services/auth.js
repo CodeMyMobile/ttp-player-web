@@ -66,6 +66,7 @@ export const getPersonalDetails = async () => {
 
 export const logout = () => {
   localStorage.removeItem("authToken");
+  localStorage.removeItem("refreshToken");
   localStorage.removeItem("authLoginResponse");
   localStorage.removeItem("playerPersonalDetails");
 };

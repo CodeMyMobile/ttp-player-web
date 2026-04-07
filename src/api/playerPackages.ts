@@ -53,7 +53,7 @@ export interface PurchasePackageResponse {
 }
 
 export interface FetchCoachPackagesParams {
-  token: string;
+  token?: string;
   coachId: number | string;
   signal?: AbortSignal;
 }
