@@ -11,7 +11,6 @@ import {
   Globe,
   MapPin,
   MessageCircle,
-  Package,
   Users,
   Wallet,
   X,
@@ -1688,6 +1687,13 @@ const CoachProfilePage = () => {
                         <strong>{total}</strong>
                         <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
                       </div>
+                      <button
+                        type="button"
+                        className="coach-package-card__action"
+                        onClick={handleOpenPurchaseModal}
+                      >
+                        Buy {pkg.lesson_count}-pack
+                      </button>
                     </article>
                   );
                 })
@@ -1695,15 +1701,6 @@ const CoachProfilePage = () => {
                 <div className="coach-empty-card">No packages are available for this filter yet.</div>
               )}
             </div>
-            <button
-              type="button"
-              className="coach-profile-packages__action"
-              onClick={handleOpenPurchaseModal}
-              disabled={!filteredPackages.length || Boolean(packagesError) || packagesLoading}
-            >
-              <Package aria-hidden />
-              <span>Purchase credits</span>
-            </button>
           </>
         ) : null}
       </section>
