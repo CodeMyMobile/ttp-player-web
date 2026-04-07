@@ -970,7 +970,9 @@
 
 .coach-profile-pill--soft {
   background: #f1f5f9;
+  border-color: #e2e8f0;
   color: #475569;
+  font-weight: 700;
 }
 
 .coach-profile-pill--blue {

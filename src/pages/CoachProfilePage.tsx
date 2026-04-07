@@ -177,6 +177,38 @@ const LEVEL_OPTIONS = [
   "Competitive",
 ];
 
+const DISPLAY_LABEL_OVERRIDES: Record<string, string> = {
+  private: "Private",
+  semi: "Semi-Private",
+  "semi private": "Semi-Private",
+  group: "Group",
+  clinics: "Clinics",
+  hitting: "Hitting",
+  mental: "Mental Game",
+  "mental game": "Mental Game",
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  zh: "Chinese",
+};
+
+const formatDisplayLabel = (value: string) => {
+  const cleaned = value.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  if (!cleaned) return "";
+
+  const normalized = cleaned.toLowerCase();
+  const override = DISPLAY_LABEL_OVERRIDES[normalized];
+  if (override) return override;
+
+  return normalized
+    .split(" ")
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(" ");
+};
+
+const formatDisplayLabelList = (values?: string[]) =>
+  (values ?? []).map(formatDisplayLabel).filter((item): item is string => item.length > 0);
+
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
@@ -507,9 +539,9 @@ const CoachProfilePage = () => {
   const coachPhone = coachContact?.phone?.trim() ?? "";
   const aboutCopy = profile?.about ?? profile?.bio ?? profile?.summary ?? "";
   const certifications = profile?.certifications ?? [];
-  const specialties = profile?.specialties ?? [];
-  const languages = profile?.languages ?? [];
-  const levels = profile?.levels ?? [];
+  const specialties = useMemo(() => formatDisplayLabelList(profile?.specialties), [profile?.specialties]);
+  const languages = useMemo(() => formatDisplayLabelList(profile?.languages), [profile?.languages]);
+  const levels = useMemo(() => formatDisplayLabelList(profile?.levels), [profile?.levels]);
   const coachingLocations = profile?.coachingLocations?.length ? profile.coachingLocations : profile?.courts ?? [];
   const primaryLocationLabel = profile?.location ?? coachingLocations[0] ?? "Court TBD";
   const bookingLessonTypes = profile?.booking?.lessonTypes ?? [];
@@ -1381,13 +1413,17 @@ const CoachProfilePage = () => {
   };
   const availabilityLabels = useMemo(() => {
     if (Array.isArray(profile?.availability)) {
-      return profile.availability.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      return formatDisplayLabelList(
+        profile.availability.filter((item): item is string => typeof item === "string" && item.trim().length > 0),
+      );
     }
     if (typeof profile?.availability === "string") {
-      return profile.availability
-        .split(/[•,|]/)
-        .map((item) => item.trim())
-        .filter(Boolean);
+      return formatDisplayLabelList(
+        profile.availability
+          .split(/[•,|]/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      );
     }
     return [];
   }, [profile?.availability]);
@@ -1401,7 +1437,7 @@ const CoachProfilePage = () => {
         if (normalized === "semi") return "Semi-private lesson";
         if (normalized === "group") return "Group lesson";
         if (normalized === "private") return "Private lesson";
-        return item;
+        return `${formatDisplayLabel(item)} lesson`;
       });
     }
     return ["Private lesson", "Group lesson"];
