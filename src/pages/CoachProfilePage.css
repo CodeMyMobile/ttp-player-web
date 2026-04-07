@@ -890,13 +890,26 @@
   cursor: pointer;
 }
 
-.coach-detail-grid {
+.coach-detail-table {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fbfdff;
+  overflow: hidden;
 }
 
-.coach-detail-card,
+.coach-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+}
+
+.coach-detail-row + .coach-detail-row {
+  border-top: 1px solid #e2e8f0;
+}
+
 .coach-court-card {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
@@ -904,19 +917,7 @@
   background: #fbfdff;
 }
 
-.coach-detail-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  text-align: center;
-}
-
-.coach-detail-card svg {
-  color: #8b5cf6;
-}
-
-.coach-detail-card span,
+.coach-detail-row span,
 .coach-detail-stack h3,
 .coach-court-card span,
 .coach-summary-table span,
@@ -925,8 +926,9 @@
   color: #64748b;
 }
 
-.coach-detail-card strong {
+.coach-detail-row strong {
   font-size: 14px;
+  text-align: right;
 }
 
 .coach-detail-stack {
@@ -1100,7 +1102,6 @@
     border-top: 1px solid #e2e8f0;
   }
 
-  .coach-detail-grid,
   .coach-court-grid {
     grid-template-columns: 1fr;
   }

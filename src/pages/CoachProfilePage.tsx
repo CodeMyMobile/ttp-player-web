@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock3,
-  Globe,
   MapPin,
   MessageCircle,
   Users,
@@ -1859,22 +1858,19 @@ const CoachProfilePage = () => {
                 <div className="coach-profile-section__header">
                   <h2>About</h2>
                 </div>
-                <div className="coach-detail-grid">
-                  <article className="coach-detail-card">
-                    <CalendarDays size={18} />
+                <div className="coach-detail-table">
+                  <div className="coach-detail-row">
                     <span>Experience</span>
                     <strong>{experienceLabel}</strong>
-                  </article>
-                  <article className="coach-detail-card">
-                    <Users size={18} />
+                  </div>
+                  <div className="coach-detail-row">
                     <span>Students</span>
                     <strong>{studentsLabel}</strong>
-                  </article>
-                  <article className="coach-detail-card">
-                    <Globe size={18} />
+                  </div>
+                  <div className="coach-detail-row">
                     <span>Languages</span>
                     <strong>{languages.join(", ") || "English"}</strong>
-                  </article>
+                  </div>
                 </div>
 
                 <div className="coach-detail-stack">
