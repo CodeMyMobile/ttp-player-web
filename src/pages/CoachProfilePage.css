@@ -1150,7 +1150,7 @@
 .coach-booking-flow {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 140;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -1165,6 +1165,7 @@
 
 .coach-booking-flow__panel {
   position: relative;
+  z-index: 1;
   width: min(720px, 100%);
   max-height: calc(100dvh - 24px);
   margin: 0 auto;
@@ -1331,7 +1332,7 @@
 .coach-auth-sheet {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 140;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1696,7 +1697,7 @@
 .coach-payment-modal {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 140;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -1711,6 +1712,7 @@
 
 .coach-payment-modal__panel {
   position: relative;
+  z-index: 1;
   width: min(560px, 100%);
   max-height: calc(100dvh - 24px);
   margin: 0 auto;
