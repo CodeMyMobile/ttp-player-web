@@ -456,6 +456,7 @@ const CoachProfilePage = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<AnchorTab>("about");
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioCanExpand, setBioCanExpand] = useState(false);
   const [packages, setPackages] = useState<CoachPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [packagesError, setPackagesError] = useState<string | null>(null);
@@ -491,6 +492,7 @@ const CoachProfilePage = () => {
   const packagesRef = useRef<HTMLElement | null>(null);
   const desktopBookingRef = useRef<HTMLElement | null>(null);
   const mobileBookingRef = useRef<HTMLElement | null>(null);
+  const bioRef = useRef<HTMLParagraphElement | null>(null);
 
   const coachName = profile?.name ?? profile?.fullName ?? "Coach";
   const coachFirstName = coachName.split(" ")[0] ?? "Coach";
@@ -1057,6 +1059,26 @@ const CoachProfilePage = () => {
 
   const hasPrefill = Boolean(onboardingPrefill.who || onboardingPrefill.level || onboardingPrefill.goals.length);
   const modalOpen = bookingOpen || paymentSheetOpen || Boolean(bookingConfirmation);
+
+  useEffect(() => {
+    setBioExpanded(false);
+  }, [aboutCopy]);
+
+  useEffect(() => {
+    const measureBioOverflow = () => {
+      const node = bioRef.current;
+      if (!node) {
+        setBioCanExpand(false);
+        return;
+      }
+
+      setBioCanExpand(node.scrollHeight > node.clientHeight + 1);
+    };
+
+    measureBioOverflow();
+    window.addEventListener("resize", measureBioOverflow);
+    return () => window.removeEventListener("resize", measureBioOverflow);
+  }, [aboutCopy, bioExpanded]);
 
   const sectionRefs: Record<AnchorTab, RefObject<HTMLElement>> = {
     about: aboutRef as RefObject<HTMLElement>,
@@ -1824,8 +1846,8 @@ const CoachProfilePage = () => {
                         <Users size={14} /> {studentsLabel}
                       </span>
                     </div>
-                    <p className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
-                    {aboutCopy.length > 220 ? (
+                    <p ref={bioRef} className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
+                    {bioCanExpand || bioExpanded ? (
                       <button type="button" className="coach-profile-inline-link" onClick={() => setBioExpanded((value) => !value)}>
                         {bioExpanded ? "See less" : "See more"}
                       </button>
