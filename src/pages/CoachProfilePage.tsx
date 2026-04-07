@@ -1502,17 +1502,19 @@ const CoachProfilePage = () => {
         </div>
       </div>
 
-      {availableCredits > 0 ? (
+      {isLoggedIn && !creditsLoading ? (
         <div className="coach-credit-strip coach-profile-booking-block">
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
             <div>
-              <span>{availableCredits} private credits</span>
-              <small>auto-applied at checkout</small>
+              <span>{availableCredits} credits</span>
+              <small>
+                {availableCredits > 0 ? "can be applied at booking" : "buy a package to apply at booking"}
+              </small>
             </div>
           </div>
           <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-            Top up
+            {availableCredits > 0 ? "Top up" : "View packages"}
           </button>
         </div>
       ) : null}
