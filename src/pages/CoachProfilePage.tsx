@@ -1068,7 +1068,9 @@ const CoachProfilePage = () => {
     setActiveTab(tab);
     const node = sectionRefs[tab].current;
     if (!node) return;
-    const top = node.getBoundingClientRect().top + window.scrollY - 190;
+    const chromeHeight =
+      document.querySelector<HTMLElement>(".coach-profile-fixed-chrome")?.getBoundingClientRect().height ?? 190;
+    const top = node.getBoundingClientRect().top + window.scrollY - chromeHeight - 16;
     window.scrollTo({ top, behavior: "smooth" });
   };
 
@@ -1082,7 +1084,7 @@ const CoachProfilePage = () => {
 
       const current =
         offsets
-          .filter((item) => item.top <= 220)
+          .filter((item) => item.top <= 240)
           .sort((a, b) => b.top - a.top)[0]?.id ?? "about";
       setActiveTab(current);
     };
@@ -1735,10 +1737,51 @@ const CoachProfilePage = () => {
 
           <div className="coach-profile-layout-v2">
             <div className="coach-profile-main-v2">
-              <div className="coach-profile-back-row">
-                <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
-                  <ArrowLeft size={16} /> Find a Coach
-                </button>
+              <div className="coach-profile-fixed-chrome">
+                <div className="coach-profile-chrome-header">
+                  <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
+                    <ArrowLeft size={16} /> Find a Coach
+                  </button>
+                  <button
+                    type="button"
+                    className="coach-profile-top-action coach-profile-top-action--outline"
+                    onClick={handleMessageCoach}
+                    disabled={!smsHref}
+                  >
+                    <MessageCircle size={16} /> Message
+                  </button>
+                </div>
+
+                <div className="coach-profile-compact-bar" aria-label="Coach summary">
+                  <div className="coach-profile-compact-bar__identity">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt="" />
+                    ) : (
+                      <span>{buildInitials(coachName)}</span>
+                    )}
+                    <div>
+                      <strong>{coachName}</strong>
+                      <small>{coachTitle}</small>
+                    </div>
+                  </div>
+                  <div className="coach-profile-compact-bar__meta">
+                    <span>{privatePriceLabel}/hr</span>
+                    <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots` : "No slots"}</span>
+                  </div>
+                </div>
+
+                <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
+                  {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
+                      onClick={() => scrollToSection(tab)}
+                    >
+                      {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <section className="coach-profile-hero-v2">
@@ -1760,14 +1803,6 @@ const CoachProfilePage = () => {
                         <p className="coach-profile-hero-v2__title">{coachTitle}</p>
                       </div>
                       <div className="coach-profile-hero-v2__actions">
-                        <button
-                          type="button"
-                          className="coach-profile-top-action coach-profile-top-action--outline"
-                          onClick={handleMessageCoach}
-                          disabled={!smsHref}
-                        >
-                          <MessageCircle size={16} /> Message
-                        </button>
                         <span className="coach-profile-hero-v2__location-note">{heroLocationLabel}</span>
                       </div>
                     </div>
@@ -1800,19 +1835,6 @@ const CoachProfilePage = () => {
               </section>
 
               {renderBookingPanel("mobile")}
-
-              <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
-                {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
-                    onClick={() => scrollToSection(tab)}
-                  >
-                    {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
-                  </button>
-                ))}
-              </div>
 
               <section ref={aboutRef} className="coach-profile-section coach-profile-section--split" id="about">
                 <div className="coach-profile-section__header">
