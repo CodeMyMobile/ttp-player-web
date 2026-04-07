@@ -1492,9 +1492,7 @@ const CoachProfilePage = () => {
       <div className="coach-profile-price-card coach-profile-booking-block">
         <div className="coach-profile-price-card__row">
           <div className="coach-profile-price-card__value">
-            <p className="coach-profile-price-card__eyebrow">from</p>
             <h3>{privatePriceLabel}</h3>
-            <p className="coach-profile-price-card__unit">/hr private</p>
           </div>
         </div>
         {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
@@ -1787,7 +1785,7 @@ const CoachProfilePage = () => {
                     </div>
                   </div>
                   <div className="coach-profile-compact-bar__meta">
-                    <span>{privatePriceLabel}/hr</span>
+                    <span>{privatePriceLabel}</span>
                     <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots` : "No slots"}</span>
                   </div>
                 </div>
