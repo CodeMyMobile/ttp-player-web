@@ -2170,7 +2170,19 @@ const CoachProfilePage = () => {
                 <div className="coach-payment-modal__empty">
                   <strong>No payment method on file</strong>
                   <p>Add a card before booking this lesson.</p>
-                  <Link to="/settings/payment-methods">Add payment method</Link>
+                  <Link
+                    to="/settings/payment-methods"
+                    state={{
+                      from: {
+                        pathname: location.pathname,
+                        search: location.search,
+                        hash: location.hash,
+                        state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+                      },
+                    }}
+                  >
+                    Add payment method
+                  </Link>
                 </div>
               ) : null}
 
@@ -2210,7 +2222,18 @@ const CoachProfilePage = () => {
               </div>
 
               <div className="coach-payment-modal__actions">
-                <Link to="/settings/payment-methods" className="coach-payment-modal__link">
+                <Link
+                  to="/settings/payment-methods"
+                  className="coach-payment-modal__link"
+                  state={{
+                    from: {
+                      pathname: location.pathname,
+                      search: location.search,
+                      hash: location.hash,
+                      state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+                    },
+                  }}
+                >
                   Manage payment methods
                 </Link>
                 <button
