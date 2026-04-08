@@ -63,6 +63,7 @@ type CoachCardModel = Coach & {
   matchScore: number;
   matchReasons: string[];
   semiRateValue: number | null;
+  availableSlotCount: number | null;
 };
 
 const DEFAULT_RADIUS = 10;
@@ -279,6 +280,10 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
           return totalSlots && totalSlots > 0 ? `${label} (${totalSlots} slot${totalSlots === 1 ? "" : "s"})` : label;
         }).filter(Boolean)
       : toStringArray(profile.availability);
+  const availableSlotCount = bookingDates.reduce((sum, date) => {
+    const totalSlots = parseNumberValue(date.totalSlots);
+    return totalSlots && totalSlots > 0 ? sum + totalSlots : sum;
+  }, 0);
 
   const lessonTypeLabels = lessonTypes.map((lessonType) => pickFirstString(lessonType.label)).filter(Boolean);
   const privateMetric = metrics.find((metric) => pickFirstString(metric.label).toLowerCase() === "private");
@@ -319,6 +324,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     cityLabel: coachingLocations[0] || profileLocations[0] || coach.cityLabel,
     location: coachingLocations[0] || profileLocations[0] || coach.location,
     studentCount: studentCount ?? coach.studentCount,
+    availableSlotCount: availableSlotCount > 0 ? availableSlotCount : coach.availableSlotCount,
     tags:
       toStringArray(profile.specialties).length > 0
         ? normalizeDisplayArray(toStringArray(profile.specialties)).slice(0, 3)
@@ -472,6 +478,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
     formats,
     matchScore,
     matchReasons,
+    availableSlotCount: null,
   };
 };
 
@@ -1266,10 +1273,12 @@ const FindCoaches = () => {
 
                     <div className="coach-match-card__footer">
                       <div className="coach-match-card__availability">
-                        <span className={`coach-match-card__availability-dot ${coach.availabilityWindows.length > 0 ? "is-open" : ""}`} />
+                        <span className={`coach-match-card__availability-dot ${(coach.availableSlotCount ?? 0) > 0 ? "is-open" : ""}`} />
                         <div>
                           <strong>
-                            {coach.availabilityWindows.length > 0 ? coach.availabilityWindows[0] : "Availability on request"}
+                            {coach.availableSlotCount && coach.availableSlotCount > 0
+                              ? `${coach.availableSlotCount} slot${coach.availableSlotCount === 1 ? "" : "s"} available`
+                              : "Availability on request"}
                           </strong>
                           <span>{coach.courts[0] || coach.cityLabel || "Home court not listed"}</span>
                         </div>
