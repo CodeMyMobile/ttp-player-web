@@ -306,14 +306,50 @@ const parseDurationMinutes = (label?: string) => {
   return 60;
 };
 
-const normalizeDurationLabel = (label?: string) => {
-  if (!label) return "1 hr";
-  const minutes = parseDurationMinutes(label);
+const normalizeDurationMinutes = (minutes: number) => {
   if (minutes % 60 === 0) {
     const hours = minutes / 60;
     return `${hours} hr${hours === 1 ? "" : "s"}`;
   }
   return `${minutes} min`;
+};
+
+const normalizeDurationLabel = (label?: string) => {
+  if (!label) return "1 hr";
+  return normalizeDurationMinutes(parseDurationMinutes(label));
+};
+
+const resolveSlotDuration = (slotDuration?: string, lessonTypeDuration?: string) => {
+  const slotMinutes = parseDurationMinutes(slotDuration);
+  const lessonTypeMinutes = parseDurationMinutes(lessonTypeDuration);
+  const minutes =
+    slotDuration && slotMinutes > 0 && slotMinutes <= 240
+      ? slotMinutes
+      : lessonTypeDuration && lessonTypeMinutes > 0
+        ? lessonTypeMinutes
+        : slotMinutes;
+
+  return {
+    durationMin: minutes,
+    durationLabel: normalizeDurationMinutes(minutes),
+  };
+};
+
+const resolveSlotDurationSegments = (slotDuration?: string, lessonTypeDuration?: string) => {
+  const slotMinutes = parseDurationMinutes(slotDuration);
+  const lessonTypeMinutes = parseDurationMinutes(lessonTypeDuration);
+
+  if (slotDuration && slotMinutes > 240 && lessonTypeMinutes > 0 && lessonTypeMinutes <= 240) {
+    const segmentCount = Math.max(Math.floor(slotMinutes / lessonTypeMinutes), 1);
+    return Array.from({ length: segmentCount }, (_, index) => ({
+      offsetMin: index * lessonTypeMinutes,
+      durationMin: lessonTypeMinutes,
+      durationLabel: normalizeDurationMinutes(lessonTypeMinutes),
+    }));
+  }
+
+  const resolved = resolveSlotDuration(slotDuration, lessonTypeDuration);
+  return [{ offsetMin: 0, ...resolved }];
 };
 
 const parseClock = (isoDate: string, value?: string) => {
@@ -731,13 +767,12 @@ const CoachProfilePage = () => {
       if (availableDates.length) {
         const nextDays = availableDates.map((day): DayGroup => {
           const isoDate = day.id ?? "";
-          const slots = (day.slots ?? []).map((slot, index): LoadedSlot => {
+          const slots = (day.slots ?? []).flatMap((slot, index): LoadedSlot[] => {
             const lessonType = String(slot.lessonType ?? "private").toLowerCase();
             const type = lessonType.includes("group") ? "group" : "private";
-            const durationLabel = normalizeDurationLabel(slot.duration);
-            const durationMin = parseDurationMinutes(slot.duration);
+            const lessonTypeConfig = bookingLessonTypes.find((item) => item.id === slot.lessonType || item.id === lessonType);
+            const durationSegments = resolveSlotDurationSegments(slot.duration, lessonTypeConfig?.duration);
             const parsedStart = parseClock(isoDate, slot.time);
-            const parsedEnd = parsedStart ? parsedStart.clone().add(durationMin, "minutes") : null;
             const bookingState =
               slot.lessonStatus === "CONFIRMED"
                 ? "confirmed"
@@ -745,25 +780,32 @@ const CoachProfilePage = () => {
                   ? "pending"
                   : undefined;
 
-            return {
-              id: slot.id ?? `${isoDate}-${type}-${index}`,
-              type,
-              isoDate,
-              dayLabel: day.day ?? moment(isoDate).format("ddd"),
-              dateLabel: day.label ?? moment(isoDate).format("MMM D"),
-              timeLabel: slot.time ?? "Time TBD",
-              durationLabel,
-              durationMin,
-              court: slot.location ?? slot.title ?? primaryLocationLabel,
-              priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
-              start: parsedStart?.toISOString() ?? `${isoDate}T09:00:00`,
-              end: parsedEnd?.toISOString() ?? `${isoDate}T10:00:00`,
-              className: type === "group" ? slot.title ?? "Group lesson" : undefined,
-              spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
-              locationId: slot.locationId ?? null,
-              courtValue: slot.court ?? null,
-              bookingState,
-            };
+            return durationSegments.map(({ offsetMin, durationLabel, durationMin }, segmentIndex) => {
+              const segmentStart = parsedStart?.clone().add(offsetMin, "minutes") ?? null;
+              const segmentEnd = segmentStart ? segmentStart.clone().add(durationMin, "minutes") : null;
+              const baseId = slot.id ?? `${isoDate}-${type}-${index}`;
+              const id = durationSegments.length > 1 ? `${baseId}-${segmentIndex}` : baseId;
+
+              return {
+                id,
+                type,
+                isoDate,
+                dayLabel: day.day ?? moment(isoDate).format("ddd"),
+                dateLabel: day.label ?? moment(isoDate).format("MMM D"),
+                timeLabel: segmentStart?.isValid() ? segmentStart.format("h:mm A") : slot.time ?? "Time TBD",
+                durationLabel,
+                durationMin,
+                court: slot.location ?? slot.title ?? primaryLocationLabel,
+                priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
+                start: segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
+                end: segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
+                className: type === "group" ? slot.title ?? "Group lesson" : undefined,
+                spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
+                locationId: slot.locationId ?? null,
+                courtValue: slot.court ?? null,
+                bookingState,
+              };
+            });
           });
 
           return {
