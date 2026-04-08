@@ -1060,6 +1060,7 @@ const FindCoaches = () => {
             onRadiusChange={handleRadiusChange}
             isCoachSearch
             token={playerToken ?? undefined}
+            compact
           />
         </section>
 
@@ -1130,6 +1131,7 @@ const FindCoaches = () => {
               onRadiusChange={handleRadiusChange}
               isCoachSearch
               token={playerToken ?? undefined}
+              compact
             />
           </section>
 

@@ -40,6 +40,7 @@ const FilterMenu = ({
   onRadiusChange,
   isCoachSearch = false,
   token,
+  compact = false,
 }) => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
@@ -124,46 +125,109 @@ const FilterMenu = ({
     setLocalRadius(10);
     setName("");
     onFilterChange?.({ type: "clear" });
+    setActiveFilter(null);
     setFilterModalVisible(false);
   };
 
+  const openMenu = () => {
+    setActiveFilter(null);
+    setFilterModalVisible(true);
+  };
+
+  const closeMenu = () => {
+    setActiveFilter(null);
+    setFilterModalVisible(false);
+  };
+
+  const openFilterEditor = (filter) => {
+    setActiveFilter(filter);
+    setFilterModalVisible(true);
+  };
+
+  const summaryItems = [
+    selectedLocation || "Location",
+    `${localRadius} miles`,
+    ...(showName && name ? [name] : []),
+  ];
+
   return (
     <div className="filter-menu">
-      <div className="filter-menu__pills">
-        {!loadingFilters &&
-          pills.map((filter, index) => (
-            <button
-              key={filter.questionId || `${filter.filterType}-${index}`}
-              type="button"
-              onClick={() => toggleFilterModal(filter)}
-              className={`filter-menu__pill${
-                filter.questionId && selectedFilters[filter.questionId] ? " is-active" : ""
-              }`}
-            >
-              {filter.questionId && selectedFilters[filter.questionId]
-                ? Array.isArray(selectedFilters[filter.questionId])
-                  ? selectedFilters[filter.questionId].join(", ")
-                  : selectedFilters[filter.questionId]
-                : filter.filterName}
-            </button>
-          ))}
-      </div>
+      {compact ? (
+        <button type="button" className="filter-menu__trigger" onClick={openMenu} aria-label="Open filters">
+          <span className="filter-menu__trigger-icon" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="filter-menu__trigger-copy">
+            <strong>Filters</strong>
+            <small>{summaryItems.join(" · ")}</small>
+          </span>
+        </button>
+      ) : (
+        <div className="filter-menu__pills">
+          {!loadingFilters &&
+            pills.map((filter, index) => (
+              <button
+                key={filter.questionId || `${filter.filterType}-${index}`}
+                type="button"
+                onClick={() => toggleFilterModal(filter)}
+                className={`filter-menu__pill${
+                  filter.questionId && selectedFilters[filter.questionId] ? " is-active" : ""
+                }`}
+              >
+                {filter.questionId && selectedFilters[filter.questionId]
+                  ? Array.isArray(selectedFilters[filter.questionId])
+                    ? selectedFilters[filter.questionId].join(", ")
+                    : selectedFilters[filter.questionId]
+                  : filter.filterName}
+              </button>
+            ))}
+        </div>
+      )}
 
-      {filterModalVisible && activeFilter ? (
-        <div className="filter-menu__overlay" onClick={() => setFilterModalVisible(false)}>
+      {filterModalVisible ? (
+        <div className="filter-menu__overlay" onClick={closeMenu}>
           <div className="filter-menu__modal" onClick={(event) => event.stopPropagation()}>
             <div className="filter-menu__modal-head">
               <button type="button" onClick={clearFilters}>
                 Clear All
               </button>
-              <h3>Filter {activeFilter.filterName || ""}</h3>
-              <button type="button" onClick={() => setFilterModalVisible(false)}>
+              <h3>{activeFilter ? `Filter ${activeFilter.filterName || ""}` : "Filters"}</h3>
+              <button type="button" onClick={closeMenu}>
                 Done
               </button>
             </div>
 
             <div className="filter-menu__modal-body">
-              {activeFilter.filterType === "SelectionGroup" ? (
+              {!activeFilter ? (
+                <div className="filter-menu__list">
+                  {!loadingFilters &&
+                    pills.map((filter, index) => {
+                      const key = filter.questionId || `${filter.filterType}-${index}`;
+                      const value =
+                        filter.questionId && selectedFilters[filter.questionId]
+                          ? Array.isArray(selectedFilters[filter.questionId])
+                            ? selectedFilters[filter.questionId].join(", ")
+                            : selectedFilters[filter.questionId]
+                          : filter.filterName;
+
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          className="filter-menu__list-item"
+                          onClick={() => openFilterEditor(filter)}
+                        >
+                          <span className="filter-menu__list-item-label">{filter.filterType}</span>
+                          <span className="filter-menu__list-item-value">{value}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : null}
+
+              {activeFilter?.filterType === "SelectionGroup" ? (
                 <select
                   className="filter-menu__select"
                   value={selectedFilters[activeFilter.questionId] || ""}
@@ -178,7 +242,7 @@ const FilterMenu = ({
                 </select>
               ) : null}
 
-              {activeFilter.filterType === "MultipleSelectionGroup" ? (
+              {activeFilter?.filterType === "MultipleSelectionGroup" ? (
                 <div className="filter-menu__checkboxes">
                   {(activeFilter.options || []).map((option, index) => {
                     const currentSelections = selectedFilters[activeFilter.questionId] || [];
@@ -203,7 +267,7 @@ const FilterMenu = ({
                 </div>
               ) : null}
 
-              {activeFilter.filterType === "Address" ? (
+              {activeFilter?.filterType === "Address" ? (
                 <>
                   <label className="filter-menu__label">Address</label>
                   <AddressPicker
@@ -215,7 +279,7 @@ const FilterMenu = ({
                 </>
               ) : null}
 
-              {activeFilter.filterType === "Radius" ? (
+              {activeFilter?.filterType === "Radius" ? (
                 <>
                   <label className="filter-menu__label">Radius</label>
                   <SliderWithBubble
@@ -232,7 +296,7 @@ const FilterMenu = ({
                 </>
               ) : null}
 
-              {activeFilter.filterType === "Name" ? (
+              {activeFilter?.filterType === "Name" ? (
                 <>
                   <label className="filter-menu__label">Search by Name</label>
                   <input
@@ -265,6 +329,7 @@ FilterMenu.propTypes = {
   onRadiusChange: PropTypes.func,
   isCoachSearch: PropTypes.bool,
   token: PropTypes.string,
+  compact: PropTypes.bool,
 };
 
 export default FilterMenu;
