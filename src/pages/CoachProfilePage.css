@@ -363,6 +363,7 @@
   color: #475569;
   line-height: 1.75;
   font-size: 14px;
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -372,6 +373,9 @@
 
 .coach-profile-bio--expanded {
   display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow: visible;
 }
 
 .coach-profile-hero-v2__eyebrow,

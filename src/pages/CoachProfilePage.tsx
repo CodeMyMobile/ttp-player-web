@@ -1102,12 +1102,24 @@ const CoachProfilePage = () => {
         return;
       }
 
-      setBioCanExpand(node.scrollHeight > node.clientHeight + 1);
+      if (bioExpanded) {
+        setBioCanExpand(true);
+        return;
+      }
+
+      setBioCanExpand(node.scrollHeight > node.clientHeight + 1 || node.scrollWidth > node.clientWidth + 1);
     };
 
-    measureBioOverflow();
+    const frameId = window.requestAnimationFrame(measureBioOverflow);
+    const node = bioRef.current;
+    const observer = typeof ResizeObserver !== "undefined" && node ? new ResizeObserver(measureBioOverflow) : null;
+    observer?.observe(node);
     window.addEventListener("resize", measureBioOverflow);
-    return () => window.removeEventListener("resize", measureBioOverflow);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      window.removeEventListener("resize", measureBioOverflow);
+    };
   }, [aboutCopy, bioExpanded]);
 
   const sectionRefs: Record<AnchorTab, RefObject<HTMLElement>> = {
