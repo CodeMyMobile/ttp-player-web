@@ -1910,9 +1910,9 @@ const CoachProfilePage = () => {
                         <h1>{coachName}</h1>
                         <p className="coach-profile-hero-v2__title">{coachTitle}</p>
                       </div>
-                      <div className="coach-profile-hero-v2__actions">
+                      {/* <div className="coach-profile-hero-v2__actions">
                         <span className="coach-profile-hero-v2__location-note">{heroLocationLabel}</span>
-                      </div>
+                      </div> */}
                     </div>
                     <div className="coach-profile-hero-v2__chips">
                       {certifications.map((item) => (
