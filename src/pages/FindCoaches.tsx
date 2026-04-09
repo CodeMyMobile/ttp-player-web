@@ -1033,6 +1033,22 @@ const FindCoaches = () => {
                 aria-label="Search coaches"
               />
             </div>
+
+            <div className="fcv2-mobile-search-filter">
+              <FilterMenu
+                onFilterChange={handleFilterChange}
+                userPos={{
+                  latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                  longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+                }}
+                showName
+                radius={selectedRadius}
+                onRadiusChange={handleRadiusChange}
+                isCoachSearch
+                token={playerToken ?? undefined}
+                compact
+              />
+            </div>
           </div>
 
           {locationPermissionPrompt ? (
@@ -1046,22 +1062,10 @@ const FindCoaches = () => {
               </button>
             </section>
           ) : null}
+        </section>
 
+        <section className="fcv2-mobile-banner-block">
           {renderCoachMatchPanel()}
-
-          <FilterMenu
-            onFilterChange={handleFilterChange}
-            userPos={{
-              latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
-              longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
-            }}
-            showName
-            radius={selectedRadius}
-            onRadiusChange={handleRadiusChange}
-            isCoachSearch
-            token={playerToken ?? undefined}
-            compact
-          />
         </section>
 
         <div className="fcv2-shell">

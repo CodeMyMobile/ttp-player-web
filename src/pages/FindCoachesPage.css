@@ -8,6 +8,7 @@
 
 .fcv2-mobile-header,
 .fcv2-mobile-search-block,
+.fcv2-mobile-banner-block,
 .fcv2-mobile-tabbar {
   display: none;
 }
@@ -973,6 +974,11 @@
     backdrop-filter: blur(14px);
   }
 
+  .fcv2-mobile-banner-block {
+    display: block;
+    padding: 10px 16px 0;
+  }
+
   .fcv2-mobile-title-row {
     display: flex;
     align-items: flex-start;
@@ -1006,41 +1012,46 @@
 
   .fcv2-mobile-search-row {
     display: flex;
+    align-items: stretch;
     gap: 8px;
   }
 
-  .fcv2-mobile-search-block .fcv2-location-permission-banner,
-  .fcv2-mobile-search-block .fcv2-coach-match-banner,
-  .fcv2-mobile-search-block .fcv2-coach-match-summary {
+  .fcv2-mobile-search-block .fcv2-location-permission-banner {
     margin-top: 10px;
     margin-bottom: 0;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-banner {
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner,
+  .fcv2-mobile-banner-block .fcv2-coach-match-summary {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner {
     padding: 12px;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-summary {
+  .fcv2-mobile-banner-block .fcv2-coach-match-summary {
     padding: 12px;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-banner__icon {
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner__icon {
     width: 36px;
     height: 36px;
     font-size: 16px;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-banner__actions {
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner__actions {
     flex-direction: column;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-summary__actions {
+  .fcv2-mobile-banner-block .fcv2-coach-match-summary__actions {
     width: 100%;
     margin-left: 0;
   }
 
-  .fcv2-mobile-search-block .fcv2-coach-match-banner__button,
-  .fcv2-mobile-search-block .fcv2-coach-match-banner__secondary {
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner__button,
+  .fcv2-mobile-banner-block .fcv2-coach-match-banner__secondary {
     width: 100%;
   }
 
@@ -1050,7 +1061,8 @@
   }
 
   .fcv2-mobile-search-input {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1070,6 +1082,41 @@
     color: #1e293b;
     font: inherit;
     font-size: 13.5px;
+  }
+
+  .fcv2-mobile-search-filter {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .fcv2-mobile-search-filter .filter-menu {
+    height: 100%;
+  }
+
+  .fcv2-mobile-search-filter .filter-menu__trigger {
+    width: auto;
+    min-width: fit-content;
+    height: 100%;
+    padding: 9px 12px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .fcv2-mobile-search-filter .filter-menu__trigger-icon {
+    width: 24px;
+    height: 24px;
+    padding: 0 5px;
+    border-radius: 8px;
+    gap: 3px;
+  }
+
+  .fcv2-mobile-search-filter .filter-menu__trigger-copy small {
+    display: none;
+  }
+
+  .fcv2-mobile-search-filter .filter-menu__trigger-copy strong {
+    font-size: 13px;
+    white-space: nowrap;
   }
 
   .fcv2-mobile-filter-button {
