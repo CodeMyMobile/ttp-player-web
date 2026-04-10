@@ -13,6 +13,38 @@ const normalizeFilters = (payload) => {
   return allowed.filter((filter) => filter?.status);
 };
 
+const getAddressComponent = (details, type) =>
+  details?.address_components?.find?.((component) => component.types?.includes?.(type));
+
+const buildShortLocationLabel = (details) => {
+  const placeName = details?.name?.trim?.() || "";
+  const neighborhood =
+    getAddressComponent(details, "neighborhood")?.long_name ||
+    getAddressComponent(details, "sublocality")?.long_name ||
+    getAddressComponent(details, "locality")?.long_name ||
+    "";
+
+  if (placeName && neighborhood && !placeName.toLowerCase().includes(neighborhood.toLowerCase())) {
+    return `${placeName}, ${neighborhood}`;
+  }
+
+  if (placeName) {
+    return placeName;
+  }
+
+  if (neighborhood) {
+    return neighborhood;
+  }
+
+  const formattedAddress = details?.formatted_address || "";
+  return formattedAddress
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(", ");
+};
+
 const CustomCheckBox = ({ value, onValueChange, label }) => (
   <button
     type="button"
@@ -104,14 +136,19 @@ const FilterMenu = ({
     const formattedAddress = details?.formatted_address || "";
     const lat = details?.geometry?.location?.lat || 0;
     const lng = details?.geometry?.location?.lng || 0;
-    const zipCodeComponent = details?.address_components?.find?.((component) =>
-      component.types?.includes?.("postal_code"),
-    );
-    const zipCode = zipCodeComponent?.short_name || "";
+    const shortLabel = buildShortLocationLabel(details);
 
-    setSelectedLocation(zipCode || formattedAddress || "Location Not Found");
+    setSelectedLocation(shortLabel || formattedAddress || "Location");
     setLocation({ lat, lng });
-    onFilterChange?.({ type: "location", value: { formatted_address: formattedAddress, lat, lng } });
+    onFilterChange?.({
+      type: "location",
+      value: {
+        formatted_address: formattedAddress,
+        short_label: shortLabel,
+        lat,
+        lng,
+      },
+    });
   };
 
   const applyNameFilter = () => {

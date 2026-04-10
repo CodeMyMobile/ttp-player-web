@@ -891,13 +891,13 @@ const FindCoaches = () => {
     ({ type, value }: { type: string; value?: unknown }) => {
       if (type === "location") {
         const locationValue = value as
-          | { formatted_address?: string; lat?: number; lng?: number }
+          | { formatted_address?: string; short_label?: string; lat?: number; lng?: number }
           | undefined;
         const latitude = locationValue?.lat;
         const longitude = locationValue?.lng;
         if (typeof latitude === "number" && typeof longitude === "number") {
           applyLocationFilter({
-            label: locationValue?.formatted_address || "Selected location",
+            label: locationValue?.short_label || locationValue?.formatted_address || "Selected location",
             latitude,
             longitude,
           });
