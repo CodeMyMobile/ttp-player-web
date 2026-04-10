@@ -93,7 +93,7 @@
 .filter-menu__overlay {
   position: fixed;
   inset: 0;
-  z-index: 75;
+  z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,6 +103,9 @@
 
 .filter-menu__modal {
   width: min(560px, 100%);
+  max-height: min(720px, calc(100dvh - 40px));
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border-radius: 18px;
   overflow: hidden;
@@ -140,6 +143,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px;
+  overflow-y: auto;
 }
 
 .filter-menu__list {
@@ -240,6 +244,31 @@
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: #fff;
+}
+
+@media (max-width: 768px) {
+  .filter-menu__overlay {
+    align-items: flex-start;
+    padding: 116px 12px 12px;
+  }
+
+  .filter-menu__modal {
+    width: 100%;
+    max-height: calc(100dvh - 128px);
+    border-radius: 18px;
+  }
+
+  .filter-menu__modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+  }
+
+  .filter-menu__modal-body {
+    max-height: calc(100dvh - 196px);
+    padding-top: 16px;
+  }
 }
 
 .filter-menu__checkbox-box.is-checked {
