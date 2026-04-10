@@ -675,11 +675,37 @@
   background: #fff;
 }
 
+.coach-slot--private-button {
+  width: 100%;
+  border-width: 1.5px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.coach-slot--private-button:hover:not(:disabled),
+.coach-slot--private-button:focus-visible:not(:disabled) {
+  border-color: #c4b5fd;
+  box-shadow: 0 10px 24px -20px rgba(124, 58, 237, 0.45);
+  outline: none;
+}
+
+.coach-slot--private-button:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .coach-slot--private {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.coach-slot__main {
+  min-width: 0;
+  flex: 1;
 }
 
 .coach-slot__time,
@@ -693,6 +719,10 @@
   font-size: 14px;
   font-weight: 800;
   color: #334155;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .coach-slot__time-row {
@@ -700,7 +730,8 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 3px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .coach-slot__meta {
@@ -713,6 +744,10 @@
 .coach-slot__meta--compact {
   margin-top: 0;
   color: #94a3b8;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .coach-slot__meta--compact .coach-slot__meta-location::before {
@@ -725,6 +760,19 @@
   content: "·";
   margin: 0 6px 0 4px;
   color: #cbd5e1;
+}
+
+.coach-slot__meta--compact .coach-slot__meta-location {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coach-slot__meta--compact span:last-child {
+  flex-shrink: 0;
 }
 
 .coach-slot__meta-location::before {
@@ -751,11 +799,18 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .coach-slot__actions--compact strong {
   font-size: 13px;
   color: #475569;
+}
+
+.coach-slot__cta {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8b5cf6;
 }
 
 .coach-slot button,
@@ -777,14 +832,6 @@
   color: #fff;
   font-weight: 800;
   padding: 10px 14px;
-}
-
-.coach-slot__actions--compact button {
-  padding: 0;
-  background: transparent;
-  color: #8b5cf6;
-  font-size: 12px;
-  font-weight: 800;
 }
 
 .coach-slot__card-head,
@@ -1156,6 +1203,15 @@
   .coach-court-grid {
     grid-template-columns: 1fr;
   }
+
+  .coach-slot--private {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .coach-slot__actions--compact {
+    align-self: center;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1193,6 +1249,34 @@
 
   .coach-profile-hero-v2__stats span + span::before {
     margin: 0 8px;
+  }
+
+  .coach-slot--private {
+    gap: 10px;
+  }
+
+  .coach-slot__time-row {
+    gap: 6px;
+  }
+
+  .coach-slot__time {
+    font-size: 13px;
+  }
+
+  .coach-slot__meta--compact {
+    font-size: 10px;
+  }
+
+  .coach-slot__actions--compact {
+    gap: 6px;
+  }
+
+  .coach-slot__actions--compact strong {
+    font-size: 12px;
+  }
+
+  .coach-slot__cta {
+    font-size: 11px;
   }
 }
 

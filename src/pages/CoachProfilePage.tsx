@@ -1672,7 +1672,13 @@ const CoachProfilePage = () => {
           <div className="coach-slot-list coach-slot-list--aside">
             {visibleSlots.map((slot) =>
               slot.type === "private" ? (
-                <article key={slot.id} className="coach-slot coach-slot--private">
+                <button
+                  key={slot.id}
+                  type="button"
+                  className="coach-slot coach-slot--private coach-slot--private-button"
+                  disabled={slot.bookingState != null}
+                  onClick={() => openBookingFlow(slot)}
+                >
                   <div className="coach-slot__main">
                     <div className="coach-slot__time-row">
                       <p className="coach-slot__time">
@@ -1687,11 +1693,11 @@ const CoachProfilePage = () => {
                   </div>
                   <div className="coach-slot__actions coach-slot__actions--compact">
                     <strong>{slot.priceLabel}</strong>
-                    <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
+                    <span className="coach-slot__cta">
                       {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book →"}
-                    </button>
+                    </span>
                   </div>
-                </article>
+                </button>
               ) : (
                 <article key={slot.id} className="coach-slot coach-slot--group">
                   <div className="coach-slot__card-head">
