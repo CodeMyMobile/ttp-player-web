@@ -672,14 +672,14 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 12px 14px;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .coach-slot--private {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .coach-slot__time,
@@ -690,9 +690,17 @@
 }
 
 .coach-slot__time {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   color: #334155;
+}
+
+.coach-slot__time-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
 }
 
 .coach-slot__meta {
@@ -700,6 +708,23 @@
   color: #64748b;
   font-size: 11px;
   font-weight: 600;
+}
+
+.coach-slot__meta--compact {
+  margin-top: 0;
+  color: #94a3b8;
+}
+
+.coach-slot__meta--compact .coach-slot__meta-location::before {
+  content: "📍";
+  margin-right: 4px;
+  color: inherit;
+}
+
+.coach-slot__meta--compact span + span::before {
+  content: "·";
+  margin: 0 6px 0 4px;
+  color: #cbd5e1;
 }
 
 .coach-slot__meta-location::before {
@@ -713,12 +738,24 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .coach-slot__actions strong,
 .coach-slot__card-head strong,
 .coach-total-box strong {
   font-size: 16px;
+}
+
+.coach-slot__actions--compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-slot__actions--compact strong {
+  font-size: 13px;
+  color: #475569;
 }
 
 .coach-slot button,
@@ -740,6 +777,14 @@
   color: #fff;
   font-weight: 800;
   padding: 10px 14px;
+}
+
+.coach-slot__actions--compact button {
+  padding: 0;
+  background: transparent;
+  color: #8b5cf6;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .coach-slot__card-head,

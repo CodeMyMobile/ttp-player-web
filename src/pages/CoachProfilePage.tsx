@@ -1674,19 +1674,21 @@ const CoachProfilePage = () => {
               slot.type === "private" ? (
                 <article key={slot.id} className="coach-slot coach-slot--private">
                   <div className="coach-slot__main">
-                    <p className="coach-slot__time">
-                      {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                    </p>
-                    <div className="coach-slot__meta">
+                    <div className="coach-slot__time-row">
+                      <p className="coach-slot__time">
+                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
+                      </p>
                       <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
+                    </div>
+                    <div className="coach-slot__meta coach-slot__meta--compact">
                       <span className="coach-slot__meta-location">{slot.court}</span>
                       <span>{slot.durationLabel}</span>
                     </div>
                   </div>
-                  <div className="coach-slot__actions">
+                  <div className="coach-slot__actions coach-slot__actions--compact">
                     <strong>{slot.priceLabel}</strong>
                     <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
-                      {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book"}
+                      {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book →"}
                     </button>
                   </div>
                 </article>
