@@ -1906,6 +1906,14 @@ const CoachProfilePage = () => {
                   <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
                     <ArrowLeft size={16} /> Find a Coach
                   </button>
+                  <button
+                    type="button"
+                    className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                    onClick={handleMessageCoach}
+                    disabled={!smsHref}
+                  >
+                    <MessageCircle size={16} /> Message
+                  </button>
                 </div>
 
                 <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
@@ -1938,6 +1946,11 @@ const CoachProfilePage = () => {
                     <div className="coach-profile-hero-v2__header">
                       <div className="coach-profile-hero-v2__header-copy">
                         <h1>{coachName}</h1>
+                        <div className="coach-profile-mobile-meta">
+                          {certifications[0] ? <span>{certifications[0]}</span> : null}
+                          {certifications[0] ? <span>·</span> : null}
+                          <span>{privatePriceLabel}/hr</span>
+                        </div>
                       </div>
                       <div className="coach-profile-hero-v2__actions">
                         <button

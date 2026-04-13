@@ -118,6 +118,11 @@
   padding: 9px 16px;
 }
 
+.coach-profile-top-action--mobile-only,
+.coach-profile-mobile-meta {
+  display: none;
+}
+
 .coach-profile-fixed-chrome {
   position: sticky;
   top: 0;
@@ -1238,11 +1243,53 @@
 }
 
 @media (max-width: 640px) {
+  .coach-profile-page {
+    padding-bottom: 0;
+  }
+
+  .coach-profile-shell {
+    padding: 0;
+  }
+
+  .coach-profile-layout-v2 {
+    border: 0;
+    border-radius: 0;
+    background: #f8fafc;
+  }
+
+  .coach-profile-main-v2 {
+    background: #f8fafc;
+    border-right: 0;
+  }
+
+  .coach-profile-fixed-chrome {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    background: #fff;
+  }
+
+  .coach-profile-chrome-header {
+    min-height: 56px;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+
+  .coach-profile-top-action {
+    font-size: 13px;
+  }
+
+  .coach-profile-top-action--mobile-only {
+    display: inline-flex;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
   .coach-profile-hero-v2,
   .coach-profile-section,
   .coach-booking-card,
   .coach-profile-price-card {
-    padding: 24px 20px;
+    padding: 18px 16px;
   }
 
   .coach-profile-chrome-header,
@@ -1250,49 +1297,222 @@
   .coach-profile-section,
   .coach-booking-card,
   .coach-profile-price-card {
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .coach-credit-strip {
-    padding: 12px 20px;
+    padding: 10px 16px;
+    margin: 0 0 12px;
+    border-top: 0;
   }
 
   .coach-profile-sticky-chrome {
-    padding: 0 20px;
+    padding: 0;
     overflow-x: auto;
+    justify-content: space-between;
   }
 
-  .coach-profile-hero-v2__stats span + span::before {
-    margin: 0 8px;
+  .coach-profile-tab {
+    flex: 1;
+    margin-right: 0;
+    padding: 11px 4px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
   }
 
-  .coach-slot--private {
+  .coach-profile-hero-v2 {
+    margin: 0 0 12px;
+    padding-top: 10px;
+    padding-bottom: 14px;
+    border-bottom: 0;
+  }
+
+  .coach-profile-hero-v2__identity {
     gap: 10px;
+    align-items: center;
   }
 
-  .coach-slot__time-row {
-    gap: 6px;
+  .coach-profile-hero-v2__avatar {
+    width: 40px;
+    height: 40px;
   }
 
-  .coach-slot__time {
+  .coach-profile-hero-v2__avatar--fallback {
+    font-size: 14px;
+  }
+
+  .coach-profile-verified-badge {
+    width: 16px;
+    height: 16px;
+    right: -2px;
+    bottom: 0;
+  }
+
+  .coach-profile-verified-badge svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .coach-profile-hero-v2__header {
+    display: block;
+  }
+
+  .coach-profile-hero-v2__copy h1 {
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .coach-profile-mobile-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .coach-profile-mobile-meta span:first-child {
+    color: #7c3aed;
+    font-weight: 700;
+  }
+
+  .coach-profile-hero-v2__actions,
+  .coach-profile-hero-v2__chips,
+  .coach-profile-hero-v2__stats {
+    display: none;
+  }
+
+  .coach-profile-bio {
+    margin-top: 10px;
     font-size: 13px;
+    line-height: 1.65;
+    color: #475569;
+    -webkit-line-clamp: 3;
   }
 
-  .coach-slot__meta--compact {
-    font-size: 10px;
+  .coach-profile-booking-rail--mobile {
+    margin-top: 0;
+    border-top: 0;
+    background: transparent;
   }
 
-  .coach-slot__actions--compact {
-    gap: 6px;
+  .coach-profile-price-card {
+    display: none;
   }
 
-  .coach-slot__actions--compact strong {
+  .coach-booking-card {
+    margin: 0 0 12px;
+    background: #fff;
+  }
+
+  .coach-booking-toggle {
+    border-radius: 12px;
+    margin-bottom: 18px;
+  }
+
+  .coach-booking-toggle button {
+    padding: 10px;
+    border-radius: 9px;
     font-size: 12px;
   }
 
-  .coach-slot__cta {
+  .coach-day-strip {
+    gap: 7px;
+    margin-bottom: 16px;
+  }
+
+  .coach-day-chip {
+    border-radius: 12px;
+    min-width: 46px;
+    padding: 8px 10px;
+  }
+
+  .coach-day-chip:first-child {
+    min-width: 40px;
+  }
+
+  .coach-slot-list {
+    gap: 10px;
+  }
+
+  .coach-slot--private {
+    gap: 8px;
+    padding: 12px 14px;
+    align-items: center;
+  }
+
+  .coach-slot__time {
+    font-size: 14px;
+    margin-bottom: 3px;
+  }
+
+  .coach-slot__meta--private {
+    gap: 6px;
     font-size: 11px;
+  }
+
+  .coach-slot__button--private {
+    background: transparent;
+    color: #8b5cf6;
+    padding: 0;
+    font-size: 12px;
+  }
+
+  .coach-slot__actions--stack {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .coach-slot__actions--stack strong {
+    margin-bottom: 0;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .coach-slot--group {
+    background: #fff;
+  }
+
+  .coach-slot__card-head h3 {
+    font-size: 14px;
+  }
+
+  .coach-slot__footer {
+    margin-top: 10px;
+  }
+
+  .coach-slot__footer p {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .coach-slot__footer small {
+    font-size: 11px;
+  }
+
+  .coach-profile-section {
+    margin: 0 0 12px;
+    background: #fff;
+  }
+
+  .coach-profile-section--packages {
+    margin: 0;
+  }
+
+  .coach-profile-section__header--packages {
+    margin-top: 18px;
+  }
+
+  .coach-profile-stat-grid {
+    gap: 12px;
+  }
+
+  .coach-court-card {
+    padding: 14px;
   }
 }
 
