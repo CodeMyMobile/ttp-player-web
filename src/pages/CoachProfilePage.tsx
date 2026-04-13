@@ -217,6 +217,20 @@ const buildEmptyDayGroup = (date: moment.Moment): DayGroup => ({
   slots: [],
 });
 
+const shortenLocationLabel = (value?: string | null) => {
+  if (!value) return "Court TBD";
+  const trimmed = value.trim();
+  if (!trimmed) return "Court TBD";
+
+  const [firstSegment] = trimmed.split(",");
+  const base = firstSegment?.trim() || trimmed;
+  const words = base.split(/\s+/).filter(Boolean);
+
+  if (words.length <= 3) return base;
+
+  return words.slice(0, 3).join(" ");
+};
+
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
@@ -391,7 +405,7 @@ const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
     timeLabel: start.format("h:mm A"),
     durationLabel: normalizeDurationLabel(`${durationMin} min`),
     durationMin,
-    court: lesson.location_name ?? "Court TBD",
+    court: shortenLocationLabel(lesson.location_name),
     priceLabel: formatCurrency(lesson.price_per_person) ?? "$0",
     start: lesson.start_date_time,
     end: lesson.end_date_time ?? start.clone().add(durationMin, "minutes").toISOString(),
@@ -434,7 +448,7 @@ const mapAvailabilitySlotToLoadedSlot = (
     timeLabel: start.format("h:mm A"),
     durationLabel: normalizeDurationLabel(`${durationMin} min`),
     durationMin,
-    court: slot.location ?? "Court TBD",
+    court: shortenLocationLabel(slot.location),
     priceLabel: privatePriceLabel,
     start: start.toISOString(),
     end: end?.isValid() ? end.toISOString() : start.clone().add(durationMin, "minutes").toISOString(),
@@ -804,7 +818,7 @@ const CoachProfilePage = () => {
                 timeLabel: segmentStart?.isValid() ? segmentStart.format("h:mm A") : slot.time ?? "Time TBD",
                 durationLabel,
                 durationMin,
-                court: slot.location ?? slot.title ?? primaryLocationLabel,
+                court: shortenLocationLabel(slot.location ?? slot.title ?? primaryLocationLabel),
                 priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
                 start: segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
                 end: segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
@@ -922,7 +936,7 @@ const CoachProfilePage = () => {
                 timeLabel: cursor.format("h:mm A"),
                 durationLabel: "1 hr",
                 durationMin: 60,
-                court: String(entry.location_name ?? entry.location ?? primaryLocationLabel),
+                court: shortenLocationLabel(String(entry.location_name ?? entry.location ?? primaryLocationLabel)),
                 priceLabel: privatePriceLabel,
                 start: cursor.toISOString(),
                 end: slotEnd.toISOString(),
@@ -961,7 +975,7 @@ const CoachProfilePage = () => {
               timeLabel: start.local().format("h:mm A"),
               durationLabel: end.isValid() ? `${end.diff(start, "minutes")} min` : groupType?.duration ?? "1 hr",
               durationMin: end.isValid() ? end.diff(start, "minutes") : 60,
-              court: lesson.location_name ?? primaryLocationLabel,
+              court: shortenLocationLabel(lesson.location_name ?? primaryLocationLabel),
               priceLabel: formatCurrency(lesson.price_per_person) ?? groupPriceLabel ?? "$0",
               start: lesson.start_date_time,
               end: lesson.end_date_time,
@@ -1697,32 +1711,29 @@ const CoachProfilePage = () => {
           <div className="coach-slot-list coach-slot-list--aside">
             {visibleSlots.map((slot) =>
               slot.type === "private" ? (
-                <button
-                  key={slot.id}
-                  type="button"
-                  className="coach-slot coach-slot--private coach-slot--private-button"
-                  disabled={slot.bookingState != null}
-                  onClick={() => openBookingFlow(slot)}
-                >
+                <article key={slot.id} className="coach-slot coach-slot--private">
                   <div className="coach-slot__main">
-                    <div className="coach-slot__time-row">
-                      <p className="coach-slot__time">
-                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                      </p>
+                    <p className="coach-slot__time">
+                      {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
+                    </p>
+                    <div className="coach-slot__meta coach-slot__meta--private">
                       <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                    </div>
-                    <div className="coach-slot__meta coach-slot__meta--compact">
                       <span className="coach-slot__meta-location">{slot.court}</span>
                       <span>{slot.durationLabel}</span>
                     </div>
                   </div>
-                  <div className="coach-slot__actions coach-slot__actions--compact">
+                  <div className="coach-slot__actions coach-slot__actions--stack">
                     <strong>{slot.priceLabel}</strong>
-                    <span className="coach-slot__cta">
+                    <button
+                      type="button"
+                      className="coach-slot__button coach-slot__button--private"
+                      disabled={slot.bookingState != null}
+                      onClick={() => openBookingFlow(slot)}
+                    >
                       {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book →"}
-                    </span>
+                    </button>
                   </div>
-                </button>
+                </article>
               ) : (
                 <article key={slot.id} className="coach-slot coach-slot--group">
                   <div className="coach-slot__card-head">
@@ -1742,7 +1753,6 @@ const CoachProfilePage = () => {
                       ) : null}
                     </div>
                   </div>
-                  <p className="coach-slot__description">{slot.description}</p>
                   <div className="coach-slot__footer">
                     <div>
                       <p>
@@ -1750,7 +1760,12 @@ const CoachProfilePage = () => {
                       </p>
                       <small>{slot.court}</small>
                     </div>
-                    <button type="button" disabled={slot.bookingState != null} onClick={() => openBookingFlow(slot)}>
+                    <button
+                      type="button"
+                      className="coach-slot__button coach-slot__button--group"
+                      disabled={slot.bookingState != null}
+                      onClick={() => openBookingFlow(slot)}
+                    >
                       {slot.bookingState === "confirmed" ? "Booked" : "Reserve spot"}
                     </button>
                   </div>
@@ -1783,53 +1798,56 @@ const CoachProfilePage = () => {
             ) : null}
           </div>
         ) : null}
-      </section>
 
-      <section ref={variant === "desktop" ? packagesRef : undefined} className="coach-profile-section coach-profile-section--packages coach-profile-booking-block">
-        <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-section__header--packages">
+        <div
+          ref={variant === "desktop" ? packagesRef : undefined}
+          className="coach-profile-section coach-profile-section--packages coach-profile-booking-block"
+        >
+          <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-section__header--packages">
           <h2>Lesson packages</h2>
-        </div>
+          </div>
 
-        {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
-        {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
-        {!packagesLoading && !packagesError ? (
-          <>
-            <div className="coach-package-list">
-              {filteredPackages.length > 0 ? (
-                filteredPackages.map((pkg, index) => {
-                  const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                  const perSession = parseCurrency(pkg.total_price)
-                    ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                    : undefined;
-                  return (
-                    <article key={String(pkg.id)} className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}>
-                      <div className="coach-package-card__top">
-                        <div>
-                          <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                          <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
-                        </div>
-                        {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                      </div>
-                      <div className="coach-package-card__price">
-                        <strong>{total}</strong>
-                        <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="coach-package-card__action"
+          {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
+          {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
+          {!packagesLoading && !packagesError ? (
+            <>
+              <div className="coach-package-list">
+                {filteredPackages.length > 0 ? (
+                  filteredPackages.map((pkg, index) => {
+                    const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
+                    const perSession = parseCurrency(pkg.total_price)
+                      ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
+                      : undefined;
+                    return (
+                      <article
+                        key={String(pkg.id)}
+                        className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}
                         onClick={handleOpenPurchaseModal}
                       >
-                        Buy {pkg.lesson_count}-pack
-                      </button>
-                    </article>
-                  );
-                })
-              ) : (
-                <div className="coach-empty-card">No packages are available for this filter yet.</div>
-              )}
-            </div>
-          </>
-        ) : null}
+                        <div className="coach-package-card__top">
+                          <div>
+                            <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
+                            <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
+                          </div>
+                          {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
+                        </div>
+                        <div className="coach-package-card__price">
+                          <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
+                          <div className="coach-package-card__price-total">
+                            <strong>{total}</strong>
+                            {index === 1 ? <small>Best value</small> : null}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="coach-empty-card">No packages are available for this filter yet.</div>
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
       </section>
     </aside>
   );
