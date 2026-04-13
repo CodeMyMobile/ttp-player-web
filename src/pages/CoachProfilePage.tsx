@@ -209,6 +209,14 @@ const formatDisplayLabel = (value: string) => {
 const formatDisplayLabelList = (values?: string[]) =>
   (values ?? []).map(formatDisplayLabel).filter((item): item is string => item.length > 0);
 
+const buildEmptyDayGroup = (date: moment.Moment): DayGroup => ({
+  isoDate: date.format("YYYY-MM-DD"),
+  dayLabel: date.format("ddd"),
+  dateLabel: date.format("MMM D"),
+  shortDateLabel: date.format("D"),
+  slots: [],
+});
+
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CoachProfileRecord | undefined>();
@@ -606,6 +614,7 @@ const CoachProfilePage = () => {
       ? `${apiProfile.studentCount}+`
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
   const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
+  const cityLabel = heroLocationLabel || "Location TBD";
   const playerId =
     user?.session?.user_id ??
     user?.id ??
@@ -765,7 +774,7 @@ const CoachProfilePage = () => {
     const loadAvailability = async () => {
       const availableDates = apiProfile?.booking?.availableDates ?? [];
       if (availableDates.length) {
-        const nextDays = availableDates.map((day): DayGroup => {
+        const mappedDays = availableDates.map((day): DayGroup => {
           const isoDate = day.id ?? "";
           const slots = (day.slots ?? []).flatMap((slot, index): LoadedSlot[] => {
             const lessonType = String(slot.lessonType ?? "private").toLowerCase();
@@ -817,6 +826,22 @@ const CoachProfilePage = () => {
           };
         });
 
+        const daysByIso = new Map(mappedDays.map((day) => [day.isoDate, day]));
+        const validMoments = mappedDays
+          .map((day) => moment(day.isoDate, "YYYY-MM-DD", true))
+          .filter((date) => date.isValid())
+          .sort((a, b) => a.valueOf() - b.valueOf());
+        const rangeStart = validMoments[0]?.clone().startOf("day") ?? moment().startOf("day");
+        const minimumRangeEnd = rangeStart.clone().add(SCHEDULE_WINDOW_DAYS - 1, "days");
+        const latestAvailable = validMoments[validMoments.length - 1]?.clone().startOf("day") ?? minimumRangeEnd;
+        const rangeEnd = latestAvailable.isAfter(minimumRangeEnd) ? latestAvailable : minimumRangeEnd;
+        const nextDays: DayGroup[] = [];
+
+        for (let cursor = rangeStart.clone(); cursor.isSameOrBefore(rangeEnd, "day"); cursor.add(1, "day")) {
+          const isoDate = cursor.format("YYYY-MM-DD");
+          nextDays.push(daysByIso.get(isoDate) ?? buildEmptyDayGroup(cursor));
+        }
+
         if (active) {
           setSlotsByDay(nextDays);
           setScheduleLoading(false);
@@ -826,7 +851,10 @@ const CoachProfilePage = () => {
 
       if (!authToken) {
         if (active) {
-          setSlotsByDay([]);
+          const nextDays = Array.from({ length: SCHEDULE_WINDOW_DAYS }, (_, offset) =>
+            buildEmptyDayGroup(moment().startOf("day").add(offset, "days")),
+          );
+          setSlotsByDay(nextDays);
           setScheduleLoading(false);
         }
         return;
@@ -995,21 +1023,19 @@ const CoachProfilePage = () => {
     }));
   }, [bookingType, slotsByDay]);
 
-  const activeDays = useMemo(() => visibleDays.filter((day) => day.slots.length > 0), [visibleDays]);
-
   useEffect(() => {
     if (selectedDate === "all") return;
     if (pendingSelectedDate === selectedDate) return;
     if (slotsByDay.some((day) => day.isoDate === selectedDate)) return;
-    setSelectedDate(activeDays[0]?.isoDate ?? "all");
-  }, [activeDays, pendingSelectedDate, selectedDate, slotsByDay]);
+    setSelectedDate(visibleDays[0]?.isoDate ?? "all");
+  }, [pendingSelectedDate, selectedDate, slotsByDay, visibleDays]);
 
   const visibleSlots = useMemo(() => {
     if (selectedDate === "all") {
-      return activeDays.flatMap((day) => day.slots);
+      return visibleDays.flatMap((day) => day.slots);
     }
-    return activeDays.find((day) => day.isoDate === selectedDate)?.slots ?? [];
-  }, [activeDays, selectedDate]);
+    return visibleDays.find((day) => day.isoDate === selectedDate)?.slots ?? [];
+  }, [selectedDate, visibleDays]);
 
   const isFirstBooking = useMemo(() => {
     if (typeof window === "undefined") return true;
@@ -1074,8 +1100,8 @@ const CoachProfilePage = () => {
     slotsByDay,
   ]);
 
-  const nextAvailableSlot = visibleSlots[0] ?? activeDays.flatMap((day) => day.slots)[0] ?? null;
-  const slotsThisWeek = activeDays.reduce((sum, day) => sum + day.slots.length, 0);
+  const nextAvailableSlot = visibleDays.flatMap((day) => day.slots)[0] ?? null;
+  const slotsThisWeek = visibleDays.reduce((sum, day) => sum + day.slots.length, 0);
 
   const filteredPackages = useMemo(() => {
     if (bookingType === "all") return packages;
@@ -1635,15 +1661,14 @@ const CoachProfilePage = () => {
           >
             <span>All</span>
           </button>
-          {activeDays.map((day) => (
+          {visibleDays.map((day) => (
             <button
               key={day.isoDate}
               type="button"
               className={selectedDate === day.isoDate ? "coach-day-chip is-active" : "coach-day-chip"}
               onClick={() => setSelectedDate(day.isoDate)}
             >
-              <span>{day.dayLabel}</span>
-              <small>{day.shortDateLabel}</small>
+              <span>{day.dayLabel} {day.shortDateLabel}</span>
             </button>
           ))}
           <button
@@ -1652,7 +1677,7 @@ const CoachProfilePage = () => {
             onClick={() => setShowDatePicker((value) => !value)}
             aria-label="Pick a date"
           >
-            <CalendarDays size={16} />
+            <span className="coach-day-chip__icon-emoji" aria-hidden="true">📅</span>
           </button>
         </div>
 
@@ -1737,26 +1762,31 @@ const CoachProfilePage = () => {
 
         {!scheduleLoading && !datePickerLoading && visibleSlots.length === 0 ? (
           <div className="coach-empty-card coach-empty-card--purple">
-            <strong>No lessons for this filter</strong>
+            {selectedDate === "all" ? null : <div className="coach-empty-card__emoji">🎾</div>}
+            <strong>{selectedDate === "all" ? "No lessons for this filter" : "No lessons on this day"}</strong>
             <p>
-              {nextAvailableSlot
-                ? `Next available: ${nextAvailableSlot.dayLabel} ${nextAvailableSlot.dateLabel} · ${nextAvailableSlot.timeLabel}`
-                : "No availability posted yet."}
+              {selectedDate === "all"
+                ? nextAvailableSlot
+                  ? `Next available: ${nextAvailableSlot.dayLabel} ${nextAvailableSlot.dateLabel} · ${nextAvailableSlot.timeLabel}`
+                  : "No availability posted yet."
+                : "Try a different day"}
             </p>
-            <div className="coach-empty-card__actions">
-              <button type="button" onClick={() => setSelectedDate("all")}>
-                See all availability
-              </button>
-              <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
-                Message coach
-              </button>
-            </div>
+            {selectedDate === "all" ? (
+              <div className="coach-empty-card__actions">
+                <button type="button" onClick={() => setSelectedDate("all")}>
+                  See all availability
+                </button>
+                <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
+                  Message coach
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>
 
       <section ref={variant === "desktop" ? packagesRef : undefined} className="coach-profile-section coach-profile-section--packages coach-profile-booking-block">
-        <div className="coach-profile-section__header coach-profile-section__header--compact">
+        <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-section__header--packages">
           <h2>Lesson packages</h2>
         </div>
 
@@ -1858,32 +1888,6 @@ const CoachProfilePage = () => {
                   <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
                     <ArrowLeft size={16} /> Find a Coach
                   </button>
-                  <button
-                    type="button"
-                    className="coach-profile-top-action coach-profile-top-action--outline"
-                    onClick={handleMessageCoach}
-                    disabled={!smsHref}
-                  >
-                    <MessageCircle size={16} /> Message
-                  </button>
-                </div>
-
-                <div className="coach-profile-compact-bar" aria-label="Coach summary">
-                  <div className="coach-profile-compact-bar__identity">
-                    {coachAvatar ? (
-                      <img src={coachAvatar} alt="" />
-                    ) : (
-                      <span>{buildInitials(coachName)}</span>
-                    )}
-                    <div>
-                      <strong>{coachName}</strong>
-                      <small>{coachTitle}</small>
-                    </div>
-                  </div>
-                  <div className="coach-profile-compact-bar__meta">
-                    <span>{privatePriceLabel}</span>
-                    <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots` : "No slots"}</span>
-                  </div>
                 </div>
 
                 <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
@@ -1916,11 +1920,18 @@ const CoachProfilePage = () => {
                     <div className="coach-profile-hero-v2__header">
                       <div className="coach-profile-hero-v2__header-copy">
                         <h1>{coachName}</h1>
-                        <p className="coach-profile-hero-v2__title">{coachTitle}</p>
                       </div>
-                      {/* <div className="coach-profile-hero-v2__actions">
-                        <span className="coach-profile-hero-v2__location-note">{heroLocationLabel}</span>
-                      </div> */}
+                      <div className="coach-profile-hero-v2__actions">
+                        <button
+                          type="button"
+                          className="coach-profile-top-action coach-profile-top-action--outline"
+                          onClick={handleMessageCoach}
+                          disabled={!smsHref}
+                        >
+                          <MessageCircle size={16} /> Message
+                        </button>
+                        <span className="coach-profile-hero-v2__location-note">{cityLabel}</span>
+                      </div>
                     </div>
                     <div className="coach-profile-hero-v2__chips">
                       {certifications.map((item) => (
@@ -1956,19 +1967,28 @@ const CoachProfilePage = () => {
                 <div className="coach-profile-section__header">
                   <h2>About</h2>
                 </div>
-                <div className="coach-detail-table">
-                  <div className="coach-detail-row">
+                <div className="coach-profile-stat-grid">
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <CalendarDays size={20} />
+                    </div>
                     <span>Experience</span>
                     <strong>{experienceLabel}</strong>
-                  </div>
-                  <div className="coach-detail-row">
+                  </article>
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <Users size={20} />
+                    </div>
                     <span>Students</span>
                     <strong>{studentsLabel}</strong>
-                  </div>
-                  <div className="coach-detail-row">
+                  </article>
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <MessageCircle size={20} />
+                    </div>
                     <span>Languages</span>
                     <strong>{languages.join(", ") || "English"}</strong>
-                  </div>
+                  </article>
                 </div>
 
                 <div className="coach-detail-stack">
