@@ -1486,12 +1486,6 @@ const CoachProfilePage = () => {
 
   const canContinueIntro = Boolean(introForm.level && introForm.goals.length);
   const smsHref = coachPhone ? `smsto:${coachPhone}` : "";
-  const handleMessageCoach = () => {
-    if (!smsHref || typeof window === "undefined") {
-      return;
-    }
-    window.location.href = smsHref;
-  };
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
@@ -1791,9 +1785,15 @@ const CoachProfilePage = () => {
                 <button type="button" onClick={() => setSelectedDate("all")}>
                   See all availability
                 </button>
-                <button type="button" className="is-secondary" onClick={handleMessageCoach} disabled={!smsHref}>
-                  Message coach
-                </button>
+                {smsHref ? (
+                  <a href={smsHref} className="is-secondary coach-empty-card__link">
+                    Message coach
+                  </a>
+                ) : (
+                  <button type="button" className="is-secondary" disabled>
+                    Message coach
+                  </button>
+                )}
               </div>
             ) : null}
           </div>
@@ -1906,14 +1906,22 @@ const CoachProfilePage = () => {
                   <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
                     <ArrowLeft size={16} /> Find a Coach
                   </button>
-                  <button
-                    type="button"
-                    className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                    onClick={handleMessageCoach}
-                    disabled={!smsHref}
-                  >
-                    <MessageCircle size={16} /> Message
-                  </button>
+                  {smsHref ? (
+                    <a
+                      href={smsHref}
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                    >
+                      <MessageCircle size={16} /> Message
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      disabled
+                    >
+                      <MessageCircle size={16} /> Message
+                    </button>
+                  )}
                 </div>
 
                 <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
@@ -1953,14 +1961,19 @@ const CoachProfilePage = () => {
                         </div>
                       </div>
                       <div className="coach-profile-hero-v2__actions">
-                        <button
-                          type="button"
-                          className="coach-profile-top-action coach-profile-top-action--outline"
-                          onClick={handleMessageCoach}
-                          disabled={!smsHref}
-                        >
-                          <MessageCircle size={16} /> Message
-                        </button>
+                        {smsHref ? (
+                          <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
+                            <MessageCircle size={16} /> Message
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            className="coach-profile-top-action coach-profile-top-action--outline"
+                            disabled
+                          >
+                            <MessageCircle size={16} /> Message
+                          </button>
+                        )}
                         <span className="coach-profile-hero-v2__location-note">{cityLabel}</span>
                       </div>
                     </div>

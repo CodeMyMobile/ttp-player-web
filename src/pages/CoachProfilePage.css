@@ -861,6 +861,13 @@
   margin-top: 16px;
 }
 
+.coach-empty-card__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .coach-empty-card__actions .is-secondary,
 .coach-secondary-button,
 .coach-payment-option--card,
