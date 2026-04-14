@@ -679,35 +679,6 @@ const FindCoaches = () => {
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, openCoachMatchSurvey]);
 
-  const handleCoachMatchSurveyFinished = useCallback(
-    async (answers: Array<Record<string, unknown>>) => {
-      if (!playerToken || coachMatchSubmitting) return;
-
-      setCoachMatchSubmitting(true);
-      setCoachMatchError(null);
-
-      try {
-        await submitCoachMatchSurveyAnswers({
-          token: playerToken,
-          surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
-        });
-        await loadCoachMatchQuestions();
-        await fetchCoaches();
-        setCoachMatchSummaryDismissed(false);
-        setCoachMatchSubmitted(true);
-      } catch (requestError) {
-        setCoachMatchError(
-          requestError instanceof Error
-            ? requestError.message
-            : "We couldn't submit your coach match answers right now.",
-        );
-      } finally {
-        setCoachMatchSubmitting(false);
-      }
-    },
-    [coachMatchQuestions, coachMatchSubmitting, fetchCoaches, loadCoachMatchQuestions, playerToken],
-  );
-
   useEffect(() => {
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
@@ -835,6 +806,35 @@ const FindCoaches = () => {
   useEffect(() => {
     fetchCoaches();
   }, [fetchCoaches]);
+
+  const handleCoachMatchSurveyFinished = useCallback(
+    async (answers: Array<Record<string, unknown>>) => {
+      if (!playerToken || coachMatchSubmitting) return;
+
+      setCoachMatchSubmitting(true);
+      setCoachMatchError(null);
+
+      try {
+        await submitCoachMatchSurveyAnswers({
+          token: playerToken,
+          surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
+        });
+        await loadCoachMatchQuestions();
+        await fetchCoaches();
+        setCoachMatchSummaryDismissed(false);
+        setCoachMatchSubmitted(true);
+      } catch (requestError) {
+        setCoachMatchError(
+          requestError instanceof Error
+            ? requestError.message
+            : "We couldn't submit your coach match answers right now.",
+        );
+      } finally {
+        setCoachMatchSubmitting(false);
+      }
+    },
+    [coachMatchQuestions, coachMatchSubmitting, fetchCoaches, loadCoachMatchQuestions, playerToken],
+  );
 
   const clearCoachMatchSummary = useCallback(async () => {
     if (!playerToken || coachMatchClearing) return;
