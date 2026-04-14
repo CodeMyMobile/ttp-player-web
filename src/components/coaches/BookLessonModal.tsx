@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import moment from "moment";
 import { CalendarDays, MapPin, Star, X } from "lucide-react";
 
@@ -1011,7 +1012,7 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
     setApiAvailabilityDates(mapped);
   }, [authToken, availabilityEnd, availabilityStart, coach.pricePerHour, coachSchedule]);
 
-  return (
+  const modalContent = (
     <div className="book-lesson-modal-overlay" role="dialog" aria-modal="true" aria-labelledby={modalDescriptionId}>
       <div className="book-lesson-modal" role="document">
         <header className="book-lesson-modal__header">
@@ -1388,6 +1389,12 @@ const BookLessonModal = ({ coach, onClose }: BookLessonModalProps) => {
       <button type="button" className="book-lesson-modal-overlay__backdrop" aria-hidden="true" onClick={onClose} />
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default BookLessonModal;

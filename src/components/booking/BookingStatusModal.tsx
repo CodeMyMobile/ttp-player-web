@@ -1,5 +1,6 @@
 import moment from "moment";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export type BookingStatus = "PENDING" | "CONFIRMED";
 
@@ -71,7 +72,6 @@ const DotIcon = ({ className }: { className?: string }) => (
 );
 
 const formatTimeLabel = (value: string) => {
-  console.log("formatTimeLabel", value);
   if (!value || !value.includes("T")) {
     return value;
   }
@@ -145,12 +145,11 @@ const BookingStatusModal = ({
   ];
   const confirmedSteps = ["Your spot is reserved", "Payment processed", "Confirmation email sent"];
   const timeLabel = formatTimeLabel(data.timeLabel);
-console.log("data", data);
-console.log("timeLabel", timeLabel);
-  return (
+
+  const modalContent = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-3 py-4 sm:px-4"
+      className="fixed inset-0 z-[180] flex items-center justify-center bg-black/30 px-3 py-4 sm:px-4"
       role="dialog"
       aria-modal="true"
       onClick={(event) => {
@@ -349,6 +348,12 @@ console.log("timeLabel", timeLabel);
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default BookingStatusModal;
