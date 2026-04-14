@@ -128,9 +128,9 @@ const MainLayout = ({ children, mobileChrome = "default" }: MainLayoutProps) => 
   };
 
   return (
-    <div className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}`}>
+      <div className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}`}>
       {isHomeMobileChrome ? (
-        <header className="ph-header main-layout-home-mobile-header">
+        <header className="ph-header">
           <div className="ph-header-left">
             <Link className="ph-brand" to="/">
               <span className="ph-brand-mark">🎾</span>
@@ -328,7 +328,7 @@ const MainLayout = ({ children, mobileChrome = "default" }: MainLayoutProps) => 
       </header>
       <main className="main-layout__content">{children}</main>
       {isHomeMobileChrome ? (
-        <nav className="ph-bottom-nav main-layout-home-mobile-nav" aria-label="Mobile navigation">
+        <nav className="ph-bottom-nav" aria-label="Mobile navigation">
           {homeMobileNavItems.map((item) => {
             const isActive =
               item.to === "/"
