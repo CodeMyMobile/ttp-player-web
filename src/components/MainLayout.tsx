@@ -27,6 +27,7 @@ const navLinks = [
 interface MainLayoutProps {
   children: ReactNode;
   mobileChrome?: "default" | "home";
+  showDesktopNav?: boolean;
 }
 
 const homeMobileNavItems = [
@@ -36,7 +37,7 @@ const homeMobileNavItems = [
   { icon: "👤", label: "Profile", to: "/settings/profile" },
 ];
 
-const MainLayout = ({ children, mobileChrome = "default" }: MainLayoutProps) => {
+const MainLayout = ({ children, mobileChrome = "default", showDesktopNav = true }: MainLayoutProps) => {
   const { logout } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const location = useLocation();
@@ -198,134 +199,136 @@ const MainLayout = ({ children, mobileChrome = "default" }: MainLayoutProps) => 
         </header>
       ) : null}
 
-      <header className="main-nav">
-        <div className="brand">
-          <div className="brand-badge">MP</div>
-          <span>Matchplay</span>
-        </div>
-        <nav className="nav-links">
-          {navLinks.map((link) =>
-            link.to ? (
-              <NavLink
-                key={link.label}
-                to={link.to}
-                className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-              >
-                {link.label}
-              </NavLink>
-            ) : (
-              <a key={link.label} className="nav-link" href={link.href}>
-                {link.label}
-              </a>
-            ),
-          )}
-        </nav>
-        <div className="header-actions">
-          <div className="notifications-menu" ref={notificationRef}>
-            <button
-              type="button"
-              className="notification-button"
-              aria-label="View notifications"
-              aria-haspopup="menu"
-              aria-expanded={isNotificationsOpen}
-              onClick={() => {
-                const nextState = !isNotificationsOpen;
-                setNotificationsOpen(nextState);
-                if (nextState) {
-                  loadNotifications();
-                }
-              }}
-            >
-              <Bell size={20} aria-hidden="true" />
-              {unreadCount > 0 && <span className="notification-indicator" aria-hidden="true" />}
-            </button>
-            {isNotificationsOpen && (
-              <div className="notifications-dropdown" role="menu" aria-label="Notifications">
-                <div className="notifications-dropdown__header">
-                  <h3>Notifications</h3>
-                  {unreadCount > 0 && <span>{unreadCount} unread</span>}
-                </div>
-                {isNotificationsLoading ? (
-                  <p className="notifications-dropdown__empty">Loading notifications…</p>
-                ) : notifications.length === 0 ? (
-                  <p className="notifications-dropdown__empty">No notifications yet.</p>
-                ) : (
-                  <ul className="notifications-list">
-                    {notifications.map((notification, index) => {
-                      const key = notification.id ?? `${notification.title ?? "notification"}-${index}`;
-                      const content = notification.message ?? notification.body ?? "New update available.";
-
-                      return (
-                        <li key={key} className="notifications-list__item">
-                          <p className="notifications-list__title">{notification.title ?? "Notification"}</p>
-                          <p className="notifications-list__body">{content}</p>
-                          <p className="notifications-list__time">{formatNotificationDate(notification)}</p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                <div className="notifications-dropdown__footer">
-                  <Link
-                    to="/notifications"
-                    className="notifications-dropdown__see-all"
-                    onClick={() => setNotificationsOpen(false)}
-                  >
-                    See all notifications
-                  </Link>
-                </div>
-              </div>
-            )}
+      {showDesktopNav ? (
+        <header className="main-nav">
+          <div className="brand">
+            <div className="brand-badge">MP</div>
+            <span>Matchplay</span>
           </div>
-          <div className="user-menu" ref={userMenuRef}>
-            <button
-              type="button"
-              className="user-menu__trigger"
-              onClick={() => setUserMenuOpen((open) => !open)}
-              aria-expanded={isUserMenuOpen}
-              aria-haspopup="menu"
-              aria-label="Open profile menu"
-            >
-              <div className={`user-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
-                ) : (
-                  initials
-                )}
-              </div>
-              <ChevronDown size={16} aria-hidden="true" />
-            </button>
-            {isUserMenuOpen && (
-              <div className="user-menu__dropdown" role="menu">
-                {userMenuItems.map(({ label, to, icon: Icon }) => (
-                  <Link
-                    key={label}
-                    to={to}
-                    className="user-menu__item"
-                    role="menuitem"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <Icon size={16} aria-hidden="true" />
-                    {label}
-                  </Link>
-                ))}
-                <button
-                  type="button"
-                  className="user-menu__item user-menu__item--danger"
-                  role="menuitem"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    logout();
-                  }}
+          <nav className="nav-links">
+            {navLinks.map((link) =>
+              link.to ? (
+                <NavLink
+                  key={link.label}
+                  to={link.to}
+                  className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
                 >
-                  <LogOut size={16} aria-hidden="true" />
-                  Log Out
-                </button>
-              </div>
+                  {link.label}
+                </NavLink>
+              ) : (
+                <a key={link.label} className="nav-link" href={link.href}>
+                  {link.label}
+                </a>
+              ),
             )}
+          </nav>
+          <div className="header-actions">
+            <div className="notifications-menu" ref={notificationRef}>
+              <button
+                type="button"
+                className="notification-button"
+                aria-label="View notifications"
+                aria-haspopup="menu"
+                aria-expanded={isNotificationsOpen}
+                onClick={() => {
+                  const nextState = !isNotificationsOpen;
+                  setNotificationsOpen(nextState);
+                  if (nextState) {
+                    loadNotifications();
+                  }
+                }}
+              >
+                <Bell size={20} aria-hidden="true" />
+                {unreadCount > 0 && <span className="notification-indicator" aria-hidden="true" />}
+              </button>
+              {isNotificationsOpen && (
+                <div className="notifications-dropdown" role="menu" aria-label="Notifications">
+                  <div className="notifications-dropdown__header">
+                    <h3>Notifications</h3>
+                    {unreadCount > 0 && <span>{unreadCount} unread</span>}
+                  </div>
+                  {isNotificationsLoading ? (
+                    <p className="notifications-dropdown__empty">Loading notifications…</p>
+                  ) : notifications.length === 0 ? (
+                    <p className="notifications-dropdown__empty">No notifications yet.</p>
+                  ) : (
+                    <ul className="notifications-list">
+                      {notifications.map((notification, index) => {
+                        const key = notification.id ?? `${notification.title ?? "notification"}-${index}`;
+                        const content = notification.message ?? notification.body ?? "New update available.";
+
+                        return (
+                          <li key={key} className="notifications-list__item">
+                            <p className="notifications-list__title">{notification.title ?? "Notification"}</p>
+                            <p className="notifications-list__body">{content}</p>
+                            <p className="notifications-list__time">{formatNotificationDate(notification)}</p>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  <div className="notifications-dropdown__footer">
+                    <Link
+                      to="/notifications"
+                      className="notifications-dropdown__see-all"
+                      onClick={() => setNotificationsOpen(false)}
+                    >
+                      See all notifications
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="user-menu" ref={userMenuRef}>
+              <button
+                type="button"
+                className="user-menu__trigger"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open profile menu"
+              >
+                <div className={`user-avatar${avatarUrl ? " user-avatar--image" : ""}`}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {isUserMenuOpen && (
+                <div className="user-menu__dropdown" role="menu">
+                  {userMenuItems.map(({ label, to, icon: Icon }) => (
+                    <Link
+                      key={label}
+                      to={to}
+                      className="user-menu__item"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Icon size={16} aria-hidden="true" />
+                      {label}
+                    </Link>
+                  ))}
+                  <button
+                    type="button"
+                    className="user-menu__item user-menu__item--danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    <LogOut size={16} aria-hidden="true" />
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
       <main className="main-layout__content">{children}</main>
       {isHomeMobileChrome ? (
         <nav className="ph-bottom-nav" aria-label="Mobile navigation">
