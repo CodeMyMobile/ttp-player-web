@@ -692,6 +692,7 @@ const FindCoaches = () => {
           surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
         });
         await loadCoachMatchQuestions();
+        await fetchCoaches();
         setCoachMatchSummaryDismissed(false);
         setCoachMatchSubmitted(true);
       } catch (requestError) {
@@ -704,7 +705,7 @@ const FindCoaches = () => {
         setCoachMatchSubmitting(false);
       }
     },
-    [coachMatchQuestions, coachMatchSubmitting, loadCoachMatchQuestions, playerToken],
+    [coachMatchQuestions, coachMatchSubmitting, fetchCoaches, loadCoachMatchQuestions, playerToken],
   );
 
   useEffect(() => {
@@ -924,11 +925,18 @@ const FindCoaches = () => {
     if (mode !== "normal") return [];
 
     return [...coaches].sort((a, b) => {
-        if (sortBy === "rating") return b.rating - a.rating;
-        if (sortBy === "price_asc") return (a.hourlyRateValue ?? Number.MAX_SAFE_INTEGER) - (b.hourlyRateValue ?? Number.MAX_SAFE_INTEGER);
-        if (sortBy === "price_desc") return (b.hourlyRateValue ?? 0) - (a.hourlyRateValue ?? 0);
-        return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
-      });
+      if (sortBy === "match") {
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        if ((a.distanceMiles ?? Number.MAX_SAFE_INTEGER) !== (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)) {
+          return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
+        }
+        return b.rating - a.rating;
+      }
+      if (sortBy === "rating") return b.rating - a.rating;
+      if (sortBy === "price_asc") return (a.hourlyRateValue ?? Number.MAX_SAFE_INTEGER) - (b.hourlyRateValue ?? Number.MAX_SAFE_INTEGER);
+      if (sortBy === "price_desc") return (b.hourlyRateValue ?? 0) - (a.hourlyRateValue ?? 0);
+      return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
+    });
   }, [coaches, mode, sortBy]);
 
   const shouldShowError = status === "ready" && mode === "error";
@@ -941,8 +949,21 @@ const FindCoaches = () => {
     () => getCoachMatchSummaryItems(coachMatchQuestions),
     [coachMatchQuestions],
   );
+  const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
   const shouldShowCoachMatchSummary =
     !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
+
+  useEffect(() => {
+    if (hasSavedCoachMatchPreferences && sortBy === "distance") {
+      setSortBy("match");
+      return;
+    }
+
+    if (!hasSavedCoachMatchPreferences && sortBy === "match") {
+      setSortBy("distance");
+    }
+  }, [hasSavedCoachMatchPreferences, sortBy]);
+
   const coachMatchMaxScore = useMemo(
     () => Math.max(...filteredCoaches.map((coach) => coach.matchScore), 1),
     [filteredCoaches],
@@ -1013,6 +1034,7 @@ const FindCoaches = () => {
             </div>
 
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="fcv2-mobile-sort">
+              <option value="match">Best Match</option>
               <option value="distance">Nearest</option>
               <option value="rating">Top Rated</option>
               <option value="price_asc">Price ↑</option>
@@ -1086,6 +1108,7 @@ const FindCoaches = () => {
                 className="fcv2-sort-select"
                 aria-label="Sort coaches"
               >
+                <option value="match">Best match</option>
                 <option value="distance">Nearest first</option>
                 <option value="rating">Top rated</option>
                 <option value="price_asc">Price: Low to High</option>
