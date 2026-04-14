@@ -1854,7 +1854,7 @@ const CoachProfilePage = () => {
 
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout mobileChrome="home">
         <div className="coach-profile-page coach-profile-page--loading">
           <div className="coach-profile-loading-card" />
         </div>
@@ -1864,7 +1864,7 @@ const CoachProfilePage = () => {
 
   if (profileError || !profile) {
     return (
-      <MainLayout>
+      <MainLayout mobileChrome="home">
         <div className="coach-profile-page">
           <div className="coach-profile-empty">
             <div className="coach-profile-empty__icon">
@@ -1884,7 +1884,7 @@ const CoachProfilePage = () => {
   }
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home">
       <div className="coach-profile-page">
         <div className="coach-profile-shell coach-profile-shell--layout">
           {/* <JoinMyRosterBanner

@@ -1271,7 +1271,7 @@
 
   .coach-profile-fixed-chrome {
     position: sticky;
-    top: 0;
+    top: 60px;
     z-index: 80;
     background: #fff;
   }

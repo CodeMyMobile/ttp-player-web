@@ -489,7 +489,7 @@ const GroupLessonsPage = () => {
   };
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home">
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
           <ResultsHeader

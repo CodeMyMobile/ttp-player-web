@@ -1015,17 +1015,8 @@ const FindCoaches = () => {
     );
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home">
       <div className="fcv2-page">
-        <header className="fcv2-mobile-header">
-          <div className="fcv2-mobile-brand">
-            <span className="fcv2-mobile-brand-mark">🎾</span>
-            <span>
-              The Tennis <em>Plan</em>
-            </span>
-          </div>
-        </header>
-
         <section className="fcv2-mobile-search-block">
           <div className="fcv2-mobile-title-row">
             <div>
@@ -1391,13 +1382,6 @@ const FindCoaches = () => {
           </div>
         ) : null}
 
-        <nav className="fcv2-mobile-tabbar" aria-label="Mobile navigation">
-          <Link to="/">🏠<span>Home</span></Link>
-          <Link to="/find-coaches" className="active">👤<span>Coaches</span></Link>
-          <Link to="/group-lessons">👥<span>Groups</span></Link>
-          <Link to="/matches">🏆<span>Match</span></Link>
-          <Link to="/player/calendar">📅<span>Schedule</span></Link>
-        </nav>
       </div>
     </MainLayout>
   );
