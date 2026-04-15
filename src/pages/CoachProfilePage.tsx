@@ -316,6 +316,22 @@ const parseCurrency = (value?: string | number | null) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+const discountCalc = (amount: number, discountPercentage = 0) => {
+  const percentage = Math.min(Math.max(discountPercentage, 0), 100);
+  return Math.round((amount - (amount * percentage) / 100) * 100) / 100;
+};
+
+const percentageCalc = (percentage: number, amount: number) =>
+  Math.round(((percentage / 100) * amount) * 100) / 100;
+
+const formatCurrencyPrecise = (value: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
 const parseDurationMinutes = (label?: string) => {
   if (!label) return 60;
   const hr = label.match(/(\d+(?:\.\d+)?)\s*hr/i);
@@ -1131,6 +1147,23 @@ const CoachProfilePage = () => {
 
   const nextAvailableSlot = visibleDays.flatMap((day) => day.slots)[0] ?? null;
   const slotsThisWeek = visibleDays.reduce((sum, day) => sum + day.slots.length, 0);
+  const selectedSlotBaseAmount = parseCurrency(selectedSlot?.priceLabel);
+  const selectedSlotDiscountPercentage = 0;
+  const selectedSlotDiscountedAmount =
+    selectedSlotBaseAmount != null ? discountCalc(selectedSlotBaseAmount, selectedSlotDiscountPercentage) : null;
+  const PAYMENT_SERVICE_FEE = 1;
+  const PAYMENT_FEE_PERCENTAGE = 3;
+  const paymentProcessingFee =
+    paymentChoice !== "credits" && selectedSlotDiscountedAmount != null
+      ? percentageCalc(PAYMENT_FEE_PERCENTAGE, selectedSlotDiscountedAmount)
+      : null;
+  const paymentServiceFee = paymentChoice !== "credits" ? PAYMENT_SERVICE_FEE : 0;
+  const paymentTotal =
+    paymentChoice === "credits"
+      ? 0
+      : selectedSlotDiscountedAmount != null
+        ? selectedSlotDiscountedAmount + (paymentProcessingFee ?? 0) + paymentServiceFee
+        : null;
 
   const filteredPackages = useMemo(() => {
     if (bookingType === "all") return packages;
@@ -2494,9 +2527,53 @@ const CoachProfilePage = () => {
               ) : null}
 
               <div className="coach-payment-modal__price-breakdown">
-                <span>Total: {selectedSlot.priceLabel}</span>
-                <span>Type: {selectedSlot.type === "private" ? "Private lesson" : selectedSlot.className ?? "Group lesson"}</span>
-                <span>Location: {selectedSlot.court}</span>
+                {paymentChoice === "credits" ? (
+                  <>
+                    <div className="coach-payment-modal__price-row">
+                      <span>Lesson value</span>
+                      <strong>{selectedSlot.priceLabel}</strong>
+                    </div>
+                    <div className="coach-payment-modal__price-row">
+                      <span>Credits applied</span>
+                      <strong>1 credit</strong>
+                    </div>
+                    <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                      <span>Total due today</span>
+                      <strong>{formatCurrencyPrecise(0)}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {selectedSlotBaseAmount != null ? (
+                      <div className="coach-payment-modal__price-row">
+                        <span>Coach fee</span>
+                        <strong>{formatCurrencyPrecise(selectedSlotBaseAmount)}</strong>
+                      </div>
+                    ) : null}
+                    {selectedSlotDiscountPercentage > 0 && selectedSlotBaseAmount != null && selectedSlotDiscountedAmount != null ? (
+                      <div className="coach-payment-modal__price-row">
+                        <span>Discount ({selectedSlotDiscountPercentage}%)</span>
+                        <strong>-{formatCurrencyPrecise(selectedSlotBaseAmount - selectedSlotDiscountedAmount)}</strong>
+                      </div>
+                    ) : null}
+                    {paymentProcessingFee != null ? (
+                      <div className="coach-payment-modal__price-row">
+                        <span>Payment fee ({PAYMENT_FEE_PERCENTAGE}%)</span>
+                        <strong>{formatCurrencyPrecise(paymentProcessingFee)}</strong>
+                      </div>
+                    ) : null}
+                    <div className="coach-payment-modal__price-row">
+                      <span>Service fee</span>
+                      <strong>{formatCurrencyPrecise(paymentServiceFee)}</strong>
+                    </div>
+                    {paymentTotal != null ? (
+                      <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                        <span>Total due today</span>
+                        <strong>{formatCurrencyPrecise(paymentTotal)}</strong>
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               <div className="coach-payment-modal__actions">

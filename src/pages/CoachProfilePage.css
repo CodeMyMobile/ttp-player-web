@@ -2370,6 +2370,29 @@
   font-size: 14px;
 }
 
+.coach-payment-modal__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-payment-modal__price-row strong {
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.coach-payment-modal__price-row--total {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.coach-payment-modal__price-row--total strong {
+  color: #7c3aed;
+  font-size: 15px;
+}
+
 .coach-payment-modal__link {
   color: #7c3aed;
   font-weight: 800;
