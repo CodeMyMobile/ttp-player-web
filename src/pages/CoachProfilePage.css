@@ -2405,3 +2405,35 @@
   padding: 12px 18px;
   font-weight: 800;
 }
+
+.coach-profile-upcoming-card {
+  display: grid;
+  gap: 12px;
+}
+
+.coach-profile-upcoming-list {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-profile-upcoming-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.coach-profile-upcoming-item strong,
+.coach-profile-upcoming-item p {
+  margin: 0;
+}
+
+.coach-profile-upcoming-item p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+}

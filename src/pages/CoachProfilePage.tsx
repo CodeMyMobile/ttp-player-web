@@ -40,12 +40,13 @@ import {
   getPlayerStripePaymentMethods,
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
-import { getPlayerCoachLessonHistory, updatePlayerLesson } from "../api/player";
+import { getPlayerCoachLessonHistory, getPlayerUpcomingLessons, updatePlayerLesson, type PlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
+import LessonDetailCard from "../components/LessonDetailCard";
 import LessonPaymentSummary from "../components/payments/LessonPaymentSummary";
 import { calculateLessonPricing, resolveLessonCheckoutType, resolveLessonCreditType } from "../utils/lessonPricing";
 
@@ -371,6 +372,29 @@ const extractLessonHistory = (payload: unknown): Array<Record<string, unknown>> 
   return [];
 };
 
+const normalizeUpcomingCoachLesson = (lesson: PlayerLesson, coachId: number | string): PlayerLesson | null => {
+  const record = lesson as Record<string, unknown>;
+  const lessonCoachId =
+    record.coach_id ??
+    record.coachId ??
+    (record.coach && typeof record.coach === "object" ? (record.coach as Record<string, unknown>).id : undefined);
+  if (lessonCoachId == null || String(lessonCoachId) !== String(coachId)) {
+    return null;
+  }
+
+  const startRaw =
+    record.start_date_time ??
+    record.startDateTime ??
+    record.startTime ??
+    lesson.startTime;
+  const start = startRaw ? moment(String(startRaw)) : null;
+  if (!start?.isValid() || start.isBefore(moment())) {
+    return null;
+  }
+
+  return lesson;
+};
+
 const parseDurationMinutes = (label?: string) => {
   if (!label) return 60;
   const hr = label.match(/(\d+(?:\.\d+)?)\s*hr/i);
@@ -672,6 +696,8 @@ const CoachProfilePage = () => {
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
   const [hasCoachHistory, setHasCoachHistory] = useState(false);
+  const [upcomingCoachLessons, setUpcomingCoachLessons] = useState<PlayerLesson[]>([]);
+  const [upcomingCoachLessonsLoading, setUpcomingCoachLessonsLoading] = useState(false);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
@@ -871,6 +897,51 @@ const CoachProfilePage = () => {
       });
 
     return () => controller.abort();
+  }, [authLoading, authToken, isLoggedIn, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || authLoading) return;
+
+    if (!isLoggedIn || !authToken) {
+      setUpcomingCoachLessons([]);
+      setUpcomingCoachLessonsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setUpcomingCoachLessonsLoading(true);
+
+    getPlayerUpcomingLessons(authToken)
+      .then((response) => {
+        if (!active) return;
+        const upcoming = (response?.data ?? [])
+          .map((lesson) => normalizeUpcomingCoachLesson(lesson, profile.id))
+          .filter((lesson): lesson is PlayerLesson => Boolean(lesson))
+          .sort((a, b) => {
+            const aStart = moment(
+              String((a as Record<string, unknown>).start_date_time ?? a.startTime ?? ""),
+            ).valueOf();
+            const bStart = moment(
+              String((b as Record<string, unknown>).start_date_time ?? b.startTime ?? ""),
+            ).valueOf();
+            return aStart - bStart;
+          });
+        setUpcomingCoachLessons(upcoming);
+      })
+      .catch(() => {
+        if (active) {
+          setUpcomingCoachLessons([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setUpcomingCoachLessonsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [authLoading, authToken, isLoggedIn, profile?.id]);
 
   useEffect(() => {
@@ -1889,6 +1960,23 @@ const CoachProfilePage = () => {
           <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
             {availableCredits > 0 ? "Top up" : "View packages"}
           </button>
+        </div>
+      ) : null}
+
+      {isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
+        <div className="coach-profile-upcoming-card coach-profile-booking-block">
+          <div className="coach-profile-section__header coach-profile-section__header--compact">
+            <h2>Your lessons with {coachFirstName}</h2>
+          </div>
+          {upcomingCoachLessonsLoading ? (
+            <div className="coach-empty-card">Loading your upcoming lessons…</div>
+          ) : upcomingCoachLessons.length > 0 ? (
+            <div className="coach-profile-upcoming-list">
+              {upcomingCoachLessons.map((lesson) => (
+                <LessonDetailCard key={String(lesson.id)} lesson={lesson as Lesson} />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
