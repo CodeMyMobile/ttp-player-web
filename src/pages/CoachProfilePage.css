@@ -1251,7 +1251,8 @@
 
 @media (max-width: 640px) {
   .coach-profile-page {
-    padding-bottom: 0;
+    padding-bottom: 104px;
+    background: #f8fafc;
   }
 
   .coach-profile-shell {
@@ -1274,22 +1275,28 @@
     top: 60px;
     z-index: 80;
     background: #fff;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .coach-profile-chrome-header {
     min-height: 56px;
     justify-content: space-between;
     padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .coach-profile-top-action {
     font-size: 13px;
+    font-weight: 700;
+    color: #475569;
   }
 
   .coach-profile-top-action--mobile-only {
     display: inline-flex;
     padding: 6px 12px;
     font-size: 12px;
+    border-radius: 9px;
+    background: #fff;
   }
 
   .coach-profile-hero-v2,
@@ -1309,15 +1316,18 @@
   }
 
   .coach-credit-strip {
-    padding: 10px 16px;
-    margin: 0 0 12px;
-    border-top: 0;
+    padding: 14px 16px;
+    margin: 0 16px 12px;
+    border: 1px solid #ddd6fe;
+    border-radius: 14px;
+    background: #ede9fe;
   }
 
   .coach-profile-sticky-chrome {
     padding: 0;
     overflow-x: auto;
     justify-content: space-between;
+    border-top: 0;
   }
 
   .coach-profile-tab {
@@ -1330,15 +1340,18 @@
   }
 
   .coach-profile-hero-v2 {
-    margin: 0 0 12px;
-    padding-top: 10px;
-    padding-bottom: 14px;
+    margin: 0 16px 12px;
+    padding: 14px 16px 12px;
     border-bottom: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   }
 
   .coach-profile-hero-v2__identity {
     gap: 10px;
-    align-items: center;
+    align-items: flex-start;
   }
 
   .coach-profile-hero-v2__avatar {
@@ -1369,6 +1382,7 @@
   .coach-profile-hero-v2__copy h1 {
     font-size: 14px;
     line-height: 1.2;
+    font-weight: 700;
   }
 
   .coach-profile-mobile-meta {
@@ -1393,15 +1407,22 @@
   }
 
   .coach-profile-bio {
-    margin-top: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
     font-size: 13px;
-    line-height: 1.65;
+    line-height: 1.6;
     color: #475569;
     -webkit-line-clamp: 3;
   }
 
+  .coach-profile-inline-link {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+
   .coach-profile-booking-rail--mobile {
-    margin-top: 0;
+    margin: 0 16px 12px;
     border-top: 0;
     background: transparent;
   }
@@ -1413,17 +1434,25 @@
   .coach-booking-card {
     margin: 0 0 12px;
     background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   }
 
   .coach-booking-toggle {
     border-radius: 12px;
     margin-bottom: 18px;
+    background: #f1f5f9;
   }
 
   .coach-booking-toggle button {
     padding: 10px;
     border-radius: 9px;
     font-size: 12px;
+  }
+
+  .coach-booking-toggle button.is-active {
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
   }
 
   .coach-day-strip {
@@ -1435,6 +1464,7 @@
     border-radius: 12px;
     min-width: 46px;
     padding: 8px 10px;
+    border-width: 1.5px;
   }
 
   .coach-day-chip:first-child {
@@ -1449,6 +1479,8 @@
     gap: 8px;
     padding: 12px 14px;
     align-items: center;
+    background: #fff;
+    border-color: #e2e8f0;
   }
 
   .coach-slot__time {
@@ -1482,6 +1514,7 @@
 
   .coach-slot--group {
     background: #fff;
+    border-color: #e2e8f0;
   }
 
   .coach-slot__card-head h3 {
@@ -1502,12 +1535,18 @@
   }
 
   .coach-profile-section {
-    margin: 0 0 12px;
+    margin: 0 16px 12px;
     background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
   }
 
   .coach-profile-section--packages {
     margin: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
   }
 
   .coach-profile-section__header--packages {
@@ -1515,11 +1554,71 @@
   }
 
   .coach-profile-stat-grid {
+    gap: 10px;
+    grid-template-columns: 1fr;
+    margin-bottom: 20px;
+  }
+
+  .coach-profile-stat-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
     gap: 12px;
+    text-align: left;
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .coach-profile-stat-card__icon {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 0;
+    border-radius: 9px;
+    background: #f1f5f9;
+    flex-shrink: 0;
+  }
+
+  .coach-profile-stat-card span {
+    display: block;
+    font-size: 11px;
+  }
+
+  .coach-profile-stat-card strong {
+    display: block;
+    margin-top: 1px;
+    font-size: 13px;
+  }
+
+  .coach-detail-stack {
+    gap: 18px;
+  }
+
+  .coach-detail-stack h3 {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .coach-chip-row {
+    gap: 8px;
+  }
+
+  .coach-profile-pill {
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .coach-court-card {
     padding: 14px;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  .coach-court-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
   }
 }
 

@@ -1920,29 +1920,27 @@ const CoachProfilePage = () => {
           <div className="coach-profile-layout-v2">
             <div className="coach-profile-main-v2">
               <div className="coach-profile-fixed-chrome">
-                {isLoggedIn ? (
-                  <div className="coach-profile-chrome-header">
-                    <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
-                      <ArrowLeft size={16} /> Find a Coach
+                <div className="coach-profile-chrome-header">
+                  <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
+                    <ArrowLeft size={16} /> Find a Coach
+                  </button>
+                  {smsHref ? (
+                    <a
+                      href={smsHref}
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                    >
+                      <MessageCircle size={16} /> Message
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      disabled
+                    >
+                      <MessageCircle size={16} /> Message
                     </button>
-                    {smsHref ? (
-                      <a
-                        href={smsHref}
-                        className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                      >
-                        <MessageCircle size={16} /> Message
-                      </a>
-                    ) : (
-                      <button
-                        type="button"
-                        className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                        disabled
-                      >
-                        <MessageCircle size={16} /> Message
-                      </button>
-                    )}
-                  </div>
-                ) : null}
+                  )}
+                </div>
 
                 <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
                   {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
