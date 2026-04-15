@@ -43,6 +43,7 @@ import {
 import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 
@@ -513,11 +514,24 @@ const downloadIcs = (slot: LoadedSlot, coachName: string) => {
   URL.revokeObjectURL(url);
 };
 
+const buildSmsHref = (phoneNumber: string, message: string) => {
+  const trimmedPhoneNumber = phoneNumber.trim();
+  if (!trimmedPhoneNumber) return "";
+
+  const encodedMessage = encodeURIComponent(message);
+  const isIos =
+    typeof window !== "undefined" && /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const separator = isIos ? "&" : "?";
+
+  return `sms:${trimmedPhoneNumber}${separator}body=${encodedMessage}`;
+};
+
 const CoachProfilePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { displayName } = usePlayerIdentity();
   const rawAuthToken =
     user?.session?.access_token ??
     user?.access_token ??
@@ -1485,7 +1499,11 @@ const CoachProfilePage = () => {
   };
 
   const canContinueIntro = Boolean(introForm.level && introForm.goals.length);
-  const smsHref = coachPhone ? `smsto:${coachPhone}` : "";
+  const playerName = displayName.trim() || "A Tennis Plan player";
+  const smsMessage =
+    `Hi ${coachFirstName}, I found your profile on The Tennis Plan and would like to learn more about lessons.\n\n` +
+    `Thanks,\n${playerName}`;
+  const smsHref = buildSmsHref(coachPhone, smsMessage);
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
