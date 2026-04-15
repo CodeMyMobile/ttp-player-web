@@ -1,6 +1,13 @@
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
 
+const clearStoredSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("authLoginResponse");
+  localStorage.removeItem("playerPersonalDetails");
+};
+
 export const login = async (email, password) => {
   const data = await unwrap(
     api(`/auth/login`, {
@@ -8,6 +15,16 @@ export const login = async (email, password) => {
       body: JSON.stringify({ email, password }),
     })
   );
+  if (Number(data?.user_type) === 1) {
+    clearStoredSession();
+    const error = new Error("Coach accounts can’t sign in to the player app.");
+    error.response = {
+      data: {
+        error: "Coach accounts can’t sign in to the player app.",
+      },
+    };
+    throw error;
+  }
   if (data) {
     localStorage.setItem("authLoginResponse", JSON.stringify(data));
   }
@@ -65,10 +82,7 @@ export const getPersonalDetails = async () => {
 };
 
 export const logout = () => {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("authLoginResponse");
-  localStorage.removeItem("playerPersonalDetails");
+  clearStoredSession();
 };
 
 export const forgotPassword = async (email) =>
