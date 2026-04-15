@@ -587,6 +587,7 @@ const CoachProfilePage = () => {
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
+  const [upsellDismissed, setUpsellDismissed] = useState(false);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
@@ -1140,6 +1141,32 @@ const CoachProfilePage = () => {
     });
   }, [bookingType, packages]);
 
+  const privatePackages = useMemo(
+    () =>
+      packages.filter((pkg) => {
+        const types = pkg.lesson_types_allowed ?? [];
+        return !types.length || types.some((type) => type.toLowerCase().includes("private"));
+      }),
+    [packages],
+  );
+
+  const upsellPackage = useMemo(() => {
+    if (!privatePackages.length) return null;
+
+    const privateLessonRate = parseCurrency(privatePriceLabel);
+    return [...privatePackages].sort((a, b) => {
+      const aTotal = parseCurrency(a.total_price);
+      const bTotal = parseCurrency(b.total_price);
+      const aSavings =
+        privateLessonRate && aTotal != null ? privateLessonRate * Math.max(a.lesson_count, 1) - aTotal : 0;
+      const bSavings =
+        privateLessonRate && bTotal != null ? privateLessonRate * Math.max(b.lesson_count, 1) - bTotal : 0;
+
+      if (bSavings !== aSavings) return bSavings - aSavings;
+      return Math.max(b.lesson_count, 1) - Math.max(a.lesson_count, 1);
+    })[0];
+  }, [privatePackages, privatePriceLabel]);
+
   const onboardingPrefill = useMemo(() => {
     if (typeof window === "undefined") {
       return { who: "" as IntroWho, level: "", goals: [] as string[] };
@@ -1288,6 +1315,7 @@ const CoachProfilePage = () => {
       return;
     }
 
+    setUpsellDismissed(false);
     setSelectedSlot(slot);
     setBookingStep(isFirstBooking ? "about" : "confirm");
     setBookingOpen(true);
@@ -2266,6 +2294,34 @@ const CoachProfilePage = () => {
 
               {bookingStep === "confirm" ? (
                 <div className="coach-booking-step">
+                  {(() => {
+                    const upsellTotal = upsellPackage ? parseCurrency(upsellPackage.total_price) : undefined;
+                    const upsellTotalLabel = upsellPackage ? formatCurrency(upsellPackage.total_price) ?? `${upsellPackage.total_price}` : "";
+                    const upsellPerSession =
+                      upsellPackage && upsellTotal != null
+                        ? formatCurrency(upsellTotal / Math.max(upsellPackage.lesson_count, 1))
+                        : undefined;
+                    const privateLessonRate = parseCurrency(privatePriceLabel);
+                    const upsellSavingsAmount =
+                      upsellPackage && upsellTotal != null && privateLessonRate
+                        ? Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1) - upsellTotal, 0)
+                        : 0;
+                    const upsellSavingsPercent =
+                      upsellPackage && upsellTotal != null && privateLessonRate
+                        ? Math.round((upsellSavingsAmount / Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1), 1)) * 100)
+                        : 0;
+                    const upsellTitle =
+                      upsellPackage?.name?.trim() || `${upsellPackage?.lesson_count ?? 0}-session package`;
+                    const upsellCopy =
+                      upsellPackage?.description?.trim() ||
+                      (upsellPerSession && upsellSavingsAmount > 0
+                        ? `${upsellPerSession}/session · save ${formatCurrency(upsellSavingsAmount) ?? `$${Math.round(upsellSavingsAmount)}`}${upsellSavingsPercent > 0 ? ` (${upsellSavingsPercent}%)` : ""}`
+                        : upsellPackage
+                          ? `${upsellPackage.lesson_count} lessons with ${coachFirstName}`
+                          : "");
+
+                    return (
+                      <>
                   <div className="coach-booking-step__coach-card">
                     {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
                     <div>
@@ -2286,17 +2342,19 @@ const CoachProfilePage = () => {
                     <strong>{selectedSlot.priceLabel}</strong>
                   </div>
 
-                  {privateCredits === 0 && selectedSlot.type === "private" ? (
+                  {privateCredits === 0 && selectedSlot.type === "private" && upsellPackage && !upsellDismissed ? (
                     <div className="coach-upsell-card">
-                      <button type="button" className="coach-upsell-card__close">
+                      <button type="button" className="coach-upsell-card__close" onClick={() => setUpsellDismissed(true)}>
                         <X size={14} />
                       </button>
                       <p>Save on repeat sessions</p>
-                      <strong>Buy 10-pack</strong>
-                      <span>Mock 15% discount until coach portal pricing is wired.</span>
+                      <strong>{upsellTitle}</strong>
+                      <span>{upsellCopy}</span>
                       <div className="coach-upsell-card__actions">
-                        <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>Buy 10-pack</button>
-                        <button type="button" className="coach-secondary-button coach-secondary-button--small">Just this lesson</button>
+                        <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>
+                          Buy package{upsellTotalLabel ? ` · ${upsellTotalLabel}` : ""}
+                        </button>
+                        <button type="button" className="coach-secondary-button coach-secondary-button--small" onClick={() => setUpsellDismissed(true)}>Just this lesson</button>
                       </div>
                     </div>
                   ) : null}
@@ -2304,6 +2362,9 @@ const CoachProfilePage = () => {
                   <button type="button" className="coach-primary-button" onClick={() => openPaymentSheet("card")}>
                     Continue to payment
                   </button>
+                      </>
+                    );
+                  })()}
                 </div>
               ) : null}
             </div>
