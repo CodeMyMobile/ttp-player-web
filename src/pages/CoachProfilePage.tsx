@@ -40,7 +40,7 @@ import {
   getPlayerStripePaymentMethods,
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
-import { updatePlayerLesson } from "../api/player";
+import { getPlayerCoachLessonHistory, updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -352,6 +352,25 @@ const extractIntentStatus = (response: Record<string, unknown>) => {
   return typeof raw === "string" ? raw.toLowerCase() : "";
 };
 
+const extractLessonHistory = (payload: unknown): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+  }
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const nestedCandidates = [record.data, record.lessons, record.results, record.items];
+  for (const candidate of nestedCandidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    }
+  }
+
+  return [];
+};
+
 const parseDurationMinutes = (label?: string) => {
   if (!label) return 60;
   const hr = label.match(/(\d+(?:\.\d+)?)\s*hr/i);
@@ -651,6 +670,8 @@ const CoachProfilePage = () => {
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
+  const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
+  const [hasCoachHistory, setHasCoachHistory] = useState(false);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
@@ -847,6 +868,44 @@ const CoachProfilePage = () => {
       })
       .finally(() => {
         if (!controller.signal.aborted) setPaymentMethodsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [authLoading, authToken, isLoggedIn, profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || authLoading) return;
+
+    if (!isLoggedIn || !authToken) {
+      setCoachHistoryLoaded(true);
+      setHasCoachHistory(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setCoachHistoryLoaded(false);
+
+    getPlayerCoachLessonHistory({
+      token: authToken,
+      coachId: profile.id,
+      date: moment().format("YYYY-MM-DD"),
+      perPage: 1,
+      page: 1,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        const lessons = extractLessonHistory(response);
+        setHasCoachHistory(lessons.length > 0);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
+          setHasCoachHistory(false);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCoachHistoryLoaded(true);
+        }
       });
 
     return () => controller.abort();
@@ -1154,9 +1213,10 @@ const CoachProfilePage = () => {
   }, [selectedDate, visibleDays]);
 
   const isFirstBooking = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem(firstBookingKey) !== "completed";
-  }, [firstBookingKey]);
+    const completedLocally =
+      typeof window !== "undefined" ? localStorage.getItem(firstBookingKey) === "completed" : false;
+    return !completedLocally && !hasCoachHistory;
+  }, [firstBookingKey, hasCoachHistory]);
 
   useEffect(() => {
     const resumeState = location.state as
@@ -1200,13 +1260,14 @@ const CoachProfilePage = () => {
       setPaymentChoice(resumeState.resumePaymentChoice);
       setPaymentSheetOpen(true);
     } else {
-      setBookingStep(isFirstBooking ? "about" : "confirm");
+      setBookingStep(isLoggedIn && !coachHistoryLoaded ? "confirm" : isFirstBooking ? "about" : "confirm");
       setBookingOpen(true);
     }
     navigate(location.pathname, { replace: true, state: null });
   }, [
     bookingOpen,
     isFirstBooking,
+    coachHistoryLoaded,
     isLoggedIn,
     location.pathname,
     location.state,
@@ -1417,7 +1478,7 @@ const CoachProfilePage = () => {
 
     setUpsellDismissed(false);
     setSelectedSlot(slot);
-    setBookingStep(isFirstBooking ? "about" : "confirm");
+    setBookingStep(isLoggedIn && !coachHistoryLoaded ? "confirm" : isFirstBooking ? "about" : "confirm");
     setBookingOpen(true);
     setPaymentMethodsError(null);
     setBookingError(null);

@@ -9,6 +9,15 @@ export interface PlayerLesson {
   [key: string]: unknown;
 }
 
+export interface PlayerCoachLessonHistoryParams {
+  token: string;
+  coachId: number | string;
+  date?: string;
+  perPage?: number;
+  page?: number;
+  signal?: AbortSignal;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   meta?: {
@@ -43,6 +52,27 @@ export const getPlayerUpcomingLessonsById = async (token: string, lessonId: numb
   request<PlayerLesson>(`/player/upcoming_lessons/${lessonId}`, {
     token,
   });
+
+export const getPlayerCoachLessonHistory = async ({
+  token,
+  coachId,
+  date,
+  perPage,
+  page,
+  signal,
+}: PlayerCoachLessonHistoryParams) =>
+  request<PaginatedResponse<PlayerLesson> | PlayerLesson[] | { lessons?: PlayerLesson[]; data?: PlayerLesson[] }>(
+    `/player/coach/lessons/history/${coachId}`,
+    {
+      token,
+      signal,
+      query: {
+        ...(date ? { date } : {}),
+        ...(typeof perPage === "number" ? { perPage } : {}),
+        ...(typeof page === "number" ? { page } : {}),
+      },
+    },
+  );
 
 export interface UpdatePlayerLessonParams {
   token: string;
