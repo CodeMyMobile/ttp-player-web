@@ -2411,6 +2411,31 @@
   gap: 12px;
 }
 
+.coach-profile-upcoming-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-profile-upcoming-card__count {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.coach-profile-upcoming-card__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .coach-profile-upcoming-list {
   display: grid;
   gap: 10px;

@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
+  ChevronUp,
   Clock3,
   MapPin,
   MessageCircle,
@@ -395,6 +397,24 @@ const normalizeUpcomingCoachLesson = (lesson: PlayerLesson, coachId: number | st
   return lesson;
 };
 
+const getLessonMomentRange = (lesson: PlayerLesson) => {
+  const record = lesson as Record<string, unknown>;
+  const startRaw = record.start_date_time ?? record.startDateTime ?? record.startTime ?? lesson.startTime;
+  const endRaw = record.end_date_time ?? record.endDateTime ?? record.endTime ?? lesson.endTime;
+  const start = startRaw ? moment.utc(String(startRaw)) : null;
+  const end = endRaw ? moment.utc(String(endRaw)) : null;
+  if (!start?.isValid()) return null;
+  const resolvedEnd = end?.isValid() ? end : start.clone().add(60, "minutes");
+  return { start, end: resolvedEnd };
+};
+
+const getUpcomingLessonBookingState = (lesson: PlayerLesson): LoadedSlot["bookingState"] | null => {
+  const status = Number((lesson as Record<string, unknown>).status ?? lesson.status);
+  if (status === 1) return "confirmed";
+  if (status === 0) return "pending";
+  return null;
+};
+
 const parseDurationMinutes = (label?: string) => {
   if (!label) return 60;
   const hr = label.match(/(\d+(?:\.\d+)?)\s*hr/i);
@@ -698,6 +718,7 @@ const CoachProfilePage = () => {
   const [hasCoachHistory, setHasCoachHistory] = useState(false);
   const [upcomingCoachLessons, setUpcomingCoachLessons] = useState<PlayerLesson[]>([]);
   const [upcomingCoachLessonsLoading, setUpcomingCoachLessonsLoading] = useState(false);
+  const [upcomingLessonsExpanded, setUpcomingLessonsExpanded] = useState(false);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
@@ -1367,6 +1388,30 @@ const CoachProfilePage = () => {
     [selectedSlot],
   );
 
+  const upcomingLessonBySlotKey = useMemo(() => {
+    const map = new Map<string, PlayerLesson>();
+
+    slotsByDay.forEach((day) => {
+      day.slots.forEach((slot) => {
+        const slotStart = moment.utc(slot.start);
+        const slotEnd = moment.utc(slot.end);
+        if (!slotStart.isValid() || !slotEnd.isValid()) return;
+
+        const matchingLesson = upcomingCoachLessons.find((lesson) => {
+          const range = getLessonMomentRange(lesson);
+          if (!range) return false;
+          return slotStart.isBefore(range.end) && slotEnd.isAfter(range.start);
+        });
+
+        if (matchingLesson) {
+          map.set(slot.id, matchingLesson);
+        }
+      });
+    });
+
+    return map;
+  }, [slotsByDay, upcomingCoachLessons]);
+
   const filteredPackages = useMemo(() => {
     if (bookingType === "all") return packages;
     return packages.filter((pkg) => {
@@ -1968,15 +2013,34 @@ const CoachProfilePage = () => {
 
       {isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
         <div className="coach-profile-upcoming-card coach-profile-booking-block">
-          <div className="coach-profile-section__header coach-profile-section__header--compact">
-            <h2>Your lessons with {coachFirstName}</h2>
+          <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-upcoming-card__header">
+            <div>
+              <h2>Your lessons with {coachFirstName}</h2>
+              {!upcomingCoachLessonsLoading ? (
+                <p className="coach-profile-upcoming-card__count">
+                  {upcomingCoachLessons.length} upcoming lesson{upcomingCoachLessons.length === 1 ? "" : "s"}
+                </p>
+              ) : null}
+            </div>
+            {!upcomingCoachLessonsLoading && upcomingCoachLessons.length > 0 ? (
+              <button
+                type="button"
+                className="coach-profile-upcoming-card__toggle"
+                onClick={() => setUpcomingLessonsExpanded((value) => !value)}
+                aria-expanded={upcomingLessonsExpanded}
+                aria-controls="coach-profile-upcoming-list"
+              >
+                <span>{upcomingLessonsExpanded ? "Hide" : "Show"}</span>
+                {upcomingLessonsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+            ) : null}
           </div>
           {upcomingCoachLessonsLoading ? (
             <div className="coach-empty-card">Loading your upcoming lessons…</div>
-          ) : upcomingCoachLessons.length > 0 ? (
-            <div className="coach-profile-upcoming-list">
+          ) : upcomingCoachLessons.length > 0 && upcomingLessonsExpanded ? (
+            <div className="coach-profile-upcoming-list" id="coach-profile-upcoming-list">
               {upcomingCoachLessons.map((lesson) => (
-                <LessonDetailCard key={String(lesson.id)} lesson={lesson as Lesson} />
+                <LessonDetailCard key={String(lesson.id)} lesson={lesson as Lesson} statusLabel={Number((lesson as Record<string, unknown>).status) === 0 ? "Requested" : undefined} />
               ))}
             </div>
           ) : null}
@@ -2045,8 +2109,11 @@ const CoachProfilePage = () => {
         {scheduleLoading || datePickerLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
         {!scheduleLoading && !datePickerLoading && visibleSlots.length > 0 ? (
           <div className="coach-slot-list coach-slot-list--aside">
-            {visibleSlots.map((slot) =>
-              slot.type === "private" ? (
+            {visibleSlots.map((slot) => {
+              const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
+              const effectiveBookingState = slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
+
+              return slot.type === "private" ? (
                 <article key={slot.id} className="coach-slot coach-slot--private">
                   <div className="coach-slot__main">
                     <p className="coach-slot__time">
@@ -2063,10 +2130,10 @@ const CoachProfilePage = () => {
                     <button
                       type="button"
                       className="coach-slot__button coach-slot__button--private"
-                      disabled={slot.bookingState != null}
+                      disabled={effectiveBookingState != null}
                       onClick={() => openBookingFlow(slot)}
                     >
-                      {slot.bookingState === "pending" ? "Requested" : slot.bookingState === "confirmed" ? "Booked" : "Book →"}
+                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →"}
                     </button>
                   </div>
                 </article>
@@ -2099,15 +2166,15 @@ const CoachProfilePage = () => {
                     <button
                       type="button"
                       className="coach-slot__button coach-slot__button--group"
-                      disabled={slot.bookingState != null}
+                      disabled={effectiveBookingState != null}
                       onClick={() => openBookingFlow(slot)}
                     >
-                      {slot.bookingState === "confirmed" ? "Booked" : "Reserve spot"}
+                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Reserve spot"}
                     </button>
                   </div>
                 </article>
-              ),
-            )}
+              );
+            })}
           </div>
         ) : null}
 
