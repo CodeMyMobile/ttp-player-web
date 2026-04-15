@@ -914,7 +914,10 @@ const CoachProfilePage = () => {
     getPlayerUpcomingLessons(authToken)
       .then((response) => {
         if (!active) return;
-        const upcoming = (response?.data ?? [])
+        const upcomingSource = Array.isArray((response as { lessons?: PlayerLesson[] })?.lessons)
+          ? ((response as { lessons?: PlayerLesson[] }).lessons ?? [])
+          : (response?.data ?? []);
+        const upcoming = upcomingSource
           .map((lesson) => normalizeUpcomingCoachLesson(lesson, profile.id))
           .filter((lesson): lesson is PlayerLesson => Boolean(lesson))
           .sort((a, b) => {
