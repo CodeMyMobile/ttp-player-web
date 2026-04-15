@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Apple,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -28,15 +27,16 @@ import {
   type PackagePurchase,
 } from "../api/playerPackages";
 import {
-  bookGroupLessonWithCard,
   fetchAvailableLessons,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
+  joinLesson,
   type CoachScheduleEntry,
   type Lesson,
   requestPrivateLesson,
 } from "../api/playerLessons";
 import {
+  createPlayerStripePaymentIntent,
   getPlayerStripePaymentMethods,
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
@@ -46,6 +46,8 @@ import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
+import LessonPaymentSummary from "../components/payments/LessonPaymentSummary";
+import { calculateLessonPricing, resolveLessonCheckoutType } from "../utils/lessonPricing";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -54,6 +56,7 @@ type LessonTypeFilter = "all" | "private" | "group";
 type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
+type PaymentChoice = "credits" | "card" | "wallet";
 
 type LoadedSlot = {
   id: string;
@@ -77,6 +80,12 @@ type LoadedSlot = {
   courtValue?: number | string | null;
   sourceLessonId?: number;
   bookingState?: "pending" | "confirmed";
+  hourlyRate?: number | null;
+  groupPricePerPerson?: number | null;
+  discountPercentage?: number;
+  lessonTypeName?: string;
+  lessonTypeId?: number | null;
+  coachId?: number | null;
 };
 
 type ApiBookingSlot = {
@@ -316,14 +325,6 @@ const parseCurrency = (value?: string | number | null) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const discountCalc = (amount: number, discountPercentage = 0) => {
-  const percentage = Math.min(Math.max(discountPercentage, 0), 100);
-  return Math.round((amount - (amount * percentage) / 100) * 100) / 100;
-};
-
-const percentageCalc = (percentage: number, amount: number) =>
-  Math.round(((percentage / 100) * amount) * 100) / 100;
-
 const formatCurrencyPrecise = (value: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -331,6 +332,25 @@ const formatCurrencyPrecise = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+
+const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<string, unknown> | null | undefined) => {
+  if (!payload) return [] as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.payment_methods)) return payload.payment_methods as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload.data)) return payload.data as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload.results)) return payload.results as PlayerStripePaymentMethod[];
+  return [] as PlayerStripePaymentMethod[];
+};
+
+const extractIntentStatus = (response: Record<string, unknown>) => {
+  const nestedIntent = response.payment_intent as Record<string, unknown> | undefined;
+  const raw =
+    response.status ??
+    response.payment_intent_status ??
+    nestedIntent?.status ??
+    (response.paymentIntent as Record<string, unknown> | undefined)?.status;
+  return typeof raw === "string" ? raw.toLowerCase() : "";
+};
 
 const parseDurationMinutes = (label?: string) => {
   if (!label) return 60;
@@ -398,8 +418,11 @@ const parseClock = (isoDate: string, value?: string) => {
 };
 
 const resolveLessonType = (lesson: Lesson) => {
-  const label = String(lesson.lesson_type_name ?? "").toLowerCase();
-  return label.includes("group") ? "group" : "private";
+  const checkoutType = resolveLessonCheckoutType({
+    lesson_type_name: lesson.lesson_type_name,
+    lessontype_id: (lesson as Record<string, unknown>).lessontype_id ?? (lesson as Record<string, unknown>).lesson_type_id,
+  });
+  return checkoutType === "private" ? "private" : "group";
 };
 
 const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
@@ -407,11 +430,23 @@ const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
   const end = lesson.end_date_time ? moment(lesson.end_date_time) : null;
   if (!start.isValid()) return null;
 
+  const lessonRecord = lesson as Record<string, unknown>;
   const type = resolveLessonType(lesson);
   const durationMin = end?.isValid() ? Math.max(end.diff(start, "minutes"), 1) : 60;
   const totalSpots = Number(lesson.player_limit ?? 0) || undefined;
   const currentPlayers = Number(lesson.current_player_count ?? 0) || 0;
   const spotsLeft = totalSpots ? Math.max(totalSpots - currentPlayers, 0) : undefined;
+  const pricePerPerson =
+    parseCurrency(lesson.price_per_person) ??
+    parseCurrency(lessonRecord.price_per_person as string | number | null | undefined) ??
+    parseCurrency(lessonRecord.group_price_per_person as string | number | null | undefined);
+  const hourlyRate = parseCurrency(lessonRecord.hourly_rate as string | number | null | undefined);
+  const discountPercentage =
+    parseCurrency(lessonRecord.discount_percentage as string | number | null | undefined) ??
+    parseCurrency(lessonRecord.discountPercentage as string | number | null | undefined) ??
+    0;
+  const lessonTypeName = String(lesson.lesson_type_name ?? lessonRecord.lesson_type_name ?? "");
+  const lessonTypeId = Number(lessonRecord.lessontype_id ?? lessonRecord.lesson_type_id ?? lessonRecord.lessonTypeId);
 
   return {
     id: `${start.format("YYYY-MM-DD")}-${type}-${lesson.id}`,
@@ -423,7 +458,7 @@ const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
     durationLabel: normalizeDurationLabel(`${durationMin} min`),
     durationMin,
     court: shortenLocationLabel(lesson.location_name),
-    priceLabel: formatCurrency(lesson.price_per_person) ?? "$0",
+    priceLabel: formatCurrency(pricePerPerson ?? hourlyRate ?? 0) ?? "$0",
     start: lesson.start_date_time,
     end: lesson.end_date_time ?? start.clone().add(durationMin, "minutes").toISOString(),
     className: type === "group" ? lesson.metadata?.title ?? lesson.metadata_title ?? "Group lesson" : undefined,
@@ -435,6 +470,12 @@ const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
     courtValue: null,
     sourceLessonId: lesson.id,
     bookingState: lesson.player_has_booking ? "confirmed" : undefined,
+    hourlyRate,
+    groupPricePerPerson: pricePerPerson,
+    discountPercentage,
+    lessonTypeName,
+    lessonTypeId: Number.isFinite(lessonTypeId) ? lessonTypeId : null,
+    coachId: Number(lesson.coach_id ?? lessonRecord.coach_id ?? 0) || null,
   };
 };
 
@@ -471,6 +512,12 @@ const mapAvailabilitySlotToLoadedSlot = (
     end: end?.isValid() ? end.toISOString() : start.clone().add(durationMin, "minutes").toISOString(),
     locationId: slot.location_id ?? null,
     courtValue: slot.court ?? null,
+    hourlyRate: parseCurrency(privatePriceLabel) ?? null,
+    groupPricePerPerson: null,
+    discountPercentage: 0,
+    lessonTypeName: "Private",
+    lessonTypeId: 1,
+    coachId: null,
   };
 };
 
@@ -591,7 +638,7 @@ const CoachProfilePage = () => {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<LoadedSlot | null>(null);
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<"credits" | "card" | "apple-pay">("card");
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("card");
   const [bookingInFlight, setBookingInFlight] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
@@ -780,9 +827,7 @@ const CoachProfilePage = () => {
 
     getPlayerStripePaymentMethods(authToken)
       .then((response) => {
-        const methods = Array.isArray(response)
-          ? response
-          : response?.payment_methods ?? response?.data ?? response?.results ?? [];
+        const methods = extractPaymentMethods(response as PlayerStripePaymentMethod[] | Record<string, unknown>);
         setPaymentMethods(methods);
         setSelectedPaymentMethodId(methods.find((item) => item.is_default)?.id ?? methods[0]?.id ?? "");
       })
@@ -858,6 +903,12 @@ const CoachProfilePage = () => {
                 locationId: slot.locationId ?? null,
                 courtValue: slot.court ?? null,
                 bookingState,
+                hourlyRate: type === "private" ? parseCurrency(slot.price ?? privatePriceLabel) ?? null : null,
+                groupPricePerPerson: type === "group" ? parseCurrency(slot.price ?? groupPriceLabel) ?? null : null,
+                discountPercentage: 0,
+                lessonTypeName: type === "group" ? String(slot.lessonType ?? "Group") : "Private",
+                lessonTypeId: type === "group" ? 3 : 1,
+                coachId: Number(profile?.id ?? 0) || null,
               };
             });
           });
@@ -978,6 +1029,12 @@ const CoachProfilePage = () => {
                       ? Number(entry.location_id)
                       : null,
                 courtValue: entry.court ?? null,
+                hourlyRate: parseCurrency(privatePriceLabel) ?? null,
+                groupPricePerPerson: null,
+                discountPercentage: 0,
+                lessonTypeName: "Private",
+                lessonTypeId: 1,
+                coachId: Number(profile?.id ?? 0) || null,
               });
             }
 
@@ -1018,6 +1075,20 @@ const CoachProfilePage = () => {
               locationId: lesson.location_id ?? null,
               courtValue: null,
               sourceLessonId: lesson.id,
+              hourlyRate:
+                parseCurrency((lesson as Record<string, unknown>).hourly_rate as string | number | null | undefined) ??
+                parseCurrency(privatePriceLabel) ??
+                null,
+              groupPricePerPerson:
+                parseCurrency(lesson.price_per_person) ??
+                parseCurrency((lesson as Record<string, unknown>).group_price_per_person as string | number | null | undefined) ??
+                null,
+              discountPercentage:
+                parseCurrency((lesson as Record<string, unknown>).discount_percentage as string | number | null | undefined) ?? 0,
+              lessonTypeName: String(lesson.lesson_type_name ?? "Group"),
+              lessonTypeId:
+                Number((lesson as Record<string, unknown>).lessontype_id ?? (lesson as Record<string, unknown>).lesson_type_id) || 3,
+              coachId: Number(lesson.coach_id ?? profile?.id ?? 0) || null,
             };
           });
 
@@ -1091,7 +1162,7 @@ const CoachProfilePage = () => {
     const resumeState = location.state as
       | {
           resumeBookingSlotId?: string;
-          resumePaymentChoice?: "credits" | "card" | "apple-pay";
+          resumePaymentChoice?: PaymentChoice;
           focusBookCta?: boolean;
           purchaseAfterAuth?: boolean;
         }
@@ -1147,23 +1218,19 @@ const CoachProfilePage = () => {
 
   const nextAvailableSlot = visibleDays.flatMap((day) => day.slots)[0] ?? null;
   const slotsThisWeek = visibleDays.reduce((sum, day) => sum + day.slots.length, 0);
-  const selectedSlotBaseAmount = parseCurrency(selectedSlot?.priceLabel);
-  const selectedSlotDiscountPercentage = 0;
-  const selectedSlotDiscountedAmount =
-    selectedSlotBaseAmount != null ? discountCalc(selectedSlotBaseAmount, selectedSlotDiscountPercentage) : null;
-  const PAYMENT_SERVICE_FEE = 1;
-  const PAYMENT_FEE_PERCENTAGE = 3;
-  const paymentProcessingFee =
-    paymentChoice !== "credits" && selectedSlotDiscountedAmount != null
-      ? percentageCalc(PAYMENT_FEE_PERCENTAGE, selectedSlotDiscountedAmount)
-      : null;
-  const paymentServiceFee = paymentChoice !== "credits" ? PAYMENT_SERVICE_FEE : 0;
-  const paymentTotal =
-    paymentChoice === "credits"
-      ? 0
-      : selectedSlotDiscountedAmount != null
-        ? selectedSlotDiscountedAmount + (paymentProcessingFee ?? 0) + paymentServiceFee
-        : null;
+  const selectedSlotPricing = useMemo(
+    () =>
+      selectedSlot
+        ? calculateLessonPricing({
+            hourly_rate: selectedSlot.hourlyRate,
+            group_price_per_person: selectedSlot.groupPricePerPerson,
+            discount_percentage: selectedSlot.discountPercentage,
+            lesson_type_name: selectedSlot.lessonTypeName,
+            lessontype_id: selectedSlot.lessonTypeId,
+          })
+        : null,
+    [selectedSlot],
+  );
 
   const filteredPackages = useMemo(() => {
     if (bookingType === "all") return packages;
@@ -1371,7 +1438,7 @@ const CoachProfilePage = () => {
     setConsumingCredits(false);
   };
 
-  const openPaymentSheet = (choice: "credits" | "card" | "apple-pay" = "card") => {
+  const openPaymentSheet = (choice: PaymentChoice = "card") => {
     if (!isLoggedIn) {
       openAuthPrompt(selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: choice } : undefined);
       return;
@@ -1402,6 +1469,13 @@ const CoachProfilePage = () => {
 
   const buildBookingConfirmation = (slot: LoadedSlot): BookingConfirmationData => {
     const isGroup = slot.type === "group";
+    const pricing = calculateLessonPricing({
+      hourly_rate: slot.hourlyRate,
+      group_price_per_person: slot.groupPricePerPerson,
+      discount_percentage: slot.discountPercentage,
+      lesson_type_name: slot.lessonTypeName,
+      lessontype_id: slot.lessonTypeId,
+    });
     return {
       status: isGroup ? "CONFIRMED" : "PENDING",
       data: {
@@ -1416,8 +1490,8 @@ const CoachProfilePage = () => {
         timeLabel: slot.timeLabel,
         locationName: slot.court,
         locationAddress: slot.court,
-        amountLabel: isGroup ? "Amount charged" : "Lesson total",
-        amount: slot.priceLabel,
+        amountLabel: pricing.isOpenGroup ? "Lesson total" : isGroup ? "Amount charged" : "Lesson total",
+        amount: formatCurrencyPrecise(pricing.totalFee),
         etaText: isGroup ? undefined : "~24 hrs",
         cancellationPolicyText:
           "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
@@ -1467,13 +1541,13 @@ const CoachProfilePage = () => {
       return;
     }
 
-    if (paymentChoice === "card" && !selectedPaymentMethodId) {
-      setPaymentMethodsError("Choose a payment method to book this lesson.");
+    if (paymentChoice === "wallet") {
+      setBookingError("Wallet payments are not wired on web yet.");
       return;
     }
 
-    if (paymentChoice === "apple-pay") {
-      setPaymentMethodsError("Apple Pay uses the same confirmation flow here and still requires Stripe wiring.");
+    if (paymentChoice === "card" && !selectedPaymentMethodId) {
+      setPaymentMethodsError("Choose a payment method to book this lesson.");
       return;
     }
 
@@ -1489,6 +1563,8 @@ const CoachProfilePage = () => {
           throw new Error("No eligible credits available.");
         }
       }
+
+      const isOpenGroup = selectedSlotPricing?.isOpenGroup ?? false;
 
       if (selectedSlot.type === "group" && selectedSlot.sourceLessonId) {
         if (paymentChoice === "credits") {
@@ -1506,18 +1582,34 @@ const CoachProfilePage = () => {
               purchaseId: packageCredits[0].id,
             }).catch(() => undefined);
           }
-        } else {
-          await bookGroupLessonWithCard({
+        } else if (isOpenGroup) {
+          await joinLesson({
             token: authToken,
             lessonId: selectedSlot.sourceLessonId,
-            paymentMethodId: selectedPaymentMethodId,
+            coachId: selectedSlot.coachId ?? profile.id,
+            startDateTime: moment(selectedSlot.start).utc().toISOString(),
+            endDateTime: moment(selectedSlot.end).utc().toISOString(),
+            startDateTimeTz: moment(selectedSlot.start).toISOString(),
+            endDateTimeTz: moment(selectedSlot.end).toISOString(),
+            locationId: selectedSlot.locationId ?? 0,
+            court: selectedSlot.courtValue ?? 0,
+            status: "CONFIRMED",
           });
+        } else {
+          const intentResponse = await createPlayerStripePaymentIntent({
+            token: authToken,
+            lessonId: selectedSlot.sourceLessonId,
+          });
+          const intentStatus = extractIntentStatus(intentResponse as Record<string, unknown>);
+          if (intentStatus && intentStatus !== "succeeded") {
+            throw new Error("Payment was not successful.");
+          }
         }
       } else {
         if (!selectedSlot.locationId) {
           throw new Error("Missing location details for this lesson.");
         }
-        await requestPrivateLesson({
+        const privateLessonResponse = await requestPrivateLesson({
           token: authToken,
           coachId: Number(profile.id),
           startDateTime: moment(selectedSlot.start).utc().toISOString(),
@@ -1528,8 +1620,22 @@ const CoachProfilePage = () => {
           court: selectedSlot.courtValue ?? 0,
           status: "PENDING",
           metadata: buildSessionPrepMetadata(),
-          ...(paymentChoice === "card" ? { paymentMethodId: selectedPaymentMethodId } : {}),
         });
+        if (paymentChoice === "card") {
+          const createdLessonId =
+            Number(privateLessonResponse.id ?? privateLessonResponse.lesson_id ?? privateLessonResponse.lesson?.id ?? 0) || 0;
+          if (!createdLessonId) {
+            throw new Error("Unable to initialize payment for this lesson.");
+          }
+          const intentResponse = await createPlayerStripePaymentIntent({
+            token: authToken,
+            lessonId: createdLessonId,
+          });
+          const intentStatus = extractIntentStatus(intentResponse as Record<string, unknown>);
+          if (intentStatus && intentStatus !== "succeeded") {
+            throw new Error("Payment was not successful.");
+          }
+        }
         if (paymentChoice === "credits" && packageCredits[0]?.id) {
           await consumePackageCredits({
             token: authToken,
@@ -2370,10 +2476,23 @@ const CoachProfilePage = () => {
                     <div><span>Location</span><strong>{selectedSlot.court}</strong></div>
                   </div>
 
-                  <div className="coach-total-box">
-                    <span>Total price</span>
-                    <strong>{selectedSlot.priceLabel}</strong>
-                  </div>
+                  {selectedSlotPricing ? (
+                    <LessonPaymentSummary
+                      pricing={{
+                        hourly_rate: selectedSlot.hourlyRate,
+                        group_price_per_person: selectedSlot.groupPricePerPerson,
+                        discount_percentage: selectedSlot.discountPercentage,
+                        lesson_type_name: selectedSlot.lessonTypeName,
+                        lessontype_id: selectedSlot.lessonTypeId,
+                      }}
+                      formatMoney={formatCurrencyPrecise}
+                    />
+                  ) : (
+                    <div className="coach-total-box">
+                      <span>Total price</span>
+                      <strong>{selectedSlot.priceLabel}</strong>
+                    </div>
+                  )}
 
                   {privateCredits === 0 && selectedSlot.type === "private" && upsellPackage && !upsellDismissed ? (
                     <div className="coach-upsell-card">
@@ -2443,23 +2562,6 @@ const CoachProfilePage = () => {
                   </div>
                 </label>
 
-                <label className={`coach-payment-choice${paymentChoice === "apple-pay" ? " coach-payment-choice--active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    value="apple-pay"
-                    checked={paymentChoice === "apple-pay"}
-                    onChange={() => setPaymentChoice("apple-pay")}
-                  />
-                  <div className="coach-payment-choice__body">
-                    <div className="coach-payment-choice__title-row">
-                      <Apple aria-hidden size={16} />
-                      <span className="coach-payment-choice__title">Apple Pay</span>
-                    </div>
-                    <p className="coach-payment-choice__subtitle">Pay instantly with your Apple Pay wallet.</p>
-                  </div>
-                </label>
-
                 <label className={`coach-payment-choice${paymentChoice === "card" ? " coach-payment-choice--active" : ""}`}>
                   <input
                     type="radio"
@@ -2472,7 +2574,24 @@ const CoachProfilePage = () => {
                     <div className="coach-payment-choice__title-row">
                       <span className="coach-payment-choice__title">Pay by card</span>
                     </div>
-                    <p className="coach-payment-choice__subtitle">Use your saved cards for this booking.</p>
+                    <p className="coach-payment-choice__subtitle">Use your saved cards for this booking. The default saved card is charged by the lesson payment API.</p>
+                  </div>
+                </label>
+
+                <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""} coach-payment-choice--disabled`}>
+                  <input
+                    type="radio"
+                    name="payment-choice"
+                    value="wallet"
+                    checked={paymentChoice === "wallet"}
+                    onChange={() => setPaymentChoice("wallet")}
+                    disabled
+                  />
+                  <div className="coach-payment-choice__body">
+                    <div className="coach-payment-choice__title-row">
+                      <span className="coach-payment-choice__title">Apple Pay / wallet</span>
+                    </div>
+                    <p className="coach-payment-choice__subtitle">Placeholder for wallet integration on web.</p>
                   </div>
                 </label>
               </div>
@@ -2526,55 +2645,40 @@ const CoachProfilePage = () => {
                 </div>
               ) : null}
 
-              <div className="coach-payment-modal__price-breakdown">
-                {paymentChoice === "credits" ? (
-                  <>
-                    <div className="coach-payment-modal__price-row">
-                      <span>Lesson value</span>
-                      <strong>{selectedSlot.priceLabel}</strong>
-                    </div>
-                    <div className="coach-payment-modal__price-row">
-                      <span>Credits applied</span>
-                      <strong>1 credit</strong>
-                    </div>
-                    <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
-                      <span>Total due today</span>
-                      <strong>{formatCurrencyPrecise(0)}</strong>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {selectedSlotBaseAmount != null ? (
-                      <div className="coach-payment-modal__price-row">
-                        <span>Coach fee</span>
-                        <strong>{formatCurrencyPrecise(selectedSlotBaseAmount)}</strong>
-                      </div>
-                    ) : null}
-                    {selectedSlotDiscountPercentage > 0 && selectedSlotBaseAmount != null && selectedSlotDiscountedAmount != null ? (
-                      <div className="coach-payment-modal__price-row">
-                        <span>Discount ({selectedSlotDiscountPercentage}%)</span>
-                        <strong>-{formatCurrencyPrecise(selectedSlotBaseAmount - selectedSlotDiscountedAmount)}</strong>
-                      </div>
-                    ) : null}
-                    {paymentProcessingFee != null ? (
-                      <div className="coach-payment-modal__price-row">
-                        <span>Payment fee ({PAYMENT_FEE_PERCENTAGE}%)</span>
-                        <strong>{formatCurrencyPrecise(paymentProcessingFee)}</strong>
-                      </div>
-                    ) : null}
-                    <div className="coach-payment-modal__price-row">
-                      <span>Service fee</span>
-                      <strong>{formatCurrencyPrecise(paymentServiceFee)}</strong>
-                    </div>
-                    {paymentTotal != null ? (
-                      <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
-                        <span>Total due today</span>
-                        <strong>{formatCurrencyPrecise(paymentTotal)}</strong>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </div>
+              {paymentChoice === "credits" ? (
+                <div className="coach-payment-modal__price-breakdown">
+                  <div className="coach-payment-modal__price-row">
+                    <span>Lesson value</span>
+                    <strong>{selectedSlot.priceLabel}</strong>
+                  </div>
+                  <div className="coach-payment-modal__price-row">
+                    <span>Credits applied</span>
+                    <strong>1 credit</strong>
+                  </div>
+                  <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                    <span>Total</span>
+                    <strong>{formatCurrencyPrecise(0)}</strong>
+                  </div>
+                </div>
+              ) : selectedSlotPricing ? (
+                <>
+                  <LessonPaymentSummary
+                    pricing={{
+                      hourly_rate: selectedSlot.hourlyRate,
+                      group_price_per_person: selectedSlot.groupPricePerPerson,
+                      discount_percentage: selectedSlot.discountPercentage,
+                      lesson_type_name: selectedSlot.lessonTypeName,
+                      lessontype_id: selectedSlot.lessonTypeId,
+                    }}
+                    formatMoney={formatCurrencyPrecise}
+                  />
+                  <p className="coach-payment-modal__hint">
+                    {selectedSlotPricing.isOpenGroup
+                      ? "Open Group uses the lesson join flow from this screen."
+                      : "Saved card checkout uses the existing lesson payment intent flow."}
+                  </p>
+                </>
+              ) : null}
 
               <div className="coach-payment-modal__actions">
                 <Link
@@ -2596,6 +2700,7 @@ const CoachProfilePage = () => {
                   className="coach-payment-modal__confirm"
                   disabled={
                     bookingInFlight !== null ||
+                    paymentChoice === "wallet" ||
                     (paymentChoice === "card" && (!selectedPaymentMethodId || paymentMethodsLoading)) ||
                     (paymentChoice === "credits" && (!availableCredits || consumingCredits))
                   }
@@ -2605,9 +2710,9 @@ const CoachProfilePage = () => {
                     ? "Booking…"
                     : paymentChoice === "credits"
                       ? "Confirm with credits"
-                      : paymentChoice === "apple-pay"
-                        ? "Confirm with Apple Pay"
-                        : "Confirm & pay"}
+                      : selectedSlotPricing?.isOpenGroup
+                        ? "Join lesson"
+                        : "Pay now"}
                 </button>
               </div>
             </div>
