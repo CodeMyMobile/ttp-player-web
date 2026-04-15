@@ -81,7 +81,7 @@ export interface ConsumePackageCreditsParams {
   token: string;
   coachId: number | string;
   lessonType: string;
-  lessonId?: number | string;
+  lessonId: number | string;
   purchaseId?: number | string;
 }
 

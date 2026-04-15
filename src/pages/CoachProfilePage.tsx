@@ -47,7 +47,7 @@ import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import LessonPaymentSummary from "../components/payments/LessonPaymentSummary";
-import { calculateLessonPricing, resolveLessonCheckoutType } from "../utils/lessonPricing";
+import { calculateLessonPricing, resolveLessonCheckoutType, resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -1626,6 +1626,10 @@ const CoachProfilePage = () => {
       }
 
       const isOpenGroup = selectedSlotPricing?.isOpenGroup ?? false;
+      const creditLessonType = resolveLessonCreditType({
+        lesson_type_name: selectedSlot.lessonTypeName,
+        lessontype_id: selectedSlot.lessonTypeId,
+      });
 
       if (selectedSlot.type === "group" && selectedSlot.sourceLessonId) {
         if (paymentChoice === "credits") {
@@ -1638,7 +1642,7 @@ const CoachProfilePage = () => {
             await consumePackageCredits({
               token: authToken,
               coachId: profile.id,
-              lessonType: "group",
+              lessonType: creditLessonType,
               lessonId: selectedSlot.sourceLessonId,
               purchaseId: packageCredits[0].id,
             }).catch(() => undefined);
@@ -1682,12 +1686,12 @@ const CoachProfilePage = () => {
           status: "PENDING",
           metadata: buildSessionPrepMetadata(),
         });
+        const createdLessonId =
+          Number(privateLessonResponse.id ?? privateLessonResponse.lesson_id ?? privateLessonResponse.lesson?.id ?? 0) || 0;
+        if (!createdLessonId) {
+          throw new Error("Unable to create this lesson.");
+        }
         if (paymentChoice === "card") {
-          const createdLessonId =
-            Number(privateLessonResponse.id ?? privateLessonResponse.lesson_id ?? privateLessonResponse.lesson?.id ?? 0) || 0;
-          if (!createdLessonId) {
-            throw new Error("Unable to initialize payment for this lesson.");
-          }
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
             lessonId: createdLessonId,
@@ -1701,7 +1705,8 @@ const CoachProfilePage = () => {
           await consumePackageCredits({
             token: authToken,
             coachId: profile.id,
-            lessonType: "private",
+            lessonId: createdLessonId,
+            lessonType: creditLessonType,
             purchaseId: packageCredits[0].id,
           }).catch(() => undefined);
         }

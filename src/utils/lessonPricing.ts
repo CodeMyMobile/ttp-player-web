@@ -20,6 +20,8 @@ export type LessonPricingBreakdown = {
   discountPercentage: number;
 };
 
+export type LessonCreditType = "private" | "semi" | "group";
+
 const SERVICE_FEE = 1;
 const CREDIT_FEE_PERCENTAGE = 3;
 
@@ -73,4 +75,14 @@ export const calculateLessonPricing = (input: LessonPricingInput): LessonPricing
     stripeAmountCents: Math.round(totalFee * 100),
     discountPercentage,
   };
+};
+
+export const resolveLessonCreditType = ({
+  lesson_type_name,
+  lessontype_id,
+}: Pick<LessonPricingInput, "lesson_type_name" | "lessontype_id">): LessonCreditType => {
+  const checkoutType = resolveLessonCheckoutType({ lesson_type_name, lessontype_id });
+  if (checkoutType === "semi-private") return "semi";
+  if (checkoutType === "group" || checkoutType === "open-group") return "group";
+  return "private";
 };
