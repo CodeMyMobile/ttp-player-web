@@ -219,11 +219,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/coaches/:id/purchase"
-      element={(
-        <ProtectedRoute>
-          <PurchaseLessonPackagePage />
-        </ProtectedRoute>
-      )}
+      element={<PurchaseLessonPackagePage />}
     />
     <Route
       path="/group-lessons"

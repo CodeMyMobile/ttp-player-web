@@ -45,6 +45,7 @@ export interface PlayerStripePaymentMethodListResponse {
 export const getPlayerStripeSetupIntent = (token: string) =>
   request<StripeSetupIntentResponse>("/player/stripe/setupintent", {
     token,
+    authScheme: "Token",
   });
 
 export interface CreatePlayerStripePaymentIntentParams {
@@ -61,6 +62,7 @@ export const createPlayerStripePaymentIntent = ({
   request<StripePaymentIntentResponse>("/player/stripe/paymentintent", {
     method: "POST",
     token,
+    authScheme: "Token",
     body: {
       lesson_id: lessonId,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
@@ -72,6 +74,7 @@ export const getPlayerStripePaymentMethods = (token: string) =>
     "/player/stripe/payment_method_list",
     {
       token,
+      authScheme: "Token",
     },
   );
 
@@ -79,6 +82,7 @@ export const setPlayerDefaultPaymentMethod = (token: string, paymentMethodId: st
   request<unknown>("/player/stripe/payment_method_default", {
     method: "POST",
     token,
+    authScheme: "Token",
     body: {
       payment_method_id: paymentMethodId,
     },
@@ -88,6 +92,7 @@ export const detachPlayerPaymentMethod = (token: string, paymentMethodId: string
   request<unknown>("/player/stripe/payment_method_detach", {
     method: "POST",
     token,
+    authScheme: "Token",
     body: {
       payment_method_id: paymentMethodId,
     },

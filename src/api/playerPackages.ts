@@ -111,6 +111,7 @@ export const fetchPackageCredits = ({
 }: FetchPackageCreditsParams) =>
   request<PackageCreditsResponse>("/player/packages/credits", {
     token,
+    authScheme: "Token",
     signal,
     query: {
       coachId,
@@ -121,6 +122,7 @@ export const fetchPackageCredits = ({
 export const fetchPackageCreditsBalance = ({ token, coachId, signal }: FetchPackageCreditsBalanceParams) =>
   request<PackageCreditsBalanceResponse>("/player/packages/credits/balance", {
     token,
+    authScheme: "Token",
     signal,
     query: {
       coachId,
@@ -131,6 +133,7 @@ export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: Purc
   request<PurchasePackageResponse>(`/player/packages/${packageId}/purchase`, {
     method: "POST",
     token,
+    authScheme: "Token",
     body: {
       payment_method_id: paymentMethodId,
     },
