@@ -2345,6 +2345,34 @@ const CoachProfilePage = () => {
                     </button>
                   ))}
                 </div>
+
+                <div className="coach-profile-compact-bar">
+                  <div className="coach-profile-compact-bar__identity">
+                    <div className="coach-profile-compact-bar__avatar-wrap">
+                      {coachAvatar ? (
+                        <img src={coachAvatar} alt={coachName} className="coach-profile-compact-bar__avatar" />
+                      ) : (
+                        <div className="coach-profile-compact-bar__avatar coach-profile-compact-bar__avatar--fallback">
+                          {buildInitials(coachName)}
+                        </div>
+                      )}
+                      <span className="coach-profile-compact-bar__verified-badge" aria-label="Verified coach">
+                        <CheckCircle2 size={8} />
+                      </span>
+                    </div>
+                    <div className="coach-profile-compact-bar__copy">
+                      <strong>{coachName}</strong>
+                      <div className="coach-profile-compact-bar__meta">
+                        {certifications[0] ? <span>{certifications[0]}</span> : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="coach-profile-compact-bar__price">
+                    <span className="coach-profile-compact-bar__price-currency">$</span>
+                    <span className="coach-profile-compact-bar__price-value">{privatePriceLabel.replace(/[^0-9.]/g, "")}</span>
+                    <span className="coach-profile-compact-bar__price-unit">/hr</span>
+                  </div>
+                </div>
               </div>
 
               <section className="coach-profile-hero-v2">
