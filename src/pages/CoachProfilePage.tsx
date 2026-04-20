@@ -2785,80 +2785,155 @@ const CoachProfilePage = () => {
             <div className="coach-payment-modal__backdrop" onClick={closePaymentSheet} />
             <div className="coach-payment-modal__panel">
               <div className="coach-payment-modal__header">
-                <div>
-                  <p className="coach-payment-modal__eyebrow">Pay for lesson</p>
-                  <h3 className="coach-payment-modal__title">Choose a payment method</h3>
-                  {consumeError ? <p className="coach-payment-modal__error">{consumeError}</p> : null}
+                <button type="button" className="coach-payment-modal__back" onClick={closePaymentSheet}>
+                  <ChevronLeft size={18} /> Back
+                </button>
+                <div className="coach-payment-modal__header-copy">
+                  <h3 className="coach-payment-modal__title">Confirm & pay</h3>
                 </div>
                 <button type="button" className="coach-payment-modal__close" onClick={closePaymentSheet} aria-label="Close payment selection">
                   ×
                 </button>
               </div>
 
-              {paymentMethodsLoading ? <p className="coach-payment-modal__hint">Loading your cards…</p> : null}
-              {paymentMethodsError ? <p className="coach-payment-modal__error">{paymentMethodsError}</p> : null}
-              {bookingError ? <p className="coach-payment-modal__error">{bookingError}</p> : null}
-
-              <div className="coach-payment-modal__choices">
-                <label className={`coach-payment-choice${paymentChoice === "credits" ? " coach-payment-choice--active" : ""}${!availableCredits ? " coach-payment-choice--disabled" : ""}`}>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    value="credits"
-                    checked={paymentChoice === "credits"}
-                    onChange={() => setPaymentChoice("credits")}
-                    disabled={!availableCredits}
-                  />
-                  <div className="coach-payment-choice__body">
-                    <div className="coach-payment-choice__title-row">
-                      <span className="coach-payment-choice__title">Use credits</span>
-                    </div>
-                    <p className="coach-payment-choice__subtitle">
-                      {availableCredits ? `You have ${availableCredits} credit${availableCredits === 1 ? "" : "s"} available.` : "No eligible credits for this lesson type."}
-                    </p>
+              <div className="coach-payment-modal__body">
+                {(consumeError || paymentMethodsError || bookingError) ? (
+                  <div className="coach-payment-modal__status-stack">
+                    {consumeError ? <p className="coach-payment-modal__error">{consumeError}</p> : null}
+                    {paymentMethodsError ? <p className="coach-payment-modal__error">{paymentMethodsError}</p> : null}
+                    {bookingError ? <p className="coach-payment-modal__error">{bookingError}</p> : null}
                   </div>
-                </label>
+                ) : null}
 
-                <label className={`coach-payment-choice${paymentChoice === "card" ? " coach-payment-choice--active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    value="card"
-                    checked={paymentChoice === "card"}
-                    onChange={() => setPaymentChoice("card")}
-                  />
-                  <div className="coach-payment-choice__body">
-                    <div className="coach-payment-choice__title-row">
-                      <span className="coach-payment-choice__title">Pay by card</span>
+                <div className="coach-payment-modal__summary">
+                  <div className="coach-payment-modal__summary-coach">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt={coachName} className="coach-payment-modal__summary-avatar" />
+                    ) : (
+                      <span className="coach-payment-modal__summary-avatar coach-payment-modal__summary-avatar--fallback">{buildInitials(coachName)}</span>
+                    )}
+                    <div>
+                      <div className="coach-payment-modal__summary-name">{coachName}</div>
+                      <div className="coach-payment-modal__summary-title">{coachTitle}</div>
                     </div>
-                    <p className="coach-payment-choice__subtitle">Use your saved cards for this booking. The default saved card is charged by the lesson payment API.</p>
                   </div>
-                </label>
 
-                <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""} coach-payment-choice--disabled`}>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    value="wallet"
-                    checked={paymentChoice === "wallet"}
-                    onChange={() => setPaymentChoice("wallet")}
-                    disabled
-                  />
-                  <div className="coach-payment-choice__body">
-                    <div className="coach-payment-choice__title-row">
-                      <span className="coach-payment-choice__title">Apple Pay / wallet</span>
+                  <div className="coach-payment-modal__summary-details">
+                    <div><span>Type</span><strong>{selectedSlot.type === "private" ? "Private lesson" : selectedSlot.className ?? "Group lesson"}</strong></div>
+                    <div><span>Date & time</span><strong>{selectedSlot.dayLabel} {selectedSlot.dateLabel} · {selectedSlot.timeLabel}</strong></div>
+                    <div><span>Duration</span><strong>{selectedSlot.durationLabel}</strong></div>
+                    <div><span>Location</span><strong>{selectedSlot.court}</strong></div>
+                  </div>
+                </div>
+
+                <section className="coach-payment-modal__section">
+                  <div className="coach-payment-modal__section-label">Payment method</div>
+
+                  <div className="coach-payment-modal__choices">
+                    <label className={`coach-payment-choice${paymentChoice === "credits" ? " coach-payment-choice--active" : ""}${!availableCredits ? " coach-payment-choice--disabled" : ""}`}>
+                      <input
+                        type="radio"
+                        name="payment-choice"
+                        value="credits"
+                        checked={paymentChoice === "credits"}
+                        onChange={() => setPaymentChoice("credits")}
+                        disabled={!availableCredits}
+                      />
+                      <div className="coach-payment-choice__icon" aria-hidden="true">🎟️</div>
+                      <div className="coach-payment-choice__body">
+                        <div className="coach-payment-choice__title-row">
+                          <span className="coach-payment-choice__title">Use credits</span>
+                        </div>
+                        <p className="coach-payment-choice__subtitle">
+                          {availableCredits ? `${availableCredits} credit${availableCredits === 1 ? "" : "s"} available` : "No eligible credits for this lesson type"}
+                        </p>
+                      </div>
+                      {paymentChoice === "credits" ? <span className="coach-payment-choice__check">✓</span> : null}
+                    </label>
+
+                    <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""} coach-payment-choice--disabled`}>
+                      <input
+                        type="radio"
+                        name="payment-choice"
+                        value="wallet"
+                        checked={paymentChoice === "wallet"}
+                        onChange={() => setPaymentChoice("wallet")}
+                        disabled
+                      />
+                      <div className="coach-payment-choice__icon" aria-hidden="true">🍎</div>
+                      <div className="coach-payment-choice__body">
+                        <div className="coach-payment-choice__title-row">
+                          <span className="coach-payment-choice__title">Apple Pay / wallet</span>
+                        </div>
+                        <p className="coach-payment-choice__subtitle">Placeholder for wallet integration on web.</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="coach-payment-modal__saved-label">Saved cards</div>
+
+                  {paymentMethodsLoading ? <p className="coach-payment-modal__hint">Loading your cards…</p> : null}
+
+                  {paymentChoice === "card" && !paymentMethodsLoading && paymentMethods.length === 0 ? (
+                    <div className="coach-payment-modal__empty">
+                      <strong>No payment method on file</strong>
+                      <p>Add a card before booking this lesson.</p>
+                      <Link
+                        to="/settings/payment-methods"
+                        state={{
+                          from: {
+                            pathname: location.pathname,
+                            search: location.search,
+                            hash: location.hash,
+                            state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+                          },
+                        }}
+                      >
+                        Add payment method
+                      </Link>
                     </div>
-                    <p className="coach-payment-choice__subtitle">Placeholder for wallet integration on web.</p>
-                  </div>
-                </label>
-              </div>
+                  ) : null}
 
-              {paymentChoice === "card" && !paymentMethodsLoading && paymentMethods.length === 0 ? (
-                <div className="coach-payment-modal__empty">
-                  <strong>No payment method on file</strong>
-                  <p>Add a card before booking this lesson.</p>
+                  {paymentMethods.length > 0 ? (
+                    <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
+                      {paymentMethods.map((method) => {
+                        const brand = (method.card?.brand ?? "Card").toString();
+                        const last4 = method.card?.last4 ?? "••••";
+                        const expMonth = method.card?.exp_month;
+                        const expYear = method.card?.exp_year;
+                        const isActive = paymentChoice === "card" && selectedPaymentMethodId === method.id;
+                        return (
+                          <button
+                            key={method.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            className={`coach-payment-card${isActive ? " coach-payment-card--active" : ""}`}
+                            onClick={() => {
+                              setPaymentChoice("card");
+                              setSelectedPaymentMethodId(method.id);
+                            }}
+                          >
+                            <div className="coach-payment-card__brand-badge">
+                              <span className="coach-payment-card__brand-mark">{brand === "visa" || brand === "Visa" ? "VISA" : brand.toUpperCase()}</span>
+                            </div>
+                            <div className="coach-payment-card__meta">
+                              <span className="coach-payment-card__last4">•••• {last4}</span>
+                              <span className="coach-payment-card__expiry">
+                                {expMonth && expYear ? `Expires ${expMonth.toString().padStart(2, "0")}/${`${expYear}`.slice(-2)}` : "Saved card"}
+                                {method.is_default ? " · Default" : ""}
+                              </span>
+                            </div>
+                            {isActive ? <span className="coach-payment-choice__check">✓</span> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   <Link
                     to="/settings/payment-methods"
+                    className="coach-payment-modal__add-card"
                     state={{
                       from: {
                         pathname: location.pathname,
@@ -2868,74 +2943,47 @@ const CoachProfilePage = () => {
                       },
                     }}
                   >
-                    Add payment method
+                    + Add new card
                   </Link>
-                </div>
-              ) : null}
+                </section>
 
-              {paymentChoice === "card" && paymentMethods.length > 0 ? (
-                <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
-                  {paymentMethods.map((method) => {
-                    const brand = (method.card?.brand ?? "Card").toString();
-                    const last4 = method.card?.last4 ?? "••••";
-                    const expMonth = method.card?.exp_month;
-                    const expYear = method.card?.exp_year;
-                    const isActive = selectedPaymentMethodId === method.id;
-                    return (
-                      <button
-                        key={method.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={isActive}
-                        className={`coach-payment-card${isActive ? " coach-payment-card--active" : ""}`}
-                        onClick={() => setSelectedPaymentMethodId(method.id)}
-                      >
-                        <div className="coach-payment-card__brand">{brand}</div>
-                        <div className="coach-payment-card__meta">
-                          <span className="coach-payment-card__last4">•••• {last4}</span>
-                          {expMonth && expYear ? <span className="coach-payment-card__expiry">{expMonth.toString().padStart(2, "0")}/{`${expYear}`.slice(-2)}</span> : null}
-                        </div>
-                        {method.is_default ? <span className="coach-payment-card__pill">Default</span> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {paymentChoice === "credits" ? (
-                <div className="coach-payment-modal__price-breakdown">
-                  <div className="coach-payment-modal__price-row">
-                    <span>Lesson value</span>
-                    <strong>{selectedSlot.priceLabel}</strong>
-                  </div>
-                  <div className="coach-payment-modal__price-row">
-                    <span>Credits applied</span>
-                    <strong>1 credit</strong>
-                  </div>
-                  <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
-                    <span>Total</span>
-                    <strong>{formatCurrencyPrecise(0)}</strong>
-                  </div>
-                </div>
-              ) : selectedSlotPricing ? (
-                <>
-                  <LessonPaymentSummary
-                    pricing={{
-                      hourly_rate: selectedSlot.hourlyRate,
-                      group_price_per_person: selectedSlot.groupPricePerPerson,
-                      discount_percentage: selectedSlot.discountPercentage,
-                      lesson_type_name: selectedSlot.lessonTypeName,
-                      lessontype_id: selectedSlot.lessonTypeId,
-                    }}
-                    formatMoney={formatCurrencyPrecise}
-                  />
-                  <p className="coach-payment-modal__hint">
-                    {selectedSlotPricing.isOpenGroup
-                      ? "Open Group uses the lesson join flow from this screen."
-                      : "Saved card checkout uses the existing lesson payment intent flow."}
-                  </p>
-                </>
-              ) : null}
+                <section className="coach-payment-modal__section">
+                  {paymentChoice === "credits" ? (
+                    <div className="coach-payment-modal__price-breakdown">
+                      <div className="coach-payment-modal__price-row">
+                        <span>Lesson value</span>
+                        <strong>{selectedSlot.priceLabel}</strong>
+                      </div>
+                      <div className="coach-payment-modal__price-row">
+                        <span>Credits applied</span>
+                        <strong>1 credit</strong>
+                      </div>
+                      <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                        <span>Total</span>
+                        <strong>{formatCurrencyPrecise(0)}</strong>
+                      </div>
+                    </div>
+                  ) : selectedSlotPricing ? (
+                    <>
+                      <LessonPaymentSummary
+                        pricing={{
+                          hourly_rate: selectedSlot.hourlyRate,
+                          group_price_per_person: selectedSlot.groupPricePerPerson,
+                          discount_percentage: selectedSlot.discountPercentage,
+                          lesson_type_name: selectedSlot.lessonTypeName,
+                          lessontype_id: selectedSlot.lessonTypeId,
+                        }}
+                        formatMoney={formatCurrencyPrecise}
+                      />
+                      <p className="coach-payment-modal__hint">
+                        {selectedSlotPricing.isOpenGroup
+                          ? "Open Group uses the lesson join flow from this screen."
+                          : "Saved card checkout uses the existing lesson payment intent flow."}
+                      </p>
+                    </>
+                  ) : null}
+                </section>
+              </div>
 
               <div className="coach-payment-modal__actions">
                 <Link

@@ -2353,37 +2353,37 @@
   position: fixed;
   inset: 0;
   z-index: 140;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 12px;
+  background: rgba(15, 23, 42, 0.56);
 }
 
 .coach-payment-modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.56);
+  background: transparent;
 }
 
 .coach-payment-modal__panel {
   position: relative;
   z-index: 1;
   width: min(560px, 100%);
-  max-height: calc(100dvh - 24px);
-  margin: 0 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  height: min(844px, calc(100dvh - 24px));
   border-radius: 28px;
-  background: #fff;
-  padding: 24px;
+  background: #f8fafc;
   box-shadow: 0 40px 120px -60px rgba(15, 23, 42, 0.55);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .coach-payment-modal__header,
 .coach-payment-modal__actions,
-.coach-payment-choice__title-row,
-.coach-payment-card {
+.coach-payment-choice,
+.coach-payment-card,
+.coach-payment-modal__summary-coach {
   display: flex;
   align-items: center;
 }
@@ -2394,82 +2394,203 @@
   gap: 12px;
 }
 
-.coach-payment-modal__eyebrow {
-  margin: 0 0 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 11px;
-  font-weight: 800;
-  color: #94a3b8;
+.coach-payment-modal__header {
+  padding: 14px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.coach-payment-modal__header-copy {
+  flex: 1;
+  text-align: center;
+}
+
+.coach-payment-modal__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .coach-payment-modal__title {
   margin: 0;
-  font-size: 24px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .coach-payment-modal__close {
   border: 0;
   background: transparent;
-  color: #475569;
-  font-size: 28px;
+  color: #94a3b8;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
 }
 
+.coach-payment-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+}
+
+.coach-payment-modal__status-stack {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .coach-payment-modal__hint,
-.coach-payment-modal__error,
-.coach-payment-modal__link {
-  margin-top: 14px;
+.coach-payment-modal__error {
+  margin-top: 12px;
+}
+
+.coach-payment-modal__hint {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
 .coach-payment-modal__error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
   color: #b91c1c;
+  font-size: 12px;
+}
+
+.coach-payment-modal__summary,
+.coach-payment-modal__price-breakdown,
+.coach-payment-modal__empty {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.coach-payment-modal__summary {
+  margin-bottom: 12px;
+}
+
+.coach-payment-modal__summary-coach {
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__summary-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.coach-payment-modal__summary-avatar--fallback {
+  display: grid;
+  place-items: center;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.coach-payment-modal__summary-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.coach-payment-modal__summary-title {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coach-payment-modal__summary-details div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__summary-details div:last-child {
+  border-bottom: 0;
+}
+
+.coach-payment-modal__summary-details span {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.coach-payment-modal__summary-details strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: right;
+}
+
+.coach-payment-modal__section {
+  margin-bottom: 12px;
+}
+
+.coach-payment-modal__section-label,
+.coach-payment-modal__saved-label {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.coach-payment-modal__saved-label {
+  margin-top: 12px;
 }
 
 .coach-payment-modal__empty {
   display: grid;
   gap: 8px;
-  margin-top: 18px;
-  padding: 18px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 16px;
-  background: #f8fafc;
+  padding: 16px;
   color: #475569;
 }
 
-.coach-payment-modal__empty strong,
+.coach-payment-modal__empty strong {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+}
+
 .coach-payment-modal__empty p {
   margin: 0;
-}
-
-.coach-payment-modal__empty strong {
-  color: #0f172a;
-  font-size: 15px;
-}
-
-.coach-payment-modal__empty a {
-  justify-self: flex-start;
-  margin-top: 4px;
-  color: #7c3aed;
-  font-weight: 800;
-  text-decoration: none;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .coach-payment-modal__choices,
 .coach-payment-modal__list {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 8px;
 }
 
 .coach-payment-choice {
-  display: block;
-  border: 1px solid #dbe3ef;
-  border-radius: 20px;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   background: #fff;
-  padding: 16px;
   cursor: pointer;
+  text-align: left;
 }
 
 .coach-payment-choice input {
@@ -2478,7 +2599,7 @@
 
 .coach-payment-choice--active {
   border-color: #8b5cf6;
-  background: #faf5ff;
+  background: #ede9fe;
 }
 
 .coach-payment-choice--disabled {
@@ -2486,68 +2607,120 @@
   cursor: not-allowed;
 }
 
+.coach-payment-choice__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.coach-payment-choice__body {
+  flex: 1;
+}
+
 .coach-payment-choice__title-row {
-  gap: 8px;
+  display: flex;
+  align-items: center;
   justify-content: flex-start;
+  gap: 8px;
 }
 
 .coach-payment-choice__title {
+  font-size: 13px;
   font-weight: 800;
-  color: #0f172a;
+  color: #1e293b;
 }
 
 .coach-payment-choice__subtitle {
-  margin: 8px 0 0;
-  color: #64748b;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
   line-height: 1.5;
 }
 
+.coach-payment-choice__check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .coach-payment-card {
-  justify-content: space-between;
-  gap: 12px;
   width: 100%;
-  border: 1px solid #dbe3ef;
-  border-radius: 18px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   background: #fff;
-  padding: 14px 16px;
   cursor: pointer;
+  text-align: left;
 }
 
 .coach-payment-card--active {
   border-color: #8b5cf6;
-  background: #faf5ff;
+  background: #ede9fe;
 }
 
-.coach-payment-card__brand,
-.coach-payment-card__last4 {
+.coach-payment-card__brand-badge {
+  width: 36px;
+  height: 24px;
+  border-radius: 4px;
+  background: #1a1f71;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coach-payment-card__brand-mark {
+  color: #fff;
+  font-size: 8px;
   font-weight: 800;
-  color: #0f172a;
+  letter-spacing: 0.5px;
+}
+
+.coach-payment-card__last4 {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
 }
 
 .coach-payment-card__meta {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 2px;
+  flex: 1;
 }
 
-.coach-payment-card__expiry,
-.coach-payment-card__pill {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
+.coach-payment-card__expiry {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.coach-payment-modal__add-card,
+.coach-payment-modal__empty a,
+.coach-payment-modal__link {
+  color: #8b5cf6;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.coach-payment-modal__add-card {
+  display: inline-block;
+  margin-top: 8px;
 }
 
 .coach-payment-modal__price-breakdown {
-  margin-top: 18px;
   display: grid;
-  gap: 6px;
-  padding: 16px;
-  border-radius: 20px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-  font-size: 14px;
+  gap: 0;
 }
 
 .coach-payment-modal__price-row {
@@ -2555,35 +2728,53 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__price-row span {
+  font-size: 13px;
+  color: #64748b;
 }
 
 .coach-payment-modal__price-row strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .coach-payment-modal__price-row--total {
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
+  border-bottom: 0;
+  padding: 13px 16px;
+}
+
+.coach-payment-modal__price-row--total span {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .coach-payment-modal__price-row--total strong {
-  color: #7c3aed;
-  font-size: 15px;
-}
-
-.coach-payment-modal__link {
-  color: #7c3aed;
+  color: #8b5cf6;
+  font-size: 18px;
   font-weight: 800;
-  text-decoration: none;
 }
 
 .coach-payment-modal__confirm {
   border: 0;
   border-radius: 14px;
-  padding: 12px 18px;
+  padding: 15px;
   font-weight: 800;
+  width: 100%;
+}
+
+.coach-payment-modal__actions {
+  padding: 12px 16px 28px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
 }
 
 .coach-profile-upcoming-card {
