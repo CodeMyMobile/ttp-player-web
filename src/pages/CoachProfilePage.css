@@ -618,7 +618,18 @@
 .coach-slot--private {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: 0.15s;
+  text-align: left;
+  background: #fff;
+}
+
+.coach-slot--private:disabled {
+  cursor: default;
 }
 
 .coach-slot__main {
@@ -640,6 +651,21 @@
   margin-bottom: 4px;
 }
 
+.coach-slot__time-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+.coach-slot__time-row .coach-slot__time {
+  margin-bottom: 0;
+}
+
+.coach-slot__time-row .coach-profile-pill {
+  flex-shrink: 0;
+}
+
 .coach-slot__meta {
   margin-top: 8px;
   color: #64748b;
@@ -649,30 +675,29 @@
 
 .coach-slot__meta--private {
   margin-top: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
+  display: block;
   min-width: 0;
   overflow: hidden;
+  color: #94a3b8;
 }
 
 .coach-slot__meta--private .coach-slot__meta-location {
-  color: #64748b;
+  color: inherit;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.coach-slot__meta--private span:last-child {
-  color: #94a3b8;
-  flex-shrink: 0;
-}
-
 .coach-slot__meta--private .coach-slot__meta-location::before {
   content: "📍";
   margin-right: 4px;
+}
+
+.coach-slot__meta--private span + span::before {
+  content: "·";
+  margin: 0 6px 0 4px;
+  color: #cbd5e1;
 }
 
 .coach-slot__meta--compact {
@@ -733,6 +758,18 @@
 
 .coach-slot__actions--stack strong {
   margin-bottom: 5px;
+}
+
+.coach-slot__actions--private-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-slot__private-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
 }
 
 .coach-slot button,
@@ -1057,7 +1094,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 2px 12px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-size: 12px;
@@ -1608,32 +1645,51 @@
   }
 
   .coach-slot__time {
-    font-size: 14px;
+    font-size: 13px;
     margin-bottom: 3px;
   }
 
   .coach-slot__meta--private {
-    gap: 6px;
     font-size: 11px;
   }
 
-  .coach-slot__button--private {
-    background: transparent;
+  .coach-slot__meta--private .coach-profile-pill {
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 0;
+    background: #ede9fe;
     color: #8b5cf6;
-    padding: 0;
-    font-size: 12px;
+    font-size: 10px;
+    font-weight: 700;
   }
 
-  .coach-slot__actions--stack {
+.coach-slot__button--private {
+  background: transparent;
+  color: #8b5cf6;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 0;
+}
+
+  .coach-slot__button--private.coach-slot__button--status {
+    color: #64748b;
+  }
+
+  .coach-slot__actions--private-rail {
+    display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: flex-end;
+    justify-content: flex-end;
+    text-align: right;
     gap: 8px;
   }
 
-  .coach-slot__actions--stack strong {
-    margin-bottom: 0;
+  .coach-slot__private-price {
     font-size: 13px;
     color: #475569;
+    line-height: 1;
   }
 
   .coach-slot--group {
@@ -1728,9 +1784,9 @@
   }
 
   .coach-profile-pill {
-    padding: 7px 14px;
+    padding: 2px 12px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 800;
   }
 
   .coach-court-card {

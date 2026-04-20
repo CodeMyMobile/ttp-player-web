@@ -2112,31 +2112,36 @@ const CoachProfilePage = () => {
             {visibleSlots.map((slot) => {
               const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
               const effectiveBookingState = slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
+              const privateSlotLabel =
+                effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →";
 
               return slot.type === "private" ? (
-                <article key={slot.id} className="coach-slot coach-slot--private">
+                <button
+                  key={slot.id}
+                  type="button"
+                  className="coach-slot coach-slot--private"
+                  disabled={effectiveBookingState != null}
+                  onClick={() => openBookingFlow(slot)}
+                >
                   <div className="coach-slot__main">
-                    <p className="coach-slot__time">
-                      {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                    </p>
-                    <div className="coach-slot__meta coach-slot__meta--private">
+                    <div className="coach-slot__time-row">
+                      <p className="coach-slot__time">
+                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
+                      </p>
                       <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
+                    </div>
+                    <div className="coach-slot__meta coach-slot__meta--private">
                       <span className="coach-slot__meta-location">{slot.court}</span>
                       <span>{slot.durationLabel}</span>
                     </div>
                   </div>
-                  <div className="coach-slot__actions coach-slot__actions--stack">
-                    <strong>{slot.priceLabel}</strong>
-                    <button
-                      type="button"
-                      className="coach-slot__button coach-slot__button--private"
-                      disabled={effectiveBookingState != null}
-                      onClick={() => openBookingFlow(slot)}
-                    >
-                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →"}
-                    </button>
+                  <div className="coach-slot__actions coach-slot__actions--private-rail">
+                    <strong className="coach-slot__private-price">{slot.priceLabel}</strong>
+                    <span className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}>
+                      {privateSlotLabel}
+                    </span>
                   </div>
-                </article>
+                </button>
               ) : (
                 <article key={slot.id} className="coach-slot coach-slot--group">
                   <div className="coach-slot__card-head">
