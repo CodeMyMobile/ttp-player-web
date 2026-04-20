@@ -809,8 +809,17 @@
 }
 
 .coach-slot__button--private {
-  padding: 6px 14px;
+  background: transparent;
+  color: #8b5cf6;
+  padding: 0;
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 0;
+}
+
+.coach-slot__button--private.coach-slot__button--status {
+  color: #64748b;
 }
 
 .coach-slot__button--group {
