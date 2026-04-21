@@ -83,6 +83,7 @@ const GroupLessonDetailsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lesson, setLesson] = useState<GroupLesson | null>(null);
+  const [relatedLessons, setRelatedLessons] = useState<GroupLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -151,6 +152,63 @@ const GroupLessonDetailsPage = () => {
       controller.abort();
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!lesson) {
+      setRelatedLessons([]);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadRelatedLessons = async () => {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setRelatedLessons([]);
+        return;
+      }
+
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          token,
+          perPage: 50,
+          page: 1,
+          position: getStoredLocation() ?? DEFAULT_POSITION,
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        const mapped = mapUpcomingGroupLessonsResponse(response).lessons
+          .filter(
+            (candidate) =>
+              candidate.id !== lesson.id &&
+              candidate.title === lesson.title &&
+              candidate.coachId === lesson.coachId,
+          )
+          .sort((left, right) => {
+            const leftTime = left.startDateTime ? new Date(left.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+            const rightTime = right.startDateTime ? new Date(right.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+            return leftTime - rightTime;
+          })
+          .slice(0, 3);
+
+        setRelatedLessons(mapped);
+      } catch {
+        if (!cancelled) {
+          setRelatedLessons([]);
+        }
+      }
+    };
+
+    void loadRelatedLessons();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [lesson]);
 
   const themeVars = useMemo(
     () => ({
@@ -494,6 +552,45 @@ const GroupLessonDetailsPage = () => {
                     </Link>
                   </div>
                 </section>
+
+                {relatedLessons.length > 0 ? (
+                  <section className="group-lesson-details__section">
+                    <h2 className="group-lesson-details__section-label">Other dates for this class</h2>
+                    <div className="group-lesson-details__related-list">
+                      {relatedLessons.map((relatedLesson) => {
+                        const relatedDateLabel = relatedLesson.startDateTime
+                          ? moment.utc(relatedLesson.startDateTime).format("dddd, MMMM D")
+                          : relatedLesson.date;
+                        const relatedSpots = Math.max(relatedLesson.availableSpots, 0);
+                        const relatedPrice = relatedLesson.pricePerPlayer.replace(" per player", "");
+
+                        return (
+                          <button
+                            key={relatedLesson.id}
+                            type="button"
+                            className="group-lesson-details__related-card"
+                            onClick={() =>
+                              navigate(`/booking/confirm?groupLesson=${relatedLesson.id}`, {
+                                state: { groupLessonId: relatedLesson.id },
+                              })
+                            }
+                          >
+                            <div className="group-lesson-details__related-copy">
+                              <strong>{relatedDateLabel.toUpperCase()}</strong>
+                              <span>
+                                {relatedLesson.startTime} · {relatedSpots} spot{relatedSpots === 1 ? "" : "s"} left
+                              </span>
+                            </div>
+                            <span className="group-lesson-details__related-price">{relatedPrice}</span>
+                            <span className="group-lesson-details__related-arrow" aria-hidden>
+                              →
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
               </section>
 
               <aside className="group-lesson-details__booking-rail">

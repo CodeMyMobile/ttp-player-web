@@ -5,12 +5,78 @@
   color: var(--fc-color-text-primary, #0f172a);
 }
 
+.booking-confirmation--group-modal {
+  min-height: calc(100vh - 48px);
+  align-items: center;
+  padding: 24px 0;
+}
+
 .booking-confirmation__inner {
   width: min(1120px, 100%);
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: 0 24px;
+}
+
+.booking-confirmation__inner--group {
+  width: min(620px, 100%);
+  padding: 0 16px;
+}
+
+.booking-confirmation__group-panel {
+  width: 100%;
+  max-width: 540px;
+  max-height: 88vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #f8fafc;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+}
+
+.booking-confirmation__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.booking-confirmation__group-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.booking-confirmation__group-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.booking-confirmation__group-content {
+  flex: 1 1 0%;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.booking-confirmation__group-footer {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
 }
 
 .booking-confirmation__back {
@@ -66,6 +132,10 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.82fr);
   gap: 24px;
   align-items: start;
+}
+
+.booking-confirmation__layout--group {
+  grid-template-columns: 1fr;
 }
 
 .booking-confirmation__main {
@@ -150,11 +220,28 @@
   color: #64748b;
 }
 
+.booking-confirmation__detail-emoji {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
+  font-size: 12px;
+}
+
 .booking-confirmation__payment {
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.booking-confirmation__payment--group {
+  padding: 0;
+}
+
+.booking-confirmation__payment-block,
+.booking-confirmation__price-block {
+  margin-top: 22px;
 }
 
 .booking-confirmation__section-label {
@@ -194,6 +281,10 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.payment-methods__stack--group {
+  margin-bottom: 0;
 }
 
 .payment-methods__notice {
@@ -266,6 +357,51 @@
   justify-content: center;
 }
 
+.payment-method-card__icon--ticket {
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+  color: inherit;
+  font-size: 14px;
+}
+
+.payment-method-card__icon--apple {
+  background: #0f172a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.payment-method-card__icon--new {
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.payment-method-card__icon--brand {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.payment-method-card__icon--brand.is-visa {
+  background: #1a1f71;
+  font-style: italic;
+}
+
+.payment-method-card__icon--brand.is-mastercard {
+  background: #eb001b;
+}
+
+.payment-method-card__icon--brand.is-amex {
+  background: #016fd0;
+}
+
+.payment-method-card__icon--brand.is-generic {
+  background: #334155;
+}
+
 .payment-method-card__body {
   display: flex;
   flex-direction: column;
@@ -292,6 +428,12 @@
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.payment-method-card__amount {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16a34a;
 }
 
 .payment-method-card__tag--success {
@@ -568,6 +710,11 @@
   margin-top: 2px;
 }
 
+.booking-confirmation__policy-emoji {
+  font-size: 15px;
+  line-height: 1;
+}
+
 .booking-confirmation__policy-copy {
   font-size: 12.5px;
   line-height: 1.5;
@@ -593,6 +740,10 @@
   font-size: 15px;
   font-weight: 700;
   box-shadow: none;
+}
+
+.booking-confirmation__confirm--dark {
+  background: #0f172a;
 }
 
 .booking-confirmation__confirm:disabled {
@@ -756,6 +907,10 @@
 @media (max-width: 720px) {
   .booking-confirmation {
     padding: 24px 0 40px;
+  }
+
+  .booking-confirmation--group-modal {
+    padding: 12px 0 24px;
   }
 
   .booking-confirmation__inner {

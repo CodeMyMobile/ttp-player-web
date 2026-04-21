@@ -1,5 +1,5 @@
 import moment from "moment";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type BookingStatus = "PENDING" | "CONFIRMED";
@@ -12,6 +12,7 @@ export type BookingStatusModalProps = {
   onSecondary(): void;
   onAddToCalendar(): void;
   onShareWithFriends?(): void;
+  onBrowsePackages?(): void;
   data: {
     coachName: string;
     coachInitials: string;
@@ -28,6 +29,11 @@ export type BookingStatusModalProps = {
     amountLabel: string;
     amount: string;
     etaText?: string;
+    lessonId?: string;
+    paymentMethodLabel?: string;
+    spotsRemainingAfterBooking?: number;
+    showPackagePrompt?: boolean;
+    cancellationPolicyText?: string;
   };
 };
 
@@ -97,11 +103,13 @@ const BookingStatusModal = ({
   onSecondary,
   onAddToCalendar,
   onShareWithFriends,
+  onBrowsePackages,
   data,
 }: BookingStatusModalProps) => {
   const isPending = status === "PENDING";
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -145,8 +153,215 @@ const BookingStatusModal = ({
   ];
   const confirmedSteps = ["Your spot is reserved", "Payment processed", "Confirmation email sent"];
   const timeLabel = formatTimeLabel(data.timeLabel);
+  const isConfirmedGroup = !isPending && Boolean(data.isGroup);
+  const shareUrl = data.lessonId
+    ? `https://thetennisplan.com/classes/${data.lessonId}`
+    : window.location.href;
+  const spotsRemaining = Math.max(data.spotsRemainingAfterBooking ?? 0, 0);
+  const shareMessage =
+    spotsRemaining > 0
+      ? `I just booked ${data.lessonTitle ?? data.lessonTypeLabel} on ${data.dateLabel} at ${timeLabel} with ${data.coachName}. ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} still open — come play! ${shareUrl}`
+      : `I just booked ${data.lessonTitle ?? data.lessonTypeLabel} on ${data.dateLabel} at ${timeLabel} with ${data.coachName}. Join the waitlist and come play! ${shareUrl}`;
 
-  const modalContent = (
+  const shareChannel = async (channel: "sms" | "whatsapp" | "email" | "copy") => {
+    if (channel === "copy") {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setCopied(false);
+      }
+      return;
+    }
+
+    if (channel === "sms") {
+      window.location.href = `sms:?&body=${encodeURIComponent(shareMessage)}`;
+      return;
+    }
+
+    if (channel === "whatsapp") {
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const subject = `Come play tennis with me: ${data.lessonTitle ?? data.lessonTypeLabel}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(shareMessage)}`;
+  };
+
+  const modalContent = isConfirmedGroup ? (
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(15,23,42,0.55)] px-4 py-5"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === overlayRef.current) onClose();
+      }}
+    >
+      <div
+        ref={modalRef}
+        className="max-h-[88vh] w-full max-w-[540px] overflow-y-auto rounded-2xl bg-slate-50 shadow-[0_30px_60px_rgba(0,0,0,0.3)]"
+      >
+        <div className="flex items-center justify-center border-b border-slate-200 bg-white px-5 py-4">
+          <div className="text-[17px] font-extrabold text-slate-900">Booking confirmed</div>
+        </div>
+
+        <div className="px-5 pb-6 pt-9">
+          <div className="mb-7 text-center">
+            <div className="mx-auto mb-4 flex h-[78px] w-[78px] items-center justify-center rounded-full border-[3px] border-green-300 bg-green-100">
+              <span className="text-4xl font-black text-green-600">✓</span>
+            </div>
+            <div className="mb-1 text-[26px] font-extrabold tracking-[-0.03em] text-slate-900">
+              You&apos;re booked!
+            </div>
+            <div className="text-sm text-slate-500">See you {data.dateLabel} at {timeLabel}</div>
+          </div>
+
+          <div className="mb-5 rounded-xl border border-slate-200 bg-white p-[18px]">
+            <div className="mb-4 text-[17px] font-extrabold text-slate-900">{data.lessonTitle ?? data.lessonTypeLabel}</div>
+            <div className="space-y-[9px]">
+              <div className="flex items-center gap-2 text-[13px] text-slate-600">
+                <span>📅</span>
+                <span>{data.dateLabel}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px] text-slate-600">
+                <span>🕐</span>
+                <span>
+                  {timeLabel} · {data.durationMin} min
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px] text-slate-600">
+                <span>📍</span>
+                <span>{data.locationName}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px] text-slate-600">
+                <span>👤</span>
+                <span>with {data.coachName}</span>
+              </div>
+              <div className="my-1 h-px bg-slate-100" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[13px] text-slate-600">
+                  <span>💳</span>
+                  <span>Paid with {data.paymentMethodLabel ?? data.amountLabel}</span>
+                </div>
+                <div className="text-sm font-bold text-slate-900">{data.amount}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-5 rounded-xl border border-[#ddd6fe] bg-[linear-gradient(135deg,#ede9fe_0%,#f5f3ff_100%)] px-[18px] py-4">
+            <div className="mb-[14px]">
+              <div className="text-[15px] font-extrabold text-slate-900">Bring a friend 🎾</div>
+              <div className="mt-[3px] text-[12.5px] leading-[1.45] text-slate-600">
+                {spotsRemaining > 0
+                  ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} still available — share this class so friends can book the same session`
+                  : "Class is full — friends can join the waitlist"}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void shareChannel("sms")}
+                className="flex flex-1 flex-col items-center gap-[5px] rounded-[10px] border border-slate-200 bg-white px-[6px] py-[11px] text-xs font-bold text-slate-700"
+              >
+                <span className="text-lg">💬</span>
+                <span>Message</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void shareChannel("whatsapp")}
+                className="flex flex-1 flex-col items-center gap-[5px] rounded-[10px] border border-slate-200 bg-white px-[6px] py-[11px] text-xs font-bold text-slate-700"
+              >
+                <span className="text-lg">🟢</span>
+                <span>WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void shareChannel("email")}
+                className="flex flex-1 flex-col items-center gap-[5px] rounded-[10px] border border-slate-200 bg-white px-[6px] py-[11px] text-xs font-bold text-slate-700"
+              >
+                <span className="text-lg">📧</span>
+                <span>Email</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void shareChannel("copy")}
+                className={`flex flex-1 flex-col items-center gap-[5px] rounded-[10px] border px-[6px] py-[11px] text-xs font-bold ${
+                  copied ? "border-green-600 bg-green-100 text-green-700" : "border-slate-200 bg-white text-slate-700"
+                }`}
+              >
+                <span className="text-lg">{copied ? "✓" : "🔗"}</span>
+                <span>{copied ? "Copied!" : "Copy link"}</span>
+              </button>
+            </div>
+          </div>
+
+          {data.showPackagePrompt && onBrowsePackages ? (
+            <button
+              type="button"
+              onClick={onBrowsePackages}
+              className="mb-[22px] flex w-full items-center gap-[14px] rounded-xl border border-slate-200 bg-white px-[18px] py-4 text-left"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#ede9fe] text-xl">💡</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[14.5px] font-bold text-slate-900">Book this weekly? Save with class packs</div>
+                <div className="mt-[2px] text-[12.5px] text-slate-500">Use credits for future group bookings and skip card entry next time.</div>
+              </div>
+              <span className="text-lg font-bold text-[#8b5cf6]">→</span>
+            </button>
+          ) : null}
+
+          <div className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+            Add to calendar
+          </div>
+          <div className="mb-[22px] flex gap-[10px]">
+            <button
+              type="button"
+              onClick={onAddToCalendar}
+              className="flex flex-1 items-center justify-center gap-2 rounded-[10px] border border-slate-200 bg-white px-3 py-3 text-[13px] font-bold text-slate-700"
+            >
+              📅 iCal
+            </button>
+            <button
+              type="button"
+              onClick={onAddToCalendar}
+              className="flex flex-1 items-center justify-center gap-2 rounded-[10px] border border-slate-200 bg-white px-3 py-3 text-[13px] font-bold text-slate-700"
+            >
+              🗓 Google Calendar
+            </button>
+          </div>
+
+          <div className="flex gap-[10px] rounded-[10px] border border-amber-200 bg-amber-100 px-4 py-3">
+            <span className="text-[15px]">⚠️</span>
+            <div className="text-[12.5px] leading-[1.5] text-amber-900">
+              {data.cancellationPolicyText ??
+                "Cancel at least 24 hours before your class for a full refund or credit. Cancellations within 24 hours are non-refundable."}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 bg-white px-5 py-[14px]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="rounded-xl border border-slate-200 px-4 py-[14px] text-sm font-bold text-slate-700"
+            >
+              My Bookings
+            </button>
+            <button
+              type="button"
+              onClick={onPrimary}
+              className="rounded-xl bg-[#8b5cf6] px-4 py-[14px] text-sm font-bold text-white"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[180] flex items-center justify-center bg-black/30 px-3 py-4 sm:px-4"

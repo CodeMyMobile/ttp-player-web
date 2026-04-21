@@ -431,6 +431,56 @@
   text-decoration: none;
 }
 
+.group-lesson-details__related-list {
+  display: grid;
+  gap: 8px;
+}
+
+.group-lesson-details__related-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.group-lesson-details__related-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.group-lesson-details__related-copy strong {
+  color: #7c3aed;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.group-lesson-details__related-copy span {
+  color: var(--fc-color-text-secondary);
+  font-size: 12.5px;
+}
+
+.group-lesson-details__related-price {
+  color: var(--fc-color-text-primary);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.group-lesson-details__related-arrow {
+  color: var(--fc-color-text-muted);
+  font-size: 16px;
+}
+
 .group-lesson-details__booking-rail {
   border-left: 1px solid var(--fc-color-border);
   background: var(--fc-color-surface);

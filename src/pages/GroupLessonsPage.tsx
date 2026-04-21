@@ -1123,7 +1123,7 @@ const GroupLessonsPage = () => {
                   const isBooked = isLessonBooked(lesson);
                   const isSoldOut = lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
-                  const lessonFormat = getLessonFormatLabel(lesson);
+                  const showPackLink = priceValue !== null && priceValue > 29;
 
                   return (
                     <article key={lesson.id} className="lesson-card lesson-card--desktop">
@@ -1146,36 +1146,39 @@ const GroupLessonsPage = () => {
                             <div className="lesson-card__price-value">
                               {priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
-                            <button
-                              type="button"
-                              className="lesson-card__pack-link"
-                              onClick={() => navigate("/credits")}
-                            >
-                              $29 w/ pack
-                            </button>
+                            {showPackLink ? (
+                              <button
+                                type="button"
+                                className="lesson-card__pack-link"
+                                onClick={() => navigate("/credits")}
+                              >
+                                $29 w/ pack
+                              </button>
+                            ) : null}
                           </div>
                         </div>
 
-                        <div className="lesson-card__summary">
-                          <div className="lesson-card__summary-line">
+                        <div className="lesson-card__info-list">
+                          <div className="lesson-card__info-row">
                             <Clock size={16} aria-hidden="true" />
                             <span>
-                              {lesson.startTime}
-                              <span className="bullet" aria-hidden="true">
-                                ·
-                              </span>
-                              {lesson.durationMinutes} min
-                              <span className="bullet" aria-hidden="true">
-                                ·
-                              </span>
-                              {lesson.locationName}
+                              {lesson.startTime} · {lesson.durationMinutes} min
                             </span>
                           </div>
-                          <span
-                            className={`lesson-card__spots-pill lesson-card__spots-pill--${spotTone.tone}`}
-                          >
-                            {spotTone.label}
-                          </span>
+                          <div className="lesson-card__info-row">
+                            <MapPin size={16} aria-hidden="true" />
+                            <span>{lesson.locationName}</span>
+                          </div>
+                          <div className="lesson-card__info-row lesson-card__info-row--spots">
+                            <span className="lesson-card__info-icon-emoji" aria-hidden="true">
+                              👥
+                            </span>
+                            <span
+                              className={`lesson-card__spots-pill lesson-card__spots-pill--${spotTone.tone}`}
+                            >
+                              {spotTone.label}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="lesson-card__coach-strip">
@@ -1188,8 +1191,9 @@ const GroupLessonsPage = () => {
                               </span>
                             )}
                             <div>
-                              <p className="coach-name">{lesson.coachName}</p>
-                              <p className="coach-location">{lessonFormat}</p>
+                              <p className="coach-name">
+                                with <strong>{lesson.coachName}</strong>
+                              </p>
                             </div>
                           </div>
                         </div>
