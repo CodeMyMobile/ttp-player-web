@@ -1386,6 +1386,12 @@ const BookingConfirmationPage = () => {
     );
   }
 
+  const summaryDateBand = (lessonDateLabel ?? "Date TBD").toUpperCase();
+  const summaryLevelLabel = groupLesson?.level ? formatLevelRange(groupLesson.level) : lessonLabel;
+  const sessionLabel = groupLesson?.title ?? lessonLabel;
+  const sessionPriceLabel = groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
+  const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
+
   return (
     <MainLayout>
       <div className="booking-confirmation">
@@ -1413,180 +1419,122 @@ const BookingConfirmationPage = () => {
           </header>
 
           <div className="booking-confirmation__layout">
-            <section className="booking-confirmation__card">
-              <div className="booking-confirmation__coach">
-                {coachAvatar ? (
-                  <img className="booking-confirmation__coach-avatar" src={coachAvatar} alt="" />
-                ) : (
-                  <span className="booking-confirmation__coach-avatar booking-confirmation__coach-avatar--placeholder" aria-hidden>
-                    {coachFirstName.charAt(0)}
-                  </span>
-                )}
-                <div className="booking-confirmation__coach-meta">
-                  <h2 className="booking-confirmation__coach-name">{coachName}</h2>
-                  {coachTitle ? <p className="booking-confirmation__coach-title">{coachTitle}</p> : null}
-                  {coachRating != null ? (
-                    <div className="booking-confirmation__coach-rating">
-                      <Star size={18} fill="#FDB022" stroke="none" aria-hidden />
-                      {coachRating.toFixed(1)}
-                      {coachReviewCount != null ? (
-                        <span className="booking-confirmation__coach-reviews">({coachReviewCount} reviews)</span>
-                      ) : null}
+            <section className="booking-confirmation__main">
+              <div className="booking-confirmation__summary-card">
+                <div className="booking-confirmation__summary-band">
+                  <div className="booking-confirmation__summary-date">{summaryDateBand}</div>
+                  <span className="booking-confirmation__summary-level">{summaryLevelLabel}</span>
+                </div>
+                <div className="booking-confirmation__summary-body">
+                  <h2 className="booking-confirmation__summary-title">{sessionLabel}</h2>
+                  <div className="booking-confirmation__detail-list">
+                    <div className="booking-confirmation__detail">
+                      <Clock aria-hidden size={16} />
+                      <span>
+                        {timeRange ?? "Time TBD"}
+                        {durationLabel ? ` · ${durationLabel}` : ""}
+                      </span>
                     </div>
-                  ) : null}
+                    {locationLabel ? (
+                      <div className="booking-confirmation__detail">
+                        <MapPin aria-hidden size={16} />
+                        <span>{locationLabel}</span>
+                      </div>
+                    ) : null}
+                    <div className="booking-confirmation__detail">
+                      <CalendarDays aria-hidden size={16} />
+                      <span>with {coachName}</span>
+                    </div>
+                    {spotsLabel ? (
+                      <div className="booking-confirmation__detail">
+                        <Users aria-hidden size={16} />
+                        <span>{spotsLabel}</span>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <div className="booking-confirmation__details">
-                <div className="booking-confirmation__detail">
-                  <CalendarDays aria-hidden size={20} />
-                  <div className="booking-confirmation__detail-copy">
-                    <span className="booking-confirmation__detail-label">When</span>
-                    <span className="booking-confirmation__detail-primary">{lessonDateLabel ?? "To be scheduled"}</span>
-                    {timeRange ? (
-                      <span className="booking-confirmation__detail-secondary">{timeRange}</span>
-                    ) : null}
+              <div className="booking-confirmation__payment">
+                <p className="booking-confirmation__section-label">Payment method</p>
+                <div className="payment-methods">
+                  {canUseCredits ? lessonCreditsSection : null}
+                  {digitalWalletSection}
+                  {savedCardsSection}
+                  {!canUseCredits ? lessonCreditsSection : null}
+                  <div className="payment-packages-banner">
+                    <span className="payment-packages-banner__icon">
+                      <Package aria-hidden size={20} />
+                    </span>
+                    <div className="payment-packages-banner__body">
+                      <h4>Need more credits?</h4>
+                      <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="payment-packages-banner__action"
+                      onClick={() => navigate("/find-coaches")}
+                    >
+                      Browse packages
+                    </button>
                   </div>
-                </div>
-
-                <div className="booking-confirmation__detail">
-                  <Clock aria-hidden size={20} />
-                  <div className="booking-confirmation__detail-copy">
-                    <span className="booking-confirmation__detail-label">Lesson</span>
-                    <span className="booking-confirmation__detail-primary">{lessonLabel}</span>
-                    {durationLabel ? (
-                      <span className="booking-confirmation__detail-secondary">{durationLabel}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {locationLabel ? (
-              <div className="booking-confirmation__detail">
-                <MapPin aria-hidden size={20} />
-                <div className="booking-confirmation__detail-copy">
-                  <span className="booking-confirmation__detail-label">Location</span>
-                  <span className="booking-confirmation__detail-primary">{locationLabel}</span>
-                  {spotsLabel ? (
-                    <span className="booking-confirmation__detail-secondary">{spotsLabel}</span>
-                  ) : null}
                 </div>
               </div>
-            ) : null}
 
-            {isGroupLesson ? (
-              <div className="booking-confirmation__group-roster">
-                <div className="booking-confirmation__group-roster-header">
-                  <span className="booking-confirmation__group-roster-icon" aria-hidden>
-                    <Users size={18} />
-                  </span>
-                  <div className="booking-confirmation__group-roster-heading">
-                    <span className="booking-confirmation__group-roster-label">Who's already in</span>
-                    {rosterCaption ? (
-                      <span className="booking-confirmation__group-roster-caption">{rosterCaption}</span>
-                    ) : null}
-                  </div>
+              <div className="booking-confirmation__price-card">
+                <p className="booking-confirmation__section-label">Price</p>
+                <div className="booking-confirmation__price-row">
+                  <span className="booking-confirmation__price-row-label">{priceLabel}</span>
+                  <span className="booking-confirmation__price-row-value">{priceValue}</span>
                 </div>
-
-                {participantCount > 0 ? (
-                  <ul className="booking-confirmation__group-roster-list">
-                    {participants.map((participant) => (
-                      <li key={participant.id} className="booking-confirmation__group-roster-item">
-                        <span className="booking-confirmation__group-roster-avatar" aria-hidden>
-                          {participant.avatarUrl ? (
-                            <img src={participant.avatarUrl} alt="" />
-                          ) : (
-                            getInitials(participant.name)
-                          )}
-                        </span>
-                        <div className="booking-confirmation__group-roster-body">
-                          <span className="booking-confirmation__group-roster-name">{participant.name}</span>
-                          <span className="booking-confirmation__group-roster-meta">
-                            {participant.skillLevel ?? "Skill level pending"}
-                            {participant.focusArea ? ` • ${participant.focusArea}` : ""}
-                          </span>
-                          {participant.joinedLabel ? (
-                            <span className="booking-confirmation__group-roster-joined">{participant.joinedLabel}</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="booking-confirmation__group-roster-empty">
-                    <p>
-                      You're first in line for this session. Invite a friend or grab a spot before they're gone!
-                    </p>
-                  </div>
-                )}
-
-                {openSpots > 0 ? (
-                  <div className="booking-confirmation__group-roster-footer">
-                    +{openSpots} spot{openSpots === 1 ? "" : "s"} open
+                {cardFeeText ? (
+                  <div className="booking-confirmation__price-row is-muted">
+                    <span className="booking-confirmation__price-row-label">Processing</span>
+                    <span className="booking-confirmation__price-row-value">{cardFeeText}</span>
                   </div>
                 ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="booking-confirmation__price">
-            <div>
-              <span className="booking-confirmation__price-label">{priceLabel}</span>
-              <span className="booking-confirmation__price-value">{priceValue}</span>
-            </div>
-            <span className="booking-confirmation__price-caption">{priceCaption}</span>
-          </div>
-
-          <div className="booking-confirmation__payment">
-            <div className="booking-confirmation__payment-header">
-              <div>
-                <h3>Payment method</h3>
-                <p>Choose how you’d like to take care of this lesson.</p>
-              </div>
-              <span className="booking-confirmation__payment-secure">
-                <ShieldCheck aria-hidden size={16} /> Secure checkout
-              </span>
-            </div>
-
-            <div className="payment-methods">
-              {canUseCredits ? lessonCreditsSection : null}
-              {savedCardsSection}
-              {digitalWalletSection}
-              {!canUseCredits ? lessonCreditsSection : null}
-              <div className="payment-packages-banner">
-                <span className="payment-packages-banner__icon">
-                  <Package aria-hidden size={20} />
-                </span>
-                <div className="payment-packages-banner__body">
-                  <h4>Need more credits?</h4>
-                  <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
+                {isUsingCredits ? (
+                  <div className="booking-confirmation__price-row is-muted is-credit">
+                    <span className="booking-confirmation__price-row-label">1 lesson credit applied</span>
+                    <span className="booking-confirmation__price-row-value">{priceValue}</span>
+                  </div>
+                ) : null}
+                <div className="booking-confirmation__price-divider" />
+                <div className="booking-confirmation__price-total">
+                  <span className="booking-confirmation__price-total-label">Total</span>
+                  <span className="booking-confirmation__price-total-value">
+                    {isUsingCredits ? "$0.00" : sessionPriceLabel.replace(" per player", "")}
+                  </span>
                 </div>
+                <div className={`booking-confirmation__price-caption${isUsingCredits ? " is-success" : ""}`}>
+                  {priceCaption}
+                </div>
+              </div>
+
+              <div className="booking-confirmation__policy">
+                <AlertCircle aria-hidden size={16} />
+                <div className="booking-confirmation__policy-copy">
+                  Cancel at least 24 hours before your class for a full refund or credit. Cancellations within
+                  24 hours are non-refundable.
+                </div>
+              </div>
+
+              <div className="booking-confirmation__actions">
                 <button
                   type="button"
-                  className="payment-packages-banner__action"
-                  onClick={() => navigate("/find-coaches")}
+                  className="fc-button fc-button--primary booking-confirmation__confirm"
+                  onClick={handleConfirm}
+                  disabled={isConfirmDisabled}
                 >
-                  Browse packages
+                  {isProcessingPayment
+                    ? "Processing Apple Pay..."
+                    : isConsumingCredits
+                      ? "Applying credits..."
+                      : confirmButtonLabel}
+                  <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
                 </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="booking-confirmation__actions">
-            <button
-              type="button"
-              className="fc-button fc-button--primary booking-confirmation__confirm"
-              onClick={handleConfirm}
-              disabled={isConfirmDisabled}
-            >
-              {isProcessingPayment
-                ? "Processing Apple Pay..."
-                : isConsumingCredits
-                  ? "Applying credits..."
-                  : confirmButtonLabel}
-              <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
-            </button>
-            {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
-            <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
+                {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed && isGroupLesson ? (
                   <div
                     className={`booking-confirmation__status ${

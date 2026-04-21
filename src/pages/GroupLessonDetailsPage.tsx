@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Clock,
   MapPin,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import moment from "moment";
@@ -300,169 +299,259 @@ const GroupLessonDetailsPage = () => {
   const dateLabel = lesson.startDateTime
     ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
     : lesson.date;
+  const participantsPreview = lesson.participants.slice(0, 5);
+  const hiddenParticipantsCount = Math.max(lesson.participants.length - participantsPreview.length, 0);
+  const availabilityLabel =
+    spotsRemaining === 0
+      ? "Full — join waitlist"
+      : spotsRemaining <= 2
+        ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
+        : `${spotsRemaining} spots available`;
+  const availabilityToneClass =
+    spotsRemaining === 0
+      ? "is-full"
+      : spotsRemaining <= 2
+        ? "is-limited"
+        : "is-open";
+  const whatToBring = lesson.highlights?.length ? lesson.highlights : ["Racket", "Water", "Tennis shoes"];
 
   return (
     <MainLayout>
       <div className="group-lesson-details" style={themeVars}>
         <div className="group-lesson-details__inner">
-          <button
-            type="button"
-            className="group-lesson-details__back-link"
-            onClick={() => {
-              if (window.history.length > 2) {
-                navigate(-1);
-              } else {
-                navigate("/group-lessons");
-              }
-            }}
-          >
-            <ArrowLeft aria-hidden /> Back
-          </button>
-
-          <header className="group-lesson-details__header">
-            <div className="group-lesson-details__title-block">
-              <span className="group-lesson-details__eyebrow">Featured group session</span>
-              <h1>{lesson.title}</h1>
-              <p className="group-lesson-details__subtitle">{lesson.focus}</p>
-              <div className="group-lesson-details__tags">
-                <span className="group-lesson-details__tag">{levelLabel}</span>
-                <span className="group-lesson-details__tag">{lesson.skillLabel}</span>
-                {lesson.courtSurface ? (
-                  <span className="group-lesson-details__tag">{lesson.courtSurface} court</span>
-                ) : null}
+          <div className="group-lesson-details__shell">
+            <div className="group-lesson-details__topbar">
+              <button
+                type="button"
+                className="group-lesson-details__back-link"
+                onClick={() => {
+                  if (window.history.length > 2) {
+                    navigate(-1);
+                  } else {
+                    navigate("/group-lessons");
+                  }
+                }}
+              >
+                <ArrowLeft aria-hidden /> Back to group lessons
+              </button>
+              <div className="group-lesson-details__topbar-actions">
+                <button type="button" className="group-lesson-details__topbar-action">
+                  Share
+                </button>
+                <button
+                  type="button"
+                  className="group-lesson-details__topbar-close"
+                  onClick={() => navigate("/group-lessons")}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
               </div>
             </div>
 
-            <aside className="group-lesson-details__coach-card">
-              <div className="group-lesson-details__coach">
-                <img src={lesson.coachAvatarUrl} alt="" />
-                <div>
-                  <p className="group-lesson-details__coach-name">{lesson.coachName}</p>
-                  <p className="group-lesson-details__coach-title">Matchplay Certified Coach</p>
-                  <Link to={`/coaches/${lesson.coachId}`} className="group-lesson-details__coach-link">
-                    View coach profile
-                  </Link>
-                </div>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <CalendarDays aria-hidden size={18} />
-                <span>{dateLabel}</span>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <Clock aria-hidden size={18} />
-                <span>
-                  {timeRange}
-                  <span className="group-lesson-details__dot" aria-hidden>
-                    •
-                  </span>
-                  {lesson.durationMinutes} min
-                </span>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <MapPin aria-hidden size={18} />
-                <span>{lesson.locationName}</span>
-              </div>
-              <div className="group-lesson-details__coach-meta group-lesson-details__coach-meta--spots">
-                <Users aria-hidden size={18} />
-                <span>
-                  {confirmedCount}/{lesson.totalSpots} players confirmed
-                  {spotsRemaining > 0 ? ` • ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} open` : " • Full"}
-                </span>
-              </div>
-            </aside>
-          </header>
-
-          <div className="group-lesson-details__layout">
-            <section className="group-lesson-details__content">
-              <div className="group-lesson-details__card">
-                <h2>What to expect</h2>
-                <p>{lesson.description}</p>
-                {lesson.highlights && lesson.highlights.length > 0 ? (
-                  <ul className="group-lesson-details__highlight-list">
-                    {lesson.highlights.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-
-              <div className="group-lesson-details__card">
-                <div className="group-lesson-details__card-header">
-                  <h2>Confirmed players</h2>
-                  <span>{confirmedCount} attending</span>
-                </div>
-                {confirmedCount > 0 ? (
-                  <ul className="group-lesson-details__participants">
-                    {lesson.participants.map((participant) => (
-                      <li key={participant.id} className="group-lesson-details__participant">
-                        <span className="group-lesson-details__participant-avatar" aria-hidden>
-                          {participant.avatarUrl ? (
-                            <img src={participant.avatarUrl} alt="" />
-                          ) : (
-                            buildInitials(participant.name)
-                          )}
-                        </span>
-                        <div className="group-lesson-details__participant-body">
-                          <span className="group-lesson-details__participant-name">{participant.name}</span>
-                          <span className="group-lesson-details__participant-meta">
-                            {participant.skillLevel ?? "Skill level pending"}
-                            {participant.focusArea ? ` • ${participant.focusArea}` : ""}
-                          </span>
-                          {participant.joinedLabel ? (
-                            <span className="group-lesson-details__participant-joined">{participant.joinedLabel}</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="group-lesson-details__participants-empty">
-                    <p>Be the first to claim a spot — invite a hitting partner to join you.</p>
+            <div className="group-lesson-details__layout">
+              <section className="group-lesson-details__content">
+                <header className="group-lesson-details__hero">
+                  <div className="group-lesson-details__badge-row">
+                    <span className="group-lesson-details__hero-badge group-lesson-details__hero-badge--primary">
+                      {dateLabel.toUpperCase()}
+                    </span>
+                    <span className="group-lesson-details__hero-badge">{levelLabel}</span>
+                    <span className="group-lesson-details__hero-badge">{lesson.focus}</span>
+                    {lesson.courtSurface ? (
+                      <span className="group-lesson-details__hero-badge">{lesson.courtSurface} court</span>
+                    ) : null}
                   </div>
-                )}
-              </div>
-            </section>
+                  <h1 className="group-lesson-details__hero-title">{lesson.title}</h1>
+                  <p className="group-lesson-details__hero-copy">{lesson.description}</p>
+                </header>
 
-            <aside className="group-lesson-details__checkout">
-              <div className="group-lesson-details__checkout-card">
-                <div className="group-lesson-details__checkout-header">
-                  <h2>Secure your spot</h2>
-                  <p>Pay now to instantly join the roster. Spots update in real time.</p>
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Who's joining</h2>
+                  <div className="group-lesson-details__card">
+                    {confirmedCount > 0 ? (
+                      <>
+                        <div className="group-lesson-details__participants-head">
+                          <div className="group-lesson-details__participants-stack" aria-hidden>
+                            {participantsPreview.map((participant) => (
+                              <span
+                                key={participant.id}
+                                className="group-lesson-details__participants-stack-item"
+                              >
+                                {buildInitials(participant.name).slice(0, 1)}
+                              </span>
+                            ))}
+                            {hiddenParticipantsCount > 0 ? (
+                              <span className="group-lesson-details__participants-stack-more">
+                                +{hiddenParticipantsCount}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="group-lesson-details__participants-summary">
+                            <strong>
+                              {confirmedCount} of {lesson.totalSpots} players booked
+                            </strong>
+                            <span className={spotsRemaining > 0 ? "is-open" : "is-full"}>
+                              {spotsRemaining > 0
+                                ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} still open`
+                                : "Class is full"}
+                            </span>
+                          </div>
+                        </div>
+                        <ul className="group-lesson-details__participants-list">
+                          {lesson.participants.map((participant) => (
+                            <li key={participant.id} className="group-lesson-details__participant">
+                              <span className="group-lesson-details__participant-avatar" aria-hidden>
+                                {participant.avatarUrl ? (
+                                  <img src={participant.avatarUrl} alt="" />
+                                ) : (
+                                  buildInitials(participant.name)
+                                )}
+                              </span>
+                              <div className="group-lesson-details__participant-body">
+                                <span className="group-lesson-details__participant-name">{participant.name}</span>
+                                <span className="group-lesson-details__participant-meta">
+                                  {participant.skillLevel ?? "Skill level pending"}
+                                  {participant.focusArea ? ` • ${participant.focusArea}` : ""}
+                                </span>
+                                {participant.joinedLabel ? (
+                                  <span className="group-lesson-details__participant-joined">
+                                    {participant.joinedLabel}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <div className="group-lesson-details__participants-empty">
+                        <p>Be the first to book. {spotsRemaining} spots are available right now.</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">What to bring</h2>
+                  <div className="group-lesson-details__bring-list">
+                    {whatToBring.map((item) => (
+                      <span key={item} className="group-lesson-details__bring-chip">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Location</h2>
+                  <div className="group-lesson-details__card">
+                    <h3 className="group-lesson-details__card-title">{lesson.locationName}</h3>
+                    <p className="group-lesson-details__card-copy">{lesson.locationCity}</p>
+                    <ul className="group-lesson-details__location-list">
+                      <li>🎾 {lesson.court ? `Court ${lesson.court}` : "Court assignment shared before class"}</li>
+                      <li>📍 {lesson.distanceMiles > 0 ? `${lesson.distanceMiles.toFixed(1)} mi away` : "Nearby location"}</li>
+                    </ul>
+                    <a
+                      className="group-lesson-details__secondary-action"
+                      href={`https://maps.google.com/?q=${encodeURIComponent(lesson.locationName)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Get directions
+                    </a>
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Your coach</h2>
+                  <div className="group-lesson-details__card">
+                    <div className="group-lesson-details__coach-panel">
+                      {lesson.coachAvatarUrl ? (
+                        <img
+                          className="group-lesson-details__coach-avatar"
+                          src={lesson.coachAvatarUrl}
+                          alt=""
+                        />
+                      ) : (
+                        <span className="group-lesson-details__coach-avatar--placeholder" aria-hidden>
+                          {buildInitials(lesson.coachName)}
+                        </span>
+                      )}
+                      <div className="group-lesson-details__coach-meta">
+                        <p className="group-lesson-details__coach-name">{lesson.coachName}</p>
+                        <div className="group-lesson-details__coach-cert-list">
+                          <span className="group-lesson-details__coach-cert">Matchplay Coach</span>
+                          <span className="group-lesson-details__coach-cert">{lesson.skillLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="group-lesson-details__card-copy">
+                      {lesson.focus}. Expect a clear structure, live coaching, and a strong emphasis on quality reps.
+                    </p>
+                    <Link to={`/coaches/${lesson.coachId}`} className="group-lesson-details__coach-link">
+                      View full profile →
+                    </Link>
+                  </div>
+                </section>
+              </section>
+
+              <aside className="group-lesson-details__booking-rail">
+                <div className="group-lesson-details__booking-card">
+                  <p className="group-lesson-details__booking-label">Book this session</p>
+                  <p className="group-lesson-details__booking-price">{lesson.pricePerPlayer.replace(" per player", "")}</p>
+                  <p className="group-lesson-details__booking-price-caption">per class</p>
+
+                  <div className="group-lesson-details__booking-meta">
+                    <div className="group-lesson-details__booking-meta-item">
+                      <CalendarDays aria-hidden />
+                      <span>{dateLabel}</span>
+                    </div>
+                    <div className="group-lesson-details__booking-meta-item">
+                      <Clock aria-hidden />
+                      <span>
+                        {timeRange} · {lesson.durationMinutes} min
+                      </span>
+                    </div>
+                    <div className="group-lesson-details__booking-meta-item">
+                      <MapPin aria-hidden />
+                      <span>{lesson.locationName}</span>
+                    </div>
+                    <div className="group-lesson-details__booking-meta-item">
+                      <Users aria-hidden />
+                      <span>with {lesson.coachName}</span>
+                    </div>
+                  </div>
+
+                  <div className={`group-lesson-details__availability-pill ${availabilityToneClass}`}>
+                    {availabilityLabel}
+                  </div>
+
+                  <div className="group-lesson-details__credit-note">
+                    🎟️ Credits and saved payment methods are available at checkout
+                  </div>
+
+                  <button
+                    type="button"
+                    className="group-lesson-details__checkout-action"
+                    disabled={spotsRemaining === 0 || isBooked}
+                    onClick={() => {
+                      navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                        state: { groupLessonId: lesson.id },
+                      });
+                    }}
+                  >
+                    {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+                  </button>
+
+                  <p className="group-lesson-details__checkout-caption">
+                    {spotsRemaining === 0
+                      ? "We’ll notify you if a player drops and a spot re-opens."
+                      : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
+                  </p>
                 </div>
-                <div className="group-lesson-details__price-row">
-                  <span className="group-lesson-details__price-label">Total due today</span>
-                  <span className="group-lesson-details__price-value">{lesson.pricePerPlayer}</span>
-                </div>
-                <ul className="group-lesson-details__checkout-list">
-                  <li>
-                    <ShieldCheck aria-hidden size={18} /> Secure checkout powered by Matchplay
-                  </li>
-                  <li>
-                  <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
-                </li>
-                <li>
-                  <CalendarDays aria-hidden size={18} /> {dateLabel}
-                </li>
-                </ul>
-                <button
-                  type="button"
-                  className="group-lesson-details__checkout-action"
-                  disabled={spotsRemaining === 0 || isBooked}
-                  onClick={() => {
-                    navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                      state: { groupLessonId: lesson.id },
-                    });
-                  }}
-                >
-                  {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
-                </button>
-                <p className="group-lesson-details__checkout-caption">
-                  {spotsRemaining === 0
-                    ? "We'll notify you if a player drops and a spot re-opens."
-                    : "You're charged immediately to hold your place. Cancel up to 24 hours ahead for a full credit."}
-                </p>
-              </div>
-            </aside>
+              </aside>
+            </div>
           </div>
         </div>
       </div>
