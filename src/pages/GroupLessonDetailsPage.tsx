@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Clock,
   MapPin,
+  Share2,
   Users,
 } from "lucide-react";
 import moment from "moment";
@@ -302,7 +303,7 @@ const GroupLessonDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <MainLayout>
+      <MainLayout showDesktopNav={false}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
             <div className="group-lesson-details__empty">
@@ -317,7 +318,7 @@ const GroupLessonDetailsPage = () => {
 
   if (loadError || !lesson) {
     return (
-      <MainLayout>
+      <MainLayout showDesktopNav={false}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
             <Link to="/group-lessons" className="group-lesson-details__back-link">
@@ -372,9 +373,44 @@ const GroupLessonDetailsPage = () => {
         ? "is-limited"
         : "is-open";
   const whatToBring = lesson.highlights?.length ? lesson.highlights : ["Racket", "Water", "Tennis shoes"];
+  const heroBandLabel = lesson.startDateTime
+    ? `${moment.utc(lesson.startDateTime).format("dddd").toUpperCase()} · ${moment
+        .utc(lesson.startDateTime)
+        .format("MMM D")
+        .toUpperCase()}`
+    : dateLabel.toUpperCase();
+  const availabilityMetaLabel =
+    spotsRemaining === 0
+      ? "Full — join waitlist"
+      : spotsRemaining <= 2
+        ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
+        : `${spotsRemaining} spots available`;
+  const handleShare = async () => {
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    if (!shareUrl) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: lesson.title,
+          text: `Join ${lesson.title} with ${lesson.coachName}`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // no-op fallback
+    }
+  };
 
   return (
-    <MainLayout>
+    <MainLayout showDesktopNav={false}>
       <div className="group-lesson-details" style={themeVars}>
         <div className="group-lesson-details__inner">
           <div className="group-lesson-details__shell">
@@ -390,11 +426,14 @@ const GroupLessonDetailsPage = () => {
                   }
                 }}
               >
-                <ArrowLeft aria-hidden /> Back to group lessons
+                <ArrowLeft aria-hidden />
+                <span className="group-lesson-details__back-label">Back to group lessons</span>
               </button>
+              <div className="group-lesson-details__topbar-title">Class details</div>
               <div className="group-lesson-details__topbar-actions">
-                <button type="button" className="group-lesson-details__topbar-action">
-                  Share
+                <button type="button" className="group-lesson-details__topbar-action" onClick={() => void handleShare()}>
+                  <Share2 aria-hidden />
+                  <span>Share</span>
                 </button>
                 <button
                   type="button"
@@ -412,16 +451,41 @@ const GroupLessonDetailsPage = () => {
                 <header className="group-lesson-details__hero">
                   <div className="group-lesson-details__badge-row">
                     <span className="group-lesson-details__hero-badge group-lesson-details__hero-badge--primary">
-                      {dateLabel.toUpperCase()}
+                      {heroBandLabel}
                     </span>
-                    <span className="group-lesson-details__hero-badge">{levelLabel}</span>
+                    <span className="group-lesson-details__hero-badge group-lesson-details__hero-badge--level">
+                      {levelLabel}
+                    </span>
                     <span className="group-lesson-details__hero-badge">{lesson.focus}</span>
                     {lesson.courtSurface ? (
                       <span className="group-lesson-details__hero-badge">{lesson.courtSurface} court</span>
                     ) : null}
                   </div>
-                  <h1 className="group-lesson-details__hero-title">{lesson.title}</h1>
-                  <p className="group-lesson-details__hero-copy">{lesson.description}</p>
+                  <div className="group-lesson-details__hero-body">
+                    <h1 className="group-lesson-details__hero-title">{lesson.title}</h1>
+                    <p className="group-lesson-details__hero-copy">{lesson.description}</p>
+                    <div className="group-lesson-details__hero-meta">
+                      <div className="group-lesson-details__hero-meta-item">
+                        <Clock aria-hidden />
+                        <span>
+                          {timeRange} · {lesson.durationMinutes} min
+                        </span>
+                      </div>
+                      <div className="group-lesson-details__hero-meta-item">
+                        <MapPin aria-hidden />
+                        <span>
+                          {lesson.locationName}
+                          {lesson.distanceMiles > 0 ? ` · ${lesson.distanceMiles.toFixed(1)} mi` : " · nearby"}
+                        </span>
+                      </div>
+                      <div className="group-lesson-details__hero-meta-item group-lesson-details__hero-meta-item--spots">
+                        <span className="group-lesson-details__hero-emoji" aria-hidden>👥</span>
+                        <span className={`group-lesson-details__hero-availability ${availabilityToneClass}`}>
+                          {availabilityMetaLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </header>
 
                 <section className="group-lesson-details__section">
@@ -648,6 +712,25 @@ const GroupLessonDetailsPage = () => {
                   </p>
                 </div>
               </aside>
+            </div>
+
+            <div className="group-lesson-details__mobile-footer">
+              <div className="group-lesson-details__mobile-footer-price">
+                <strong>{lesson.pricePerPlayer.replace(" per player", "")}</strong>
+                <span>per class</span>
+              </div>
+              <button
+                type="button"
+                className="group-lesson-details__mobile-footer-action"
+                disabled={spotsRemaining === 0 || isBooked}
+                onClick={() => {
+                  navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                    state: { groupLessonId: lesson.id },
+                  });
+                }}
+              >
+                {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+              </button>
             </div>
           </div>
         </div>

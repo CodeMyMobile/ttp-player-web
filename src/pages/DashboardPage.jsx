@@ -228,6 +228,13 @@ const isPendingValue = (value) => {
   return normalized === "0" || normalized.includes("pending") || normalized.includes("invite") || normalized.includes("requested");
 };
 
+const isConfirmedValue = (value) => {
+  if (value === null || value === undefined || value === "") return false;
+  if (typeof value === "number") return value === 1;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized.includes("confirmed") || normalized.includes("paid") || normalized.includes("accepted");
+};
+
 const buildPlayerInviteItems = (records = []) =>
   records
     .map((record, index) => {
@@ -344,6 +351,14 @@ const buildCoachInviteItems = (records = [], currentUser) => {
               participant.status ?? participant.booking_status ?? participant.lesson_status ?? participant.payment_status,
             ),
           );
+      const participantConfirmed = matchingParticipant
+        ? isConfirmedValue(
+            matchingParticipant.status ??
+              matchingParticipant.booking_status ??
+              matchingParticipant.lesson_status ??
+              matchingParticipant.payment_status,
+          )
+        : false;
       const lessonPending = isPendingValue(lessonStatus);
       const createdByCoach =
         createdBy !== null && createdBy !== undefined
@@ -354,7 +369,13 @@ const buildCoachInviteItems = (records = [], currentUser) => {
               : true
           : false;
 
-      return createdByCoach && (isCurrentPlayerAssigned || isCurrentPlayerParticipant) && (lessonPending || participantPending);
+      if (!createdByCoach) return false;
+      if (participantConfirmed) return false;
+
+      const assignedPending = isCurrentPlayerAssigned && lessonPending;
+      const participantInvitePending = isCurrentPlayerParticipant && participantPending;
+
+      return assignedPending || participantInvitePending;
     })
     .map((lesson, index) => {
       const senderName =

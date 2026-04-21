@@ -192,7 +192,7 @@ const BookingStatusModal = ({
   const modalContent = isConfirmedGroup ? (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[180] flex items-center justify-center bg-[rgba(15,23,42,0.55)] px-4 py-5"
+      className="fixed inset-0 z-[180] flex items-stretch justify-center bg-slate-50 px-0 py-0 sm:items-center sm:bg-[rgba(15,23,42,0.55)] sm:px-4 sm:py-5"
       role="dialog"
       aria-modal="true"
       onClick={(event) => {
@@ -201,13 +201,13 @@ const BookingStatusModal = ({
     >
       <div
         ref={modalRef}
-        className="max-h-[88vh] w-full max-w-[540px] overflow-y-auto rounded-2xl bg-slate-50 shadow-[0_30px_60px_rgba(0,0,0,0.3)]"
+        className="flex min-h-screen w-full flex-col overflow-y-auto bg-slate-50 sm:max-h-[88vh] sm:min-h-0 sm:max-w-[540px] sm:rounded-2xl sm:shadow-[0_30px_60px_rgba(0,0,0,0.3)]"
       >
         <div className="flex items-center justify-center border-b border-slate-200 bg-white px-5 py-4">
           <div className="text-[17px] font-extrabold text-slate-900">Booking confirmed</div>
         </div>
 
-        <div className="px-5 pb-6 pt-9">
+        <div className="flex-1 px-5 pb-6 pt-9">
           <div className="mb-7 text-center">
             <div className="mx-auto mb-4 flex h-[78px] w-[78px] items-center justify-center rounded-full border-[3px] border-green-300 bg-green-100">
               <span className="text-4xl font-black text-green-600">✓</span>
@@ -346,7 +346,7 @@ const BookingStatusModal = ({
             <button
               type="button"
               onClick={onSecondary}
-              className="rounded-xl border border-slate-200 px-4 py-[14px] text-sm font-bold text-slate-700"
+              className="hidden rounded-xl border border-slate-200 px-4 py-[14px] text-sm font-bold text-slate-700 sm:block"
             >
               My Bookings
             </button>

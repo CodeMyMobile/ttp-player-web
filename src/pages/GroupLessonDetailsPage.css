@@ -35,6 +35,11 @@
   border-bottom: 1px solid var(--fc-color-border);
 }
 
+.group-lesson-details__topbar-title,
+.group-lesson-details__mobile-footer {
+  display: none;
+}
+
 .group-lesson-details__back-link {
   display: inline-flex;
   align-items: center;
@@ -52,6 +57,10 @@
 .group-lesson-details__back-link svg {
   width: 18px;
   height: 18px;
+}
+
+.group-lesson-details__back-label {
+  display: inline;
 }
 
 .group-lesson-details__topbar-actions {
@@ -80,6 +89,11 @@
   font-weight: 600;
 }
 
+.group-lesson-details__topbar-action svg {
+  width: 15px;
+  height: 15px;
+}
+
 .group-lesson-details__topbar-close {
   width: 34px;
   height: 34px;
@@ -102,6 +116,12 @@
 
 .group-lesson-details__hero {
   margin-bottom: 28px;
+}
+
+.group-lesson-details__hero-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .group-lesson-details__badge-row {
@@ -131,6 +151,10 @@
   letter-spacing: 0.06em;
 }
 
+.group-lesson-details__hero-badge--level {
+  background: #fff;
+}
+
 .group-lesson-details__hero-title {
   margin: 0 0 8px;
   font-size: clamp(2rem, 2.8vw, 2.6rem);
@@ -144,6 +168,61 @@
   color: var(--fc-color-text-secondary);
   font-size: 15px;
   line-height: 1.55;
+}
+
+.group-lesson-details__hero-meta {
+  display: none;
+}
+
+.group-lesson-details__hero-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fc-color-text-secondary);
+  font-size: 13px;
+}
+
+.group-lesson-details__hero-meta-item svg {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.group-lesson-details__hero-meta-item--spots {
+  align-items: center;
+}
+
+.group-lesson-details__hero-emoji {
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.group-lesson-details__hero-availability {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.group-lesson-details__hero-availability.is-open {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.group-lesson-details__hero-availability.is-limited {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.group-lesson-details__hero-availability.is-full {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .group-lesson-details__section {
@@ -658,9 +737,30 @@
 
   .group-lesson-details__topbar {
     padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
   }
 
-  .group-lesson-details__topbar-action {
+  .group-lesson-details__topbar-title {
+    display: block;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--fc-color-text-primary);
+  }
+
+  .group-lesson-details__back-link {
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  .group-lesson-details__back-label {
     display: none;
   }
 
@@ -671,5 +771,204 @@
 
   .group-lesson-details__hero-title {
     font-size: 28px;
+  }
+
+  .group-lesson-details__topbar-actions {
+    justify-self: end;
+  }
+
+  .group-lesson-details__topbar-action {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .group-lesson-details__topbar-action span,
+  .group-lesson-details__topbar-close,
+  .group-lesson-details__booking-rail {
+    display: none;
+  }
+
+  .group-lesson-details__inner {
+    max-width: none;
+    padding: 0 0 88px;
+  }
+
+  .group-lesson-details__shell {
+    min-height: 100vh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #f8fafc;
+  }
+
+  .group-lesson-details__layout {
+    display: block;
+    min-height: auto;
+  }
+
+  .group-lesson-details__content {
+    padding: 0 0 24px;
+  }
+
+  .group-lesson-details__hero {
+    margin-bottom: 0;
+    background: #fff;
+    border-bottom: 1px solid var(--fc-color-border);
+  }
+
+  .group-lesson-details__badge-row {
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #ede9fe;
+    border-bottom: 1px solid #ddd6fe;
+    margin-bottom: 0;
+  }
+
+  .group-lesson-details__hero-badge {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #7c3aed;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .group-lesson-details__hero-badge--level {
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid #ddd6fe;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .group-lesson-details__badge-row .group-lesson-details__hero-badge:nth-child(n + 3) {
+    display: none;
+  }
+
+  .group-lesson-details__hero-body {
+    padding: 16px;
+  }
+
+  .group-lesson-details__hero-title {
+    margin-bottom: 0;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+  }
+
+  .group-lesson-details__hero-copy {
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .group-lesson-details__hero-meta {
+    display: grid;
+    gap: 7px;
+    margin-top: 6px;
+  }
+
+  .group-lesson-details__section {
+    margin-bottom: 0;
+    padding: 18px 16px 6px;
+  }
+
+  .group-lesson-details__section-label {
+    margin-bottom: 8px;
+  }
+
+  .group-lesson-details__card {
+    padding: 14px 16px;
+  }
+
+  .group-lesson-details__bring-list {
+    gap: 6px;
+  }
+
+  .group-lesson-details__bring-chip {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .group-lesson-details__participants-head {
+    padding-bottom: 12px;
+    margin-bottom: 0;
+  }
+
+  .group-lesson-details__participant {
+    padding: 10px 0;
+  }
+
+  .group-lesson-details__related-card {
+    padding: 12px 14px;
+  }
+
+  .group-lesson-details__related-copy strong {
+    font-size: 12px;
+  }
+
+  .group-lesson-details__related-copy span {
+    font-size: 11.5px;
+  }
+
+  .group-lesson-details__related-price {
+    font-size: 14px;
+  }
+
+  .group-lesson-details__mobile-footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    border-top: 1px solid var(--fc-color-border);
+  }
+
+  .group-lesson-details__mobile-footer-price {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .group-lesson-details__mobile-footer-price strong {
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 800;
+    color: var(--fc-color-text-primary);
+  }
+
+  .group-lesson-details__mobile-footer-price span {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--fc-color-text-muted);
+  }
+
+  .group-lesson-details__mobile-footer-action {
+    flex: 1 1 auto;
+    border: none;
+    border-radius: 12px;
+    padding: 13px;
+    background: #8b5cf6;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .group-lesson-details__mobile-footer-action:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
   }
 }

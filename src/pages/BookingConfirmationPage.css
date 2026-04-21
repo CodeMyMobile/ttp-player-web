@@ -48,6 +48,24 @@
   flex-shrink: 0;
 }
 
+.booking-confirmation__group-back {
+  display: none;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.booking-confirmation__group-back svg {
+  width: 18px;
+  height: 18px;
+}
+
 .booking-confirmation__group-title {
   font-size: 17px;
   font-weight: 800;
@@ -910,11 +928,56 @@
   }
 
   .booking-confirmation--group-modal {
-    padding: 12px 0 24px;
+    padding: 0;
   }
 
   .booking-confirmation__inner {
     padding: 0 16px;
+  }
+
+  .booking-confirmation__inner--group {
+    width: 100%;
+    padding: 0;
+  }
+
+  .booking-confirmation__group-panel {
+    min-height: 100vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .booking-confirmation__group-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 12px 14px;
+  }
+
+  .booking-confirmation__group-back {
+    display: inline-flex;
+  }
+
+  .booking-confirmation__group-title {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .booking-confirmation__group-close {
+    display: none;
+  }
+
+  .booking-confirmation__group-content {
+    padding: 16px 16px 20px;
+  }
+
+  .booking-confirmation__group-footer {
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   }
 
   .payment-method-card {

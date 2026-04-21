@@ -1477,7 +1477,7 @@ const BookingConfirmationPage = () => {
 
   if (groupLessonId && groupLessonLoading) {
     return (
-      <MainLayout>
+      <MainLayout showDesktopNav={false}>
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">Loading group lesson…</h1>
@@ -1502,7 +1502,7 @@ const BookingConfirmationPage = () => {
     const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";
 
     return (
-      <MainLayout>
+      <MainLayout showDesktopNav={!groupLessonId}>
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">{emptyTitle}</h1>
@@ -1717,12 +1717,26 @@ const BookingConfirmationPage = () => {
   );
 
   return (
-    <MainLayout>
+    <MainLayout showDesktopNav={!isGroupLesson}>
       <div className={`booking-confirmation${isGroupLesson ? " booking-confirmation--group-modal" : ""}`}>
         <div className={`booking-confirmation__inner${isGroupLesson ? " booking-confirmation__inner--group" : ""}`}>
           {isGroupLesson ? (
             <div className="booking-confirmation__group-panel">
               <div className="booking-confirmation__group-header">
+                <button
+                  type="button"
+                  className="booking-confirmation__group-back"
+                  onClick={() => {
+                    if (backButtonDestination) {
+                      navigate(backButtonDestination);
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
+                  aria-label="Back to lesson details"
+                >
+                  <ArrowLeft aria-hidden />
+                </button>
                 <div className="booking-confirmation__group-title">Checkout</div>
                 <button
                   type="button"
