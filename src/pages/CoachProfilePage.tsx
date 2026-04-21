@@ -61,6 +61,29 @@ type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
 type PaymentChoice = "credits" | "card" | "wallet";
 
+type FindCoachesStateSnapshot = {
+  searchTerm: string;
+  appliedSearchTerm: string;
+  selectedRadius: number;
+  appliedRadius: number;
+  sortBy: string;
+  locationFilter: {
+    label: string;
+    latitude: number;
+    longitude: number;
+    isCurrentLocation?: boolean;
+  } | null;
+  locationSearchTerm: string;
+};
+
+type CoachProfileRouteState = {
+  resumeBookingSlotId?: string;
+  resumePaymentChoice?: PaymentChoice;
+  focusBookCta?: boolean;
+  purchaseAfterAuth?: boolean;
+  findCoachesState?: FindCoachesStateSnapshot;
+};
+
 type LoadedSlot = {
   id: string;
   type: Exclude<LessonTypeFilter, "all">;
@@ -1307,6 +1330,20 @@ const CoachProfilePage = () => {
     return visibleDays.find((day) => day.isoDate === selectedDate)?.slots ?? [];
   }, [selectedDate, visibleDays]);
 
+  const routeState = (location.state as CoachProfileRouteState | null | undefined) ?? null;
+  const findCoachesReturnState = routeState?.findCoachesState ?? null;
+  const clearResumeState = useCallback(() => {
+    navigate(location.pathname, {
+      replace: true,
+      state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : null,
+    });
+  }, [findCoachesReturnState, location.pathname, navigate]);
+  const handleBackToFindCoaches = useCallback(() => {
+    navigate("/find-coaches", {
+      state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined,
+    });
+  }, [findCoachesReturnState, navigate]);
+
   const isFirstBooking = useMemo(() => {
     const completedLocally =
       typeof window !== "undefined" ? localStorage.getItem(firstBookingKey) === "completed" : false;
@@ -1314,17 +1351,15 @@ const CoachProfilePage = () => {
   }, [firstBookingKey, hasCoachHistory]);
 
   useEffect(() => {
-    const resumeState = location.state as
-      | {
-          resumeBookingSlotId?: string;
-          resumePaymentChoice?: PaymentChoice;
-          focusBookCta?: boolean;
-          purchaseAfterAuth?: boolean;
-        }
-      | null
-      | undefined;
+    const resumeState = routeState;
     const resumeBookingSlotId = resumeState?.resumeBookingSlotId;
-    if (!isLoggedIn || !resumeState || bookingOpen || paymentSheetOpen) return;
+    const hasResumeBookingState = Boolean(
+      resumeState?.resumeBookingSlotId ||
+        resumeState?.resumePaymentChoice ||
+        resumeState?.focusBookCta ||
+        resumeState?.purchaseAfterAuth,
+    );
+    if (!isLoggedIn || !hasResumeBookingState || bookingOpen || paymentSheetOpen) return;
 
     if (resumeState.focusBookCta) {
       setBookingFocusActive(true);
@@ -1343,7 +1378,7 @@ const CoachProfilePage = () => {
     }
 
     if (!resumeBookingSlotId) {
-      navigate(location.pathname, { replace: true, state: null });
+      clearResumeState();
       return;
     }
 
@@ -1358,17 +1393,17 @@ const CoachProfilePage = () => {
       setBookingStep(isLoggedIn && !coachHistoryLoaded ? "confirm" : isFirstBooking ? "about" : "confirm");
       setBookingOpen(true);
     }
-    navigate(location.pathname, { replace: true, state: null });
+    clearResumeState();
   }, [
     bookingOpen,
     isFirstBooking,
     coachHistoryLoaded,
+    clearResumeState,
     isLoggedIn,
-    location.pathname,
-    location.state,
     navigate,
     paymentSheetOpen,
     profile?.id,
+    routeState,
     slotsByDay,
   ]);
 
@@ -2288,7 +2323,11 @@ const CoachProfilePage = () => {
             <p className="coach-profile-empty__copy">
               {profileError ?? "That profile isn’t available right now. Return to the coach list and try another profile."}
             </p>
-            <Link to="/find-coaches" className="coach-profile-empty__action">
+            <Link
+              to="/find-coaches"
+              state={findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined}
+              className="coach-profile-empty__action"
+            >
               <ArrowLeft size={16} /> Back to Coaches
             </Link>
           </div>
@@ -2317,7 +2356,7 @@ const CoachProfilePage = () => {
             <div className="coach-profile-main-v2">
               <div className="coach-profile-fixed-chrome">
                 <div className="coach-profile-chrome-header">
-                  <button type="button" className="coach-profile-top-action" onClick={() => navigate("/find-coaches")}>
+                  <button type="button" className="coach-profile-top-action" onClick={handleBackToFindCoaches}>
                     <ArrowLeft size={16} /> Find a Coach
                   </button>
                   {smsHref ? (

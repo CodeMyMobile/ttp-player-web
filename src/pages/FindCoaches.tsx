@@ -50,6 +50,21 @@ type SelectedLocation = {
   isCurrentLocation?: boolean;
 };
 
+type FindCoachesStateSnapshot = {
+  searchTerm: string;
+  appliedSearchTerm: string;
+  selectedRadius: number;
+  appliedRadius: number;
+  sortBy: string;
+  locationFilter: SelectedLocation | null;
+  locationSearchTerm: string;
+};
+
+type FindCoachesRouteState = {
+  openCoachMatchSurvey?: boolean;
+  findCoachesState?: FindCoachesStateSnapshot;
+};
+
 type CoachCardModel = Coach & {
   initials: string;
   verified: boolean;
@@ -562,6 +577,27 @@ const FindCoaches = () => {
   const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
   const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(() => Boolean(getStoredLocation()));
 
+  const findCoachesStateSnapshot = useMemo<FindCoachesStateSnapshot>(
+    () => ({
+      searchTerm,
+      appliedSearchTerm,
+      selectedRadius,
+      appliedRadius,
+      sortBy,
+      locationFilter,
+      locationSearchTerm,
+    }),
+    [
+      appliedRadius,
+      appliedSearchTerm,
+      locationFilter,
+      locationSearchTerm,
+      searchTerm,
+      selectedRadius,
+      sortBy,
+    ],
+  );
+
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
 
@@ -667,17 +703,37 @@ const FindCoaches = () => {
       return;
     }
 
-    const shouldOpenCoachMatchSurvey = Boolean(
-      (location.state as { openCoachMatchSurvey?: boolean }).openCoachMatchSurvey,
-    );
+    const routeState = location.state as FindCoachesRouteState;
+    const restoredState = routeState.findCoachesState;
+    const shouldOpenCoachMatchSurvey = Boolean(routeState.openCoachMatchSurvey);
 
-    if (!shouldOpenCoachMatchSurvey) {
+    if (!restoredState && !shouldOpenCoachMatchSurvey) {
       return;
     }
 
-    void openCoachMatchSurvey();
-    navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, location.state, navigate, openCoachMatchSurvey]);
+    if (restoredState) {
+      setSearchTerm(restoredState.searchTerm);
+      setAppliedSearchTerm(restoredState.appliedSearchTerm);
+      setSelectedRadius(restoredState.selectedRadius);
+      setAppliedRadius(restoredState.appliedRadius);
+      setSortBy(restoredState.sortBy);
+      setLocationSearchTerm(restoredState.locationSearchTerm);
+      applyLocationFilter(restoredState.locationFilter);
+    }
+
+    if (shouldOpenCoachMatchSurvey) {
+      void openCoachMatchSurvey();
+    }
+
+    const nextState = { ...routeState };
+    delete nextState.findCoachesState;
+    delete nextState.openCoachMatchSurvey;
+
+    navigate(location.pathname, {
+      replace: true,
+      state: Object.keys(nextState).length > 0 ? nextState : null,
+    });
+  }, [applyLocationFilter, location.pathname, location.state, navigate, openCoachMatchSurvey]);
 
   useEffect(() => {
     setLocationSearchTerm(locationFilter?.label ?? "");
@@ -1304,7 +1360,11 @@ const FindCoaches = () => {
                         </div>
                       </div>
 
-                      <Link to={`/coaches/${coach.id}`} className="coach-match-card__action coach-match-card__action--ghost">
+                      <Link
+                        to={`/coaches/${coach.id}`}
+                        state={{ findCoachesState: findCoachesStateSnapshot }}
+                        className="coach-match-card__action coach-match-card__action--ghost"
+                      >
                         View profile
                       </Link>
                     </div>
