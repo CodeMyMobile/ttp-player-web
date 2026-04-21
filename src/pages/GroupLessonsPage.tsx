@@ -584,37 +584,9 @@ const GroupLessonsPage = () => {
   }, [applyLocationFilter]);
 
   return (
-    <MainLayout mobileChrome="default" showDesktopNav={false}>
+    <MainLayout mobileChrome="home" showDesktopNav={false}>
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
-          <div className="group-lessons-mobile-topbar">
-            <div className="group-lessons-mobile-topbar__brand">
-              <span className="group-lessons-mobile-topbar__brand-mark">🎾</span>
-              <strong>
-                The Tennis <em>Plan</em>
-              </strong>
-            </div>
-            <div className="group-lessons-mobile-topbar__actions">
-              <button
-                type="button"
-                className="group-lessons-mobile-topbar__location"
-                onClick={() => {
-                  setGeoError("");
-                  setShowLocationPicker((prev) => {
-                    if (!prev) {
-                      setLocationSearchTerm(locationFilter?.label ?? "");
-                    }
-                    return !prev;
-                  });
-                }}
-              >
-                <span>📍</span>
-                <span>{useLocationFilter ? "Venice" : "Anywhere"}</span>
-              </button>
-              <div className="group-lessons-mobile-topbar__avatar">PA</div>
-            </div>
-          </div>
-
           <div className="group-lessons-desktop-shell">
             <ResultsHeader
               title="Group Lessons"
@@ -1224,29 +1196,6 @@ const GroupLessonsPage = () => {
           </section>
         </div>
       </div>
-      <div className="group-lessons-mobile-bottom-nav" aria-hidden="true">
-        <div>
-          <span>🏠</span>
-          <small>Home</small>
-        </div>
-        <div>
-          <span>👤</span>
-          <small>Coaches</small>
-        </div>
-        <div className="group-lessons-mobile-bottom-nav__active">
-          <span>👥</span>
-          <small>Groups</small>
-        </div>
-        <div>
-          <span>🎾</span>
-          <small>Match</small>
-        </div>
-        <div>
-          <span>📅</span>
-          <small>Schedule</small>
-        </div>
-      </div>
-
       {showMobileMoreFilters ? (
         <div className="group-lessons-mobile-sheet">
           <button
