@@ -2,6 +2,7 @@
 
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Clock, MapPin, Search } from "lucide-react";
 
@@ -26,7 +27,8 @@ import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
-const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+const radiusOptions = ["All", "1 mi", "3 mi", "5 mi", "10 mi", "20 mi"];
+const DEFAULT_RADIUS_OPTION = "10 mi";
 
 const parseRadius = (radius: string) => {
   if (radius === "All") {
@@ -187,7 +189,7 @@ const GroupLessonsPage = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [geoError, setGeoError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
+  const [selectedRadius, setSelectedRadius] = useState<string>(DEFAULT_RADIUS_OPTION);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showMobileMoreFilters, setShowMobileMoreFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
@@ -552,6 +554,28 @@ const GroupLessonsPage = () => {
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
+  const mobileLocationLabel = useMemo(() => {
+    const raw = useLocationFilter ? locationLabel : DEFAULT_LOCATION;
+    if (/current location/i.test(raw)) return "Nearby";
+    return raw.split(",")[0]?.trim() || raw;
+  }, [locationLabel, useLocationFilter]);
+  const mobileUserInitials = useMemo(() => {
+    const record = user as Record<string, unknown> | null;
+    const sessionRecord = record?.session as Record<string, unknown> | undefined;
+    const nameCandidate =
+      (record?.full_name as string | undefined) ??
+      (record?.name as string | undefined) ??
+      (record?.displayName as string | undefined) ??
+      (sessionRecord?.full_name as string | undefined) ??
+      (sessionRecord?.name as string | undefined) ??
+      "Player";
+    return nameCandidate
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("");
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -657,7 +681,7 @@ const GroupLessonsPage = () => {
     setLevelFilter("All levels");
     setFormatFilter("All formats");
     applyLocationFilter(null);
-    setSelectedRadius(radiusOptions[1]);
+    setSelectedRadius(DEFAULT_RADIUS_OPTION);
     setSearchTerm("");
   }, [applyLocationFilter]);
 
@@ -665,12 +689,12 @@ const GroupLessonsPage = () => {
     coachFilter !== "All coaches" ||
     levelFilter !== "All levels" ||
     formatFilter !== "All formats" ||
-    selectedRadius !== radiusOptions[1] ||
+    selectedRadius !== DEFAULT_RADIUS_OPTION ||
     searchTerm.trim().length > 0 ||
     !useLocationFilter;
 
   return (
-    <MainLayout mobileChrome="home" showDesktopNav={false}>
+    <MainLayout mobileChrome="default" showDesktopNav={false}>
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
           <div className="group-lessons-desktop-shell">
@@ -728,7 +752,7 @@ const GroupLessonsPage = () => {
                         setCoachFilter("All coaches");
                         setLevelFilter("All levels");
                         setFormatFilter("All formats");
-                        setSelectedRadius(radiusOptions[1]);
+                        setSelectedRadius(DEFAULT_RADIUS_OPTION);
                         setSearchTerm("");
                       }}
                     >
@@ -831,6 +855,22 @@ const GroupLessonsPage = () => {
           </div>
 
           <div className="group-lessons-mobile-shell">
+            <div className="group-lessons-mobile-topbar">
+              <div className="group-lessons-mobile-topbar__brand">
+                <span className="group-lessons-mobile-topbar__mark">🎾</span>
+                <strong>
+                  The Tennis <span>Plan</span>
+                </strong>
+              </div>
+              <div className="group-lessons-mobile-topbar__actions">
+                <button type="button" className="group-lessons-mobile-topbar__location">
+                  <span>📍</span>
+                  {mobileLocationLabel}
+                </button>
+                <div className="group-lessons-mobile-topbar__avatar">{mobileUserInitials || "PA"}</div>
+              </div>
+            </div>
+
             <section className="group-lessons-mobile-hero">
               <h1>Group Lessons</h1>
               <p>Dial in your game with curated sessions led by trusted Matchplay coaches.</p>
@@ -850,8 +890,7 @@ const GroupLessonsPage = () => {
                 type="button"
                 className={`group-lessons-mobile-more${
                   formatFilter !== "All formats" ||
-                  selectedRadius !== radiusOptions[1] ||
-                  !useLocationFilter
+                  selectedRadius !== DEFAULT_RADIUS_OPTION
                     ? " group-lessons-mobile-more--active"
                     : ""
                 }`}
@@ -861,47 +900,14 @@ const GroupLessonsPage = () => {
                 <span>
                   More
                   {formatFilter !== "All formats" ||
-                  selectedRadius !== radiusOptions[1] ||
-                  !useLocationFilter
+                  selectedRadius !== DEFAULT_RADIUS_OPTION
                     ? ` · ${
                         Number(formatFilter !== "All formats") +
-                        Number(selectedRadius !== radiusOptions[1]) +
-                        Number(!useLocationFilter)
+                        Number(selectedRadius !== DEFAULT_RADIUS_OPTION)
                       }`
                     : ""}
                 </span>
               </button>
-            </div>
-
-            <div className="group-lessons-mobile-meta">
-              <div className="group-lessons-mobile-meta__location">
-                <MapPin size={14} aria-hidden="true" />
-                <span>{useLocationFilter ? locationLabel : "All locations"}</span>
-              </div>
-              <div className="group-lessons-mobile-meta__actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGeoError("");
-                    setShowLocationPicker((prev) => {
-                      if (!prev) {
-                        setLocationSearchTerm(locationFilter?.label ?? "");
-                      }
-                      return !prev;
-                    });
-                  }}
-                >
-                  Change
-                </button>
-                <button type="button" onClick={() => setUseLocationFilter((current) => !current)}>
-                  {useLocationFilter ? "All locations" : "Nearby"}
-                </button>
-                {hasActiveFilters ? (
-                  <button type="button" onClick={resetAllFilters}>
-                    Clear
-                  </button>
-                ) : null}
-              </div>
             </div>
 
             <div className="group-lessons-mobile-chip-row">
@@ -964,6 +970,29 @@ const GroupLessonsPage = () => {
                   ))}
               </div>
             </div>
+
+            <nav className="group-lessons-mobile-tabbar" aria-label="Mobile navigation">
+              <button type="button">
+                <span>🏠</span>
+                <small>Home</small>
+              </button>
+              <button type="button">
+                <span>👤</span>
+                <small>Coaches</small>
+              </button>
+              <button type="button" className="is-active">
+                <span>👥</span>
+                <small>Groups</small>
+              </button>
+              <button type="button">
+                <span>🎾</span>
+                <small>Match</small>
+              </button>
+              <button type="button">
+                <span>📅</span>
+                <small>Schedule</small>
+              </button>
+            </nav>
           </div>
 
           {showLocationPicker ? (
@@ -1324,114 +1353,72 @@ const GroupLessonsPage = () => {
           </section>
         </div>
       </div>
-      {showMobileMoreFilters ? (
-        <div className="group-lessons-mobile-sheet">
-          <button
-            type="button"
-            className="group-lessons-mobile-sheet__backdrop"
-            aria-label="Close filters"
-            onClick={() => setShowMobileMoreFilters(false)}
-          />
-          <div className="group-lessons-mobile-sheet__panel">
-            <div className="group-lessons-mobile-sheet__handle" />
-            <div className="group-lessons-mobile-sheet__header">
-              <h2>More filters</h2>
-              <button type="button" onClick={resetAllFilters}>
-                Clear
-              </button>
-            </div>
-            <div className="group-lessons-mobile-sheet__content">
-              <section className="group-lessons-mobile-sheet__group">
-                <h3>Location</h3>
-                <p>{useLocationFilter ? locationLabel : "Showing lessons across all locations"}</p>
-                <div className="group-lessons-mobile-sheet__chips">
-                  <button
-                    type="button"
-                    className={`group-lessons-mobile-sheet__chip${
-                      useLocationFilter ? " group-lessons-mobile-sheet__chip--active" : ""
-                    }`}
-                    onClick={() => setUseLocationFilter(true)}
-                  >
-                    Search nearby
-                  </button>
-                  <button
-                    type="button"
-                    className={`group-lessons-mobile-sheet__chip${
-                      !useLocationFilter ? " group-lessons-mobile-sheet__chip--active" : ""
-                    }`}
-                    onClick={() => setUseLocationFilter(false)}
-                  >
-                    All locations
+      {showMobileMoreFilters && typeof document !== "undefined"
+        ? createPortal(
+            <div className="group-lessons-mobile-sheet">
+              <button
+                type="button"
+                className="group-lessons-mobile-sheet__backdrop"
+                aria-label="Close filters"
+                onClick={() => setShowMobileMoreFilters(false)}
+              />
+              <div className="group-lessons-mobile-sheet__panel">
+                <div className="group-lessons-mobile-sheet__handle" />
+                <div className="group-lessons-mobile-sheet__header">
+                  <h2>More filters</h2>
+                  <button type="button" onClick={resetAllFilters}>
+                    Clear
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="group-lessons-mobile-sheet__secondary-action"
-                  onClick={() => {
-                    setShowMobileMoreFilters(false);
-                    setGeoError("");
-                    setShowLocationPicker(true);
-                    setLocationSearchTerm(locationFilter?.label ?? "");
-                  }}
-                >
-                  Change location
-                </button>
-              </section>
-              <section className="group-lessons-mobile-sheet__group">
-                <h3>Distance</h3>
-                <p>Within radius of {useLocationFilter ? locationLabel : "selected location"}</p>
-                <div className="group-lessons-mobile-sheet__chips">
-                  {radiusOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`group-lessons-mobile-sheet__chip${
-                        selectedRadius === option ? " group-lessons-mobile-sheet__chip--active" : ""
-                      }`}
-                      onClick={() => setSelectedRadius(option)}
-                    >
-                      {option === "All" ? "Any" : option}
-                    </button>
-                  ))}
+                <div className="group-lessons-mobile-sheet__content">
+                  <section className="group-lessons-mobile-sheet__group">
+                    <h3>Distance</h3>
+                    <p>Within radius of {useLocationFilter ? locationLabel : DEFAULT_LOCATION}</p>
+                    <div className="group-lessons-mobile-sheet__chips">
+                      {radiusOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`group-lessons-mobile-sheet__chip${
+                            selectedRadius === option ? " group-lessons-mobile-sheet__chip--active" : ""
+                          }`}
+                          onClick={() => setSelectedRadius(option)}
+                        >
+                          {option === "All" ? "Any" : option}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="group-lessons-mobile-sheet__group">
+                    <h3>Format</h3>
+                    <div className="group-lessons-mobile-sheet__chips">
+                      {formatOptions
+                        .filter((option) => option !== "All formats")
+                        .map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={`group-lessons-mobile-sheet__chip${
+                              formatFilter === option ? " group-lessons-mobile-sheet__chip--active" : ""
+                            }`}
+                            onClick={() => setFormatFilter(option)}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                    </div>
+                  </section>
                 </div>
-              </section>
-              <section className="group-lessons-mobile-sheet__group">
-                <h3>Format</h3>
-                <div className="group-lessons-mobile-sheet__chips">
-                  <button
-                    type="button"
-                    className={`group-lessons-mobile-sheet__chip${
-                      formatFilter === "All formats" ? " group-lessons-mobile-sheet__chip--active" : ""
-                    }`}
-                    onClick={() => setFormatFilter("All formats")}
-                  >
-                    All
+                <div className="group-lessons-mobile-sheet__footer">
+                  <button type="button" onClick={() => setShowMobileMoreFilters(false)}>
+                    Show results
                   </button>
-                  {formatOptions
-                    .filter((option) => option !== "All formats")
-                    .map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`group-lessons-mobile-sheet__chip${
-                          formatFilter === option ? " group-lessons-mobile-sheet__chip--active" : ""
-                        }`}
-                        onClick={() => setFormatFilter(option)}
-                      >
-                        {option}
-                      </button>
-                    ))}
                 </div>
-              </section>
-            </div>
-            <div className="group-lessons-mobile-sheet__footer">
-              <button type="button" onClick={() => setShowMobileMoreFilters(false)}>
-                Show results
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </MainLayout>
   );
 };
