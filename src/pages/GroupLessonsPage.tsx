@@ -2,7 +2,7 @@
 
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Clock, MapPin, Search } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -143,7 +143,27 @@ type SelectedLocation = {
   isCurrentLocation?: boolean;
 };
 
+type GroupLessonsStateSnapshot = {
+  coachFilter: string;
+  levelFilter: string;
+  formatFilter: string;
+  selectedRadius: string;
+  searchTerm: string;
+  dateFilter: DateFilterState;
+  rangeStartValue: string;
+  rangeEndValue: string;
+  useLocationFilter: boolean;
+  sortBy: "soonest" | "price-low" | "price-high";
+  locationFilter: SelectedLocation | null;
+  locationSearchTerm: string;
+};
+
+type GroupLessonsRouteState = {
+  groupLessonsState?: GroupLessonsStateSnapshot;
+};
+
 const GroupLessonsPage = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
@@ -207,6 +227,37 @@ const GroupLessonsPage = () => {
   );
   const [formatFilter, setFormatFilter] = useState<string>("All formats");
   const [sortBy, setSortBy] = useState<"soonest" | "price-low" | "price-high">("soonest");
+
+  const groupLessonsStateSnapshot = useMemo<GroupLessonsStateSnapshot>(
+    () => ({
+      coachFilter,
+      levelFilter,
+      formatFilter,
+      selectedRadius,
+      searchTerm,
+      dateFilter,
+      rangeStartValue,
+      rangeEndValue,
+      useLocationFilter,
+      sortBy,
+      locationFilter,
+      locationSearchTerm,
+    }),
+    [
+      coachFilter,
+      dateFilter,
+      formatFilter,
+      levelFilter,
+      locationFilter,
+      locationSearchTerm,
+      rangeEndValue,
+      rangeStartValue,
+      searchTerm,
+      selectedRadius,
+      sortBy,
+      useLocationFilter,
+    ],
+  );
 
   const dateAnchors = useMemo(() => {
     const validIsos = lessonsWithIso
@@ -349,6 +400,33 @@ const GroupLessonsPage = () => {
   useEffect(() => {
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
+
+  useEffect(() => {
+    if (!location.state || typeof location.state !== "object") {
+      return;
+    }
+
+    const routeState = location.state as GroupLessonsRouteState;
+    const restoredState = routeState.groupLessonsState;
+    if (!restoredState) {
+      return;
+    }
+
+    setCoachFilter(restoredState.coachFilter);
+    setLevelFilter(restoredState.levelFilter);
+    setFormatFilter(restoredState.formatFilter);
+    setSelectedRadius(restoredState.selectedRadius);
+    setSearchTerm(restoredState.searchTerm);
+    setDateFilter(restoredState.dateFilter);
+    setRangeStartValue(restoredState.rangeStartValue);
+    setRangeEndValue(restoredState.rangeEndValue);
+    setUseLocationFilter(restoredState.useLocationFilter);
+    setSortBy(restoredState.sortBy);
+    setLocationSearchTerm(restoredState.locationSearchTerm);
+    applyLocationFilter(restoredState.locationFilter);
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [applyLocationFilter, location.pathname, location.state, navigate]);
 
   const totalLessons = lessonsWithIso.length;
 
@@ -1171,7 +1249,11 @@ const GroupLessonsPage = () => {
                         </div>
 
                         <footer className="lesson-card__footer">
-                          <Link to={`/group-lessons/${lesson.id}`} className="ghost-button">
+                          <Link
+                            to={`/group-lessons/${lesson.id}`}
+                            state={{ groupLessonsState: groupLessonsStateSnapshot }}
+                            className="ghost-button"
+                          >
                             View details
                           </Link>
                           <button
@@ -1179,7 +1261,10 @@ const GroupLessonsPage = () => {
                             className="primary-button"
                             onClick={() => {
                               navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                                state: { groupLessonId: lesson.id },
+                                state: {
+                                  groupLessonId: lesson.id,
+                                  groupLessonsState: groupLessonsStateSnapshot,
+                                },
                               });
                             }}
                             disabled={isSoldOut || isBooked}

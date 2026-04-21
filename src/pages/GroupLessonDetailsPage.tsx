@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
@@ -79,14 +79,49 @@ const buildInitials = (name: string) => {
     .join("");
 };
 
+type GroupLessonsStateSnapshot = {
+  coachFilter: string;
+  levelFilter: string;
+  formatFilter: string;
+  selectedRadius: string;
+  searchTerm: string;
+  dateFilter:
+    | { type: "all" }
+    | { type: "day"; iso: string }
+    | { type: "range"; start: string; end: string };
+  rangeStartValue: string;
+  rangeEndValue: string;
+  useLocationFilter: boolean;
+  sortBy: "soonest" | "price-low" | "price-high";
+  locationFilter: {
+    label: string;
+    latitude: number;
+    longitude: number;
+    isCurrentLocation?: boolean;
+  } | null;
+  locationSearchTerm: string;
+};
+
+type GroupLessonDetailsRouteState = {
+  groupLessonsState?: GroupLessonsStateSnapshot;
+};
+
 const GroupLessonDetailsPage = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lesson, setLesson] = useState<GroupLesson | null>(null);
   const [relatedLessons, setRelatedLessons] = useState<GroupLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const routeState = (location.state as GroupLessonDetailsRouteState | null | undefined) ?? null;
+  const groupLessonsReturnState = routeState?.groupLessonsState ?? null;
+  const goBackToGroupLessons = useCallback(() => {
+    navigate("/group-lessons", {
+      state: groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined,
+    });
+  }, [groupLessonsReturnState, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,7 +356,11 @@ const GroupLessonDetailsPage = () => {
       <MainLayout mobileChrome="home" showDesktopNav={false}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
-            <Link to="/group-lessons" className="group-lesson-details__back-link">
+            <Link
+              to="/group-lessons"
+              state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
+              className="group-lesson-details__back-link"
+            >
               <ArrowLeft aria-hidden /> Back to group lessons
             </Link>
             <div className="group-lesson-details__empty">
@@ -331,7 +370,11 @@ const GroupLessonDetailsPage = () => {
                   ? loadError
                   : "The lesson may have been filled or removed. Browse the latest sessions to pick another time."}
               </p>
-              <Link to="/group-lessons" className="group-lesson-details__empty-action">
+              <Link
+                to="/group-lessons"
+                state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
+                className="group-lesson-details__empty-action"
+              >
                 Explore group lessons
               </Link>
             </div>
@@ -418,13 +461,7 @@ const GroupLessonDetailsPage = () => {
               <button
                 type="button"
                 className="group-lesson-details__back-link"
-                onClick={() => {
-                  if (window.history.length > 2) {
-                    navigate(-1);
-                  } else {
-                    navigate("/group-lessons");
-                  }
-                }}
+                onClick={goBackToGroupLessons}
               >
                 <ArrowLeft aria-hidden />
                 <span className="group-lesson-details__back-label">Back to group lessons</span>
@@ -438,7 +475,7 @@ const GroupLessonDetailsPage = () => {
                 <button
                   type="button"
                   className="group-lesson-details__topbar-close"
-                  onClick={() => navigate("/group-lessons")}
+                  onClick={goBackToGroupLessons}
                   aria-label="Close"
                 >
                   ×
@@ -635,7 +672,10 @@ const GroupLessonDetailsPage = () => {
                             className="group-lesson-details__related-card"
                             onClick={() =>
                               navigate(`/booking/confirm?groupLesson=${relatedLesson.id}`, {
-                                state: { groupLessonId: relatedLesson.id },
+                                state: {
+                                  groupLessonId: relatedLesson.id,
+                                  groupLessonsState: groupLessonsReturnState,
+                                },
                               })
                             }
                           >
@@ -698,7 +738,10 @@ const GroupLessonDetailsPage = () => {
                     disabled={spotsRemaining === 0 || isBooked}
                     onClick={() => {
                       navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                        state: { groupLessonId: lesson.id },
+                        state: {
+                          groupLessonId: lesson.id,
+                          groupLessonsState: groupLessonsReturnState,
+                        },
                       });
                     }}
                   >
@@ -725,7 +768,10 @@ const GroupLessonDetailsPage = () => {
                 disabled={spotsRemaining === 0 || isBooked}
                 onClick={() => {
                   navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                    state: { groupLessonId: lesson.id },
+                    state: {
+                      groupLessonId: lesson.id,
+                      groupLessonsState: groupLessonsReturnState,
+                    },
                   });
                 }}
               >
