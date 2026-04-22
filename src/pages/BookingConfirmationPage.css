@@ -474,15 +474,62 @@
   background: #fff;
 }
 
-.payment-method-card--wallet {
+.booking-confirmation__payment--group .payment-method-card--wallet {
+  grid-template-columns: auto auto 1fr;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
+  color: #0f172a;
+  box-shadow: none;
 }
 
-.payment-method-card--wallet .payment-method-card__icon {
+.booking-confirmation__payment--group .payment-method-card--wallet:hover {
+  background: #f8fafc;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet .payment-method-card__icon {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet .payment-method-card__icon--apple {
   background: #0f172a;
   color: #fff;
+  border: none;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet .payment-method-card__title {
+  color: #0f172a;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet .payment-method-card__subtitle {
+  color: #64748b;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet .payment-method-card__selector {
+  border-color: #cbd5e1;
+  background: transparent;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet.payment-method-card--selected {
+  background: #ede9fe;
+  border-color: #c7b8ff;
+  box-shadow: none;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet.payment-method-card--selected:hover {
+  background: #ede9fe;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet.payment-method-card--selected .payment-method-card__selector {
+  border-color: #8b5cf6;
+  background: #8b5cf6;
+}
+
+.booking-confirmation__payment--group .payment-method-card--wallet.payment-method-card--selected .payment-method-card__selector::after {
+  width: 7px;
+  height: 7px;
+  background: #fff;
 }
 
 .payment-method-card--credits {
