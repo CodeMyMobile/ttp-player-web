@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { getStoredLocationLabel } from "../utils/userLocation";
 import {
   extractNotificationList,
   getNotificationCount,
@@ -27,6 +28,7 @@ const navLinks = [
 interface MainLayoutProps {
   children: ReactNode;
   mobileChrome?: "default" | "home";
+  desktopChrome?: "default" | "home";
   showDesktopNav?: boolean;
 }
 
@@ -37,7 +39,18 @@ const homeMobileNavItems = [
   { icon: "👤", label: "Profile", to: "/settings/profile" },
 ];
 
-const MainLayout = ({ children, mobileChrome = "default", showDesktopNav = true }: MainLayoutProps) => {
+const homeDesktopNavLinks = [
+  { label: "Home", to: "/", icon: "🏠" },
+  { label: "Browse Matches", to: "/matches", icon: "🏆" },
+  { label: "Find Players", to: "/find-players", icon: "👥" },
+];
+
+const MainLayout = ({
+  children,
+  mobileChrome = "default",
+  desktopChrome = "default",
+  showDesktopNav = true,
+}: MainLayoutProps) => {
   const { logout } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const location = useLocation();
@@ -59,6 +72,8 @@ const MainLayout = ({ children, mobileChrome = "default", showDesktopNav = true 
 
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const isHomeMobileChrome = mobileChrome === "home";
+  const isHomeDesktopChrome = desktopChrome === "home";
+  const locationLabel = getStoredLocationLabel() || "Venice, CA";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -131,7 +146,7 @@ const MainLayout = ({ children, mobileChrome = "default", showDesktopNav = true 
   return (
       <div className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}`}>
       {isHomeMobileChrome ? (
-        <header className="ph-header">
+        <header className="ph-header ph-header--mobile">
           <div className="ph-header-left">
             <Link className="ph-brand" to="/">
               <span className="ph-brand-mark">🎾</span>
@@ -199,7 +214,92 @@ const MainLayout = ({ children, mobileChrome = "default", showDesktopNav = true 
         </header>
       ) : null}
 
-      {showDesktopNav ? (
+      {showDesktopNav && isHomeDesktopChrome ? (
+        <header className="ph-header ph-header--desktop">
+          <div className="ph-header-left">
+            <Link className="ph-brand" to="/">
+              <span className="ph-brand-mark">🎾</span>
+              <strong>
+                The Tennis <em>Plan</em>
+              </strong>
+            </Link>
+
+            <nav className="ph-nav-desktop" aria-label="Primary">
+              {homeDesktopNavLinks.map((item) => (
+                <Link
+                  key={item.label}
+                  className={location.pathname === item.to ? "active" : ""}
+                  to={item.to}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="ph-header-right">
+            <button className="ph-location" type="button">
+              <span>{locationLabel}</span>
+            </button>
+            <div className="ph-user-menu" ref={userMenuRef}>
+              <button
+                className="ph-user-trigger"
+                type="button"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open profile menu"
+              >
+                <span className={`ph-avatar${avatarUrl ? " has-image" : ""}`}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} />
+                  ) : (
+                    initials
+                  )}
+                </span>
+                <span className="ph-user-copy">
+                  <strong>{firstName}</strong>
+                  <small>Settings</small>
+                </span>
+                <ChevronDown size={16} />
+              </button>
+
+              {isUserMenuOpen ? (
+                <div className="ph-user-dropdown" role="menu">
+                  {userMenuItems.map(({ label, to, icon: Icon }) => (
+                    <Link
+                      key={label}
+                      to={to}
+                      className="ph-user-menu-item"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Icon size={16} />
+                      <span>{label}</span>
+                    </Link>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="ph-user-menu-item ph-user-menu-item-danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
+      ) : null}
+
+      {showDesktopNav && !isHomeDesktopChrome ? (
         <header className="main-nav">
           <div className="brand">
             <div className="brand-badge">MP</div>

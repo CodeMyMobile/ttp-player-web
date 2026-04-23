@@ -338,7 +338,7 @@ const GroupLessonDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <MainLayout mobileChrome="home" showDesktopNav={false}>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
             <div className="group-lesson-details__empty">
@@ -353,7 +353,7 @@ const GroupLessonDetailsPage = () => {
 
   if (loadError || !lesson) {
     return (
-      <MainLayout mobileChrome="home" showDesktopNav={false}>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
             <Link
@@ -453,7 +453,7 @@ const GroupLessonDetailsPage = () => {
   };
 
   return (
-    <MainLayout mobileChrome="home" showDesktopNav={false}>
+    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="group-lesson-details" style={themeVars}>
         <div className="group-lesson-details__inner">
           <div className="group-lesson-details__shell">

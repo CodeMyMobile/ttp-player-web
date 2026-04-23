@@ -1477,7 +1477,7 @@ const BookingConfirmationPage = () => {
 
   if (groupLessonId && groupLessonLoading) {
     return (
-      <MainLayout showDesktopNav={false}>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">Loading group lesson…</h1>
@@ -1502,7 +1502,11 @@ const BookingConfirmationPage = () => {
     const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";
 
     return (
-      <MainLayout showDesktopNav={!groupLessonId}>
+      <MainLayout
+        mobileChrome={groupLessonId ? "home" : "default"}
+        desktopChrome={groupLessonId ? "home" : "default"}
+        showDesktopNav={groupLessonId ? true : !groupLessonId}
+      >
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">{emptyTitle}</h1>
@@ -1717,7 +1721,11 @@ const BookingConfirmationPage = () => {
   );
 
   return (
-    <MainLayout showDesktopNav={!isGroupLesson}>
+    <MainLayout
+      mobileChrome={isGroupLesson ? "home" : "default"}
+      desktopChrome={isGroupLesson ? "home" : "default"}
+      showDesktopNav={isGroupLesson ? true : !isGroupLesson}
+    >
       <div className={`booking-confirmation${isGroupLesson ? " booking-confirmation--group-modal" : ""}`}>
         <div className={`booking-confirmation__inner${isGroupLesson ? " booking-confirmation__inner--group" : ""}`}>
           {isGroupLesson ? (

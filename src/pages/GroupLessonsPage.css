@@ -873,7 +873,6 @@
     flex-direction: column;
     gap: 12px;
     position: relative;
-    min-height: 100vh;
     padding-bottom: 72px;
   }
 

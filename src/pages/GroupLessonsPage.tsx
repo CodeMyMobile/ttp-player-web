@@ -554,28 +554,6 @@ const GroupLessonsPage = () => {
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
-  const mobileLocationLabel = useMemo(() => {
-    const raw = useLocationFilter ? locationLabel : DEFAULT_LOCATION;
-    if (/current location/i.test(raw)) return "Nearby";
-    return raw.split(",")[0]?.trim() || raw;
-  }, [locationLabel, useLocationFilter]);
-  const mobileUserInitials = useMemo(() => {
-    const record = user as Record<string, unknown> | null;
-    const sessionRecord = record?.session as Record<string, unknown> | undefined;
-    const nameCandidate =
-      (record?.full_name as string | undefined) ??
-      (record?.name as string | undefined) ??
-      (record?.displayName as string | undefined) ??
-      (sessionRecord?.full_name as string | undefined) ??
-      (sessionRecord?.name as string | undefined) ??
-      "Player";
-    return nameCandidate
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("");
-  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -694,7 +672,7 @@ const GroupLessonsPage = () => {
     !useLocationFilter;
 
   return (
-    <MainLayout mobileChrome="default" showDesktopNav={false}>
+    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
           <div className="group-lessons-desktop-shell">
@@ -855,22 +833,6 @@ const GroupLessonsPage = () => {
           </div>
 
           <div className="group-lessons-mobile-shell">
-            <div className="group-lessons-mobile-topbar">
-              <div className="group-lessons-mobile-topbar__brand">
-                <span className="group-lessons-mobile-topbar__mark">🎾</span>
-                <strong>
-                  The Tennis <span>Plan</span>
-                </strong>
-              </div>
-              <div className="group-lessons-mobile-topbar__actions">
-                <button type="button" className="group-lessons-mobile-topbar__location">
-                  <span>📍</span>
-                  {mobileLocationLabel}
-                </button>
-                <div className="group-lessons-mobile-topbar__avatar">{mobileUserInitials || "PA"}</div>
-              </div>
-            </div>
-
             <section className="group-lessons-mobile-hero">
               <h1>Group Lessons</h1>
               <p>Dial in your game with curated sessions led by trusted Matchplay coaches.</p>
@@ -971,28 +933,6 @@ const GroupLessonsPage = () => {
               </div>
             </div>
 
-            <nav className="group-lessons-mobile-tabbar" aria-label="Mobile navigation">
-              <button type="button">
-                <span>🏠</span>
-                <small>Home</small>
-              </button>
-              <button type="button">
-                <span>👤</span>
-                <small>Coaches</small>
-              </button>
-              <button type="button" className="is-active">
-                <span>👥</span>
-                <small>Groups</small>
-              </button>
-              <button type="button">
-                <span>🎾</span>
-                <small>Match</small>
-              </button>
-              <button type="button">
-                <span>📅</span>
-                <small>Schedule</small>
-              </button>
-            </nav>
           </div>
 
           {showLocationPicker ? (

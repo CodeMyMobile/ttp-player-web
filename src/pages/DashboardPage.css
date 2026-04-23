@@ -35,6 +35,10 @@
   backdrop-filter: blur(14px);
 }
 
+.ph-header--desktop {
+  display: none;
+}
+
 .ph-header-left,
 .ph-header-right {
   display: flex;
@@ -1531,6 +1535,14 @@
 }
 
 @media (min-width: 1024px) {
+  .ph-header--mobile {
+    display: none;
+  }
+
+  .ph-header--desktop {
+    display: flex;
+  }
+
   .player-home {
     background:
       radial-gradient(circle at top left, rgba(139, 92, 246, 0.08), transparent 24%),
