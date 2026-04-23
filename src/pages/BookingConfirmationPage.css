@@ -1024,7 +1024,7 @@
   }
 
   .booking-confirmation__group-footer {
-    padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 16px calc(104px + env(safe-area-inset-bottom, 0px));
   }
 
   .payment-method-card {
