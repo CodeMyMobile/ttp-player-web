@@ -586,6 +586,13 @@ const GroupLessonsPage = () => {
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
+  const selectedCoachId = useMemo(() => {
+    if (coachFilter === "All coaches") {
+      return undefined;
+    }
+
+    return lessons.find((lesson) => getResolvedCoachName(lesson) === coachFilter)?.coachId;
+  }, [coachFilter, getResolvedCoachName, lessons]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -647,10 +654,6 @@ const GroupLessonsPage = () => {
       setIsLoading(true);
       setLoadError(null);
 
-      const selectedCoach =
-        coachFilter === "All coaches"
-          ? undefined
-          : lessonsWithIso.find((lesson) => getResolvedCoachName(lesson) === coachFilter)?.coachId;
       const parsedLevel =
         levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
       const radiusMiles = parseRadius(selectedRadius);
@@ -670,7 +673,7 @@ const GroupLessonsPage = () => {
           search: searchTerm.trim(),
           ...(resolvedPosition ? { position: resolvedPosition } : {}),
           filters: {
-            coachId: selectedCoach,
+            coachId: selectedCoachId,
             level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
             radiusMiles:
               useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
@@ -702,15 +705,13 @@ const GroupLessonsPage = () => {
     };
   }, [
     authToken,
-    coachFilter,
     levelFilter,
     selectedRadius,
     searchTerm,
     dateFilter,
     useLocationFilter,
     position,
-    lessonsWithIso,
-    getResolvedCoachName,
+    selectedCoachId,
   ]);
 
   const handleApplyRange = () => {
