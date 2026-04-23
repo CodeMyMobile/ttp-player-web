@@ -1,5 +1,5 @@
 import moment from "moment";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -2303,7 +2303,7 @@ const CoachProfilePage = () => {
 
   if (loading) {
     return (
-      <MainLayout mobileChrome="home" showDesktopNav={false}>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="coach-profile-page coach-profile-page--loading">
           <div className="coach-profile-loading-card" />
         </div>
@@ -2313,7 +2313,7 @@ const CoachProfilePage = () => {
 
   if (profileError || !profile) {
     return (
-      <MainLayout mobileChrome="home" showDesktopNav={false}>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="coach-profile-page">
           <div className="coach-profile-empty">
             <div className="coach-profile-empty__icon">
@@ -2337,7 +2337,7 @@ const CoachProfilePage = () => {
   }
 
   return (
-    <MainLayout mobileChrome="home" showDesktopNav={false}>
+    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="coach-profile-page">
         <div className="coach-profile-shell coach-profile-shell--layout">
           {/* <JoinMyRosterBanner
