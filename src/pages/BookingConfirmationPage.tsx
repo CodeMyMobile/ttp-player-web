@@ -30,6 +30,7 @@ import MainLayout from "../components/MainLayout";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessonById,
   mapUpcomingGroupLesson,
@@ -126,6 +127,13 @@ const parsePriceValue = (value?: string) => {
   if (/credit/i.test(value)) return null;
   const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
 };
 
 const extractIntentStatus = (response: Record<string, unknown>) => {
@@ -387,6 +395,7 @@ const BookingConfirmationPage = () => {
   const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
   const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
+  const [groupLessonCoachProfile, setGroupLessonCoachProfile] = useState<CoachProfileRecord | null>(null);
   const resolvedCoachId = coachId ?? groupLesson?.coachId;
   const [isApplePayReady, setIsApplePayReady] = useState(false);
   const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
@@ -626,6 +635,30 @@ const BookingConfirmationPage = () => {
     };
   }, [authToken, groupLessonId]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!groupLessonId || !resolvedCoachId || !authToken) {
+      setGroupLessonCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    fetchCoachProfile(resolvedCoachId, {
+      token: authToken,
+      signal: controller.signal,
+    })
+      .then((profileRecord) => {
+        if (controller.signal.aborted) return;
+        setGroupLessonCoachProfile(profileRecord ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setGroupLessonCoachProfile(null);
+      });
+
+    return () => controller.abort();
+  }, [authToken, groupLessonId, resolvedCoachId]);
+
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
   const isProfileGroupLesson = selectedSlot?.lessonType === "group";
@@ -647,8 +680,20 @@ const BookingConfirmationPage = () => {
     : selectedSlot
       ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration)
       : undefined;
-  const locationLabel = groupLesson?.locationName ?? profile?.location ?? profile?.coachingLocations[0];
-  const resolvedCoachName = groupLesson?.coachName ?? profile?.name ?? "your coach";
+  const resolvedProfileLocation =
+    groupLessonCoachProfile?.locations?.find((item) => item.id === groupLesson?.locationId)?.label ??
+    groupLessonCoachProfile?.coachingLocations?.find((item) => item === groupLesson?.locationName) ??
+    groupLessonCoachProfile?.coachingLocations?.[0];
+  const locationLabel =
+    groupLesson?.locationName ??
+    resolvedProfileLocation ??
+    profile?.location ??
+    profile?.coachingLocations[0];
+  const resolvedCoachName =
+    (isGenericCoachName(groupLesson?.coachName) ? undefined : groupLesson?.coachName) ??
+    groupLessonCoachProfile?.fullName ??
+    profile?.name ??
+    "your coach";
   const coachName = resolvedCoachName;
   const coachFirstName = resolvedCoachName.split(" ")[0] ?? resolvedCoachName;
   const lessonDateLabel = groupLesson
@@ -862,7 +907,8 @@ const BookingConfirmationPage = () => {
   const lessonLabel = groupLesson
     ? groupLesson.title
     : lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
-  const coachAvatar = groupLesson?.coachAvatarUrl ?? profile?.imageUrl;
+  const coachAvatar =
+    groupLesson?.coachAvatarUrl || groupLessonCoachProfile?.profilePicture || profile?.imageUrl;
   const coachTitle = profile?.title ?? (groupLesson ? `${groupLesson.skillLabel} • Group session` : undefined);
   const coachRating = profile?.rating;
   const coachReviewCount = profile?.reviewCount;

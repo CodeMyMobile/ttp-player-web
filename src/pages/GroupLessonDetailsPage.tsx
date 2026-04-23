@@ -17,6 +17,7 @@ import {
   mapUpcomingGroupLessonsResponse,
   type GroupLesson,
 } from "../api/groupLessons";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
@@ -79,6 +80,13 @@ const buildInitials = (name: string) => {
     .join("");
 };
 
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
+};
+
 type GroupLessonsStateSnapshot = {
   coachFilter: string;
   levelFilter: string;
@@ -112,6 +120,7 @@ const GroupLessonDetailsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lesson, setLesson] = useState<GroupLesson | null>(null);
+  const [coachProfile, setCoachProfile] = useState<CoachProfileRecord | null>(null);
   const [relatedLessons, setRelatedLessons] = useState<GroupLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -245,6 +254,42 @@ const GroupLessonDetailsPage = () => {
       controller.abort();
     };
   }, [lesson]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!lesson?.coachId) {
+      setCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    const token =
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      getStoredAuthToken({ preferScheme: "token" });
+
+    if (!token) {
+      setCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    fetchCoachProfile(lesson.coachId, {
+      token,
+      signal: controller.signal,
+    })
+      .then((profile) => {
+        if (controller.signal.aborted) return;
+        setCoachProfile(profile ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCoachProfile(null);
+      });
+
+    return () => controller.abort();
+  }, [lesson?.coachId, user]);
 
   const themeVars = useMemo(
     () => ({
@@ -398,6 +443,11 @@ const GroupLessonDetailsPage = () => {
       })()
     : buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
   const levelLabel = formatLevel(lesson.level);
+  const coachName =
+    (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
+    coachProfile?.fullName ??
+    "Coach";
+  const coachAvatar = lesson.coachAvatarUrl || coachProfile?.profilePicture || "";
   const dateLabel = lesson.startDateTime
     ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
     : lesson.date;
@@ -436,7 +486,7 @@ const GroupLessonDetailsPage = () => {
       try {
         await navigator.share({
           title: lesson.title,
-          text: `Join ${lesson.title} with ${lesson.coachName}`,
+          text: `Join ${lesson.title} with ${coachName}`,
           url: shareUrl,
         });
         return;
@@ -626,19 +676,19 @@ const GroupLessonDetailsPage = () => {
                   <h2 className="group-lesson-details__section-label">Your coach</h2>
                   <div className="group-lesson-details__card">
                     <div className="group-lesson-details__coach-panel">
-                      {lesson.coachAvatarUrl ? (
+                      {coachAvatar ? (
                         <img
                           className="group-lesson-details__coach-avatar"
-                          src={lesson.coachAvatarUrl}
+                          src={coachAvatar}
                           alt=""
                         />
                       ) : (
                         <span className="group-lesson-details__coach-avatar--placeholder" aria-hidden>
-                          {buildInitials(lesson.coachName)}
+                          {buildInitials(coachName)}
                         </span>
                       )}
                       <div className="group-lesson-details__coach-meta">
-                        <p className="group-lesson-details__coach-name">{lesson.coachName}</p>
+                        <p className="group-lesson-details__coach-name">{coachName}</p>
                         <div className="group-lesson-details__coach-cert-list">
                           <span className="group-lesson-details__coach-cert">Matchplay Coach</span>
                           <span className="group-lesson-details__coach-cert">{lesson.skillLabel}</span>
@@ -720,7 +770,7 @@ const GroupLessonDetailsPage = () => {
                     </div>
                     <div className="group-lesson-details__booking-meta-item">
                       <Users aria-hidden />
-                      <span>with {lesson.coachName}</span>
+                      <span>with {coachName}</span>
                     </div>
                   </div>
 

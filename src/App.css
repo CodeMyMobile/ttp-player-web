@@ -2125,10 +2125,21 @@ button.secondary-link {
     justify-content: flex-start;
   }
 
-  .section {
-    padding: 22px;
+.section {
+  padding: 22px;
+}
+}
+
+@media (max-width: 1023px) {
+  .dashboard-page--home-mobile {
+    --home-mobile-bottom-nav-space: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dashboard-page--home-mobile > .main-layout__content {
+    padding-bottom: var(--home-mobile-bottom-nav-space);
   }
 }
+
 .schedule-condensed {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

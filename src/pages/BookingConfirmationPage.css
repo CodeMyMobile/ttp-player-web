@@ -988,7 +988,7 @@
   }
 
   .booking-confirmation__group-panel {
-    min-height: 100vh;
+    min-height: calc(100vh - var(--home-mobile-bottom-nav-space, 0px));
     max-width: none;
     max-height: none;
     border-radius: 0;

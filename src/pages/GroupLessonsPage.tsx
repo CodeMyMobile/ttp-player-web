@@ -8,6 +8,7 @@ import { Clock, MapPin, Search } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessons,
   mapUpcomingGroupLessonsResponse,
@@ -112,6 +113,13 @@ const getCoachInitials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
+};
+
 const getSpotsTone = (availableSpots: number) => {
   if (availableSpots <= 0) {
     return {
@@ -199,8 +207,32 @@ const GroupLessonsPage = () => {
   const [rangeError, setRangeError] = useState<string | undefined>();
   const [useLocationFilter, setUseLocationFilter] = useState(true);
   const [lessons, setLessons] = useState<GroupLesson[]>([]);
+  const [coachProfilesById, setCoachProfilesById] = useState<Record<number, CoachProfileRecord>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
+
+  const getResolvedCoachName = useCallback(
+    (lesson: GroupLesson) =>
+      (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
+      coachProfilesById[lesson.coachId]?.fullName ??
+      "Coach",
+    [coachProfilesById],
+  );
+
+  const getResolvedCoachAvatar = useCallback(
+    (lesson: GroupLesson) => lesson.coachAvatarUrl || coachProfilesById[lesson.coachId]?.profilePicture || "",
+    [coachProfilesById],
+  );
 
   const lessonsWithIso = useMemo(
     () =>
@@ -212,8 +244,8 @@ const GroupLessonsPage = () => {
   );
 
   const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => lesson.coachName))],
-    [lessonsWithIso],
+    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => getResolvedCoachName(lesson)))],
+    [getResolvedCoachName, lessonsWithIso],
   );
 
   const levelOptions = useMemo(() => {
@@ -556,11 +588,57 @@ const GroupLessonsPage = () => {
   const maxSelectableDate = dateAnchors.end;
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    if (!authToken || lessons.length === 0) {
+      return () => controller.abort();
+    }
+
+    const coachIdsToLoad = Array.from(
+      new Set(
+        lessons
+          .filter((lesson) => lesson.coachId && (isGenericCoachName(lesson.coachName) || !lesson.coachAvatarUrl))
+          .map((lesson) => lesson.coachId)
+          .filter((coachId) => !coachProfilesById[coachId]),
+      ),
+    );
+
+    if (coachIdsToLoad.length === 0) {
+      return () => controller.abort();
+    }
+
+    Promise.all(
+      coachIdsToLoad.map(async (coachId) => {
+        const profile = await fetchCoachProfile(coachId, {
+          token: authToken,
+          signal: controller.signal,
+        });
+        return [coachId, profile] as const;
+      }),
+    )
+      .then((entries) => {
+        if (controller.signal.aborted || entries.length === 0) return;
+        setCoachProfilesById((current) => {
+          const next = { ...current };
+          for (const [coachId, profile] of entries) {
+            next[coachId] = profile;
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+      });
+
+    return () => controller.abort();
+  }, [authToken, coachProfilesById, lessons]);
+
+  useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
 
     const loadLessons = async () => {
-      const token = getStoredAuthToken({ preferScheme: "token" });
+      const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
       if (!token) {
         setLoadError("Missing authentication token.");
         return;
@@ -572,7 +650,7 @@ const GroupLessonsPage = () => {
       const selectedCoach =
         coachFilter === "All coaches"
           ? undefined
-          : lessonsWithIso.find((lesson) => lesson.coachName === coachFilter)?.coachId;
+          : lessonsWithIso.find((lesson) => getResolvedCoachName(lesson) === coachFilter)?.coachId;
       const parsedLevel =
         levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
       const radiusMiles = parseRadius(selectedRadius);
@@ -623,6 +701,7 @@ const GroupLessonsPage = () => {
       controller.abort();
     };
   }, [
+    authToken,
     coachFilter,
     levelFilter,
     selectedRadius,
@@ -630,6 +709,8 @@ const GroupLessonsPage = () => {
     dateFilter,
     useLocationFilter,
     position,
+    lessonsWithIso,
+    getResolvedCoachName,
   ]);
 
   const handleApplyRange = () => {
@@ -1186,6 +1267,8 @@ const GroupLessonsPage = () => {
                   const isSoldOut = lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
                   const showPackLink = priceValue !== null && priceValue > 29;
+                  const coachName = getResolvedCoachName(lesson);
+                  const coachAvatar = getResolvedCoachAvatar(lesson);
 
                   return (
                     <article key={lesson.id} className="lesson-card lesson-card--desktop">
@@ -1245,16 +1328,16 @@ const GroupLessonsPage = () => {
 
                         <div className="lesson-card__coach-strip">
                           <div className="lesson-coach">
-                            {lesson.coachAvatarUrl ? (
-                              <img src={lesson.coachAvatarUrl} alt="" aria-hidden="true" />
+                            {coachAvatar ? (
+                              <img src={coachAvatar} alt="" aria-hidden="true" />
                             ) : (
                               <span className="lesson-card__coach-fallback">
-                                {getCoachInitials(lesson.coachName)}
+                                {getCoachInitials(coachName)}
                               </span>
                             )}
                             <div>
                               <p className="coach-name">
-                                with <strong>{lesson.coachName}</strong>
+                                with <strong>{coachName}</strong>
                               </p>
                             </div>
                           </div>
