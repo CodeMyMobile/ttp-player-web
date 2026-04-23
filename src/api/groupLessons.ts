@@ -121,6 +121,37 @@ const buildRequestBody = <T extends Record<string, unknown>>(payload: T) =>
     Object.entries(payload).filter(([, value]) => value !== undefined),
   ) as T;
 
+const isDateOnlyValue = (value?: string) => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+
+const normalizeFilterDate = (value: string | undefined, boundary: "start" | "end") => {
+  if (!value) {
+    return value;
+  }
+
+  if (!isDateOnlyValue(value)) {
+    return value;
+  }
+
+  const parsed = moment.utc(value, "YYYY-MM-DD", true);
+  if (!parsed.isValid()) {
+    return value;
+  }
+
+  return (boundary === "start" ? parsed.startOf("day") : parsed.endOf("day")).toISOString();
+};
+
+const normalizeGroupLessonFilters = (filters?: GroupLessonsFilters) => {
+  if (!filters) {
+    return filters;
+  }
+
+  return buildRequestBody({
+    ...filters,
+    dateStart: normalizeFilterDate(filters.dateStart, "start"),
+    dateEnd: normalizeFilterDate(filters.dateEnd, "end"),
+  });
+};
+
 const normalizeLevel = (level?: string | number): GroupLessonLevel => {
   if (level !== undefined && level !== null) {
     const parsed = Number.parseFloat(String(level));
@@ -158,7 +189,7 @@ const buildDateLabels = (startDateTime?: string) => {
   const startMoment = moment(startDateTime);
   return {
     day: startMoment.format("dddd"),
-    date: startMoment.format("dddd, MMMM D"),
+    date: startMoment.format("MMM D"),
     startTime: startMoment.format("h:mm A"),
   };
 };
@@ -281,7 +312,7 @@ export const fetchUpcomingGroupLessons = ({
     body: buildRequestBody({
       search,
       position,
-      filters,
+      filters: normalizeGroupLessonFilters(filters),
     }),
   });
 
