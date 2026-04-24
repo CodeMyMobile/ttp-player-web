@@ -1109,7 +1109,11 @@ const GroupLessonDetailsPage = () => {
               </aside>
             </div>
 
-            <div className="group-lesson-details__mobile-footer">
+            <div
+              className={`group-lesson-details__mobile-footer${
+                isBooked ? " group-lesson-details__mobile-footer--booked" : ""
+              }`}
+            >
               {isBooked ? (
                 <div className="group-lesson-details__mobile-footer-stack">
                   <button

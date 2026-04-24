@@ -1266,6 +1266,12 @@
     border-top: 1px solid var(--fc-color-border);
   }
 
+  .group-lesson-details__mobile-footer--booked {
+    position: static;
+    display: block;
+    padding: 10px 16px calc(var(--home-mobile-bottom-nav-space, 92px) + 14px);
+  }
+
   .group-lesson-details__mobile-footer-stack {
     width: 100%;
     display: flex;
