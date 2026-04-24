@@ -2095,7 +2095,7 @@ const BookingConfirmationPage = () => {
           status={modalStatus}
           data={modalData}
           onClose={() => setIsConfirmationModalOpen(false)}
-          onPrimary={() => setIsConfirmationModalOpen(false)}
+          onPrimary={() => navigate("/")}
           onSecondary={() => navigate("/")}
           onBrowsePackages={() => navigate("/credits")}
           onAddToCalendar={handleAddToCalendar}
