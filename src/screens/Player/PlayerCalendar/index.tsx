@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import moment from "moment";
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, Home, MapPin, Menu, Target, Trophy, User, Users } from "lucide-react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Bell, CalendarDays, ChevronLeft, ChevronRight, MapPin, Menu, Target, Trophy, User, Users } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import "./index.css";
 import { getPlayerFutureLessons, getPlayerPastLessons, type LessonSummary } from "../../../api/playerHome";
 import { listMatches, normalizeMatchRecord } from "../../../api/matches";
 import { getStoredAuthToken } from "../../../services/authToken";
 import usePlayerIdentity from "../../../hooks/usePlayerIdentity";
+import MainLayout from "../../../components/MainLayout";
 
 type ScheduleSegment = "upcoming" | "past";
 type ScheduleFilter = "all" | "lesson" | "group" | "match";
@@ -40,13 +41,6 @@ const scheduleFilters: Array<{ key: ScheduleFilter; label: string }> = [
   { key: "lesson", label: "Lessons" },
   { key: "group", label: "Groups" },
   { key: "match", label: "Matches" },
-];
-
-const bottomNavItems = [
-  { label: "Home", to: "/", icon: Home },
-  { label: "Post Match", to: "/matches/create", icon: Trophy },
-  { label: "Alerts", to: "/notifications", icon: Bell },
-  { label: "Profile", to: "/settings/profile", icon: User },
 ];
 
 const firstString = (...values: unknown[]) => {
@@ -384,148 +378,141 @@ const PlayerCalendar = () => {
       : `${activeItems.length} past session${activeItems.length === 1 ? "" : "s"}`;
 
   return (
-    <div className="schedule-page">
-      <header className="schedule-page__topbar">
-        <button type="button" className="schedule-page__icon-button" onClick={() => navigate(-1)} aria-label="Go back">
-          <ChevronLeft size={24} />
-        </button>
-
-        <Link to="/" className="schedule-page__brand">
-          <span className="schedule-page__brand-mark">🎾</span>
-          <strong>
-            The Tennis <span>Plan</span>
-          </strong>
-        </Link>
-
-        <div className="schedule-page__topbar-actions">
-          <Link to="/notifications" className="schedule-page__icon-button" aria-label="Open notifications">
-            <Bell size={22} />
-          </Link>
-          <Link to="/settings/profile" className="schedule-page__avatar">
-            {avatarUrl ? <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} /> : initials}
-          </Link>
-        </div>
-      </header>
-
-      <main className="schedule-page__body">
-        <section className="schedule-page__hero">
-          <div>
-            <h1>My Schedule</h1>
-            <p>{summaryLabel}</p>
-          </div>
-
-          <div className="schedule-page__hero-actions" aria-hidden="true">
-            <span className="schedule-page__icon-button">
-              <Menu size={22} />
-            </span>
-            <span className="schedule-page__icon-button">
-              <CalendarDays size={22} />
-            </span>
-          </div>
-        </section>
-
-        <section className="schedule-page__segment-row" aria-label="Schedule period">
-          <button
-            type="button"
-            className={`schedule-page__segment${segment === "upcoming" ? " is-active" : ""}`}
-            onClick={() => setSegment("upcoming")}
-          >
-            Upcoming
+    <MainLayout mobileChrome="home" showDesktopNav={false}>
+      <div className="schedule-page">
+        <header className="schedule-page__topbar">
+          <button type="button" className="schedule-page__icon-button" onClick={() => navigate(-1)} aria-label="Go back">
+            <ChevronLeft size={24} />
           </button>
-          <button
-            type="button"
-            className={`schedule-page__segment${segment === "past" ? " is-active" : ""}`}
-            onClick={() => setSegment("past")}
-          >
-            Past
-          </button>
-        </section>
 
-        <section className="schedule-page__filter-row" aria-label="Schedule type filters">
-          {scheduleFilters.map((filter) => (
-            <button
-              key={filter.key}
-              type="button"
-              className={`schedule-page__filter-chip${selectedFilter === filter.key ? " is-active" : ""}`}
-              onClick={() => setSelectedFilter(filter.key)}
-            >
-              <span>{filter.label}</span>
-              <strong>{filterCounts[filter.key]}</strong>
-            </button>
-          ))}
-        </section>
+          <Link to="/" className="schedule-page__brand">
+            <span className="schedule-page__brand-mark">🎾</span>
+            <strong>
+              The Tennis <span>Plan</span>
+            </strong>
+          </Link>
 
-        {isLoading ? <p className="schedule-page__feedback">Loading your schedule…</p> : null}
-        {error ? <p className="schedule-page__feedback schedule-page__feedback--error">{error}</p> : null}
-        {!isLoading && !error && dayGroups.length === 0 ? (
-          <p className="schedule-page__feedback">No sessions found for this view.</p>
-        ) : null}
+          <div className="schedule-page__topbar-actions">
+            <Link to="/notifications" className="schedule-page__icon-button" aria-label="Open notifications">
+              <Bell size={22} />
+            </Link>
+            <Link to="/settings/profile" className="schedule-page__avatar">
+              {avatarUrl ? <img src={avatarUrl} alt={displayName ? `${displayName} profile` : "Player profile"} /> : initials}
+            </Link>
+          </div>
+        </header>
 
-        <section className="schedule-page__groups">
-          {dayGroups.map((group) => (
-            <div key={group.key} className="schedule-page__group">
-              <header className="schedule-page__group-header">
-                <h2>{group.heading}</h2>
-                {group.subheading ? <p>{group.subheading}</p> : null}
-              </header>
-
-              <div className="schedule-page__cards">
-                {group.items.map((item) => {
-                  const start = moment(item.startsAt);
-                  const end = item.endsAt ? moment(item.endsAt) : start.clone().add(90, "minutes");
-                  const timeRange = (() => {
-                    return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
-                  })();
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`schedule-card schedule-card--${item.accent}`}
-                      onClick={() => item.destination && navigate(item.destination)}
-                      disabled={!item.destination}
-                    >
-                      <span className={`schedule-card__icon schedule-card__icon--${item.accent}`}>{item.icon}</span>
-
-                      <span className="schedule-card__content">
-                        <span className="schedule-card__time">{timeRange}</span>
-                        <strong>{item.title}</strong>
-                        <span className="schedule-card__location">
-                          <MapPin size={14} />
-                          <span>{item.location}</span>
-                        </span>
-                        <span className="schedule-card__meta">
-                          <span>{item.leadingMeta}</span>
-                          {item.chips.map((chip) => (
-                            <span key={chip} className="schedule-card__chip">
-                              {chip}
-                            </span>
-                          ))}
-                        </span>
-                      </span>
-
-                      <span className="schedule-card__aside">
-                        {item.priceLabel ? <strong>{item.priceLabel}</strong> : <span />}
-                        <ChevronRight size={20} />
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+        <main className="schedule-page__body">
+          <section className="schedule-page__hero">
+            <div>
+              <h1>My Schedule</h1>
+              <p>{summaryLabel}</p>
             </div>
-          ))}
-        </section>
-      </main>
 
-      <nav className="schedule-page__bottom-nav" aria-label="Primary">
-        {bottomNavItems.map(({ label, to, icon: Icon }) => (
-          <NavLink key={label} to={to} className={({ isActive }) => `schedule-page__bottom-link${isActive ? " is-active" : ""}`}>
-            <Icon size={22} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+            <div className="schedule-page__hero-actions" aria-hidden="true">
+              <span className="schedule-page__icon-button">
+                <Menu size={22} />
+              </span>
+              <span className="schedule-page__icon-button">
+                <CalendarDays size={22} />
+              </span>
+            </div>
+          </section>
+
+          <section className="schedule-page__segment-row" aria-label="Schedule period">
+            <button
+              type="button"
+              className={`schedule-page__segment${segment === "upcoming" ? " is-active" : ""}`}
+              onClick={() => setSegment("upcoming")}
+            >
+              Upcoming
+            </button>
+            <button
+              type="button"
+              className={`schedule-page__segment${segment === "past" ? " is-active" : ""}`}
+              onClick={() => setSegment("past")}
+            >
+              Past
+            </button>
+          </section>
+
+          <section className="schedule-page__filter-row" aria-label="Schedule type filters">
+            {scheduleFilters.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={`schedule-page__filter-chip${selectedFilter === filter.key ? " is-active" : ""}`}
+                onClick={() => setSelectedFilter(filter.key)}
+              >
+                <span>{filter.label}</span>
+                <strong>{filterCounts[filter.key]}</strong>
+              </button>
+            ))}
+          </section>
+
+          {isLoading ? <p className="schedule-page__feedback">Loading your schedule…</p> : null}
+          {error ? <p className="schedule-page__feedback schedule-page__feedback--error">{error}</p> : null}
+          {!isLoading && !error && dayGroups.length === 0 ? (
+            <p className="schedule-page__feedback">No sessions found for this view.</p>
+          ) : null}
+
+          <section className="schedule-page__groups">
+            {dayGroups.map((group) => (
+              <div key={group.key} className="schedule-page__group">
+                <header className="schedule-page__group-header">
+                  <h2>{group.heading}</h2>
+                  {group.subheading ? <p>{group.subheading}</p> : null}
+                </header>
+
+                <div className="schedule-page__cards">
+                  {group.items.map((item) => {
+                    const start = moment(item.startsAt);
+                    const end = item.endsAt ? moment(item.endsAt) : start.clone().add(90, "minutes");
+                    const timeRange = (() => {
+                      return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
+                    })();
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`schedule-card schedule-card--${item.accent}`}
+                        onClick={() => item.destination && navigate(item.destination)}
+                        disabled={!item.destination}
+                      >
+                        <span className={`schedule-card__icon schedule-card__icon--${item.accent}`}>{item.icon}</span>
+
+                        <span className="schedule-card__content">
+                          <span className="schedule-card__time">{timeRange}</span>
+                          <strong>{item.title}</strong>
+                          <span className="schedule-card__location">
+                            <MapPin size={14} />
+                            <span>{item.location}</span>
+                          </span>
+                          <span className="schedule-card__meta">
+                            <span>{item.leadingMeta}</span>
+                            {item.chips.map((chip) => (
+                              <span key={chip} className="schedule-card__chip">
+                                {chip}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+
+                        <span className="schedule-card__aside">
+                          {item.priceLabel ? <strong>{item.priceLabel}</strong> : <span />}
+                          <ChevronRight size={20} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </section>
+        </main>
+      </div>
+    </MainLayout>
   );
 };
 
