@@ -1988,6 +1988,7 @@ const CoachProfilePage = () => {
           locationId: selectedSlot.locationId,
           court: selectedSlot.courtValue ?? 0,
           status: "PENDING",
+          paymentMethodId: paymentChoice === "card" ? selectedPaymentMethodId : undefined,
           metadata: buildSessionPrepMetadata(),
         });
         const privateLessonRecord = privateLessonResponse.lesson as Record<string, unknown> | undefined;
@@ -2001,21 +2002,6 @@ const CoachProfilePage = () => {
           Number(privateLessonResponse.id ?? privateLessonResponse.lesson_id ?? privateLessonResponse.lesson?.id ?? 0) || 0;
         if (!createdLessonId) {
           throw new Error("Unable to create this lesson.");
-        }
-        if (paymentChoice === "card") {
-          const intentResponse = await createPlayerStripePaymentIntent({
-            token: authToken,
-            lessonId: createdLessonId,
-            paymentMethodId: selectedPaymentMethodId,
-          });
-          const intentRecord = intentResponse as Record<string, unknown>;
-          const intentStatus = extractIntentStatus(intentRecord);
-          if (!hasCreatedPaymentIntent(intentRecord)) {
-            throw new Error("Unable to start payment for this lesson.");
-          }
-          if (resolvedBookingStatus !== "CONFIRMED" && intentStatus === "succeeded") {
-            resolvedBookingStatus = "CONFIRMED";
-          }
         }
         if (paymentChoice === "credits" && packageCredits[0]?.id) {
           await consumePackageCredits({
@@ -3315,7 +3301,9 @@ const CoachProfilePage = () => {
                       <p className="coach-payment-modal__hint">
                         {selectedSlotPricing.isOpenGroup
                           ? "Open Group uses the lesson join flow from this screen."
-                          : "Saved card checkout uses the existing lesson payment intent flow."}
+                          : selectedSlot.type === "private"
+                            ? "Private lesson requests are created from this screen and stay pending until the coach confirms them."
+                            : "Saved card checkout uses the existing lesson payment intent flow."}
                       </p>
                     </>
                   ) : null}
@@ -3352,9 +3340,11 @@ const CoachProfilePage = () => {
                     ? "Booking…"
                     : paymentChoice === "credits"
                       ? "Confirm with credits"
-                      : selectedSlotPricing?.isOpenGroup
-                        ? "Join lesson"
-                        : "Pay now"}
+                        : selectedSlotPricing?.isOpenGroup
+                          ? "Join lesson"
+                        : selectedSlot?.type === "private"
+                          ? "Send request"
+                          : "Pay now"}
                 </button>
               </div>
             </div>
