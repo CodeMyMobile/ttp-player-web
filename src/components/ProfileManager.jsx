@@ -10,6 +10,7 @@ import "./ProfileManager.css";
 const emptyDetails = {
   id: null,
   full_name: "",
+  email: "",
   phone: "",
   profile_picture: "",
   date_of_birth: "",
@@ -61,6 +62,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       const normalizedDetails = {
         id: data?.id ?? null,
         full_name: data?.full_name || "",
+        email: data?.email || "",
         phone: data?.phone ? String(data.phone).replace(/\D/g, "") : "",
         profile_picture: data?.profile_picture || "",
         date_of_birth: data?.date_of_birth
@@ -214,6 +216,20 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
               }
               autoFocus
             />
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-email">
+              Email
+            </label>
+            <input
+              id="profile-email"
+              className="profile-manager__input"
+              type="email"
+              value={details.email}
+              readOnly
+            />
+            <p className="profile-manager__helper">Email is managed by your account sign-in settings.</p>
           </div>
 
           <div className="profile-manager__field">
