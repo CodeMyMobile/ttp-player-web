@@ -65,8 +65,8 @@ const addDays = (iso: string, amount: number) => {
   return base;
 };
 
-const formatWeekday = (iso: string) => {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long" });
+const formatWeekday = (iso: string, length: "long" | "short" = "long") => {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: length });
 };
 
 const formatMonthDay = (iso: string, options: "long" | "short" = "long") => {
@@ -321,6 +321,7 @@ const GroupLessonsPage = () => {
       return {
         iso,
         day: formatWeekday(iso),
+        shortDay: formatWeekday(iso, "short"),
         label: formatMonthDay(iso),
       };
     });
@@ -1131,7 +1132,7 @@ const GroupLessonsPage = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      <span className="group-lessons-day-filter__day">{option.day}</span>
+                      <span className="group-lessons-day-filter__day">{option.shortDay}</span>
                       <span className="group-lessons-day-filter__date">{option.label}</span>
                     </button>
                   );
