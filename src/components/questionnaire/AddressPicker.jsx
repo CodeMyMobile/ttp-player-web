@@ -63,7 +63,7 @@ const AddressPicker = ({ onSelect, latitude = 0, longitude = 0, userPos, initial
 
     const fetchReverseGeocode = async () => {
       try {
-        setInputValue("Fetching location");
+        setInputValue("Enter location");
         const response = await getReverseCodeLocation(target.latitude, target.longitude);
         if (!response.ok) {
           if (isMounted) setInputValue("Error");
