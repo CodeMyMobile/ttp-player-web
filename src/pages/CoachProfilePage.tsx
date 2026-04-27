@@ -1682,14 +1682,24 @@ const CoachProfilePage = () => {
       return;
     }
 
+    const shouldCollectIntro = slot.type === "private" && isFirstBooking;
+
     setUpsellDismissed(false);
     setSelectedSlot(slot);
-    setBookingStep(isLoggedIn && !coachHistoryLoaded ? "confirm" : isFirstBooking ? "about" : "confirm");
-    setBookingOpen(true);
     setPaymentMethodsError(null);
     setBookingError(null);
     setBookingSuccess(null);
     setConsumeError(null);
+
+    if (slot.type === "private" && !shouldCollectIntro) {
+      setPaymentChoice("card");
+      setPaymentSheetOpen(true);
+      setBookingOpen(false);
+      return;
+    }
+
+    setBookingStep(shouldCollectIntro ? "about" : "confirm");
+    setBookingOpen(true);
   };
 
   const closeBookingFlow = () => {
@@ -1705,9 +1715,11 @@ const CoachProfilePage = () => {
     setConsumingCredits(false);
   };
 
-  const openPaymentSheet = (choice: PaymentChoice = "card") => {
+  const openPaymentSheet = (choice: PaymentChoice = "card", slotOverride?: LoadedSlot) => {
+    const targetSlot = slotOverride ?? selectedSlot;
+
     if (!isLoggedIn) {
-      openAuthPrompt(selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: choice } : undefined);
+      openAuthPrompt(targetSlot ? { resumeBookingSlotId: targetSlot.id, resumePaymentChoice: choice } : undefined);
       return;
     }
 
@@ -1718,13 +1730,16 @@ const CoachProfilePage = () => {
             pathname: location.pathname,
             search: location.search,
             hash: location.hash,
-            state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+            state: targetSlot ? { resumeBookingSlotId: targetSlot.id, resumePaymentChoice: "card" } : undefined,
           },
         },
       });
       return;
     }
 
+    if (slotOverride) {
+      setSelectedSlot(slotOverride);
+    }
     setPaymentChoice(choice);
     setPaymentSheetOpen(true);
     setBookingOpen(false);
@@ -2994,15 +3009,15 @@ const CoachProfilePage = () => {
                     <button
                       type="button"
                       className="coach-secondary-button"
-                      onClick={() => setBookingStep("confirm")}
+                      onClick={() => openPaymentSheet("card")}
                     >
-                      Skip
+                      Skip to payment
                     </button>
                     <button
                       type="button"
                       className="coach-primary-button"
                       disabled={!canContinueIntro}
-                      onClick={() => setBookingStep("confirm")}
+                      onClick={() => openPaymentSheet("card")}
                     >
                       Continue to payment
                     </button>
