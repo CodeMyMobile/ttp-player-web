@@ -788,6 +788,29 @@ const CoachProfilePage = () => {
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>("");
+  const selectedSlotCreditType = useMemo(
+    () =>
+      selectedSlot
+        ? resolveLessonCreditType({
+            lesson_type_name: selectedSlot.lessonTypeName,
+            lessontype_id: selectedSlot.lessonTypeId,
+          })
+        : null,
+    [selectedSlot],
+  );
+  const effectiveCreditType = useMemo(() => {
+    if (selectedSlotCreditType) return selectedSlotCreditType;
+    if (bookingType === "private") return "private";
+    if (bookingType === "group") return "group";
+    return undefined;
+  }, [bookingType, selectedSlotCreditType]);
+  const effectiveCreditTypeLabel = effectiveCreditType
+    ? effectiveCreditType === "group"
+      ? "group"
+      : effectiveCreditType === "semi"
+        ? "semi-private"
+        : "private"
+    : "total";
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
@@ -972,12 +995,7 @@ const CoachProfilePage = () => {
     fetchPackageCreditsBalance({
       token: authToken,
       coachId: profile.id,
-      lessonType: selectedSlot
-        ? resolveLessonCreditType({
-            lesson_type_name: selectedSlot.lessonTypeName,
-            lessontype_id: selectedSlot.lessonTypeId,
-          })
-        : undefined,
+      lessonType: effectiveCreditType,
       signal: controller.signal,
     })
       .then((data) => setCreditsBalance(data ?? null))
@@ -1012,7 +1030,7 @@ const CoachProfilePage = () => {
       });
 
     return () => controller.abort();
-  }, [authLoading, authToken, isLoggedIn, profile?.id, selectedSlot]);
+  }, [authLoading, authToken, effectiveCreditType, isLoggedIn, profile?.id]);
 
   useEffect(() => {
     if (!profile?.id || authLoading) return;
@@ -1363,29 +1381,18 @@ const CoachProfilePage = () => {
     };
   }, [authToken, apiProfile?.booking?.availableDates, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
 
-  const selectedSlotCreditType = useMemo(
-    () =>
-      selectedSlot
-        ? resolveLessonCreditType({
-            lesson_type_name: selectedSlot.lessonTypeName,
-            lessontype_id: selectedSlot.lessonTypeId,
-          })
-        : null,
-    [selectedSlot],
-  );
-
   const availableCredits = useMemo(() => {
     const balance = creditsBalance?.available;
     if (typeof balance === "number" && Number.isFinite(balance)) return balance;
     return packageCredits
       .filter((purchase) => {
-        if (!selectedSlotCreditType) return true;
+        if (!effectiveCreditType) return true;
         const types = purchase.lesson_types_allowed ?? [];
         if (!types.length) return true;
-        return types.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === selectedSlotCreditType);
+        return types.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === effectiveCreditType);
       })
       .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
-  }, [creditsBalance?.available, packageCredits, selectedSlotCreditType]);
+  }, [creditsBalance?.available, effectiveCreditType, packageCredits]);
 
   const eligiblePackageCredits = useMemo(() => {
     return packageCredits.filter((purchase) => {
@@ -2298,9 +2305,11 @@ const CoachProfilePage = () => {
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
             <div>
-              <span>{availableCredits} credits</span>
+              <span>{availableCredits} {effectiveCreditTypeLabel} credit{availableCredits === 1 ? "" : "s"}</span>
               <small>
-                {availableCredits > 0 ? "can be applied at booking" : "buy a package to apply at booking"}
+                {availableCredits > 0
+                  ? `${effectiveCreditTypeLabel === "total" ? "these" : `these ${effectiveCreditTypeLabel}`} credits can be applied at booking`
+                  : `buy a package to apply ${effectiveCreditTypeLabel === "total" ? "credits" : `${effectiveCreditTypeLabel} credits`} at booking`}
               </small>
             </div>
           </div>
@@ -3346,7 +3355,9 @@ const CoachProfilePage = () => {
                           <span className="coach-payment-choice__title">Use credits</span>
                         </div>
                         <p className="coach-payment-choice__subtitle">
-                          {availableCredits ? `${availableCredits} credit${availableCredits === 1 ? "" : "s"} available` : "No eligible credits for this lesson type"}
+                          {availableCredits
+                            ? `${availableCredits} ${effectiveCreditTypeLabel === "total" ? "" : `${effectiveCreditTypeLabel} `}credit${availableCredits === 1 ? "" : "s"} available`
+                            : "No eligible credits for this lesson type"}
                         </p>
                       </div>
                       {paymentChoice === "credits" ? <span className="coach-payment-choice__check">✓</span> : null}
