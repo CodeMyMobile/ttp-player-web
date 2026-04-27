@@ -1,5 +1,6 @@
 .fcv2-page {
   min-height: 100vh;
+  padding-bottom: 120px;
   background:
     radial-gradient(circle at top left, rgba(139, 92, 246, 0.08), transparent 24%),
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
@@ -875,6 +876,12 @@
   color: #fff;
 }
 
+@media (min-width: 1024px) {
+  .fcv2-page {
+    padding-bottom: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .fcv2-shell {
     padding: 24px 16px 40px;
@@ -899,7 +906,7 @@
   }
 
   .fcv2-page {
-    padding-bottom: 88px;
+    padding-bottom: 124px;
     background: #f8fafc;
   }
 
@@ -1182,7 +1189,7 @@
   }
 
   .fcv2-shell {
-    padding: 14px 16px 20px;
+    padding: 14px 16px 32px;
   }
 
   .fcv2-page-head,

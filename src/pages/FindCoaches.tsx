@@ -1071,7 +1071,7 @@ const FindCoaches = () => {
     );
 
   return (
-    <MainLayout mobileChrome="home" showDesktopNav={false}>
+    <MainLayout mobileChrome="home" desktopChrome="home">
       <div className="fcv2-page">
         <section className="fcv2-mobile-search-block">
           <div className="fcv2-mobile-title-row">
