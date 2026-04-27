@@ -1101,12 +1101,12 @@ const CoachProfilePage = () => {
             const lessonTypeConfig = bookingLessonTypes.find((item) => item.id === slot.lessonType || item.id === lessonType);
             const durationSegments = resolveSlotDurationSegments(slot.duration, lessonTypeConfig?.duration);
             const parsedStart = parseClock(isoDate, slot.time);
-            const bookingState =
-              slot.lessonStatus === "CONFIRMED"
-                ? "confirmed"
-                : slot.lessonStatus === "PENDING"
-                  ? "pending"
-                  : undefined;
+            const bookingState = (() => {
+              const normalizedStatus = extractBookingStatus(slot.lessonStatus);
+              if (normalizedStatus === "CONFIRMED") return "confirmed" as const;
+              if (normalizedStatus === "PENDING") return "pending" as const;
+              return undefined;
+            })();
 
             return durationSegments.map(({ offsetMin, durationLabel, durationMin }, segmentIndex) => {
               const segmentStart = parsedStart?.clone().add(offsetMin, "minutes") ?? null;
