@@ -308,11 +308,11 @@ const LessonDetailCard = ({
                   {availabilityPill.label}
                 </span>
               ) : null}
-              {lessonTypeName ? (
+              {/* {lessonTypeName ? (
                 <span className="lesson-detail-card__pill lesson-detail-card__pill--type">
                   {lessonTypeName.toUpperCase()}
                 </span>
-              ) : null}
+              ) : null} */}
               {cancelledByCoach ? (
                 <span className="lesson-detail-card__pill lesson-detail-card__pill--coach-cancel">
                   CANCELLED BY COACH
