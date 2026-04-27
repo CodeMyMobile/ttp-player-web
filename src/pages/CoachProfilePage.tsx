@@ -378,6 +378,34 @@ const extractIntentStatus = (response: Record<string, unknown>) => {
   return typeof raw === "string" ? raw.toLowerCase() : "";
 };
 
+const hasCreatedPaymentIntent = (response: Record<string, unknown>) => {
+  const nestedIntent = response.payment_intent as Record<string, unknown> | undefined;
+  const intentId = response.id ?? nestedIntent?.id;
+  const clientSecret = response.client_secret ?? nestedIntent?.client_secret;
+  return Boolean(intentId || clientSecret);
+};
+
+const extractBookingStatus = (value: unknown): BookingStatus | null => {
+  if (typeof value === "number") {
+    if (value === 1) return "CONFIRMED";
+    if (value === 0) return "PENDING";
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (normalized === "1" || normalized.includes("confirmed") || normalized.includes("accepted") || normalized.includes("paid")) {
+      return "CONFIRMED";
+    }
+    if (normalized === "0" || normalized.includes("pending") || normalized.includes("requested") || normalized.includes("request")) {
+      return "PENDING";
+    }
+  }
+
+  return null;
+};
+
 const extractLessonHistory = (payload: unknown): Array<Record<string, unknown>> => {
   if (Array.isArray(payload)) {
     return payload.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
@@ -1682,8 +1710,9 @@ const CoachProfilePage = () => {
     setConsumeError(null);
   };
 
-  const buildBookingConfirmation = (slot: LoadedSlot): BookingConfirmationData => {
+  const buildBookingConfirmation = (slot: LoadedSlot, statusOverride?: BookingStatus): BookingConfirmationData => {
     const isGroup = slot.type === "group";
+    const status = statusOverride ?? (isGroup ? "CONFIRMED" : "PENDING");
     const pricing = calculateLessonPricing({
       hourly_rate: slot.hourlyRate,
       group_price_per_person: slot.groupPricePerPerson,
@@ -1692,7 +1721,7 @@ const CoachProfilePage = () => {
       lessontype_id: slot.lessonTypeId,
     });
     return {
-      status: isGroup ? "CONFIRMED" : "PENDING",
+      status,
       data: {
         coachName,
         coachInitials: buildInitials(coachName),
@@ -1707,14 +1736,14 @@ const CoachProfilePage = () => {
         locationAddress: slot.court,
         amountLabel: pricing.isOpenGroup ? "Lesson total" : isGroup ? "Amount charged" : "Lesson total",
         amount: formatCurrencyPrecise(pricing.totalFee),
-        etaText: isGroup ? undefined : "~24 hrs",
+        etaText: status === "PENDING" ? "~24 hrs" : undefined,
         cancellationPolicyText:
           "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
       },
     };
   };
 
-  const applyLessonConfirmedStatus = (slot: LoadedSlot) => {
+  const applyLessonConfirmedStatus = (slot: LoadedSlot, nextStatus: BookingStatus = "PENDING") => {
     setSlotsByDay((prev) =>
       prev.map((day) => ({
         ...day,
@@ -1722,9 +1751,9 @@ const CoachProfilePage = () => {
           if (entry.id !== slot.id) return entry;
           if (entry.type === "group") {
             const nextSpots = entry.spotsLeft != null ? Math.max(entry.spotsLeft - 1, 0) : entry.spotsLeft;
-            return { ...entry, spotsLeft: nextSpots, bookingState: "confirmed" };
+            return { ...entry, spotsLeft: nextSpots, bookingState: nextStatus === "CONFIRMED" ? "confirmed" : "pending" };
           }
-          return { ...entry, bookingState: "pending" };
+          return { ...entry, bookingState: nextStatus === "CONFIRMED" ? "confirmed" : "pending" };
         }),
       })),
     );
@@ -1772,6 +1801,8 @@ const CoachProfilePage = () => {
     setConsumeError(null);
 
     try {
+      let resolvedBookingStatus: BookingStatus = selectedSlot.type === "group" ? "CONFIRMED" : "PENDING";
+
       if (paymentChoice === "credits") {
         setConsumingCredits(true);
         if (!availableCredits) {
@@ -1814,15 +1845,19 @@ const CoachProfilePage = () => {
             court: selectedSlot.courtValue ?? 0,
             status: "CONFIRMED",
           });
+          resolvedBookingStatus = "CONFIRMED";
         } else {
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
             lessonId: selectedSlot.sourceLessonId,
+            paymentMethodId: selectedPaymentMethodId,
           });
-          const intentStatus = extractIntentStatus(intentResponse as Record<string, unknown>);
-          if (intentStatus && intentStatus !== "succeeded") {
-            throw new Error("Payment was not successful.");
+          const intentRecord = intentResponse as Record<string, unknown>;
+          const intentStatus = extractIntentStatus(intentRecord);
+          if (!hasCreatedPaymentIntent(intentRecord)) {
+            throw new Error("Unable to start payment for this lesson.");
           }
+          resolvedBookingStatus = intentStatus === "succeeded" ? "CONFIRMED" : "PENDING";
         }
       } else {
         if (!selectedSlot.locationId) {
@@ -1840,6 +1875,13 @@ const CoachProfilePage = () => {
           status: "PENDING",
           metadata: buildSessionPrepMetadata(),
         });
+        const privateLessonRecord = privateLessonResponse.lesson as Record<string, unknown> | undefined;
+        resolvedBookingStatus =
+          extractBookingStatus(
+            privateLessonResponse.status ??
+              privateLessonRecord?.status ??
+              privateLessonRecord?.booking_status,
+          ) ?? "PENDING";
         const createdLessonId =
           Number(privateLessonResponse.id ?? privateLessonResponse.lesson_id ?? privateLessonResponse.lesson?.id ?? 0) || 0;
         if (!createdLessonId) {
@@ -1849,10 +1891,15 @@ const CoachProfilePage = () => {
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
             lessonId: createdLessonId,
+            paymentMethodId: selectedPaymentMethodId,
           });
-          const intentStatus = extractIntentStatus(intentResponse as Record<string, unknown>);
-          if (intentStatus && intentStatus !== "succeeded") {
-            throw new Error("Payment was not successful.");
+          const intentRecord = intentResponse as Record<string, unknown>;
+          const intentStatus = extractIntentStatus(intentRecord);
+          if (!hasCreatedPaymentIntent(intentRecord)) {
+            throw new Error("Unable to start payment for this lesson.");
+          }
+          if (resolvedBookingStatus !== "CONFIRMED" && intentStatus === "succeeded") {
+            resolvedBookingStatus = "CONFIRMED";
           }
         }
         if (paymentChoice === "credits" && packageCredits[0]?.id) {
@@ -1866,9 +1913,9 @@ const CoachProfilePage = () => {
         }
       }
 
-      applyLessonConfirmedStatus(selectedSlot);
+      applyLessonConfirmedStatus(selectedSlot, resolvedBookingStatus);
       handleBookingComplete();
-      setBookingConfirmation(buildBookingConfirmation(selectedSlot));
+      setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus));
       setBookingSuccess(null);
       closePaymentSheet();
       setSelectedSlot(null);
