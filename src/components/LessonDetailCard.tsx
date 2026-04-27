@@ -21,6 +21,10 @@ type LessonDetailCardProps = {
   statusLabel?: string;
   onShare?: (lesson: Lesson) => void;
   currentUserId?: string | number;
+  footerActionLabel?: string;
+  onFooterAction?: (lesson: Lesson) => void;
+  footerActionTone?: "neutral" | "danger";
+  footerActionDisabled?: boolean;
 };
 
 type StatusTone = "success" | "pending" | "danger" | "neutral";
@@ -102,7 +106,16 @@ const resolveStatus = (
   return { label: "Lesson", tone: "neutral" };
 };
 
-const LessonDetailCard = ({ lesson, statusLabel, onShare, currentUserId }: LessonDetailCardProps) => {
+const LessonDetailCard = ({
+  lesson,
+  statusLabel,
+  onShare,
+  currentUserId,
+  footerActionLabel,
+  onFooterAction,
+  footerActionTone = "neutral",
+  footerActionDisabled = false,
+}: LessonDetailCardProps) => {
   console.log("Rendering LessonDetailCard for lesson ID:", lesson.id,currentUserId);
   // Align time handling with mobile: treat API timestamps as UTC and provide a 1h fallback if end is missing
   const start = moment.utc(lesson.start_date_time);
@@ -384,6 +397,16 @@ const LessonDetailCard = ({ lesson, statusLabel, onShare, currentUserId }: Lesso
             >
               <Share2 size={16} />
               Share lesson
+            </button>
+          ) : null}
+          {footerActionLabel && onFooterAction ? (
+            <button
+              type="button"
+              className={`lesson-detail-card__action lesson-detail-card__action--${footerActionTone}`}
+              onClick={() => onFooterAction(lesson)}
+              disabled={footerActionDisabled}
+            >
+              {footerActionLabel}
             </button>
           ) : null}
         </footer>

@@ -30,6 +30,7 @@ import {
 } from "../api/playerPackages";
 import {
   fetchAvailableLessons,
+  cancelBooking,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
   joinLesson,
@@ -192,6 +193,8 @@ type BookingConfirmationData = {
     cancellationPolicyText: string;
   };
 };
+
+type CancelFlowState = "closed" | "confirm" | "success";
 
 const SCHEDULE_WINDOW_DAYS = 7;
 const INTRO_GOALS = [
@@ -404,6 +407,22 @@ const extractBookingStatus = (value: unknown): BookingStatus | null => {
   }
 
   return null;
+};
+
+const extractApiMessage = (payload: unknown, fallback: string) => {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const message = record.message ?? record.error ?? record.detail;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  if (payload instanceof Error && payload.message.trim()) {
+    return payload.message;
+  }
+
+  return fallback;
 };
 
 const extractLessonHistory = (payload: unknown): Array<Record<string, unknown>> => {
@@ -770,6 +789,11 @@ const CoachProfilePage = () => {
   const [upcomingCoachLessons, setUpcomingCoachLessons] = useState<PlayerLesson[]>([]);
   const [upcomingCoachLessonsLoading, setUpcomingCoachLessonsLoading] = useState(false);
   const [upcomingLessonsExpanded, setUpcomingLessonsExpanded] = useState(false);
+  const [cancelFlowState, setCancelFlowState] = useState<CancelFlowState>("closed");
+  const [lessonToCancel, setLessonToCancel] = useState<PlayerLesson | null>(null);
+  const [cancelInFlight, setCancelInFlight] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
 
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
@@ -1554,7 +1578,7 @@ const CoachProfilePage = () => {
   }, [onboardingPrefill]);
 
   const hasPrefill = Boolean(onboardingPrefill.who || onboardingPrefill.level || onboardingPrefill.goals.length);
-  const modalOpen = bookingOpen || paymentSheetOpen || Boolean(bookingConfirmation);
+  const modalOpen = bookingOpen || paymentSheetOpen || Boolean(bookingConfirmation) || cancelFlowState !== "closed";
 
   useEffect(() => {
     setBioExpanded(false);
@@ -1773,6 +1797,82 @@ const CoachProfilePage = () => {
       note: introForm.note.trim() || undefined,
     },
   });
+
+  const lessonToCancelRange = useMemo(
+    () => (lessonToCancel ? getLessonMomentRange(lessonToCancel) : null),
+    [lessonToCancel],
+  );
+  const isCancellationWindowClosed = useMemo(() => {
+    if (!lessonToCancelRange?.start?.isValid()) {
+      return true;
+    }
+    return lessonToCancelRange.start.diff(moment.utc(), "hours", true) < 24;
+  }, [lessonToCancelRange]);
+
+  const openCancelFlow = (lesson: Lesson) => {
+    setLessonToCancel(lesson as PlayerLesson);
+    setCancelFlowState("confirm");
+    setCancelError(null);
+    setCancelSuccessMessage(null);
+  };
+
+  const closeCancelFlow = () => {
+    if (cancelInFlight) return;
+    setCancelFlowState("closed");
+    setLessonToCancel(null);
+    setCancelError(null);
+  };
+
+  const handleCancelLesson = async () => {
+    if (!lessonToCancel?.id) return;
+    if (!authToken) {
+      setCancelError("Sign in to cancel this booking.");
+      return;
+    }
+    if (isCancellationWindowClosed) {
+      setCancelError("Cancellation is only available more than 24 hours before the lesson starts.");
+      return;
+    }
+
+    setCancelInFlight(true);
+    setCancelError(null);
+
+    try {
+      const response = await cancelBooking({
+        token: authToken,
+        lessonId: Number(lessonToCancel.id),
+      });
+      setCancelSuccessMessage(
+        extractApiMessage(response, "Your lesson has been cancelled and any eligible refund has been initiated."),
+      );
+      setUpcomingCoachLessons((prev) => prev.filter((lesson) => String(lesson.id) !== String(lessonToCancel.id)));
+      const cancelledRange = getLessonMomentRange(lessonToCancel);
+      if (cancelledRange) {
+        setSlotsByDay((prev) =>
+          prev.map((day) => ({
+            ...day,
+            slots: day.slots.map((slot) => {
+              const slotStart = moment.utc(slot.start);
+              const slotEnd = moment.utc(slot.end);
+              if (!slotStart.isValid() || !slotEnd.isValid()) {
+                return slot;
+              }
+              const overlaps = slotStart.isBefore(cancelledRange.end) && slotEnd.isAfter(cancelledRange.start);
+              return overlaps ? { ...slot, bookingState: undefined } : slot;
+            }),
+          })),
+        );
+      }
+      setCancelFlowState("success");
+    } catch (error) {
+      if (handlePrivateAuthError(error)) {
+        return;
+      }
+      setCancelError(extractApiMessage(error, "Unable to cancel this booking right now."));
+    } finally {
+      setCancelInFlight(false);
+    }
+  };
 
   const confirmBookLesson = async () => {
     if (!selectedSlot || !profile?.id) {
@@ -2122,10 +2222,146 @@ const CoachProfilePage = () => {
           ) : upcomingCoachLessons.length > 0 && upcomingLessonsExpanded ? (
             <div className="coach-profile-upcoming-list" id="coach-profile-upcoming-list">
               {upcomingCoachLessons.map((lesson) => (
-                <LessonDetailCard key={String(lesson.id)} lesson={lesson as Lesson} statusLabel={Number((lesson as Record<string, unknown>).status) === 0 ? "Requested" : undefined} />
+                <LessonDetailCard
+                  key={String(lesson.id)}
+                  lesson={lesson as Lesson}
+                  statusLabel={Number((lesson as Record<string, unknown>).status) === 0 ? "Requested" : undefined}
+                  footerActionLabel={
+                    resolveLessonType(lesson as Lesson) === "private" &&
+                    Number((lesson as Record<string, unknown>).status ?? lesson.status) !== 2
+                      ? "Cancel lesson"
+                      : undefined
+                  }
+                  footerActionTone="danger"
+                  onFooterAction={(entry) => openCancelFlow(entry)}
+                />
               ))}
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {cancelFlowState !== "closed" && lessonToCancel ? (
+        <div className={`coach-profile-cancel-flow coach-profile-cancel-flow--${cancelFlowState}`}>
+          <div
+            className="coach-profile-cancel-backdrop"
+            onClick={cancelFlowState === "confirm" ? closeCancelFlow : undefined}
+          />
+          <div className="coach-profile-cancel-dialog" role="dialog" aria-modal="true">
+            {cancelFlowState === "confirm" ? (
+              <>
+                <div className="coach-profile-cancel-header">
+                  <button
+                    type="button"
+                    className="coach-profile-cancel-back"
+                    onClick={closeCancelFlow}
+                    aria-label="Back"
+                  >
+                    <ArrowLeft aria-hidden />
+                  </button>
+                  <div className="coach-profile-cancel-title">Cancel lesson</div>
+                </div>
+                <div className="coach-profile-cancel-body">
+                  <h2 className="coach-profile-cancel-headline">Cancel and request any eligible refund</h2>
+                  <p className="coach-profile-cancel-copy">
+                    You&apos;re more than 24 hours out, so this lesson can be cancelled now and any eligible refund will be initiated.
+                  </p>
+
+                  <div className="coach-profile-cancel-session-card">
+                    <h3>{coachName}</h3>
+                    <div className="coach-profile-cancel-session-list">
+                      <div>
+                        <span aria-hidden>📅</span>
+                        <span>{lessonToCancelRange?.start?.isValid() ? lessonToCancelRange.start.local().format("dddd, MMM D") : "Date TBD"}</span>
+                      </div>
+                      <div>
+                        <span aria-hidden>🕐</span>
+                        <span>
+                          {lessonToCancelRange?.start?.isValid() ? lessonToCancelRange.start.local().format("h:mm A") : "Time TBD"}
+                          {lessonToCancelRange?.end?.isValid() ? ` · ${lessonToCancelRange.end.diff(lessonToCancelRange.start, "minutes")} min` : ""}
+                        </span>
+                      </div>
+                      <div>
+                        <span aria-hidden>📍</span>
+                        <span>{String((lessonToCancel as Record<string, unknown>).location_name ?? "Location TBD")}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="coach-profile-cancel-refund-card">
+                    <span aria-hidden>✓</span>
+                    <div>
+                      <strong>Refund initiated</strong>
+                      <p>Your lesson request will be cancelled and any refund will go back to the original payment method.</p>
+                    </div>
+                  </div>
+
+                  <div className="coach-profile-cancel-note">
+                    <span aria-hidden>👋</span>
+                    <p>This slot will open back up on the coach&apos;s calendar once the cancellation is processed.</p>
+                  </div>
+
+                  {cancelError ? <p className="coach-profile-cancel-error">{cancelError}</p> : null}
+                </div>
+                <div className="coach-profile-cancel-footer">
+                  <button
+                    type="button"
+                    className="coach-profile-cancel-secondary"
+                    onClick={closeCancelFlow}
+                    disabled={cancelInFlight}
+                  >
+                    Keep lesson
+                  </button>
+                  <button
+                    type="button"
+                    className="coach-profile-cancel-primary"
+                    onClick={() => void handleCancelLesson()}
+                    disabled={cancelInFlight || isCancellationWindowClosed}
+                  >
+                    {cancelInFlight ? "Cancelling..." : "Yes, cancel"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="coach-profile-cancel-header coach-profile-cancel-header--centered">
+                  <div className="coach-profile-cancel-title">Lesson cancelled</div>
+                </div>
+                <div className="coach-profile-cancel-body coach-profile-cancel-body--success">
+                  <div className="coach-profile-cancel-success-mark" aria-hidden>
+                    ✓
+                  </div>
+                  <h2 className="coach-profile-cancel-headline">Lesson cancelled</h2>
+                  <p className="coach-profile-cancel-copy">
+                    Your lesson with {coachName} has been cancelled.
+                  </p>
+                  <div className="coach-profile-cancel-refund-card">
+                    <span aria-hidden>💰</span>
+                    <div>
+                      <strong>Refund processing</strong>
+                      <p>
+                        {cancelSuccessMessage ??
+                          "If a payment was taken, the refund has been initiated to the original payment method."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="coach-profile-cancel-success-card">
+                    <strong>Want to rebook?</strong>
+                    <p>Pick another available time below when you&apos;re ready.</p>
+                  </div>
+                </div>
+                <div className="coach-profile-cancel-footer coach-profile-cancel-footer--single">
+                  <button
+                    type="button"
+                    className="coach-profile-cancel-primary"
+                    onClick={closeCancelFlow}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
 

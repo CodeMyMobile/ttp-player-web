@@ -2821,6 +2821,239 @@
   gap: 10px;
 }
 
+.coach-profile-cancel-flow {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+}
+
+.coach-profile-cancel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.coach-profile-cancel-dialog {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100%, 520px);
+  max-height: 88%;
+  background: #f8fafc;
+  border-radius: 16px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.coach-profile-cancel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-cancel-header--centered {
+  justify-content: center;
+}
+
+.coach-profile-cancel-back {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.coach-profile-cancel-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.coach-profile-cancel-body--success {
+  text-align: center;
+}
+
+.coach-profile-cancel-headline {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-copy {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.coach-profile-cancel-session-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.coach-profile-cancel-session-card h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-session-list {
+  display: grid;
+  gap: 8px;
+}
+
+.coach-profile-cancel-session-list div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.coach-profile-cancel-refund-card,
+.coach-profile-cancel-note,
+.coach-profile-cancel-success-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.coach-profile-cancel-refund-card {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  margin-bottom: 18px;
+}
+
+.coach-profile-cancel-refund-card strong,
+.coach-profile-cancel-success-card strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.coach-profile-cancel-refund-card strong {
+  color: #15803d;
+}
+
+.coach-profile-cancel-refund-card p,
+.coach-profile-cancel-note p,
+.coach-profile-cancel-success-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.coach-profile-cancel-refund-card p {
+  color: #166534;
+}
+
+.coach-profile-cancel-note {
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+}
+
+.coach-profile-cancel-note p {
+  color: #334155;
+}
+
+.coach-profile-cancel-success-mark {
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  border: 3px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 900;
+}
+
+.coach-profile-cancel-success-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.coach-profile-cancel-success-card p {
+  color: #64748b;
+}
+
+.coach-profile-cancel-error {
+  margin: 12px 0 0;
+  color: #b42318;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.coach-profile-cancel-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.coach-profile-cancel-footer--single {
+  display: block;
+}
+
+.coach-profile-cancel-secondary,
+.coach-profile-cancel-primary {
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coach-profile-cancel-secondary {
+  flex: 1;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.coach-profile-cancel-primary {
+  flex: 1.2;
+  border: none;
+  background: #dc2626;
+  color: #fff;
+}
+
+.coach-profile-cancel-primary:disabled,
+.coach-profile-cancel-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .coach-profile-upcoming-item {
   display: flex;
   align-items: center;
