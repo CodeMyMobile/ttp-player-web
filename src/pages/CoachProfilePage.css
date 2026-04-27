@@ -1521,7 +1521,9 @@
   }
 
   .coach-profile-hero-v2__identity {
-    display: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .coach-profile-hero-v2__avatar {
