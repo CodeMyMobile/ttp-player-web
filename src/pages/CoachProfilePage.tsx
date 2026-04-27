@@ -811,6 +811,45 @@ const CoachProfilePage = () => {
         ? "semi-private"
         : "private"
     : "total";
+  const creditBalanceByType = useMemo(() => {
+    const totals: Record<"private" | "semi" | "group", number> = {
+      private: 0,
+      semi: 0,
+      group: 0,
+    };
+
+    packageCredits.forEach((purchase) => {
+      const remaining = Math.max(Number(purchase.credits_remaining ?? 0), 0);
+      if (!remaining) return;
+
+      const types = purchase.lesson_types_allowed ?? [];
+      if (!types.length) {
+        totals.private += remaining;
+        return;
+      }
+
+      const normalizedTypes = new Set(
+        types.map((type) => resolveLessonCreditType({ lesson_type_name: type })),
+      );
+
+      normalizedTypes.forEach((type) => {
+        totals[type] += remaining;
+      });
+    });
+
+    return totals;
+  }, [packageCredits]);
+  const creditBalanceSummary = useMemo(
+    () =>
+      [
+        creditBalanceByType.private > 0 ? `${creditBalanceByType.private} private` : null,
+        creditBalanceByType.semi > 0 ? `${creditBalanceByType.semi} semi-private` : null,
+        creditBalanceByType.group > 0 ? `${creditBalanceByType.group} group` : null,
+      ]
+        .filter(Boolean)
+        .join(" • "),
+    [creditBalanceByType],
+  );
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
@@ -2305,11 +2344,11 @@ const CoachProfilePage = () => {
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
             <div>
-              <span>{availableCredits} {effectiveCreditTypeLabel} credit{availableCredits === 1 ? "" : "s"}</span>
+              <span>{creditBalanceSummary || "0 credits"}</span>
               <small>
-                {availableCredits > 0
-                  ? `${effectiveCreditTypeLabel === "total" ? "these" : `these ${effectiveCreditTypeLabel}`} credits can be applied at booking`
-                  : `buy a package to apply ${effectiveCreditTypeLabel === "total" ? "credits" : `${effectiveCreditTypeLabel} credits`} at booking`}
+                {creditBalanceSummary
+                  ? `Eligible now: ${availableCredits} ${effectiveCreditTypeLabel === "total" ? "" : `${effectiveCreditTypeLabel} `}credit${availableCredits === 1 ? "" : "s"}`
+                  : "Buy a package to apply credits at booking"}
               </small>
             </div>
           </div>
@@ -3356,7 +3395,7 @@ const CoachProfilePage = () => {
                         </div>
                         <p className="coach-payment-choice__subtitle">
                           {availableCredits
-                            ? `${availableCredits} ${effectiveCreditTypeLabel === "total" ? "" : `${effectiveCreditTypeLabel} `}credit${availableCredits === 1 ? "" : "s"} available`
+                            ? `${availableCredits} ${effectiveCreditTypeLabel === "total" ? "" : `${effectiveCreditTypeLabel} `}credit${availableCredits === 1 ? "" : "s"} available${creditBalanceSummary ? ` • ${creditBalanceSummary} total by type` : ""}`
                             : "No eligible credits for this lesson type"}
                         </p>
                       </div>
