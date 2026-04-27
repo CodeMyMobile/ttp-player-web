@@ -61,6 +61,7 @@ type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
 type PaymentChoice = "credits" | "card" | "wallet";
+type PackageLessonTypeFilter = "private" | "group";
 
 type FindCoachesStateSnapshot = {
   searchTerm: string;
@@ -665,6 +666,13 @@ const normalizeLessonTypeLabel = (lessonTypes?: string[]) => {
     .join(" · ");
 };
 
+const normalizeSingleLessonTypeLabel = (lessonType?: string) => {
+  if (!lessonType) return "Lessons";
+  return lessonType
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const extractMetricNumber = (values: string[], pattern: RegExp) => {
   for (const value of values) {
     const match = value.match(pattern);
@@ -749,6 +757,7 @@ const CoachProfilePage = () => {
   } = useCoachRoster(profile?.id, authToken);
 
   const [bookingType, setBookingType] = useState<LessonTypeFilter>("all");
+  const [packageLessonType, setPackageLessonType] = useState<PackageLessonTypeFilter>("private");
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [pendingSelectedDate, setPendingSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1499,15 +1508,6 @@ const CoachProfilePage = () => {
     return map;
   }, [slotsByDay, upcomingCoachLessons]);
 
-  const filteredPackages = useMemo(() => {
-    if (bookingType === "all") return packages;
-    return packages.filter((pkg) => {
-      const types = pkg.lesson_types_allowed ?? [];
-      if (!types.length) return true;
-      return types.some((type) => type.toLowerCase().includes(bookingType));
-    });
-  }, [bookingType, packages]);
-
   const privatePackages = useMemo(
     () =>
       packages.filter((pkg) => {
@@ -1533,6 +1533,83 @@ const CoachProfilePage = () => {
       return Math.max(b.lesson_count, 1) - Math.max(a.lesson_count, 1);
     })[0];
   }, [privatePackages, privatePriceLabel]);
+
+  const packageLessonTypeOptions = useMemo(() => {
+    const options: Array<{ id: PackageLessonTypeFilter; label: string }> = [];
+    const hasPrivatePackages = packages.some((pkg) => {
+      const types = pkg.lesson_types_allowed ?? [];
+      return !types.length || types.some((type) => type.toLowerCase().includes("private"));
+    });
+    const hasGroupPackages = packages.some((pkg) => {
+      const types = pkg.lesson_types_allowed ?? [];
+      return types.some((type) => type.toLowerCase().includes("group"));
+    });
+
+    if (hasPrivatePackages || privatePriceLabel) {
+      options.push({
+        id: "private",
+        label: `Private · ${privatePriceLabel}/hr`,
+      });
+    }
+
+    if (hasGroupPackages && groupPriceLabel) {
+      options.push({
+        id: "group",
+        label: `Group · ${groupPriceLabel}/hr`,
+      });
+    }
+
+    return options;
+  }, [groupPriceLabel, packages, privatePriceLabel]);
+
+  useEffect(() => {
+    if (!packageLessonTypeOptions.length) return;
+    if (packageLessonTypeOptions.some((option) => option.id === packageLessonType)) return;
+    setPackageLessonType(packageLessonTypeOptions[0]?.id ?? "private");
+  }, [packageLessonType, packageLessonTypeOptions]);
+
+  const filteredPackageOffers = useMemo(() => {
+    return packages.filter((pkg) => {
+      const types = pkg.lesson_types_allowed ?? [];
+      if (!types.length) return true;
+      return types.some((type) => {
+        const normalized = type.toLowerCase();
+        return packageLessonType === "private" ? normalized.includes("private") : normalized.includes("group");
+      });
+    });
+  }, [packageLessonType, packages]);
+
+  const selectedPackageCredits = useMemo(() => {
+    return packageCredits
+      .filter((purchase) => {
+        const types = purchase.lesson_types_allowed ?? [];
+        if (!types.length) return true;
+        return types.some((type) => {
+          const normalized = type.toLowerCase();
+          return packageLessonType === "private" ? normalized.includes("private") : normalized.includes("group");
+        });
+      })
+      .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
+  }, [packageCredits, packageLessonType]);
+
+  const featuredPackageId = useMemo(() => {
+    const lessonRate =
+      packageLessonType === "private" ? parseCurrency(privatePriceLabel) : parseCurrency(groupPriceLabel ?? undefined);
+
+    const ranked = [...filteredPackageOffers].sort((a, b) => {
+      const aTotal = parseCurrency(a.total_price);
+      const bTotal = parseCurrency(b.total_price);
+      const aBase = lessonRate != null ? lessonRate * Math.max(a.lesson_count, 1) : null;
+      const bBase = lessonRate != null ? lessonRate * Math.max(b.lesson_count, 1) : null;
+      const aSavings = aTotal != null && aBase != null ? Math.max(aBase - aTotal, 0) : 0;
+      const bSavings = bTotal != null && bBase != null ? Math.max(bBase - bTotal, 0) : 0;
+
+      if (bSavings !== aSavings) return bSavings - aSavings;
+      return Math.max(b.lesson_count, 1) - Math.max(a.lesson_count, 1);
+    })[0];
+
+    return ranked?.id;
+  }, [filteredPackageOffers, groupPriceLabel, packageLessonType, privatePriceLabel]);
 
   const onboardingPrefill = useMemo(() => {
     if (typeof window === "undefined") {
@@ -2536,49 +2613,111 @@ const CoachProfilePage = () => {
           ref={variant === "desktop" ? packagesRef : undefined}
           className="coach-profile-section coach-profile-section--packages coach-profile-booking-block"
         >
-          <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-section__header--packages">
-          <h2>Lesson packages</h2>
-          </div>
-
           {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
           {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
           {!packagesLoading && !packagesError ? (
-            <>
+            <div id="packages-section" className="coach-package-section">
+              {isLoggedIn ? (
+                <div className="coach-package-summary">
+                  <div className="coach-package-summary__eyebrow">Your credits with {coachFirstName}</div>
+                  <div className="coach-package-summary__body">
+                    <div className="coach-package-summary__count">
+                      <strong>{selectedPackageCredits}</strong>
+                      <span>{packageLessonType === "private" ? "private credits" : "group credits"}</span>
+                    </div>
+                    <p>
+                      {selectedPackageCredits > 0
+                        ? "Select a slot above and your credit will be applied automatically - no payment needed."
+                        : `Buy a ${packageLessonType} package to apply credits automatically at booking.`}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="coach-package-section__intro">
+                <div>
+                  <h2>Top up your credits</h2>
+                  <p>Lock in more lessons at today&apos;s rate</p>
+                </div>
+              </div>
+
+              {packageLessonTypeOptions.length > 0 ? (
+                <div className="coach-package-filters" role="tablist" aria-label="Filter packages by lesson type">
+                  {packageLessonTypeOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={packageLessonType === option.id ? "is-active" : ""}
+                      onClick={() => setPackageLessonType(option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="coach-package-list">
-                {filteredPackages.length > 0 ? (
-                  filteredPackages.map((pkg, index) => {
+                {filteredPackageOffers.length > 0 ? (
+                  filteredPackageOffers.map((pkg) => {
                     const total = formatCurrency(pkg.total_price) ?? `${pkg.total_price}`;
-                    const perSession = parseCurrency(pkg.total_price)
-                      ? formatCurrency(Number(pkg.total_price) / Math.max(pkg.lesson_count, 1))
-                      : undefined;
+                    const numericTotal = parseCurrency(pkg.total_price);
+                    const lessonCount = Math.max(pkg.lesson_count, 1);
+                    const perLessonValue = numericTotal != null ? numericTotal / lessonCount : null;
+                    const lessonRate =
+                      packageLessonType === "private"
+                        ? parseCurrency(privatePriceLabel)
+                        : parseCurrency(groupPriceLabel ?? undefined);
+                    const baseTotal = lessonRate != null ? lessonRate * lessonCount : null;
+                    const savingsAmount =
+                      numericTotal != null && baseTotal != null ? Math.max(baseTotal - numericTotal, 0) : 0;
+                    const savingsPercent =
+                      numericTotal != null && baseTotal != null && baseTotal > 0
+                        ? Math.round((savingsAmount / baseTotal) * 100)
+                        : 0;
+                    const sublabel =
+                      savingsPercent > 0 && perLessonValue != null
+                        ? `Save ${savingsPercent}% · ${formatCurrencyPrecise(perLessonValue)}/lesson`
+                        : pkg.validity_months
+                          ? `Valid ${pkg.validity_months} month${pkg.validity_months === 1 ? "" : "s"} · ${
+                              perLessonValue != null ? `${formatCurrencyPrecise(perLessonValue)}/lesson` : `${lessonCount} credits`
+                            }`
+                          : perLessonValue != null
+                            ? `${formatCurrencyPrecise(perLessonValue)}/lesson`
+                            : `${lessonCount} credits`;
+                    const isFeatured = pkg.id === featuredPackageId;
+
                     return (
                       <article
                         key={String(pkg.id)}
-                        className={`coach-package-card${index === 1 ? " coach-package-card--featured" : ""}`}
-                        onClick={handleOpenPurchaseModal}
+                        className={`coach-package-card${isFeatured ? " coach-package-card--featured" : ""}`}
                       >
-                        <div className="coach-package-card__top">
-                          <div>
+                        <button type="button" className="coach-package-card__button" onClick={handleOpenPurchaseModal}>
+                          {isFeatured ? <span className="coach-package-card__ribbon">Best value</span> : null}
+                          <div className="coach-package-card__top">
+                            <div>
+                              <h3>{pkg.name || `${lessonCount} lessons`}</h3>
+                              <p className="coach-package-card__sub">{sublabel}</p>
+                            </div>
+                            <div className="coach-package-card__price-total">
+                              <strong>{total}</strong>
+                              <small>total</small>
+                            </div>
+                          </div>
+                          <p className="coach-package-card__meta">
+                            {pkg.description?.trim() || `${lessonCount} ${normalizeSingleLessonTypeLabel(packageLessonType).toLowerCase()} lessons`}
+                          </p>
+                          {pkg.lesson_types_allowed?.length ? (
                             <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
-                            <h3>{pkg.name || `${pkg.lesson_count} session package`}</h3>
-                          </div>
-                          {index === 1 ? <span className="coach-package-card__badge">Popular</span> : null}
-                        </div>
-                        <div className="coach-package-card__price">
-                          <span>{perSession ? `${perSession}/session` : `${pkg.lesson_count} credits`}</span>
-                          <div className="coach-package-card__price-total">
-                            <strong>{total}</strong>
-                            {index === 1 ? <small>Best value</small> : null}
-                          </div>
-                        </div>
+                          ) : null}
+                        </button>
                       </article>
                     );
                   })
                 ) : (
-                  <div className="coach-empty-card">No packages are available for this filter yet.</div>
+                  <div className="coach-empty-card">No packages are available for this lesson type yet.</div>
                 )}
               </div>
-            </>
+            </div>
           ) : null}
         </div>
       </section>
