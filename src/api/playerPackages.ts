@@ -68,6 +68,7 @@ export interface FetchPackageCreditsParams {
 export interface FetchPackageCreditsBalanceParams {
   token: string;
   coachId?: number | string;
+  lessonType?: string;
   signal?: AbortSignal;
 }
 
@@ -119,13 +120,14 @@ export const fetchPackageCredits = ({
     },
   });
 
-export const fetchPackageCreditsBalance = ({ token, coachId, signal }: FetchPackageCreditsBalanceParams) =>
+export const fetchPackageCreditsBalance = ({ token, coachId, lessonType, signal }: FetchPackageCreditsBalanceParams) =>
   request<PackageCreditsBalanceResponse>("/player/packages/credits/balance", {
     token,
     authScheme: "Token",
     signal,
     query: {
       coachId,
+      lessonType,
     },
   });
 

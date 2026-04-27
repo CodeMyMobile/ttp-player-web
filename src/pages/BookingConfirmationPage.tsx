@@ -53,6 +53,7 @@ import {
 import { bookGroupLessonWithCard } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import { resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./BookingConfirmationPage.css";
 
@@ -802,6 +803,11 @@ const BookingConfirmationPage = () => {
     return () => controller.abort();
   }, [authToken, resolvedCoachId]);
 
+  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
+  const creditLessonType = resolveLessonCreditType({
+    lesson_type_name: lessonDetails?.label ?? lessonType,
+  });
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -813,6 +819,7 @@ const BookingConfirmationPage = () => {
     fetchPackageCreditsBalance({
       token: authToken,
       coachId: resolvedCoachId,
+      lessonType: creditLessonType,
       signal: controller.signal,
     })
       .then((data) => {
@@ -824,7 +831,7 @@ const BookingConfirmationPage = () => {
       });
 
     return () => controller.abort();
-  }, [authToken, resolvedCoachId]);
+  }, [authToken, creditLessonType, resolvedCoachId]);
 
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
@@ -868,19 +875,18 @@ const BookingConfirmationPage = () => {
       .join("");
   };
 
-  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
   const eligibleCredits = useMemo(() => {
     const allowedForLesson = (purchase: PackagePurchase) => {
       const allowed = purchase.lesson_types_allowed;
       if (Array.isArray(allowed) && allowed.length > 0) {
-        return allowed.includes(lessonType);
+        return allowed.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === creditLessonType);
       }
       return true;
     };
     return credits.filter(
       (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
     );
-  }, [credits, lessonType]);
+  }, [creditLessonType, credits]);
 
   const creditSummary = useMemo(() => {
     const totals = eligibleCredits.reduce(
@@ -1173,7 +1179,7 @@ const BookingConfirmationPage = () => {
         await consumePackageCredits({
           token: authToken,
           coachId: resolvedCoachId,
-          lessonType,
+          lessonType: creditLessonType,
           lessonId: numericLessonId,
           purchaseId: bestPurchase?.id,
         });
@@ -1195,6 +1201,7 @@ const BookingConfirmationPage = () => {
           const refreshedBalance = await fetchPackageCreditsBalance({
             token: authToken,
             coachId: resolvedCoachId,
+            lessonType: creditLessonType,
           });
           setCreditsBalance(refreshedBalance ?? null);
         } catch {

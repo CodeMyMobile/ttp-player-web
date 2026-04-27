@@ -969,7 +969,17 @@ const CoachProfilePage = () => {
         if (!controller.signal.aborted) setCreditsLoading(false);
       });
 
-    fetchPackageCreditsBalance({ token: authToken, coachId: profile.id, signal: controller.signal })
+    fetchPackageCreditsBalance({
+      token: authToken,
+      coachId: profile.id,
+      lessonType: selectedSlot
+        ? resolveLessonCreditType({
+            lesson_type_name: selectedSlot.lessonTypeName,
+            lessontype_id: selectedSlot.lessonTypeId,
+          })
+        : undefined,
+      signal: controller.signal,
+    })
       .then((data) => setCreditsBalance(data ?? null))
       .catch((err) => {
         if (!controller.signal.aborted && !handlePrivateAuthError(err)) {
@@ -1002,7 +1012,7 @@ const CoachProfilePage = () => {
       });
 
     return () => controller.abort();
-  }, [authLoading, authToken, isLoggedIn, profile?.id]);
+  }, [authLoading, authToken, isLoggedIn, profile?.id, selectedSlot]);
 
   useEffect(() => {
     if (!profile?.id || authLoading) return;
@@ -1353,11 +1363,39 @@ const CoachProfilePage = () => {
     };
   }, [authToken, apiProfile?.booking?.availableDates, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
 
+  const selectedSlotCreditType = useMemo(
+    () =>
+      selectedSlot
+        ? resolveLessonCreditType({
+            lesson_type_name: selectedSlot.lessonTypeName,
+            lessontype_id: selectedSlot.lessonTypeId,
+          })
+        : null,
+    [selectedSlot],
+  );
+
   const availableCredits = useMemo(() => {
     const balance = creditsBalance?.available;
     if (typeof balance === "number" && Number.isFinite(balance)) return balance;
-    return packageCredits.reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
-  }, [creditsBalance?.available, packageCredits]);
+    return packageCredits
+      .filter((purchase) => {
+        if (!selectedSlotCreditType) return true;
+        const types = purchase.lesson_types_allowed ?? [];
+        if (!types.length) return true;
+        return types.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === selectedSlotCreditType);
+      })
+      .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
+  }, [creditsBalance?.available, packageCredits, selectedSlotCreditType]);
+
+  const eligiblePackageCredits = useMemo(() => {
+    return packageCredits.filter((purchase) => {
+      if ((purchase.credits_remaining ?? 0) <= 0) return false;
+      if (!selectedSlotCreditType) return true;
+      const types = purchase.lesson_types_allowed ?? [];
+      if (!types.length) return true;
+      return types.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === selectedSlotCreditType);
+    });
+  }, [packageCredits, selectedSlotCreditType]);
 
   const privateCredits = useMemo(
     () =>
@@ -2003,10 +2041,11 @@ const CoachProfilePage = () => {
       }
 
       const isOpenGroup = selectedSlotPricing?.isOpenGroup ?? false;
-      const creditLessonType = resolveLessonCreditType({
+      const creditLessonType = selectedSlotCreditType ?? resolveLessonCreditType({
         lesson_type_name: selectedSlot.lessonTypeName,
         lessontype_id: selectedSlot.lessonTypeId,
       });
+      const eligiblePurchase = eligiblePackageCredits[0];
 
       if (selectedSlot.type === "group" && selectedSlot.sourceLessonId) {
         if (paymentChoice === "credits") {
@@ -2015,13 +2054,13 @@ const CoachProfilePage = () => {
             lessonId: selectedSlot.sourceLessonId,
             status: "CONFIRMED",
           });
-          if (packageCredits[0]?.id) {
+          if (eligiblePurchase?.id) {
             await consumePackageCredits({
               token: authToken,
               coachId: profile.id,
               lessonType: creditLessonType,
               lessonId: selectedSlot.sourceLessonId,
-              purchaseId: packageCredits[0].id,
+              purchaseId: eligiblePurchase.id,
             }).catch(() => undefined);
           }
         } else if (isOpenGroup) {
@@ -2080,13 +2119,13 @@ const CoachProfilePage = () => {
         if (!createdLessonId) {
           throw new Error("Unable to create this lesson.");
         }
-        if (paymentChoice === "credits" && packageCredits[0]?.id) {
+        if (paymentChoice === "credits" && eligiblePurchase?.id) {
           await consumePackageCredits({
             token: authToken,
             coachId: profile.id,
             lessonId: createdLessonId,
             lessonType: creditLessonType,
-            purchaseId: packageCredits[0].id,
+            purchaseId: eligiblePurchase.id,
           }).catch(() => undefined);
         }
       }
