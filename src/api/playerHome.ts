@@ -132,6 +132,30 @@ export const getPlayerFutureLessons = async ({
   });
 };
 
+export interface PlayerPastLessonsParams extends PaginationParams {
+  token: string;
+  lessonsPerPage?: number;
+  signal?: AbortSignal;
+}
+
+export const getPlayerPastLessons = async ({
+  token,
+  perPage,
+  lessonsPerPage,
+  page = 1,
+  signal,
+}: PlayerPastLessonsParams) => {
+  const finalPerPage = perPage ?? lessonsPerPage ?? 25;
+  return request<PaginatedResponse<LessonSummary>>("/player/past_lessons", {
+    token,
+    signal,
+    query: {
+      perPage: finalPerPage,
+      page,
+    },
+  });
+};
+
 export const getPlayerDiscoverNearby = async ({
   token,
   location,

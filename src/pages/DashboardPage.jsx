@@ -1544,7 +1544,9 @@ const DashboardPage = () => {
             <aside className="ph-schedule">
               <div className="ph-section-head">
                 <h2>📅 My Schedule</h2>
-                <Link to="/player/calendar">View All →</Link>
+                <Link to="/player/calendar" className="ph-section-head-link">
+                  View All →
+                </Link>
               </div>
 
               {scheduleItems.slice(0, 3).map((item) => (

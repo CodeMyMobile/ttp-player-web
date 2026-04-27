@@ -592,7 +592,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
   padding: 14px 16px;
 }
@@ -601,13 +601,30 @@
 .ph-play-head h2 {
   font-size: 18px;
   font-weight: 700;
+  margin: 0;
 }
 
-.ph-section-head a {
+.ph-section-head h2 {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.ph-section-head-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
   color: var(--ph-purple);
   text-decoration: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.ph-section-head-link:hover {
+  color: var(--ph-purple-deep);
 }
 
 .ph-play-head span {
