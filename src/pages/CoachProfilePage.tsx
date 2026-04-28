@@ -2,6 +2,12 @@ import moment from "moment";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+  type Stripe,
+} from "@stripe/stripe-js";
+import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
@@ -55,6 +61,13 @@ import { calculateLessonPricing, resolveLessonCheckoutType, resolveLessonCreditT
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
+  "";
+
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 type LessonTypeFilter = "all" | "private" | "group";
 type AnchorTab = "about" | "specialties" | "courts";
@@ -788,6 +801,10 @@ const CoachProfilePage = () => {
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [consumingCredits, setConsumingCredits] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>("");
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
+  const [applePayLoading, setApplePayLoading] = useState(false);
+  const stripeRef = useRef<Stripe | null>(null);
   const selectedSlotCreditType = useMemo(
     () =>
       selectedSlot
@@ -1567,6 +1584,50 @@ const CoachProfilePage = () => {
         : null,
     [selectedSlot],
   );
+  const applePayAmount = selectedSlotPricing?.stripeAmountCents ?? 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    setApplePayRequest(null);
+    setIsApplePayReady(false);
+
+    if (!paymentSheetOpen || !stripePromise || !applePayAmount) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) return;
+      stripeRef.current = stripe;
+
+      const request = stripe.paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+      });
+
+      const canPay = await request.canMakePayment();
+      if (cancelled) return;
+      setApplePayRequest(canPay?.applePay ? request : null);
+      setIsApplePayReady(Boolean(canPay?.applePay));
+    })().catch(() => {
+      if (!cancelled) {
+        setApplePayRequest(null);
+        setIsApplePayReady(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applePayAmount, paymentSheetOpen]);
 
   const upcomingLessonBySlotKey = useMemo(() => {
     const map = new Map<string, PlayerLesson>();
@@ -2050,6 +2111,59 @@ const CoachProfilePage = () => {
     }
   };
 
+  const requestApplePayPaymentMethod = async () => {
+    if (!stripePromise) {
+      throw new Error("Stripe isn't configured for Apple Pay.");
+    }
+    if (!applePayAmount) {
+      throw new Error("Missing payment amount for Apple Pay.");
+    }
+    if (!isApplePayReady || !applePayRequest) {
+      throw new Error("Apple Pay isn't available on this device.");
+    }
+
+    const stripe = stripeRef.current ?? (await stripePromise);
+    if (!stripe) {
+      throw new Error("Stripe is not available for Apple Pay.");
+    }
+    stripeRef.current = stripe;
+
+    return new Promise<{
+      paymentMethodId: string;
+      complete: (status: "success" | "fail") => void;
+    }>((resolve, reject) => {
+      const request = applePayRequest;
+      request.update({
+        total: {
+          label: "The Tennis Plan",
+          amount: applePayAmount,
+        },
+      });
+
+      const handlePaymentMethod = (event: PaymentRequestPaymentMethodEvent) => {
+        resolve({
+          paymentMethodId: event.paymentMethod.id,
+          complete: (status) => event.complete(status),
+        });
+      };
+
+      const handleCancel = () => {
+        reject(new Error("Apple Pay was canceled."));
+      };
+
+      request.once("paymentmethod", handlePaymentMethod);
+      request.once("cancel", handleCancel);
+
+      try {
+        request.show();
+      } catch (error) {
+        request.off("paymentmethod", handlePaymentMethod);
+        request.off("cancel", handleCancel);
+        reject(error);
+      }
+    });
+  };
+
   const confirmBookLesson = async () => {
     if (!selectedSlot || !profile?.id) {
       setBookingError("Please select a lesson to continue.");
@@ -2058,11 +2172,6 @@ const CoachProfilePage = () => {
 
     if (!authToken || !isLoggedIn) {
       redirectToLogin({ resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: paymentChoice });
-      return;
-    }
-
-    if (paymentChoice === "wallet") {
-      setBookingError("Wallet payments are not wired on web yet.");
       return;
     }
 
@@ -2076,8 +2185,18 @@ const CoachProfilePage = () => {
     setBookingSuccess(null);
     setConsumeError(null);
 
+    let applePayCompletion: ((status: "success" | "fail") => void) | null = null;
+
     try {
       let resolvedBookingStatus: BookingStatus = selectedSlot.type === "group" ? "CONFIRMED" : "PENDING";
+      let walletPaymentMethodId: string | undefined;
+
+      if (paymentChoice === "wallet") {
+        setApplePayLoading(true);
+        const applePayResult = await requestApplePayPaymentMethod();
+        walletPaymentMethodId = applePayResult.paymentMethodId;
+        applePayCompletion = applePayResult.complete;
+      }
 
       if (paymentChoice === "credits") {
         setConsumingCredits(true);
@@ -2127,7 +2246,7 @@ const CoachProfilePage = () => {
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
             lessonId: selectedSlot.sourceLessonId,
-            paymentMethodId: selectedPaymentMethodId,
+            paymentMethodId: paymentChoice === "wallet" ? walletPaymentMethodId : selectedPaymentMethodId,
           });
           const intentRecord = intentResponse as Record<string, unknown>;
           const intentStatus = extractIntentStatus(intentRecord);
@@ -2165,6 +2284,22 @@ const CoachProfilePage = () => {
         if (!createdLessonId) {
           throw new Error("Unable to create this lesson.");
         }
+        if (paymentChoice === "wallet") {
+          const intentResponse = await createPlayerStripePaymentIntent({
+            token: authToken,
+            lessonId: createdLessonId,
+            paymentMethodId: walletPaymentMethodId,
+          });
+          const intentRecord = intentResponse as Record<string, unknown>;
+          if (!hasCreatedPaymentIntent(intentRecord)) {
+            throw new Error("Unable to start payment for this lesson.");
+          }
+          resolvedBookingStatus = extractBookingStatus(
+            privateLessonResponse.status ??
+              privateLessonRecord?.status ??
+              privateLessonRecord?.booking_status,
+          ) ?? (extractIntentStatus(intentRecord) === "succeeded" ? "CONFIRMED" : "PENDING");
+        }
         if (paymentChoice === "credits" && eligiblePurchase?.id) {
           await consumePackageCredits({
             token: authToken,
@@ -2176,6 +2311,7 @@ const CoachProfilePage = () => {
         }
       }
 
+      applePayCompletion?.("success");
       applyLessonConfirmedStatus(selectedSlot, resolvedBookingStatus);
       handleBookingComplete();
       setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus));
@@ -2183,6 +2319,7 @@ const CoachProfilePage = () => {
       closePaymentSheet();
       setSelectedSlot(null);
     } catch (err) {
+      applePayCompletion?.("fail");
       if (handlePrivateAuthError(err)) {
         return;
       }
@@ -2192,6 +2329,7 @@ const CoachProfilePage = () => {
     } finally {
       setBookingInFlight(null);
       setConsumingCredits(false);
+      setApplePayLoading(false);
     }
   };
 
@@ -3402,22 +3540,29 @@ const CoachProfilePage = () => {
                       {paymentChoice === "credits" ? <span className="coach-payment-choice__check">✓</span> : null}
                     </label>
 
-                    <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""} coach-payment-choice--disabled`}>
+                    <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${!isApplePayReady ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
                         name="payment-choice"
                         value="wallet"
                         checked={paymentChoice === "wallet"}
                         onChange={() => setPaymentChoice("wallet")}
-                        disabled
+                        disabled={!isApplePayReady}
                       />
                       <div className="coach-payment-choice__icon" aria-hidden="true">🍎</div>
                       <div className="coach-payment-choice__body">
                         <div className="coach-payment-choice__title-row">
                           <span className="coach-payment-choice__title">Apple Pay / wallet</span>
                         </div>
-                        <p className="coach-payment-choice__subtitle">Placeholder for wallet integration on web.</p>
+                        <p className="coach-payment-choice__subtitle">
+                          {isApplePayReady
+                            ? "Pay with Apple Pay on this device."
+                            : stripePromise
+                              ? "Apple Pay is not available on this device or browser."
+                              : "Stripe is not configured for Apple Pay."}
+                        </p>
                       </div>
+                      {paymentChoice === "wallet" ? <span className="coach-payment-choice__check">✓</span> : null}
                     </label>
                   </div>
 
@@ -3558,7 +3703,7 @@ const CoachProfilePage = () => {
                   className="coach-payment-modal__confirm"
                   disabled={
                     bookingInFlight !== null ||
-                    paymentChoice === "wallet" ||
+                    (paymentChoice === "wallet" && (!isApplePayReady || applePayLoading)) ||
                     (paymentChoice === "card" && (!selectedPaymentMethodId || paymentMethodsLoading)) ||
                     (paymentChoice === "credits" && (!availableCredits || consumingCredits))
                   }
@@ -3568,6 +3713,12 @@ const CoachProfilePage = () => {
                     ? "Booking…"
                     : paymentChoice === "credits"
                       ? "Confirm with credits"
+                      : paymentChoice === "wallet"
+                        ? applePayLoading
+                          ? "Opening Apple Pay..."
+                          : selectedSlot?.type === "private"
+                            ? "Request with Apple Pay"
+                            : "Pay with Apple Pay"
                         : selectedSlotPricing?.isOpenGroup
                           ? "Join lesson"
                         : selectedSlot?.type === "private"
