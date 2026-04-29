@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
   Clock,
   MapPin,
-  ShieldCheck,
+  Share2,
   Users,
+  MessageCircle,
 } from "lucide-react";
 import moment from "moment";
 
@@ -17,6 +18,8 @@ import {
   mapUpcomingGroupLessonsResponse,
   type GroupLesson,
 } from "../api/groupLessons";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { updatePlayerLesson } from "../api/player";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
@@ -79,13 +82,81 @@ const buildInitials = (name: string) => {
     .join("");
 };
 
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === "object") {
+    const data = (error as { data?: Record<string, unknown> }).data;
+    const detail = data?.detail;
+    const message = data?.message;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+};
+
+type CancelFlowState = "closed" | "confirm" | "success";
+
+type GroupLessonsStateSnapshot = {
+  coachFilter: string;
+  levelFilter: string;
+  formatFilter: string;
+  selectedRadius: string;
+  searchTerm: string;
+  dateFilter:
+    | { type: "all" }
+    | { type: "day"; iso: string }
+    | { type: "range"; start: string; end: string };
+  rangeStartValue: string;
+  rangeEndValue: string;
+  useLocationFilter: boolean;
+  sortBy: "soonest" | "price-low" | "price-high";
+  locationFilter: {
+    label: string;
+    latitude: number;
+    longitude: number;
+    isCurrentLocation?: boolean;
+  } | null;
+  locationSearchTerm: string;
+};
+
+type GroupLessonDetailsRouteState = {
+  groupLessonsState?: GroupLessonsStateSnapshot;
+};
+
 const GroupLessonDetailsPage = () => {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [lesson, setLesson] = useState<GroupLesson | null>(null);
+  const [coachProfile, setCoachProfile] = useState<CoachProfileRecord | null>(null);
+  const [relatedLessons, setRelatedLessons] = useState<GroupLesson[]>([]);
+  const [cancelFlowState, setCancelFlowState] = useState<CancelFlowState>("closed");
+  const [cancelInFlight, setCancelInFlight] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const routeState = (location.state as GroupLessonDetailsRouteState | null | undefined) ?? null;
+  const groupLessonsReturnState = routeState?.groupLessonsState ?? null;
+  const goBackToGroupLessons = useCallback(() => {
+    navigate("/group-lessons", {
+      state: groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined,
+    });
+  }, [groupLessonsReturnState, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +223,106 @@ const GroupLessonDetailsPage = () => {
       controller.abort();
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!lesson) {
+      setRelatedLessons([]);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadRelatedLessons = async () => {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setRelatedLessons([]);
+        return;
+      }
+
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          token,
+          perPage: 50,
+          page: 1,
+          position: getStoredLocation() ?? DEFAULT_POSITION,
+          signal: controller.signal,
+        });
+
+        if (cancelled) return;
+
+        const mapped = mapUpcomingGroupLessonsResponse(response).lessons
+          .filter(
+            (candidate) =>
+              candidate.id !== lesson.id &&
+              candidate.title === lesson.title &&
+              candidate.coachId === lesson.coachId,
+          )
+          .sort((left, right) => {
+            const leftTime = left.startDateTime ? new Date(left.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+            const rightTime = right.startDateTime ? new Date(right.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+            return leftTime - rightTime;
+          })
+          .slice(0, 3);
+
+        setRelatedLessons(mapped);
+      } catch {
+        if (!cancelled) {
+          setRelatedLessons([]);
+        }
+      }
+    };
+
+    void loadRelatedLessons();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [lesson]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!lesson?.coachId) {
+      setCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    const token =
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      getStoredAuthToken({ preferScheme: "token" });
+
+    if (!token) {
+      setCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    fetchCoachProfile(lesson.coachId, {
+      token,
+      signal: controller.signal,
+    })
+      .then((profile) => {
+        if (controller.signal.aborted) return;
+        setCoachProfile(profile ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCoachProfile(null);
+      });
+
+    return () => controller.abort();
+  }, [lesson?.coachId, user]);
+
+  useEffect(() => {
+    setCancelFlowState("closed");
+    setCancelInFlight(false);
+    setCancelError(null);
+    setCancelSuccessMessage(null);
+  }, [lesson?.id]);
 
   const themeVars = useMemo(
     () => ({
@@ -245,7 +416,7 @@ const GroupLessonDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <MainLayout>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
             <div className="group-lesson-details__empty">
@@ -260,10 +431,14 @@ const GroupLessonDetailsPage = () => {
 
   if (loadError || !lesson) {
     return (
-      <MainLayout>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="group-lesson-details" style={themeVars}>
           <div className="group-lesson-details__inner group-lesson-details__inner--empty">
-            <Link to="/group-lessons" className="group-lesson-details__back-link">
+            <Link
+              to="/group-lessons"
+              state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
+              className="group-lesson-details__back-link"
+            >
               <ArrowLeft aria-hidden /> Back to group lessons
             </Link>
             <div className="group-lesson-details__empty">
@@ -273,7 +448,11 @@ const GroupLessonDetailsPage = () => {
                   ? loadError
                   : "The lesson may have been filled or removed. Browse the latest sessions to pick another time."}
               </p>
-              <Link to="/group-lessons" className="group-lesson-details__empty-action">
+              <Link
+                to="/group-lessons"
+                state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
+                className="group-lesson-details__empty-action"
+              >
                 Explore group lessons
               </Link>
             </div>
@@ -297,172 +476,689 @@ const GroupLessonDetailsPage = () => {
       })()
     : buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
   const levelLabel = formatLevel(lesson.level);
+  const coachName =
+    (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
+    coachProfile?.fullName ??
+    "Coach";
+  const coachAvatar = lesson.coachAvatarUrl || coachProfile?.profilePicture || "";
   const dateLabel = lesson.startDateTime
     ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
     : lesson.date;
+  const participantsPreview = lesson.participants.slice(0, 5);
+  const hiddenParticipantsCount = Math.max(lesson.participants.length - participantsPreview.length, 0);
+  const availabilityLabel =
+    spotsRemaining === 0
+      ? "Full — join waitlist"
+      : spotsRemaining <= 2
+        ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
+        : `${spotsRemaining} spots available`;
+  const availabilityToneClass =
+    spotsRemaining === 0
+      ? "is-full"
+      : spotsRemaining <= 2
+        ? "is-limited"
+        : "is-open";
+  const lessonStartMoment = lesson.startDateTime ? moment.utc(lesson.startDateTime) : null;
+  const isCancellationWindowClosed = Boolean(lessonStartMoment?.isValid() && lessonStartMoment.diff(moment.utc(), "hours", true) < 24);
+  const whatToBring = lesson.highlights?.length ? lesson.highlights : ["Racket", "Water", "Tennis shoes"];
+  const heroBandLabel = lesson.startDateTime
+    ? `${moment.utc(lesson.startDateTime).format("dddd").toUpperCase()} · ${moment
+        .utc(lesson.startDateTime)
+        .format("MMM D")
+        .toUpperCase()}`
+    : dateLabel.toUpperCase();
+  const availabilityMetaLabel =
+    spotsRemaining === 0
+      ? "Full — join waitlist"
+      : spotsRemaining <= 2
+        ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
+        : `${spotsRemaining} spots available`;
+  const handleShare = async () => {
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    if (!shareUrl) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: lesson.title,
+          text: `Join ${lesson.title} with ${coachName}`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // no-op fallback
+    }
+  };
+
+  const closeCancelFlow = () => {
+    if (cancelInFlight) return;
+    setCancelFlowState("closed");
+    setCancelError(null);
+  };
+
+  const handleCancelBooking = async () => {
+    if (!lesson?.id) return;
+    const token =
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      getStoredAuthToken({ preferScheme: "token" });
+
+    if (!token) {
+      setCancelError("Sign in to cancel this booking.");
+      return;
+    }
+
+    if (isCancellationWindowClosed) {
+      setCancelError("Cancellation is only available more than 24 hours before the lesson starts.");
+      return;
+    }
+
+    setCancelInFlight(true);
+    setCancelError(null);
+
+    try {
+      const response = await updatePlayerLesson({
+        token,
+        lessonId: lesson.id,
+        status: "CANCELLED",
+      });
+      setCancelSuccessMessage(
+        getErrorMessage(
+          { data: response as Record<string, unknown> },
+          "Your group lesson booking has been cancelled and any refund has been initiated.",
+        ),
+      );
+      setCancelFlowState("success");
+      setLesson((current) =>
+        current
+          ? {
+              ...current,
+              availableSpots: Math.min(current.availableSpots + 1, current.totalSpots),
+              participants: current.participants.slice(0, Math.max(current.participants.length - 1, 0)),
+            }
+          : current,
+      );
+    } catch (error) {
+      setCancelError(getErrorMessage(error, "Unable to cancel this booking right now."));
+    } finally {
+      setCancelInFlight(false);
+    }
+  };
+
+  const handleCancelSuccessClose = () => {
+    navigate("/group-lessons", {
+      state: groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined,
+    });
+  };
+
+  const cancelFlowOverlay =
+    cancelFlowState === "closed" ? null : (
+      <div className={`group-lesson-details__cancel-flow group-lesson-details__cancel-flow--${cancelFlowState}`}>
+        <div
+          className="group-lesson-details__cancel-backdrop"
+          onClick={cancelFlowState === "confirm" ? closeCancelFlow : undefined}
+        />
+        <div className="group-lesson-details__cancel-dialog" role="dialog" aria-modal="true">
+          {cancelFlowState === "confirm" ? (
+            <>
+              <div className="group-lesson-details__cancel-header">
+                <button
+                  type="button"
+                  className="group-lesson-details__cancel-back"
+                  onClick={closeCancelFlow}
+                  aria-label="Back"
+                >
+                  <ArrowLeft aria-hidden />
+                </button>
+                <div className="group-lesson-details__cancel-title">Cancel booking</div>
+              </div>
+              <div className="group-lesson-details__cancel-body">
+                <h2 className="group-lesson-details__cancel-headline">Cancel and get a full refund</h2>
+                <p className="group-lesson-details__cancel-copy">
+                  You&apos;re more than 24 hours out, so your booking can be cancelled and any eligible refund will be initiated.
+                </p>
+
+                <div className="group-lesson-details__cancel-session-card">
+                  <h3>{lesson.title}</h3>
+                  <div className="group-lesson-details__cancel-session-list">
+                    <div>
+                      <span aria-hidden>📅</span>
+                      <span>{dateLabel}</span>
+                    </div>
+                    <div>
+                      <span aria-hidden>🕐</span>
+                      <span>
+                        {timeRange} · {lesson.durationMinutes} min
+                      </span>
+                    </div>
+                    <div>
+                      <span aria-hidden>📍</span>
+                      <span>{lesson.locationName}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group-lesson-details__cancel-refund-card">
+                  <span aria-hidden>✓</span>
+                  <div>
+                    <strong>Refund initiated</strong>
+                    <p>
+                      Your participation will be cancelled and any refund will be sent back to the original payment method.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="group-lesson-details__cancel-note">
+                  <span aria-hidden>👋</span>
+                  <p>Any waitlisted player can be notified that a spot has opened.</p>
+                </div>
+
+                {cancelError ? <p className="group-lesson-details__cancel-error">{cancelError}</p> : null}
+              </div>
+              <div className="group-lesson-details__cancel-footer">
+                <button
+                  type="button"
+                  className="group-lesson-details__cancel-secondary"
+                  onClick={closeCancelFlow}
+                  disabled={cancelInFlight}
+                >
+                  Keep booking
+                </button>
+                <button
+                  type="button"
+                  className="group-lesson-details__cancel-primary"
+                  onClick={() => void handleCancelBooking()}
+                  disabled={cancelInFlight || isCancellationWindowClosed}
+                >
+                  {cancelInFlight ? "Cancelling..." : "Yes, cancel"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="group-lesson-details__cancel-header group-lesson-details__cancel-header--centered">
+                <div className="group-lesson-details__cancel-title">Booking cancelled</div>
+              </div>
+              <div className="group-lesson-details__cancel-body group-lesson-details__cancel-body--success">
+                <div className="group-lesson-details__cancel-success-mark" aria-hidden>
+                  ✓
+                </div>
+                <h2 className="group-lesson-details__cancel-headline">Booking cancelled</h2>
+                <p className="group-lesson-details__cancel-copy">
+                  Your {lesson.title} on {lessonStartMoment?.isValid() ? lessonStartMoment.format("dddd") : dateLabel} has been cancelled.
+                </p>
+                <div className="group-lesson-details__cancel-refund-card">
+                  <span aria-hidden>💰</span>
+                  <div>
+                    <strong>Refund processing</strong>
+                    <p>
+                      {cancelSuccessMessage ??
+                        "If a payment was taken, the refund has been initiated to the original payment method."}
+                    </p>
+                  </div>
+                </div>
+                <div className="group-lesson-details__cancel-success-card">
+                  <strong>Looking for another class?</strong>
+                  <p>Browse upcoming sessions or check out other dates for this class.</p>
+                </div>
+              </div>
+              <div className="group-lesson-details__cancel-footer group-lesson-details__cancel-footer--single">
+                <button
+                  type="button"
+                  className="group-lesson-details__cancel-primary"
+                  onClick={handleCancelSuccessClose}
+                >
+                  Find another class
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="group-lesson-details" style={themeVars}>
         <div className="group-lesson-details__inner">
-          <button
-            type="button"
-            className="group-lesson-details__back-link"
-            onClick={() => {
-              if (window.history.length > 2) {
-                navigate(-1);
-              } else {
-                navigate("/group-lessons");
-              }
-            }}
-          >
-            <ArrowLeft aria-hidden /> Back
-          </button>
-
-          <header className="group-lesson-details__header">
-            <div className="group-lesson-details__title-block">
-              <span className="group-lesson-details__eyebrow">Featured group session</span>
-              <h1>{lesson.title}</h1>
-              <p className="group-lesson-details__subtitle">{lesson.focus}</p>
-              <div className="group-lesson-details__tags">
-                <span className="group-lesson-details__tag">{levelLabel}</span>
-                <span className="group-lesson-details__tag">{lesson.skillLabel}</span>
-                {lesson.courtSurface ? (
-                  <span className="group-lesson-details__tag">{lesson.courtSurface} court</span>
-                ) : null}
+          <div className="group-lesson-details__shell">
+            {cancelFlowOverlay}
+            <div className="group-lesson-details__topbar">
+              <button
+                type="button"
+                className="group-lesson-details__back-link"
+                onClick={goBackToGroupLessons}
+              >
+                <ArrowLeft aria-hidden />
+                <span className="group-lesson-details__back-label">Back to group lessons</span>
+              </button>
+              <div className="group-lesson-details__topbar-title">Class details</div>
+              <div className="group-lesson-details__topbar-actions">
+                <button type="button" className="group-lesson-details__topbar-action" onClick={() => void handleShare()}>
+                  <Share2 aria-hidden />
+                  <span>Share</span>
+                </button>
+                <button
+                  type="button"
+                  className="group-lesson-details__topbar-close"
+                  onClick={goBackToGroupLessons}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
               </div>
             </div>
 
-            <aside className="group-lesson-details__coach-card">
-              <div className="group-lesson-details__coach">
-                <img src={lesson.coachAvatarUrl} alt="" />
-                <div>
-                  <p className="group-lesson-details__coach-name">{lesson.coachName}</p>
-                  <p className="group-lesson-details__coach-title">Matchplay Certified Coach</p>
-                  <Link to={`/coaches/${lesson.coachId}`} className="group-lesson-details__coach-link">
-                    View coach profile
-                  </Link>
-                </div>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <CalendarDays aria-hidden size={18} />
-                <span>{dateLabel}</span>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <Clock aria-hidden size={18} />
-                <span>
-                  {timeRange}
-                  <span className="group-lesson-details__dot" aria-hidden>
-                    •
-                  </span>
-                  {lesson.durationMinutes} min
-                </span>
-              </div>
-              <div className="group-lesson-details__coach-meta">
-                <MapPin aria-hidden size={18} />
-                <span>{lesson.locationName}</span>
-              </div>
-              <div className="group-lesson-details__coach-meta group-lesson-details__coach-meta--spots">
-                <Users aria-hidden size={18} />
-                <span>
-                  {confirmedCount}/{lesson.totalSpots} players confirmed
-                  {spotsRemaining > 0 ? ` • ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} open` : " • Full"}
-                </span>
-              </div>
-            </aside>
-          </header>
-
-          <div className="group-lesson-details__layout">
-            <section className="group-lesson-details__content">
-              <div className="group-lesson-details__card">
-                <h2>What to expect</h2>
-                <p>{lesson.description}</p>
-                {lesson.highlights && lesson.highlights.length > 0 ? (
-                  <ul className="group-lesson-details__highlight-list">
-                    {lesson.highlights.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-
-              <div className="group-lesson-details__card">
-                <div className="group-lesson-details__card-header">
-                  <h2>Confirmed players</h2>
-                  <span>{confirmedCount} attending</span>
-                </div>
-                {confirmedCount > 0 ? (
-                  <ul className="group-lesson-details__participants">
-                    {lesson.participants.map((participant) => (
-                      <li key={participant.id} className="group-lesson-details__participant">
-                        <span className="group-lesson-details__participant-avatar" aria-hidden>
-                          {participant.avatarUrl ? (
-                            <img src={participant.avatarUrl} alt="" />
-                          ) : (
-                            buildInitials(participant.name)
-                          )}
-                        </span>
-                        <div className="group-lesson-details__participant-body">
-                          <span className="group-lesson-details__participant-name">{participant.name}</span>
-                          <span className="group-lesson-details__participant-meta">
-                            {participant.skillLevel ?? "Skill level pending"}
-                            {participant.focusArea ? ` • ${participant.focusArea}` : ""}
-                          </span>
-                          {participant.joinedLabel ? (
-                            <span className="group-lesson-details__participant-joined">{participant.joinedLabel}</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="group-lesson-details__participants-empty">
-                    <p>Be the first to claim a spot — invite a hitting partner to join you.</p>
+            <div className="group-lesson-details__layout">
+              <section className="group-lesson-details__content">
+                <header className="group-lesson-details__hero">
+                  <div className="group-lesson-details__badge-row">
+                    <span className="group-lesson-details__hero-badge group-lesson-details__hero-badge--primary">
+                      {heroBandLabel}
+                    </span>
+                    <span className="group-lesson-details__hero-badge group-lesson-details__hero-badge--level">
+                      {levelLabel}
+                    </span>
+                    <span className="group-lesson-details__hero-badge">{lesson.focus}</span>
+                    {lesson.courtSurface ? (
+                      <span className="group-lesson-details__hero-badge">{lesson.courtSurface} court</span>
+                    ) : null}
                   </div>
-                )}
-              </div>
-            </section>
+                  <div className="group-lesson-details__hero-body">
+                    <h1 className="group-lesson-details__hero-title">{lesson.title}</h1>
+                    <p className="group-lesson-details__hero-copy">{lesson.description}</p>
+                    <div className="group-lesson-details__hero-meta">
+                      <div className="group-lesson-details__hero-meta-item">
+                        <Clock aria-hidden />
+                        <span>
+                          {timeRange} · {lesson.durationMinutes} min
+                        </span>
+                      </div>
+                      <div className="group-lesson-details__hero-meta-item">
+                        <MapPin aria-hidden />
+                        <span>
+                          {lesson.locationName}
+                          {lesson.distanceMiles > 0 ? ` · ${lesson.distanceMiles.toFixed(1)} mi` : " · nearby"}
+                        </span>
+                      </div>
+                      <div className="group-lesson-details__hero-meta-item group-lesson-details__hero-meta-item--spots">
+                        <span className="group-lesson-details__hero-emoji" aria-hidden>👥</span>
+                        <span className={`group-lesson-details__hero-availability ${availabilityToneClass}`}>
+                          {availabilityMetaLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </header>
 
-            <aside className="group-lesson-details__checkout">
-              <div className="group-lesson-details__checkout-card">
-                <div className="group-lesson-details__checkout-header">
-                  <h2>Secure your spot</h2>
-                  <p>Pay now to instantly join the roster. Spots update in real time.</p>
+                {isBooked ? (
+                  <section className="group-lesson-details__section group-lesson-details__section--booked">
+                    <div className="group-lesson-details__booked-banner">
+                      <div className="group-lesson-details__booked-icon" aria-hidden>
+                        ✓
+                      </div>
+                      <div className="group-lesson-details__booked-copy">
+                        <strong>You&apos;re booked</strong>
+                        <span>Your spot is confirmed for this class.</span>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Who's joining</h2>
+                  <div className="group-lesson-details__card">
+                    {confirmedCount > 0 ? (
+                      <>
+                        <div className="group-lesson-details__participants-head">
+                          <div className="group-lesson-details__participants-stack" aria-hidden>
+                            {participantsPreview.map((participant) => (
+                              <span
+                                key={participant.id}
+                                className="group-lesson-details__participants-stack-item"
+                              >
+                                {buildInitials(participant.name).slice(0, 1)}
+                              </span>
+                            ))}
+                            {hiddenParticipantsCount > 0 ? (
+                              <span className="group-lesson-details__participants-stack-more">
+                                +{hiddenParticipantsCount}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="group-lesson-details__participants-summary">
+                            <strong>
+                              {confirmedCount} of {lesson.totalSpots} players booked
+                            </strong>
+                            <span className={spotsRemaining > 0 ? "is-open" : "is-full"}>
+                              {spotsRemaining > 0
+                                ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} still open`
+                                : "Class is full"}
+                            </span>
+                          </div>
+                        </div>
+                        <ul className="group-lesson-details__participants-list">
+                          {lesson.participants.map((participant) => (
+                            <li key={participant.id} className="group-lesson-details__participant">
+                              <span className="group-lesson-details__participant-avatar" aria-hidden>
+                                {participant.avatarUrl ? (
+                                  <img src={participant.avatarUrl} alt="" />
+                                ) : (
+                                  buildInitials(participant.name)
+                                )}
+                              </span>
+                              <div className="group-lesson-details__participant-body">
+                                <span className="group-lesson-details__participant-name">{participant.name}</span>
+                                <span className="group-lesson-details__participant-meta">
+                                  {participant.skillLevel ?? "Skill level pending"}
+                                  {participant.focusArea ? ` • ${participant.focusArea}` : ""}
+                                </span>
+                                {participant.joinedLabel ? (
+                                  <span className="group-lesson-details__participant-joined">
+                                    {participant.joinedLabel}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <div className="group-lesson-details__participants-empty">
+                        <p>Be the first to book. {spotsRemaining} spots are available right now.</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">What to bring</h2>
+                  <div className="group-lesson-details__bring-list">
+                    {whatToBring.map((item) => (
+                      <span key={item} className="group-lesson-details__bring-chip">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Location</h2>
+                  <div className="group-lesson-details__card">
+                    <h3 className="group-lesson-details__card-title">{lesson.locationName}</h3>
+                    <p className="group-lesson-details__card-copy">{lesson.locationCity}</p>
+                    <ul className="group-lesson-details__location-list">
+                      <li>🎾 {lesson.court ? `Court ${lesson.court}` : "Court assignment shared before class"}</li>
+                      <li>📍 {lesson.distanceMiles > 0 ? `${lesson.distanceMiles.toFixed(1)} mi away` : "Nearby location"}</li>
+                    </ul>
+                    <a
+                      className="group-lesson-details__secondary-action"
+                      href={`https://maps.google.com/?q=${encodeURIComponent(lesson.locationName)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Get directions
+                    </a>
+                  </div>
+                </section>
+
+                <section className="group-lesson-details__section">
+                  <h2 className="group-lesson-details__section-label">Your coach</h2>
+                  <div className="group-lesson-details__card">
+                    <div className="group-lesson-details__coach-panel">
+                      {coachAvatar ? (
+                        <img
+                          className="group-lesson-details__coach-avatar"
+                          src={coachAvatar}
+                          alt=""
+                        />
+                      ) : (
+                        <span className="group-lesson-details__coach-avatar--placeholder" aria-hidden>
+                          {buildInitials(coachName)}
+                        </span>
+                      )}
+                      <div className="group-lesson-details__coach-meta">
+                        <p className="group-lesson-details__coach-name">{coachName}</p>
+                        <div className="group-lesson-details__coach-cert-list">
+                          <span className="group-lesson-details__coach-cert">Matchplay Coach</span>
+                          <span className="group-lesson-details__coach-cert">{lesson.skillLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="group-lesson-details__card-copy">
+                      {lesson.focus}. Expect a clear structure, live coaching, and a strong emphasis on quality reps.
+                    </p>
+                    <Link to={`/coaches/${lesson.coachId}`} className="group-lesson-details__coach-link">
+                      View full profile →
+                    </Link>
+                  </div>
+                </section>
+
+                {relatedLessons.length > 0 ? (
+                  <section className="group-lesson-details__section">
+                    <h2 className="group-lesson-details__section-label">Other dates for this class</h2>
+                    <div className="group-lesson-details__related-list">
+                      {relatedLessons.map((relatedLesson) => {
+                        const relatedDateLabel = relatedLesson.startDateTime
+                          ? moment.utc(relatedLesson.startDateTime).format("dddd, MMMM D")
+                          : relatedLesson.date;
+                        const relatedSpots = Math.max(relatedLesson.availableSpots, 0);
+                        const relatedPrice = relatedLesson.pricePerPlayer.replace(" per player", "");
+
+                        return (
+                          <button
+                            key={relatedLesson.id}
+                            type="button"
+                            className="group-lesson-details__related-card"
+                            onClick={() =>
+                              navigate(`/booking/confirm?groupLesson=${relatedLesson.id}`, {
+                                state: {
+                                  groupLessonId: relatedLesson.id,
+                                  groupLessonsState: groupLessonsReturnState,
+                                },
+                              })
+                            }
+                          >
+                            <div className="group-lesson-details__related-copy">
+                              <strong>{relatedDateLabel.toUpperCase()}</strong>
+                              <span>
+                                {relatedLesson.startTime} · {relatedSpots} spot{relatedSpots === 1 ? "" : "s"} left
+                              </span>
+                            </div>
+                            <span className="group-lesson-details__related-price">{relatedPrice}</span>
+                            <span className="group-lesson-details__related-arrow" aria-hidden>
+                              →
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+              </section>
+
+              <aside className="group-lesson-details__booking-rail">
+                <div className="group-lesson-details__booking-card">
+                  {isBooked ? (
+                    <>
+                      <div className="group-lesson-details__rail-booked-banner">
+                        <div className="group-lesson-details__booked-icon" aria-hidden>
+                          ✓
+                        </div>
+                        <div className="group-lesson-details__booked-copy">
+                          <strong>You&apos;re booked</strong>
+                          <span>Your place is confirmed.</span>
+                        </div>
+                      </div>
+
+                      <div className="group-lesson-details__booking-meta">
+                        <div className="group-lesson-details__booking-meta-item">
+                          <CalendarDays aria-hidden />
+                          <span>{dateLabel}</span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <Clock aria-hidden />
+                          <span>
+                            {timeRange} · {lesson.durationMinutes} min
+                          </span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <MapPin aria-hidden />
+                          <span>{lesson.locationName}</span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <Users aria-hidden />
+                          <span>with {coachName}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="group-lesson-details__message-action"
+                        onClick={() => navigate(`/coaches/${lesson.coachId}`)}
+                      >
+                        <MessageCircle aria-hidden />
+                        <span>Message coach</span>
+                      </button>
+
+                  <button
+                    type="button"
+                    className="group-lesson-details__cancel-action"
+                    onClick={() => {
+                      setCancelError(null);
+                      setCancelFlowState("confirm");
+                    }}
+                  >
+                    Cancel booking
+                  </button>
+
+                      <p className="group-lesson-details__checkout-caption group-lesson-details__checkout-caption--centered">
+                        {isCancellationWindowClosed
+                          ? "Cancellation is no longer available within 24 hours of class."
+                          : "Free cancellation up to 24 hours before class"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="group-lesson-details__booking-label">Book this session</p>
+                      <p className="group-lesson-details__booking-price">{lesson.pricePerPlayer.replace(" per player", "")}</p>
+                      <p className="group-lesson-details__booking-price-caption">per class</p>
+
+                      <div className="group-lesson-details__booking-meta">
+                        <div className="group-lesson-details__booking-meta-item">
+                          <CalendarDays aria-hidden />
+                          <span>{dateLabel}</span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <Clock aria-hidden />
+                          <span>
+                            {timeRange} · {lesson.durationMinutes} min
+                          </span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <MapPin aria-hidden />
+                          <span>{lesson.locationName}</span>
+                        </div>
+                        <div className="group-lesson-details__booking-meta-item">
+                          <Users aria-hidden />
+                          <span>with {coachName}</span>
+                        </div>
+                      </div>
+
+                      <div className={`group-lesson-details__availability-pill ${availabilityToneClass}`}>
+                        {availabilityLabel}
+                      </div>
+
+                      <div className="group-lesson-details__credit-note">
+                        🎟️ Credits and saved payment methods are available at checkout
+                      </div>
+
+                      <button
+                        type="button"
+                        className="group-lesson-details__checkout-action"
+                        disabled={spotsRemaining === 0 || isBooked}
+                        onClick={() => {
+                          navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                            state: {
+                              groupLessonId: lesson.id,
+                              groupLessonsState: groupLessonsReturnState,
+                            },
+                          });
+                        }}
+                      >
+                        {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+                      </button>
+
+                      <p className="group-lesson-details__checkout-caption">
+                        {spotsRemaining === 0
+                          ? "We’ll notify you if a player drops and a spot re-opens."
+                          : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
+                      </p>
+                    </>
+                  )}
                 </div>
-                <div className="group-lesson-details__price-row">
-                  <span className="group-lesson-details__price-label">Total due today</span>
-                  <span className="group-lesson-details__price-value">{lesson.pricePerPlayer}</span>
+              </aside>
+            </div>
+
+            <div
+              className={`group-lesson-details__mobile-footer${
+                isBooked ? " group-lesson-details__mobile-footer--booked" : ""
+              }`}
+            >
+              {isBooked ? (
+                <div className="group-lesson-details__mobile-footer-stack">
+                  <button
+                    type="button"
+                    className="group-lesson-details__mobile-footer-secondary"
+                    onClick={() => navigate(`/coaches/${lesson.coachId}`)}
+                  >
+                    <MessageCircle aria-hidden />
+                    <span>Message coach</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="group-lesson-details__mobile-footer-link"
+                    onClick={() => {
+                      setCancelError(null);
+                      setCancelFlowState("confirm");
+                    }}
+                  >
+                    Cancel booking
+                  </button>
                 </div>
-                <ul className="group-lesson-details__checkout-list">
-                  <li>
-                    <ShieldCheck aria-hidden size={18} /> Secure checkout powered by Matchplay
-                  </li>
-                  <li>
-                  <Users aria-hidden size={18} /> {spotsRemaining > 0 ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left` : "Session full"}
-                </li>
-                <li>
-                  <CalendarDays aria-hidden size={18} /> {dateLabel}
-                </li>
-                </ul>
-                <button
-                  type="button"
-                  className="group-lesson-details__checkout-action"
-                  disabled={spotsRemaining === 0 || isBooked}
-                  onClick={() => {
-                    navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                      state: { groupLessonId: lesson.id },
-                    });
-                  }}
-                >
-                  {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book & pay"}
-                </button>
-                <p className="group-lesson-details__checkout-caption">
-                  {spotsRemaining === 0
-                    ? "We'll notify you if a player drops and a spot re-opens."
-                    : "You're charged immediately to hold your place. Cancel up to 24 hours ahead for a full credit."}
-                </p>
-              </div>
-            </aside>
+              ) : (
+                <>
+                  <div className="group-lesson-details__mobile-footer-price">
+                    <strong>{lesson.pricePerPlayer.replace(" per player", "")}</strong>
+                    <span>per class</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="group-lesson-details__mobile-footer-action"
+                    disabled={spotsRemaining === 0 || isBooked}
+                    onClick={() => {
+                      navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                        state: {
+                          groupLessonId: lesson.id,
+                          groupLessonsState: groupLessonsReturnState,
+                        },
+                      });
+                    }}
+                  >
+                    {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

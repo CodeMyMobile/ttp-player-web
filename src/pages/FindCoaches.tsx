@@ -1,30 +1,44 @@
-/// <reference types="google.maps" />
-
-import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  Search,
+  Sparkles,
+  Star,
+  X,
+} from "lucide-react";
 
-import CoachCard from "../components/coaches/CoachCard";
-import CoachCardSkeleton from "../components/coaches/CoachCardSkeleton";
-import CoachMatchQuestionnaire from "../components/coaches/CoachMatchQuestionnaire";
-import FilterBar from "../components/coaches/FilterBar";
-import ResultsHeader from "../components/coaches/ResultsHeader";
-import StateBanner from "../components/coaches/StateBanner";
 import MainLayout from "../components/MainLayout";
-import BookLessonModal from "../components/coaches/BookLessonModal";
+import FilterMenu from "../components/FilterMenu";
+import { fetchCoachProfile } from "../api/coachProfile";
+import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
-import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
 import {
+  clearCoachMatchSurveyAnswers,
+  getCoachMatchSurveyQuestions,
+  submitCoachMatchSurveyAnswers,
+} from "../api/playerHome";
+import {
   DEFAULT_POSITION,
   getStoredLocation,
+  getStoredLocationLabel,
   storeLocation,
+  storeLocationLabel,
   type Coordinates,
 } from "../utils/userLocation";
+import {
+  buildSurveySubmissionPayload,
+  extractSurveyQuestions,
+  formatSurveyAnswer,
+  hasSurveyAnswer,
+  type NormalizedSurveyQuestion,
+} from "../utils/surveyQuestionnaire";
 
-import "../components/coaches/coaches.css";
-import "../components/players/players.css";
+import "./CoachMatchRecommendationsPage.css";
+import "./FindCoachesPage.css";
 
 type Mode = "normal" | "empty" | "error";
 type Status = "loading" | "ready";
@@ -36,39 +50,68 @@ type SelectedLocation = {
   isCurrentLocation?: boolean;
 };
 
-const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+type FindCoachesStateSnapshot = {
+  searchTerm: string;
+  appliedSearchTerm: string;
+  selectedRadius: number;
+  appliedRadius: number;
+  sortBy: string;
+  locationFilter: SelectedLocation | null;
+  locationSearchTerm: string;
+};
 
-const parseRadius = (radius: string) => {
-  const match = radius.match(/(\d+)/);
-  if (!match) {
-    return undefined;
-  }
-  const value = Number(match[1]);
-  return Number.isFinite(value) ? value : undefined;
+type FindCoachesRouteState = {
+  openCoachMatchSurvey?: boolean;
+  findCoachesState?: FindCoachesStateSnapshot;
+};
+
+type CoachCardModel = Coach & {
+  initials: string;
+  verified: boolean;
+  studentCount: number | null;
+  distanceMiles: number | null;
+  cityLabel: string;
+  hourlyRateValue: number | null;
+  groupRateValue: number | null;
+  availabilityWindows: string[];
+  formats: string[];
+  matchScore: number;
+  matchReasons: string[];
+  semiRateValue: number | null;
+  availableSlotCount: number | null;
+};
+
+const DEFAULT_RADIUS = 10;
+
+type CoachMatchSummaryItem = {
+  label: string;
+  value: string;
+};
+
+const getInitialSelectedLocation = (): SelectedLocation | null => {
+  const storedLocation = getStoredLocation();
+  if (!storedLocation) return null;
+
+  return {
+    label: getStoredLocationLabel() ?? "Selected location",
+    latitude: storedLocation.latitude,
+    longitude: storedLocation.longitude,
+  };
 };
 
 const toStringArray = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
+  if (!value) return [];
   if (Array.isArray(value)) {
     return value
       .map((entry) => {
-        if (entry === null || entry === undefined) {
-          return "";
-        }
-        if (typeof entry === "string") {
-          return entry.trim();
-        }
-        if (typeof entry === "number" || typeof entry === "boolean") {
-          return String(entry);
-        }
-        const entryRecord = entry as Record<string, any>;
-        const label =
-          entryRecord.label ?? entryRecord.name ?? entryRecord.title ?? entryRecord.value ?? "";
+        if (entry === null || entry === undefined) return "";
+        if (typeof entry === "string") return entry.trim();
+        if (typeof entry === "number" || typeof entry === "boolean") return String(entry);
+        const record = entry as Record<string, unknown>;
+        const label = record.label ?? record.name ?? record.title ?? record.value ?? "";
         return typeof label === "string" ? label.trim() : String(label ?? "");
       })
-      .filter((entry) => Boolean(entry));
+      .filter(Boolean);
   }
   if (typeof value === "string") {
     return value
@@ -76,58 +119,85 @@ const toStringArray = (value: unknown): string[] => {
       .map((entry) => entry.trim())
       .filter(Boolean);
   }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return [String(value)];
-  }
+  if (typeof value === "number" || typeof value === "boolean") return [String(value)];
   return [];
 };
 
 const pickFirstString = (...values: Array<unknown>): string => {
   for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
+    if (typeof value === "string" && value.trim()) return value.trim();
     if (typeof value === "number") {
-      const formatted = String(value);
-      if (formatted.trim()) {
-        return formatted.trim();
-      }
+      const next = String(value).trim();
+      if (next) return next;
     }
   }
   return "";
 };
 
 const parseNumberValue = (value: unknown): number | null => {
-  if (value === null || value === undefined) {
-    return null;
-  }
+  if (value === null || value === undefined) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const extractCoachArray = (payload: unknown): Record<string, any>[] => {
-  if (!payload) {
-    return [];
-  }
-  if (Array.isArray(payload)) {
-    return payload as Record<string, any>[];
-  }
-  const container = payload as Record<string, any>;
-  const candidates = [
-    container?.data,
-    container?.results,
-    container?.coaches,
-    container?.items,
-  ];
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  zh: "Chinese",
+};
+
+const toTitleCase = (value: string) =>
+  value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+
+const normalizeDisplayLabel = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) return "";
+
+  const lower = normalized.toLowerCase();
+  if (LANGUAGE_LABELS[lower]) return LANGUAGE_LABELS[lower];
+  if (lower === "semi") return "Semi-Private";
+  if (lower === "semi private") return "Semi-Private";
+  if (lower === "weekday_mornings") return "Weekday Mornings";
+  if (lower === "weekday_afternoons") return "Weekday Afternoons";
+  if (lower === "weekday_evenings") return "Weekday Evenings";
+
+  return toTitleCase(normalized);
+};
+
+const normalizeDisplayArray = (values: string[]) =>
+  values
+    .map((value) => normalizeDisplayLabel(value))
+    .filter(Boolean);
+
+const formatMoney = (value: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? `$${numeric.toFixed(0)}` : null;
+};
+
+const formatDistance = (value: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? `${numeric.toFixed(1)} mi` : "Distance unavailable";
+};
+
+const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload as Record<string, unknown>[];
+  const container = payload as Record<string, unknown>;
+  const candidates = [container.data, container.results, container.coaches, container.items];
   for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate as Record<string, any>[];
-    }
+    if (Array.isArray(candidate)) return candidate as Record<string, unknown>[];
   }
   return [];
 };
 
-const pickImageUrl = (record: Record<string, any>): string => {
+const pickImageUrl = (record: Record<string, unknown>): string => {
   const candidates = [
     record.avatar,
     record.avatar_url,
@@ -136,267 +206,552 @@ const pickImageUrl = (record: Record<string, any>): string => {
     record.photo,
     record.image,
     record.picture,
-    record.media?.profile_image,
-    record.profile?.profile_image,
-    record.user?.profile_image,
-    record.user?.profile?.profile_image,
+    (record.media as Record<string, unknown> | undefined)?.profile_image,
+    (record.profile as Record<string, unknown> | undefined)?.profile_image,
+    (record.user as Record<string, unknown> | undefined)?.profile_image,
+    ((record.user as Record<string, unknown> | undefined)?.profile as Record<string, unknown> | undefined)?.profile_image,
   ];
   for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
+    if (typeof candidate === "string" && candidate.trim() && !candidate.trim().endsWith(".com/")) {
       return candidate.trim();
     }
   }
-  return mockCoaches[0]?.imageUrl ?? "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80";
+  return (
+    mockCoaches[0]?.imageUrl ??
+    "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80"
+  );
 };
 
-const mapCoachRecordToCard = (record: Record<string, any>, fallbackIndex: number): Coach => {
+const buildInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "TC";
+
+const deriveFormats = (record: Record<string, unknown>) => {
+  const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
+  const formats = normalizeDisplayArray(
+    toStringArray(record.formats ?? record.lesson_formats ?? record.lesson_types),
+  );
+  if (formats.length > 0) return formats;
+  const result = ["Private"];
+  if (
+    parseNumberValue(record.group_rate) !== null ||
+    pickFirstString(record.group_rate) ||
+    parseNumberValue(pricing.group ?? pricing.group_price) !== null
+  ) {
+    result.push("Group");
+  }
+  return result;
+};
+
+const deriveAvailabilityWindows = (record: Record<string, unknown>) => {
+  const explicit = normalizeDisplayArray(
+    toStringArray(
+      record.availability_windows ?? record.availability_labels ?? record.available_times ?? record.availability,
+    ),
+  );
+  if (explicit.length > 0) return explicit;
+  return ["Weekday Mornings", "Weekends"];
+};
+
+const parseStudentCountFromHighlights = (highlights: Array<Record<string, unknown>>) => {
+  for (const highlight of highlights) {
+    const label = pickFirstString(highlight.label);
+    const match = label.match(/(\d+)/);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+};
+
+const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string, unknown>): CoachCardModel => {
+  const booking = (profile.booking as Record<string, unknown> | undefined) ?? {};
+  const bookingDates = Array.isArray(booking.availableDates)
+    ? (booking.availableDates as Array<Record<string, unknown>>)
+    : [];
+  const lessonTypes = Array.isArray(booking.lessonTypes)
+    ? (booking.lessonTypes as Array<Record<string, unknown>>)
+    : [];
+  const highlightChips = Array.isArray(profile.highlightChips)
+    ? (profile.highlightChips as Array<Record<string, unknown>>)
+    : [];
+  const metrics = Array.isArray(profile.metrics)
+    ? (profile.metrics as Array<Record<string, unknown>>)
+    : [];
+  const coachingLocations = toStringArray(profile.coachingLocations);
+  const profileLocations = Array.isArray(profile.locations)
+    ? (profile.locations as Array<Record<string, unknown>>).map((location) => pickFirstString(location.label))
+    : [];
+  const availabilityWindows =
+    bookingDates.length > 0
+      ? bookingDates.map((date) => {
+          const label = pickFirstString(date.label);
+          const totalSlots = parseNumberValue(date.totalSlots);
+          return totalSlots && totalSlots > 0 ? `${label} (${totalSlots} slot${totalSlots === 1 ? "" : "s"})` : label;
+        }).filter(Boolean)
+      : toStringArray(profile.availability);
+  const availableSlotCount = bookingDates.reduce((sum, date) => {
+    const totalSlots = parseNumberValue(date.totalSlots);
+    return totalSlots && totalSlots > 0 ? sum + totalSlots : sum;
+  }, 0);
+
+  const lessonTypeLabels = lessonTypes.map((lessonType) => pickFirstString(lessonType.label)).filter(Boolean);
+  const privateMetric = metrics.find((metric) => pickFirstString(metric.label).toLowerCase() === "private");
+  const privateValue = pickFirstString(privateMetric?.value);
+  const groupLessonType = lessonTypes.find((lessonType) => pickFirstString(lessonType.id).toLowerCase() === "group");
+  const groupValue = pickFirstString(groupLessonType?.price);
+  const studentCount =
+    parseNumberValue(profile.studentCount ?? profile.student_count) ?? parseStudentCountFromHighlights(highlightChips);
+
+  return {
+    ...coach,
+    name: pickFirstString(profile.fullName, coach.name) || coach.name,
+    initials: pickFirstString(profile.initials) || coach.initials,
+    bio: pickFirstString(profile.about, coach.bio) || coach.bio,
+    summary: pickFirstString(profile.about, coach.summary) || coach.summary,
+    yearsExperience: parseNumberValue(profile.experienceYears ?? profile.experience_years) ?? coach.yearsExperience,
+    certifications: normalizeDisplayArray(toStringArray(profile.certifications)),
+    specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
+    courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
+    levels: normalizeDisplayArray(toStringArray(profile.levels)),
+    formats:
+      lessonTypeLabels.length > 0
+        ? normalizeDisplayArray(lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")))
+        : coach.formats,
+    languages: normalizeDisplayArray(toStringArray(profile.languages)),
+    availability: availabilityWindows[0] || coach.availability,
+    availabilityWindows: availabilityWindows.length > 0 ? availabilityWindows : coach.availabilityWindows,
+    lessonRates: {
+      private: privateValue || coach.lessonRates.private,
+      group: groupValue || coach.lessonRates.group,
+    },
+    hourlyRateValue:
+      parseNumberValue(privateValue.replace?.(/[^\d.]/g, "")) ?? coach.hourlyRateValue,
+    groupRateValue:
+      parseNumberValue(groupValue.replace?.(/[^\d.]/g, "")) ?? coach.groupRateValue,
+    pricePerHour: `${privateValue || coach.lessonRates.private}/hr`,
+    imageUrl: pickImageUrl({ ...coach, profilePicture: profile.profilePicture }),
+    cityLabel: coachingLocations[0] || profileLocations[0] || coach.cityLabel,
+    location: coachingLocations[0] || profileLocations[0] || coach.location,
+    studentCount: studentCount ?? coach.studentCount,
+    availableSlotCount: availableSlotCount > 0 ? availableSlotCount : coach.availableSlotCount,
+    tags:
+      toStringArray(profile.specialties).length > 0
+        ? normalizeDisplayArray(toStringArray(profile.specialties)).slice(0, 3)
+        : coach.tags,
+  };
+};
+
+const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: number): CoachCardModel => {
+  const pricing = (record.pricing as Record<string, unknown> | undefined) ?? {};
+  const recommendation = (record.recommendation as Record<string, unknown> | undefined) ?? {};
+  const recommendationPrices = (recommendation.prices as Record<string, unknown> | undefined) ?? {};
+  const primaryLocation = (record.primary_location as Record<string, unknown> | undefined) ?? undefined;
+  const locationRecords = Array.isArray(record.locations)
+    ? (record.locations as Array<Record<string, unknown>>)
+    : [];
   const idCandidate =
-    record.id ??
-    record.coach_id ??
-    record.player_coach_id ??
-    record.user_id ??
-    record.uuid ??
-    `${fallbackIndex}`;
-  const firstName = pickFirstString(record.first_name, record.firstName);
-  const lastName = pickFirstString(record.last_name, record.lastName);
+    record.id ?? record.coach_id ?? record.player_coach_id ?? record.user_id ?? record.uuid ?? `${fallbackIndex}`;
   const displayName =
-    pickFirstString(record.name, record.full_name, record.fullName, record.coach_name) ||
-    [firstName, lastName].filter(Boolean).join(" ") ||
+    pickFirstString(record.full_name, record.fullName, record.name, record.coach_name, record.coachName) ||
     `Coach ${fallbackIndex + 1}`;
-  const locationLabel =
+  const certifications = normalizeDisplayArray(toStringArray(record.certifications ?? record.certification ?? []));
+  const locations = locationRecords
+    .map((location) => pickFirstString(location.label, location.name, location.title))
+    .filter(Boolean);
+  const cityLabel =
     pickFirstString(
+      primaryLocation?.label,
+      record.city_label,
       record.location,
       record.city,
       record.city_name,
-      record.state,
-      [record.city, record.state].filter(Boolean).join(", "),
       record.facility,
       record.club_name,
-    ) || "Multiple locations";
-  const hourlyRate =
-    record.hourly_rate ?? record.price_per_hour ?? record.hourlyRate ?? record.rate ?? null;
+    ) || locations[0] || "Multiple locations";
+  const hourlyRate = parseNumberValue(
+    record.hourly_rate ??
+      record.price_private ??
+      pricing.hourly ??
+      pricing.private ??
+      recommendationPrices.private ??
+      record.price_per_hour ??
+      record.hourlyRate ??
+      record.rate,
+  );
   const hourlyRateDisplay =
-    typeof hourlyRate === "number"
-      ? `$${hourlyRate.toFixed(0)}`
-      : typeof hourlyRate === "string"
-        ? hourlyRate
-        : "$85";
+    hourlyRate !== null ? `$${hourlyRate.toFixed(0)}` : "$0";
+  const groupRateValue = parseNumberValue(
+    record.group_rate ?? pricing.group ?? pricing.group_price ?? recommendationPrices.group ?? record.price_group,
+  );
+  const semiRateValue = parseNumberValue(
+    record.price_semi ?? pricing.semi ?? pricing.semi_private ?? recommendationPrices.semi,
+  );
+  const groupRateDisplay =
+    groupRateValue !== null ? `$${groupRateValue.toFixed(0)}` : "";
   const summary =
     pickFirstString(
+      record.about_me,
       record.summary,
       record.bio,
       record.about,
       record.description,
-      record.profile?.summary,
-      record.profile?.bio,
-    ) || "Certified tennis professional helping players level up.";
-  const bio = summary;
+      (record.profile as Record<string, unknown> | undefined)?.summary,
+      (record.profile as Record<string, unknown> | undefined)?.bio,
+    ) || "Tennis coach profile coming soon.";
   const experience =
     parseNumberValue(
       record.years_experience ?? record.experience_years ?? record.yearsExperience ?? record.experience,
-    ) ?? 5;
-  const certifications = toStringArray(record.certifications ?? record.certification ?? []);
-  const courts = toStringArray(record.courts ?? record.locations ?? record.venues ?? []);
-  const levels = toStringArray(record.levels ?? record.focus_levels ?? record.skill_levels ?? []);
-  const specialties = toStringArray(
+    ) ?? 0;
+  const courts = locations.length > 0 ? locations : toStringArray(record.courts ?? record.venues ?? []);
+  const levels = normalizeDisplayArray(toStringArray(record.levels ?? record.focus_levels ?? record.skill_levels ?? []));
+  const specialties = normalizeDisplayArray(toStringArray(
     record.specialties ?? record.speciality ?? record.specialty ?? record.tags ?? [],
-  );
-  const languages = toStringArray(record.languages ?? record.language ?? []);
-  const availability =
-    pickFirstString(
-      record.availability,
-      record.schedule_summary,
-      record.next_available,
-      record.availability_summary,
-    ) || "Flexible schedule";
-  const nextLessonDay = pickFirstString(record.next_lesson_day, record.next_available_day, "Next opening");
-  const nextLessonTime = pickFirstString(record.next_lesson_time, record.next_available_time, "Flexible times");
-  const nextLessonCourt = pickFirstString(record.next_lesson_court, record.next_available_location, locationLabel);
+  ));
+  const languages = normalizeDisplayArray(toStringArray(record.languages ?? record.language ?? []));
+  const availabilityWindows = deriveAvailabilityWindows(record);
+  const availabilitySummary = availabilityWindows[0] || "Availability on request";
+  const nextLessonDay = availabilityWindows[0] || "Availability";
+  const nextLessonTime = availabilityWindows[1] || "";
+  const nextLessonCourt = cityLabel;
   const ratingValue =
-    parseNumberValue(record.review_score ?? record.rating ?? record.rating_value ?? record.score) ?? 5;
+    parseNumberValue(record.review_score ?? record.rating ?? record.rating_value ?? record.score) ?? 0;
   const ratingCount =
     parseNumberValue(
       record.review_count ?? record.reviews_count ?? record.rating_count ?? record.total_reviews,
     ) ?? 0;
+  const distanceMiles = parseNumberValue(
+    record.distance_miles ??
+      record.distanceMiles ??
+      record.distance ??
+      primaryLocation?.distanceMiles,
+  );
+  const formats = deriveFormats(record);
+  const matchScore =
+    parseNumberValue(record.score ?? recommendation.score) ?? 0;
+  const matchReasons = toStringArray(record.reasons ?? recommendation.reasons);
   const highlightCandidates: CoachHighlight[] = [];
-  if (locationLabel) {
-    highlightCandidates.push({ icon: "map", label: locationLabel });
-  }
-  highlightCandidates.push({ icon: "calendar", label: availability });
-  if (specialties.length > 0) {
-    highlightCandidates.push({ icon: "spark", label: specialties[0] });
-  } else {
-    highlightCandidates.push({ icon: "users", label: "Private & group lessons" });
-  }
-  const groupRate =
-    typeof record.group_rate === "number"
-      ? `$${record.group_rate.toFixed(0)}`
-      : pickFirstString(record.group_rate, "$45");
+  if (cityLabel) highlightCandidates.push({ icon: "map", label: cityLabel });
+  highlightCandidates.push({ icon: "calendar", label: availabilitySummary });
+  if (specialties.length > 0) highlightCandidates.push({ icon: "spark", label: specialties[0] });
+  else if (formats.length > 0) highlightCandidates.push({ icon: "users", label: formats.join(" · ") });
 
   const numericId = (() => {
-    if (typeof idCandidate === "number" && Number.isFinite(idCandidate)) {
-      return idCandidate;
-    }
+    if (typeof idCandidate === "number" && Number.isFinite(idCandidate)) return idCandidate;
     const parsed = Number(idCandidate);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
+    if (Number.isFinite(parsed)) return parsed;
     return fallbackIndex + 1;
   })();
 
   return {
     id: numericId,
     name: displayName,
+    initials: pickFirstString(record.initials) || buildInitials(displayName),
     title:
-      pickFirstString(
-        record.title,
-        record.headline,
-        record.speciality,
-        record.specialty,
-        record.role,
-        "Tennis Professional",
-      ) || "Tennis Professional",
+      pickFirstString(record.title, record.headline, certifications[0], record.speciality, record.specialty, record.role, "Tennis Coach") ||
+      "Tennis Professional",
     rating: ratingValue,
     reviewCount: ratingCount,
-    location: locationLabel,
-    pricePerHour: hourlyRateDisplay,
-    availabilityTag: pickFirstString(record.availability_status, record.status, "Available"),
+    studentCount: parseNumberValue(record.student_count ?? record.studentCount),
+    location: cityLabel,
+    pricePerHour: `${hourlyRateDisplay}/hr`,
+    availabilityTag: availabilitySummary,
     featured: Boolean(record.is_featured || record.featured),
     summary,
-    bio,
+    bio: summary,
     yearsExperience: experience,
     certifications,
-    courts: courts.length > 0 ? courts : [locationLabel],
+    courts: courts.length > 0 ? courts : [cityLabel],
     levels: levels.length > 0 ? levels : ["Beginner", "Intermediate"],
-    specialties: specialties.length > 0 ? specialties : ["Technique", "Strategy"],
+    specialties,
     lessonRates: {
       private: hourlyRateDisplay,
-      group: groupRate,
+      group: groupRateDisplay || hourlyRateDisplay,
     },
-    languages: languages.length > 0 ? languages : ["English"],
-    availability,
+    languages,
+    availability: availabilitySummary,
     nextAvailableLesson: {
       day: nextLessonDay,
       time: nextLessonTime,
       court: nextLessonCourt,
     },
     highlights: highlightCandidates,
-    tags: specialties.length > 0 ? specialties.slice(0, 3) : ["Footwork", "Serve", "Strategy"],
+    tags: specialties.length > 0 ? specialties.slice(0, 3) : formats.slice(0, 1),
     imageUrl: pickImageUrl(record),
+    verified: certifications.length > 0,
+    distanceMiles,
+    cityLabel,
+    hourlyRateValue: hourlyRate,
+    groupRateValue,
+    semiRateValue,
+    availabilityWindows,
+    formats,
+    matchScore,
+    matchReasons,
+    availableSlotCount: null,
   };
 };
 
+const findCoachMatchQuestion = (
+  questions: NormalizedSurveyQuestion[],
+  matcher: (question: NormalizedSurveyQuestion) => boolean,
+) => questions.find(matcher);
+
+const getCoachMatchSummaryItems = (questions: NormalizedSurveyQuestion[]): CoachMatchSummaryItem[] => {
+  const answeredQuestions = questions.filter((question) => hasSurveyAnswer(question));
+  if (answeredQuestions.length === 0) return [];
+
+  const getValue = (matcher: (question: NormalizedSurveyQuestion) => boolean) => {
+    const question = findCoachMatchQuestion(answeredQuestions, matcher);
+    return question ? formatSurveyAnswer(question).trim() : "";
+  };
+
+  return [
+    { label: "Who", value: "Myself" },
+    {
+      label: "Level",
+      value: getValue((question) => question.questionText.toLowerCase().includes("current level")),
+    },
+    {
+      label: "Goals",
+      value: getValue((question) => question.questionText.toLowerCase().includes("want to improve")),
+    },
+    {
+      label: "Format",
+      value: getValue((question) => question.questionText.toLowerCase().includes("prefer to learn")),
+    },
+    {
+      label: "When",
+      value: getValue((question) => question.questionText.toLowerCase().includes("usually free")),
+    },
+    {
+      label: "Budget",
+      value: getValue((question) => question.questionText.toLowerCase().includes("budget per lesson")),
+    },
+  ].filter((item) => item.value);
+};
+
 const FindCoaches = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
-  const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
+  const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
+  const [appliedRadius, setAppliedRadius] = useState<number>(DEFAULT_RADIUS);
+  const [sortBy, setSortBy] = useState("distance");
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
-  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
-  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [coaches, setCoaches] = useState<CoachCardModel[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [storedToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
-  const playerToken =
-    user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
-  const [position, setPosition] = useState<Coordinates | null>(
-    () => getStoredLocation() ?? DEFAULT_POSITION,
-  );
-  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => {
-    const stored = getStoredLocation();
-    if (stored) {
-      return {
-        label: "Current location",
-        latitude: stored.latitude,
-        longitude: stored.longitude,
-        isCurrentLocation: true,
-      };
-    }
-    return null;
+  const playerToken = user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
+  const [locationFilter, setLocationFilter] = useState<SelectedLocation | null>(() => getInitialSelectedLocation());
+  const [position, setPosition] = useState<Coordinates | null>(() => {
+    const storedLocation = getStoredLocation();
+    return storedLocation
+      ? {
+          latitude: storedLocation.latitude,
+          longitude: storedLocation.longitude,
+        }
+      : null;
   });
-  const [locationSearchTerm, setLocationSearchTerm] = useState(locationFilter?.label ?? "");
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [geoError, setGeoError] = useState("");
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationSearchTerm, setLocationSearchTerm] = useState(() => getInitialSelectedLocation()?.label ?? "");
+  const [showCoachMatchSurvey, setShowCoachMatchSurvey] = useState(false);
+  const [coachMatchQuestions, setCoachMatchQuestions] = useState<NormalizedSurveyQuestion[]>([]);
+  const [coachMatchLoading, setCoachMatchLoading] = useState(false);
+  const [coachMatchSubmitting, setCoachMatchSubmitting] = useState(false);
+  const [coachMatchClearing, setCoachMatchClearing] = useState(false);
+  const [coachMatchSubmitted, setCoachMatchSubmitted] = useState(false);
+  const [coachMatchError, setCoachMatchError] = useState<string | null>(null);
+  const [coachMatchCurrentIndex, setCoachMatchCurrentIndex] = useState(0);
+  const [coachMatchSummaryDismissed, setCoachMatchSummaryDismissed] = useState(false);
+  const [locationPermissionPrompt, setLocationPermissionPrompt] = useState<string | null>(null);
+  const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
+  const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(() => Boolean(getStoredLocation()));
+
+  const findCoachesStateSnapshot = useMemo<FindCoachesStateSnapshot>(
+    () => ({
+      searchTerm,
+      appliedSearchTerm,
+      selectedRadius,
+      appliedRadius,
+      sortBy,
+      locationFilter,
+      locationSearchTerm,
+    }),
+    [
+      appliedRadius,
+      appliedSearchTerm,
+      locationFilter,
+      locationSearchTerm,
+      searchTerm,
+      selectedRadius,
+      sortBy,
+    ],
+  );
 
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
 
-  const applyLocationFilter = useCallback(
-    (nextLocation: SelectedLocation | null) => {
-      if (
-        nextLocation &&
-        typeof nextLocation.latitude === "number" &&
-        typeof nextLocation.longitude === "number"
-      ) {
-        const coords: Coordinates = {
-          latitude: nextLocation.latitude,
-          longitude: nextLocation.longitude,
-        };
-        setPosition(coords);
-        storeLocation(coords);
-        setLocationFilter(nextLocation);
-        setLocationSearchTerm(nextLocation.label);
-        setGeoError("");
-        setShowLocationPicker(false);
-        setMode("normal");
-        return;
-      }
-
-      setLocationFilter(null);
-      setLocationSearchTerm("");
-      setGeoError("");
-      setShowLocationPicker(false);
+  const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
+    if (nextLocation && typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number") {
+      const coords: Coordinates = {
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
+      };
+      setPosition(coords);
+      storeLocation(coords);
+      storeLocationLabel(nextLocation.label);
+      setLocationFilter(nextLocation);
+      setLocationSearchTerm(nextLocation.label);
       setMode("normal");
-      setPosition({ ...DEFAULT_POSITION });
-      storeLocation(null);
-    },
-    [],
-  );
-
-  const detectCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoError("Location detection is not supported in this browser.");
       return;
     }
 
-    setIsDetectingLocation(true);
+    setLocationFilter(null);
+    setLocationSearchTerm("");
+    setMode("normal");
+    setPosition(null);
+    storeLocation(null);
+    storeLocationLabel(null);
+  }, []);
+
+  const requestCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setHasResolvedInitialLocation(true);
+      setLocationPermissionPrompt("Enable location permission in your browser to see coaches near you.");
+      return;
+    }
+
+    setIsResolvingCurrentLocation(true);
     navigator.geolocation.getCurrentPosition(
       (nextPosition) => {
-        setIsDetectingLocation(false);
-        const coords: Coordinates = {
-          latitude: nextPosition.coords.latitude,
-          longitude: nextPosition.coords.longitude,
-        };
+        setIsResolvingCurrentLocation(false);
+        setHasResolvedInitialLocation(true);
+        setLocationPermissionPrompt(null);
         applyLocationFilter({
           label: "Current location",
-          latitude: coords.latitude,
-          longitude: coords.longitude,
+          latitude: nextPosition.coords.latitude,
+          longitude: nextPosition.coords.longitude,
           isCurrentLocation: true,
         });
       },
-      (geoErrorEvent) => {
-        setIsDetectingLocation(false);
-        console.error("Failed to detect current location", geoErrorEvent);
-        setGeoError(
-          geoErrorEvent.message || "We couldn't detect your location. Please allow access and try again.",
+      () => {
+        setIsResolvingCurrentLocation(false);
+        setHasResolvedInitialLocation(true);
+        setLocationPermissionPrompt(
+          "Enable location permission in your browser to see coaches near your current location.",
         );
       },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
   }, [applyLocationFilter]);
 
-  const closeLocationPicker = useCallback(() => {
-    setShowLocationPicker(false);
-    setGeoError("");
-    setLocationSearchTerm(locationFilter?.label ?? "");
-  }, [locationFilter?.label]);
+  const loadCoachMatchQuestions = useCallback(
+    async ({ showLoader = false, surfaceError = false }: { showLoader?: boolean; surfaceError?: boolean } = {}) => {
+      if (!playerToken) return [];
+
+      if (showLoader) setCoachMatchLoading(true);
+      if (surfaceError) setCoachMatchError(null);
+
+      try {
+        const response = await getCoachMatchSurveyQuestions({ token: playerToken });
+        const questions = extractSurveyQuestions(response);
+        setCoachMatchQuestions(questions);
+        return questions;
+      } catch (requestError) {
+        if (surfaceError) {
+          setCoachMatchError(
+            requestError instanceof Error
+              ? requestError.message
+              : "We couldn't load the coach match questionnaire right now.",
+          );
+        }
+        return [];
+      } finally {
+        if (showLoader) setCoachMatchLoading(false);
+      }
+    },
+    [playerToken],
+  );
+
+  const openCoachMatchSurvey = useCallback(async () => {
+    if (!playerToken || coachMatchLoading) return;
+
+    setShowCoachMatchSurvey(true);
+    setCoachMatchError(null);
+    setCoachMatchSubmitted(false);
+    setCoachMatchSummaryDismissed(false);
+
+    if (coachMatchQuestions.length > 0) {
+      return;
+    }
+
+    await loadCoachMatchQuestions({ showLoader: true, surfaceError: true });
+  }, [coachMatchLoading, coachMatchQuestions.length, loadCoachMatchQuestions, playerToken]);
+
+  useEffect(() => {
+    if (!location.state || typeof location.state !== "object") {
+      return;
+    }
+
+    const routeState = location.state as FindCoachesRouteState;
+    const restoredState = routeState.findCoachesState;
+    const shouldOpenCoachMatchSurvey = Boolean(routeState.openCoachMatchSurvey);
+
+    if (!restoredState && !shouldOpenCoachMatchSurvey) {
+      return;
+    }
+
+    if (restoredState) {
+      setSearchTerm(restoredState.searchTerm);
+      setAppliedSearchTerm(restoredState.appliedSearchTerm);
+      setSelectedRadius(restoredState.selectedRadius);
+      setAppliedRadius(restoredState.appliedRadius);
+      setSortBy(restoredState.sortBy);
+      setLocationSearchTerm(restoredState.locationSearchTerm);
+      applyLocationFilter(restoredState.locationFilter);
+    }
+
+    if (shouldOpenCoachMatchSurvey) {
+      void openCoachMatchSurvey();
+    }
+
+    const nextState = { ...routeState };
+    delete nextState.findCoachesState;
+    delete nextState.openCoachMatchSurvey;
+
+    navigate(location.pathname, {
+      replace: true,
+      state: Object.keys(nextState).length > 0 ? nextState : null,
+    });
+  }, [applyLocationFilter, location.pathname, location.state, navigate, openCoachMatchSurvey]);
 
   useEffect(() => {
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
+
+  useEffect(() => {
+    if (getStoredLocation()) return;
+    requestCurrentLocation();
+  }, [requestCurrentLocation]);
+
+  useEffect(() => {
+    if (!playerToken) {
+      setCoachMatchQuestions([]);
+      return;
+    }
+
+    void loadCoachMatchQuestions();
+  }, [loadCoachMatchQuestions, playerToken]);
 
   const fetchCoaches = useCallback(async () => {
     if (!playerToken) {
@@ -407,26 +762,31 @@ const FindCoaches = () => {
       return;
     }
 
+    if (!position) {
+      if (!hasResolvedInitialLocation) {
+        setStatus("loading");
+        return;
+      }
+
+      setCoaches([]);
+      setStatus("ready");
+      setMode("error");
+      setError("Enable location permission to see coaches near your current location.");
+      return;
+    }
+
     setStatus("loading");
     setError(null);
+
     try {
-      const radiusValue = parseRadius(appliedRadius);
       const searchValue = appliedSearchTerm.trim();
       const params = new URLSearchParams({
         perPage: "12",
         page: "1",
         search: searchValue,
       });
-      if (typeof radiusValue === "number") {
-        params.set("radius", radiusValue.toString());
-      }
-      const locationSearchValue =
-        locationFilter && !locationFilter.isCurrentLocation
-          ? locationFilter.label.trim()
-          : "";
-      if (locationSearchValue) {
-        params.set("locationSearch", locationSearchValue);
-      }
+      params.set("radius", appliedRadius.toString());
+
       const positionPayload =
         position && typeof position.latitude === "number" && typeof position.longitude === "number"
           ? {
@@ -436,19 +796,24 @@ const FindCoaches = () => {
               longitudeDelta: 0.25,
             }
           : null;
-      const response = await api(
-        `player/getchecklocation?${params.toString()}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-          },
-          json: {
-            position: positionPayload,
-          },
-          authToken: playerToken,
+
+      // When a place is chosen from Google autocomplete, use its coordinates for lookup
+      // instead of sending the human-readable place label in the query string.
+      if (!positionPayload) {
+        const locationSearchValue = locationSearchTerm.trim();
+        if (locationSearchValue) params.set("locationSearch", locationSearchValue);
+      }
+
+      const response = await api(`player/getchecklocation?${params.toString()}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
         },
-      );
+        json: {
+          position: positionPayload,
+        },
+        authToken: playerToken,
+      });
 
       if (response.status === 404) {
         setCoaches([]);
@@ -462,19 +827,24 @@ const FindCoaches = () => {
       }
 
       const payload = await response.json();
-      const normalized = extractCoachArray(payload).map((coach, index) =>
-        mapCoachRecordToCard(coach, index),
+      const baseCards = extractCoachArray(payload).map((coach, index) => mapCoachRecordToCard(coach, index));
+      const normalized = await Promise.all(
+        baseCards.map(async (coach) => {
+          try {
+            const profile = await fetchCoachProfile(coach.id);
+            return mergeCoachProfileIntoCard(coach, profile as Record<string, unknown>);
+          } catch {
+            return coach;
+          }
+        }),
       );
       setCoaches(normalized);
       setMode(normalized.length > 0 ? "normal" : "empty");
     } catch (requestError) {
-      console.error("Failed to load coaches", requestError);
       setCoaches([]);
       setMode("error");
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "We couldn't load coaches right now.",
+        requestError instanceof Error ? requestError.message : "We couldn't load coaches right now.",
       );
     } finally {
       setStatus("ready");
@@ -482,9 +852,9 @@ const FindCoaches = () => {
   }, [
     appliedRadius,
     appliedSearchTerm,
+    hasResolvedInitialLocation,
     playerToken,
-    locationFilter?.label,
-    locationFilter?.isCurrentLocation,
+    locationSearchTerm,
     position?.latitude,
     position?.longitude,
   ]);
@@ -493,40 +863,58 @@ const FindCoaches = () => {
     fetchCoaches();
   }, [fetchCoaches]);
 
-  const themeVars = useMemo(
-    () => ({
-      "--fc-color-bg": colors.pageBackground,
-      "--fc-color-surface": colors.surface,
-      "--fc-color-text-primary": colors.primaryText,
-      "--fc-color-text-secondary": colors.secondaryText,
-      "--fc-color-text-muted": colors.mutedText,
-      "--fc-color-border": colors.border,
-      "--fc-color-icon": colors.icon,
-      "--fc-color-accent": colors.accentPurple,
-      "--fc-color-accent-light": colors.accentPurpleLight,
-      "--fc-color-accent-border": colors.accentPurpleBorder,
-      "--fc-chip-bg": colors.filterChipBg,
-      "--fc-chip-hover-bg": colors.filterChipHover,
-      "--fc-chip-text": colors.secondaryButtonText,
-      "--fc-color-secondary-border": colors.secondaryButtonBorder,
-      "--fc-color-secondary-text": colors.secondaryButtonText,
-      "--fc-color-secondary-hover": colors.secondaryButtonHover,
-      "--fc-color-success": colors.primarySuccess,
-      "--fc-color-success-hover": colors.primarySuccessHover,
-      "--fc-color-error-bg": colors.errorBg,
-      "--fc-color-error-border": colors.errorBorder,
-      "--fc-color-error-text": colors.errorText,
-      "--fc-color-empty-icon-bg": colors.emptyIconBg,
-      "--fc-color-skeleton-base": colors.skeletonBase,
-      "--fc-color-skeleton-highlight": colors.skeletonHighlight,
-      "--fc-font-family": typography.fontFamily,
-      "--fc-heading-size": typography.heading1.size,
-      "--fc-heading-line-height": typography.heading1.lineHeight,
-      "--fc-body-size": typography.body.size,
-      "--fc-body-line-height": typography.body.lineHeight,
-    }),
-    []
+  const handleCoachMatchSurveyFinished = useCallback(
+    async (answers: Array<Record<string, unknown>>) => {
+      if (!playerToken || coachMatchSubmitting) return;
+
+      setCoachMatchSubmitting(true);
+      setCoachMatchError(null);
+
+      try {
+        await submitCoachMatchSurveyAnswers({
+          token: playerToken,
+          surveyAnswers: buildSurveySubmissionPayload(answers, coachMatchQuestions),
+        });
+        await loadCoachMatchQuestions();
+        await fetchCoaches();
+        setCoachMatchSummaryDismissed(false);
+        setCoachMatchSubmitted(true);
+      } catch (requestError) {
+        setCoachMatchError(
+          requestError instanceof Error
+            ? requestError.message
+            : "We couldn't submit your coach match answers right now.",
+        );
+      } finally {
+        setCoachMatchSubmitting(false);
+      }
+    },
+    [coachMatchQuestions, coachMatchSubmitting, fetchCoaches, loadCoachMatchQuestions, playerToken],
   );
+
+  const clearCoachMatchSummary = useCallback(async () => {
+    if (!playerToken || coachMatchClearing) return;
+
+    setCoachMatchClearing(true);
+    setCoachMatchError(null);
+
+    try {
+      await clearCoachMatchSurveyAnswers({ token: playerToken });
+      setCoachMatchQuestions([]);
+      setCoachMatchSummaryDismissed(true);
+      setCoachMatchSubmitted(false);
+      await loadCoachMatchQuestions();
+      await fetchCoaches();
+    } catch (requestError) {
+      setCoachMatchError(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't clear your coach match answers right now.",
+      );
+    } finally {
+      setCoachMatchClearing(false);
+    }
+  }, [coachMatchClearing, fetchCoaches, loadCoachMatchQuestions, playerToken]);
 
   const handleSearch = () => {
     const trimmed = searchTerm.trim();
@@ -538,7 +926,7 @@ const FindCoaches = () => {
     setAppliedSearchTerm(trimmed);
   };
 
-  const handleRadiusChange = (radius: string) => {
+  const handleRadiusChange = (radius: number) => {
     setSelectedRadius(radius);
     setMode("normal");
     if (radius === appliedRadius) {
@@ -548,225 +936,512 @@ const FindCoaches = () => {
     setAppliedRadius(radius);
   };
 
-  const resetState = () => {
+  const resetFilters = () => {
     setSearchTerm("");
-    setSelectedRadius(radiusOptions[1]);
-    const shouldRefetchImmediately =
-      appliedSearchTerm === "" && appliedRadius === radiusOptions[1];
     setAppliedSearchTerm("");
-    setAppliedRadius(radiusOptions[1]);
+    setSelectedRadius(DEFAULT_RADIUS);
+    setAppliedRadius(DEFAULT_RADIUS);
     applyLocationFilter(null);
-    setMode("normal");
-    if (shouldRefetchImmediately) {
-      fetchCoaches();
-    }
   };
 
-  const filteredCoaches = useMemo(() => {
-    if (mode !== "normal") {
-      return [];
-    }
-    return coaches;
-  }, [coaches, mode]);
+  const handleFilterChange = useCallback(
+    ({ type, value }: { type: string; value?: unknown }) => {
+      if (type === "location") {
+        const locationValue = value as
+          | { formatted_address?: string; short_label?: string; lat?: number; lng?: number }
+          | undefined;
+        const latitude = locationValue?.lat;
+        const longitude = locationValue?.lng;
+        if (typeof latitude === "number" && typeof longitude === "number") {
+          applyLocationFilter({
+            label: locationValue?.short_label || locationValue?.formatted_address || "Selected location",
+            latitude,
+            longitude,
+          });
+        }
+        return;
+      }
 
-  const handleQuestionnaireComplete = useCallback(() => {
-    setMode("normal");
-    fetchCoaches();
-  }, [fetchCoaches]);
+      if (type === "name") {
+        const nextName = typeof value === "string" ? value : "";
+        setSearchTerm(nextName);
+        setAppliedSearchTerm(nextName.trim());
+        setMode("normal");
+        return;
+      }
+
+      if (type === "clear") {
+        resetFilters();
+      }
+    },
+    [applyLocationFilter],
+  );
+
+  const filteredCoaches = useMemo(() => {
+    if (mode !== "normal") return [];
+
+    return [...coaches].sort((a, b) => {
+      if (sortBy === "match") {
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        if ((a.distanceMiles ?? Number.MAX_SAFE_INTEGER) !== (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)) {
+          return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
+        }
+        return b.rating - a.rating;
+      }
+      if (sortBy === "rating") return b.rating - a.rating;
+      if (sortBy === "price_asc") return (a.hourlyRateValue ?? Number.MAX_SAFE_INTEGER) - (b.hourlyRateValue ?? Number.MAX_SAFE_INTEGER);
+      if (sortBy === "price_desc") return (b.hourlyRateValue ?? 0) - (a.hourlyRateValue ?? 0);
+      return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
+    });
+  }, [coaches, mode, sortBy]);
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
 
-  const resultsCountLabel = (() => {
-    if (status === "loading") {
-      return "Finding coaches…";
+  const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
+  const coachMatchSummaryItems = useMemo(
+    () => getCoachMatchSummaryItems(coachMatchQuestions),
+    [coachMatchQuestions],
+  );
+  const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
+  const shouldShowCoachMatchSummary =
+    !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
+
+  useEffect(() => {
+    if (hasSavedCoachMatchPreferences && sortBy === "distance") {
+      setSortBy("match");
+      return;
     }
-    if (shouldShowError) {
-      return "Unable to load coaches";
+
+    if (!hasSavedCoachMatchPreferences && sortBy === "match") {
+      setSortBy("distance");
     }
-    if (shouldShowEmpty) {
-      return "No coaches found";
-    }
-    if (shouldShowResults) {
-      return `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} found`;
-    }
-    return "Finding coaches…";
-  })();
+  }, [hasSavedCoachMatchPreferences, sortBy]);
+
+  const coachMatchMaxScore = useMemo(
+    () => Math.max(...filteredCoaches.map((coach) => coach.matchScore), 1),
+    [filteredCoaches],
+  );
+  const shouldNormalizeCoachScores = coachMatchMaxScore <= 25;
+  const resultsCountLabel =
+    status === "loading"
+      ? "Finding coaches..."
+      : shouldShowError
+        ? "Unable to load coaches"
+        : shouldShowEmpty
+          ? "No coaches found"
+          : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
+  const renderCoachMatchPanel = () =>
+    shouldShowCoachMatchSummary ? (
+      <section className="fcv2-coach-match-summary" aria-label="Matched for you">
+        <span className="fcv2-coach-match-summary__title">🎾 Matched for you</span>
+        {coachMatchSummaryItems.map((item) => (
+          <div key={item.label} className="fcv2-coach-match-summary__pill">
+            <span className="fcv2-coach-match-summary__pill-label">{item.label}</span>
+            <span className="fcv2-coach-match-summary__pill-separator">·</span>
+            <span className="fcv2-coach-match-summary__pill-value">{item.value}</span>
+          </div>
+        ))}
+        <div className="fcv2-coach-match-summary__actions">
+          <button type="button" className="fcv2-coach-match-summary__edit" onClick={openCoachMatchSurvey}>
+            Edit ✏️
+          </button>
+          <button type="button" className="fcv2-coach-match-summary__clear" onClick={clearCoachMatchSummary}>
+            {coachMatchClearing ? "Clearing..." : "Clear"}
+          </button>
+        </div>
+      </section>
+    ) : (
+      <section className="fcv2-coach-match-banner" aria-label="Find my coach">
+        <div className="fcv2-coach-match-banner__icon" aria-hidden="true">🎾</div>
+        <div className="fcv2-coach-match-banner__content">
+          <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
+          <div className="fcv2-coach-match-banner__copy">
+            Answer 5 quick questions and we&apos;ll find your best match.
+          </div>
+          <div className="fcv2-coach-match-banner__actions">
+            <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
+              Find my coach →
+            </button>
+          </div>
+        </div>
+      </section>
+    );
 
   return (
-    <MainLayout>
-      <div className="find-coaches-page" style={themeVars}>
-        <div className="find-coaches-page__inner">
-          <CoachMatchQuestionnaire onComplete={handleQuestionnaireComplete} />
+    <MainLayout mobileChrome="home" desktopChrome="home">
+      <div className="fcv2-page">
+        <section className="fcv2-mobile-search-block">
+          <div className="fcv2-mobile-title-row">
+            <div>
+              <h1>Find a Coach</h1>
+              <p>{resultsCountLabel}</p>
+            </div>
 
-          <ResultsHeader
-            title="Find Coaches"
-            description="Connect with certified tennis professionals in your area."
-          />
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="fcv2-mobile-sort">
+              <option value="match">Best Match</option>
+              <option value="distance">Nearest</option>
+              <option value="rating">Top Rated</option>
+              <option value="price_asc">Price ↑</option>
+              <option value="price_desc">Price ↓</option>
+            </select>
+          </div>
 
-          <FilterBar
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearch={handleSearch}
-            locationLabel={locationLabel}
-            onLocationClick={() => {
-              setGeoError("");
-              setShowLocationPicker((prev) => {
-                if (!prev) {
-                  setLocationSearchTerm(locationFilter?.label ?? "");
-                }
-                return !prev;
-              });
-            }}
-            isLocationPickerOpen={showLocationPicker}
-            radiusOptions={radiusOptions}
-            selectedRadius={selectedRadius}
-            onRadiusChange={handleRadiusChange}
-          />
-
-          {showLocationPicker ? (
-            <section className="fp-location-panel" id="coach-location-picker" aria-label="Location picker">
-              <Autocomplete
-                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                placeholder="Search for a city, club, or court"
-                className="fp-autocomplete-input"
-                value={locationSearchTerm}
-                onChange={(event) => setLocationSearchTerm(event.target.value)}
-                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
-                  if (!place) {
-                    setGeoError("Please choose a location from the suggestions.");
-                    return;
-                  }
-
-                  const lat = place.geometry?.location?.lat?.();
-                  const lng = place.geometry?.location?.lng?.();
-                  const label =
-                    place.formatted_address || place.name || locationSearchTerm || "Custom location";
-
-                  if (
-                    typeof lat === "number" &&
-                    !Number.isNaN(lat) &&
-                    typeof lng === "number" &&
-                    !Number.isNaN(lng)
-                  ) {
-                    applyLocationFilter({ label, latitude: lat, longitude: lng });
-                  } else {
-                    setGeoError("We couldn't read that location's coordinates. Try another search.");
-                  }
+          <div className="fcv2-mobile-search-row">
+            <div className="fcv2-mobile-search-input">
+              <Search size={16} />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleSearch();
                 }}
-                options={{
-                  types: ["geocode", "establishment"],
-                  fields: ["formatted_address", "geometry", "name", "address_components"],
-                }}
+                placeholder="Search by name, specialty, court..."
+                aria-label="Search coaches"
               />
+            </div>
 
-              <div className="fp-location-actions">
-                <button
-                  type="button"
-                  className="fp-location-detect"
-                  onClick={detectCurrentLocation}
-                  disabled={isDetectingLocation}
-                >
-                  {isDetectingLocation ? "Detecting location..." : "Use my current location"}
-                </button>
-                <div className="fp-location-secondary-actions">
-                  {hasLocationFilter ? (
-                    <button
-                      type="button"
-                      className="fp-location-secondary"
-                      onClick={() => applyLocationFilter(null)}
-                    >
-                      Clear location
-                    </button>
-                  ) : null}
-                  <button type="button" className="fp-location-secondary" onClick={closeLocationPicker}>
-                    Close
-                  </button>
+            <div className="fcv2-mobile-search-filter">
+              <FilterMenu
+                onFilterChange={handleFilterChange}
+                userPos={{
+                  latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                  longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+                }}
+                showName
+                radius={selectedRadius}
+                onRadiusChange={handleRadiusChange}
+                isCoachSearch
+                token={playerToken ?? undefined}
+                compact
+              />
+            </div>
+          </div>
+
+          {locationPermissionPrompt ? (
+            <section className="fcv2-location-permission-banner" aria-label="Location permission">
+              <div>
+                <strong>Enable location</strong>
+                <p>{locationPermissionPrompt}</p>
+              </div>
+              <button type="button" onClick={requestCurrentLocation} disabled={isResolvingCurrentLocation}>
+                {isResolvingCurrentLocation ? "Checking..." : "Enable location"}
+              </button>
+            </section>
+          ) : null}
+        </section>
+
+        <section className="fcv2-mobile-banner-block">
+          {renderCoachMatchPanel()}
+        </section>
+
+        <div className="fcv2-shell">
+          <section className="fcv2-page-head">
+            <div className="fcv2-page-head-copy">
+              <h1>Find a Coach</h1>
+              <p>
+                <span>📍 {locationShortLabel}</span>
+                <span>·</span>
+                <span>{resultsCountLabel}</span>
+              </p>
+            </div>
+
+            <div className="fcv2-page-head-actions">
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="fcv2-sort-select"
+                aria-label="Sort coaches"
+              >
+                <option value="match">Best match</option>
+                <option value="distance">Nearest first</option>
+                <option value="rating">Top rated</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="fcv2-search-panel">
+            <div className="fcv2-search-bar">
+              <Search size={18} />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleSearch();
+                }}
+                placeholder="Search by coach name, court, or specialty"
+                aria-label="Search coaches"
+              />
+              <button type="button" onClick={handleSearch}>
+                Search
+              </button>
+            </div>
+
+            {locationPermissionPrompt ? (
+              <section className="fcv2-location-permission-banner" aria-label="Location permission">
+                <div>
+                  <strong>Enable location</strong>
+                  <p>{locationPermissionPrompt}</p>
                 </div>
-              </div>
+                <button type="button" onClick={requestCurrentLocation} disabled={isResolvingCurrentLocation}>
+                  {isResolvingCurrentLocation ? "Checking..." : "Enable location"}
+                </button>
+              </section>
+            ) : null}
 
-              <div className="fp-location-summary">
-                <h4>Selected location</h4>
-                {locationFilter ? (
-                  <p>{locationFilter.label}</p>
-                ) : position ? (
-                  <p>
-                    Lat {position.latitude.toFixed(4)}, Lng {position.longitude.toFixed(4)}
-                  </p>
-                ) : (
-                  <p>No location selected yet.</p>
-                )}
-              </div>
+            {renderCoachMatchPanel()}
+            <FilterMenu
+              onFilterChange={handleFilterChange}
+              userPos={{
+                latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+              }}
+              showName
+              radius={selectedRadius}
+              onRadiusChange={handleRadiusChange}
+              isCoachSearch
+              token={playerToken ?? undefined}
+              compact
+            />
+          </section>
 
-              {geoError ? <p className="fp-location-error">{geoError}</p> : null}
-              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-                <p className="fp-location-tip">
-                  Tip: Provide a Google Places API key to enable location search suggestions.
-                </p>
-              ) : null}
+          {status === "loading" ? (
+            <section className="fcv2-grid coach-match-page__grid">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <article key={index} className="coach-match-card coach-match-card--skeleton" aria-hidden="true" />
+              ))}
             </section>
           ) : null}
 
-          <span className="fc-results-count">{resultsCountLabel}</span>
+          {shouldShowError ? (
+            <section className="fcv2-state">
+              <div className="fcv2-state-icon">!</div>
+              <h2>We couldn't load coaches right now</h2>
+              <p>{error ?? "Please try again in a few minutes or adjust your filters."}</p>
+              <button type="button" onClick={resetFilters}>
+                Retry search
+              </button>
+            </section>
+          ) : null}
 
-          {status === "loading" && (
-            <div className="coach-grid">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <CoachCardSkeleton key={index} />
-              ))}
-            </div>
-          )}
+          {shouldShowEmpty && !shouldShowError ? (
+            <section className="fcv2-state">
+              <div className="fcv2-state-icon">🎾</div>
+              <h2>No coaches match these filters</h2>
+              <p>Broaden your distance, clear filters, or try a different focus area.</p>
+              <button type="button" onClick={resetFilters}>
+                Reset filters
+              </button>
+            </section>
+          ) : null}
 
-          {shouldShowError && (
-            <StateBanner
-              tone="error"
-              title="We couldn't load coaches right now"
-              message={error ?? "Please try again in a few minutes or adjust your filters."}
-              action={
-                <button type="button" className="fc-button fc-button--primary" onClick={resetState}>
-                  Retry search
-                </button>
-              }
-            />
-          )}
+          {shouldShowResults ? (
+            <section className="fcv2-grid coach-match-page__grid">
+              {filteredCoaches.map((coach) => {
+                const matchPercent = shouldNormalizeCoachScores
+                  ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
+                  : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
+                const hasStrongMatch = matchPercent >= 80;
+                const hasMidMatch = matchPercent >= 50 && matchPercent < 80;
+                const chipValues = [
+                  ...coach.specialties.slice(0, 3).map((value) => ({ value, tone: "neutral" as const })),
+                  ...coach.formats.slice(0, 1).map((value) => ({ value, tone: "format" as const })),
+                ].slice(0, 4);
+                const reasons = coach.matchReasons.slice(0, 3);
+                const primaryRate = formatMoney(coach.hourlyRateValue);
+                const groupRate = formatMoney(coach.groupRateValue);
+                const ratingLabel = coach.rating > 0 ? coach.rating.toFixed(1) : "New";
 
-          {shouldShowEmpty && !shouldShowError && (
-            <StateBanner
-              tone="empty"
-              title="No coaches match these filters"
-              message="Broaden your distance, clear filters, or try a different focus area."
-              action={
-                <button type="button" className="fc-button fc-button--secondary" onClick={resetState}>
-                  Reset filters
-                </button>
-              }
-            />
-          )}
+                return (
+                  <article key={coach.id} className="coach-match-card coach-match-card--find">
+                    <div className="coach-match-card__head">
+                      <div className="coach-match-card__identity-row">
+                        <div className="coach-match-card__avatar-wrap">
+                          {coach.imageUrl ? (
+                            <img src={coach.imageUrl} alt={coach.name} className="coach-match-card__avatar-image" />
+                          ) : (
+                            <div className="coach-match-card__avatar-fallback">{coach.initials}</div>
+                          )}
+                          {coach.verified ? <span className="coach-match-card__verified-badge">✓</span> : null}
+                        </div>
 
-          {shouldShowResults && (
-            <div className="coach-grid">
-              {filteredCoaches.map((coach: Coach) => (
-                <CoachCard
-                  key={coach.id}
-                  coach={coach}
-                  onBook={(nextCoach) => {
-                    setSelectedCoach(nextCoach);
-                  }}
-                />
-              ))}
-            </div>
-          )}
+                        <div className="coach-match-card__identity-copy">
+                          <h2>{coach.name}</h2>
+
+                          <div className="coach-match-card__stats">
+                            <span className="coach-match-card__rating">
+                              <Star size={13} fill="currentColor" />
+                              {ratingLabel}
+                            </span>
+                            {coach.reviewCount > 0 ? <span>({coach.reviewCount})</span> : null}
+                            <span className="coach-match-card__stats-dot" />
+                            <span>{formatDistance(coach.distanceMiles)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="coach-match-card__price-row">
+                        {coach.certifications.length > 0 ? (
+                          <div className="coach-match-card__certifications">
+                            {coach.certifications.slice(0, 2).map((certification) => (
+                              <span key={`${coach.id}-${certification}`}>{certification}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div />
+                        )}
+
+                        <div className="coach-match-card__price">
+                          <div className="coach-match-card__price-main">
+                            <span className="coach-match-card__price-currency">$</span>
+                            <strong>{primaryRate ? primaryRate.replace("$", "") : "N/A"}</strong>
+                          </div>
+                          <span>{groupRate ? `/hr · group ${groupRate}` : "/hr"}</span>
+                        </div>
+                      </div>
+
+                      {matchPercent > 0 ? (
+                        <div
+                          className={[
+                            "coach-match-card__score-badge",
+                            hasStrongMatch ? "is-strong" : "",
+                            hasMidMatch ? "is-mid" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <Sparkles size={14} />
+                          <strong>{matchPercent}%</strong>
+                          <span>match</span>
+                        </div>
+                      ) : null}
+
+                      <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
+                    </div>
+
+                    {chipValues.length > 0 ? (
+                      <div className="coach-match-card__chips">
+                        {chipValues.map(({ value, tone }) => (
+                          <span
+                            key={`${coach.id}-${tone}-${value}`}
+                            className={tone === "format" ? "coach-match-card__chip coach-match-card__chip--format" : "coach-match-card__chip"}
+                          >
+                            {value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {reasons.length > 0 ? (
+                      <div className="coach-match-card__breakdown">
+                        <div className="coach-match-card__breakdown-title">Why this coach matches</div>
+                        <ul>
+                          {reasons.map((reason) => (
+                            <li key={`${coach.id}-${reason}`}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    <div className="coach-match-card__footer">
+                      <div className="coach-match-card__availability">
+                        <span className={`coach-match-card__availability-dot ${(coach.availableSlotCount ?? 0) > 0 ? "is-open" : ""}`} />
+                        <div>
+                          <strong>
+                            {coach.availableSlotCount && coach.availableSlotCount > 0
+                              ? `${coach.availableSlotCount} slot${coach.availableSlotCount === 1 ? "" : "s"} available`
+                              : "Availability on request"}
+                          </strong>
+                          <span>{coach.courts[0] || coach.cityLabel || "Home court not listed"}</span>
+                        </div>
+                      </div>
+
+                      <Link
+                        to={`/coaches/${coach.id}`}
+                        state={{ findCoachesState: findCoachesStateSnapshot }}
+                        className="coach-match-card__action coach-match-card__action--ghost"
+                      >
+                        View profile
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          ) : null}
         </div>
-        {selectedCoach ? (
-          <BookLessonModal
-            coach={selectedCoach}
-            onClose={() => {
-              setSelectedCoach(null);
-            }}
-          />
+
+        {showCoachMatchSurvey ? (
+          <div className="fcv2-coach-match-modal" onClick={() => setShowCoachMatchSurvey(false)}>
+            <div className="fcv2-coach-match-modal__card" onClick={(event) => event.stopPropagation()}>
+              <div className="fcv2-coach-match-modal__head">
+                <div>
+                  <p>Coach match</p>
+                  <h2>Find my coach</h2>
+                  {coachMatchQuestions.length > 0 ? (
+                    <span>
+                      Question {coachMatchCurrentIndex + 1} of {coachMatchQuestions.length}
+                    </span>
+                  ) : null}
+                </div>
+                <button type="button" onClick={() => setShowCoachMatchSurvey(false)} aria-label="Close coach match survey">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {coachMatchLoading ? (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>Loading questionnaire…</h3>
+                </div>
+              ) : coachMatchSubmitted ? (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>Your coach match profile is saved</h3>
+                  <p>We&apos;ll use these answers to improve your coach recommendations.</p>
+                  <div className="fcv2-coach-match-modal__actions">
+                    <button
+                      type="button"
+                      className="fcv2-coach-match-modal__ghost"
+                      onClick={() => setShowCoachMatchSurvey(false)}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      className="fcv2-coach-match-banner__button"
+                      onClick={() => {
+                        setShowCoachMatchSurvey(false);
+                        navigate("/coach-match/recommendations");
+                      }}
+                    >
+                      View matches
+                    </button>
+                  </div>
+                </div>
+              ) : coachMatchError ? (
+                <div className="fcv2-coach-match-modal__state fcv2-coach-match-modal__state--error">
+                  <AlertTriangle size={22} aria-hidden="true" />
+                  <h3>Unable to load coach questions</h3>
+                  <p>{coachMatchError}</p>
+                </div>
+              ) : coachMatchQuestions.length > 0 ? (
+                <SimpleSurvey
+                  survey={coachMatchQuestions}
+                  onCurrentQuestionIndexChange={setCoachMatchCurrentIndex}
+                  onSurveyFinished={handleCoachMatchSurveyFinished}
+                />
+              ) : (
+                <div className="fcv2-coach-match-modal__state">
+                  <h3>No coach questionnaire available</h3>
+                </div>
+              )}
+            </div>
+          </div>
         ) : null}
+
       </div>
     </MainLayout>
   );

@@ -1,2294 +1,3205 @@
 .coach-profile-page {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0 0 96px;
-  background: radial-gradient(140% 140% at 0% 0%, #f8faff 0%, #eef2ff 45%, #f7f9ff 100%);
-  --profile-surface: rgba(248, 250, 255, 0.92);
-  --profile-surface-strong: rgba(244, 247, 255, 0.98);
-  --profile-hero-gradient: linear-gradient(135deg, rgba(248, 250, 255, 0.98) 0%, rgba(235, 240, 255, 0.94) 55%, rgba(248, 250, 255, 0.98) 100%);
-  --profile-card-shadow: 0 36px 80px -48px rgba(15, 23, 42, 0.35), 0 18px 50px -36px rgba(79, 70, 229, 0.2);
-  --profile-border: #e4e9ff;
-  --profile-soft-border: #eff1ff;
-  --profile-chip-bg: #f3f5ff;
-  --profile-chip-border: #e0e7ff;
-  --profile-chip-text: #475467;
-  --profile-metric-bg: linear-gradient(145deg, rgba(248, 250, 255, 0.98) 0%, rgba(241, 245, 255, 0.9) 75%);
-  --profile-metric-border: #e3e9ff;
-  --profile-metric-icon-bg: #ecfdf3;
-  --profile-metric-icon-color: #16a34a;
-  --profile-heading: #0f172a;
-  --profile-body: #475467;
-  --profile-muted: #64748b;
-  --profile-badge-bg: #dcfce7;
-  --profile-badge-color: #047857;
-  --profile-booking-border: #e4e9ff;
-  --profile-booking-shadow: 0 32px 70px -36px rgba(79, 70, 229, 0.28);
-  --profile-booking-surface: var(--profile-surface-strong);
-  --profile-booking-subtle: rgba(236, 240, 255, 0.7);
-  --profile-slot-border: #e0e5ff;
-  --profile-slot-active-border: #6366f1;
-  --profile-slot-active-bg: rgba(99, 102, 241, 0.08);
-  --profile-slot-active-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 18px 32px -28px rgba(79, 70, 229, 0.35);
-  --profile-pill-border: #d9e2ff;
-  --profile-pill-bg: rgba(226, 232, 255, 0.6);
-  --profile-pill-active-bg: #22c55e;
-  --profile-pill-active-color: #ffffff;
-  --profile-purple: #6366f1;
-  --profile-purple-soft: #eef2ff;
-  --profile-green: #22c55e;
-  --profile-green-dark: #16a34a;
-  --profile-slot-private-bg: linear-gradient(135deg, #f4f8ff 0%, var(--profile-surface-strong) 76%);
-  --profile-slot-private-bg-active: linear-gradient(135deg, #e9f1ff 0%, rgba(244, 247, 255, 0.98) 80%);
-  --profile-slot-private-border: rgba(96, 165, 250, 0.42);
-  --profile-slot-private-pill-bg: #dbeafe;
-  --profile-slot-private-pill-color: #1d4ed8;
-  --profile-slot-private-spot: #1d4ed8;
-  --profile-slot-group-bg: linear-gradient(135deg, #f0f9ff 0%, var(--profile-surface-strong) 70%);
-  --profile-slot-group-bg-active: linear-gradient(135deg, #e0f2fe 0%, rgba(244, 247, 255, 0.98) 78%);
-  --profile-slot-group-border: rgba(14, 165, 233, 0.26);
-  --profile-slot-group-pill-bg: #bae6fd;
-  --profile-slot-group-pill-color: #0284c7;
-  --profile-slot-group-spot: #0369a1;
-  color: var(--profile-heading);
-  overflow-x: clip;
-  overscroll-behavior-x: none;
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #1e293b;
+  padding-bottom: 48px;
 }
 
-@supports not (overflow-x: clip) {
-  .coach-profile-page {
-    overflow-x: hidden;
-  }
+.coach-profile-page--loading {
+  padding: 32px 20px 80px;
 }
 
-@media (min-width: 1024px) {
-  .coach-profile-page {
-    padding: 0 0 120px;
-  }
-}
-
-
-.coach-profile-page__inner {
-  width: 100%;
-  max-width: 1240px;
+.coach-profile-loading-card {
+  max-width: 1280px;
+  height: 560px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  padding: 0 20px;
-  box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  .coach-profile-page__inner {
-    padding: 0 24px;
-  }
-}
-
-.coach-profile-content {
-  display: flex;
-  flex-direction: column;
-  gap: 64px;
-}
-
-
-.coach-profile-hero {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  background: var(--profile-hero-gradient);
-  border-bottom: 1px solid var(--profile-border);
-  box-shadow: 0 40px 120px -80px rgba(79, 70, 229, 0.55);
-  padding: 20px 0 64px;
-  overflow: hidden;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-hero {
-    padding: 28px 0 88px;
-  }
-}
-
-.coach-profile-hero__inner {
-  width: 100%;
-  max-width: 1240px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  align-items: flex-start;
-}
-
-@media (min-width: 1280px) {
-  .coach-profile-hero__inner {
-    max-width: 1240px;
-    gap: 48px;
-  }
-}
-
-
-.coach-profile-hero__identity {
-  padding: 8px 0;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-hero__identity {
-    align-self: flex-start;
-    max-width: 760px;
-    width: 100%;
-  }
-}
-
-.coach-profile-body {
-  position: relative;
-  margin-top: -96px;
-  padding: 0 0 120px;
-  box-sizing: border-box;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-body {
-    margin-top: -144px;
-    padding: 0 0 140px;
-  }
-}
-
-.coach-profile-body__inner {
-  width: 100%;
-  max-width: 1240px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-
-/* Skeleton */
-@keyframes coachProfilePulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.coach-profile-skeleton {
   border-radius: 28px;
-  border: 1px solid var(--coach-color-border);
-  background: var(--coach-color-surface);
-  padding: 40px;
-  box-shadow: 0 30px 50px -30px rgba(15, 23, 42, 0.35), 0 25px 40px -32px rgba(15, 23, 42, 0.16);
-  animation: coachProfilePulse 1.8s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(237, 233, 254, 0.7));
+  border: 1px solid #e2e8f0;
 }
 
-.coach-profile-skeleton__body {
+.coach-profile-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 24px 32px;
+}
+
+.coach-profile-shell--layout {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 18px;
 }
 
-@media (min-width: 1024px) {
-  .coach-profile-skeleton__body {
-    flex-direction: row;
-  }
-}
-
-.coach-profile-skeleton__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.coach-profile-skeleton__identity-row {
-  display: flex;
-  gap: 24px;
-}
-
-.coach-profile-skeleton__avatar {
-  width: 96px;
-  height: 96px;
-  border-radius: 24px;
-  background: var(--coach-color-highlight);
-}
-
-.coach-profile-skeleton__identity {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.coach-profile-skeleton__line {
-  height: 14px;
-  border-radius: 999px;
-  background: var(--coach-color-highlight);
-}
-
-.coach-profile-skeleton__line--name {
-  width: 200px;
-}
-
-.coach-profile-skeleton__line--meta {
-  width: 150px;
-}
-
-.coach-profile-skeleton__line--short {
-  width: 60%;
-}
-
-.coach-profile-skeleton__chip-row {
-  display: flex;
-  gap: 12px;
-}
-
-.coach-profile-skeleton__chip {
-  width: 96px;
-  height: 36px;
-  border-radius: 18px;
-  background: var(--coach-color-highlight);
-}
-
-.coach-profile-skeleton__paragraph {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.coach-profile-skeleton__cards {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 16px;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-skeleton__cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.coach-profile-skeleton__card {
-  height: 160px;
-  border-radius: 24px;
-  background: var(--coach-color-highlight);
-}
-
-.coach-profile-skeleton__aside {
-  width: 100%;
-  max-width: 340px;
-}
-
-.coach-profile-skeleton__panel {
-  height: 420px;
-  border-radius: 24px;
-  background: var(--coach-color-highlight);
-}
-
-/* Empty state */
 .coach-profile-empty {
-  border-radius: 28px;
-  border: 2px dashed var(--coach-color-border);
-  background: var(--coach-color-surface);
+  max-width: 720px;
+  margin: 48px auto 0;
   padding: 48px;
+  border-radius: 28px;
+  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.96);
   text-align: center;
-  box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 32px 80px -56px rgba(15, 23, 42, 0.35);
 }
 
 .coach-profile-empty__icon {
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 20px;
   border-radius: 50%;
-  background: var(--coach-color-highlight);
-  color: var(--coach-color-accent);
+  display: grid;
+  place-items: center;
+  background: #ede9fe;
+  color: #7c3aed;
 }
 
 .coach-profile-empty__title {
-  margin: 24px 0 0;
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--coach-color-heading);
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
 }
 
 .coach-profile-empty__copy {
-  margin: 16px auto 0;
-  max-width: 420px;
-  font-size: 15px;
+  margin: 14px 0 0;
+  color: #64748b;
   line-height: 1.6;
-  color: var(--coach-color-body);
 }
 
 .coach-profile-empty__action {
-  margin-top: 32px;
+  margin-top: 24px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  border-radius: 9999px;
-  border: 1px solid var(--coach-color-border);
-  background: var(--coach-color-surface);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--coach-color-accent);
-  transition: border-color 0.18s ease, color 0.18s ease;
-}
-
-.coach-profile-empty__action:hover {
-  border-color: var(--coach-color-accent);
-  color: var(--coach-color-cta);
-}
-
-.coach-profile-layout {
-  display: grid;
-  gap: 40px;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-layout {
-    grid-template-columns: minmax(280px, 360px) minmax(560px, 1fr);
-    align-items: start;
-    gap: 48px;
-  }
-}
-
-@media (min-width: 1280px) {
-  .coach-profile-layout {
-    grid-template-columns: minmax(300px, 380px) minmax(760px, 1fr);
-    gap: 64px;
-  }
-}
-
-.coach-profile-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.coach-profile-identity {
-  display: flex;
-  flex-direction: column;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-identity {
-    grid-area: identity;
-    max-width: 640px;
-  }
-}
-
-.coach-profile-identity__avatar-block {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-identity__avatar-block {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 36px;
-    justify-content: flex-start;
-    align-items: start;
-    padding-right: 40px;
-  }
-}
-
-.coach-profile-identity__avatar {
-  width: 132px;
-  height: 132px;
-  border-radius: 32px;
-  object-fit: cover;
-  box-shadow: 0 20px 40px -30px rgba(15, 23, 42, 0.4);
-  border: 0;
-}
-
-@media (max-width: 639px) {
-  .coach-profile-identity__avatar {
-    width: 112px;
-    height: 112px;
-    border-radius: 28px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-identity__avatar {
-    width: 164px;
-    height: 164px;
-    border-radius: 40px;
-  }
-}
-
-.coach-profile-identity__details {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.coach-profile-identity__name-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-}
-
-.coach-profile-identity__name {
-  margin: 0;
-  font-size: 38px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: #8b5cf6;
+  color: #fff;
+  text-decoration: none;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--profile-heading);
 }
 
-.coach-profile-identity__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  background: var(--profile-badge-bg);
-  color: var(--profile-badge-color);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.coach-profile-identity__badge-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.coach-profile-identity__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 15px;
-  color: var(--profile-muted);
-  align-items: center;
-}
-
-.coach-profile-identity__meta-item {
-  color: var(--profile-muted);
-  font-size: 15px;
-}
-
-.coach-profile-identity__rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-profile-identity__rating-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.coach-profile-identity__reviews,
-.coach-profile-identity__title {
-  color: var(--profile-muted);
-}
-
-.coach-profile-identity__separator {
-  display: none;
-  color: var(--profile-muted);
-}
-
-@media (min-width: 640px) {
-  .coach-profile-identity__separator {
-    display: inline;
-  }
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-identity__separator {
-    display: inline;
-  }
-}
-
-.coach-profile-identity__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--profile-muted);
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-identity__chips {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-  }
-
-  .coach-profile-identity__chip {
-    white-space: nowrap;
-  }
-}
-
-.coach-profile-identity__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 9999px;
-  border: 1px solid var(--profile-chip-border);
-  background: var(--profile-chip-bg);
-  font-weight: 600;
-  color: var(--profile-chip-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.coach-profile-identity__chip-icon {
-  width: 14px;
-  height: 14px;
-  color: var(--profile-purple);
-}
-
-.coach-profile-certifications {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-@media (min-width: 1024px) {
-  .coach-profile-certifications {
-    grid-area: auto;
-  }
-}
-
-.coach-profile-certification {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 9999px;
-  border: 1px solid var(--profile-chip-border);
-  background: var(--profile-surface-strong);
-  box-shadow: 0 6px 18px -14px rgba(15, 23, 42, 0.45);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-profile-certification__icon {
-  width: 14px;
-  height: 14px;
-  color: var(--profile-green);
-}
-
-.coach-profile-sections {
+.coach-profile-layout-v2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
+  gap: 0;
+  align-items: start;
+  background: #fff;
+  border-inline: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  overflow: visible;
 }
 
-@media (min-width: 1280px) {
-  .coach-profile-sections {
-    gap: 32px;
-  }
+.coach-profile-main-v2 {
+  min-width: 0;
+  background: #fff;
 }
 
-.coach-profile-panel {
-  border-radius: 24px;
-  border: 1px solid var(--profile-border);
-  background: var(--profile-surface);
-  padding: 26px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 18px 40px -36px rgba(79, 70, 229, 0.18);
-}
-
-.coach-profile-panel--about {
-  padding: 30px;
-}
-
-.coach-profile-about__copy {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--profile-body);
-}
-
-.coach-profile-panel__header {
-  display: flex;
+.coach-profile-top-action {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.coach-profile-panel__title {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-profile-panel__icon {
-  width: 20px;
-  height: 20px;
-  color: var(--profile-purple);
-}
-
-.coach-profile-panel__copy {
-  margin: 0;
-  font-size: 14px;
-  color: var(--profile-muted);
-  line-height: 1.6;
-}
-
-.coach-profile-panel__chips {
-  display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-}
-
-.coach-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 9999px;
-  background: var(--profile-purple-soft);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--profile-purple);
-}
-
-.coach-profile-locations {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-size: 15px;
-  color: var(--profile-body);
-}
-
-.coach-profile-location {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.coach-profile-location__bullet {
-  width: 8px;
-  height: 8px;
-  margin-top: 6px;
-  border-radius: 50%;
-  background: var(--profile-green);
-}
-
-.coach-profile-lessons {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.coach-profile-lesson {
-  border-radius: 20px;
-  border: 1px solid var(--profile-border);
-  background: linear-gradient(180deg, var(--profile-surface-strong) 0%, rgba(248, 250, 255, 0.92) 85%);
-  padding: 18px;
-  box-shadow: 0 16px 32px -28px rgba(79, 70, 229, 0.32);
-}
-
-.coach-profile-packages {
-  margin-top: 28px;
-  padding: 24px;
-  border-radius: 24px;
-  border: 1px solid var(--profile-border);
-  background: linear-gradient(160deg, var(--profile-surface) 0%, var(--profile-surface-strong) 85%);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.coach-profile-packages__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.coach-profile-packages__intro {
-  flex: 1 1 240px;
-  min-width: 0;
-}
-
-.coach-profile-packages__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--profile-heading);
-}
-
-.coach-profile-packages__copy {
-  margin: 6px 0 0;
-  font-size: 14px;
-  color: var(--profile-muted);
-}
-
-.coach-profile-packages__badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  background: rgba(34, 197, 94, 0.16);
-  color: var(--profile-green-dark);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.coach-profile-packages__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.coach-profile-packages__status {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
-  border-radius: 20px;
-  border: 1px dashed rgba(99, 102, 241, 0.3);
-  background: rgba(244, 247, 255, 0.9);
-}
-
-.coach-profile-packages__status-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--profile-purple);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coach-profile-packages__status-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.coach-profile-packages__status-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
-.coach-profile-packages__status-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--profile-muted);
-}
-
-.coach-profile-packages__status-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.coach-profile-packages__status-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.coach-profile-packages__status-item--active {
-  border-color: rgba(34, 197, 94, 0.45);
-  background: rgba(236, 253, 245, 0.86);
-}
-
-.coach-profile-packages__status-item-main {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.coach-profile-packages__status-type {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-profile-packages__status-remaining {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--profile-purple);
-}
-
-.coach-profile-packages__status-item--active .coach-profile-packages__status-remaining {
-  color: var(--profile-green-dark);
-}
-
-.coach-profile-packages__status-meta {
-  font-size: 12px;
-  color: var(--profile-muted);
-}
-
-.coach-profile-packages__status-empty {
-  margin: 0;
-  font-size: 14px;
-  color: var(--profile-body);
-}
-
-.coach-profile-package {
-  border-radius: 20px;
-  border: 1px solid var(--profile-border);
-  background: var(--profile-surface-strong);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 14px 28px -26px rgba(79, 70, 229, 0.28);
-}
-
-.coach-profile-package__top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.coach-profile-package__discount {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--profile-purple);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.coach-profile-package__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--profile-heading);
-}
-
-.coach-profile-package__description {
-  margin: 0;
-  font-size: 14px;
-  color: var(--profile-body);
-  line-height: 1.5;
-}
-
-.coach-profile-package__pricing {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.coach-profile-package__total {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--profile-muted);
-}
-
-.coach-profile-package__per {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--profile-purple);
-}
-
-.coach-profile-packages__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  align-self: flex-start;
-  padding: 12px 22px;
-  border-radius: 9999px;
-  border: none;
-  background: var(--profile-purple);
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 18px 34px -26px rgba(79, 70, 229, 0.45);
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.coach-profile-packages__action svg {
-  width: 18px;
-  height: 18px;
-}
-
-.coach-profile-packages__action:hover {
-  background: #4f46e5;
-}
-
-.coach-profile-packages__action:active {
-  transform: translateY(1px);
-}
-
-.coach-profile-lesson__content {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: baseline;
-}
-
-.coach-profile-lesson__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-profile-lesson__description {
-  margin: 4px 0 0;
-  font-size: 14px;
-  color: var(--profile-muted);
-}
-
-.coach-profile-lesson__price {
-  text-align: right;
-  color: var(--profile-purple);
-}
-
-.coach-profile-lesson__amount {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.coach-profile-lesson__cadence {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--profile-muted);
-}
-
-.coach-profile-aside {
-  width: 100%;
-  max-width: none;
-  align-self: stretch;
-  border-radius: 36px;
-  border: 1px solid var(--profile-booking-border);
-  background: var(--profile-booking-surface);
-  padding: 48px 42px;
-  display: flex;
-  box-shadow: var(--profile-booking-shadow);
-  box-sizing: border-box;
-}
-
-@media (max-width: 1023px) {
-  .coach-profile-aside {
-    max-width: none;
-    padding: 32px 24px;
-  }
-}
-
-.coach-booking {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  width: 100%;
-}
-
-.coach-booking__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.coach-booking__header-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.coach-booking__title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--profile-heading);
-}
-
-.coach-booking__subtitle {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking__icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  padding: 8px;
-  background: var(--profile-purple-soft);
-  color: var(--profile-purple);
-  box-shadow: inset 0 -2px 0 rgba(99, 102, 241, 0.2);
-}
-
-.coach-booking__wallet {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.coach-booking__wallet-card {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  background: rgba(248, 250, 255, 0.88);
-  padding: 16px 18px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.coach-booking__wallet-card--active {
-  border-color: rgba(34, 197, 94, 0.45);
-  box-shadow: 0 22px 40px -32px rgba(34, 197, 94, 0.45);
-}
-
-.coach-booking__wallet-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--profile-purple);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.coach-booking__wallet-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.coach-booking__wallet-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.coach-booking__wallet-eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--profile-muted);
-}
-
-.coach-booking__wallet-copy {
-  margin: 0;
-  font-size: 14px;
-  color: var(--profile-body);
-}
-
-.coach-booking__wallet-detail {
-  font-size: 12px;
-  color: var(--profile-muted);
-}
-
-.coach-booking__wallet-action {
-  align-self: stretch;
-  justify-self: flex-start;
-  padding: 10px 16px;
-  border-radius: 9999px;
-  border: none;
-  background: var(--profile-purple);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-  white-space: nowrap;
-}
-
-.coach-booking__wallet-action:hover {
-  background: #4f46e5;
-}
-
-.coach-booking__wallet-action:active {
-  transform: translateY(1px);
-}
-
-.coach-booking__section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.coach-booking__section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.coach-booking__label-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.coach-booking__label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--profile-muted);
-}
-
-.coach-booking__label-note {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-
-.coach-booking__controls {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-
-.coach-booking__filter {
-  position: relative;
-}
-
-.coach-booking__filter-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  border: 1px solid var(--profile-slot-border);
-  background: var(--profile-surface-strong);
-  color: var(--profile-purple);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
-}
-
-.coach-booking__filter-trigger:hover {
-  transform: translateY(-1px);
-  border-color: var(--profile-slot-active-border);
-  box-shadow: 0 16px 30px -24px rgba(79, 70, 229, 0.32);
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.coach-booking__filter-trigger:focus-visible {
-  outline: 3px solid rgba(99, 102, 241, 0.2);
-  outline-offset: 2px;
-}
-
-.coach-booking__filter-trigger--active {
-  border-color: var(--profile-slot-active-border);
-  background: rgba(99, 102, 241, 0.12);
-  box-shadow: 0 18px 36px -28px rgba(79, 70, 229, 0.38);
-}
-
-.coach-booking__filter-icon {
-  width: 18px;
-  height: 18px;
-  color: currentColor;
-}
-
-.coach-booking__filter-dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  width: min(320px, 100vw - 48px);
-  max-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-radius: 20px;
-  border: 1px solid var(--profile-slot-border);
-  background: var(--profile-booking-surface);
-  box-shadow: 0 30px 60px -32px rgba(79, 70, 229, 0.4);
-  padding: 16px;
-  z-index: 10;
-}
-
-.coach-booking__filter--compact .coach-booking__filter-dropdown {
-  left: auto;
-  right: 0;
-}
-
-.coach-booking__filter-option {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: none;
+  border: 0;
   background: transparent;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.coach-booking__filter-option:hover {
-  background: rgba(99, 102, 241, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
-}
-
-.coach-booking__filter-option--active {
-  background: rgba(99, 102, 241, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.18);
-  color: var(--profile-heading);
-}
-
-.coach-booking__filter-option-primary {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.coach-booking__filter-option-secondary {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.coach-booking__filter-divider {
-  height: 1px;
-  width: 100%;
-  background: rgba(99, 102, 241, 0.12);
-}
-
-.coach-booking__filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.coach-booking__filter-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.coach-booking__filter-range-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-@media (min-width: 480px) {
-  .coach-booking__filter-range-inputs {
-    flex-direction: row;
-  }
-}
-
-.coach-booking__filter-field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.coach-booking__filter-field-caption {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--profile-muted);
-}
-
-.coach-booking__filter-error {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: #dc2626;
-}
-
-.coach-booking__filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.coach-booking__filter-clear,
-.coach-booking__filter-apply {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  padding: 10px 16px;
+  color: #475569;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
-.coach-booking__filter-clear {
-  border: 1px solid var(--profile-slot-border);
-  background: transparent;
-  color: var(--profile-purple);
-}
-
-.coach-booking__filter-clear:hover {
-  background: rgba(99, 102, 241, 0.08);
-  transform: translateY(-1px);
-}
-
-.coach-booking__filter-clear:focus-visible {
-  outline: 3px solid rgba(99, 102, 241, 0.2);
-  outline-offset: 2px;
-}
-
-.coach-booking__filter-apply {
-  border: none;
-  background: var(--profile-purple);
-  color: #ffffff;
-  box-shadow: 0 14px 30px -20px rgba(79, 70, 229, 0.55);
-}
-
-.coach-booking__filter-apply:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 38px -18px rgba(79, 70, 229, 0.6);
-}
-
-.coach-booking__filter-apply:focus-visible {
-  outline: 3px solid rgba(99, 102, 241, 0.2);
-  outline-offset: 2px;
-}
-
-.coach-booking__filter-option--custom {
-  background: rgba(34, 197, 94, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.18);
-}
-
-.coach-booking__filter-option--custom .coach-booking__filter-option-primary {
-  color: var(--profile-green-dark);
-}
-
-.coach-booking__filter-option--custom .coach-booking__filter-option-secondary {
-  color: var(--profile-muted);
-}
-
-
-.coach-booking__day-grid {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 6px 12px 12px;
-  margin: -6px -12px -12px;
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: 12px;
-}
-
-.coach-booking__day-grid::-webkit-scrollbar {
-  height: 6px;
-}
-
-.coach-booking__day-grid::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
-  border-radius: 999px;
-}
-
-.coach-booking__day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 10px;
-  min-height: 74px;
-  min-width: 104px;
-  border-radius: 16px;
-  border: 1px solid var(--profile-slot-border);
-  background: var(--profile-booking-subtle);
-  color: var(--profile-muted);
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
-  text-align: center;
-  scroll-snap-align: start;
-}
-
-.coach-booking__day:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.45);
-  outline-offset: 2px;
-}
-
-.coach-booking__day--active {
-  border-color: var(--profile-slot-active-border);
-  background: var(--profile-surface-strong);
-  box-shadow: 0 22px 40px -28px rgba(79, 70, 229, 0.32);
-  color: var(--profile-heading);
-  transform: translateY(-2px);
-}
-
-.coach-booking__day-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: inherit;
-}
-
-.coach-booking__day-date {
-  font-size: 12px;
-  font-weight: 500;
-  color: inherit;
-}
-
-.coach-booking__date-input {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid var(--profile-slot-border);
-  border-radius: 14px;
-  background: var(--profile-surface-strong);
-  width: 100%;
-  padding: 12px 14px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--profile-heading);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.coach-booking__date-input:focus {
-  outline: none;
-  border-color: var(--profile-slot-active-border);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
-}
-
-.coach-booking__date-input::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-}
-
-.coach-booking__lesson-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.coach-booking__lesson-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 20px;
-  border-radius: 999px;
-  border: 1px solid var(--profile-pill-border);
-  background: var(--profile-pill-bg);
-  color: var(--profile-purple);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.coach-booking__lesson-pill:hover {
-  transform: translateY(-1px);
-}
-
-.coach-booking__lesson-pill--active {
-  background: var(--profile-purple);
-  border-color: var(--profile-purple);
-  color: var(--profile-pill-active-color);
-  box-shadow: 0 16px 30px -20px rgba(99, 102, 241, 0.35);
-}
-
-.coach-booking__schedule {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.coach-booking__alert {
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  border: 1px solid transparent;
-}
-
-.coach-booking__alert--success {
-  color: #065f46;
-  background: #ecfdf3;
-  border-color: #bbf7d0;
-}
-
-.coach-booking__alert--error {
-  color: #991b1b;
-  background: #fef2f2;
-  border-color: #fecdd3;
-}
-
-.coach-booking__days {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.coach-booking-day {
-  border-radius: 28px;
-  border: 1px solid var(--profile-slot-border);
-  background: var(--profile-surface);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.coach-booking-day--active {
-  border-color: var(--profile-slot-active-border);
-  box-shadow: var(--profile-slot-active-shadow);
-}
-
-.coach-booking-day__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.coach-booking-day__titles {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.coach-booking-day__titles h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--profile-heading);
-}
-
-.coach-booking-day__titles span {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--profile-muted);
-}
-
-.coach-booking-day__count {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--profile-purple);
-}
-
-.coach-booking-day__slots {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.coach-booking-day__lessons {
-  margin-top: 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.coach-booking-day__lessons-title {
-  margin: 0;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.coach-booking-day__lessons-list {
-  display: grid;
-  gap: 12px;
-}
-
-.coach-booking-day__empty {
-  margin-top: 20px;
-  padding: 24px;
-  border-radius: 18px;
-  border: 1px dashed var(--profile-slot-border);
-  background: var(--profile-booking-subtle);
-  text-align: center;
-}
-
-.coach-booking-day__empty p {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking-slot {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--coach-slot-border, var(--profile-slot-border));
-  background: var(--coach-slot-bg, var(--profile-surface-strong));
-  color: var(--profile-heading);
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
-}
-
-.coach-booking-slot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: box-shadow 0.2s ease;
-  box-shadow: var(--coach-slot-outline, none);
-}
-
-.coach-booking-slot:hover {
-  transform: translateY(-1px);
-}
-
-
-.coach-booking-slot--private {
-  --coach-slot-bg: var(--profile-slot-private-bg);
-  --coach-slot-bg-active: var(--profile-slot-private-bg-active);
-  --coach-slot-border: var(--profile-slot-private-border);
-  --coach-slot-outline: 0 0 0 1px rgba(59, 130, 246, 0.22);
-  --coach-slot-pill-bg: var(--profile-slot-private-pill-bg);
-  --coach-slot-pill-color: var(--profile-slot-private-pill-color);
-  --coach-slot-price-color: var(--profile-slot-private-pill-color);
-  --coach-slot-spot-color: var(--profile-slot-private-spot);
-}
-
-.coach-booking-slot--group {
-  --coach-slot-bg: var(--profile-slot-group-bg);
-  --coach-slot-bg-active: var(--profile-slot-group-bg-active);
-  --coach-slot-border: var(--profile-slot-group-border);
-  --coach-slot-outline: 0 0 0 1px rgba(219, 39, 119, 0.24);
-  --coach-slot-pill-bg: var(--profile-slot-group-pill-bg);
-  --coach-slot-pill-color: var(--profile-slot-group-pill-color);
-  --coach-slot-price-color: var(--profile-slot-group-pill-color);
-  --coach-slot-spot-color: var(--profile-slot-group-spot);
-}
-
-.coach-booking-slot--active {
-  border-color: var(--profile-slot-active-border);
-  background: var(--coach-slot-bg-active, var(--profile-slot-active-bg));
-  box-shadow: var(--profile-slot-active-shadow);
-  transform: translateY(-1px);
-}
-
-.coach-booking-slot--active::before {
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.32);
-}
-
-.coach-booking-slot__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.coach-booking-slot__range {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.coach-booking-slot__price {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--coach-slot-price-color, var(--profile-purple));
-  white-space: nowrap;
-}
-
-.coach-booking-slot__details {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking-slot__separator {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  display: inline-flex;
-}
-
-.coach-booking-slot__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--coach-slot-pill-bg, var(--profile-pill-bg));
-  color: var(--coach-slot-pill-color, var(--profile-purple));
-  font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-}
-
-.coach-booking-slot__badge::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.coach-booking-slot__badge--reserved {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.coach-booking-slot__spots {
-  color: var(--coach-slot-spot-color, var(--profile-purple));
-  font-weight: 600;
-}
-
-.coach-booking-slot__group-title {
-  display: inline-flex;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--profile-heading);
-}
-
-.coach-booking-slot__location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-booking-slot__location-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--coach-slot-pill-color, var(--profile-purple));
-}
-
-.coach-booking-slot__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-}
-
-.coach-booking-slot__book {
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--profile-purple);
-  color: #fff;
-  border: none;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  min-width: 140px;
-}
-
-.coach-booking-slot__book:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.2);
-}
-
-.coach-booking-slot__book:disabled {
-  opacity: 0.65;
+.coach-profile-top-action:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
+}
+
+.coach-profile-top-action--outline {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  padding: 9px 16px;
+}
+
+.coach-profile-top-action--mobile-only,
+.coach-profile-mobile-meta {
+  display: none;
+}
+
+.coach-profile-compact-bar {
+  display: none;
+}
+
+.coach-profile-fixed-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-chrome-header {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 40px;
+}
+
+.coach-profile-hero-v2,
+.coach-profile-section,
+.coach-profile-price-card,
+.coach-booking-card {
+  background: #fff;
+  border: 0;
   box-shadow: none;
 }
 
-.coach-booking-slot__status {
+.coach-profile-hero-v2,
+.coach-profile-section,
+.coach-profile-price-card,
+.coach-booking-card,
+.coach-credit-strip {
+  border-radius: 0;
+}
+
+.coach-profile-hero-v2 {
+  padding: 36px 40px 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-hero-v2__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.coach-profile-hero-v2__avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.coach-profile-hero-v2__avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.coach-profile-hero-v2__avatar--fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.coach-profile-verified-badge {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #8b5cf6;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+}
+
+.coach-profile-hero-v2__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.coach-profile-hero-v2__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.coach-profile-hero-v2__header-copy {
+  min-width: 0;
+}
+
+.coach-profile-hero-v2__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.coach-profile-hero-v2__copy h1,
+.coach-profile-section__header h2,
+.coach-slot__card-head h3,
+.coach-package-card h3,
+.coach-booking-step h2 {
+  margin: 0;
+}
+
+.coach-profile-hero-v2__copy h1 {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.coach-profile-hero-v2__title {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.coach-profile-hero-v2__location-note {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.coach-profile-hero-v2__chips,
+.coach-chip-row,
+.coach-slot__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coach-profile-hero-v2__chips {
+  margin-top: 8px;
+}
+
+.coach-profile-hero-v2__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.coach-profile-hero-v2__stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.coach-profile-hero-v2__stats span + span::before {
+  content: "•";
+  color: #cbd5e1;
+  margin: 0 10px;
+}
+
+.coach-profile-bio {
+  margin: 20px 0 0;
+  color: #475569;
+  line-height: 1.75;
+  font-size: 14.5px;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 760px;
+}
+
+.coach-profile-bio--expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow: visible;
+}
+
+.coach-profile-hero-v2__eyebrow,
+.coach-package-card__eyebrow,
+.coach-profile-price-card__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.coach-profile-inline-link {
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.coach-profile-section {
+  padding: 36px 40px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-profile-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.coach-profile-section__header h2 {
+  font-size: 13px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.coach-profile-section__header--compact h2 {
+  color: #0f172a;
+  font-size: 18px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.coach-profile-booking-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fff;
+  outline: none;
+}
+
+.coach-profile-booking-rail--focus .coach-booking-card {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid rgba(139, 92, 246, 0.42);
+  outline-offset: -3px;
+  box-shadow: 0 0 0 8px rgba(139, 92, 246, 0.12);
+  animation: coach-booking-focus-pulse 1.1s ease-in-out 3;
+}
+
+.coach-profile-booking-rail--desktop {
+  display: none;
+}
+
+.coach-profile-booking-rail--mobile {
+  margin-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.coach-credit-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 20px;
+  background: #ede9fe;
+  border-top: 1px solid #ddd6fe;
+  border-bottom: 1px solid #ddd6fe;
+}
+
+.coach-credit-strip strong {
+  display: block;
+  font-size: 14px;
+}
+
+.coach-credit-strip small {
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.coach-credit-strip button {
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.coach-profile-price-card {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-profile-price-card__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.coach-profile-price-card__value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.coach-profile-price-card h3 {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.coach-profile-price-card__unit {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.coach-profile-price-card__sub {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+.coach-profile-availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.coach-profile-availability__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.coach-profile-availability--open {
+  color: #15803d;
+}
+
+.coach-profile-availability--open .coach-profile-availability__dot {
+  background: #22c55e;
+}
+
+.coach-credit-strip__copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coach-credit-strip__copy span {
+  font-size: 13px;
+  font-weight: 800;
+  color: #6d28d9;
+}
+
+.coach-credit-strip__copy small {
+  display: block;
+}
+
+.coach-booking-card {
+  padding: 20px 24px 24px;
+}
+
+.coach-booking-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+
+.coach-booking-toggle button,
+.coach-day-chip,
+.coach-choice-chip,
+.coach-primary-button,
+.coach-secondary-button,
+.coach-payment-option,
+.coach-slot button,
+.coach-empty-card__actions button,
+.coach-calendar-actions a {
+  font: inherit;
+}
+
+.coach-booking-toggle button {
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  border-radius: 8px;
+  color: #64748b;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.coach-booking-toggle button.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 8px 20px -18px rgba(15, 23, 42, 0.35);
+}
+
+.coach-day-strip {
+  margin-top: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.coach-day-chip {
+  min-width: fit-content;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 9px;
+  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.coach-day-chip.is-active {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+  color: #fff;
+}
+
+.coach-day-chip--icon {
+  min-width: 46px;
+  padding: 8px 10px;
+  border-width: 1.5px;
+  border-radius: 12px;
+}
+
+.coach-day-chip__icon-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.coach-date-picker {
+  margin-top: 14px;
+}
+
+.coach-date-picker input,
+.coach-form-group textarea,
+.coach-form-group input {
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: #fff;
+  color: #0f172a;
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.coach-slot-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coach-slot {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+}
+
+.coach-slot--private {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  transition: 0.15s;
+  text-align: left;
+  background: #fff;
+}
+
+.coach-slot--private:disabled {
+  cursor: default;
+}
+
+.coach-slot__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.coach-slot__time,
+.coach-slot__description,
+.coach-slot__footer p,
+.coach-slot__footer small {
+  margin: 0;
+}
+
+.coach-slot__time {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.coach-slot__time-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+.coach-slot__time-row .coach-slot__time {
+  margin-bottom: 0;
+}
+
+.coach-slot__time-row .coach-profile-pill {
+  flex-shrink: 0;
+}
+
+.coach-slot__meta {
+  margin-top: 8px;
   color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.coach-slot__meta--private {
+  margin-top: 0;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #94a3b8;
+}
+
+.coach-slot__meta--private .coach-slot__meta-location {
+  color: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coach-slot__meta--private .coach-slot__meta-location::before {
+  content: "📍";
+  margin-right: 4px;
+}
+
+.coach-slot__meta--private span + span::before {
+  content: "·";
+  margin: 0 6px 0 4px;
+  color: #cbd5e1;
+}
+
+.coach-slot__meta--compact {
+  margin-top: 0;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.coach-slot__meta--compact .coach-slot__meta-location::before {
+  content: "📍";
+  margin-right: 4px;
+  color: inherit;
+}
+
+.coach-slot__meta--compact span + span::before {
+  content: "·";
+  margin: 0 6px 0 4px;
+  color: #cbd5e1;
+}
+
+.coach-slot__meta--compact .coach-slot__meta-location {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coach-slot__meta--compact span:last-child {
+  flex-shrink: 0;
+}
+
+.coach-slot__meta-location::before {
+  content: "•";
+  color: #f97316;
+  margin-right: 6px;
+}
+
+.coach-slot__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.coach-slot__actions strong,
+.coach-slot__card-head strong,
+.coach-total-box strong {
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.coach-slot__actions--stack strong {
+  margin-bottom: 5px;
+}
+
+.coach-slot__actions--private-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coach-slot__private-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.coach-slot button,
+.coach-empty-card__actions button,
+.coach-primary-button,
+.coach-secondary-button,
+.coach-payment-option {
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.coach-slot button,
+.coach-primary-button,
+.coach-payment-option,
+.coach-empty-card__actions button:not(.is-secondary),
+.coach-payment-modal__confirm {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+  padding: 10px 14px;
+}
+
+.coach-slot__button {
+  border: 0;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coach-slot__button:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.coach-slot__button--private {
+  background: transparent;
+  color: #8b5cf6;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 0;
+}
+
+.coach-slot__button--private.coach-slot__button--status {
+  color: #64748b;
+}
+
+.coach-slot__button--group {
+  width: 100%;
+  padding: 9px;
+  font-size: 13px;
+}
+
+.coach-slot__card-head,
+.coach-slot__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.coach-slot__card-head h3 {
+  font-size: 14px;
+}
+
+.coach-slot__footer {
+  align-items: end;
+  margin-top: 8px;
+}
+
+.coach-slot__footer p {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.coach-slot__footer small {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.coach-slot__price-stack {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.coach-slot__price-stack small {
+  display: block;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.coach-empty-card {
+  margin-top: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  background: #f8fafc;
+  padding: 22px;
+  color: #475569;
+}
+
+.coach-empty-card--purple {
+  border-style: solid;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.coach-empty-card strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.coach-empty-card p {
+  margin: 3px 0 0;
+  line-height: 1.4;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.coach-empty-card__emoji {
+  margin-bottom: 8px;
+  font-size: 28px;
+}
+
+.coach-empty-card__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.coach-empty-card__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.coach-empty-card__actions .is-secondary,
+.coach-secondary-button,
+.coach-payment-option--card,
+.coach-payment-option--credit {
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  color: #475569;
+}
+
+.coach-package-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.coach-package-section {
+  margin: 0 0 12px;
+  padding: 18px 16px;
+  background: #fff;
+}
+
+.coach-package-summary {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1.5px solid #ddd6fe;
+  border-radius: 14px;
+  background: #ede9fe;
+}
+
+.coach-package-summary__eyebrow {
+  margin-bottom: 10px;
+  color: #8b5cf6;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.coach-package-summary__body {
+  display: flex;
+  gap: 10px;
+}
+
+.coach-package-summary__count {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.coach-package-summary__count strong {
+  display: block;
+  color: #8b5cf6;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.coach-package-summary__count span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.coach-package-summary__body p {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.coach-package-section__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.coach-package-section__intro h2 {
+  margin: 0 0 3px;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.coach-package-section__intro p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.coach-package-filters {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.coach-package-filters button {
+  padding: 6px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.coach-package-filters button.is-active {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+  color: #8b5cf6;
+}
+
+.coach-package-card {
+  position: relative;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.coach-package-card:hover,
+.coach-package-card:focus-within {
+  border-color: #c4b5fd;
+  box-shadow: 0 10px 24px -20px rgba(124, 58, 237, 0.45);
+}
+
+.coach-package-card--featured {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+}
+
+.coach-package-card__button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coach-package-card__ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 3px 10px;
+  border-bottom-left-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.coach-package-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.coach-package-card__top h3 {
+  margin: 0 0 3px;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.coach-package-card__sub {
+  margin: 0;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.coach-package-card__price-total {
+  text-align: right;
+}
+
+.coach-package-card__price-total strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.coach-package-card--featured .coach-package-card__price-total strong {
+  color: #8b5cf6;
+}
+
+.coach-package-card__price-total small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.coach-package-card__meta {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.coach-package-card__eyebrow {
+  margin: 8px 0 0;
+  color: #8b5cf6;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.coach-detail-table {
+  display: grid;
+}
+
+.coach-profile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.coach-profile-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.coach-profile-stat-card__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  color: #475569;
+}
+
+.coach-profile-stat-card span {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.coach-profile-stat-card strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.coach-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+}
+
+.coach-detail-row + .coach-detail-row {
+  border-top: 1px solid #e2e8f0;
+}
+
+.coach-court-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  background: #fbfdff;
+}
+
+.coach-detail-row span,
+.coach-detail-stack h3,
+.coach-court-card span,
+.coach-summary-table span,
+.coach-total-box span,
+.coach-field-note {
+  color: #64748b;
+}
+
+.coach-detail-row strong {
+  font-size: 14px;
+  text-align: right;
+}
+
+.coach-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 0;
+}
+
+.coach-detail-stack h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 700;
+}
+
+.coach-profile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coach-profile-pill--purple {
+  background: #ede9fe;
+  border-color: #ddd6fe;
+  color: #7c3aed;
+}
+
+.coach-profile-pill--white {
+  background: #fff;
+  border-color: #dbe3ef;
+  color: #475569;
+}
+
+.coach-profile-pill--soft {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.coach-profile-pill--blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.coach-profile-pill--green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.coach-profile-pill--amber,
+.coach-profile-pill--gold {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.coach-court-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.coach-court-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.coach-court-card strong {
+  display: block;
+}
+
+.coach-court-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  color: #475569;
+}
+
+.coach-court-card__icon--primary {
+  background: #ede9fe;
+  border-color: #ddd6fe;
+  color: #7c3aed;
+}
+
+.coach-profile-sticky-chrome {
+  position: relative;
+  top: auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 40px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-tab {
+  border: 0;
+  border-bottom: 2.5px solid transparent;
+  background: transparent;
+  color: #64748b;
+  padding: 14px 0;
+  margin-right: 24px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.coach-profile-tab--active {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+
+.coach-profile-section--packages {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.coach-profile-section__header--packages {
+  margin-top: 24px;
+  margin-bottom: 14px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 640px) {
+  .coach-package-summary__body {
+    align-items: stretch;
+  }
+
+  .coach-package-summary__count {
+    min-width: 110px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .coach-profile-layout-v2 {
+    grid-template-columns: minmax(0, 1fr) 400px;
+  }
+
+  .coach-profile-main-v2 {
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-hero-v2__copy,
+  .coach-profile-section__header,
+  .coach-profile-stat-grid,
+  .coach-detail-stack,
+  .coach-court-grid {
+    max-width: 760px;
+    width: 100%;
+  }
+
+  .coach-profile-booking-rail--desktop {
+    display: flex;
+    position: sticky;
+    top: 76px;
+    align-self: start;
+    min-height: calc(100vh - 76px);
+    border-left: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-booking-rail--mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .coach-profile-shell {
+    padding: 16px;
+  }
+
+  .coach-profile-layout-v2 {
+    border-radius: 20px;
+  }
+
+  .coach-profile-hero-v2__identity,
+  .coach-profile-hero-v2__header,
+  .coach-slot--private,
+  .coach-slot__card-head,
+  .coach-slot__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .coach-profile-hero-v2__actions {
+    align-items: flex-start;
+  }
+
+  .coach-profile-sticky-chrome {
+    padding: 0 20px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-court-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-slot--private {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .coach-slot__actions--compact {
+    align-self: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .coach-profile-page {
+    padding-bottom: 104px;
+    background: #f8fafc;
+  }
+
+  .coach-profile-shell {
+    padding: 0;
+  }
+
+  .coach-profile-layout-v2 {
+    border: 0;
+    border-radius: 0;
+    background: #f8fafc;
+  }
+
+  .coach-profile-main-v2 {
+    background: #f8fafc;
+    border-right: 0;
+  }
+
+  .coach-profile-fixed-chrome {
+    position: sticky;
+    top: 60px;
+    z-index: 80;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-chrome-header {
+    min-height: 56px;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-compact-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .coach-profile-compact-bar__identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .coach-profile-compact-bar__avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .coach-profile-compact-bar__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .coach-profile-compact-bar__avatar--fallback {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .coach-profile-compact-bar__verified-badge {
+    position: absolute;
+    right: -2px;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #8b5cf6;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .coach-profile-compact-bar__verified-badge svg {
+    width: 8px;
+    height: 8px;
+  }
+
+  .coach-profile-compact-bar__copy {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  .coach-profile-compact-bar__copy strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .coach-profile-compact-bar__meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    min-height: 15px;
+    font-size: 10px;
+    color: #94a3b8;
+  }
+
+  .coach-profile-compact-bar__meta span:first-child {
+    color: #7c3aed;
+    font-weight: 700;
+  }
+
+  .coach-profile-compact-bar__price {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 1px;
+    flex-shrink: 0;
+    color: #0f172a;
+  }
+
+  .coach-profile-compact-bar__price-currency {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .coach-profile-compact-bar__price-value {
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .coach-profile-compact-bar__price-unit {
+    font-size: 10px;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+
+  .coach-profile-top-action {
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .coach-profile-top-action--mobile-only {
+    display: inline-flex;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 9px;
+    background: #fff;
+  }
+
+  .coach-profile-hero-v2,
+  .coach-profile-section,
+  .coach-booking-card,
+  .coach-profile-price-card {
+    padding: 18px 16px;
+  }
+
+  .coach-profile-chrome-header,
+  .coach-profile-hero-v2,
+  .coach-profile-section,
+  .coach-booking-card,
+  .coach-profile-price-card {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .coach-credit-strip {
+    padding: 14px 16px;
+    margin: 0 16px 12px;
+    border: 1px solid #ddd6fe;
+    border-radius: 14px;
+    background: #ede9fe;
+  }
+
+  .coach-profile-sticky-chrome {
+    padding: 0;
+    overflow-x: auto;
+    justify-content: space-between;
+    border-top: 0;
+  }
+
+  .coach-profile-tab {
+    flex: 1;
+    margin-right: 0;
+    padding: 11px 4px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .coach-profile-hero-v2 {
+    margin: 0 0 12px;
+    padding: 14px 16px 12px;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .coach-profile-hero-v2__identity {
+    display: block;
+  }
+
+  .coach-profile-hero-v2__avatar-wrap,
+  .coach-profile-hero-v2__header {
+    display: none;
+  }
+
+  .coach-profile-hero-v2__copy {
+    display: block;
+  }
+
+  .coach-profile-hero-v2__copy h1 {
+    font-size: 14px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  .coach-profile-mobile-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .coach-profile-mobile-meta span:first-child {
+    color: #7c3aed;
+    font-weight: 700;
+  }
+
+  .coach-profile-hero-v2__actions,
+  .coach-profile-hero-v2__chips,
+  .coach-profile-hero-v2__stats {
+    display: none;
+  }
+
+  .coach-profile-bio {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #475569;
+    -webkit-line-clamp: 3;
+  }
+
+  .coach-profile-inline-link {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+
+  .coach-profile-booking-rail--mobile {
+    margin: 0 16px 12px;
+    border-top: 0;
+    background: transparent;
+  }
+
+  .coach-profile-price-card {
+    display: none;
+  }
+
+  .coach-booking-card {
+    margin: 0 0 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  }
+
+  .coach-booking-toggle {
+    border-radius: 12px;
+    margin-bottom: 18px;
+    background: #f1f5f9;
+  }
+
+  .coach-booking-toggle button {
+    padding: 10px;
+    border-radius: 9px;
+    font-size: 12px;
+  }
+
+  .coach-booking-toggle button.is-active {
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  }
+
+  .coach-day-strip {
+    gap: 7px;
+    margin-bottom: 16px;
+  }
+
+  .coach-day-chip {
+    border-radius: 12px;
+    min-width: 46px;
+    padding: 8px 10px;
+    border-width: 1.5px;
+  }
+
+  .coach-day-chip:first-child {
+    min-width: 40px;
+  }
+
+  .coach-slot-list {
+    gap: 10px;
+  }
+
+  .coach-slot--private {
+    gap: 8px;
+    padding: 12px 14px;
+    align-items: center;
+    background: #fff;
+    border-color: #e2e8f0;
+  }
+
+  .coach-slot__time {
+    font-size: 11px;
+    margin-bottom: 3px;
+  }
+
+  .coach-slot__meta--private {
+    font-size: 11px;
+  }
+
+  .coach-slot__meta--private .coach-profile-pill,
+  .coach-slot__meta .coach-profile-pill {
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 0;
+    font-size: 9px;
+    font-weight: 700;
+    gap: 4px;
+  }
+
+.coach-slot__button--private {
+  background: transparent;
+  color: #8b5cf6;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 0;
+}
+
+  .coach-slot__button--private.coach-slot__button--status {
+    color: #64748b;
+  }
+
+  .coach-slot__actions--private-rail {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-end;
+    text-align: right;
+    gap: 8px;
+  }
+
+  .coach-slot__private-price {
+    font-size: 11px !important;
+    color: #475569;
+    line-height: 1;
+  }
+
+  .coach-slot--group {
+    background: #fff;
+    border-color: #e2e8f0;
+  }
+
+  .coach-slot__card-head h3 {
+    font-size: 14px;
+  }
+
+  .coach-slot__footer {
+    margin-top: 10px;
+  }
+
+  .coach-slot__footer p {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .coach-slot__footer small {
+    font-size: 11px;
+  }
+
+  .coach-profile-section {
+    margin: 0 16px 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  }
+
+  .coach-profile-section--packages {
+    margin: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .coach-profile-section__header--packages {
+    margin-top: 18px;
+  }
+
+  .coach-profile-stat-grid {
+    gap: 10px;
+    grid-template-columns: 1fr;
+    margin-bottom: 20px;
+  }
+
+  .coach-profile-stat-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    text-align: left;
+    padding: 14px;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .coach-profile-stat-card__icon {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 0;
+    border-radius: 9px;
+    background: #f1f5f9;
+    flex-shrink: 0;
+  }
+
+  .coach-profile-stat-card span {
+    display: block;
+    font-size: 11px;
+  }
+
+  .coach-profile-stat-card strong {
+    display: block;
+    margin-top: 1px;
+    font-size: 13px;
+  }
+
+  .coach-detail-stack {
+    gap: 18px;
+  }
+
+  .coach-detail-stack h3 {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .coach-chip-row {
+    gap: 8px;
+  }
+
+  .coach-profile-pill {
+    padding: 1px 8px;
+    font-size: 8px;
+    font-weight: 800;
+  }
+
+  .coach-court-card {
+    padding: 14px;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  .coach-court-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+}
+
+.coach-booking-flow {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+}
+
+.coach-booking-flow__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.coach-booking-flow__panel {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 24px);
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 40px 120px -60px rgba(15, 23, 42, 0.55);
+}
+
+.coach-booking-flow__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eef2f7;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.coach-booking-flow__back,
+.coach-booking-flow__close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.coach-booking-step {
+  padding: 24px;
+}
+
+.coach-booking-step__coach-card,
+.coach-summary-table div,
+.coach-total-box,
+.coach-prefill-banner,
+.coach-upsell-card,
+.coach-policy-card {
+  border-radius: 20px;
+}
+
+.coach-booking-step__coach-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.coach-booking-step__coach-card img,
+.coach-booking-step__coach-card span {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.coach-booking-step__coach-card img {
+  object-fit: cover;
+}
+
+.coach-booking-step__coach-card span {
+  display: grid;
+  place-items: center;
+  background: #8b5cf6;
+  color: #fff;
+  font-weight: 800;
+}
+
+.coach-booking-step__coach-card p,
+.coach-booking-step__coach-card strong,
+.coach-form-group label,
+.coach-payment-option span,
+.coach-apple-pay-wordmark {
+  margin: 0;
+}
+
+.coach-prefill-banner {
+  margin-top: 16px;
+  background: #ede9fe;
+  color: #6d28d9;
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
+.coach-form-group {
+  margin-top: 18px;
+}
+
+.coach-form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coach-form-group textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.coach-choice-chip {
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  color: #475569;
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.coach-choice-chip.is-active {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.coach-primary-button,
+.coach-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.coach-booking-step__footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.coach-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.coach-secondary-button {
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  color: #475569;
+}
+
+.coach-primary-button--small,
+.coach-secondary-button--small {
+  width: auto;
+  padding: 10px 12px;
+}
+
+.coach-auth-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.coach-auth-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.coach-auth-sheet__panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  padding: 12px 20px 32px;
+  border-radius: 26px 26px 0 0;
+  background: #fff;
+  box-shadow: 0 -24px 70px rgba(15, 23, 42, 0.28);
+  animation: coach-auth-sheet-enter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.coach-auth-sheet__close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.coach-auth-sheet__handle {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.coach-auth-sheet__coach {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #ede9fe;
+}
+
+.coach-auth-sheet__coach img,
+.coach-auth-sheet__coach > span {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.coach-auth-sheet__coach img {
+  object-fit: cover;
+}
+
+.coach-auth-sheet__coach > span {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.coach-auth-sheet__coach small,
+.coach-auth-sheet__coach strong,
+.coach-auth-sheet__coach p {
+  display: block;
+  margin: 0;
+}
+
+.coach-auth-sheet__coach small {
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.coach-auth-sheet__coach strong {
+  margin-top: 2px;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.coach-auth-sheet__coach p {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.coach-auth-sheet__copy h2 {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.coach-auth-sheet__copy p {
+  margin: 0 0 22px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.coach-auth-sheet__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coach-auth-sheet__primary,
+.coach-auth-sheet__secondary {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.coach-auth-sheet__primary {
+  border: 0;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.coach-auth-sheet__secondary {
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #1e293b;
+}
+
+.coach-auth-sheet__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.coach-auth-sheet__divider span {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.coach-auth-sheet__legal {
+  margin: 18px 0 0;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@keyframes coach-auth-sheet-enter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes coach-auth-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (min-width: 768px) {
+  .coach-auth-sheet {
+    align-items: center;
+    padding: 32px;
+    background:
+      radial-gradient(circle at 50% 25%, rgba(139, 92, 246, 0.22), transparent 28%),
+      rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(5px);
+  }
+
+  .coach-auth-sheet__panel {
+    width: min(480px, calc(100vw - 64px));
+    padding: 30px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 28px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.34);
+    animation: coach-auth-modal-enter 0.24s ease-out;
+  }
+
+  .coach-auth-sheet__handle {
+    display: none;
+  }
+
+  .coach-auth-sheet__coach {
+    margin: 0 0 24px;
+    padding: 16px;
+  }
+
+  .coach-auth-sheet__coach img,
+  .coach-auth-sheet__coach > span {
+    width: 52px;
+    height: 52px;
+  }
+
+  .coach-auth-sheet__copy h2 {
+    max-width: 340px;
+    font-size: 26px;
+  }
+
+  .coach-auth-sheet__copy p {
+    margin-bottom: 26px;
+    font-size: 15px;
+  }
+
+  .coach-auth-sheet__primary,
+  .coach-auth-sheet__secondary {
+    min-height: 54px;
+  }
+}
+
+@keyframes coach-booking-focus-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 8px rgba(139, 92, 246, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(139, 92, 246, 0.18);
+  }
+}
+
+.coach-summary-table {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.coach-summary-table div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.coach-summary-table strong {
+  text-align: right;
+}
+
+.coach-total-box {
+  margin-top: 18px;
+  padding: 16px 18px;
+  background: #ede9fe;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-upsell-card {
+  position: relative;
+  margin-top: 18px;
+  padding: 18px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.coach-upsell-card p,
+.coach-upsell-card strong,
+.coach-upsell-card span {
+  display: block;
+}
+
+.coach-upsell-card strong {
+  margin-top: 6px;
+}
+
+.coach-upsell-card span {
+  margin-top: 6px;
+  color: #92400e;
+}
+
+.coach-upsell-card__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #92400e;
+}
+
+.coach-upsell-card__actions,
+.coach-calendar-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-upsell-card__actions {
+  margin-top: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coach-payment-option small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.coach-payment-option--apple {
+  background: #0f172a;
+  color: #fff;
+}
+
+.coach-apple-pay-wordmark {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.coach-field-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.coach-calendar-actions {
+  margin-top: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coach-policy-card {
+  margin-top: 18px;
+  padding: 16px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  line-height: 1.6;
+  text-align: left;
+  color: #92400e;
+  font-weight: 600;
 }
 
 .coach-payment-modal {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 140;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.56);
 }
 
 .coach-payment-modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(2px);
+  background: transparent;
 }
 
 .coach-payment-modal__panel {
   position: relative;
-  background: #fff;
-  width: min(560px, 100%);
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.22);
   z-index: 1;
+  width: min(560px, 100%);
+  height: min(844px, calc(100dvh - 24px));
+  border-radius: 28px;
+  background: #f8fafc;
+  box-shadow: 0 40px 120px -60px rgba(15, 23, 42, 0.55);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.coach-payment-modal__header {
+.coach-payment-modal__header,
+.coach-payment-modal__actions,
+.coach-payment-choice,
+.coach-payment-card,
+.coach-payment-modal__summary-coach {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+}
+
+.coach-payment-modal__header,
+.coach-payment-modal__actions {
   justify-content: space-between;
   gap: 12px;
 }
 
-.coach-payment-modal__eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 700;
+.coach-payment-modal__header {
+  padding: 14px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.coach-payment-modal__header-copy {
+  flex: 1;
+  text-align: center;
+}
+
+.coach-payment-modal__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .coach-payment-modal__title {
-  margin: 4px 0 0;
-  font-size: 22px;
-  color: #0f172a;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .coach-payment-modal__close {
-  background: #e2e8f0;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
   font-size: 18px;
+  line-height: 1;
   cursor: pointer;
+}
+
+.coach-payment-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+}
+
+.coach-payment-modal__status-stack {
   display: grid;
-  place-items: center;
-  color: #0f172a;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.coach-payment-modal__hint,
+.coach-payment-modal__error {
+  margin-top: 12px;
 }
 
 .coach-payment-modal__hint {
-  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.coach-payment-modal__error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.coach-payment-modal__summary,
+.coach-payment-modal__price-breakdown,
+.coach-payment-modal__empty {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.coach-payment-modal__summary {
+  margin-bottom: 12px;
+}
+
+.coach-payment-modal__summary-coach {
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__summary-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.coach-payment-modal__summary-avatar--fallback {
+  display: grid;
+  place-items: center;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.coach-payment-modal__summary-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.coach-payment-modal__summary-title {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coach-payment-modal__summary-details div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__summary-details div:last-child {
+  border-bottom: 0;
+}
+
+.coach-payment-modal__summary-details span {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.coach-payment-modal__summary-details strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: right;
+}
+
+.coach-payment-modal__section {
+  margin-bottom: 12px;
+}
+
+.coach-payment-modal__section-label,
+.coach-payment-modal__saved-label {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.coach-payment-modal__saved-label {
+  margin-top: 12px;
+}
+
+.coach-payment-modal__empty {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
   color: #475569;
 }
 
-.coach-payment-modal__choices {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 10px 0;
+.coach-payment-modal__empty strong {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.coach-payment-modal__empty p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coach-payment-modal__choices,
+.coach-payment-modal__list {
+  display: grid;
+  gap: 8px;
 }
 
 .coach-payment-choice {
-  display: flex;
   gap: 12px;
-  border: 1px solid #e2e8f0;
+  width: 100%;
+  padding: 13px 14px;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  align-items: flex-start;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
 }
 
 .coach-payment-choice input {
-  margin-top: 6px;
+  display: none;
 }
 
 .coach-payment-choice--active {
-  border-color: #22c55e;
-  box-shadow: 0 12px 28px rgba(34, 197, 94, 0.15);
-  background: linear-gradient(120deg, #f0fdf4, #ffffff);
+  border-color: #8b5cf6;
+  background: #ede9fe;
 }
 
 .coach-payment-choice--disabled {
-  opacity: 0.6;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.coach-payment-choice__icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .coach-payment-choice__body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex: 1;
 }
 
 .coach-payment-choice__title-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
 }
 
 .coach-payment-choice__title {
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
 }
 
 .coach-payment-choice__subtitle {
-  margin: 0;
-  color: #475569;
-}
-
-.coach-payment-choice__pill {
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #ecfeff;
-  color: #0e7490;
-  font-weight: 700;
+  margin: 2px 0 0;
   font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
-.coach-payment-modal__error {
-  color: #b91c1c;
-  font-weight: 600;
-}
-
-.coach-payment-modal__empty {
-  padding: 12px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
-  color: #475569;
-}
-
-.coach-payment-modal__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 320px;
-  overflow: auto;
+.coach-payment-choice__check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .coach-payment-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   width: 100%;
-  border: 1px solid #e2e8f0;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
   background: #fff;
-  border-radius: 14px;
-  padding: 12px 14px;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  text-align: left;
 }
 
 .coach-payment-card--active {
-  border-color: #6366f1;
-  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.18);
+  border-color: #8b5cf6;
+  background: #ede9fe;
 }
 
-.coach-payment-card__brand {
-  font-weight: 700;
-  color: #0f172a;
-  text-transform: capitalize;
+.coach-payment-card__brand-badge {
+  width: 36px;
+  height: 24px;
+  border-radius: 4px;
+  background: #1a1f71;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coach-payment-card__brand-mark {
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.coach-payment-card__last4 {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
 }
 
 .coach-payment-card__meta {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #475569;
-  font-weight: 600;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
 }
 
-.coach-payment-card__pill {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #4338ca;
-  font-weight: 700;
-  font-size: 12px;
+.coach-payment-card__expiry {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
-.coach-payment-modal__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-}
-
+.coach-payment-modal__add-card,
+.coach-payment-modal__empty a,
 .coach-payment-modal__link {
-  color: #4338ca;
-  font-weight: 700;
+  color: #8b5cf6;
+  font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
 }
 
-.coach-payment-modal__link:hover {
-  text-decoration: underline;
-}
-
-.coach-payment-modal__confirm {
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: none;
-  background: #0f172a;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  min-width: 160px;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-}
-
-.coach-payment-modal__confirm:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
-}
-
-.coach-payment-modal__confirm:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.coach-booking-slot__price-breakdown {
-  display: grid;
-  gap: 4px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--profile-slot-border);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--profile-muted);
-}
-
-.coach-booking-slot__pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.coach-payment-modal__add-card {
+  display: inline-block;
   margin-top: 8px;
-}
-
-.coach-booking-slot__pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.coach-booking-slot__pill--available {
-  background: rgba(34, 197, 94, 0.16);
-  color: #15803d;
-}
-
-.coach-booking-slot__pill--full {
-  background: rgba(239, 68, 68, 0.16);
-  color: #b91c1c;
-}
-
-.coach-booking-slot__pill--external {
-  background: rgba(59, 130, 246, 0.16);
-  color: #1d4ed8;
-}
-
-.coach-booking-slot__pill--neutral {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.coach-booking-slot__status-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-
-.coach-booking-slot__status-icon--confirmed {
-  background: rgba(16, 185, 129, 0.16);
-  color: #047857;
-}
-
-.coach-booking-slot__status-icon--pending {
-  background: rgba(251, 191, 36, 0.2);
-  color: #92400e;
-}
-
-.coach-booking-slot__status-icon--cancelled {
-  background: rgba(239, 68, 68, 0.18);
-  color: #b91c1c;
-}
-
-.coach-booking-slot__status-icon--available {
-  background: rgba(148, 163, 184, 0.2);
-  color: #475569;
 }
 
 .coach-payment-modal__price-breakdown {
   display: grid;
-  gap: 4px;
-  margin: 12px 0 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  font-size: 12px;
+  gap: 0;
+}
+
+.coach-payment-modal__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.coach-payment-modal__price-row span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.coach-payment-modal__price-row strong {
+  color: #475569;
+  font-size: 13px;
   font-weight: 600;
+}
+
+.coach-payment-modal__price-row--total {
+  border-bottom: 0;
+  padding: 13px 16px;
+}
+
+.coach-payment-modal__price-row--total span {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.coach-payment-modal__price-row--total strong {
+  color: #8b5cf6;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.coach-payment-modal__confirm {
+  border: 0;
+  border-radius: 14px;
+  padding: 15px;
+  font-weight: 800;
+  width: 100%;
+}
+
+.coach-payment-modal__actions {
+  padding: 12px 16px 28px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.coach-profile-upcoming-card {
+  display: grid;
+  gap: 12px;
+}
+
+.coach-profile-upcoming-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coach-profile-upcoming-card__count {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.coach-profile-upcoming-card__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.coach-profile-upcoming-list {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-profile-cancel-flow {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+}
+
+.coach-profile-cancel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.coach-profile-cancel-dialog {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100%, 520px);
+  max-height: 88%;
+  background: #f8fafc;
+  border-radius: 16px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.coach-profile-cancel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coach-profile-cancel-header--centered {
+  justify-content: center;
+}
+
+.coach-profile-cancel-back {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.coach-profile-cancel-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.coach-profile-cancel-body--success {
+  text-align: center;
+}
+
+.coach-profile-cancel-headline {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-copy {
+  margin: 0 0 22px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.coach-profile-cancel-session-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.coach-profile-cancel-session-card h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.coach-profile-cancel-session-list {
+  display: grid;
+  gap: 8px;
+}
+
+.coach-profile-cancel-session-list div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.coach-profile-cancel-refund-card,
+.coach-profile-cancel-note,
+.coach-profile-cancel-success-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.coach-profile-cancel-refund-card {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  margin-bottom: 18px;
+}
+
+.coach-profile-cancel-refund-card strong,
+.coach-profile-cancel-success-card strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.coach-profile-cancel-refund-card strong {
+  color: #15803d;
+}
+
+.coach-profile-cancel-refund-card p,
+.coach-profile-cancel-note p,
+.coach-profile-cancel-success-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.coach-profile-cancel-refund-card p {
+  color: #166534;
+}
+
+.coach-profile-cancel-note {
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+}
+
+.coach-profile-cancel-note p {
+  color: #334155;
+}
+
+.coach-profile-cancel-success-mark {
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  border: 3px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 900;
+}
+
+.coach-profile-cancel-success-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.coach-profile-cancel-success-card p {
+  color: #64748b;
+}
+
+.coach-profile-cancel-error {
+  margin: 12px 0 0;
+  color: #b42318;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.coach-profile-cancel-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.coach-profile-cancel-footer--single {
+  display: block;
+}
+
+.coach-profile-cancel-secondary,
+.coach-profile-cancel-primary {
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coach-profile-cancel-secondary {
+  flex: 1;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
   color: #475569;
 }
 
-.coach-booking__footer {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.coach-booking__note {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--profile-muted);
-}
-
-.coach-profile-book {
-  display: inline-flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 48px;
+.coach-profile-cancel-primary {
+  flex: 1.2;
   border: none;
-  border-radius: 20px;
-  background: var(--profile-green);
+  background: #dc2626;
   color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 20px 32px rgba(34, 197, 94, 0.25);
-  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.coach-profile-book:hover {
-  background: var(--profile-green-dark);
-}
-
-.coach-profile-book:disabled {
+.coach-profile-cancel-primary:disabled,
+.coach-profile-cancel-secondary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
-.coach-profile-book__icon {
-  width: 16px;
-  height: 16px;
-}
-
-
-.coach-profile-message {
-  display: inline-flex;
-  width: 100%;
+.coach-profile-upcoming-item {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--profile-border);
-  background: var(--profile-booking-subtle);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--profile-purple);
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
-.coach-profile-message:hover {
-  border-color: var(--profile-purple);
-  background: rgba(99, 102, 241, 0.08);
+.coach-profile-upcoming-item strong,
+.coach-profile-upcoming-item p {
+  margin: 0;
 }
 
-.coach-profile-message__icon {
-  width: 18px;
-  height: 18px;
-  color: currentColor;
-}
-
-@media (max-width: 640px) {
-  .coach-booking__wallet-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .coach-booking__wallet-action {
-    align-self: flex-start;
-  }
-
-  .coach-profile-packages__status {
-    flex-direction: column;
-  }
+.coach-profile-upcoming-item p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
 }

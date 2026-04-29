@@ -74,6 +74,46 @@ export interface PlayerFutureLessonsParams extends PaginationParams {
   signal?: AbortSignal;
 }
 
+export interface PlayerDiscoverNearbyFilters {
+  startDate?: string;
+  endDate?: string;
+  level?: string;
+  [key: string]: unknown;
+}
+
+export interface PlayerDiscoverNearbyParams {
+  token: string;
+  location?: PositionPayload;
+  radius?: number;
+  filters?: PlayerDiscoverNearbyFilters;
+  search?: string;
+  matchSearch?: string;
+  coachesPage?: number;
+  coachesPerPage?: number;
+  lessonsPage?: number;
+  lessonsPerPage?: number;
+  matchesPage?: number;
+  matchesPerPage?: number;
+  signal?: AbortSignal;
+}
+
+export interface PlayerDiscoverNearbyResponse {
+  search_area?: unknown;
+  coaches_availability?: {
+    data?: LessonSummary[] | Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  group_lessons?: {
+    data?: LessonSummary[] | Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  match_play?: {
+    data?: Record<string, unknown>[];
+    pagination?: Record<string, unknown>;
+  };
+  [key: string]: unknown;
+}
+
 export const getPlayerFutureLessons = async ({
   token,
   perPage,
@@ -89,6 +129,67 @@ export const getPlayerFutureLessons = async ({
       perPage: finalPerPage,
       page,
     },
+  });
+};
+
+export interface PlayerPastLessonsParams extends PaginationParams {
+  token: string;
+  lessonsPerPage?: number;
+  signal?: AbortSignal;
+}
+
+export const getPlayerPastLessons = async ({
+  token,
+  perPage,
+  lessonsPerPage,
+  page = 1,
+  signal,
+}: PlayerPastLessonsParams) => {
+  const finalPerPage = perPage ?? lessonsPerPage ?? 25;
+  return request<PaginatedResponse<LessonSummary>>("/player/past_lessons", {
+    token,
+    signal,
+    query: {
+      perPage: finalPerPage,
+      page,
+    },
+  });
+};
+
+export const getPlayerDiscoverNearby = async ({
+  token,
+  location,
+  radius = 5,
+  filters = {},
+  search = "",
+  matchSearch = "",
+  coachesPage = 1,
+  coachesPerPage = 10,
+  lessonsPage = 1,
+  lessonsPerPage = 10,
+  matchesPage = 1,
+  matchesPerPage = 10,
+  signal,
+}: PlayerDiscoverNearbyParams) => {
+  const finalLocation = normalizePosition(location, getStoredLocation() ?? DEFAULT_POSITION) ?? DEFAULT_POSITION;
+
+  return request<PlayerDiscoverNearbyResponse>("/player/discover/nearby", {
+    method: "POST",
+    token,
+    signal,
+    body: buildBody({
+      location: finalLocation,
+      radius,
+      filters,
+      search,
+      matchSearch,
+      coachesPage,
+      coachesPerPage,
+      lessonsPage,
+      lessonsPerPage,
+      matchesPage,
+      matchesPerPage,
+    }),
   });
 };
 
@@ -267,9 +368,192 @@ export interface PlayerTokenOnlyParams {
   token: string;
 }
 
+export interface SurveyOptionGroupDetails {
+  id: number | null;
+  name: string | null;
+}
+
+export interface SurveyQuestionOption {
+  id?: number | string;
+  optionText?: string;
+  optionDescription?: string;
+  label?: string;
+  description?: string;
+  value?: unknown;
+  [key: string]: unknown;
+}
+
+export interface SurveyQuestion {
+  id: number | string;
+  survey_section_id?: number | string;
+  input_type_id?: number | string;
+  question_subtext?: string | null;
+  question_text?: string | Record<string, unknown> | null;
+  answer_required?: boolean;
+  option_group_id?: number | string | null;
+  allow_multiple_option_answers?: boolean | null;
+  sort_order?: number;
+  status?: number;
+  created_at?: string;
+  updated_at?: string;
+  placeholder_text?: string | null;
+  question_code?: string | null;
+  questionType: string;
+  placeholderText?: string | null;
+  optiongroupdetails?: SurveyOptionGroupDetails;
+  options?: SurveyQuestionOption[];
+  answerText?: unknown;
+  answerMetadata?: Record<string, unknown> | null;
+  defaultValue?: unknown;
+  questionSettings?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface SurveyQuestionListResponse {
+  total?: string | number;
+  perPage?: string | number;
+  currentPage?: string | number;
+  totalPages?: string | number;
+  questions?: SurveyQuestion[];
+  [key: string]: unknown;
+}
+
+export interface SurveyAnsweredResponse {
+  questions?: SurveyQuestion[];
+  answers?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface SubmitSurveyAnswersParams extends PlayerTokenOnlyParams {
+  surveyAnswers: Record<string, unknown> | Array<Record<string, unknown>>;
+}
+
 export const getAllLocation = async ({ token }: PlayerTokenOnlyParams) =>
   request<Record<string, unknown>>("/player/locations-geojson", {
     token,
+  });
+
+export const submitSurveyAnswers = async ({
+  token,
+  surveyAnswers,
+}: SubmitSurveyAnswersParams) =>
+  request<Record<string, unknown>>("/player/surveys/submit", {
+    method: "POST",
+    token,
+    body: surveyAnswers,
+  });
+
+export const getAllSurveyQuestion = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyQuestionListResponse>("/player/surveys/questions", {
+    token,
+  });
+
+export const getAllSurveyQuestionAnswered = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyAnsweredResponse>("/player/surveys/answered", {
+    token,
+  });
+
+export const getCoachMatchSurveyQuestions = async ({ token }: PlayerTokenOnlyParams) =>
+  request<SurveyQuestionListResponse>("/player/surveys/coach-match/questions", {
+    token,
+  });
+
+export interface SubmitCoachMatchSurveyAnswersParams extends PlayerTokenOnlyParams {
+  surveyAnswers: Record<string, unknown> | Array<Record<string, unknown>>;
+}
+
+export interface CoachMatchRecommendationBreakdown {
+  level?: number;
+  goals?: number;
+  format?: number;
+  schedule?: number;
+  budget?: number;
+  bonus?: number;
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationPrices {
+  private?: number | null;
+  semi?: number | null;
+  group?: number | null;
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationItem {
+  coach_id: number;
+  name?: string;
+  profileImage?: string;
+  bio?: string;
+  experience_years?: string;
+  levels?: string[];
+  specialties?: string[];
+  formats?: string[];
+  prices?: CoachMatchRecommendationPrices;
+  languages?: string[];
+  home_courts?: string[];
+  charges_enabled?: boolean;
+  score?: number;
+  breakdown?: CoachMatchRecommendationBreakdown;
+  reasons?: string[];
+  [key: string]: unknown;
+}
+
+export interface CoachMatchRecommendationsResponse {
+  total?: number;
+  perPage?: number;
+  currentPage?: number;
+  totalPages?: number;
+  recommendations?: CoachMatchRecommendationItem[];
+  [key: string]: unknown;
+}
+
+export interface GetCoachMatchRecommendationsParams extends PlayerTokenOnlyParams {
+  perPage?: number;
+  page?: number;
+  search?: string;
+}
+
+export const submitCoachMatchSurveyAnswers = async ({
+  token,
+  surveyAnswers,
+}: SubmitCoachMatchSurveyAnswersParams) =>
+  request<Record<string, unknown>>("/player/surveys/coach-match/submit", {
+    method: "POST",
+    token,
+    body: surveyAnswers,
+  });
+
+export const clearCoachMatchSurveyAnswers = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/surveys/coach-match/clear-all", {
+    method: "DELETE",
+    token,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+    },
+  });
+
+export const getCoachMatchRecommendations = async ({
+  token,
+  perPage = 10,
+  page = 1,
+  search = "",
+}: GetCoachMatchRecommendationsParams) =>
+  request<CoachMatchRecommendationsResponse>("/player/coach-match/recommendations", {
+    token,
+    query: {
+      perPage,
+      page,
+      search,
+    },
+  });
+
+export const deleteUserAnswers = async ({ token }: PlayerTokenOnlyParams) =>
+  request<Record<string, unknown>>("/player/answers/remove", {
+    method: "DELETE",
+    token,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+    },
   });
 
 export interface RecordExternalLessonClickParams extends PlayerTokenOnlyParams {

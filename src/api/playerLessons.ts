@@ -121,16 +121,24 @@ export const fetchCoachLessonsByDate = async ({ token, coachId, date }: FetchCoa
     return [];
   }
 
-  const response = await request<Lesson[]>(`/player/coach/lessons/date/${coachId}`, {
-    token,
-    query: { date },
-  });
+  try {
+    const response = await request<Lesson[]>(`/player/coach/lessons/date/${coachId}`, {
+      token,
+      query: { date },
+    });
 
-  if (!response) {
-    return [];
+    if (!response) {
+      return [];
+    }
+
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    const status = (error as Error & { status?: number })?.status;
+    if (status === 404) {
+      return [];
+    }
+    throw error;
   }
-
-  return Array.isArray(response) ? response : [];
 };
 
 export interface FetchPlayerBookingsParams {
@@ -246,6 +254,14 @@ export interface RequestPrivateLessonParams {
   court?: number | string | null;
   status?: string;
   paymentMethodId?: string;
+  metadata?: {
+    session_prep?: {
+      who_for?: "myself" | "my_child";
+      level?: "Beginner" | "Beginner+" | "Intermediate" | "Intermediate+" | "Advanced" | "Competitive";
+      goals?: string[];
+      note?: string;
+    };
+  };
 }
 
 export interface NewLessonResponse {
@@ -269,6 +285,7 @@ export const requestPrivateLesson = ({
   court = 0,
   status = "PENDING",
   paymentMethodId,
+  metadata,
 }: RequestPrivateLessonParams) =>
   request<NewLessonResponse>("/player/newlesson", {
     method: "POST",
@@ -283,5 +300,6 @@ export const requestPrivateLesson = ({
       court,
       status,
       ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+      ...(metadata ? { metadata } : {}),
     },
   });

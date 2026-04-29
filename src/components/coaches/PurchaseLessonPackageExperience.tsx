@@ -228,9 +228,9 @@ const PurchaseLessonPackageExperience = ({
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!coach?.id || !authToken) {
+    if (!coach?.id) {
       setPackages([]);
-      setPackagesError(authToken ? "Missing coach information." : "Sign in to view packages.");
+      setPackagesError("Missing coach information.");
       setPackagesLoading(false);
       return () => controller.abort();
     }
@@ -264,7 +264,7 @@ const PurchaseLessonPackageExperience = ({
   const refreshCredits = async () => {
     if (!coach?.id || !authToken) {
       setCredits([]);
-      setCreditsError(authToken ? "Missing coach information." : "Sign in to view credits.");
+      setCreditsError(authToken ? "Missing coach information." : "Sign in to check your credits.");
       setCreditsLoading(false);
       return;
     }
@@ -713,6 +713,9 @@ const PurchaseLessonPackageExperience = ({
 
                   <div className="payment-methods__group">
                     <span className="payment-methods__group-label">Saved cards</span>
+                    {!authToken ? (
+                      <p className="payment-methods__notice">Sign in to save a card and purchase credits.</p>
+                    ) : null}
                     {!paymentMethodsLoading && paymentMethods.length === 0 ? (
                       <p className="payment-methods__notice">No saved cards yet.</p>
                     ) : null}
@@ -883,7 +886,7 @@ const PurchaseLessonPackageExperience = ({
                     type="button"
                     className="purchase-package-experience__primary purchase-package-experience__primary--full"
                     onClick={handlePurchase}
-                    disabled={processingPurchase || isAddingNewCard}
+                    disabled={processingPurchase || isAddingNewCard || !authToken}
                   >
                     {processingPurchase ? (
                       <>

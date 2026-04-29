@@ -1,0 +1,242 @@
+.simple-survey {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.simple-survey__question {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.simple-survey__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.simple-survey__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.simple-survey__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.simple-survey__helper {
+  font-size: 13px;
+  color: #475569;
+}
+
+.simple-survey__field,
+.simple-survey__textarea,
+.simple-survey__picker,
+.simple-survey__image-input {
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+}
+
+.simple-survey__textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.simple-survey__options {
+  display: grid;
+  gap: 10px;
+}
+
+.simple-survey__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.simple-survey__option:hover {
+  border-color: #94a3b8;
+}
+
+.simple-survey__option--selected {
+  background: #f8f5ff;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.12);
+}
+
+.simple-survey__option-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1.5px solid #94a3b8;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.simple-survey__option--multi .simple-survey__option-indicator {
+  border-radius: 6px;
+}
+
+.simple-survey__option--selected .simple-survey__option-indicator {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
+}
+
+.simple-survey__option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.simple-survey__option-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.simple-survey__option-description {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.simple-survey__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.simple-survey__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.simple-survey__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.simple-survey__button--primary {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
+}
+
+.simple-survey__image-preview {
+  max-width: 180px;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid #dbe4ee;
+}
+
+.simple-survey-address-picker,
+.simple-survey-courts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.simple-survey-courts__summary {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.simple-survey-courts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.simple-survey-courts__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+}
+
+.simple-survey-courts__item-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.simple-survey-courts__remove {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.simple-survey-courts__empty {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+@media (max-width: 767px) {
+  .simple-survey__question {
+    padding: 16px;
+  }
+
+  .simple-survey__actions {
+    flex-direction: column;
+  }
+
+  .simple-survey__button {
+    width: 100%;
+  }
+
+  .simple-survey-courts__item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

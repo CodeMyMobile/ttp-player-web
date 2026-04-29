@@ -48,3 +48,46 @@ export const updatePlayerPersonalDetails = async ({
     }),
   );
 };
+
+export const createPlayerPersonalDetails = async ({
+  player = null,
+  date_of_birth = null,
+  usta_rating = null,
+  uta_rating = null,
+  fullName = null,
+  mobile = null,
+  about_me = null,
+  profile_picture,
+}) => {
+  const authHeader = normalizeAuthToken(player, {
+    defaultScheme: "token",
+    preferScheme: "token",
+  });
+  if (!authHeader) {
+    throw new Error("Missing player token");
+  }
+
+  const params = Object.entries({
+    date_of_birth,
+    usta_rating,
+    uta_rating,
+    full_name: fullName,
+    phone: mobile,
+    about_me,
+    profile_picture,
+  }).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  return unwrap(
+    api(`/player/personal_details`, {
+      method: "POST",
+      authToken: authHeader,
+      authSchemePreference: "token",
+      json: params,
+    }),
+  );
+};

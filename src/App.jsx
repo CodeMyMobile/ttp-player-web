@@ -9,6 +9,7 @@ import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfir
 import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import MatchDetailsPage from "./pages/MatchDetailsPage";
 import FindCoaches from "./pages/FindCoaches";
+import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
@@ -18,6 +19,7 @@ import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
 import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
+import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
@@ -55,8 +57,15 @@ const AuthRedirectRoute = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    const from = location.state?.from?.pathname || "/";
-    return <Navigate to={from} replace />;
+    const from = location.state?.from;
+    const to = from
+      ? {
+          pathname: from.pathname || "/",
+          search: from.search || "",
+          hash: from.hash || "",
+        }
+      : "/";
+    return <Navigate to={to} replace state={from?.state} />;
   }
 
   return children;
@@ -165,6 +174,14 @@ const AppRoutes = () => (
       )}
     />
     <Route
+      path="/coach-match/recommendations"
+      element={(
+        <ProtectedRoute>
+          <CoachMatchRecommendationsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
       path="/credits"
       element={(
         <ProtectedRoute>
@@ -198,19 +215,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/coaches/:id"
-      element={(
-        <ProtectedRoute>
-          <CoachProfilePage />
-        </ProtectedRoute>
-      )}
+      element={<CoachProfilePage />}
     />
     <Route
       path="/coaches/:id/purchase"
-      element={(
-        <ProtectedRoute>
-          <PurchaseLessonPackagePage />
-        </ProtectedRoute>
-      )}
+      element={<PurchaseLessonPackagePage />}
     />
     <Route
       path="/group-lessons"
@@ -257,6 +266,30 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <PlayerMatchProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/settings/match-profile/edit"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfileEditPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/match-profile"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfilePage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/match-profile/edit"
+      element={(
+        <ProtectedRoute>
+          <PlayerMatchProfileEditPage />
         </ProtectedRoute>
       )}
     />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { AlertCircle, CreditCard, Loader2, Plus, ShieldCheck, Wallet } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
 import AddCardForm from "../components/payments/AddCardForm";
@@ -101,6 +102,8 @@ const toNormalizedPaymentMethod = (method: PlayerStripePaymentMethod, defaultId?
 };
 
 const PaymentMethodsPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [methods, setMethods] = useState<NormalizedPaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +114,20 @@ const PaymentMethodsPage = () => {
   const [setupIntentLoading, setSetupIntentLoading] = useState(false);
   const [setupIntentError, setSetupIntentError] = useState<string | null>(null);
   const stripeEnabled = Boolean(stripePromise);
+  const returnTarget = (location.state as { from?: { pathname?: string; search?: string; hash?: string; state?: unknown } } | null | undefined)?.from;
+  const hasReturnTarget = Boolean(returnTarget?.pathname);
+
+  const returnToBookingFlow = useCallback(() => {
+    if (!returnTarget?.pathname) return;
+    navigate(
+      {
+        pathname: returnTarget.pathname,
+        search: returnTarget.search ?? "",
+        hash: returnTarget.hash ?? "",
+      },
+      { replace: true, state: returnTarget.state },
+    );
+  }, [navigate, returnTarget?.hash, returnTarget?.pathname, returnTarget?.search, returnTarget?.state]);
 
   const fetchPaymentMethods = useCallback(async () => {
     const authToken = getStoredAuthToken({ preferScheme: "token" });
@@ -190,7 +207,10 @@ const PaymentMethodsPage = () => {
   const handleCardAdded = useCallback(async () => {
     await fetchPaymentMethods();
     await refreshSetupIntent();
-  }, [fetchPaymentMethods, refreshSetupIntent]);
+    if (hasReturnTarget) {
+      returnToBookingFlow();
+    }
+  }, [fetchPaymentMethods, hasReturnTarget, refreshSetupIntent, returnToBookingFlow]);
 
   const handleSetDefault = useCallback(
     async (id: string) => {
@@ -353,6 +373,14 @@ const PaymentMethodsPage = () => {
               <div className="payment-methods">{renderPaymentMethods()}</div>
 
               <aside className="settings-card">
+                {hasReturnTarget ? (
+                  <div className="payment-return-card">
+                    <span>Adding a card for your lesson booking</span>
+                    <button type="button" onClick={returnToBookingFlow}>
+                      Back to lesson
+                    </button>
+                  </div>
+                ) : null}
                 <h2 className="settings-card__title">Add a payment method</h2>
                 <p className="settings-card__subtitle">
                   We support major credit and debit cards. You can safely store more than one method.

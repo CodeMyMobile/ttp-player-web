@@ -1,0 +1,14 @@
+.address-picker {
+  width: 100%;
+}
+
+.address-picker__input {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}

@@ -30,6 +30,7 @@ import MainLayout from "../components/MainLayout";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import AddCardForm from "../components/payments/AddCardForm";
 import { findCoachProfile, type GroupParticipant } from "../data/mockCoachProfiles";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessonById,
   mapUpcomingGroupLesson,
@@ -52,6 +53,7 @@ import {
 import { bookGroupLessonWithCard } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import { resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./BookingConfirmationPage.css";
 
@@ -119,6 +121,49 @@ const parsePriceToCents = (value?: string) => {
   const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return Math.round(numeric * 100);
+};
+
+const parsePriceValue = (value?: string) => {
+  if (!value) return null;
+  if (/credit/i.test(value)) return null;
+  const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
+};
+
+const extractIntentStatus = (response: Record<string, unknown>) => {
+  const nestedIntent = response.payment_intent as Record<string, unknown> | undefined;
+  const camelIntent = response.paymentIntent as Record<string, unknown> | undefined;
+  const raw =
+    response.status ??
+    response.payment_intent_status ??
+    nestedIntent?.status ??
+    camelIntent?.status;
+  return typeof raw === "string" ? raw.toLowerCase() : "";
+};
+
+const isGroupBookingResponseSuccessful = (response: unknown) => {
+  if (!response || typeof response !== "object") {
+    return false;
+  }
+
+  const record = response as Record<string, unknown>;
+  if (extractIntentStatus(record) === "succeeded") {
+    return true;
+  }
+
+  if (record.participant && typeof record.participant === "object") {
+    return true;
+  }
+
+  const message = typeof record.message === "string" ? record.message.toLowerCase() : "";
+  return message.includes("booked successfully");
 };
 
 const formatLevelRange = (level: number) => {
@@ -268,6 +313,34 @@ const buildInitials = (name: string) => {
   return `${first?.[0] ?? ""}${second?.[0] ?? ""}`.toUpperCase();
 };
 
+const getCardBrandMark = (brand?: string) => {
+  const normalized = (brand ?? "Card").toLowerCase();
+  if (normalized.includes("visa")) {
+    return "VISA";
+  }
+  if (normalized.includes("master")) {
+    return "MC";
+  }
+  if (normalized.includes("amex") || normalized.includes("american")) {
+    return "AMEX";
+  }
+  return (brand ?? "CARD").toUpperCase();
+};
+
+const getCardBrandClass = (brand?: string) => {
+  const normalized = (brand ?? "Card").toLowerCase();
+  if (normalized.includes("visa")) {
+    return "is-visa";
+  }
+  if (normalized.includes("master")) {
+    return "is-mastercard";
+  }
+  if (normalized.includes("amex") || normalized.includes("american")) {
+    return "is-amex";
+  }
+  return "is-generic";
+};
+
 const BookingConfirmationPage = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -323,6 +396,7 @@ const BookingConfirmationPage = () => {
   const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
   const [groupLessonError, setGroupLessonError] = useState<string | null>(null);
+  const [groupLessonCoachProfile, setGroupLessonCoachProfile] = useState<CoachProfileRecord | null>(null);
   const resolvedCoachId = coachId ?? groupLesson?.coachId;
   const [isApplePayReady, setIsApplePayReady] = useState(false);
   const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
@@ -500,6 +574,21 @@ const BookingConfirmationPage = () => {
     [fetchPaymentMethods, refreshSetupIntent],
   );
 
+  const refreshGroupLesson = useCallback(async () => {
+    if (!groupLessonId || !authToken) {
+      return null;
+    }
+
+    const response = await fetchUpcomingGroupLessonById({
+      token: authToken,
+      lessonId: groupLessonId,
+    });
+    const nextLesson = mapUpcomingGroupLesson(response.lesson);
+    setGroupLesson(nextLesson);
+    setGroupLessonError(null);
+    return nextLesson;
+  }, [authToken, groupLessonId]);
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -547,6 +636,30 @@ const BookingConfirmationPage = () => {
     };
   }, [authToken, groupLessonId]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!groupLessonId || !resolvedCoachId || !authToken) {
+      setGroupLessonCoachProfile(null);
+      return () => controller.abort();
+    }
+
+    fetchCoachProfile(resolvedCoachId, {
+      token: authToken,
+      signal: controller.signal,
+    })
+      .then((profileRecord) => {
+        if (controller.signal.aborted) return;
+        setGroupLessonCoachProfile(profileRecord ?? null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setGroupLessonCoachProfile(null);
+      });
+
+    return () => controller.abort();
+  }, [authToken, groupLessonId, resolvedCoachId]);
+
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
   const isProfileGroupLesson = selectedSlot?.lessonType === "group";
@@ -568,8 +681,20 @@ const BookingConfirmationPage = () => {
     : selectedSlot
       ? buildTimeRangeLabel(selectedSlot.time, selectedSlot.duration)
       : undefined;
-  const locationLabel = groupLesson?.locationName ?? profile?.location ?? profile?.coachingLocations[0];
-  const resolvedCoachName = groupLesson?.coachName ?? profile?.name ?? "your coach";
+  const resolvedProfileLocation =
+    groupLessonCoachProfile?.locations?.find((item) => item.id === groupLesson?.locationId)?.label ??
+    groupLessonCoachProfile?.coachingLocations?.find((item) => item === groupLesson?.locationName) ??
+    groupLessonCoachProfile?.coachingLocations?.[0];
+  const locationLabel =
+    groupLesson?.locationName ??
+    resolvedProfileLocation ??
+    profile?.location ??
+    profile?.coachingLocations[0];
+  const resolvedCoachName =
+    (isGenericCoachName(groupLesson?.coachName) ? undefined : groupLesson?.coachName) ??
+    groupLessonCoachProfile?.fullName ??
+    profile?.name ??
+    "your coach";
   const coachName = resolvedCoachName;
   const coachFirstName = resolvedCoachName.split(" ")[0] ?? resolvedCoachName;
   const lessonDateLabel = groupLesson
@@ -678,6 +803,11 @@ const BookingConfirmationPage = () => {
     return () => controller.abort();
   }, [authToken, resolvedCoachId]);
 
+  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
+  const creditLessonType = resolveLessonCreditType({
+    lesson_type_name: lessonDetails?.label ?? lessonType,
+  });
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -689,6 +819,7 @@ const BookingConfirmationPage = () => {
     fetchPackageCreditsBalance({
       token: authToken,
       coachId: resolvedCoachId,
+      lessonType: creditLessonType,
       signal: controller.signal,
     })
       .then((data) => {
@@ -700,7 +831,7 @@ const BookingConfirmationPage = () => {
       });
 
     return () => controller.abort();
-  }, [authToken, resolvedCoachId]);
+  }, [authToken, creditLessonType, resolvedCoachId]);
 
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
@@ -744,19 +875,18 @@ const BookingConfirmationPage = () => {
       .join("");
   };
 
-  const lessonType = groupLesson ? "group" : selectedSlot?.lessonType ?? "private";
   const eligibleCredits = useMemo(() => {
     const allowedForLesson = (purchase: PackagePurchase) => {
       const allowed = purchase.lesson_types_allowed;
       if (Array.isArray(allowed) && allowed.length > 0) {
-        return allowed.includes(lessonType);
+        return allowed.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === creditLessonType);
       }
       return true;
     };
     return credits.filter(
       (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
     );
-  }, [credits, lessonType]);
+  }, [creditLessonType, credits]);
 
   const creditSummary = useMemo(() => {
     const totals = eligibleCredits.reduce(
@@ -783,12 +913,13 @@ const BookingConfirmationPage = () => {
   const lessonLabel = groupLesson
     ? groupLesson.title
     : lessonDetails?.label ?? (selectedSlot?.lessonType === "private" ? "Private lesson" : "Group lesson");
-  const coachAvatar = groupLesson?.coachAvatarUrl ?? profile?.imageUrl;
+  const coachAvatar =
+    groupLesson?.coachAvatarUrl || groupLessonCoachProfile?.profilePicture || profile?.imageUrl;
   const coachTitle = profile?.title ?? (groupLesson ? `${groupLesson.skillLabel} • Group session` : undefined);
   const coachRating = profile?.rating;
   const coachReviewCount = profile?.reviewCount;
   const durationLabel = groupLesson ? `${groupLesson.durationMinutes} min` : selectedSlot?.duration;
-  const confirmTitle = groupLesson ? `Confirm your spot in ${groupLesson.title}` : `Confirm your lesson with ${coachName}`;
+  const confirmTitle = groupLesson ? "Checkout" : `Confirm your lesson with ${coachName}`;
   const backButtonLabel = groupLesson ? "Back to lesson details" : "Back to availability";
   const backButtonDestination = groupLesson ? `/group-lessons/${groupLesson.id}` : undefined;
   const adjustCopy = groupLesson
@@ -805,7 +936,7 @@ const BookingConfirmationPage = () => {
   };
 
   const headlineSubtitle = isGroupLesson
-    ? `Secure your spot instantly in ${coachFirstName}'s group lesson — no coach approval needed.`
+    ? `Review your session details, choose a payment method, and confirm your spot instantly.`
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
   const selectedSavedCard = paymentMethods.find((card) => card.id === paymentMethod) ?? null;
@@ -930,11 +1061,15 @@ const BookingConfirmationPage = () => {
                 if (!lessonIdForBooking) {
                   throw new Error("Missing lesson details for Apple Pay.");
                 }
-                await bookGroupLessonWithCard({
+                const response = await bookGroupLessonWithCard({
                   token: authToken,
                   lessonId: lessonIdForBooking,
                   paymentMethodId,
                 });
+                if (!isGroupBookingResponseSuccessful(response)) {
+                  throw new Error("Booking could not be confirmed.");
+                }
+                await refreshGroupLesson();
               } else {
                 const lessonIdForIntent = selectedSlot?.id ?? slotId;
                 if (!lessonIdForIntent) {
@@ -1044,7 +1179,7 @@ const BookingConfirmationPage = () => {
         await consumePackageCredits({
           token: authToken,
           coachId: resolvedCoachId,
-          lessonType,
+          lessonType: creditLessonType,
           lessonId: numericLessonId,
           purchaseId: bestPurchase?.id,
         });
@@ -1066,6 +1201,7 @@ const BookingConfirmationPage = () => {
           const refreshedBalance = await fetchPackageCreditsBalance({
             token: authToken,
             coachId: resolvedCoachId,
+            lessonType: creditLessonType,
           });
           setCreditsBalance(refreshedBalance ?? null);
         } catch {
@@ -1088,6 +1224,44 @@ const BookingConfirmationPage = () => {
         setPaymentMethod(fallbackCardId);
       } finally {
         setIsConsumingCredits(false);
+      }
+      return;
+    }
+
+    if (isGroupLesson) {
+      if (!authToken) {
+        setConsumeError("Sign in to complete your booking.");
+        return;
+      }
+
+      const lessonIdForBooking = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
+      if (!lessonIdForBooking) {
+        setConsumeError("Missing lesson details for booking.");
+        return;
+      }
+
+      if (!paymentMethod || paymentMethod === "new-card" || paymentMethod === "apple-pay") {
+        setConsumeError("Select a saved card to complete booking.");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      try {
+        const response = await bookGroupLessonWithCard({
+          token: authToken,
+          lessonId: lessonIdForBooking,
+          paymentMethodId: paymentMethod,
+        });
+        if (!isGroupBookingResponseSuccessful(response)) {
+          throw new Error("Booking could not be confirmed.");
+        }
+        await refreshGroupLesson();
+        setIsConfirmed(true);
+        setIsConfirmationModalOpen(true);
+      } catch (error) {
+        setConsumeError(error instanceof Error ? error.message : "Unable to complete booking.");
+      } finally {
+        setIsProcessingPayment(false);
       }
       return;
     }
@@ -1302,6 +1476,15 @@ const BookingConfirmationPage = () => {
       };
 
   const modalStatus: BookingStatus = isInstantlyConfirmed ? "CONFIRMED" : "PENDING";
+  const paymentMethodLabel = isUsingCredits
+    ? "1 group credit"
+    : isUsingApplePay
+      ? "Apple Pay"
+      : selectedSavedCard
+        ? `${selectedSavedCard.brand} ending in ${selectedSavedCard.last4}`
+        : isUsingNewCard
+          ? "New card"
+          : "Card";
   const modalData = {
     coachName,
     coachInitials: buildInitials(coachName),
@@ -1318,6 +1501,10 @@ const BookingConfirmationPage = () => {
     amountLabel: isInstantlyConfirmed ? "Amount charged" : "Lesson total",
     amount: priceValue,
     etaText: "~24 hrs",
+    lessonId: groupLesson?.id,
+    paymentMethodLabel,
+    spotsRemainingAfterBooking: isGroupLesson ? Math.max(openSpots - 1, 0) : undefined,
+    showPackagePrompt: isGroupLesson ? !isUsingCredits : false,
     cancellationPolicyText:
       "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
   };
@@ -1343,7 +1530,7 @@ const BookingConfirmationPage = () => {
 
   if (groupLessonId && groupLessonLoading) {
     return (
-      <MainLayout>
+      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">Loading group lesson…</h1>
@@ -1368,7 +1555,11 @@ const BookingConfirmationPage = () => {
     const emptyActionDestination = groupLessonId ? "/group-lessons" : "/find-coaches";
 
     return (
-      <MainLayout>
+      <MainLayout
+        mobileChrome={groupLessonId ? "home" : "default"}
+        desktopChrome={groupLessonId ? "home" : "default"}
+        showDesktopNav={groupLessonId ? true : !groupLessonId}
+      >
         <div className="booking-confirmation booking-confirmation--empty">
           <div className="booking-confirmation__empty-card">
             <h1 className="booking-confirmation__empty-title">{emptyTitle}</h1>
@@ -1386,207 +1577,477 @@ const BookingConfirmationPage = () => {
     );
   }
 
-  return (
-    <MainLayout>
-      <div className="booking-confirmation">
-        <div className="booking-confirmation__inner">
-          <button
-            type="button"
-            className="booking-confirmation__back"
-            onClick={() => {
-              if (backButtonDestination) {
-                navigate(backButtonDestination);
-              } else {
-                navigate(-1);
-              }
-            }}
-          >
-            <ArrowLeft aria-hidden className="booking-confirmation__back-icon" /> {backButtonLabel}
-          </button>
+  const summaryDateBand = (lessonDateLabel ?? "Date TBD").toUpperCase();
+  const summaryLevelLabel = groupLesson?.level ? formatLevelRange(groupLesson.level) : lessonLabel;
+  const sessionLabel = groupLesson?.title ?? lessonLabel;
+  const sessionPriceLabel = groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
+  const sessionPriceAmount = parsePriceValue(sessionPriceLabel);
+  const cardProcessingFee =
+    !isUsingCredits && !isUsingApplePay && sessionPriceAmount != null
+      ? Math.round(sessionPriceAmount * 0.03 * 100) / 100
+      : 0;
+  const totalPriceAmount =
+    sessionPriceAmount != null
+      ? isUsingCredits
+        ? 0
+        : sessionPriceAmount + cardProcessingFee
+      : null;
+  const subtotalLabel =
+    sessionPriceAmount != null ? `$${sessionPriceAmount.toFixed(2)}` : sessionPriceLabel.replace(" per player", "");
+  const totalPriceLabel =
+    totalPriceAmount != null ? `$${totalPriceAmount.toFixed(2)}` : sessionPriceLabel.replace(" per player", "");
+  const sessionBandDateLabel = groupLesson?.startDateTime
+    ? `${moment.utc(groupLesson.startDateTime).format("dddd").toUpperCase()} · ${moment
+        .utc(groupLesson.startDateTime)
+        .format("MMM D")
+        .toUpperCase()}`
+    : summaryDateBand;
+  const groupConfirmButtonLabel = isUsingCredits
+    ? "Use 1 credit to book"
+    : isProcessingPayment
+      ? "Processing Apple Pay..."
+      : isConsumingCredits
+        ? "Applying credits..."
+        : `Pay ${totalPriceLabel}`;
+  const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
 
-          <header className="booking-confirmation__header">
-            <div className="booking-confirmation__headline">
-              <span className="booking-confirmation__eyebrow">Review & confirm</span>
-              <h1 className="booking-confirmation__title">{confirmTitle}</h1>
-              <p className="booking-confirmation__subtitle">{headlineSubtitle}</p>
-            </div>
-          </header>
+  const groupPaymentMethods = (
+    <>
+      <div className="payment-methods__stack payment-methods__stack--group">
+        <label
+          className={`payment-method-card payment-method-card--credits${
+            isUsingCredits ? " payment-method-card--selected" : ""
+          }${canUseCredits ? "" : " payment-method-card--disabled"}`}
+        >
+          <input
+            type="radio"
+            name="payment-method"
+            value="credits"
+            checked={isUsingCredits}
+            onChange={() => setPaymentMethod("credits")}
+            disabled={!canUseCredits || creditsLoading || !authToken}
+          />
+          <span className="payment-method-card__selector" aria-hidden />
+          <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
+          <span className="payment-method-card__body">
+            <span className="payment-method-card__title">Use a group credit</span>
+            <span className="payment-method-card__subtitle">
+              {creditsLoading
+                ? "Checking credits…"
+                : creditsError
+                  ? creditsError
+                  : !authToken
+                    ? "Sign in to use credits."
+                    : canUseCredits
+                      ? `${creditSummary.remaining} credits available`
+                      : "No credits available for this lesson type."}
+            </span>
+          </span>
+          {canUseCredits ? <span className="payment-method-card__amount">$0.00</span> : null}
+        </label>
 
-          <div className="booking-confirmation__layout">
-            <section className="booking-confirmation__card">
-              <div className="booking-confirmation__coach">
-                {coachAvatar ? (
-                  <img className="booking-confirmation__coach-avatar" src={coachAvatar} alt="" />
-                ) : (
-                  <span className="booking-confirmation__coach-avatar booking-confirmation__coach-avatar--placeholder" aria-hidden>
-                    {coachFirstName.charAt(0)}
-                  </span>
-                )}
-                <div className="booking-confirmation__coach-meta">
-                  <h2 className="booking-confirmation__coach-name">{coachName}</h2>
-                  {coachTitle ? <p className="booking-confirmation__coach-title">{coachTitle}</p> : null}
-                  {coachRating != null ? (
-                    <div className="booking-confirmation__coach-rating">
-                      <Star size={18} fill="#FDB022" stroke="none" aria-hidden />
-                      {coachRating.toFixed(1)}
-                      {coachReviewCount != null ? (
-                        <span className="booking-confirmation__coach-reviews">({coachReviewCount} reviews)</span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+        <label className={`payment-method-card payment-method-card--wallet${isUsingApplePay ? " payment-method-card--selected" : ""}`}>
+          <input
+            type="radio"
+            name="payment-method"
+            value="apple-pay"
+            checked={isUsingApplePay}
+            onChange={() => setPaymentMethod("apple-pay")}
+          />
+          <span className="payment-method-card__selector" aria-hidden />
+          <span className="payment-method-card__icon payment-method-card__icon--apple">Pay</span>
+          <span className="payment-method-card__body">
+            <span className="payment-method-card__title">Apple Pay</span>
+            <span className="payment-method-card__subtitle">Fast & secure · Face ID</span>
+          </span>
+        </label>
 
-              <div className="booking-confirmation__details">
-                <div className="booking-confirmation__detail">
-                  <CalendarDays aria-hidden size={20} />
-                  <div className="booking-confirmation__detail-copy">
-                    <span className="booking-confirmation__detail-label">When</span>
-                    <span className="booking-confirmation__detail-primary">{lessonDateLabel ?? "To be scheduled"}</span>
-                    {timeRange ? (
-                      <span className="booking-confirmation__detail-secondary">{timeRange}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="booking-confirmation__detail">
-                  <Clock aria-hidden size={20} />
-                  <div className="booking-confirmation__detail-copy">
-                    <span className="booking-confirmation__detail-label">Lesson</span>
-                    <span className="booking-confirmation__detail-primary">{lessonLabel}</span>
-                    {durationLabel ? (
-                      <span className="booking-confirmation__detail-secondary">{durationLabel}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {locationLabel ? (
-              <div className="booking-confirmation__detail">
-                <MapPin aria-hidden size={20} />
-                <div className="booking-confirmation__detail-copy">
-                  <span className="booking-confirmation__detail-label">Location</span>
-                  <span className="booking-confirmation__detail-primary">{locationLabel}</span>
-                  {spotsLabel ? (
-                    <span className="booking-confirmation__detail-secondary">{spotsLabel}</span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {isGroupLesson ? (
-              <div className="booking-confirmation__group-roster">
-                <div className="booking-confirmation__group-roster-header">
-                  <span className="booking-confirmation__group-roster-icon" aria-hidden>
-                    <Users size={18} />
-                  </span>
-                  <div className="booking-confirmation__group-roster-heading">
-                    <span className="booking-confirmation__group-roster-label">Who's already in</span>
-                    {rosterCaption ? (
-                      <span className="booking-confirmation__group-roster-caption">{rosterCaption}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {participantCount > 0 ? (
-                  <ul className="booking-confirmation__group-roster-list">
-                    {participants.map((participant) => (
-                      <li key={participant.id} className="booking-confirmation__group-roster-item">
-                        <span className="booking-confirmation__group-roster-avatar" aria-hidden>
-                          {participant.avatarUrl ? (
-                            <img src={participant.avatarUrl} alt="" />
-                          ) : (
-                            getInitials(participant.name)
-                          )}
-                        </span>
-                        <div className="booking-confirmation__group-roster-body">
-                          <span className="booking-confirmation__group-roster-name">{participant.name}</span>
-                          <span className="booking-confirmation__group-roster-meta">
-                            {participant.skillLevel ?? "Skill level pending"}
-                            {participant.focusArea ? ` • ${participant.focusArea}` : ""}
-                          </span>
-                          {participant.joinedLabel ? (
-                            <span className="booking-confirmation__group-roster-joined">{participant.joinedLabel}</span>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="booking-confirmation__group-roster-empty">
-                    <p>
-                      You're first in line for this session. Invite a friend or grab a spot before they're gone!
-                    </p>
-                  </div>
-                )}
-
-                {openSpots > 0 ? (
-                  <div className="booking-confirmation__group-roster-footer">
-                    +{openSpots} spot{openSpots === 1 ? "" : "s"} open
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="booking-confirmation__price">
-            <div>
-              <span className="booking-confirmation__price-label">{priceLabel}</span>
-              <span className="booking-confirmation__price-value">{priceValue}</span>
-            </div>
-            <span className="booking-confirmation__price-caption">{priceCaption}</span>
-          </div>
-
-          <div className="booking-confirmation__payment">
-            <div className="booking-confirmation__payment-header">
-              <div>
-                <h3>Payment method</h3>
-                <p>Choose how you’d like to take care of this lesson.</p>
-              </div>
-              <span className="booking-confirmation__payment-secure">
-                <ShieldCheck aria-hidden size={16} /> Secure checkout
+        {paymentMethods.map((card) => {
+          const isSelected = paymentMethod === card.id;
+          return (
+            <label key={card.id} className={`payment-method-card${isSelected ? " payment-method-card--selected" : ""}`}>
+              <input
+                type="radio"
+                name="payment-method"
+                value={card.id}
+                checked={isSelected}
+                onChange={() => setPaymentMethod(card.id)}
+              />
+              <span className="payment-method-card__selector" aria-hidden />
+              <span
+                className={`payment-method-card__icon payment-method-card__icon--brand ${getCardBrandClass(card.brand)}`}
+              >
+                {getCardBrandMark(card.brand)}
               </span>
-            </div>
-
-            <div className="payment-methods">
-              {canUseCredits ? lessonCreditsSection : null}
-              {savedCardsSection}
-              {digitalWalletSection}
-              {!canUseCredits ? lessonCreditsSection : null}
-              <div className="payment-packages-banner">
-                <span className="payment-packages-banner__icon">
-                  <Package aria-hidden size={20} />
+              <span className="payment-method-card__body">
+                <span className="payment-method-card__title">
+                  {card.brand} ending in {card.last4}
                 </span>
-                <div className="payment-packages-banner__body">
-                  <h4>Need more credits?</h4>
-                  <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
-                </div>
+                <span className="payment-method-card__subtitle">
+                  Exp {formatExpiry(card.expMonth, card.expYear)}
+                  {card.isDefault ? " · Default" : ""}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+
+        <label className={`payment-method-card payment-method-card--new${isUsingNewCard ? " payment-method-card--selected" : ""}`}>
+          <input
+            type="radio"
+            name="payment-method"
+            value="new-card"
+            checked={isUsingNewCard}
+            onChange={() => setPaymentMethod("new-card")}
+          />
+          <span className="payment-method-card__selector" aria-hidden />
+          <span className="payment-method-card__icon payment-method-card__icon--new">+</span>
+          <span className="payment-method-card__body">
+            <span className="payment-method-card__title">Add a new card</span>
+          </span>
+        </label>
+      </div>
+
+      {paymentMethodsLoading ? <p className="payment-methods__notice">Loading your saved cards...</p> : null}
+      {paymentMethodsError ? <p className="payment-methods__notice payment-methods__notice--error">{paymentMethodsError}</p> : null}
+      {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 ? (
+        <p className="payment-methods__notice">No saved cards yet.</p>
+      ) : null}
+      {isUsingCredits ? (
+        <div className="payment-methods__credits-note">
+          Applying one credit will cover this lesson. You&apos;ll have {remainingCreditsLabel} after booking.
+        </div>
+      ) : null}
+      {isUsingNewCard ? (
+        <div className="payment-method-card__form" role="group" aria-label="New card details">
+          {stripeEnabled ? (
+            setupIntentError ? (
+              <div className="payment-form__status payment-form__status--error payment-form__status--stacked" role="alert">
+                <span>{setupIntentError}</span>
                 <button
                   type="button"
-                  className="payment-packages-banner__action"
-                  onClick={() => navigate("/find-coaches")}
+                  className="payment-methods__cta"
+                  onClick={() => void refreshSetupIntent()}
+                  disabled={setupIntentLoading}
                 >
-                  Browse packages
+                  {setupIntentLoading ? (
+                    <>
+                      <Loader2 className="payment-form__spinner" aria-hidden />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} aria-hidden />
+                      Try again
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : setupIntentLoading && !setupIntentClientSecret ? (
+              <div className="payment-form__status payment-form__status--inline" role="status">
+                <Loader2 className="payment-form__spinner" aria-hidden />
+                Preparing secure payment form...
+              </div>
+            ) : setupIntentClientSecret ? (
+              <Elements
+                stripe={stripePromise}
+                options={{ appearance: { theme: "stripe" } }}
+                key={setupIntentClientSecret}
+              >
+                <AddCardForm clientSecret={setupIntentClientSecret} onCardAdded={handleCardAdded} />
+              </Elements>
+            ) : null
+          ) : (
+            <div className="payment-form__status payment-form__status--error" role="alert">
+              <AlertCircle aria-hidden />
+              <span>
+                Stripe isn&apos;t configured. Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in your environment to enable card payments.
+              </span>
+            </div>
+          )}
+          <p className="payment-form__note">
+            We use encrypted vault storage and never share your payment details with coaches.
+          </p>
+        </div>
+      ) : null}
+    </>
+  );
+
+  return (
+    <MainLayout
+      mobileChrome={isGroupLesson ? "home" : "default"}
+      desktopChrome={isGroupLesson ? "home" : "default"}
+      showDesktopNav={isGroupLesson ? true : !isGroupLesson}
+    >
+      <div className={`booking-confirmation${isGroupLesson ? " booking-confirmation--group-modal" : ""}`}>
+        <div className={`booking-confirmation__inner${isGroupLesson ? " booking-confirmation__inner--group" : ""}`}>
+          {isGroupLesson ? (
+            <div className="booking-confirmation__group-panel">
+              <div className="booking-confirmation__group-header">
+                <button
+                  type="button"
+                  className="booking-confirmation__group-back"
+                  onClick={() => {
+                    if (backButtonDestination) {
+                      navigate(backButtonDestination);
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
+                  aria-label="Back to lesson details"
+                >
+                  <ArrowLeft aria-hidden />
+                </button>
+                <div className="booking-confirmation__group-title">Checkout</div>
+                <button
+                  type="button"
+                  className="booking-confirmation__group-close"
+                  onClick={() => {
+                    if (backButtonDestination) {
+                      navigate(backButtonDestination);
+                    } else {
+                      navigate(-1);
+                    }
+                  }}
+                  aria-label="Close checkout"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="booking-confirmation__group-content">
+                <p className="booking-confirmation__section-label">Your session</p>
+                <div className="booking-confirmation__summary-card">
+                  <div className="booking-confirmation__summary-band">
+                    <div className="booking-confirmation__summary-date">{sessionBandDateLabel}</div>
+                    <span className="booking-confirmation__summary-level">{summaryLevelLabel}</span>
+                  </div>
+                  <div className="booking-confirmation__summary-body">
+                    <h2 className="booking-confirmation__summary-title">{sessionLabel}</h2>
+                    <div className="booking-confirmation__detail-list">
+                      <div className="booking-confirmation__detail">
+                        <span className="booking-confirmation__detail-emoji" aria-hidden>🕐</span>
+                        <span>
+                          {timeRange ?? "Time TBD"}
+                          {durationLabel ? ` · ${durationLabel}` : ""}
+                        </span>
+                      </div>
+                      {locationLabel ? (
+                        <div className="booking-confirmation__detail">
+                          <span className="booking-confirmation__detail-emoji" aria-hidden>📍</span>
+                          <span>{locationLabel}</span>
+                        </div>
+                      ) : null}
+                      <div className="booking-confirmation__detail">
+                        <span className="booking-confirmation__detail-emoji" aria-hidden>👤</span>
+                        <span>with {coachName}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="booking-confirmation__payment-block">
+                  <p className="booking-confirmation__section-label">Payment method</p>
+                  <div className="booking-confirmation__payment booking-confirmation__payment--group">
+                    {groupPaymentMethods}
+                  </div>
+                </div>
+
+                <div className="booking-confirmation__price-block">
+                  <p className="booking-confirmation__section-label">Price</p>
+                  <div className="booking-confirmation__price-card">
+                    <div className="booking-confirmation__price-row">
+                      <span className="booking-confirmation__price-row-label">Session</span>
+                      <span className="booking-confirmation__price-row-value">{subtotalLabel}</span>
+                    </div>
+                    {!isUsingCredits && !isUsingApplePay && sessionPriceAmount != null ? (
+                      <div className="booking-confirmation__price-row is-muted">
+                        <span className="booking-confirmation__price-row-label">Card processing fee (3%)</span>
+                        <span className="booking-confirmation__price-row-value">${cardProcessingFee.toFixed(2)}</span>
+                      </div>
+                    ) : null}
+                    {isUsingCredits ? (
+                      <div className="booking-confirmation__price-row is-muted is-credit">
+                        <span className="booking-confirmation__price-row-label">1 group credit applied</span>
+                        <span className="booking-confirmation__price-row-value">−{subtotalLabel}</span>
+                      </div>
+                    ) : null}
+                    <div className="booking-confirmation__price-divider" />
+                    <div className="booking-confirmation__price-total">
+                      <span className="booking-confirmation__price-total-label">Total</span>
+                      <span className="booking-confirmation__price-total-value">{totalPriceLabel}</span>
+                    </div>
+                    {isUsingCredits ? (
+                      <div className="booking-confirmation__price-caption">Paid with 1 group credit</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="booking-confirmation__policy">
+                  <span className="booking-confirmation__policy-emoji" aria-hidden>ℹ️</span>
+                  <div className="booking-confirmation__policy-copy">
+                    Cancel at least 24 hours before your class for a full refund or credit. Cancellations within
+                    24 hours are non-refundable.
+                  </div>
+                </div>
+
+                {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+              </div>
+
+              <div className="booking-confirmation__group-footer">
+                <button
+                  type="button"
+                  className={`fc-button fc-button--primary booking-confirmation__confirm${
+                    isUsingApplePay ? " booking-confirmation__confirm--dark" : ""
+                  }`}
+                  onClick={handleConfirm}
+                  disabled={isConfirmDisabled}
+                >
+                  {groupConfirmButtonLabel}
                 </button>
               </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="booking-confirmation__back"
+                onClick={() => {
+                  if (backButtonDestination) {
+                    navigate(backButtonDestination);
+                  } else {
+                    navigate(-1);
+                  }
+                }}
+              >
+                <ArrowLeft aria-hidden className="booking-confirmation__back-icon" /> {backButtonLabel}
+              </button>
 
-          <div className="booking-confirmation__actions">
-            <button
-              type="button"
-              className="fc-button fc-button--primary booking-confirmation__confirm"
-              onClick={handleConfirm}
-              disabled={isConfirmDisabled}
-            >
-              {isProcessingPayment
-                ? "Processing Apple Pay..."
-                : isConsumingCredits
-                  ? "Applying credits..."
-                  : confirmButtonLabel}
-              <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
-            </button>
-            {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
-            <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
+              <header className="booking-confirmation__header">
+                <div className="booking-confirmation__headline">
+                  <span className="booking-confirmation__eyebrow">Review & confirm</span>
+                  <h1 className="booking-confirmation__title">{confirmTitle}</h1>
+                  <p className="booking-confirmation__subtitle">{headlineSubtitle}</p>
+                </div>
+              </header>
+
+              <div className="booking-confirmation__layout">
+                <section className="booking-confirmation__main">
+              <div className="booking-confirmation__summary-card">
+                <div className="booking-confirmation__summary-band">
+                  <div className="booking-confirmation__summary-date">{summaryDateBand}</div>
+                  <span className="booking-confirmation__summary-level">{summaryLevelLabel}</span>
+                </div>
+                <div className="booking-confirmation__summary-body">
+                  <h2 className="booking-confirmation__summary-title">{sessionLabel}</h2>
+                  <div className="booking-confirmation__detail-list">
+                    <div className="booking-confirmation__detail">
+                      <Clock aria-hidden size={16} />
+                      <span>
+                        {timeRange ?? "Time TBD"}
+                        {durationLabel ? ` · ${durationLabel}` : ""}
+                      </span>
+                    </div>
+                    {locationLabel ? (
+                      <div className="booking-confirmation__detail">
+                        <MapPin aria-hidden size={16} />
+                        <span>{locationLabel}</span>
+                      </div>
+                    ) : null}
+                    <div className="booking-confirmation__detail">
+                      <CalendarDays aria-hidden size={16} />
+                      <span>with {coachName}</span>
+                    </div>
+                    {spotsLabel ? (
+                      <div className="booking-confirmation__detail">
+                        <Users aria-hidden size={16} />
+                        <span>{spotsLabel}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="booking-confirmation__payment">
+                <p className="booking-confirmation__section-label">Payment method</p>
+                <div className="payment-methods">
+                  {canUseCredits ? lessonCreditsSection : null}
+                  {digitalWalletSection}
+                  {savedCardsSection}
+                  {!canUseCredits ? lessonCreditsSection : null}
+                  <div className="payment-packages-banner">
+                    <span className="payment-packages-banner__icon">
+                      <Package aria-hidden size={20} />
+                    </span>
+                    <div className="payment-packages-banner__body">
+                      <h4>Need more credits?</h4>
+                      <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="payment-packages-banner__action"
+                      onClick={() => navigate("/find-coaches")}
+                    >
+                      Browse packages
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="booking-confirmation__price-card">
+                <p className="booking-confirmation__section-label">Price</p>
+                <div className="booking-confirmation__price-row">
+                  <span className="booking-confirmation__price-row-label">{priceLabel}</span>
+                  <span className="booking-confirmation__price-row-value">{priceValue}</span>
+                </div>
+                {cardFeeText ? (
+                  <div className="booking-confirmation__price-row is-muted">
+                    <span className="booking-confirmation__price-row-label">Processing</span>
+                    <span className="booking-confirmation__price-row-value">{cardFeeText}</span>
+                  </div>
+                ) : null}
+                {isUsingCredits ? (
+                  <div className="booking-confirmation__price-row is-muted is-credit">
+                    <span className="booking-confirmation__price-row-label">1 lesson credit applied</span>
+                    <span className="booking-confirmation__price-row-value">{priceValue}</span>
+                  </div>
+                ) : null}
+                <div className="booking-confirmation__price-divider" />
+                <div className="booking-confirmation__price-total">
+                  <span className="booking-confirmation__price-total-label">Total</span>
+                  <span className="booking-confirmation__price-total-value">
+                    {isUsingCredits ? "$0.00" : sessionPriceLabel.replace(" per player", "")}
+                  </span>
+                </div>
+                <div className={`booking-confirmation__price-caption${isUsingCredits ? " is-success" : ""}`}>
+                  {priceCaption}
+                </div>
+              </div>
+
+              <div className="booking-confirmation__policy">
+                <AlertCircle aria-hidden size={16} />
+                <div className="booking-confirmation__policy-copy">
+                  Cancel at least 24 hours before your class for a full refund or credit. Cancellations within
+                  24 hours are non-refundable.
+                </div>
+              </div>
+
+              <div className="booking-confirmation__actions">
+                <button
+                  type="button"
+                  className="fc-button fc-button--primary booking-confirmation__confirm"
+                  onClick={handleConfirm}
+                  disabled={isConfirmDisabled}
+                >
+                  {isProcessingPayment
+                    ? "Processing Apple Pay..."
+                    : isConsumingCredits
+                      ? "Applying credits..."
+                      : confirmButtonLabel}
+                  <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
+                </button>
+                {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed && isGroupLesson ? (
                   <div
                     className={`booking-confirmation__status ${
@@ -1609,28 +2070,30 @@ const BookingConfirmationPage = () => {
               </div>
             </section>
 
-            <aside className="booking-confirmation__aside">
-              <div className="booking-confirmation__aside-card">
-                <h3>What happens next</h3>
-                <ul>
-                  {nextStepsItems.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+                <aside className="booking-confirmation__aside">
+                <div className="booking-confirmation__aside-card">
+                  <h3>What happens next</h3>
+                  <ul>
+                    {nextStepsItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="booking-confirmation__aside-card booking-confirmation__aside-card--muted">
+                  <h3>Need to adjust?</h3>
+                  <p>{adjustCopy}</p>
+                  <button
+                    type="button"
+                    className="booking-confirmation__aside-back"
+                    onClick={handleAdjustNavigation}
+                  >
+                    {adjustButtonLabel}
+                  </button>
+                </div>
+                </aside>
               </div>
-              <div className="booking-confirmation__aside-card booking-confirmation__aside-card--muted">
-                <h3>Need to adjust?</h3>
-                <p>{adjustCopy}</p>
-                <button
-                  type="button"
-                  className="booking-confirmation__aside-back"
-                  onClick={handleAdjustNavigation}
-                >
-                  {adjustButtonLabel}
-                </button>
-              </div>
-            </aside>
-          </div>
+            </>
+          )}
         </div>
       </div>
       {isConfirmationModalOpen ? (
@@ -1639,8 +2102,9 @@ const BookingConfirmationPage = () => {
           status={modalStatus}
           data={modalData}
           onClose={() => setIsConfirmationModalOpen(false)}
-          onPrimary={() => setIsConfirmationModalOpen(false)}
+          onPrimary={() => navigate("/")}
           onSecondary={() => navigate("/")}
+          onBrowsePackages={() => navigate("/credits")}
           onAddToCalendar={handleAddToCalendar}
           onShareWithFriends={modalStatus === "CONFIRMED" ? handleShare : undefined}
         />

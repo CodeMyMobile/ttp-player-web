@@ -2,12 +2,13 @@
 
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Clock, MapPin, Search } from "lucide-react";
 
-import GroupLessonsFilterBar from "../components/group-lessons/GroupLessonsFilterBar";
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
+import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessons,
   mapUpcomingGroupLessonsResponse,
@@ -27,7 +28,8 @@ import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
-const radiusOptions = ["5 mi", "10 mi", "15 mi", "20 mi", "All"];
+const radiusOptions = ["All", "1 mi", "3 mi", "5 mi", "10 mi", "20 mi"];
+const DEFAULT_RADIUS_OPTION = "10 mi";
 
 const parseRadius = (radius: string) => {
   if (radius === "All") {
@@ -63,8 +65,8 @@ const addDays = (iso: string, amount: number) => {
   return base;
 };
 
-const formatWeekday = (iso: string) => {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long" });
+const formatWeekday = (iso: string, length: "long" | "short" = "long") => {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: length });
 };
 
 const formatMonthDay = (iso: string, options: "long" | "short" = "long") => {
@@ -72,6 +74,71 @@ const formatMonthDay = (iso: string, options: "long" | "short" = "long") => {
     month: options === "long" ? "long" : "short",
     day: "numeric",
   });
+};
+
+const parsePriceValue = (pricePerPlayer: string) => {
+  const match = String(pricePerPlayer).match(/(\d+(?:\.\d+)?)/);
+  if (!match) {
+    return null;
+  }
+  return Number.parseFloat(match[1]);
+};
+
+const getLessonFormatLabel = (lesson: GroupLesson) => {
+  const candidate = lesson.focus?.trim();
+  if (!candidate) {
+    return "Open Group";
+  }
+
+  if (candidate.length <= 24 && !/[.,]/.test(candidate)) {
+    return candidate;
+  }
+
+  if (/cardio/i.test(candidate)) {
+    return "Cardio Tennis";
+  }
+
+  if (/clinic/i.test(candidate)) {
+    return "Clinic";
+  }
+
+  return "Open Group";
+};
+
+const getCoachInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+const isGenericCoachName = (value?: string | null) => {
+  if (!value) {
+    return true;
+  }
+  return value.trim().toLowerCase() === "coach";
+};
+
+const getSpotsTone = (availableSpots: number) => {
+  if (availableSpots <= 0) {
+    return {
+      tone: "full" as const,
+      label: "Full",
+    };
+  }
+
+  if (availableSpots <= 2) {
+    return {
+      tone: "limited" as const,
+      label: `${availableSpots} spot${availableSpots === 1 ? "" : "s"} left`,
+    };
+  }
+
+  return {
+    tone: "open" as const,
+    label: `${availableSpots} spots left`,
+  };
 };
 
 type DateFilterState =
@@ -86,7 +153,27 @@ type SelectedLocation = {
   isCurrentLocation?: boolean;
 };
 
+type GroupLessonsStateSnapshot = {
+  coachFilter: string;
+  levelFilter: string;
+  formatFilter: string;
+  selectedRadius: string;
+  searchTerm: string;
+  dateFilter: DateFilterState;
+  rangeStartValue: string;
+  rangeEndValue: string;
+  useLocationFilter: boolean;
+  sortBy: "soonest" | "price-low" | "price-high";
+  locationFilter: SelectedLocation | null;
+  locationSearchTerm: string;
+};
+
+type GroupLessonsRouteState = {
+  groupLessonsState?: GroupLessonsStateSnapshot;
+};
+
 const GroupLessonsPage = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
@@ -110,8 +197,9 @@ const GroupLessonsPage = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [geoError, setGeoError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
+  const [selectedRadius, setSelectedRadius] = useState<string>(DEFAULT_RADIUS_OPTION);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showMobileMoreFilters, setShowMobileMoreFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
   const [isRangeOpen, setIsRangeOpen] = useState(false);
   const [rangeStartValue, setRangeStartValue] = useState<string>("");
@@ -119,8 +207,32 @@ const GroupLessonsPage = () => {
   const [rangeError, setRangeError] = useState<string | undefined>();
   const [useLocationFilter, setUseLocationFilter] = useState(true);
   const [lessons, setLessons] = useState<GroupLesson[]>([]);
+  const [coachProfilesById, setCoachProfilesById] = useState<Record<number, CoachProfileRecord>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const authToken = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "Token" }) ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
+
+  const getResolvedCoachName = useCallback(
+    (lesson: GroupLesson) =>
+      (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
+      coachProfilesById[lesson.coachId]?.fullName ??
+      "Coach",
+    [coachProfilesById],
+  );
+
+  const getResolvedCoachAvatar = useCallback(
+    (lesson: GroupLesson) => lesson.coachAvatarUrl || coachProfilesById[lesson.coachId]?.profilePicture || "",
+    [coachProfilesById],
+  );
 
   const lessonsWithIso = useMemo(
     () =>
@@ -132,8 +244,8 @@ const GroupLessonsPage = () => {
   );
 
   const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => lesson.coachName))],
-    [lessonsWithIso],
+    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => getResolvedCoachName(lesson)))],
+    [getResolvedCoachName, lessonsWithIso],
   );
 
   const levelOptions = useMemo(() => {
@@ -142,6 +254,44 @@ const GroupLessonsPage = () => {
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
   }, [lessonsWithIso]);
+
+  const formatOptions = useMemo(
+    () => ["All formats", ...new Set(lessonsWithIso.map((lesson) => getLessonFormatLabel(lesson)))],
+    [lessonsWithIso],
+  );
+  const [formatFilter, setFormatFilter] = useState<string>("All formats");
+  const [sortBy, setSortBy] = useState<"soonest" | "price-low" | "price-high">("soonest");
+
+  const groupLessonsStateSnapshot = useMemo<GroupLessonsStateSnapshot>(
+    () => ({
+      coachFilter,
+      levelFilter,
+      formatFilter,
+      selectedRadius,
+      searchTerm,
+      dateFilter,
+      rangeStartValue,
+      rangeEndValue,
+      useLocationFilter,
+      sortBy,
+      locationFilter,
+      locationSearchTerm,
+    }),
+    [
+      coachFilter,
+      dateFilter,
+      formatFilter,
+      levelFilter,
+      locationFilter,
+      locationSearchTerm,
+      rangeEndValue,
+      rangeStartValue,
+      searchTerm,
+      selectedRadius,
+      sortBy,
+      useLocationFilter,
+    ],
+  );
 
   const dateAnchors = useMemo(() => {
     const validIsos = lessonsWithIso
@@ -171,6 +321,7 @@ const GroupLessonsPage = () => {
       return {
         iso,
         day: formatWeekday(iso),
+        shortDay: formatWeekday(iso, "short"),
         label: formatMonthDay(iso),
       };
     });
@@ -285,6 +436,33 @@ const GroupLessonsPage = () => {
     setLocationSearchTerm(locationFilter?.label ?? "");
   }, [locationFilter?.label]);
 
+  useEffect(() => {
+    if (!location.state || typeof location.state !== "object") {
+      return;
+    }
+
+    const routeState = location.state as GroupLessonsRouteState;
+    const restoredState = routeState.groupLessonsState;
+    if (!restoredState) {
+      return;
+    }
+
+    setCoachFilter(restoredState.coachFilter);
+    setLevelFilter(restoredState.levelFilter);
+    setFormatFilter(restoredState.formatFilter);
+    setSelectedRadius(restoredState.selectedRadius);
+    setSearchTerm(restoredState.searchTerm);
+    setDateFilter(restoredState.dateFilter);
+    setRangeStartValue(restoredState.rangeStartValue);
+    setRangeEndValue(restoredState.rangeEndValue);
+    setUseLocationFilter(restoredState.useLocationFilter);
+    setSortBy(restoredState.sortBy);
+    setLocationSearchTerm(restoredState.locationSearchTerm);
+    applyLocationFilter(restoredState.locationFilter);
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [applyLocationFilter, location.pathname, location.state, navigate]);
+
   const totalLessons = lessonsWithIso.length;
 
   const currentUserIdentity = useMemo(() => {
@@ -378,23 +556,97 @@ const GroupLessonsPage = () => {
     return `from ${formatMonthDay(dateFilter.start, "short")} to ${formatMonthDay(dateFilter.end, "short")}`;
   }, [dateFilter, dayOptions]);
 
+  const displayedLessons = useMemo(() => {
+    const filteredLessons = lessonsWithIso.filter((lesson) => {
+      if (formatFilter !== "All formats" && getLessonFormatLabel(lesson) !== formatFilter) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...filteredLessons].sort((a, b) => {
+      if (sortBy === "price-low" || sortBy === "price-high") {
+        const priceA = parsePriceValue(a.pricePerPlayer) ?? 0;
+        const priceB = parsePriceValue(b.pricePerPlayer) ?? 0;
+        return sortBy === "price-low" ? priceA - priceB : priceB - priceA;
+      }
+
+      const dateA = a.startDateTime ? new Date(a.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+      const dateB = b.startDateTime ? new Date(b.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
+      return dateA - dateB;
+    });
+  }, [formatFilter, lessonsWithIso, sortBy]);
+
   const resultsSummary =
-    lessonsWithIso.length === totalLessons
-      ? `${lessonsWithIso.length} ${
-          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
+    displayedLessons.length === totalLessons
+      ? `${displayedLessons.length} ${
+          displayedLessons.length === 1 ? "group lesson" : "group lessons"
         } available ${dateSummary}`
-      : `${lessonsWithIso.length} ${
-          lessonsWithIso.length === 1 ? "group lesson" : "group lessons"
+      : `${displayedLessons.length} ${
+          displayedLessons.length === 1 ? "group lesson" : "group lessons"
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
+  const selectedCoachId = useMemo(() => {
+    if (coachFilter === "All coaches") {
+      return undefined;
+    }
+
+    return lessons.find((lesson) => getResolvedCoachName(lesson) === coachFilter)?.coachId;
+  }, [coachFilter, getResolvedCoachName, lessons]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!authToken || lessons.length === 0) {
+      return () => controller.abort();
+    }
+
+    const coachIdsToLoad = Array.from(
+      new Set(
+        lessons
+          .filter((lesson) => lesson.coachId && (isGenericCoachName(lesson.coachName) || !lesson.coachAvatarUrl))
+          .map((lesson) => lesson.coachId)
+          .filter((coachId) => !coachProfilesById[coachId]),
+      ),
+    );
+
+    if (coachIdsToLoad.length === 0) {
+      return () => controller.abort();
+    }
+
+    Promise.all(
+      coachIdsToLoad.map(async (coachId) => {
+        const profile = await fetchCoachProfile(coachId, {
+          token: authToken,
+          signal: controller.signal,
+        });
+        return [coachId, profile] as const;
+      }),
+    )
+      .then((entries) => {
+        if (controller.signal.aborted || entries.length === 0) return;
+        setCoachProfilesById((current) => {
+          const next = { ...current };
+          for (const [coachId, profile] of entries) {
+            next[coachId] = profile;
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+      });
+
+    return () => controller.abort();
+  }, [authToken, coachProfilesById, lessons]);
 
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
 
     const loadLessons = async () => {
-      const token = getStoredAuthToken({ preferScheme: "token" });
+      const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
       if (!token) {
         setLoadError("Missing authentication token.");
         return;
@@ -403,10 +655,6 @@ const GroupLessonsPage = () => {
       setIsLoading(true);
       setLoadError(null);
 
-      const selectedCoach =
-        coachFilter === "All coaches"
-          ? undefined
-          : lessonsWithIso.find((lesson) => lesson.coachName === coachFilter)?.coachId;
       const parsedLevel =
         levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
       const radiusMiles = parseRadius(selectedRadius);
@@ -426,7 +674,7 @@ const GroupLessonsPage = () => {
           search: searchTerm.trim(),
           ...(resolvedPosition ? { position: resolvedPosition } : {}),
           filters: {
-            coachId: selectedCoach,
+            coachId: selectedCoachId,
             level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
             radiusMiles:
               useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
@@ -457,13 +705,14 @@ const GroupLessonsPage = () => {
       controller.abort();
     };
   }, [
-    coachFilter,
+    authToken,
     levelFilter,
     selectedRadius,
     searchTerm,
     dateFilter,
     useLocationFilter,
     position,
+    selectedCoachId,
   ]);
 
   const handleApplyRange = () => {
@@ -488,43 +737,286 @@ const GroupLessonsPage = () => {
     setIsRangeOpen(false);
   };
 
+  const resetAllFilters = useCallback(() => {
+    setCoachFilter("All coaches");
+    setLevelFilter("All levels");
+    setFormatFilter("All formats");
+    applyLocationFilter(null);
+    setSelectedRadius(DEFAULT_RADIUS_OPTION);
+    setSearchTerm("");
+  }, [applyLocationFilter]);
+
+  const hasActiveFilters =
+    coachFilter !== "All coaches" ||
+    levelFilter !== "All levels" ||
+    formatFilter !== "All formats" ||
+    selectedRadius !== DEFAULT_RADIUS_OPTION ||
+    searchTerm.trim().length > 0 ||
+    !useLocationFilter;
+
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="find-coaches-page group-lessons-page" style={themeVars}>
         <div className="find-coaches-page__inner group-lessons-page__inner">
-          <ResultsHeader
-            title="Find Group Lessons"
-            description="Dial in your game with curated sessions led by trusted Matchplay coaches."
-          />
+          <div className="group-lessons-desktop-shell">
+            <ResultsHeader
+              title="Group Lessons"
+              description="Dial in your game with curated sessions led by trusted Matchplay coaches."
+            />
 
-          <GroupLessonsFilterBar
-            coachOptions={coachOptions}
-            selectedCoach={coachFilter}
-            onCoachChange={setCoachFilter}
-            levelOptions={levelOptions}
-            selectedLevel={levelFilter}
-            onLevelChange={setLevelFilter}
-            location={locationLabel}
-            onLocationClick={() => {
-              setGeoError("");
-              setShowLocationPicker((prev) => {
-                if (!prev) {
-                  setLocationSearchTerm(locationFilter?.label ?? "");
-                }
-                return !prev;
-              });
-            }}
-            useLocationFilter={useLocationFilter}
-            onUseLocationFilterChange={setUseLocationFilter}
-            radiusOptions={radiusOptions}
-            selectedRadius={selectedRadius}
-            onRadiusChange={setSelectedRadius}
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearch={() => {
-              setSearchTerm((current) => current.trim());
-            }}
-          />
+            <section className="group-lessons-desktop-filters" aria-label="Filter group lessons">
+              <div className="group-lessons-desktop-filters__top">
+                <label className="group-lessons-desktop-search">
+                  <Search size={16} aria-hidden="true" />
+                  <input
+                    aria-label="Search classes"
+                    placeholder="Search classes"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                  />
+                </label>
+
+                <div className="group-lessons-desktop-filters__actions">
+                  <label className="group-lessons-desktop-select">
+                    <select
+                      aria-label="Filter by format"
+                      value={formatFilter}
+                      onChange={(event) => setFormatFilter(event.target.value)}
+                    >
+                      {formatOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="group-lessons-desktop-select">
+                    <select
+                      aria-label="Filter by distance"
+                      value={selectedRadius}
+                      onChange={(event) => setSelectedRadius(event.target.value)}
+                    >
+                      {radiusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option === "All" ? "Any distance" : option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      className="group-lessons-desktop-clear"
+                      onClick={() => {
+                        setCoachFilter("All coaches");
+                        setLevelFilter("All levels");
+                        setFormatFilter("All formats");
+                        setSelectedRadius(DEFAULT_RADIUS_OPTION);
+                        setSearchTerm("");
+                      }}
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="group-lessons-desktop-meta">
+                <div className="group-lessons-desktop-meta__location">
+                  <MapPin size={15} aria-hidden="true" />
+                  <span>{useLocationFilter ? locationLabel : "All locations"}</span>
+                </div>
+                <div className="group-lessons-desktop-meta__buttons">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeoError("");
+                      setShowLocationPicker((prev) => {
+                        if (!prev) {
+                          setLocationSearchTerm(locationFilter?.label ?? "");
+                        }
+                        return !prev;
+                      });
+                    }}
+                  >
+                    Change location
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUseLocationFilter((current) => !current)}
+                  >
+                    {useLocationFilter ? "Use all locations" : "Search nearby"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="group-lessons-desktop-chip-row">
+                <span className="group-lessons-desktop-chip-row__label">Level</span>
+                <div className="group-lessons-desktop-chip-row__chips">
+                  <button
+                    type="button"
+                    className={`group-lessons-desktop-chip${
+                      levelFilter === "All levels" ? " group-lessons-desktop-chip--active" : ""
+                    }`}
+                    onClick={() => setLevelFilter("All levels")}
+                  >
+                    All
+                  </button>
+                  {levelOptions
+                    .filter((option) => option !== "All levels")
+                    .map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`group-lessons-desktop-chip${
+                          levelFilter === option ? " group-lessons-desktop-chip--active" : ""
+                        }`}
+                        onClick={() => setLevelFilter(option)}
+                      >
+                        {formatLevelRange(Number.parseFloat(option))}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              <div className="group-lessons-desktop-chip-row">
+                <span className="group-lessons-desktop-chip-row__label">Coach</span>
+                <div className="group-lessons-desktop-chip-row__chips">
+                  <button
+                    type="button"
+                    className={`group-lessons-desktop-chip${
+                      coachFilter === "All coaches" ? " group-lessons-desktop-chip--active" : ""
+                    }`}
+                    onClick={() => setCoachFilter("All coaches")}
+                  >
+                    All
+                  </button>
+                  {coachOptions
+                    .filter((option) => option !== "All coaches")
+                    .map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`group-lessons-desktop-chip group-lessons-desktop-chip--coach${
+                          coachFilter === option ? " group-lessons-desktop-chip--active" : ""
+                        }`}
+                        onClick={() => setCoachFilter(option)}
+                      >
+                        <span className="group-lessons-desktop-chip__avatar">
+                          {getCoachInitials(option)}
+                        </span>
+                        {option}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="group-lessons-mobile-shell">
+            <section className="group-lessons-mobile-hero">
+              <h1>Group Lessons</h1>
+              <p>Dial in your game with curated sessions led by trusted Matchplay coaches.</p>
+            </section>
+
+            <div className="group-lessons-mobile-search-row">
+              <label className="group-lessons-mobile-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  aria-label="Search classes"
+                  placeholder="Search classes"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={`group-lessons-mobile-more${
+                  formatFilter !== "All formats" ||
+                  selectedRadius !== DEFAULT_RADIUS_OPTION
+                    ? " group-lessons-mobile-more--active"
+                    : ""
+                }`}
+                onClick={() => setShowMobileMoreFilters(true)}
+              >
+                <span>⚙</span>
+                <span>
+                  More
+                  {formatFilter !== "All formats" ||
+                  selectedRadius !== DEFAULT_RADIUS_OPTION
+                    ? ` · ${
+                        Number(formatFilter !== "All formats") +
+                        Number(selectedRadius !== DEFAULT_RADIUS_OPTION)
+                      }`
+                    : ""}
+                </span>
+              </button>
+            </div>
+
+            <div className="group-lessons-mobile-chip-row">
+              <span className="group-lessons-mobile-chip-row__label">Level</span>
+              <div className="group-lessons-mobile-chip-row__scroller">
+                <button
+                  type="button"
+                  className={`group-lessons-mobile-chip${
+                    levelFilter === "All levels" ? " group-lessons-mobile-chip--active" : ""
+                  }`}
+                  onClick={() => setLevelFilter("All levels")}
+                >
+                  All
+                </button>
+                {levelOptions
+                  .filter((option) => option !== "All levels")
+                  .map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`group-lessons-mobile-chip${
+                        levelFilter === option ? " group-lessons-mobile-chip--active" : ""
+                      }`}
+                      onClick={() => setLevelFilter(option)}
+                    >
+                      {formatLevelRange(Number.parseFloat(option))}
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            <div className="group-lessons-mobile-chip-row">
+              <span className="group-lessons-mobile-chip-row__label">Coach</span>
+              <div className="group-lessons-mobile-chip-row__scroller">
+                <button
+                  type="button"
+                  className={`group-lessons-mobile-chip${
+                    coachFilter === "All coaches" ? " group-lessons-mobile-chip--active" : ""
+                  }`}
+                  onClick={() => setCoachFilter("All coaches")}
+                >
+                  All
+                </button>
+                {coachOptions
+                  .filter((option) => option !== "All coaches")
+                  .map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`group-lessons-mobile-chip group-lessons-mobile-chip--coach${
+                        coachFilter === option ? " group-lessons-mobile-chip--active" : ""
+                      }`}
+                      onClick={() => setCoachFilter(option)}
+                    >
+                      <span className="group-lessons-mobile-chip__avatar">
+                        {getCoachInitials(option)}
+                      </span>
+                      {option.split(" ")[0]}
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+          </div>
 
           {showLocationPicker ? (
             <section className="fp-location-panel" id="group-lessons-location-picker" aria-label="Location picker">
@@ -640,7 +1132,7 @@ const GroupLessonsPage = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      <span className="group-lessons-day-filter__day">{option.day}</span>
+                      <span className="group-lessons-day-filter__day">{option.shortDay}</span>
                       <span className="group-lessons-day-filter__date">{option.label}</span>
                     </button>
                   );
@@ -732,6 +1224,22 @@ const GroupLessonsPage = () => {
                 <h2 id="group-lessons-results-heading">Available sessions nearby</h2>
                 <p className="group-lessons-results__meta">{resultsSummary}</p>
               </div>
+              <div className="group-lessons-results__sort">
+                <span>Sort by</span>
+                <label className="group-lessons-results__sort-select">
+                  <select
+                    aria-label="Sort group lessons"
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as "soonest" | "price-low" | "price-high")
+                    }
+                  >
+                    <option value="soonest">Soonest</option>
+                    <option value="price-low">Price low</option>
+                    <option value="price-high">Price high</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             {isLoading ? (
@@ -742,80 +1250,107 @@ const GroupLessonsPage = () => {
               <div className="empty-state">
                 <p>{loadError}</p>
               </div>
-            ) : lessonsWithIso.length === 0 ? (
+            ) : displayedLessons.length === 0 ? (
               <div className="empty-state">
                 <p>No lessons match your current filters.</p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setCoachFilter("All coaches");
-                    setLevelFilter("All levels");
-                    applyLocationFilter(null);
-                    setSelectedRadius(radiusOptions[1]);
-                    setSearchTerm("");
-                  }}
+                  onClick={resetAllFilters}
                 >
                   Reset filters
                 </button>
               </div>
             ) : (
               <div className="lessons-grid">
-                {lessonsWithIso.map((lesson) => {
+                {displayedLessons.map((lesson) => {
                   const levelRange = formatLevelRange(lesson.level);
-                  const spotsLabel = `${lesson.availableSpots} of ${lesson.totalSpots} spots left`;
+                  const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isSoldOut = lesson.availableSpots === 0;
+                  const priceValue = parsePriceValue(lesson.pricePerPlayer);
+                  const showPackLink = priceValue !== null && priceValue > 29;
+                  const coachName = getResolvedCoachName(lesson);
+                  const coachAvatar = getResolvedCoachAvatar(lesson);
 
                   return (
-                    <article key={lesson.id} className="lesson-card">
-                      <header className="lesson-card__header">
-                        <div>
-                          <p className="lesson-card__day">{lesson.day}</p>
-                          <h3>{lesson.title}</h3>
+                    <article key={lesson.id} className="lesson-card lesson-card--desktop">
+                      <header className="lesson-card__band">
+                        <div className="lesson-card__band-label">
+                          {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
                         <span className="lesson-card__level">{levelRange} NTRP</span>
                       </header>
-                      <p className="lesson-card__focus">{lesson.focus}</p>
-                      <div className="lesson-card__meta">
-                        <div className="lesson-card__meta-item">
-                          <CalendarDays size={18} aria-hidden="true" />
-                          <span>{lesson.date}</span>
-                        </div>
-                        <div className="lesson-card__meta-item">
-                          <Clock size={18} aria-hidden="true" />
-                          <span>
-                            {lesson.startTime}
-                            <span className="bullet" aria-hidden="true">
-                              •
-                            </span>
-                            {lesson.durationMinutes} min
-                          </span>
-                        </div>
-                        <div className="lesson-card__meta-item">
-                          <MapPin size={18} aria-hidden="true" />
-                          <span>
-                            {lesson.locationName}
-                            <span className="bullet" aria-hidden="true">
-                              •
-                            </span>
-                            {lesson.distanceMiles.toFixed(1)} mi
-                          </span>
-                        </div>
-                        <div className="lesson-card__meta-item lesson-card__meta-item--spots">
-                          <Users size={18} aria-hidden="true" />
-                          <span>{spotsLabel}</span>
-                        </div>
-                      </div>
-                      <footer className="lesson-card__footer">
-                        <div className="lesson-coach">
-                          <img src={lesson.coachAvatarUrl} alt="" aria-hidden="true" />
-                          <div>
-                            <p className="coach-name">{lesson.coachName}</p>
-                            <p className="coach-location">{lesson.locationCity}</p>
+
+                      <div className="lesson-card__body">
+                        <div className="lesson-card__headline">
+                          <div className="lesson-card__title-wrap">
+                            <h3>{lesson.title}</h3>
+                            <p className="lesson-card__description">
+                              {lesson.description || lesson.focus || "Details coming soon."}
+                            </p>
+                          </div>
+                          <div className="lesson-card__price">
+                            <div className="lesson-card__price-value">
+                              {priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
+                            </div>
+                            {showPackLink ? (
+                              <button
+                                type="button"
+                                className="lesson-card__pack-link"
+                                onClick={() => navigate("/credits")}
+                              >
+                                $29 w/ pack
+                              </button>
+                            ) : null}
                           </div>
                         </div>
-                        <div className="lesson-actions">
-                          <Link to={`/group-lessons/${lesson.id}`} className="ghost-button">
+
+                        <div className="lesson-card__info-list">
+                          <div className="lesson-card__info-row">
+                            <Clock size={16} aria-hidden="true" />
+                            <span>
+                              {lesson.startTime} · {lesson.durationMinutes} min
+                            </span>
+                          </div>
+                          <div className="lesson-card__info-row">
+                            <MapPin size={16} aria-hidden="true" />
+                            <span>{lesson.locationName}</span>
+                          </div>
+                          <div className="lesson-card__info-row lesson-card__info-row--spots">
+                            <span className="lesson-card__info-icon-emoji" aria-hidden="true">
+                              👥
+                            </span>
+                            <span
+                              className={`lesson-card__spots-pill lesson-card__spots-pill--${spotTone.tone}`}
+                            >
+                              {spotTone.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="lesson-card__coach-strip">
+                          <div className="lesson-coach">
+                            {coachAvatar ? (
+                              <img src={coachAvatar} alt="" aria-hidden="true" />
+                            ) : (
+                              <span className="lesson-card__coach-fallback">
+                                {getCoachInitials(coachName)}
+                              </span>
+                            )}
+                            <div>
+                              <p className="coach-name">
+                                with <strong>{coachName}</strong>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <footer className="lesson-card__footer">
+                          <Link
+                            to={`/group-lessons/${lesson.id}`}
+                            state={{ groupLessonsState: groupLessonsStateSnapshot }}
+                            className="ghost-button"
+                          >
                             View details
                           </Link>
                           <button
@@ -823,15 +1358,18 @@ const GroupLessonsPage = () => {
                             className="primary-button"
                             onClick={() => {
                               navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
-                                state: { groupLessonId: lesson.id },
+                                state: {
+                                  groupLessonId: lesson.id,
+                                  groupLessonsState: groupLessonsStateSnapshot,
+                                },
                               });
                             }}
                             disabled={isSoldOut || isBooked}
                           >
-                            {isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Quick book"}
+                            {isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Book now"}
                           </button>
-                        </div>
-                      </footer>
+                        </footer>
+                      </div>
                     </article>
                   );
                 })}
@@ -840,6 +1378,72 @@ const GroupLessonsPage = () => {
           </section>
         </div>
       </div>
+      {showMobileMoreFilters && typeof document !== "undefined"
+        ? createPortal(
+            <div className="group-lessons-mobile-sheet">
+              <button
+                type="button"
+                className="group-lessons-mobile-sheet__backdrop"
+                aria-label="Close filters"
+                onClick={() => setShowMobileMoreFilters(false)}
+              />
+              <div className="group-lessons-mobile-sheet__panel">
+                <div className="group-lessons-mobile-sheet__handle" />
+                <div className="group-lessons-mobile-sheet__header">
+                  <h2>More filters</h2>
+                  <button type="button" onClick={resetAllFilters}>
+                    Clear
+                  </button>
+                </div>
+                <div className="group-lessons-mobile-sheet__content">
+                  <section className="group-lessons-mobile-sheet__group">
+                    <h3>Distance</h3>
+                    <p>Within radius of {useLocationFilter ? locationLabel : DEFAULT_LOCATION}</p>
+                    <div className="group-lessons-mobile-sheet__chips">
+                      {radiusOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`group-lessons-mobile-sheet__chip${
+                            selectedRadius === option ? " group-lessons-mobile-sheet__chip--active" : ""
+                          }`}
+                          onClick={() => setSelectedRadius(option)}
+                        >
+                          {option === "All" ? "Any" : option}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="group-lessons-mobile-sheet__group">
+                    <h3>Format</h3>
+                    <div className="group-lessons-mobile-sheet__chips">
+                      {formatOptions
+                        .filter((option) => option !== "All formats")
+                        .map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={`group-lessons-mobile-sheet__chip${
+                              formatFilter === option ? " group-lessons-mobile-sheet__chip--active" : ""
+                            }`}
+                            onClick={() => setFormatFilter(option)}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                    </div>
+                  </section>
+                </div>
+                <div className="group-lessons-mobile-sheet__footer">
+                  <button type="button" onClick={() => setShowMobileMoreFilters(false)}>
+                    Show results
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </MainLayout>
   );
 };

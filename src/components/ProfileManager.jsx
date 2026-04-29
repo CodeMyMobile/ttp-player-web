@@ -3,13 +3,14 @@ import { X, Loader2, UserRound } from "lucide-react";
 import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
-import { updatePlayerPersonalDetails } from "../services/player";
+import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
 
 import "./ProfileManager.css";
 
 const emptyDetails = {
   id: null,
   full_name: "",
+  email: "",
   phone: "",
   profile_picture: "",
   date_of_birth: "",
@@ -61,6 +62,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       const normalizedDetails = {
         id: data?.id ?? null,
         full_name: data?.full_name || "",
+        email: data?.email || "",
         phone: data?.phone ? String(data.phone).replace(/\D/g, "") : "",
         profile_picture: data?.profile_picture || "",
         date_of_birth: data?.date_of_birth
@@ -81,7 +83,14 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       setImagePreview(normalizedDetails.profile_picture || "");
     } catch (err) {
       console.error(err);
-      setError("Failed to load profile details. Please try again.");
+      if (err?.status === 404) {
+        setDetails(emptyDetails);
+        setPhoneInput("");
+        setImagePreview("");
+        setError("");
+      } else {
+        setError("Failed to load profile details. Please try again.");
+      }
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -101,11 +110,6 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
     setError("");
     setSuccessMessage("");
     setSaving(true);
-    if (!details.id) {
-      setSaving(false);
-      setError("We couldn't determine your player profile. Please reload and try again.");
-      return;
-    }
     if (!accessToken) {
       setSaving(false);
       setError("Please sign in again to update your profile.");
@@ -122,16 +126,26 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
 
       const sanitizedPhone = String(details.phone || "").replace(/\D/g, "");
       const aboutMe = details.about_me?.trim();
-      await updatePlayerPersonalDetails({
+      const payload = {
         player: accessToken,
-        id: details.id,
         date_of_birth: details.date_of_birth || null,
         usta_rating: parseRating(details.usta_rating),
         uta_rating: parseRating(details.uta_rating),
         fullName: details.full_name?.trim() || null,
         mobile: sanitizedPhone ? sanitizedPhone : null,
         about_me: aboutMe || null,
-      });
+      };
+
+      const response = details.id
+        ? await updatePlayerPersonalDetails({
+            ...payload,
+            id: details.id,
+          })
+        : await createPlayerPersonalDetails(payload);
+
+      if (response?.id && response.id !== details.id) {
+        setDetails((prev) => ({ ...prev, id: response.id }));
+      }
       if (isPage) {
         setSuccessMessage("Profile updated successfully.");
         fetchDetails({ showLoader: false });
@@ -202,6 +216,20 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
               }
               autoFocus
             />
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-email">
+              Email
+            </label>
+            <input
+              id="profile-email"
+              className="profile-manager__input"
+              type="email"
+              value={details.email}
+              readOnly
+            />
+            <p className="profile-manager__helper">Email is managed by your account sign-in settings.</p>
           </div>
 
           <div className="profile-manager__field">
