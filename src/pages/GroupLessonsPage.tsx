@@ -11,6 +11,7 @@ import MainLayout from "../components/MainLayout";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessons,
+  isActiveGroupLessonBookingStatus,
   mapUpcomingGroupLessonsResponse,
   type GroupLesson,
 } from "../api/groupLessons";
@@ -535,9 +536,7 @@ const GroupLessonsPage = () => {
         return false;
       });
       if (!playerRecord) return false;
-      const resolved = playerRecord.paymentStatus ?? playerRecord.status;
-      const parsed = typeof resolved === "number" ? resolved : Number(resolved);
-      return Number.isFinite(parsed) ? parsed === 1 : false;
+      return isActiveGroupLessonBookingStatus(playerRecord.status);
     },
     [currentUserIdentity],
   );

@@ -14,6 +14,7 @@ import moment from "moment";
 import {
   fetchUpcomingGroupLessons,
   fetchUpcomingGroupLessonById,
+  isActiveGroupLessonBookingStatus,
   mapUpcomingGroupLesson,
   mapUpcomingGroupLessonsResponse,
   type GroupLesson,
@@ -409,9 +410,7 @@ const GroupLessonDetailsPage = () => {
       return false;
     });
     if (!playerRecord) return undefined;
-    const resolved = playerRecord.paymentStatus ?? playerRecord.status;
-    const parsed = typeof resolved === "number" ? resolved : Number(resolved);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    return playerRecord.status;
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
   if (isLoading) {
@@ -462,7 +461,7 @@ const GroupLessonDetailsPage = () => {
     );
   }
 
-  const isBooked = currentUserStatus === 1;
+  const isBooked = isActiveGroupLessonBookingStatus(currentUserStatus);
   const confirmedCount = lesson.participants.length;
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
   const timeRange = lesson.startDateTime && lesson.endDateTime

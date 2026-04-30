@@ -73,6 +73,8 @@ export interface UpcomingGroupLessonApi {
   latitude?: string | number;
   longitude?: string | number;
   player_limit?: number;
+  booked_count?: number;
+  open_spots?: number;
   group_players?: UpcomingGroupLessonPlayerApi[];
   metadata?: {
     level?: string;
@@ -219,11 +221,41 @@ const extractCityState = (location?: string) => {
   return parts.slice(-2).join(", ");
 };
 
+export const isActiveGroupLessonBookingStatus = (status?: number | null) => {
+  if (typeof status !== "number" || !Number.isFinite(status)) {
+    return false;
+  }
+  return status === 1;
+};
+
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
-  const totalSpots = lesson.player_limit ?? lesson.group_players?.length ?? 0;
-  const confirmedCount = lesson.group_players?.length ?? 0;
-  const availableSpots = Math.max(totalSpots - confirmedCount, 0);
+  const normalizedGroupPlayers = (lesson.group_players ?? []).map((player) => {
+    const paymentStatus =
+      typeof player.payment_status === "number"
+        ? player.payment_status
+        : Number(player.payment_status);
+    const status =
+      typeof player.status === "number"
+        ? player.status
+        : Number(player.status);
+
+    return {
+      playerId: player.player_id,
+      name: player.full_name ?? "Player",
+      avatarUrl: player.profile_picture,
+      email: typeof player.email === "string" ? player.email.toLowerCase() : undefined,
+      phone: typeof player.phone === "string" ? player.phone : undefined,
+      paymentStatus: Number.isFinite(paymentStatus) ? paymentStatus : undefined,
+      status: Number.isFinite(status) ? status : undefined,
+    };
+  });
+  const activeGroupPlayers = normalizedGroupPlayers.filter((player) => isActiveGroupLessonBookingStatus(player.status));
+  const totalSpots = lesson.player_limit ?? normalizedGroupPlayers.length ?? 0;
+  const bookedCountRaw = typeof lesson.booked_count === "number" ? lesson.booked_count : Number(lesson.booked_count);
+  const openSpotsRaw = typeof lesson.open_spots === "number" ? lesson.open_spots : Number(lesson.open_spots);
+  const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : activeGroupPlayers.length;
+  const availableSpots = Number.isFinite(openSpotsRaw) ? Math.max(openSpotsRaw, 0) : Math.max(totalSpots - confirmedCount, 0);
   const locationCity = lesson.location_city || extractCityState(lesson.location);
   const distanceMiles = Number.isFinite(lesson.distance_miles)
     ? (lesson.distance_miles as number)
@@ -264,24 +296,12 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     availableSpots,
     focus: lesson.lesson_type_name ?? description,
     pricePerPlayer: formatPricePerPlayer(lesson.group_price_per_person),
-    participants: (lesson.group_players ?? []).map((player, index) => ({
-      id: String(player.player_id ?? `${lesson.id}-${index}`),
-      name: player.full_name ?? "Player",
-      avatarUrl: player.profile_picture,
+    participants: activeGroupPlayers.map((player, index) => ({
+      id: String(player.playerId ?? `${lesson.id}-${index}`),
+      name: player.name,
+      avatarUrl: player.avatarUrl,
     })),
-    groupPlayers: (lesson.group_players ?? []).map((player) => ({
-      playerId: player.player_id,
-      email: typeof player.email === "string" ? player.email.toLowerCase() : undefined,
-      phone: typeof player.phone === "string" ? player.phone : undefined,
-      paymentStatus:
-        typeof player.payment_status === "number"
-          ? player.payment_status
-          : Number(player.payment_status),
-      status:
-        typeof player.status === "number"
-          ? player.status
-          : Number(player.status),
-    })),
+    groupPlayers: normalizedGroupPlayers,
   };
 };
 
