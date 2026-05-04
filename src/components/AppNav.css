@@ -73,6 +73,10 @@
 }
 
 .app-nav__links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
   gap: 8px;
   padding: 8px 12px;
   border-radius: 12px;
@@ -81,6 +85,16 @@
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.app-nav__links a svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.app-nav__links a span {
+  display: inline-block;
   white-space: nowrap;
 }
 
@@ -96,15 +110,15 @@
 
 .app-nav__new-match {
   gap: 9px;
-  min-height: 42px;
-  padding: 0 22px;
+  min-height: 36px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #8b5cf6, #7c3aed);
   color: #fff;
   box-shadow: 0 8px 18px rgba(124, 58, 237, 0.28);
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
 }
 

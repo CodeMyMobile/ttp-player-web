@@ -1127,10 +1127,10 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
           : stepTitles[2]
         : stepTitles[3];
   return (
-    <div className="min-h-screen bg-slate-900/35 px-3 py-4 backdrop-blur-[2px] md:px-6 md:py-10">
+    <div className="min-h-screen bg-slate-900/30 px-3 py-4 backdrop-blur-[2px] md:px-5 md:py-8">
       {toast && (
         <div
-          className={`fixed top-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl shadow-lg z-50 text-sm font-semibold ${
+          className={`fixed top-5 left-1/2 -translate-x-1/2 rounded-lg px-4 py-2 shadow-lg z-50 text-sm font-semibold ${
             toast.type === "error" ? "bg-red-500 text-white" : "bg-gray-900 text-white"
           }`}
         >
@@ -1138,24 +1138,24 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
         </div>
       )}
 
-      <div className="mx-auto flex max-h-[92vh] w-full max-w-[760px] flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.3)]">
-        <div className="border-b border-slate-100 px-5 py-5 md:px-8 md:py-6">
+      <div className="mx-auto flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_22px_54px_rgba(0,0,0,0.24)]">
+        <div className="border-b border-slate-100 px-5 py-4 md:px-6 md:py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-sm font-black uppercase tracking-[0.12em] text-violet-500">
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-violet-500">
                 New Match
               </div>
-              <h1 className="mt-1 text-[34px] font-black tracking-[-0.03em] text-slate-900">
+              <h1 className="mt-1 text-[26px] font-black text-slate-900 md:text-[28px]">
                 {modalTitle}
               </h1>
             </div>
             <button
               type="button"
               onClick={onCancel}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
               aria-label="Close create match"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           </div>
         </div>
@@ -1163,12 +1163,12 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
         <div className="min-h-0 flex-1 overflow-y-auto">
 
       {currentStep === 1 && (
-        <div className="px-5 py-6 md:px-8 md:py-7">
+        <div className="px-5 py-5 md:px-6 md:py-6">
           <ProgressBar currentStep={currentStep} />
 
-          <div className="space-y-7">
+          <div className="space-y-6">
           <div>
-            <h3 className="mb-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+            <h3 className="mb-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               Match Type
             </h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1176,7 +1176,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                 onClick={() =>
                   setMatchData((prev) => ({ ...prev, type: "open", invitedPlayers: [] }))
                 }
-                className={`rounded-[22px] border-[2px] px-5 py-5 text-left transition-all ${
+                className={`rounded-[18px] border-[2px] px-4 py-4 text-left transition-all ${
                   matchData.type === "open"
                     ? "border-violet-500 bg-violet-50 shadow-[0_0_0_3px_rgba(139,92,246,0.08)]"
                     : "border-slate-200 bg-white hover:border-slate-300"
@@ -1184,21 +1184,21 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-[18px] ${
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
                       matchData.type === "open" ? "bg-violet-500 text-white" : "bg-slate-50 text-slate-400"
                     }`}
                   >
-                    <Globe size={24} />
+                    <Globe size={20} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[18px] font-black text-slate-900">Open match</div>
-                    <div className="text-[15px] font-medium text-slate-500">
+                    <div className="text-[16px] font-black text-slate-900">Open match</div>
+                    <div className="text-[14px] font-medium text-slate-500">
                       Anyone with the right level can join
                     </div>
                   </div>
                   {matchData.type === "open" && (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white">
-                      <Check size={16} />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500 text-white">
+                      <Check size={14} />
                     </div>
                   )}
                 </div>
@@ -1207,7 +1207,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                 onClick={() =>
                   setMatchData((prev) => ({ ...prev, type: "private", skillLevel: "4.0" }))
                 }
-                className={`rounded-[22px] border-[2px] px-5 py-5 text-left transition-all ${
+                className={`rounded-[18px] border-[2px] px-4 py-4 text-left transition-all ${
                   matchData.type === "private"
                     ? "border-violet-500 bg-violet-50 shadow-[0_0_0_3px_rgba(139,92,246,0.08)]"
                     : "border-slate-200 bg-white hover:border-slate-300"
@@ -1215,21 +1215,21 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-[18px] ${
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
                       matchData.type === "private" ? "bg-violet-500 text-white" : "bg-slate-50 text-slate-400"
                     }`}
                   >
-                    <Lock size={24} />
+                    <Lock size={20} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[18px] font-black text-slate-900">Private match</div>
-                    <div className="text-[15px] font-medium text-slate-500">
+                    <div className="text-[16px] font-black text-slate-900">Private match</div>
+                    <div className="text-[14px] font-medium text-slate-500">
                       Invite specific players only
                     </div>
                   </div>
                   {matchData.type === "private" && (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white">
-                      <Check size={16} />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500 text-white">
+                      <Check size={14} />
                     </div>
                   )}
                 </div>
@@ -1247,7 +1247,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                   <button
                     key={day.value}
                     onClick={() => setMatchData((prev) => ({ ...prev, date: day.date }))}
-                    className={`flex-shrink-0 rounded-full border px-4 py-2 text-[15px] font-bold transition-colors ${
+                  className={`flex-shrink-0 rounded-full border px-4 py-2 text-[14px] font-bold transition-colors ${
                       matchData.date === day.date
                         ? "border-violet-500 bg-violet-500 text-white"
                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
@@ -1260,16 +1260,16 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-slate-500">Date</label>
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">Date</label>
                 <input
                   type="date"
                   value={matchData.date}
                   onChange={(e) => setMatchData((prev) => ({ ...prev, date: e.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-[18px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-[16px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-slate-500">Time</label>
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">Time</label>
                 <input
                   type="time"
                   min={MIN_START_TIME}
@@ -1277,15 +1277,15 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                   value={matchData.startTime}
                   onChange={(e) => handleTimeChange(e.target.value)}
                   onBlur={(e) => handleTimeChange(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-[18px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-[16px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-slate-500">Duration</label>
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.12em] text-slate-500">Duration</label>
                 <select
                   value={matchData.duration}
                   onChange={(e) => setMatchData((prev) => ({ ...prev, duration: e.target.value }))}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-[18px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-[16px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 >
                   {durations.map((duration) => (
                     <option key={duration.value} value={duration.value}>
@@ -1298,7 +1298,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
           </div>
           <div className="grid gap-5 md:grid-cols-[1.3fr_.8fr]">
           <div>
-            <h3 className="mb-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+            <h3 className="mb-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               Location
             </h3>
             {recentLocations.length > 0 && (
@@ -1366,7 +1366,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                   types: ["establishment"],
                   fields: ["formatted_address", "geometry", "name"],
                 }}
-                className="w-full rounded-2xl border border-slate-200 py-4 pl-11 pr-4 text-[18px] font-semibold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-[16px] font-semibold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                 placeholder="e.g., Oceanside Tennis Center"
               />
             </div>
@@ -1376,10 +1376,10 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+            <h3 className="mb-3 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
               Number of Players
             </h3>
-            <div className="rounded-2xl border border-slate-200 px-4 py-3">
+            <div className="rounded-xl border border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <button
                 onClick={() =>
@@ -1389,12 +1389,12 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                   }))
                 }
                 disabled={matchData.totalPlayers <= 2}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-50 text-xl font-bold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-lg font-bold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ArrowLeft size={18} />
               </button>
               <div className="min-w-[8rem] text-center">
-                <div className="mb-1 text-[44px] font-black leading-none text-violet-500">
+                <div className="mb-1 text-[36px] font-black leading-none text-violet-500">
                   {matchData.totalPlayers}
                 </div>
                 <div className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Total</div>
@@ -1410,7 +1410,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                   }))
                 }
                 disabled={matchData.totalPlayers >= MAX_MATCH_PLAYERS}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-50 text-xl font-bold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-lg font-bold text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ArrowRight size={18} />
               </button>
@@ -1419,17 +1419,17 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
           </div>
           </div>
 
-          <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-5">
+          <div className="mt-7 flex items-center justify-between border-t border-slate-100 pt-4">
             <button
               onClick={onCancel}
-              className="rounded-2xl border border-slate-200 bg-white px-7 py-3 text-[15px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-[14px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
             >
               Cancel
             </button>
             <div className="hidden text-sm font-bold text-slate-400 md:block">Step 1 of 3</div>
             <button
               onClick={nextStep}
-              className="inline-flex items-center gap-2 rounded-2xl bg-violet-500 px-8 py-3 text-[15px] font-black text-white shadow-[0_0_0_2px_#4f46e5] transition-colors hover:bg-violet-600"
+              className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-7 py-2.5 text-[14px] font-black text-white shadow-[0_0_0_2px_#4f46e5] transition-colors hover:bg-violet-600"
             >
               Next <ArrowRight size={18} />
             </button>

@@ -3429,7 +3429,7 @@ const TennisMatchApp = ({
         onClick={onClick}
         disabled={disabled}
         className={`relative inline-flex items-center justify-center rounded-full border font-black transition-colors ${
-          size === "compact" ? "min-h-11 px-6 text-[13px]" : "min-h-9 px-4 text-sm"
+          size === "compact" ? "min-h-8 px-3 text-[11px]" : "min-h-8 px-3 text-[12px]"
         } ${
           active
             ? "border-violet-500 bg-violet-500 text-white"
@@ -3583,9 +3583,9 @@ const TennisMatchApp = ({
               </section>
             )}
 
-            <section className="mb-8 rounded-[20px] border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-7">
-              <div className="mb-5 flex flex-col gap-5">
-                <div className="inline-flex rounded-[18px] bg-slate-100 p-1.5 shadow-inner">
+            <section className="mb-8 rounded-[16px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+              <div className="mb-4 flex flex-col gap-3.5">
+                <div className="inline-flex rounded-[14px] bg-slate-100 p-1 shadow-inner">
                   {DISCOVERY_SCOPE_FILTERS.map((filter) => {
                     const isActive = activeFilter === filter.id;
                     return (
@@ -3596,7 +3596,7 @@ const TennisMatchApp = ({
                           setActiveFilter(filter.id);
                           setMatchPage(1);
                         }}
-                        className={`h-12 min-w-[122px] rounded-[14px] px-5 text-[13px] font-black transition-colors ${
+                        className={`h-9 min-w-[96px] rounded-[11px] px-3.5 text-[11px] font-black transition-colors ${
                           isActive
                             ? "bg-white text-slate-950 shadow-sm"
                             : "text-slate-500 hover:text-slate-800"
@@ -3608,13 +3608,13 @@ const TennisMatchApp = ({
                   })}
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_430px]">
+                <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
                   <div>
                     <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
                       Location
                     </p>
                     <div className="relative">
-                      <MapPin className="pointer-events-none absolute left-5 top-1/2 z-[1] h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <MapPin className="pointer-events-none absolute left-4 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Autocomplete
                         apiKey={import.meta.env.VITE_GOOGLE_API_KEY}
                         value={locationFilter?.label || ""}
@@ -3648,7 +3648,7 @@ const TennisMatchApp = ({
                           types: ["establishment"],
                           fields: ["formatted_address", "geometry", "name"],
                         }}
-                        className="h-14 w-full rounded-[18px] border border-slate-200 bg-white pl-14 pr-5 text-[13px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                        className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                         placeholder="e.g., Oceanside Tennis Center"
                       />
                     </div>
@@ -3663,7 +3663,7 @@ const TennisMatchApp = ({
                               key={entry.label}
                               type="button"
                               onClick={() => handleUseBrowseLocation(entry)}
-                              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-black transition-colors ${
+                              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-black transition-colors ${
                                 isActive
                                   ? "border-violet-500 bg-violet-500 text-white"
                                   : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700"
@@ -3683,7 +3683,7 @@ const TennisMatchApp = ({
                       Search
                     </p>
                     <div className="relative w-full">
-                      <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input
                         type="search"
                         placeholder="Search matches by format or notes..."
@@ -3692,14 +3692,14 @@ const TennisMatchApp = ({
                           setMatchSearch(e.target.value);
                           setMatchPage(1);
                         }}
-                        className="h-14 w-full rounded-[18px] border border-slate-200 bg-white pl-14 pr-5 text-[13px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                        className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
                   <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">When</p>
                   <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
@@ -3709,14 +3709,14 @@ const TennisMatchApp = ({
                         setSelectedDayKey("");
                         setMatchPage(1);
                       }}
-                      className={`min-h-[76px] min-w-[122px] rounded-[18px] border px-4 text-center text-sm font-black transition-colors ${
+                      className={`min-h-[58px] min-w-[92px] rounded-[14px] border px-3 text-center text-[12px] font-black transition-colors ${
                         !selectedDayKey
                           ? "border-violet-500 bg-violet-500 text-white"
                           : "border-slate-200 bg-white text-slate-700"
                       }`}
                     >
-                      <span className="block text-[11px] uppercase tracking-[0.14em]">All</span>
-                      <span className="mt-0.5 block text-[18px] leading-none">Upcoming</span>
+                      <span className="block text-[10px] uppercase tracking-[0.14em]">All</span>
+                      <span className="mt-0.5 block text-[15px] leading-none">Upcoming</span>
                     </button>
                     {dayStripOptions.map((day, index) => {
                       const count =
@@ -3733,7 +3733,7 @@ const TennisMatchApp = ({
                             setMatchPage(1);
                           }}
                           disabled={disabled}
-                          className={`relative min-h-[76px] min-w-[126px] rounded-[18px] border px-4 text-center text-sm font-black transition-colors ${
+                          className={`relative min-h-[58px] min-w-[96px] rounded-[14px] border px-3 text-center text-[12px] font-black transition-colors ${
                             isActive
                               ? "border-violet-500 bg-violet-500 text-white"
                               : disabled
@@ -3742,19 +3742,19 @@ const TennisMatchApp = ({
                           }`}
                         >
                           {count > 0 && (
-                            <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-violet-500 px-1 text-[11px] font-black text-white">
+                            <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-violet-500 px-1 text-[9px] font-black text-white">
                               {count}
                             </span>
                           )}
-                          <span className="block text-[11px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
-                          <span className="mt-0.5 block text-[18px] leading-none">{day.label}</span>
+                          <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
+                          <span className="mt-0.5 block text-[15px] leading-none">{day.label}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="mr-2 min-w-[68px] text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Level</span>
                     {["Any", ...NTRP_LEVELS].map((level) =>
@@ -3770,7 +3770,7 @@ const TennisMatchApp = ({
                       }),
                     )}
                   </div>
-                  <div className="hidden h-10 w-px bg-slate-200 xl:block" />
+                  <div className="hidden h-7 w-px bg-slate-200 xl:block" />
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="mr-2 min-w-[78px] text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Format</span>
                     {DISCOVERY_FORMAT_FILTERS.map((format) =>
