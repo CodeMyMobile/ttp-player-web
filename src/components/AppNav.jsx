@@ -103,7 +103,7 @@ const AppNav = ({ onNewMatch }) => {
       onNewMatch();
       return;
     }
-    navigate("/matches/create");
+    navigate("/create");
   };
 
   return (

@@ -1,9 +1,5 @@
+import { buildApiUrl } from "../../api/config";
 import { normalizeAuthToken } from "./authToken";
-
-const API_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "https://ttp-api.codemymobile.com/api";
 
 export async function getPlayerAWSUrl(accessToken, imageType) {
   const authHeader = normalizeAuthToken(accessToken, {
@@ -13,7 +9,7 @@ export async function getPlayerAWSUrl(accessToken, imageType) {
   if (!authHeader) {
     throw new Error("Missing access token for avatar upload");
   }
-  const res = await fetch(`${API_URL}/player/avatars?file_type=${imageType}`, {
+  const res = await fetch(buildApiUrl(`/player/avatars?file_type=${imageType}`), {
     method: "GET",
     headers: {
       Authorization: authHeader,

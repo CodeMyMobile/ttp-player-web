@@ -1,3 +1,4 @@
+import { buildApiUrl } from "../../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
 import {
@@ -7,10 +8,6 @@ import {
   storeAuthToken,
   storeRefreshToken,
 } from "./authToken";
-
-const AUTH_BASE =
-  import.meta.env.VITE_API_URL ||
-  "https://ttp-api.codemymobile.com/api";
 
 const persistTokensFromResponse = (data) => {
   if (!data || typeof data !== "object") return;
@@ -115,7 +112,7 @@ export const refreshSession = async (providedRefreshToken) => {
 
 export const forgotPassword = async (email) =>
   unwrap(
-    api(`${AUTH_BASE}/auth/forgot-password`, {
+    api(buildApiUrl("/auth/forgot-password"), {
       method: "POST",
       body: JSON.stringify({ email }),
     })
@@ -123,7 +120,7 @@ export const forgotPassword = async (email) =>
 
 export const resetPassword = async ({ token, email, password }) =>
   unwrap(
-    api(`${AUTH_BASE}/auth/reset-password/${token}/${encodeURIComponent(email)}`, {
+    api(buildApiUrl(`/auth/reset-password/${token}/${encodeURIComponent(email)}`), {
       method: "PATCH",
       body: JSON.stringify({ password }),
     })

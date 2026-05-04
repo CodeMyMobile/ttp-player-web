@@ -3,13 +3,22 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-d
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
+import PlayDatesInvitationPage from "./play-dates/InvitationPage";
+import PlayDatesMatchPage from "./play-dates/pages/MatchPage";
+import PlayDatesResetPasswordPage from "./play-dates/pages/ResetPassword";
+import PlayDatesCreateMatchPage from "./play-dates/pages/CreateMatchPage";
+import PlayDatesCourtFinderPage from "./play-dates/pages/CourtFinder";
+import PlayDatesMatchSuccessPreview from "./play-dates/pages/MatchSuccessPreview";
+import {
+  QueryClientProvider as PlayDatesQueryClientProvider,
+  createQueryClient as createPlayDatesQueryClient,
+} from "./play-dates/utils/react-query-shim";
 import AppNav from "./components/AppNav";
 import CreateMatchPage from "./pages/CreateMatchPage";
 import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
 import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
 import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
 import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
-import MatchDetailsPage from "./pages/MatchDetailsPage";
 import FindCoaches from "./pages/FindCoaches";
 import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
@@ -34,6 +43,8 @@ import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import "./App.css";
+
+const playDatesQueryClient = createPlayDatesQueryClient();
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -110,7 +121,7 @@ const buildMatchesUser = (authUser) => {
   };
 };
 
-const PlayDatesMatchesRoute = () => {
+const PlayDatesAppRoute = () => {
   const { user, logout } = useAuth();
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
 
@@ -131,16 +142,37 @@ const PlayDatesMatchesRoute = () => {
       <div className="dashboard-page">
         <AppNav onNewMatch={openNewMatch} />
         <main className="main-layout__content">
-          <PlayDatesMatchesApp
-            externalUser={matchesUser}
-            onExternalLogout={logout}
-            hideAppHeader
-          />
+          <PlayDatesQueryClientProvider client={playDatesQueryClient}>
+            <PlayDatesMatchesApp
+              externalUser={matchesUser}
+              onExternalLogout={logout}
+              hideAppHeader
+            />
+          </PlayDatesQueryClientProvider>
         </main>
       </div>
     </ProtectedRoute>
   );
 };
+
+const PlayDatesProtectedPageRoute = ({ children }) => (
+  <ProtectedRoute>
+    <div className="dashboard-page">
+      <AppNav />
+      <main className="main-layout__content">
+        <PlayDatesQueryClientProvider client={playDatesQueryClient}>
+          {children}
+        </PlayDatesQueryClientProvider>
+      </main>
+    </div>
+  </ProtectedRoute>
+);
+
+const PlayDatesPublicPageRoute = ({ children }) => (
+  <PlayDatesQueryClientProvider client={playDatesQueryClient}>
+    {children}
+  </PlayDatesQueryClientProvider>
+);
 
 const AppRoutes = () => (
   <Routes>
@@ -174,7 +206,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches"
-      element={<PlayDatesMatchesRoute />}
+      element={<PlayDatesAppRoute />}
+    />
+    <Route
+      path="/matches/:id/invite"
+      element={<PlayDatesAppRoute />}
     />
     <Route
       path="/matches/create"
@@ -218,8 +254,86 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches/:id"
-      element={<MatchDetailsPage />}
+      element={(
+        <PlayDatesPublicPageRoute>
+          <PlayDatesMatchPage />
+        </PlayDatesPublicPageRoute>
+      )}
     />
+    <Route
+      path="/create"
+      element={(
+        <PlayDatesProtectedPageRoute>
+          <PlayDatesCreateMatchPage />
+        </PlayDatesProtectedPageRoute>
+      )}
+    />
+    <Route
+      path="/courts"
+      element={(
+        <PlayDatesProtectedPageRoute>
+          <PlayDatesCourtFinderPage />
+        </PlayDatesProtectedPageRoute>
+      )}
+    />
+    <Route
+      path="/invites"
+      element={<PlayDatesAppRoute />}
+    />
+    <Route
+      path="/players"
+      element={<PlayDatesAppRoute />}
+    />
+    <Route
+      path="/groups"
+      element={<PlayDatesAppRoute />}
+    />
+    <Route
+      path="/groups/:id"
+      element={<PlayDatesAppRoute />}
+    />
+    <Route
+      path="/invites/:token"
+      element={(
+        <PlayDatesPublicPageRoute>
+          <PlayDatesInvitationPage />
+        </PlayDatesPublicPageRoute>
+      )}
+    />
+    <Route
+      path="/i/:token"
+      element={(
+        <PlayDatesPublicPageRoute>
+          <PlayDatesInvitationPage />
+        </PlayDatesPublicPageRoute>
+      )}
+    />
+    <Route
+      path="/m/:token"
+      element={(
+        <PlayDatesPublicPageRoute>
+          <PlayDatesInvitationPage />
+        </PlayDatesPublicPageRoute>
+      )}
+    />
+    <Route
+      path="/reset-password/:token"
+      element={(
+        <PlayDatesPublicPageRoute>
+          <PlayDatesResetPasswordPage />
+        </PlayDatesPublicPageRoute>
+      )}
+    />
+    {import.meta.env.DEV ? (
+      <Route
+        path="/__preview/match-success"
+        element={(
+          <PlayDatesPublicPageRoute>
+            <PlayDatesMatchSuccessPreview />
+          </PlayDatesPublicPageRoute>
+        )}
+      />
+    ) : null}
     <Route
       path="/coaches"
       element={(

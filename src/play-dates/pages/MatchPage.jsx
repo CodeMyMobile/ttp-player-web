@@ -5,7 +5,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-} from "@tanstack/react-query";
+} from "../utils/react-query-shim";
 import Autocomplete from "react-google-autocomplete";
 import {
   Calendar,
