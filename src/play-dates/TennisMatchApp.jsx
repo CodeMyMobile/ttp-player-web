@@ -3451,10 +3451,10 @@ const TennisMatchApp = ({
                 <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-violet-500">
                   Match Play
                 </p>
-                <h1 className="text-[34px] font-black leading-tight tracking-[-0.025em] text-slate-950">
+                <h1 className="text-[28px] font-bold leading-tight tracking-[-0.01em] text-slate-950">
                   Find a match. Host a match.
                 </h1>
-                <p className="mt-1.5 max-w-[560px] text-sm font-semibold leading-6 text-slate-500">
+                <p className="mt-1.5 max-w-[560px] text-sm font-semibold leading-[1.5] text-slate-500">
                   Create a private or open match, invite players, and get on court.
                   The Tennis Plan keeps your roster, messages, and groups in one place.
                 </p>
