@@ -1,7 +1,7 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
-import BrowseMatchesPage from "./pages/BrowseMatchesPage";
+import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import CreateMatchPage from "./pages/CreateMatchPage";
 import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
 import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
@@ -103,7 +103,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches"
-      element={<BrowseMatchesPage />}
+      element={<PlayDatesMatchesApp />}
     />
     <Route
       path="/matches/create"

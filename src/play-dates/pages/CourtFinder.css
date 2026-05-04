@@ -1,0 +1,555 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+.court-finder {
+  --cf-primary: #059669;
+  --cf-primary-light: #10b981;
+  --cf-primary-bg: #f0fdf4;
+  --cf-secondary: #3b82f6;
+  --cf-secondary-light: #60a5fa;
+  --cf-secondary-bg: #eff6ff;
+  --cf-success: #10b981;
+  --cf-warning: #f59e0b;
+  --cf-danger: #ef4444;
+  --cf-dark: #111827;
+  --cf-gray-600: #4b5563;
+  --cf-gray-500: #6b7280;
+  --cf-gray-400: #9ca3af;
+  --cf-gray-300: #d1d5db;
+  --cf-gray-200: #e5e7eb;
+  --cf-gray-100: #f3f4f6;
+  --cf-gray-50: #f9fafb;
+  --cf-white: #ffffff;
+  --cf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --cf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --cf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --cf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --cf-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cf-gray-50);
+  color: var(--cf-dark);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.court-finder * {
+  box-sizing: border-box;
+}
+
+.court-finder a {
+  text-decoration: none;
+}
+
+.court-finder .cf-header {
+  background: var(--cf-white);
+  border-bottom: 1px solid var(--cf-gray-200);
+  padding: 24px 0;
+  margin-bottom: 32px;
+  box-shadow: var(--cf-shadow-sm);
+}
+
+.court-finder .cf-header-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.court-finder .cf-header-nav {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.court-finder .cf-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--cf-secondary);
+}
+
+.court-finder .cf-back-link:hover {
+  color: var(--cf-secondary-light);
+}
+
+.court-finder .cf-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--cf-dark);
+  margin-bottom: 8px;
+}
+
+.court-finder .cf-header p {
+  color: var(--cf-gray-600);
+  font-size: 1rem;
+}
+
+.court-finder .cf-stats-bar {
+  display: flex;
+  gap: 24px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.court-finder .cf-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.court-finder .cf-stat-value {
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--cf-primary);
+}
+
+.court-finder .cf-stat-label {
+  color: var(--cf-gray-500);
+  font-size: 0.95rem;
+}
+
+.court-finder .cf-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.court-finder .cf-controls-section {
+  background: var(--cf-white);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: var(--cf-shadow);
+}
+
+.court-finder .cf-search-container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.court-finder .cf-search-input {
+  width: 100%;
+  padding: 14px 48px 14px 20px;
+  border: 2px solid var(--cf-gray-200);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.court-finder .cf-search-input:focus {
+  outline: none;
+  border-color: var(--cf-primary);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+.court-finder .cf-search-icon {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cf-gray-400);
+}
+
+.court-finder .cf-filter-pills {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.court-finder .cf-pill {
+  padding: 8px 16px;
+  border: 2px solid var(--cf-gray-200);
+  border-radius: 100px;
+  background: var(--cf-white);
+  color: var(--cf-gray-600);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.court-finder .cf-pill:hover {
+  border-color: var(--cf-primary);
+  color: var(--cf-primary);
+  background: var(--cf-primary-bg);
+}
+
+.court-finder .cf-pill.active {
+  background: var(--cf-primary);
+  color: var(--cf-white);
+  border-color: var(--cf-primary);
+}
+
+.court-finder .cf-location-btn {
+  padding: 8px 16px;
+  border: 2px solid var(--cf-secondary);
+  border-radius: 100px;
+  background: var(--cf-white);
+  color: var(--cf-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.court-finder .cf-location-btn:hover {
+  background: var(--cf-secondary);
+  color: var(--cf-white);
+}
+
+.court-finder .cf-location-btn.active {
+  background: var(--cf-secondary);
+  color: var(--cf-white);
+}
+
+.court-finder .cf-location-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.court-finder .cf-radius-select {
+  padding: 8px 16px;
+  border: 2px solid var(--cf-secondary);
+  border-radius: 100px;
+  background: var(--cf-white);
+  color: var(--cf-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.court-finder .cf-radius-select:hover {
+  border-color: var(--cf-secondary-light);
+}
+
+.court-finder .cf-radius-select:focus {
+  outline: none;
+  border-color: var(--cf-secondary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.court-finder .cf-location-error {
+  margin-top: -8px;
+  margin-bottom: 16px;
+  color: var(--cf-danger);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.court-finder .cf-courts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.court-finder .cf-court-card {
+  background: var(--cf-white);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--cf-shadow);
+  transition: all 0.2s ease;
+  border: 1px solid var(--cf-gray-200);
+  position: relative;
+}
+
+.court-finder .cf-court-card:hover {
+  box-shadow: var(--cf-shadow-xl);
+  transform: translateY(-2px);
+}
+
+.court-finder .cf-court-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--cf-gray-100);
+}
+
+.court-finder .cf-court-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.court-finder .cf-court-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--cf-dark);
+  line-height: 1.3;
+}
+
+.court-finder .cf-court-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.court-finder .cf-court-badge--bookable {
+  background: var(--cf-primary-bg);
+  color: var(--cf-primary);
+}
+
+.court-finder .cf-court-badge--free {
+  background: var(--cf-gray-100);
+  color: var(--cf-gray-600);
+}
+
+.court-finder .cf-court-location {
+  color: var(--cf-gray-500);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.court-finder .cf-court-body {
+  padding: 20px;
+}
+
+.court-finder .cf-court-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.court-finder .cf-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cf-gray-600);
+  font-size: 0.9rem;
+}
+
+.court-finder .cf-detail-icon {
+  color: var(--cf-primary);
+  font-size: 1.1rem;
+}
+
+.court-finder .cf-court-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.court-finder .cf-feature-chip {
+  padding: 4px 10px;
+  background: var(--cf-gray-100);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--cf-gray-600);
+}
+
+.court-finder .cf-availability-section {
+  background: var(--cf-primary-bg);
+  border: 1px solid var(--cf-primary-light);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.court-finder .cf-availability-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.court-finder .cf-availability-title {
+  font-weight: 600;
+  color: var(--cf-primary);
+  font-size: 0.9rem;
+}
+
+.court-finder .cf-refresh-btn {
+  background: var(--cf-white);
+  border: 1px solid var(--cf-primary);
+  color: var(--cf-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.court-finder .cf-refresh-btn:hover {
+  background: var(--cf-primary);
+  color: var(--cf-white);
+}
+
+.court-finder .cf-time-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.court-finder .cf-time-slot {
+  background: var(--cf-white);
+  border: 1px solid var(--cf-primary-light);
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--cf-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.court-finder .cf-time-slot:hover {
+  background: var(--cf-primary);
+  color: var(--cf-white);
+  transform: scale(1.05);
+}
+
+.court-finder .cf-time-slot--now {
+  background: var(--cf-primary);
+  color: var(--cf-white);
+  font-weight: 600;
+}
+
+.court-finder .cf-court-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.court-finder .cf-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  text-decoration: none;
+  border: none;
+}
+
+.court-finder .cf-btn-primary {
+  background: var(--cf-primary);
+  color: var(--cf-white);
+}
+
+.court-finder .cf-btn-primary:hover {
+  background: var(--cf-primary-light);
+  transform: translateY(-1px);
+  box-shadow: var(--cf-shadow-md);
+}
+
+.court-finder .cf-btn-secondary {
+  background: var(--cf-white);
+  color: var(--cf-gray-600);
+  border: 2px solid var(--cf-gray-200);
+}
+
+.court-finder .cf-btn-secondary:hover {
+  border-color: var(--cf-gray-300);
+  background: var(--cf-gray-50);
+}
+
+.court-finder .cf-btn-secondary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.court-finder .cf-distance-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--cf-white);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cf-secondary);
+  box-shadow: var(--cf-shadow);
+}
+
+.court-finder .cf-no-results {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--cf-white);
+  border-radius: 12px;
+  box-shadow: var(--cf-shadow);
+  margin: 40px 0;
+}
+
+.court-finder .cf-no-results h3 {
+  font-size: 1.5rem;
+  color: var(--cf-dark);
+  margin-bottom: 12px;
+}
+
+.court-finder .cf-no-results p {
+  color: var(--cf-gray-500);
+}
+
+.court-finder .cf-loading {
+  text-align: center;
+  padding: 60px;
+  color: var(--cf-gray-400);
+}
+
+.court-finder .cf-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--cf-gray-200);
+  border-top-color: var(--cf-primary);
+  border-radius: 50%;
+  animation: cf-spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes cf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .court-finder .cf-courts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .court-finder .cf-court-details {
+    grid-template-columns: 1fr;
+  }
+
+  .court-finder .cf-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .court-finder .cf-stats-bar {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .court-finder .cf-header {
+    padding: 16px 0;
+    margin-bottom: 24px;
+  }
+
+  .court-finder .cf-header-content,
+  .court-finder .cf-container {
+    padding: 0 16px;
+  }
+
+  .court-finder .cf-controls-section {
+    padding: 16px;
+  }
+
+  .court-finder .cf-court-card {
+    border-radius: 10px;
+  }
+}
