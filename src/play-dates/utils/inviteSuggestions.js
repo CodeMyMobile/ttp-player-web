@@ -1,4 +1,5 @@
 import { uniqueActiveParticipants } from "./participants";
+import { memberMatchesParticipant } from "./memberIdentity";
 
 const candidateIdKeys = [
   "player_id",
@@ -206,7 +207,10 @@ export const buildRecentPartnerSuggestions = ({
     .sort(
       (a, b) => (b.lastPlayedTs ?? -Infinity) - (a.lastPlayedTs ?? -Infinity),
     )
-    .map(({ lastPlayedTs, ...player }) => player);
+    .map((suggestion) => {
+      const { lastPlayedTs: _lastPlayedTs, ...player } = suggestion;
+      return player;
+    });
 };
 
 export default buildRecentPartnerSuggestions;

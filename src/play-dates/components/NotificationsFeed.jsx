@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -769,7 +770,7 @@ const NotificationsFeed = ({
         if (allowNotifications) {
           data = await listNotifications({ perPage: 50 });
         } else {
-          const fallbackLoaded = await loadInvitesFallback();
+          await loadInvitesFallback();
           setLoading(false);
           return;
         }

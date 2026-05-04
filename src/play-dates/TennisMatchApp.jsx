@@ -894,7 +894,11 @@ const resolveAuthSession = (data = {}, fallback = {}) => {
   };
 };
 
-const TennisMatchApp = () => {
+const TennisMatchApp = ({
+  externalUser = null,
+  onExternalLogout,
+  hideAppHeader = false,
+} = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const initialPath = getInitialPath();
@@ -1210,6 +1214,33 @@ const TennisMatchApp = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!externalUser || typeof externalUser !== "object") return;
+    const normalizedUser = Array.isArray(externalUser.identityIds)
+      ? externalUser
+      : { ...externalUser, identityIds: collectMemberIds(externalUser) };
+    setCurrentUser(normalizedUser);
+    try {
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+    } catch {
+      // ignore storage errors
+    }
+  }, [externalUser]);
+
+  useEffect(() => {
+    const openCreateFlow = () => {
+      if (!currentUser) {
+        setShowSignInModal(true);
+        return;
+      }
+      setShowPreview(false);
+      setCurrentScreen("create");
+    };
+
+    window.addEventListener("play-dates:new-match", openCreateFlow);
+    return () => window.removeEventListener("play-dates:new-match", openCreateFlow);
+  }, [currentUser]);
 
   useEffect(() => {
     const userId = currentUser?.id;
@@ -3234,6 +3265,9 @@ const TennisMatchApp = () => {
     clearStoredRefreshToken();
     hydratedProfileIdsRef.current.clear();
     setCurrentUser(null);
+    if (typeof onExternalLogout === "function") {
+      onExternalLogout();
+    }
     displayToast("Logged out", "success");
   };
   // Removed inline Header in favor of components/AppHeader
@@ -7291,19 +7325,21 @@ const TennisMatchApp = () => {
         />
       ) : (
         <>
-          <AppHeader
-            currentScreen={currentScreen}
-            currentUser={currentUser}
-            showPreview={showPreview}
-            goToInvites={goToInvites}
-            goToBrowse={() => goToBrowse()}
-            goToPlayers={goToPlayers}
-            onOpenProfile={() => openProfileManager("profile")}
-            onLogout={handleLogout}
-            onOpenSignIn={() => setShowSignInModal(true)}
-            setShowPreview={setShowPreview}
-            hasUpdates={hasNotificationIndicator}
-          />
+          {!hideAppHeader ? (
+            <AppHeader
+              currentScreen={currentScreen}
+              currentUser={currentUser}
+              showPreview={showPreview}
+              goToInvites={goToInvites}
+              goToBrowse={() => goToBrowse()}
+              goToPlayers={goToPlayers}
+              onOpenProfile={() => openProfileManager("profile")}
+              onLogout={handleLogout}
+              onOpenSignIn={() => setShowSignInModal(true)}
+              setShowPreview={setShowPreview}
+              hasUpdates={hasNotificationIndicator}
+            />
+          ) : null}
 
           {currentScreen === "browse" && BrowseScreen()}
           {currentScreen === "create" && (

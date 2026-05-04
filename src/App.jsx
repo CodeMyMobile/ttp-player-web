@@ -1,7 +1,9 @@
+import { useEffect, useMemo } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
+import AppNav from "./components/AppNav";
 import CreateMatchPage from "./pages/CreateMatchPage";
 import CreateMatchSettingsPage from "./pages/CreateMatchSettingsPage";
 import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
@@ -71,6 +73,75 @@ const AuthRedirectRoute = ({ children }) => {
   return children;
 };
 
+const readStoredObject = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const buildMatchesUser = (authUser) => {
+  const personalDetails = readStoredObject("playerPersonalDetails");
+  const loginResponse = readStoredObject("authLoginResponse");
+  const profile = authUser || personalDetails || loginResponse?.profile || loginResponse?.user || {};
+
+  return {
+    ...profile,
+    id: profile?.id ?? loginResponse?.user_id ?? loginResponse?.id ?? null,
+    type: profile?.user_type ?? loginResponse?.user_type ?? 2,
+    name:
+      profile?.name ||
+      profile?.full_name ||
+      profile?.fullName ||
+      loginResponse?.full_name ||
+      profile?.email ||
+      "Player",
+    email: profile?.email || loginResponse?.email || "",
+    phone: profile?.phone || profile?.mobile || loginResponse?.phone || "",
+    skillLevel:
+      profile?.skillLevel ||
+      profile?.skill_level ||
+      profile?.usta_rating ||
+      loginResponse?.skillLevel ||
+      "",
+    profile,
+  };
+};
+
+const PlayDatesMatchesRoute = () => {
+  const { user, logout } = useAuth();
+  const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("user", JSON.stringify(matchesUser));
+    } catch {
+      // ignore storage errors
+    }
+  }, [matchesUser]);
+
+  const openNewMatch = () => {
+    window.dispatchEvent(new CustomEvent("play-dates:new-match"));
+  };
+
+  return (
+    <ProtectedRoute>
+      <div className="dashboard-page">
+        <AppNav onNewMatch={openNewMatch} />
+        <main className="main-layout__content">
+          <PlayDatesMatchesApp
+            externalUser={matchesUser}
+            onExternalLogout={logout}
+            hideAppHeader
+          />
+        </main>
+      </div>
+    </ProtectedRoute>
+  );
+};
+
 const AppRoutes = () => (
   <Routes>
     <Route
@@ -103,7 +174,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/matches"
-      element={<PlayDatesMatchesApp />}
+      element={<PlayDatesMatchesRoute />}
     />
     <Route
       path="/matches/create"
