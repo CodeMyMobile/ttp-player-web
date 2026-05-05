@@ -616,8 +616,6 @@ const deriveRelationship = (
 
   const userIdentities = identityValues(options.currentUser);
 
-  if (typeof record.type === "string" && record.type.toLowerCase() === "hosted") return "host";
-
   const participantHosting =
     Array.isArray(record.participants) &&
     record.participants.some((participant) => {

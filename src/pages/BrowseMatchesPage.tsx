@@ -280,8 +280,6 @@ const deriveDistanceMiles = (match: NormalizedMatch, origin: Coordinates | null)
 };
 
 const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
-  const matchType = match.type?.toLowerCase();
-  const matchTypeIsHosted = matchType === "hosted" || matchType?.includes("hosted");
   const participantHostMatch =
     match.participants?.some(
       (participant) =>
@@ -292,7 +290,7 @@ const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
   const hostIdentityMatch =
     match.hostIdentityIds?.some((identityId) => userIdentities.includes(identityId)) ?? false;
 
-  return match.relationship === "host" || matchTypeIsHosted || participantHostMatch || hostIdentityMatch;
+  return match.relationship === "host" || participantHostMatch || hostIdentityMatch;
 };
 
 const getHostDisplayName = (match: NormalizedMatch, isHost: boolean) => {
