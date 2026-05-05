@@ -244,45 +244,91 @@ const stepTitles = {
   3: "Review & publish",
 };
 
-const ProgressBar = ({ currentStep }) => (
-  <div className="mb-8 flex items-center">
-    {[
-      { step: 1, label: "Basics" },
-      { step: 2, label: "Details" },
-      { step: 3, label: "Review" },
-    ].map((item, index, items) => {
-      const complete = item.step < currentStep;
-      const active = item.step === currentStep;
-      return (
-        <React.Fragment key={item.step}>
-          <div className="flex items-center gap-3">
-            <div
-              className={`flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-black transition-colors ${
-                complete || active
-                  ? "border-violet-200 bg-violet-500 text-white shadow-[0_0_0_4px_rgba(139,92,246,0.12)]"
-                  : "border-slate-100 bg-slate-50 text-slate-400"
-              }`}
-            >
-              {complete ? <Check size={18} /> : item.step}
-            </div>
-            <span className={`text-[15px] font-bold ${active || complete ? "text-slate-900" : "text-slate-400"}`}>
-              {item.label}
-            </span>
-          </div>
-          {index < items.length - 1 && (
-            <div className="mx-4 h-[3px] flex-1 rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  currentStep > item.step ? "w-full bg-violet-500" : "w-0 bg-violet-500"
-                }`}
-              />
-            </div>
-          )}
-        </React.Fragment>
-      );
-    })}
-  </div>
-);
+const ProgressBar = ({ currentStep }) => {
+  const steps = [
+    { step: 1, label: "Basics" },
+    { step: 2, label: "Details" },
+    { step: 3, label: "Review" },
+  ];
+  const progressWidth = `${((Math.max(currentStep, 1) - 1) / (steps.length - 1)) * 100}%`;
+
+  return (
+    <div className="mb-6 sm:mb-8">
+      <div className="sm:hidden">
+        <div className="mb-3 h-[3px] rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-violet-500 transition-all"
+            style={{ width: progressWidth }}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {steps.map((item) => {
+            const complete = item.step < currentStep;
+            const active = item.step === currentStep;
+            return (
+              <div key={item.step} className="flex min-w-0 flex-col items-center gap-2 text-center">
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-black transition-colors ${
+                    complete || active
+                      ? "border-violet-200 bg-violet-500 text-white shadow-[0_0_0_3px_rgba(139,92,246,0.12)]"
+                      : "border-slate-100 bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  {complete ? <Check size={15} /> : item.step}
+                </div>
+                <span
+                  className={`text-xs font-bold leading-tight ${
+                    active || complete ? "text-slate-900" : "text-slate-400"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden items-center sm:flex">
+        {steps.map((item, index, items) => {
+          const complete = item.step < currentStep;
+          const active = item.step === currentStep;
+          return (
+            <React.Fragment key={item.step}>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-black transition-colors ${
+                    complete || active
+                      ? "border-violet-200 bg-violet-500 text-white shadow-[0_0_0_4px_rgba(139,92,246,0.12)]"
+                      : "border-slate-100 bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  {complete ? <Check size={18} /> : item.step}
+                </div>
+                <span
+                  className={`text-[15px] font-bold ${
+                    active || complete ? "text-slate-900" : "text-slate-400"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </div>
+              {index < items.length - 1 && (
+                <div className="mx-4 h-[3px] flex-1 rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      currentStep > item.step ? "w-full bg-violet-500" : "w-0 bg-violet-500"
+                    }`}
+                  />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser }) => {
   const [currentStep, setCurrentStep] = useState(1);
