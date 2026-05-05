@@ -1,6 +1,6 @@
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronRight, MapPin, Search, Star } from "lucide-react";
+import { CalendarDays, ChevronRight, MapPin, Star } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { normalizeMatchRecord } from "../api/matches";
@@ -19,6 +19,7 @@ import {
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
 import AppNav from "../components/AppNav";
+import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import "./DashboardPage.css";
 
 const pickString = (...values) => {
@@ -825,13 +826,6 @@ const locationItems = [
   { name: "Mar Vista Recreation Center", detail: "11430 Woodbine St", distance: "2.1 mi", icon: "🎾", latitude: 34.0037, longitude: -118.4298 },
 ];
 
-const navItems = [
-  { icon: "🏠", label: "Home", to: "/", active: true },
-  { icon: "🏆", label: "Post Match", to: "/matches/create" },
-  { icon: "🔔", label: "Alerts", to: "/notifications", badge: 2 },
-  { icon: "👤", label: "Profile", to: "/settings/profile" },
-];
-
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1357,7 +1351,7 @@ const DashboardPage = () => {
 
   return (
     <div className="player-home">
-      <AppNav />
+      <AppNav hideMobileNewMatch hideMobileNotifications />
 
       <main className="ph-main">
         <section className="ph-welcome">
@@ -1617,17 +1611,7 @@ const DashboardPage = () => {
         </section>
       </main>
 
-      <nav className="ph-bottom-nav" aria-label="Mobile navigation">
-        {navItems.map((item) => (
-          <Link key={item.label} className={item.active ? "active" : ""} to={item.to}>
-            <span className="ph-bottom-nav-icon">
-              {item.icon}
-              {item.badge ? <span className="ph-bottom-nav-badge">{item.badge}</span> : null}
-            </span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      <MobileHomeBottomNav />
 
       {isLocationOpen ? (
         <div className="ph-location-overlay" onClick={() => setIsLocationOpen(false)}>

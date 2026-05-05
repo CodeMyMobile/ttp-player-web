@@ -53,7 +53,11 @@ const isPathActive = (pathname, target) => {
   return pathname === target || pathname.startsWith(`${target}/`);
 };
 
-const AppNav = ({ onNewMatch }) => {
+const AppNav = ({
+  onNewMatch,
+  hideMobileNewMatch = false,
+  hideMobileNotifications = false,
+}) => {
   const { logout, user } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const location = useLocation();
@@ -256,12 +260,19 @@ const AppNav = ({ onNewMatch }) => {
             </button>
           </div>
 
-          <button className="app-nav__new-match" type="button" onClick={handleNewMatch}>
+          <button
+            className={`app-nav__new-match${hideMobileNewMatch ? " app-nav__new-match--mobile-hidden" : ""}`}
+            type="button"
+            onClick={handleNewMatch}
+          >
             <Plus size={17} />
             <span>New match</span>
           </button>
 
-          <div className="app-nav__notifications" ref={notificationRef}>
+          <div
+            className={`app-nav__notifications${hideMobileNotifications ? " app-nav__notifications--mobile-hidden" : ""}`}
+            ref={notificationRef}
+          >
             <button
               type="button"
               className="app-nav__icon-button"

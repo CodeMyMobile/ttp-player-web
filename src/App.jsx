@@ -42,6 +42,7 @@ import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
+import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import "./App.css";
 
 const playDatesQueryClient = createPlayDatesQueryClient();
@@ -140,7 +141,11 @@ const PlayDatesAppRoute = () => {
   return (
     <ProtectedRoute>
       <div className="dashboard-page">
-        <AppNav onNewMatch={openNewMatch} />
+        <AppNav
+          onNewMatch={openNewMatch}
+          hideMobileNewMatch
+          hideMobileNotifications
+        />
         <main className="main-layout__content">
           <PlayDatesQueryClientProvider client={playDatesQueryClient}>
             <PlayDatesMatchesApp
@@ -150,6 +155,7 @@ const PlayDatesAppRoute = () => {
             />
           </PlayDatesQueryClientProvider>
         </main>
+        <MobileHomeBottomNav onPostMatch={openNewMatch} onPrimaryAction={openNewMatch} />
       </div>
     </ProtectedRoute>
   );

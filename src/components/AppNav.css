@@ -576,6 +576,14 @@
     padding: 0 14px;
   }
 
+  .app-nav__new-match--mobile-hidden {
+    display: none;
+  }
+
+  .app-nav__notifications--mobile-hidden {
+    display: none;
+  }
+
   .app-nav__new-match span {
     display: none;
   }
