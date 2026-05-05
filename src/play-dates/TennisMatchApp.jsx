@@ -898,6 +898,8 @@ const TennisMatchApp = ({
   externalUser = null,
   onExternalLogout,
   hideAppHeader = false,
+  openCreateOnReady = false,
+  onCreateReadyHandled = null,
 } = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1241,6 +1243,16 @@ const TennisMatchApp = ({
     window.addEventListener("play-dates:new-match", openCreateFlow);
     return () => window.removeEventListener("play-dates:new-match", openCreateFlow);
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!openCreateOnReady || !currentUser) return;
+    setShowSignInModal(false);
+    setShowPreview(false);
+    setCurrentScreen("create");
+    if (typeof onCreateReadyHandled === "function") {
+      onCreateReadyHandled();
+    }
+  }, [currentUser, onCreateReadyHandled, openCreateOnReady]);
 
   useEffect(() => {
     const userId = currentUser?.id;

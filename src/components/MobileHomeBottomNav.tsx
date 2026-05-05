@@ -54,9 +54,15 @@ const MobileHomeBottomNav = ({
           <NavLink
             key={item.label}
             className={className}
-            to={item.to}
+            to={item.isPrimaryAction ? "/matches" : item.to}
             aria-label={item.label}
             onClick={(event) => {
+              if (item.isPrimaryAction) {
+                event.preventDefault();
+                navigate("/matches", { state: { openNewMatch: true } });
+                return;
+              }
+
               if (!isRouteActive(item.to)) return;
               event.preventDefault();
               navigate(item.to, { replace: true });

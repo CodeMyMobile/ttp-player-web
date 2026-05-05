@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useMemo } from "react";
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
@@ -124,6 +124,8 @@ const buildMatchesUser = (authUser) => {
 
 const PlayDatesAppRoute = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
 
   useEffect(() => {
@@ -134,9 +136,20 @@ const PlayDatesAppRoute = () => {
     }
   }, [matchesUser]);
 
-  const openNewMatch = () => {
+  const openNewMatch = useCallback(() => {
     window.dispatchEvent(new CustomEvent("play-dates:new-match"));
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!location.state?.openNewMatch) return;
+
+    const timeoutId = window.setTimeout(() => {
+      openNewMatch();
+      navigate("/matches", { replace: true });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.state, navigate, openNewMatch]);
 
   return (
     <ProtectedRoute>
