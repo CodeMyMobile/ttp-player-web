@@ -3524,7 +3524,7 @@ const MatchDetailsModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-stretch justify-center overflow-y-auto bg-slate-950/70 px-0 py-0 backdrop-blur-sm supports-[backdrop-filter]:bg-slate-950/60 sm:items-center sm:px-4 sm:py-10"
+      className="fixed inset-0 z-[180] flex items-stretch justify-center overflow-y-auto bg-slate-950/70 px-0 py-0 backdrop-blur-sm supports-[backdrop-filter]:bg-slate-950/60 sm:items-center sm:px-4 sm:py-10"
       role="dialog"
       aria-modal="true"
       aria-labelledby="match-details-heading"
