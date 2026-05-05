@@ -127,6 +127,7 @@ const PlayDatesAppRoute = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
+  const shouldOpenCreateOnReady = Boolean(location.state?.openNewMatch);
 
   useEffect(() => {
     try {
@@ -139,17 +140,6 @@ const PlayDatesAppRoute = () => {
   const openNewMatch = useCallback(() => {
     window.dispatchEvent(new CustomEvent("play-dates:new-match"));
   }, []);
-
-  useEffect(() => {
-    if (!location.state?.openNewMatch) return;
-
-    const timeoutId = window.setTimeout(() => {
-      openNewMatch();
-      navigate("/matches", { replace: true });
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [location.state, navigate, openNewMatch]);
 
   return (
     <ProtectedRoute>
@@ -165,6 +155,8 @@ const PlayDatesAppRoute = () => {
               externalUser={matchesUser}
               onExternalLogout={logout}
               hideAppHeader
+              openCreateOnReady={shouldOpenCreateOnReady}
+              onCreateReadyHandled={() => navigate("/matches", { replace: true })}
             />
           </PlayDatesQueryClientProvider>
         </main>
