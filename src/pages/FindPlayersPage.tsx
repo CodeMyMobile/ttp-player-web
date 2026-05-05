@@ -21,6 +21,7 @@ import {
   DEFAULT_POSITION,
   getStoredLocation,
   storeLocation,
+  USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -1330,6 +1331,22 @@ const FindPlayersPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
+
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const nextLocation = getStoredLocation();
+      if (!nextLocation) return;
+
+      setPosition(nextLocation);
+      setLocationFilter(null);
+      setResolvedLocationLabel(formatCoordinatesLabel(nextLocation));
+      setLocationStatus("ready");
+      setGeoError("");
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
 
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationQuery = buildLocationSearch(locationFilter);

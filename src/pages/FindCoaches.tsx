@@ -27,6 +27,7 @@ import {
   getStoredLocationLabel,
   storeLocation,
   storeLocationLabel,
+  USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
 } from "../utils/userLocation";
 import {
@@ -576,6 +577,27 @@ const FindCoaches = () => {
   const [locationPermissionPrompt, setLocationPermissionPrompt] = useState<string | null>(null);
   const [isResolvingCurrentLocation, setIsResolvingCurrentLocation] = useState(false);
   const [hasResolvedInitialLocation, setHasResolvedInitialLocation] = useState(() => Boolean(getStoredLocation()));
+
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const storedLocation = getStoredLocation();
+      if (!storedLocation) return;
+
+      const nextLocation = {
+        label: getStoredLocationLabel() ?? "Selected location",
+        latitude: storedLocation.latitude,
+        longitude: storedLocation.longitude,
+      };
+
+      setPosition(storedLocation);
+      setLocationFilter(nextLocation);
+      setLocationSearchTerm(nextLocation.label);
+      setHasResolvedInitialLocation(true);
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
 
   const findCoachesStateSnapshot = useMemo<FindCoachesStateSnapshot>(
     () => ({

@@ -1,6 +1,21 @@
 import { createElement, useEffect, useRef, useState } from "react";
+import Autocomplete from "react-google-autocomplete";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bell, CalendarDays, ChevronDown, Home, LogOut, Plus, Search, Trophy } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  ChevronDown,
+  CreditCard,
+  Home,
+  LogOut,
+  MapPin,
+  Plus,
+  Search,
+  ShieldX,
+  Target,
+  Trophy,
+  UserRound,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
@@ -9,6 +24,12 @@ import {
   getNotificationCount,
   getNotifications,
 } from "../api/notification";
+import {
+  getStoredLocationLabel,
+  storeLocation,
+  storeLocationLabel,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
 import "./AppNav.css";
 
 const navItems = [
@@ -19,10 +40,10 @@ const navItems = [
 ];
 
 const userMenuItems = [
-  { label: "Player profile", to: "/settings/profile" },
-  { label: "Player match profile", to: "/settings/match-profile" },
-  { label: "Payment methods", to: "/settings/payment-methods" },
-  { label: "Blocked users", to: "/settings/blocked-users" },
+  { label: "Player profile", to: "/settings/profile", icon: UserRound },
+  { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+  { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
+  { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
 ];
 
 const isPathActive = (pathname, target) => {
@@ -40,8 +61,14 @@ const AppNav = ({ onNewMatch }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationsLoading, setNotificationsLoading] = useState(false);
+  const [isLocationOpen, setLocationOpen] = useState(false);
+  const [locationLabel, setLocationLabel] = useState(getStoredLocationLabel() || "Current location");
+  const [locationSearchTerm, setLocationSearchTerm] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
+  const locationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const skillLevel =
     user?.skillLevel ||
@@ -59,6 +86,9 @@ const AppNav = ({ onNewMatch }) => {
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setNotificationsOpen(false);
+      }
+      if (locationRef.current && !locationRef.current.contains(event.target)) {
+        setLocationOpen(false);
       }
     };
 
@@ -83,6 +113,22 @@ const AppNav = ({ onNewMatch }) => {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const syncLocationLabel = () => {
+      setLocationLabel(getStoredLocationLabel() || "Current location");
+    };
+
+    syncLocationLabel();
+
+    window.addEventListener("storage", syncLocationLabel);
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationLabel);
+
+    return () => {
+      window.removeEventListener("storage", syncLocationLabel);
+      window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationLabel);
+    };
+  }, []);
+
   const loadNotifications = async () => {
     const token = getStoredAuthToken({ preferScheme: "token" });
     if (!token) return;
@@ -104,6 +150,65 @@ const AppNav = ({ onNewMatch }) => {
       return;
     }
     navigate("/create");
+  };
+
+  const applyLocationSelection = ({ label, latitude, longitude }) => {
+    storeLocation({ latitude, longitude });
+    storeLocationLabel(label);
+    setLocationLabel(label);
+    setLocationSearchTerm(label);
+    setLocationError("");
+    setLocationOpen(false);
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is unavailable in this browser.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsDetectingLocation(false);
+        applyLocationSelection({
+          label: "Current location",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      () => {
+        setIsDetectingLocation(false);
+        setLocationError("We couldn't access your current location.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+  };
+
+  const handlePlaceSelected = (place) => {
+    if (!place) {
+      setLocationError("Please choose a location from the suggestions.");
+      return;
+    }
+
+    const latitude = place.geometry?.location?.lat?.();
+    const longitude = place.geometry?.location?.lng?.();
+    const label = place.formatted_address || place.name || locationSearchTerm;
+
+    if (
+      !label ||
+      typeof latitude !== "number" ||
+      Number.isNaN(latitude) ||
+      typeof longitude !== "number" ||
+      Number.isNaN(longitude)
+    ) {
+      setLocationError("We couldn't read that location. Try another search result.");
+      return;
+    }
+
+    applyLocationSelection({ label, latitude, longitude });
   };
 
   return (
@@ -131,6 +236,76 @@ const AppNav = ({ onNewMatch }) => {
       </div>
 
       <div className="app-nav__right">
+        <div className="app-nav__location-wrap" ref={locationRef}>
+          <button
+            type="button"
+            className="app-nav__location"
+            title={locationLabel}
+            onClick={() => {
+              setLocationSearchTerm(locationLabel);
+              setLocationError("");
+              setLocationOpen((open) => !open);
+            }}
+          >
+            <MapPin size={14} />
+            <span>{locationLabel}</span>
+            <ChevronDown size={14} />
+          </button>
+
+          {isLocationOpen ? (
+            <div className="app-nav__location-panel" role="dialog" aria-label="Choose location">
+              <div className="app-nav__location-panel-header">
+                <h3>Choose Location</h3>
+                <p>Use your current position or search another area.</p>
+              </div>
+
+              <button
+                type="button"
+                className="app-nav__location-current"
+                onClick={handleUseCurrentLocation}
+              >
+                <span className="app-nav__location-current-icon">
+                  <MapPin size={16} />
+                </span>
+                <span className="app-nav__location-current-copy">
+                  <strong>{isDetectingLocation ? "Detecting location..." : "Use current location"}</strong>
+                  <small>
+                    {isDetectingLocation
+                      ? "Checking your device coordinates"
+                      : "Update nearby results around your device"}
+                  </small>
+                </span>
+              </button>
+
+              <div className="app-nav__location-search">
+                <Search size={16} />
+                <Autocomplete
+                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                  placeholder="City, neighborhood or zip code..."
+                  className="app-nav__location-search-input"
+                  value={locationSearchTerm}
+                  onChange={(event) => {
+                    setLocationSearchTerm(event.target.value);
+                    if (locationError) setLocationError("");
+                  }}
+                  onPlaceSelected={handlePlaceSelected}
+                  options={{
+                    types: ["geocode", "establishment"],
+                    fields: ["formatted_address", "geometry", "name", "address_components"],
+                  }}
+                />
+              </div>
+
+              {locationError ? <p className="app-nav__location-error">{locationError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="app-nav__location-tip">
+                  Add `VITE_GOOGLE_API_KEY` to enable Google location suggestions.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
         <button className="app-nav__new-match" type="button" onClick={handleNewMatch}>
           <Plus size={17} />
           <span>New match</span>
@@ -208,14 +383,17 @@ const AppNav = ({ onNewMatch }) => {
                   key={item.label}
                   to={item.to}
                   role="menuitem"
+                  className="app-nav__menu-item"
                   onClick={() => setUserMenuOpen(false)}
                 >
-                  {item.label}
+                  <item.icon size={16} />
+                  <span>{item.label}</span>
                 </Link>
               ))}
               <button
                 type="button"
                 role="menuitem"
+                className="app-nav__menu-item app-nav__menu-item--danger"
                 onClick={() => {
                   setUserMenuOpen(false);
                   logout();

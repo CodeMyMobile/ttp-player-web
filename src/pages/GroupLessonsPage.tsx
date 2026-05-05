@@ -22,6 +22,7 @@ import {
   DEFAULT_POSITION,
   getStoredLocation,
   storeLocation,
+  USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
 } from "../utils/userLocation";
 
@@ -221,6 +222,27 @@ const GroupLessonsPage = () => {
       undefined,
     [user],
   );
+
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const stored = getStoredLocation();
+      if (!stored) return;
+
+      setPosition(stored);
+      setLocationFilter({
+        label: "Current location",
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        isCurrentLocation: true,
+      });
+      setLocationSearchTerm("Current location");
+      setUseLocationFilter(true);
+      setGeoError("");
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
 
   const getResolvedCoachName = useCallback(
     (lesson: GroupLesson) =>

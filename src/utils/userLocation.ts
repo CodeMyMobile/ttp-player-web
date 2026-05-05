@@ -2,6 +2,7 @@ export type Coordinates = { latitude: number; longitude: number };
 
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const USER_LOCATION_LABEL_STORAGE_KEY = "player:web:user-location-label";
+export const USER_LOCATION_CHANGED_EVENT = "player:web:user-location-changed";
 
 const DEFAULT_COORDINATES_VALUE: Coordinates = { latitude: 34.0549076, longitude: -118.242643 };
 
@@ -27,9 +28,11 @@ export const storeLocation = (coords: Coordinates | null) => {
   try {
     if (!coords) {
       localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
       return;
     }
     localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
+    window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
   } catch {
     // ignore storage errors
   }
@@ -50,9 +53,11 @@ export const storeLocationLabel = (label: string | null) => {
   try {
     if (!label || !label.trim()) {
       localStorage.removeItem(USER_LOCATION_LABEL_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
       return;
     }
     localStorage.setItem(USER_LOCATION_LABEL_STORAGE_KEY, label.trim());
+    window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
   } catch {
     // ignore storage errors
   }
