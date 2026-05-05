@@ -13,8 +13,10 @@ import {
   DEFAULT_POSITION,
   getStoredLocation,
   getStoredLocationLabel,
+  getStoredLocationRadius,
   storeLocation,
   storeLocationLabel,
+  USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
 import AppNav from "../components/AppNav";
 import "./DashboardPage.css";
@@ -848,7 +850,7 @@ const DashboardPage = () => {
   const [draftRangeEnd, setDraftRangeEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
   const [, setLocationName] = useState(getStoredLocationLabel() || "Venice, CA");
   const [locationPosition, setLocationPosition] = useState(getStoredLocation() ?? DEFAULT_POSITION);
-  const [searchRadius, setSearchRadius] = useState(5);
+  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? 5);
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -1240,6 +1242,27 @@ const DashboardPage = () => {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
+  }, []);
+
+  useEffect(() => {
+    const syncLocationSettings = () => {
+      const nextLocation = getStoredLocation();
+      const nextLabel = getStoredLocationLabel();
+      const nextRadius = getStoredLocationRadius();
+
+      if (nextLocation) {
+        setLocationPosition(nextLocation);
+      }
+      if (nextLabel) {
+        setLocationName(nextLabel);
+      }
+      if (typeof nextRadius === "number" && Number.isFinite(nextRadius)) {
+        setSearchRadius(nextRadius);
+      }
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationSettings);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationSettings);
   }, []);
 
   const renderLocationPicker = () => (

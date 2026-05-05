@@ -26,8 +26,10 @@ import {
 } from "../api/notification";
 import {
   getStoredLocationLabel,
+  getStoredLocationRadius,
   storeLocation,
   storeLocationLabel,
+  storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
 import "./AppNav.css";
@@ -66,9 +68,9 @@ const AppNav = ({ onNewMatch }) => {
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? 5);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
-  const locationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const skillLevel =
     user?.skillLevel ||
@@ -86,9 +88,6 @@ const AppNav = ({ onNewMatch }) => {
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setNotificationsOpen(false);
-      }
-      if (locationRef.current && !locationRef.current.contains(event.target)) {
-        setLocationOpen(false);
       }
     };
 
@@ -114,18 +113,19 @@ const AppNav = ({ onNewMatch }) => {
   }, []);
 
   useEffect(() => {
-    const syncLocationLabel = () => {
+    const syncLocationState = () => {
       setLocationLabel(getStoredLocationLabel() || "Current location");
+      setSearchRadius(getStoredLocationRadius() ?? 5);
     };
 
-    syncLocationLabel();
+    syncLocationState();
 
-    window.addEventListener("storage", syncLocationLabel);
-    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationLabel);
+    window.addEventListener("storage", syncLocationState);
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationState);
 
     return () => {
-      window.removeEventListener("storage", syncLocationLabel);
-      window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationLabel);
+      window.removeEventListener("storage", syncLocationState);
+      window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationState);
     };
   }, []);
 
@@ -211,202 +211,233 @@ const AppNav = ({ onNewMatch }) => {
     applyLocationSelection({ label, latitude, longitude });
   };
 
+  const radiusProgress = ((searchRadius - 1) / 24) * 100;
+
   return (
-    <header className="app-nav">
-      <div className="app-nav__left">
-        <Link className="app-nav__brand" to="/">
-          <span className="app-nav__brand-mark">🎾</span>
-          <strong>
-            The Tennis <em>Plan</em>
-          </strong>
-        </Link>
+    <>
+      <header className="app-nav">
+        <div className="app-nav__left">
+          <Link className="app-nav__brand" to="/">
+            <span className="app-nav__brand-mark">🎾</span>
+            <strong>
+              The Tennis <em>Plan</em>
+            </strong>
+          </Link>
 
-        <nav className="app-nav__links" aria-label="Primary">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              to={item.to}
-              className={isPathActive(location.pathname, item.to) ? "active" : ""}
-            >
-              {createElement(item.icon, { size: 16 })}
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </div>
-
-      <div className="app-nav__right">
-        <div className="app-nav__location-wrap" ref={locationRef}>
-          <button
-            type="button"
-            className="app-nav__location"
-            title={locationLabel}
-            onClick={() => {
-              setLocationSearchTerm(locationLabel);
-              setLocationError("");
-              setLocationOpen((open) => !open);
-            }}
-          >
-            <MapPin size={14} />
-            <span>{locationLabel}</span>
-            <ChevronDown size={14} />
-          </button>
-
-          {isLocationOpen ? (
-            <div className="app-nav__location-panel" role="dialog" aria-label="Choose location">
-              <div className="app-nav__location-panel-header">
-                <h3>Choose Location</h3>
-                <p>Use your current position or search another area.</p>
-              </div>
-
-              <button
-                type="button"
-                className="app-nav__location-current"
-                onClick={handleUseCurrentLocation}
+          <nav className="app-nav__links" aria-label="Primary">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.to}
+                className={isPathActive(location.pathname, item.to) ? "active" : ""}
               >
-                <span className="app-nav__location-current-icon">
-                  <MapPin size={16} />
-                </span>
-                <span className="app-nav__location-current-copy">
-                  <strong>{isDetectingLocation ? "Detecting location..." : "Use current location"}</strong>
-                  <small>
-                    {isDetectingLocation
-                      ? "Checking your device coordinates"
-                      : "Update nearby results around your device"}
-                  </small>
-                </span>
-              </button>
-
-              <div className="app-nav__location-search">
-                <Search size={16} />
-                <Autocomplete
-                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                  placeholder="City, neighborhood or zip code..."
-                  className="app-nav__location-search-input"
-                  value={locationSearchTerm}
-                  onChange={(event) => {
-                    setLocationSearchTerm(event.target.value);
-                    if (locationError) setLocationError("");
-                  }}
-                  onPlaceSelected={handlePlaceSelected}
-                  options={{
-                    types: ["geocode", "establishment"],
-                    fields: ["formatted_address", "geometry", "name", "address_components"],
-                  }}
-                />
-              </div>
-
-              {locationError ? <p className="app-nav__location-error">{locationError}</p> : null}
-              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
-                <p className="app-nav__location-tip">
-                  Add `VITE_GOOGLE_API_KEY` to enable Google location suggestions.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <button className="app-nav__new-match" type="button" onClick={handleNewMatch}>
-          <Plus size={17} />
-          <span>New match</span>
-        </button>
-
-        <div className="app-nav__notifications" ref={notificationRef}>
-          <button
-            type="button"
-            className="app-nav__icon-button"
-            aria-label="View notifications"
-            aria-haspopup="menu"
-            aria-expanded={isNotificationsOpen}
-            onClick={() => {
-              const nextState = !isNotificationsOpen;
-              setNotificationsOpen(nextState);
-              if (nextState) {
-                loadNotifications();
-              }
-            }}
-          >
-            <Bell size={20} />
-            {unreadCount > 0 ? <span className="app-nav__dot" /> : null}
-          </button>
-
-          {isNotificationsOpen ? (
-            <div className="app-nav__dropdown app-nav__dropdown--notifications" role="menu">
-              <h3>Notifications</h3>
-              {isNotificationsLoading ? (
-                <p>Loading notifications...</p>
-              ) : notifications.length === 0 ? (
-                <p>No notifications yet.</p>
-              ) : (
-                notifications.map((notification, index) => (
-                  <Link
-                    key={notification.id ?? index}
-                    to="/notifications"
-                    className="app-nav__notification"
-                    onClick={() => setNotificationsOpen(false)}
-                  >
-                    <strong>{notification.title ?? "Notification"}</strong>
-                    <span>{notification.message ?? notification.body ?? "New update available."}</span>
-                  </Link>
-                ))
-              )}
-              <Link to="/notifications" onClick={() => setNotificationsOpen(false)}>
-                See all notifications
+                {createElement(item.icon, { size: 16 })}
+                <span>{item.label}</span>
               </Link>
-            </div>
-          ) : null}
+            ))}
+          </nav>
         </div>
 
-        <div className="app-nav__user" ref={userMenuRef}>
-          <button
-            type="button"
-            className="app-nav__user-trigger"
-            aria-label="Open profile menu"
-            aria-haspopup="menu"
-            aria-expanded={isUserMenuOpen}
-            onClick={() => setUserMenuOpen((open) => !open)}
-          >
-            <span className={`app-nav__avatar${avatarUrl ? " has-image" : ""}`}>
-              {avatarUrl ? <img src={avatarUrl} alt={`${displayName} profile`} /> : initials}
-            </span>
-            <span className="app-nav__user-copy">
-              <strong>{firstName}</strong>
-              <small>NTRP {skillLevel}</small>
-            </span>
-            <ChevronDown size={16} />
+        <div className="app-nav__right">
+          <div className="app-nav__location-wrap">
+            <button
+              type="button"
+              className="app-nav__location"
+              title={locationLabel}
+              onClick={() => {
+                setLocationSearchTerm(locationLabel);
+                setLocationError("");
+                setLocationOpen(true);
+              }}
+            >
+              <MapPin size={14} />
+              <span>{locationLabel}</span>
+              <ChevronDown size={14} />
+            </button>
+          </div>
+
+          <button className="app-nav__new-match" type="button" onClick={handleNewMatch}>
+            <Plus size={17} />
+            <span>New match</span>
           </button>
 
-          {isUserMenuOpen ? (
-            <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
-              {userMenuItems.map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  role="menuitem"
-                  className="app-nav__menu-item"
-                  onClick={() => setUserMenuOpen(false)}
-                >
-                  <item.icon size={16} />
-                  <span>{item.label}</span>
+          <div className="app-nav__notifications" ref={notificationRef}>
+            <button
+              type="button"
+              className="app-nav__icon-button"
+              aria-label="View notifications"
+              aria-haspopup="menu"
+              aria-expanded={isNotificationsOpen}
+              onClick={() => {
+                const nextState = !isNotificationsOpen;
+                setNotificationsOpen(nextState);
+                if (nextState) {
+                  loadNotifications();
+                }
+              }}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 ? <span className="app-nav__dot" /> : null}
+            </button>
+
+            {isNotificationsOpen ? (
+              <div className="app-nav__dropdown app-nav__dropdown--notifications" role="menu">
+                <h3>Notifications</h3>
+                {isNotificationsLoading ? (
+                  <p>Loading notifications...</p>
+                ) : notifications.length === 0 ? (
+                  <p>No notifications yet.</p>
+                ) : (
+                  notifications.map((notification, index) => (
+                    <Link
+                      key={notification.id ?? index}
+                      to="/notifications"
+                      className="app-nav__notification"
+                      onClick={() => setNotificationsOpen(false)}
+                    >
+                      <strong>{notification.title ?? "Notification"}</strong>
+                      <span>{notification.message ?? notification.body ?? "New update available."}</span>
+                    </Link>
+                  ))
+                )}
+                <Link to="/notifications" onClick={() => setNotificationsOpen(false)}>
+                  See all notifications
                 </Link>
-              ))}
-              <button
-                type="button"
-                role="menuitem"
-                className="app-nav__menu-item app-nav__menu-item--danger"
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  logout();
-                }}
-              >
-                <LogOut size={15} />
-                <span>Log Out</span>
-              </button>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="app-nav__user" ref={userMenuRef}>
+            <button
+              type="button"
+              className="app-nav__user-trigger"
+              aria-label="Open profile menu"
+              aria-haspopup="menu"
+              aria-expanded={isUserMenuOpen}
+              onClick={() => setUserMenuOpen((open) => !open)}
+            >
+              <span className={`app-nav__avatar${avatarUrl ? " has-image" : ""}`}>
+                {avatarUrl ? <img src={avatarUrl} alt={`${displayName} profile`} /> : initials}
+              </span>
+              <span className="app-nav__user-copy">
+                <strong>{firstName}</strong>
+                <small>NTRP {skillLevel}</small>
+              </span>
+              <ChevronDown size={16} />
+            </button>
+
+            {isUserMenuOpen ? (
+              <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
+                {userMenuItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    to={item.to}
+                    role="menuitem"
+                    className="app-nav__menu-item"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <item.icon size={16} />
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="app-nav__menu-item app-nav__menu-item--danger"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    logout();
+                  }}
+                >
+                  <LogOut size={15} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {isLocationOpen ? (
+        <div className="app-nav__location-overlay" onClick={() => setLocationOpen(false)}>
+          <div className="app-nav__location-sheet" onClick={(event) => event.stopPropagation()}>
+            <div className="app-nav__location-handle" />
+            <h3 className="app-nav__location-title">Choose Location</h3>
+
+            <p className="app-nav__location-section-title">Use Current Location</p>
+            <button
+              type="button"
+              className="app-nav__location-current"
+              onClick={handleUseCurrentLocation}
+            >
+              <span className="app-nav__location-current-icon">
+                <MapPin size={16} />
+              </span>
+              <span className="app-nav__location-current-copy">
+                <strong>{isDetectingLocation ? "Detecting location..." : "Use my current location"}</strong>
+                <small>
+                  {isDetectingLocation
+                    ? "Checking your device coordinates"
+                    : "Update results around your device"}
+                </small>
+              </span>
+              <span className="app-nav__location-check">✓</span>
+            </button>
+
+            <p className="app-nav__location-section-title">Enter a Location</p>
+            <div className="app-nav__location-search">
+              <Search size={16} />
+              <Autocomplete
+                apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                placeholder="City, neighborhood or zip code..."
+                className="app-nav__location-search-input"
+                value={locationSearchTerm}
+                onChange={(event) => {
+                  setLocationSearchTerm(event.target.value);
+                  if (locationError) setLocationError("");
+                }}
+                onPlaceSelected={handlePlaceSelected}
+                options={{
+                  types: ["geocode", "establishment"],
+                  fields: ["formatted_address", "geometry", "name", "address_components"],
+                }}
+              />
+            </div>
+
+            {locationError ? <p className="app-nav__location-error">{locationError}</p> : null}
+            {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+              <p className="app-nav__location-tip">
+                Add `VITE_GOOGLE_API_KEY` to enable Google location suggestions.
+              </p>
+            ) : null}
+
+            <div className="app-nav__location-radius">
+              <div className="app-nav__location-radius-head">
+                <span>Search Radius</span>
+                <strong>{searchRadius} miles</strong>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="25"
+                step="1"
+                value={searchRadius}
+                onChange={(event) => {
+                  const nextRadius = Number(event.target.value);
+                  setSearchRadius(nextRadius);
+                  storeLocationRadius(nextRadius);
+                }}
+                className="app-nav__location-slider-input"
+                aria-label="Search Radius"
+                style={{
+                  background: `linear-gradient(90deg, #8b5cf6 0%, #8b5cf6 ${radiusProgress}%, #e2e8f0 ${radiusProgress}%, #e2e8f0 100%)`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 };
 
