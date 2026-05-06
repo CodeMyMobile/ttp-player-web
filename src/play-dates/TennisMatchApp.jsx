@@ -308,6 +308,7 @@ const buildDayStripOptions = () => {
           : index === 1
           ? "Tomorrow"
           : date.toLocaleDateString("en-US", { weekday: "short" }),
+      dayNumber: date.toLocaleDateString("en-US", { day: "numeric" }),
       label: date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -3360,6 +3361,7 @@ const TennisMatchApp = ({
 
   const distanceOptions = useMemo(() => [5, 10, 20, 50], []);
   const dayStripOptions = useMemo(() => buildDayStripOptions(), []);
+  const allWeekMatchCount = displayedMatches.length;
   const matchCountsByDay = useMemo(() => {
     const counts = new Map();
     matchesWithDistance.forEach((match) => {
@@ -3721,14 +3723,21 @@ const TennisMatchApp = ({
                         setSelectedDayKey("");
                         setMatchPage(1);
                       }}
-                      className={`min-h-[58px] min-w-[92px] rounded-[14px] border px-3 text-center text-[12px] font-black transition-colors ${
+                      className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
                         !selectedDayKey
                           ? "border-violet-500 bg-violet-500 text-white"
                           : "border-slate-200 bg-white text-slate-700"
                       }`}
                     >
                       <span className="block text-[10px] uppercase tracking-[0.14em]">All</span>
-                      <span className="mt-0.5 block text-[15px] leading-none">Upcoming</span>
+                      <span className="block text-[18px] leading-none">Wk</span>
+                      <span
+                        className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                          !selectedDayKey ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
+                        }`}
+                      >
+                        {allWeekMatchCount}
+                      </span>
                     </button>
                     {dayStripOptions.map((day, index) => {
                       const count =
@@ -3745,7 +3754,7 @@ const TennisMatchApp = ({
                             setMatchPage(1);
                           }}
                           disabled={disabled}
-                          className={`relative min-h-[58px] min-w-[96px] rounded-[14px] border px-3 text-center text-[12px] font-black transition-colors ${
+                          className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
                             isActive
                               ? "border-violet-500 bg-violet-500 text-white"
                               : disabled
@@ -3753,13 +3762,19 @@ const TennisMatchApp = ({
                               : "border-slate-200 bg-white text-slate-700 hover:border-violet-200"
                           }`}
                         >
-                          {count > 0 && (
-                            <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-violet-500 px-1 text-[9px] font-black text-white">
-                              {count}
-                            </span>
-                          )}
                           <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
-                          <span className="mt-0.5 block text-[15px] leading-none">{day.label}</span>
+                          <span className="block text-[18px] leading-none">{day.dayNumber}</span>
+                          <span
+                            className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                              isActive
+                                ? "bg-white/25 text-white"
+                                : disabled
+                                ? "bg-slate-100 text-slate-300"
+                                : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            {count}
+                          </span>
                         </button>
                       );
                     })}

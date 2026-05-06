@@ -46,16 +46,24 @@
 
 .group-lessons-day-filter__controls {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
 }
 
 .group-lessons-day-filter__quick {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.group-lessons-day-filter__quick::-webkit-scrollbar {
+  display: none;
 }
 
 .group-lessons-day-filter__actions {
@@ -68,17 +76,21 @@
 .group-lessons-day-filter__pill {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 10px 16px;
-  border-radius: 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 72px;
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid var(--fc-color-border);
   background: var(--fc-color-surface);
   color: var(--fc-color-text-primary);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .group-lessons-day-filter__pill:hover {
@@ -93,35 +105,74 @@
 }
 
 .group-lessons-day-filter__pill--active {
-  border-color: var(--fc-color-accent-border);
-  background: var(--fc-color-accent-light);
-  color: var(--fc-color-accent);
+  border-color: var(--fc-color-accent);
+  background: var(--fc-color-accent);
+  color: #ffffff;
   box-shadow: 0 12px 28px rgba(127, 86, 217, 0.18);
 }
 
 .group-lessons-day-filter__day {
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-}
-
-.group-lessons-day-filter__date {
-  font-size: 14px;
-  font-weight: 500;
   color: var(--fc-color-text-secondary);
 }
 
+.group-lessons-day-filter__date {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fc-color-text-secondary);
+}
+
+.group-lessons-day-filter__date--primary {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--fc-color-text-primary);
+}
+
+.group-lessons-day-filter__count {
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--fc-color-text-secondary);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.group-lessons-day-filter__pill--active .group-lessons-day-filter__day,
+.group-lessons-day-filter__pill--active .group-lessons-day-filter__date,
+.group-lessons-day-filter__pill--active .group-lessons-day-filter__date--primary {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.group-lessons-day-filter__pill--active .group-lessons-day-filter__count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
 .group-lessons-day-filter__range-toggle {
+  min-width: 72px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--fc-color-border);
+  border-style: dashed;
   background: var(--fc-color-surface);
   color: var(--fc-color-text-primary);
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 600;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .group-lessons-day-filter__range-toggle:hover {
@@ -136,10 +187,19 @@
 }
 
 .group-lessons-day-filter__range-toggle--active {
-  border-color: var(--fc-color-accent-border);
-  background: var(--fc-color-accent-light);
+  border-color: var(--fc-color-accent);
+  background: rgba(127, 86, 217, 0.08);
   color: var(--fc-color-accent);
   box-shadow: 0 12px 28px rgba(127, 86, 217, 0.18);
+}
+
+.group-lessons-day-filter__picker-icon {
+  display: inline-flex;
+  color: var(--fc-color-text-secondary);
+}
+
+.group-lessons-day-filter__range-toggle--active .group-lessons-day-filter__picker-icon {
+  color: var(--fc-color-accent);
 }
 
 .group-lessons-date-range {
@@ -1097,19 +1157,11 @@
   }
 
   .group-lessons-day-filter__controls {
-    flex-wrap: nowrap;
     gap: 0;
   }
 
   .group-lessons-day-filter__quick {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     gap: 6px;
-    scrollbar-width: none;
-  }
-
-  .group-lessons-day-filter__quick::-webkit-scrollbar {
-    display: none;
   }
 
   .group-lessons-day-filter__actions {
@@ -1117,15 +1169,10 @@
   }
 
   .group-lessons-day-filter__pill {
-    min-width: 50px;
-    padding: 8px 12px;
-    border-radius: 10px;
-    align-items: center;
-    text-align: center;
+    min-width: 64px;
+    padding: 10px 12px;
+    border-radius: 12px;
     box-shadow: none;
-    font-size: 11px;
-    font-weight: 700;
-    flex-shrink: 0;
   }
 
   .group-lessons-day-filter__pill:hover {
@@ -1138,14 +1185,25 @@
   }
 
   .group-lessons-day-filter__day {
-    font-size: 11px;
-    letter-spacing: 0.04em;
+    font-size: 10px;
   }
 
   .group-lessons-day-filter__date {
-    font-size: 9px;
-    font-weight: 500;
-    margin-top: 2px;
+    margin-top: 0;
+  }
+
+  .group-lessons-day-filter__date--primary {
+    font-size: 16px;
+  }
+
+  .group-lessons-day-filter__count {
+    padding: 2px 5px;
+  }
+
+  .group-lessons-day-filter__range-toggle {
+    min-width: 64px;
+    padding: 10px 12px;
+    border-radius: 12px;
   }
 
   .group-lessons-results {
