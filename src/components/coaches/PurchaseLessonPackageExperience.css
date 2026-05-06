@@ -160,6 +160,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
 }
 
 .purchase-package-experience__section {
@@ -629,6 +630,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .payment-methods__group-label {
@@ -643,6 +645,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .payment-methods__notice {
@@ -753,6 +756,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .payment-method-card__title {
@@ -824,17 +828,21 @@
 }
 
 .payment-method-card__form {
-  margin-left: 58px;
+  margin-left: 0;
   margin-top: 12px;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
   padding: 18px;
+  /* padding-left: calc(58px + 14px); */
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(248, 250, 252, 0.92);
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .payment-method-card__form-row {
@@ -885,12 +893,14 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .payment-form__field {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
 }
 
 .payment-form__label {
@@ -903,6 +913,8 @@
 
 .payment-form__input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid rgba(148, 163, 184, 0.6);
   border-radius: 16px;
   padding: 14px 16px;
@@ -911,6 +923,7 @@
   color: #1e293b;
   background: #ffffff;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 .payment-form__input:focus {
@@ -921,11 +934,15 @@
 
 .payment-form__stripe {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.6);
   padding: 14px 16px;
   background: #ffffff;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .payment-form__stripe:focus-within {
@@ -940,6 +957,8 @@
 
 .payment-form__element {
   height: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 .payment-form__status {
@@ -1111,6 +1130,11 @@
 
   .purchase-package-experience--page .purchase-package-experience__body {
     padding: 24px;
+  }
+
+  .payment-method-card__form {
+    padding: 16px;
+    padding-left: 16px;
   }
 
   .purchase-package-experience__dismiss--page {
