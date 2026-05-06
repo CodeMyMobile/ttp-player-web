@@ -536,39 +536,85 @@
   .app-nav {
     min-height: 64px;
     padding: 10px 14px;
+    gap: 10px;
   }
 
-  .app-nav__brand strong,
   .app-nav__links,
   .app-nav__user-copy {
     display: none;
   }
 
   .app-nav__left {
-    gap: 10px;
+    gap: 12px;
+    flex: 1 1 auto;
   }
 
   .app-nav__right {
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .app-nav__brand-mark {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+
+  .app-nav__brand {
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .app-nav__brand strong {
+    display: inline-block;
+    min-width: 0;
+    font-size: 15px;
+    line-height: 1.1;
+    white-space: nowrap;
   }
 
   .app-nav__location {
-    min-width: 40px;
-    width: 40px;
+    min-width: 0;
+    width: auto;
+    max-width: 138px;
     height: 40px;
-    padding: 0;
-    justify-content: center;
+    padding: 0 10px;
+    gap: 6px;
+    justify-content: flex-start;
     border-radius: 12px;
   }
 
-  .app-nav__location span,
+  .app-nav__location span {
+    display: inline-block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
   .app-nav__location svg:last-child {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  .app-nav__user-trigger {
+    min-height: 40px;
+    padding: 0 2px 0 0;
+    border-radius: 999px;
+  }
+
+  .app-nav__user-trigger > svg {
     display: none;
+  }
+
+  .app-nav__avatar {
+    width: 40px;
+    height: 40px;
+    border-width: 2px;
+    font-size: 13px;
   }
 
   .app-nav__new-match {
