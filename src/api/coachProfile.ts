@@ -1,4 +1,5 @@
 import type { CoachProfile } from "../data/mockCoachProfiles";
+import { getStoredAuthToken } from "../services/authToken";
 import { request } from "./http";
 
 export type CoachProfileRecord = CoachProfile & {
@@ -35,6 +36,8 @@ export const fetchCoachProfile = async (coachId: number, options?: FetchCoachPro
     throw new Error("Coach ID is required to load the profile.");
   }
 
+  const token = options?.token ?? getStoredAuthToken({ preferScheme: "token" }) ?? undefined;
+
   const params = new URLSearchParams();
   if (options?.day) {
     params.append("day", options.day);
@@ -49,7 +52,7 @@ export const fetchCoachProfile = async (coachId: number, options?: FetchCoachPro
     {
       method: "GET",
       signal: options?.signal,
-      token: options?.token,
+      token,
     },
   );
   const profile = extractCoachProfile(payload);
