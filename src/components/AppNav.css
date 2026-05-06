@@ -33,17 +33,20 @@
 .app-nav__left {
   gap: 28px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
 }
 
 .app-nav__right {
   min-width: 0;
   gap: 10px;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  margin-left: auto;
 }
 
 .app-nav__brand {
   gap: 12px;
+  min-width: 0;
+  flex-shrink: 0;
   color: #111827;
   text-decoration: none;
 }
@@ -73,12 +76,15 @@
 }
 
 .app-nav__links {
+  flex: 1 1 auto;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .app-nav__links a {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   justify-content: center;
   flex-direction: row;
@@ -114,6 +120,7 @@
 }
 
 .app-nav__new-match {
+  flex-shrink: 0;
   gap: 9px;
   min-height: 36px;
   padding: 0 18px;
@@ -132,8 +139,14 @@
   box-shadow: 0 10px 20px rgba(124, 58, 237, 0.32);
 }
 
+.app-nav__location-wrap {
+  min-width: 0;
+  flex: 0 1 240px;
+}
+
 .app-nav__location {
-  max-width: min(220px, 19vw);
+  width: 100%;
+  max-width: 220px;
   gap: 6px;
   min-height: 40px;
   padding: 0 12px;
@@ -359,6 +372,7 @@
 }
 
 .app-nav__icon-button {
+  flex-shrink: 0;
   position: relative;
   width: 46px;
   height: 46px;
@@ -388,6 +402,7 @@
 }
 
 .app-nav__user-trigger {
+  flex-shrink: 0;
   gap: 9px;
   min-height: 46px;
   padding: 4px 13px 4px 5px;
@@ -522,6 +537,10 @@
     gap: 4px;
   }
 
+  .app-nav__location-wrap {
+    flex-basis: 170px;
+  }
+
   .app-nav__location {
     max-width: 150px;
   }
@@ -529,6 +548,43 @@
   .app-nav__links a {
     padding: 8px 8px;
     font-size: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-nav {
+    padding: 12px 28px;
+  }
+
+  .app-nav__left {
+    gap: 20px;
+  }
+
+  .app-nav__brand strong {
+    font-size: 18px;
+  }
+
+  .app-nav__links {
+    gap: 6px;
+  }
+
+  .app-nav__links a {
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+
+  .app-nav__location-wrap {
+    flex-basis: 200px;
+  }
+
+  .app-nav__location {
+    max-width: 200px;
+    font-size: 11px;
+  }
+
+  .app-nav__new-match {
+    padding: 0 16px;
+    font-size: 13px;
   }
 }
 
