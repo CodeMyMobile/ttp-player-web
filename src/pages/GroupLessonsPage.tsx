@@ -4,7 +4,7 @@ import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Clock, MapPin, Search } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Search } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
@@ -22,6 +22,7 @@ import {
   DEFAULT_POSITION,
   getStoredLocation,
   storeLocation,
+  USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
 } from "../utils/userLocation";
 
@@ -222,6 +223,27 @@ const GroupLessonsPage = () => {
     [user],
   );
 
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const stored = getStoredLocation();
+      if (!stored) return;
+
+      setPosition(stored);
+      setLocationFilter({
+        label: "Current location",
+        latitude: stored.latitude,
+        longitude: stored.longitude,
+        isCurrentLocation: true,
+      });
+      setLocationSearchTerm("Current location");
+      setUseLocationFilter(true);
+      setGeoError("");
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
+
   const getResolvedCoachName = useCallback(
     (lesson: GroupLesson) =>
       (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
@@ -324,9 +346,19 @@ const GroupLessonsPage = () => {
         day: formatWeekday(iso),
         shortDay: formatWeekday(iso, "short"),
         label: formatMonthDay(iso),
+        dayNumber: new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" }),
       };
     });
   }, [dateAnchors.start]);
+
+  const dayLessonCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    lessonsWithIso.forEach((lesson) => {
+      if (!lesson.isoDate) return;
+      counts.set(lesson.isoDate, (counts.get(lesson.isoDate) ?? 0) + 1);
+    });
+    return counts;
+  }, [lessonsWithIso]);
 
   const themeVars = useMemo(
     () => ({
@@ -1111,10 +1143,13 @@ const GroupLessonsPage = () => {
                     setIsRangeOpen(false);
                   }}
                 >
-                  <span className="group-lessons-day-filter__day">All days</span>
+                  <span className="group-lessons-day-filter__day">All</span>
+                  <span className="group-lessons-day-filter__date group-lessons-day-filter__date--primary">Wk</span>
+                  <span className="group-lessons-day-filter__count">{totalLessons}</span>
                 </button>
                 {dayOptions.map((option) => {
                   const isActive = dateFilter.type === "day" && dateFilter.iso === option.iso;
+                  const count = dayLessonCounts.get(option.iso) ?? 0;
                   return (
                     <button
                       key={option.iso}
@@ -1132,18 +1167,27 @@ const GroupLessonsPage = () => {
                       }}
                     >
                       <span className="group-lessons-day-filter__day">{option.shortDay}</span>
-                      <span className="group-lessons-day-filter__date">{option.label}</span>
+                      <span className="group-lessons-day-filter__date group-lessons-day-filter__date--primary">
+                        {option.dayNumber}
+                      </span>
+                      <span className="group-lessons-day-filter__count">{count}</span>
                     </button>
                   );
                 })}
-              </div>
-              <div className="group-lessons-day-filter__actions">
                 <button
                   type="button"
                   className={`group-lessons-day-filter__range-toggle${
                     dateFilter.type === "range" ? " group-lessons-day-filter__range-toggle--active" : ""
                   }`}
                   aria-expanded={isRangeOpen}
+                  aria-label={
+                    dateFilter.type === "range"
+                      ? `Pick dates, current range ${formatMonthDay(dateFilter.start, "short")} to ${formatMonthDay(
+                          dateFilter.end,
+                          "short",
+                        )}`
+                      : "Pick dates"
+                  }
                   onClick={() => {
                     if (!isRangeOpen) {
                       if (dateFilter.type === "range") {
@@ -1157,12 +1201,10 @@ const GroupLessonsPage = () => {
                     setIsRangeOpen((open) => !open);
                   }}
                 >
-                  {dateFilter.type === "range"
-                    ? `Custom range: ${formatMonthDay(dateFilter.start, "short")} – ${formatMonthDay(
-                        dateFilter.end,
-                        "short",
-                      )}`
-                    : "Choose dates"}
+                  <span className="group-lessons-day-filter__picker-icon" aria-hidden>
+                    <CalendarDays size={15} />
+                  </span>
+                  <span className="group-lessons-day-filter__date group-lessons-day-filter__date--primary">Pick</span>
                 </button>
               </div>
             </div>

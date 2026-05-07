@@ -263,6 +263,51 @@
   cursor: pointer;
 }
 
+.fcv2-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.fcv2-pagination__button {
+  min-width: 104px;
+  padding: 11px 16px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fcv2-pagination__button:hover,
+.fcv2-pagination__button:focus-visible {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.fcv2-pagination__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.fcv2-pagination__status {
+  min-width: 96px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+}
+
 .fcv2-coach-match-banner__actions {
   display: flex;
   flex-wrap: wrap;

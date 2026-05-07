@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Share2,
   Users,
+  X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -219,8 +220,27 @@ const CreateMatchReviewPage = () => {
       : "Players who match this level will request to join.";
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="immersive">
       <div className="create-match-page">
+        <div className="create-match-mobile-header">
+          <div className="create-match-mobile-header__top">
+            <button
+              type="button"
+              className="create-match-mobile-header__close"
+              onClick={handleEditDetails}
+              aria-label="Close match creation"
+            >
+              <X size={18} />
+            </button>
+            <div className="create-match-mobile-header__meta">
+              <span>Step 3 of 3</span>
+              <span>Review &amp; publish</span>
+            </div>
+          </div>
+          <div className="create-match-mobile-header__progress" aria-hidden="true">
+            <span className="create-match-mobile-header__progress-fill" style={{ width: "100%" }} />
+          </div>
+        </div>
         <div className="create-match-page__header">
           <div>
             <p className="create-match-page__eyebrow">Create a Match</p>

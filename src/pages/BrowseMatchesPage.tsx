@@ -17,6 +17,11 @@ import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
 import { deriveListingVisibility, isLinkOnlyVisibility, isPrivateMatch } from "../utils/matchVisibility";
+import {
+  getStoredLocation,
+  storeLocation,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
 
 import "./BrowseMatchesPage.css";
 import "../components/coaches/coaches.css";
@@ -52,35 +57,6 @@ type SelectedLocation = {
   latitude?: number;
   longitude?: number;
   isCurrentLocation?: boolean;
-};
-
-const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
-
-const getStoredLocation = (): Coordinates | null => {
-  try {
-    const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Coordinates | null;
-    if (!parsed) return null;
-    if (typeof parsed.latitude !== "number" || typeof parsed.longitude !== "number") {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-const storeLocation = (coords: Coordinates | null) => {
-  try {
-    if (!coords) {
-      localStorage.removeItem(USER_LOCATION_STORAGE_KEY);
-      return;
-    }
-    localStorage.setItem(USER_LOCATION_STORAGE_KEY, JSON.stringify(coords));
-  } catch {
-    // ignore storage errors
-  }
 };
 
 const formatCoordinatesLabel = (coords: Coordinates | null) => {
@@ -280,8 +256,6 @@ const deriveDistanceMiles = (match: NormalizedMatch, origin: Coordinates | null)
 };
 
 const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
-  const matchType = match.type?.toLowerCase();
-  const matchTypeIsHosted = matchType === "hosted" || matchType?.includes("hosted");
   const participantHostMatch =
     match.participants?.some(
       (participant) =>
@@ -292,7 +266,7 @@ const isHostingMatch = (match: NormalizedMatch, userIdentities: string[]) => {
   const hostIdentityMatch =
     match.hostIdentityIds?.some((identityId) => userIdentities.includes(identityId)) ?? false;
 
-  return match.relationship === "host" || matchTypeIsHosted || participantHostMatch || hostIdentityMatch;
+  return match.relationship === "host" || participantHostMatch || hostIdentityMatch;
 };
 
 const getHostDisplayName = (match: NormalizedMatch, isHost: boolean) => {
@@ -453,6 +427,23 @@ const BrowseMatchesPage = () => {
       detectCurrentLocation();
     }
   }, [position, locationStatus, isDetectingLocation, detectCurrentLocation]);
+
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const nextLocation = getStoredLocation();
+      if (!nextLocation) return;
+
+      setPosition(nextLocation);
+      setLocationFilter(null);
+      setResolvedLocationLabel(formatCoordinatesLabel(nextLocation));
+      setLocationStatus("ready");
+      setGeoError("");
+      setShowLocationPicker(false);
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
 
   useEffect(() => {
     if (!position || locationFilter) {
