@@ -57,6 +57,7 @@ type FindCoachesStateSnapshot = {
   selectedRadius: number;
   appliedRadius: number;
   sortBy: string;
+  page: number;
   locationFilter: SelectedLocation | null;
   locationSearchTerm: string;
 };
@@ -87,6 +88,13 @@ const DEFAULT_RADIUS = 10;
 type CoachMatchSummaryItem = {
   label: string;
   value: string;
+};
+
+type CoachesPagination = {
+  page: number;
+  perPage: number | null;
+  total: number | null;
+  totalPages: number | null;
 };
 
 const getInitialSelectedLocation = (): SelectedLocation | null => {
@@ -139,6 +147,62 @@ const parseNumberValue = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+};
+
+const extractPagination = (payload: unknown): CoachesPagination | null => {
+  if (!payload || typeof payload !== "object") return null;
+
+  const container = payload as Record<string, unknown>;
+  const meta = container.meta as Record<string, unknown> | undefined;
+  const pagination =
+    (container.pagination as Record<string, unknown> | undefined)
+    ?? (meta?.pagination as Record<string, unknown> | undefined)
+    ?? container;
+
+  const page = parseNumberValue(
+    pagination.current_page
+      ?? pagination.currentPage
+      ?? pagination.page
+      ?? container.current_page
+      ?? container.currentPage
+      ?? container.page,
+  );
+  const perPage = parseNumberValue(
+    pagination.per_page
+      ?? pagination.perPage
+      ?? pagination.page_size
+      ?? container.per_page
+      ?? container.perPage,
+  );
+  const total = parseNumberValue(
+    pagination.total
+      ?? pagination.total_count
+      ?? container.total
+      ?? container.total_count,
+  );
+  const totalPages = parseNumberValue(
+    pagination.total_pages
+      ?? pagination.totalPages
+      ?? pagination.last_page
+      ?? container.total_pages
+      ?? container.totalPages,
+  );
+
+  if (page === null && perPage === null && total === null && totalPages === null) {
+    return null;
+  }
+
+  const resolvedPerPage = perPage && perPage > 0 ? perPage : null;
+  const resolvedTotalPages = totalPages && totalPages > 0
+    ? totalPages
+    : (total && resolvedPerPage ? Math.max(1, Math.ceil(total / resolvedPerPage)) : null);
+
+  return {
+    page: page && page > 0 ? page : 1,
+    perPage: resolvedPerPage,
+    total: total && total >= 0 ? total : null,
+    totalPages: resolvedTotalPages,
+  };
 };
 
 const LANGUAGE_LABELS: Record<string, string> = {
@@ -546,9 +610,11 @@ const FindCoaches = () => {
   const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
   const [appliedRadius, setAppliedRadius] = useState<number>(DEFAULT_RADIUS);
   const [sortBy, setSortBy] = useState("distance");
+  const [page, setPage] = useState(1);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [coaches, setCoaches] = useState<CoachCardModel[]>([]);
+  const [pagination, setPagination] = useState<CoachesPagination | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [storedToken] = useState(() =>
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
@@ -606,6 +672,7 @@ const FindCoaches = () => {
       selectedRadius,
       appliedRadius,
       sortBy,
+      page,
       locationFilter,
       locationSearchTerm,
     }),
@@ -614,6 +681,7 @@ const FindCoaches = () => {
       appliedSearchTerm,
       locationFilter,
       locationSearchTerm,
+      page,
       searchTerm,
       selectedRadius,
       sortBy,
@@ -739,6 +807,7 @@ const FindCoaches = () => {
       setSelectedRadius(restoredState.selectedRadius);
       setAppliedRadius(restoredState.appliedRadius);
       setSortBy(restoredState.sortBy);
+      setPage(restoredState.page || 1);
       setLocationSearchTerm(restoredState.locationSearchTerm);
       applyLocationFilter(restoredState.locationFilter);
     }
@@ -804,7 +873,7 @@ const FindCoaches = () => {
       const searchValue = appliedSearchTerm.trim();
       const params = new URLSearchParams({
         perPage: "12",
-        page: "1",
+        page: String(page),
         search: searchValue,
       });
       params.set("radius", appliedRadius.toString());
@@ -849,6 +918,7 @@ const FindCoaches = () => {
       }
 
       const payload = await response.json();
+      setPagination(extractPagination(payload));
       const baseCards = extractCoachArray(payload).map((coach, index) => mapCoachRecordToCard(coach, index));
       const normalized = await Promise.all(
         baseCards.map(async (coach) => {
@@ -864,6 +934,7 @@ const FindCoaches = () => {
       setMode(normalized.length > 0 ? "normal" : "empty");
     } catch (requestError) {
       setCoaches([]);
+      setPagination(null);
       setMode("error");
       setError(
         requestError instanceof Error ? requestError.message : "We couldn't load coaches right now.",
@@ -875,8 +946,9 @@ const FindCoaches = () => {
     appliedRadius,
     appliedSearchTerm,
     hasResolvedInitialLocation,
-    playerToken,
     locationSearchTerm,
+    page,
+    playerToken,
     position?.latitude,
     position?.longitude,
   ]);
@@ -941,6 +1013,7 @@ const FindCoaches = () => {
   const handleSearch = () => {
     const trimmed = searchTerm.trim();
     setMode("normal");
+    setPage(1);
     if (trimmed === appliedSearchTerm) {
       fetchCoaches();
       return;
@@ -951,6 +1024,7 @@ const FindCoaches = () => {
   const handleRadiusChange = (radius: number) => {
     setSelectedRadius(radius);
     setMode("normal");
+    setPage(1);
     if (radius === appliedRadius) {
       fetchCoaches();
       return;
@@ -963,6 +1037,7 @@ const FindCoaches = () => {
     setAppliedSearchTerm("");
     setSelectedRadius(DEFAULT_RADIUS);
     setAppliedRadius(DEFAULT_RADIUS);
+    setPage(1);
     applyLocationFilter(null);
   };
 
@@ -989,6 +1064,7 @@ const FindCoaches = () => {
         setSearchTerm(nextName);
         setAppliedSearchTerm(nextName.trim());
         setMode("normal");
+        setPage(1);
         return;
       }
 
@@ -1021,6 +1097,13 @@ const FindCoaches = () => {
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
+  const totalPages = pagination?.totalPages ?? null;
+  const hasPreviousPage = page > 1;
+  const hasNextPage = useMemo(() => {
+    if (totalPages) return page < totalPages;
+    if (pagination?.perPage) return filteredCoaches.length >= pagination.perPage;
+    return false;
+  }, [filteredCoaches.length, page, pagination?.perPage, totalPages]);
 
   const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
   const coachMatchSummaryItems = useMemo(
@@ -1262,138 +1345,164 @@ const FindCoaches = () => {
           ) : null}
 
           {shouldShowResults ? (
-            <section className="fcv2-grid coach-match-page__grid">
-              {filteredCoaches.map((coach) => {
-                const matchPercent = shouldNormalizeCoachScores
-                  ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
-                  : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
-                const hasStrongMatch = matchPercent >= 80;
-                const hasMidMatch = matchPercent >= 50 && matchPercent < 80;
-                const chipValues = [
-                  ...coach.specialties.slice(0, 3).map((value) => ({ value, tone: "neutral" as const })),
-                  ...coach.formats.slice(0, 1).map((value) => ({ value, tone: "format" as const })),
-                ].slice(0, 4);
-                const reasons = coach.matchReasons.slice(0, 3);
-                const primaryRate = formatMoney(coach.hourlyRateValue);
-                const groupRate = formatMoney(coach.groupRateValue);
-                const ratingLabel = coach.rating > 0 ? coach.rating.toFixed(1) : "New";
+            <>
+              <section className="fcv2-grid coach-match-page__grid">
+                {filteredCoaches.map((coach) => {
+                  const matchPercent = shouldNormalizeCoachScores
+                    ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
+                    : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
+                  const hasStrongMatch = matchPercent >= 80;
+                  const hasMidMatch = matchPercent >= 50 && matchPercent < 80;
+                  const chipValues = [
+                    ...coach.specialties.slice(0, 3).map((value) => ({ value, tone: "neutral" as const })),
+                    ...coach.formats.slice(0, 1).map((value) => ({ value, tone: "format" as const })),
+                  ].slice(0, 4);
+                  const reasons = coach.matchReasons.slice(0, 3);
+                  const primaryRate = formatMoney(coach.hourlyRateValue);
+                  const groupRate = formatMoney(coach.groupRateValue);
+                  const ratingLabel = coach.rating > 0 ? coach.rating.toFixed(1) : "New";
 
-                return (
-                  <article key={coach.id} className="coach-match-card coach-match-card--find">
-                    <div className="coach-match-card__head">
-                      <div className="coach-match-card__identity-row">
-                        <div className="coach-match-card__avatar-wrap">
-                          {coach.imageUrl ? (
-                            <img src={coach.imageUrl} alt={coach.name} className="coach-match-card__avatar-image" />
+                  return (
+                    <article key={coach.id} className="coach-match-card coach-match-card--find">
+                      <div className="coach-match-card__head">
+                        <div className="coach-match-card__identity-row">
+                          <div className="coach-match-card__avatar-wrap">
+                            {coach.imageUrl ? (
+                              <img src={coach.imageUrl} alt={coach.name} className="coach-match-card__avatar-image" />
+                            ) : (
+                              <div className="coach-match-card__avatar-fallback">{coach.initials}</div>
+                            )}
+                            {coach.verified ? <span className="coach-match-card__verified-badge">✓</span> : null}
+                          </div>
+
+                          <div className="coach-match-card__identity-copy">
+                            <h2>{coach.name}</h2>
+
+                            <div className="coach-match-card__stats">
+                              <span className="coach-match-card__rating">
+                                <Star size={13} fill="currentColor" />
+                                {ratingLabel}
+                              </span>
+                              {coach.reviewCount > 0 ? <span>({coach.reviewCount})</span> : null}
+                              <span className="coach-match-card__stats-dot" />
+                              <span>{formatDistance(coach.distanceMiles)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="coach-match-card__price-row">
+                          {coach.certifications.length > 0 ? (
+                            <div className="coach-match-card__certifications">
+                              {coach.certifications.slice(0, 2).map((certification) => (
+                                <span key={`${coach.id}-${certification}`}>{certification}</span>
+                              ))}
+                            </div>
                           ) : (
-                            <div className="coach-match-card__avatar-fallback">{coach.initials}</div>
+                            <div />
                           )}
-                          {coach.verified ? <span className="coach-match-card__verified-badge">✓</span> : null}
+
+                          <div className="coach-match-card__price">
+                            <div className="coach-match-card__price-main">
+                              <span className="coach-match-card__price-currency">$</span>
+                              <strong>{primaryRate ? primaryRate.replace("$", "") : "N/A"}</strong>
+                            </div>
+                            <span>{groupRate ? `/hr · group ${groupRate}` : "/hr"}</span>
+                          </div>
                         </div>
 
-                        <div className="coach-match-card__identity-copy">
-                          <h2>{coach.name}</h2>
+                        {matchPercent > 0 ? (
+                          <div
+                            className={[
+                              "coach-match-card__score-badge",
+                              hasStrongMatch ? "is-strong" : "",
+                              hasMidMatch ? "is-mid" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
+                            <Sparkles size={14} />
+                            <strong>{matchPercent}%</strong>
+                            <span>match</span>
+                          </div>
+                        ) : null}
 
-                          <div className="coach-match-card__stats">
-                            <span className="coach-match-card__rating">
-                              <Star size={13} fill="currentColor" />
-                              {ratingLabel}
+                        <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
+                      </div>
+
+                      {chipValues.length > 0 ? (
+                        <div className="coach-match-card__chips">
+                          {chipValues.map(({ value, tone }) => (
+                            <span
+                              key={`${coach.id}-${tone}-${value}`}
+                              className={tone === "format" ? "coach-match-card__chip coach-match-card__chip--format" : "coach-match-card__chip"}
+                            >
+                              {value}
                             </span>
-                            {coach.reviewCount > 0 ? <span>({coach.reviewCount})</span> : null}
-                            <span className="coach-match-card__stats-dot" />
-                            <span>{formatDistance(coach.distanceMiles)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="coach-match-card__price-row">
-                        {coach.certifications.length > 0 ? (
-                          <div className="coach-match-card__certifications">
-                            {coach.certifications.slice(0, 2).map((certification) => (
-                              <span key={`${coach.id}-${certification}`}>{certification}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <div />
-                        )}
-
-                        <div className="coach-match-card__price">
-                          <div className="coach-match-card__price-main">
-                            <span className="coach-match-card__price-currency">$</span>
-                            <strong>{primaryRate ? primaryRate.replace("$", "") : "N/A"}</strong>
-                          </div>
-                          <span>{groupRate ? `/hr · group ${groupRate}` : "/hr"}</span>
-                        </div>
-                      </div>
-
-                      {matchPercent > 0 ? (
-                        <div
-                          className={[
-                            "coach-match-card__score-badge",
-                            hasStrongMatch ? "is-strong" : "",
-                            hasMidMatch ? "is-mid" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                        >
-                          <Sparkles size={14} />
-                          <strong>{matchPercent}%</strong>
-                          <span>match</span>
+                          ))}
                         </div>
                       ) : null}
 
-                      <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
-                    </div>
-
-                    {chipValues.length > 0 ? (
-                      <div className="coach-match-card__chips">
-                        {chipValues.map(({ value, tone }) => (
-                          <span
-                            key={`${coach.id}-${tone}-${value}`}
-                            className={tone === "format" ? "coach-match-card__chip coach-match-card__chip--format" : "coach-match-card__chip"}
-                          >
-                            {value}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {reasons.length > 0 ? (
-                      <div className="coach-match-card__breakdown">
-                        <div className="coach-match-card__breakdown-title">Why this coach matches</div>
-                        <ul>
-                          {reasons.map((reason) => (
-                            <li key={`${coach.id}-${reason}`}>{reason}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    <div className="coach-match-card__footer">
-                      <div className="coach-match-card__availability">
-                        <span className={`coach-match-card__availability-dot ${(coach.availableSlotCount ?? 0) > 0 ? "is-open" : ""}`} />
-                        <div>
-                          <strong>
-                            {coach.availableSlotCount && coach.availableSlotCount > 0
-                              ? `${coach.availableSlotCount} slot${coach.availableSlotCount === 1 ? "" : "s"} available`
-                              : "Availability on request"}
-                          </strong>
-                          <span>{coach.courts[0] || coach.cityLabel || "Home court not listed"}</span>
+                      {reasons.length > 0 ? (
+                        <div className="coach-match-card__breakdown">
+                          <div className="coach-match-card__breakdown-title">Why this coach matches</div>
+                          <ul>
+                            {reasons.map((reason) => (
+                              <li key={`${coach.id}-${reason}`}>{reason}</li>
+                            ))}
+                          </ul>
                         </div>
-                      </div>
+                      ) : null}
 
-                      <Link
-                        to={`/coaches/${coach.id}`}
-                        state={{ findCoachesState: findCoachesStateSnapshot }}
-                        className="coach-match-card__action coach-match-card__action--ghost"
-                      >
-                        View profile
-                      </Link>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
+                      <div className="coach-match-card__footer">
+                        <div className="coach-match-card__availability">
+                          <span className={`coach-match-card__availability-dot ${(coach.availableSlotCount ?? 0) > 0 ? "is-open" : ""}`} />
+                          <div>
+                            <strong>
+                              {coach.availableSlotCount && coach.availableSlotCount > 0
+                                ? `${coach.availableSlotCount} slot${coach.availableSlotCount === 1 ? "" : "s"} available`
+                                : "Availability on request"}
+                            </strong>
+                            <span>{coach.courts[0] || coach.cityLabel || "Home court not listed"}</span>
+                          </div>
+                        </div>
+
+                        <Link
+                          to={`/coaches/${coach.id}`}
+                          state={{ findCoachesState: findCoachesStateSnapshot }}
+                          className="coach-match-card__action coach-match-card__action--ghost"
+                        >
+                          View profile
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
+              {(totalPages && totalPages > 1) || hasPreviousPage || hasNextPage ? (
+                <nav className="fcv2-pagination" aria-label="Coach results pagination">
+                  <button
+                    type="button"
+                    className="fcv2-pagination__button"
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    disabled={!hasPreviousPage || status === "loading"}
+                  >
+                    Previous
+                  </button>
+                  <span className="fcv2-pagination__status">
+                    Page {page}
+                    {totalPages ? ` of ${totalPages}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    className="fcv2-pagination__button"
+                    onClick={() => setPage((current) => current + 1)}
+                    disabled={!hasNextPage || status === "loading"}
+                  >
+                    Next
+                  </button>
+                </nav>
+              ) : null}
+            </>
           ) : null}
         </div>
 
