@@ -4,7 +4,7 @@ import MobileHomeBottomNav from "./MobileHomeBottomNav";
 
 interface MainLayoutProps {
   children: ReactNode;
-  mobileChrome?: "default" | "home";
+  mobileChrome?: "default" | "home" | "immersive";
   desktopChrome?: "default" | "home";
   showDesktopNav?: boolean;
 }
@@ -15,9 +15,12 @@ const MainLayout = ({
   showDesktopNav = true,
 }: MainLayoutProps) => {
   const isHomeMobileChrome = mobileChrome === "home";
+  const isImmersiveMobileChrome = mobileChrome === "immersive";
 
   return (
-    <div className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}`}>
+    <div
+      className={`dashboard-page${isHomeMobileChrome ? " dashboard-page--home-mobile" : ""}${isImmersiveMobileChrome ? " dashboard-page--immersive-mobile" : ""}`}
+    >
       {showDesktopNav ? (
         <AppNav
           hideMobileNewMatch={isHomeMobileChrome}

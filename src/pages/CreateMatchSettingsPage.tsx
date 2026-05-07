@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Eye,
-  EyeOff,
+  ChevronDown,
   Gauge,
   Hash,
   MessageSquare,
   Sparkles,
+  Globe,
   Trophy,
   User,
   Users,
+  X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -34,7 +35,6 @@ type VisibilityOption = {
   value: "public" | "hidden";
   title: string;
   description: string;
-  icon: JSX.Element;
 };
 
 const skillLevels: SkillLevel[] = [
@@ -82,32 +82,55 @@ const formatOptions: FormatOption[] = [
 const visibilityOptions: VisibilityOption[] = [
   {
     value: "public",
-    title: "Public link",
+    title: "Visible in feed",
     description: "Appear in match search and accept requests.",
-    icon: <Eye size={22} />,
   },
   {
     value: "hidden",
-    title: "Hidden link",
+    title: "Share by link only",
     description: "Only players you share the link with can view.",
-    icon: <EyeOff size={22} />,
   },
 ];
+
+const skillRanges = skillLevels.map((level) => {
+  const [min, max = min] = level.value.split("-");
+  return {
+    ...level,
+    min,
+    max,
+  };
+});
+
+const ntrpOptions = ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5+"];
+
+const compareNtrp = (left: string, right: string) => {
+  const normalize = (value: string) => Number.parseFloat(value.replace("+", ""));
+  return normalize(left) - normalize(right);
+};
 
 const CreateMatchSettingsPage = () => {
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const { matchDraft } = (routerLocation.state as { matchDraft?: MatchDraftDetails } | null) ?? {};
 
-  const [skillLevel, setSkillLevel] = useState(skillLevels[2]?.value ?? "3.0-3.5");
+  const [skillMin, setSkillMin] = useState("3.0");
+  const [skillMax, setSkillMax] = useState("3.5");
   const [format, setFormat] = useState(formatOptions[1]?.value ?? "doubles");
   const [visibility, setVisibility] = useState<VisibilityOption["value"]>("public");
   const [courtNumber, setCourtNumber] = useState("");
   const [notes, setNotes] = useState("Bring a new can of balls and arrive 10 minutes early.");
 
   const activeSkill = useMemo(
-    () => skillLevels.find((level) => level.value === skillLevel) ?? skillLevels[0],
-    [skillLevel],
+    () => (
+      skillRanges.find((level) => level.min === skillMin && level.max === skillMax) ?? {
+        value: `${skillMin}-${skillMax}`,
+        label: `${skillMin} - ${skillMax}`,
+        description: `Players rated ${skillMin}-${skillMax} will see this match.`,
+        min: skillMin,
+        max: skillMax,
+      }
+    ),
+    [skillMax, skillMin],
   );
 
   const activeVisibility = useMemo(
@@ -124,7 +147,7 @@ const CreateMatchSettingsPage = () => {
       state: {
         matchDraft,
         settings: {
-          skillLevel,
+          skillLevel: skillMin === skillMax ? skillMin : `${skillMin}-${skillMax}`,
           format,
           visibility,
           courtNumber,
@@ -135,8 +158,27 @@ const CreateMatchSettingsPage = () => {
   };
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="immersive">
       <div className="create-match-page">
+        <div className="create-match-mobile-header">
+          <div className="create-match-mobile-header__top">
+            <button
+              type="button"
+              className="create-match-mobile-header__close"
+              onClick={handleNavigateBack}
+              aria-label="Close match creation"
+            >
+              <X size={18} />
+            </button>
+            <div className="create-match-mobile-header__meta">
+              <span>Step 2 of 3</span>
+              <span>Match details</span>
+            </div>
+          </div>
+          <div className="create-match-mobile-header__progress" aria-hidden="true">
+            <span className="create-match-mobile-header__progress-fill" style={{ width: "66.667%" }} />
+          </div>
+        </div>
         <div className="create-match-page__header">
           <div>
             <p className="create-match-page__eyebrow">Create a Match</p>
@@ -166,8 +208,8 @@ const CreateMatchSettingsPage = () => {
         <section className="create-match-card" aria-labelledby="skill-level-heading">
           <div className="create-match-card__header">
             <div>
-              <h2 id="skill-level-heading">Skill level</h2>
-              <p className="create-match-card__subtitle">Select the NTRP range you want for this match.</p>
+              <h2 id="skill-level-heading">Match details</h2>
+              <p className="create-match-card__subtitle">Choose the level and format players will see.</p>
             </div>
             <div className="settings-highlight">
               <Gauge size={18} aria-hidden="true" />
@@ -175,15 +217,67 @@ const CreateMatchSettingsPage = () => {
             </div>
           </div>
           <div className="create-match-field">
-            <span className="create-match-field__label">Quick picks</span>
+            <span className="create-match-field__label">NTRP skill range</span>
+            <div className="create-match-range-grid">
+              <label className="input-field" htmlFor="match-skill-min">
+                <span className="input-field__label input-field__label--meta">Min</span>
+                <div className="select-wrapper">
+                  <select
+                    id="match-skill-min"
+                    value={skillMin}
+                    onChange={(event) => {
+                      const nextMin = event.target.value;
+                      setSkillMin(nextMin);
+                      if (compareNtrp(nextMin, skillMax) > 0) {
+                        setSkillMax(nextMin);
+                      }
+                    }}
+                  >
+                    {ntrpOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </div>
+              </label>
+              <label className="input-field" htmlFor="match-skill-max">
+                <span className="input-field__label input-field__label--meta">Max</span>
+                <div className="select-wrapper">
+                  <select
+                    id="match-skill-max"
+                    value={skillMax}
+                    onChange={(event) => {
+                      const nextMax = event.target.value;
+                      setSkillMax(nextMax);
+                      if (compareNtrp(nextMax, skillMin) < 0) {
+                        setSkillMin(nextMax);
+                      }
+                    }}
+                  >
+                    {ntrpOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </div>
+              </label>
+            </div>
+            <span className="create-match-field__label">Quick pick</span>
             <div className="pill-group" role="radiogroup" aria-label="Skill level">
-              {skillLevels.map((level) => (
+              {skillRanges.map((level) => (
                 <button
                   key={level.value}
                   type="button"
-                  className={`pill pill--outline${skillLevel === level.value ? " pill--active" : ""}`}
-                  onClick={() => setSkillLevel(level.value)}
-                  aria-pressed={skillLevel === level.value}
+                  className={`pill pill--outline${skillMin === level.min && skillMax === level.max ? " pill--active" : ""}`}
+                  onClick={() => {
+                    setSkillMin(level.min);
+                    setSkillMax(level.max);
+                  }}
+                  aria-pressed={skillMin === level.min && skillMax === level.max}
                 >
                   {level.label}
                 </button>
@@ -261,32 +355,32 @@ const CreateMatchSettingsPage = () => {
         <section className="create-match-card" aria-labelledby="visibility-heading">
           <div className="create-match-card__header">
             <div>
-              <h2 id="visibility-heading">Share settings</h2>
+              <h2 id="visibility-heading">Visibility</h2>
               <p className="create-match-card__subtitle">Control who can view and request to join this match.</p>
             </div>
             <div className="settings-highlight">
-              {activeVisibility.icon}
               <span>{activeVisibility.title}</span>
             </div>
           </div>
-          <div className="visibility-options" role="radiogroup" aria-label="Match visibility">
-            {visibilityOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`match-type-card${visibility === option.value ? " match-type-card--active" : ""}`}
-                onClick={() => setVisibility(option.value)}
-                aria-pressed={visibility === option.value}
-              >
-                <div className="match-type-card__icon" aria-hidden="true">
-                  {option.icon}
-                </div>
-                <div className="match-type-card__content">
-                  <span className="match-type-card__title">{option.title}</span>
-                  <span className="match-type-card__description">{option.description}</span>
-                </div>
-              </button>
-            ))}
+          <div className="visibility-toggle-card">
+            <div className="visibility-toggle-card__icon" aria-hidden="true">
+              <Globe size={18} />
+            </div>
+            <div className="visibility-toggle-card__copy">
+              <span className="visibility-toggle-card__title">Share by link only</span>
+              <span className="visibility-toggle-card__description">
+                {visibility === "hidden" ? "Only people with the link can view this match." : "Visible in feed"}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`visibility-toggle${visibility === "hidden" ? " visibility-toggle--active" : ""}`}
+              onClick={() => setVisibility((value) => (value === "hidden" ? "public" : "hidden"))}
+              aria-pressed={visibility === "hidden"}
+              aria-label="Toggle share by link only"
+            >
+              <span className="visibility-toggle__thumb" />
+            </button>
           </div>
         </section>
 
@@ -295,7 +389,8 @@ const CreateMatchSettingsPage = () => {
             Back
           </button>
           <button type="button" className="create-match-actions__primary" onClick={handleContinue}>
-            Continue to review
+            Next
+            <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>

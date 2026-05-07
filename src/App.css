@@ -2075,6 +2075,21 @@ button.secondary-link {
     gap: 0;
   }
 
+  .dashboard-page--immersive-mobile {
+    max-width: none;
+    gap: 0;
+    width: calc(100% + 32px);
+    margin: -16px;
+  }
+
+  .dashboard-page--immersive-mobile > .app-nav {
+    display: none;
+  }
+
+  .dashboard-page--immersive-mobile > .main-layout__content {
+    padding: 0;
+  }
+
   .dashboard-page--home-mobile > .main-nav {
     display: none;
   }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, Clock, Globe, Lock, MapPin, Users } from "lucide-react";
+import { CalendarDays, ChevronDown, Clock, Globe, Lock, MapPin, Users, X } from "lucide-react";
 
 import Autocomplete from "react-google-autocomplete";
 
@@ -129,8 +129,27 @@ const CreateMatchPage = () => {
   const isPrivateMatch = matchType === "private";
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="immersive">
       <div className="create-match-page">
+        <div className="create-match-mobile-header">
+          <div className="create-match-mobile-header__top">
+            <button
+              type="button"
+              className="create-match-mobile-header__close"
+              onClick={handleNavigateBack}
+              aria-label="Close match creation"
+            >
+              <X size={18} />
+            </button>
+            <div className="create-match-mobile-header__meta">
+              <span>Step 1 of 3</span>
+              <span>Match basics</span>
+            </div>
+          </div>
+          <div className="create-match-mobile-header__progress" aria-hidden="true">
+            <span className="create-match-mobile-header__progress-fill" style={{ width: "33.333%" }} />
+          </div>
+        </div>
         <div className="create-match-page__header">
           <div>
             <p className="create-match-page__eyebrow">Create a Match</p>
@@ -268,17 +287,20 @@ const CreateMatchPage = () => {
             </label>
             <label className="input-field" htmlFor="match-duration">
               <span className="input-field__label">Duration</span>
-              <select
-                id="match-duration"
-                value={selectedDuration}
-                onChange={(event) => setSelectedDuration(event.target.value as MatchDurationOption)}
-              >
-                {Object.entries(durationLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <div className="select-wrapper">
+                <select
+                  id="match-duration"
+                  value={selectedDuration}
+                  onChange={(event) => setSelectedDuration(event.target.value as MatchDurationOption)}
+                >
+                  {Object.entries(durationLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} aria-hidden="true" />
+              </div>
             </label>
           </div>
         </section>
@@ -421,6 +443,7 @@ const CreateMatchPage = () => {
             }}
           >
             Next
+            <span aria-hidden="true">→</span>
           </button>
         </div>
       </div>
