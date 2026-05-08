@@ -605,6 +605,13 @@
   margin: 0;
 }
 
+.ph-play-head-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .ph-section-head h2 {
   display: inline-flex;
   align-items: center;
@@ -628,11 +635,35 @@
   color: var(--ph-purple-deep);
 }
 
-.ph-play-head span {
+.ph-play-head-copy span {
   color: var(--ph-muted);
   font-size: 13px;
   font-weight: 700;
   white-space: normal;
+}
+
+.ph-play-head-action {
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1.5px solid rgba(139, 92, 246, 0.45);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ph-purple);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.ph-play-head-action:hover {
+  border-color: var(--ph-purple);
+  color: var(--ph-purple-deep);
+  background: #f8f5ff;
+  transform: translateY(-1px);
 }
 
 .ph-schedule-item {
@@ -1698,6 +1729,18 @@
   .ph-play-head {
     padding: 16px 20px;
     flex-wrap: nowrap;
+  }
+
+  .ph-play-head {
+    align-items: flex-start;
+  }
+
+  .ph-play-head-copy {
+    gap: 6px;
+  }
+
+  .ph-play-head-action {
+    display: inline-flex;
   }
 
   .ph-schedule-copy strong {

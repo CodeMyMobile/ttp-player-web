@@ -1,6 +1,6 @@
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronRight, MapPin, Star } from "lucide-react";
+import { CalendarDays, ChevronRight, MapPin, Plus, Star } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { normalizeMatchRecord } from "../api/matches";
@@ -1054,6 +1054,10 @@ const DashboardPage = () => {
     navigate(activity.destination);
   };
 
+  const handleHostMatch = () => {
+    navigate("/matches", { state: { openNewMatch: true } });
+  };
+
   const handleInviteAction = async (invite, action) => {
     if (invite?.inviteKind === "coach") {
       if (action === "accept") {
@@ -1483,8 +1487,14 @@ const DashboardPage = () => {
 
           <section className="ph-play-today">
             <div className="ph-play-head">
-              <h2>Play Today</h2>
-              <span>{selectedDayLabel}</span>
+              <div className="ph-play-head-copy">
+                <h2>Play Today</h2>
+                <span>{selectedDayLabel}</span>
+              </div>
+              <button type="button" className="ph-play-head-action" onClick={handleHostMatch}>
+                <Plus size={16} />
+                <span>Host match</span>
+              </button>
             </div>
 
             <div className="ph-day-tabs" aria-label="Available days">

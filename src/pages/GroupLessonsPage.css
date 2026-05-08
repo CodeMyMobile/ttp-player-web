@@ -920,6 +920,7 @@
   }
 
   .group-lessons-page__inner {
+    gap: 10px;
     padding-bottom: 0;
   }
 
@@ -931,9 +932,9 @@
   .group-lessons-mobile-shell {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     position: relative;
-    padding-bottom: 72px;
+    padding-bottom: 0;
   }
 
   .group-lessons-mobile-topbar {
@@ -1017,7 +1018,7 @@
   .group-lessons-mobile-hero {
     flex-direction: column;
     gap: 4px;
-    padding: 18px 16px 0;
+    padding: 16px 16px 0;
   }
 
   .group-lessons-mobile-hero h1 {
@@ -1032,7 +1033,8 @@
     margin: 0;
     font-size: 13px;
     color: var(--fc-color-text-secondary);
-    line-height: 1.5;
+    line-height: 1.35;
+    white-space: nowrap;
   }
 
   .group-lessons-mobile-search-row {
@@ -1152,7 +1154,7 @@
   }
 
   .group-lessons-day-filter {
-    gap: 6px;
+    gap: 4px;
     padding: 0 16px;
   }
 
@@ -1161,7 +1163,7 @@
   }
 
   .group-lessons-day-filter__quick {
-    gap: 6px;
+    gap: 8px;
   }
 
   .group-lessons-day-filter__actions {
@@ -1169,9 +1171,10 @@
   }
 
   .group-lessons-day-filter__pill {
-    min-width: 64px;
-    padding: 10px 12px;
+    min-width: 58px;
+    padding: 9px 14px;
     border-radius: 12px;
+    border-width: 1.5px;
     box-shadow: none;
   }
 
@@ -1186,6 +1189,7 @@
 
   .group-lessons-day-filter__day {
     font-size: 10px;
+    letter-spacing: 0.12em;
   }
 
   .group-lessons-day-filter__date {
@@ -1193,37 +1197,29 @@
   }
 
   .group-lessons-day-filter__date--primary {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .group-lessons-day-filter__count {
-    padding: 2px 5px;
+    min-width: 18px;
+    padding: 2px 6px;
+    font-size: 10px;
   }
 
   .group-lessons-day-filter__range-toggle {
-    min-width: 64px;
-    padding: 10px 12px;
+    min-width: 58px;
+    padding: 9px 14px;
     border-radius: 12px;
+    border-width: 1.5px;
   }
 
   .group-lessons-results {
-    gap: 14px;
+    gap: 12px;
     padding: 0 16px;
   }
 
   .group-lessons-results__header {
-    margin-top: 2px;
-  }
-
-  .group-lessons-results__header h2 {
     display: none;
-  }
-
-  .group-lessons-results__meta {
-    margin: 0;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--fc-color-text-secondary);
   }
 
   .lessons-grid {

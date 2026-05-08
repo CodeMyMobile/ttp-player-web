@@ -160,7 +160,7 @@ const PlayDatesAppRoute = () => {
             />
           </PlayDatesQueryClientProvider>
         </main>
-        <MobileHomeBottomNav onPostMatch={openNewMatch} />
+        <MobileHomeBottomNav />
       </div>
     </ProtectedRoute>
   );

@@ -792,7 +792,7 @@ const GroupLessonsPage = () => {
           <div className="group-lessons-desktop-shell">
             <ResultsHeader
               title="Group Lessons"
-              description="Dial in your game with curated sessions led by trusted Matchplay coaches."
+              description="Dial in your game with trusted coaches"
             />
 
             <section className="group-lessons-desktop-filters" aria-label="Filter group lessons">
@@ -949,7 +949,7 @@ const GroupLessonsPage = () => {
           <div className="group-lessons-mobile-shell">
             <section className="group-lessons-mobile-hero">
               <h1>Group Lessons</h1>
-              <p>Dial in your game with curated sessions led by trusted Matchplay coaches.</p>
+              <p>Dial in your game with trusted coaches</p>
             </section>
 
             <div className="group-lessons-mobile-search-row">
