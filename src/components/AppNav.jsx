@@ -10,11 +10,10 @@ import {
   LogOut,
   MapPin,
   Plus,
-  Search,
   ShieldX,
   Target,
-  Trophy,
   UserRound,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -36,9 +35,8 @@ import "./AppNav.css";
 
 const navItems = [
   { label: "Home", to: "/", icon: Home },
-  { label: "Lessons", to: "/group-lessons", icon: Search },
+  { label: "My Coaches", to: "/my-coaches", icon: Users },
   { label: "Schedule", to: "/player/calendar", icon: CalendarDays },
-  { label: "Match Play", to: "/matches", icon: Trophy },
 ];
 
 const userMenuItems = [
