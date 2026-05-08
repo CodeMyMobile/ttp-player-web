@@ -1,262 +1,585 @@
 .player-lesson-details {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-bottom: 20px;
-}
-
-.player-lesson-details__back {
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #475569;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.player-lesson-details__back:hover {
-  color: #1e293b;
+  padding-bottom: 24px;
 }
 
 .player-lesson-details__empty {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
   color: #475569;
   font-weight: 600;
 }
 
 .player-lesson-details__empty--error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   color: #b91c1c;
 }
 
-.player-lesson-details__banner {
+.player-lesson-details__shell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
+.player-lesson-details__topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  border-radius: 16px;
-  border: 1px solid transparent;
-  padding: 14px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
 }
 
-.player-lesson-details__banner--awaiting {
-  background: #fef3c7;
-  border-color: #fde68a;
+.player-lesson-details__back-link,
+.player-lesson-details__topbar-action {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.player-lesson-details__banner--confirmed {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.player-lesson-details__banner--payment {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-}
-
-.player-lesson-details__banner-icon {
-  flex-shrink: 0;
-}
-
-.player-lesson-details__banner--awaiting .player-lesson-details__banner-icon,
-.player-lesson-details__banner--awaiting .player-lesson-details__banner-title {
-  color: #d97706;
-}
-
-.player-lesson-details__banner--confirmed .player-lesson-details__banner-icon,
-.player-lesson-details__banner--confirmed .player-lesson-details__banner-title {
-  color: #15803d;
-}
-
-.player-lesson-details__banner--payment .player-lesson-details__banner-icon,
-.player-lesson-details__banner--payment .player-lesson-details__banner-title {
-  color: #1d4ed8;
-}
-
-.player-lesson-details__banner-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.player-lesson-details__banner-title,
-.player-lesson-details__banner-text,
-.player-lesson-details__coach-name,
-.player-lesson-details__coach-role,
-.player-lesson-details__detail-title,
-.player-lesson-details__detail-text,
-.player-lesson-details__info-title,
-.player-lesson-details__status-pending,
-.player-lesson-details__status-success,
-.player-lesson-details__status-error,
-.player-lesson-details__info-inline p {
-  margin: 0;
-}
-
-.player-lesson-details__banner-title,
-.player-lesson-details__coach-name,
-.player-lesson-details__detail-title,
-.player-lesson-details__info-title {
+.player-lesson-details__back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  color: #64748b;
+  font-size: 14px;
   font-weight: 700;
+}
+
+.player-lesson-details__back-link:hover,
+.player-lesson-details__topbar-action:hover {
   color: #1e293b;
 }
 
-.player-lesson-details__banner-text,
-.player-lesson-details__coach-role,
-.player-lesson-details__detail-text,
-.player-lesson-details__info-inline p {
+.player-lesson-details__topbar-title {
   color: #64748b;
-}
-
-.player-lesson-details__card,
-.player-lesson-details__status-panel,
-.player-lesson-details__actions {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-}
-
-.player-lesson-details__coach-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.player-lesson-details__coach-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #065f46, #0f766e);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.player-lesson-details__coach-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.player-lesson-details__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.player-lesson-details__coach-copy {
+.player-lesson-details__topbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.player-lesson-details__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.player-lesson-details__content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 20px;
+  padding: 20px;
 }
 
-.player-lesson-details__detail-list {
-  overflow: hidden;
-}
-
-.player-lesson-details__detail-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.player-lesson-details__detail-row:last-child {
-  border-bottom: none;
-}
-
-.player-lesson-details__detail-icon {
-  color: #475569;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.player-lesson-details__detail-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.player-lesson-details__status-panel {
+.player-lesson-details__hero {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 14px 16px;
 }
 
-.player-lesson-details__status-pending {
-  color: #1d4ed8;
+.player-lesson-details__badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-lesson-details__hero-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.player-lesson-details__hero-badge--primary {
+  border-color: #ddd6fe;
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.player-lesson-details__hero-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-lesson-details__hero-title,
+.player-lesson-details__section-label,
+.player-lesson-details__card-title,
+.player-lesson-details__coach-name,
+.player-lesson-details__booking-price,
+.player-lesson-details__booking-eyebrow,
+.player-lesson-details__info-title,
+.player-lesson-details__status-banner-copy strong {
+  margin: 0;
+}
+
+.player-lesson-details__hero-title {
+  color: #0f172a;
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+.player-lesson-details__hero-copy,
+.player-lesson-details__card-copy,
+.player-lesson-details__status-banner-copy span,
+.player-lesson-details__booking-subcopy,
+.player-lesson-details__location-list,
+.player-lesson-details__step,
+.player-lesson-details__status-pending,
+.player-lesson-details__status-error,
+.player-lesson-details__status-success,
+.player-lesson-details__info-inline p,
+.player-lesson-details__payment-block p {
+  margin: 0;
+}
+
+.player-lesson-details__hero-copy {
+  max-width: 720px;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.player-lesson-details__hero-meta {
+  display: grid;
+  gap: 10px;
+}
+
+.player-lesson-details__hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.player-lesson-details__status-success {
-  color: #166534;
-  font-weight: 600;
+.player-lesson-details__hero-meta-item svg {
+  flex-shrink: 0;
+  color: #7c3aed;
 }
 
-.player-lesson-details__status-error {
-  color: #b91c1c;
-  font-weight: 600;
+.player-lesson-details__hero-meta-item--capacity svg {
+  color: #0f766e;
+}
+
+.player-lesson-details__status-banner,
+.player-lesson-details__card,
+.player-lesson-details__booking-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  background: #ffffff;
+}
+
+.player-lesson-details__status-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.player-lesson-details__status-banner--confirmed {
+  border-color: #bbf7d0;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.player-lesson-details__status-banner--awaiting {
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fef3c7 0%, #ffffff 100%);
+}
+
+.player-lesson-details__status-banner--payment {
+  border-color: #c7d2fe;
+  background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+}
+
+.player-lesson-details__status-banner-icon {
+  flex-shrink: 0;
+  color: #7c3aed;
+}
+
+.player-lesson-details__status-banner--confirmed .player-lesson-details__status-banner-icon {
+  color: #15803d;
+}
+
+.player-lesson-details__status-banner--awaiting .player-lesson-details__status-banner-icon {
+  color: #b45309;
+}
+
+.player-lesson-details__status-banner--payment .player-lesson-details__status-banner-icon {
+  color: #3730a3;
+}
+
+.player-lesson-details__status-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-lesson-details__status-banner-copy strong {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.player-lesson-details__status-banner-copy span {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-lesson-details__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-lesson-details__section-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.player-lesson-details__card {
+  padding: 18px;
+}
+
+.player-lesson-details__card-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-lesson-details__card-title {
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.player-lesson-details__card-copy {
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.player-lesson-details__location-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0;
+  list-style: none;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.player-lesson-details__secondary-action,
+.player-lesson-details__coach-link,
+.player-lesson-details__primary-action {
+  text-decoration: none;
+}
+
+.player-lesson-details__secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  width: fit-content;
+  margin-top: 16px;
+  padding: 0 16px;
+  border: 1px solid #c4b5fd;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.player-lesson-details__secondary-action:hover {
+  border-color: #8b5cf6;
+  color: #6d28d9;
+}
+
+.player-lesson-details__coach-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.player-lesson-details__coach-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.player-lesson-details__coach-avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.player-lesson-details__coach-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.player-lesson-details__coach-name {
+  color: #0f172a;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.player-lesson-details__coach-cert-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-lesson-details__coach-cert {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.player-lesson-details__coach-link {
+  display: inline-flex;
+  margin-top: 14px;
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.player-lesson-details__coach-link:hover {
+  color: #6d28d9;
+}
+
+.player-lesson-details__sidebar {
+  padding: 0 20px 20px;
+}
+
+.player-lesson-details__booking-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+.player-lesson-details__booking-eyebrow {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.player-lesson-details__booking-price {
+  color: #0f172a;
+  font-size: 44px;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+}
+
+.player-lesson-details__booking-subcopy {
+  color: #64748b;
+  font-size: 15px;
+}
+
+.player-lesson-details__booking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-lesson-details__booking-list div {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-lesson-details__booking-list svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.player-lesson-details__booking-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.player-lesson-details__booking-pill--confirmed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.player-lesson-details__booking-pill--awaiting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.player-lesson-details__booking-pill--payment {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.player-lesson-details__price-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.player-lesson-details__price-breakdown div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.player-lesson-details__price-breakdown strong {
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .player-lesson-details__info-card {
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 18px;
+  padding: 16px;
 }
 
 .player-lesson-details__info-card--next {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+}
+
+.player-lesson-details__info-title {
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .player-lesson-details__steps {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 12px;
 }
 
 .player-lesson-details__step {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #1e40af;
+  color: #1e3a8a;
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .player-lesson-details__step-number {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
-  background: #3b82f6;
-  color: #ffffff;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 999px;
+  background: #3b82f6;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 800;
-  flex-shrink: 0;
 }
 
 .player-lesson-details__info-inline {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: #94a3b8;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
   line-height: 1.6;
+}
+
+.player-lesson-details__info-inline svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.player-lesson-details__payment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-lesson-details__status-pending {
+  color: #312e81;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .player-lesson-details__payment-choice {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
+  gap: 10px;
 }
 
 .player-lesson-details__payment-choice label {
@@ -264,6 +587,7 @@
   align-items: center;
   gap: 6px;
   color: #334155;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -273,84 +597,104 @@
   gap: 10px;
 }
 
-.player-lesson-details__payment-block p {
-  margin: 0;
-  color: #475569;
-}
-
 .player-lesson-details__payment-block select {
   width: 100%;
+  min-height: 46px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 14px;
 }
 
-.player-lesson-details__accept {
-  border: none;
-  border-radius: 12px;
-  padding: 12px 16px;
-  background: #2563eb;
-  color: #fff;
-  font-weight: 700;
-  width: 100%;
-  cursor: pointer;
+.player-lesson-details__status-error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.player-lesson-details__accept:disabled {
+.player-lesson-details__status-success {
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.player-lesson-details__primary-action {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(124, 58, 237, 0.22);
+}
+
+.player-lesson-details__primary-action:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.player-lesson-details__actions {
+.player-lesson-details__sidebar-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  gap: 10px;
 }
 
-.player-lesson-details__action {
+.player-lesson-details__secondary-action--button {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  padding: 13px 14px;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
-.player-lesson-details__action:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.player-lesson-details__action--primary {
-  background: #8b5cf6;
-  color: #ffffff;
-}
-
-.player-lesson-details__action--secondary {
-  background: #ede9fe;
-  color: #7c3aed;
-}
-
-.player-lesson-details__action--danger {
-  background: #ffffff;
-  color: #ef4444;
-  border-color: #fecaca;
-}
-
-@media (max-width: 640px) {
-  .player-lesson-details {
-    gap: 12px;
+@media (max-width: 767px) {
+  .player-lesson-details__topbar {
+    padding: 12px 14px;
   }
 
-  .player-lesson-details__payment-choice {
-    flex-direction: column;
-    align-items: flex-start;
+  .player-lesson-details__topbar-title,
+  .player-lesson-details__topbar-action span {
+    display: none;
+  }
+
+  .player-lesson-details__content,
+  .player-lesson-details__sidebar {
+    padding: 16px;
+  }
+
+  .player-lesson-details__sidebar {
+    padding-top: 0;
+  }
+
+  .player-lesson-details__hero-title {
+    font-size: 38px;
+  }
+
+  .player-lesson-details__booking-card {
+    padding: 18px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .player-lesson-details__layout {
+    grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.95fr);
+    align-items: start;
+  }
+
+  .player-lesson-details__content {
+    padding: 24px;
+    border-right: 1px solid #e2e8f0;
+  }
+
+  .player-lesson-details__sidebar {
+    position: sticky;
+    top: 96px;
+    padding: 24px;
+  }
+
+  .player-lesson-details__booking-card {
+    padding: 22px;
   }
 }

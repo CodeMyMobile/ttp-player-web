@@ -1045,6 +1045,7 @@ const DashboardPage = () => {
   const hasSchedule = scheduleState.status === "ready" && scheduleItems.length > 0;
   const inviteItems = inviteState.items;
   const hasInvites = inviteState.status === "ready" && inviteItems.length > 0;
+  const welcomeHeadline = `Hi ${firstName} 👋`;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
     : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, and matches`;
@@ -1359,7 +1360,7 @@ const DashboardPage = () => {
 
       <main className="ph-main">
         <section className="ph-welcome">
-          <h1>Welcome back, {firstName}! 👋</h1>
+          <h1>{welcomeHeadline}</h1>
           <p>{welcomeSubtitle}</p>
         </section>
 

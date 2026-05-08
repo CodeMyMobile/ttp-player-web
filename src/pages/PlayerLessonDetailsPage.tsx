@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   AlertCircle,
   CalendarDays,
-  CalendarPlus,
   CheckCircle2,
+  Clock,
   CreditCard,
   Hourglass,
   Info,
   MapPin,
   MessageCircle,
+  Share2,
   UserRound,
+  Users,
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
 import {
@@ -31,6 +33,7 @@ import {
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
 import { consumePackageCredits, fetchPackageCredits, type PackagePurchase } from "../api/playerPackages";
+import { updatePlayerLesson } from "../api/player";
 import AddCardForm from "../components/payments/AddCardForm";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -130,6 +133,95 @@ const getLessonTypeLabel = (lesson: Lesson | null) => {
   return String(lesson.lesson_type_name ?? record.lesson_type_name ?? "Lesson");
 };
 
+const getLessonTitle = (lesson: Lesson | null) => {
+  if (!lesson) return "Lesson details";
+  const record = lesson as Record<string, unknown>;
+  const metadata = record.metadata as Record<string, unknown> | undefined;
+  const title =
+    metadata?.title ??
+    record.metadata_title ??
+    lesson.lesson_type_name ??
+    record.lesson_type_name;
+  return typeof title === "string" && title.trim() ? title.trim() : "Lesson details";
+};
+
+const getLessonLevelLabel = (lesson: Lesson | null) => {
+  if (!lesson) return null;
+  const record = lesson as Record<string, unknown>;
+  const metadata = record.metadata as Record<string, unknown> | undefined;
+  const raw = metadata?.level ?? record.metadata_level;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+};
+
+const getLessonDescription = (lesson: Lesson | null) => {
+  if (!lesson) return "Lesson details will appear here once the session is ready.";
+  const record = lesson as Record<string, unknown>;
+  const metadata = record.metadata as Record<string, unknown> | undefined;
+  const description = metadata?.description;
+  if (typeof description === "string" && description.trim()) {
+    return description.trim();
+  }
+
+  const kind = resolveLessonTypeForCredits(lesson);
+  if (kind === "group") {
+    return "Join a coach-led class built for shared reps, live feedback, and steady matchplay rhythm.";
+  }
+  if (kind === "semi") {
+    return "Train in a small-format session with focused coaching, partner reps, and more individualized feedback.";
+  }
+  return "A focused one-on-one lesson built around your goals, technique work, and live corrections.";
+};
+
+const getLessonDateBadgeLabel = (lesson: Lesson | null) => {
+  if (!lesson?.start_date_time) return "DATE TBD";
+  const date = new Date(lesson.start_date_time);
+  if (Number.isNaN(date.getTime())) return "DATE TBD";
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  })
+    .format(date)
+    .toUpperCase()
+    .replace(",", " ·");
+};
+
+const getLessonTypeVariantLabel = (lesson: Lesson | null) => {
+  const kind = resolveLessonTypeForCredits(lesson);
+  if (kind === "group") return "Open Group";
+  if (kind === "semi") return "Semi-Private";
+  return "Private Lesson";
+};
+
+const getLessonDurationMinutes = (lesson: Lesson | null) => {
+  if (!lesson?.start_date_time || !lesson?.end_date_time) return 0;
+  const start = new Date(lesson.start_date_time);
+  const end = new Date(lesson.end_date_time);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+};
+
+const getLessonCapacityDetails = (lesson: Lesson | null) => {
+  if (!lesson) return null;
+  const limit = parseNumber((lesson as Record<string, unknown>).player_limit) ?? (resolveLessonTypeForCredits(lesson) === "private" ? 1 : null);
+  if (!limit) return null;
+  const booked = parseNumber((lesson as Record<string, unknown>).current_player_count) ?? 0;
+  const remaining = Math.max(limit - booked, 0);
+  return { limit, booked, remaining };
+};
+
+const getLessonFormatSummary = (lesson: Lesson | null) => {
+  const kind = resolveLessonTypeForCredits(lesson);
+  if (kind === "group") {
+    return "Coach-led class with shared drills, group pacing, and live tactical feedback.";
+  }
+  if (kind === "semi") {
+    return "Small-group lesson with partner reps and more direct coaching attention.";
+  }
+  return "One-on-one coaching tailored to your goals, pace, and technical priorities.";
+};
+
 const buildSmsHref = (phoneNumber: string, message: string) => {
   const trimmedPhoneNumber = phoneNumber.trim();
   if (!trimmedPhoneNumber) return "";
@@ -172,6 +264,29 @@ const parseMoney = (value: unknown): number | null => {
   return null;
 };
 
+const buildGoogleCalendarHref = (lesson: Lesson | null, title: string, description: string, location: string) => {
+  if (!lesson?.start_date_time || !lesson?.end_date_time) {
+    return null;
+  }
+
+  const start = new Date(lesson.start_date_time);
+  const end = new Date(lesson.end_date_time);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  const formatUtc = (date: Date) => date.toISOString().replaceAll("-", "").replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${formatUtc(start)}/${formatUtc(end)}`,
+    details: description,
+    location,
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+};
+
 const resolveLessonTypeForCredits = (lesson: Lesson | null) => {
   if (!lesson) return "private";
   const record = lesson as Record<string, unknown>;
@@ -200,6 +315,21 @@ const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<str
   return [] as PlayerStripePaymentMethod[];
 };
 
+const isCreditEligibleForLesson = (purchase: PackagePurchase, lesson: Lesson | null) => {
+  const remaining = Number(purchase.credits_remaining ?? 0);
+  if (!Number.isFinite(remaining) || remaining <= 0) {
+    return false;
+  }
+
+  const allowed = purchase.lesson_types_allowed;
+  if (!Array.isArray(allowed) || allowed.length === 0) {
+    return true;
+  }
+
+  const lessonType = resolveLessonTypeForCredits(lesson);
+  return allowed.some((type) => resolveLessonTypeForCredits({ lesson_type_name: String(type) } as Lesson) === lessonType);
+};
+
 const extractIntentStatus = (response: Record<string, unknown>) => {
   const nestedIntent = response.payment_intent as Record<string, unknown> | undefined;
   const raw =
@@ -212,6 +342,7 @@ const extractIntentStatus = (response: Record<string, unknown>) => {
 
 const PlayerLessonDetailsPage = () => {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +457,14 @@ const PlayerLessonDetailsPage = () => {
     };
   }, [loadLesson]);
 
+  useEffect(() => {
+    if (!lesson || !isGroupLessonType(lesson)) {
+      return;
+    }
+
+    navigate(`/group-lessons/${lesson.id}`, { replace: true });
+  }, [lesson, navigate]);
+
   const lessonStatus = useMemo(() => parseLessonStatus(lesson), [lesson]);
   const isPaymentPending = lessonStatus === 0;
   const isConfirmed = lessonStatus === 1;
@@ -346,6 +485,72 @@ const PlayerLessonDetailsPage = () => {
     isPaymentPending && playerId != null && createdBy != null && String(playerId) === String(createdBy);
   const requiresPlayerAcceptance = isPaymentPending && !isAwaitingCoachConfirmation;
   const coachPhone = useMemo(() => getCoachPhoneNumber(coachProfile), [coachProfile]);
+  const lessonTitle = useMemo(() => getLessonTitle(lesson), [lesson]);
+  const lessonDescription = useMemo(() => getLessonDescription(lesson), [lesson]);
+  const lessonTypeLabel = useMemo(() => getLessonTypeLabel(lesson), [lesson]);
+  const lessonTypeVariantLabel = useMemo(() => getLessonTypeVariantLabel(lesson), [lesson]);
+  const lessonLevelLabel = useMemo(() => getLessonLevelLabel(lesson), [lesson]);
+  const lessonDateBadgeLabel = useMemo(() => getLessonDateBadgeLabel(lesson), [lesson]);
+  const lessonDateLabel = useMemo(() => formatDateLabel(lesson?.start_date_time), [lesson]);
+  const lessonTimeRange = useMemo(
+    () => formatTimeRangeLabel(lesson?.start_date_time, lesson?.end_date_time),
+    [lesson],
+  );
+  const lessonDurationMinutes = useMemo(() => getLessonDurationMinutes(lesson), [lesson]);
+  const coachName = useMemo(() => getCoachName(lesson), [lesson]);
+  const coachAvatarUrl = useMemo(
+    () => getCoachAvatarUrl(lesson) ?? coachProfile?.profilePicture ?? null,
+    [coachProfile?.profilePicture, lesson],
+  );
+  const locationTitle = useMemo(() => getLocationTitle(lesson), [lesson]);
+  const lessonCapacity = useMemo(() => getLessonCapacityDetails(lesson), [lesson]);
+  const lessonFormatSummary = useMemo(() => getLessonFormatSummary(lesson), [lesson]);
+  const coachAboutCopy = useMemo(() => {
+    if (!coachProfile) return lessonFormatSummary;
+    const record = coachProfile as CoachProfileRecord & {
+      about?: string;
+      bio?: string;
+      summary?: string;
+      title?: string;
+      headlineBadge?: string;
+    };
+    return record.about || record.bio || record.summary || lessonFormatSummary;
+  }, [coachProfile, lessonFormatSummary]);
+  const coachTitle = useMemo(() => {
+    const record = coachProfile as (CoachProfileRecord & { title?: string; headlineBadge?: string }) | null;
+    return record?.title || record?.headlineBadge || "Tennis Coach";
+  }, [coachProfile]);
+  const googleCalendarHref = useMemo(
+    () => buildGoogleCalendarHref(lesson, lessonTitle, lessonDescription, locationTitle),
+    [lesson, lessonDescription, lessonTitle, locationTitle],
+  );
+  const statusVariant = isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
+  const statusTitle = isConfirmed
+    ? "Lesson confirmed"
+    : isAwaitingCoachConfirmation
+      ? "Awaiting coach confirmation"
+      : "Payment pending";
+  const statusBody = isConfirmed
+    ? `${coachName} has confirmed your session. You’re set for ${lessonDateLabel} at ${lessonTimeRange.split(" · ")[0]}.`
+    : isAwaitingCoachConfirmation
+      ? `${coachName} still needs to confirm this lesson. You’ll be notified as soon as they do.`
+      : "Accept and pay to lock this lesson in.";
+  const sidebarStatusLabel = isConfirmed
+    ? "Booked"
+    : isAwaitingCoachConfirmation
+      ? "Pending coach"
+      : "Needs payment";
+  const sessionMetaChips = [
+    lessonDateBadgeLabel,
+    lessonLevelLabel,
+    lessonTypeVariantLabel,
+  ].filter(Boolean) as string[];
+  const eligibleCredits = useMemo(
+    () => credits.filter((purchase) => isCreditEligibleForLesson(purchase, lesson)),
+    [credits, lesson],
+  );
+  const hasEligibleCredits = eligibleCredits.length > 0;
+  const shouldUseGroupCredits = Boolean(lesson && isGroupLessonType(lesson) && hasEligibleCredits);
 
   useEffect(() => {
     if (!token || !coachId) return;
@@ -403,10 +608,9 @@ const PlayerLessonDetailsPage = () => {
           includeExpired: false,
         });
         if (cancelled) return;
-        const eligible = (creditsResponse.purchases ?? []).filter((purchase) => {
-          const remaining = parseNumber(purchase.credits_remaining) ?? 0;
-          return remaining > 0 && purchase.id != null;
-        });
+        const eligible = (creditsResponse.purchases ?? []).filter(
+          (purchase) => purchase.id != null && isCreditEligibleForLesson(purchase, lesson),
+        );
         setCredits(eligible);
         setSelectedCreditId(eligible.length ? String(eligible[0].id) : null);
         if (eligible.length) {
@@ -594,6 +798,11 @@ const PlayerLessonDetailsPage = () => {
           lessonId: lesson.id,
           purchaseId: selectedCreditId,
         });
+        await updatePlayerLesson({
+          token,
+          lessonId: lesson.id,
+          status: "CONFIRMED",
+        });
       } else {
         if (!selectedPaymentMethodId) {
           throw new Error("Select a payment method to continue.");
@@ -685,333 +894,418 @@ const PlayerLessonDetailsPage = () => {
     }
   }, [coachId, coachProfile, lesson, token]);
 
-  const content = useMemo(() => {
-    if (loading) {
-      return (
-        <div className="player-lesson-details__empty" role="status">
-          Loading lesson details…
-        </div>
-      );
+  const handleShare = useCallback(async () => {
+    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    if (!shareUrl) return;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: lessonTitle,
+          text: `View ${lessonTitle} with ${coachName}`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // fallback to clipboard
+      }
     }
 
-    if (error) {
-      return (
-        <div className="player-lesson-details__empty player-lesson-details__empty--error" role="alert">
-          <AlertCircle size={18} aria-hidden />
-          <span>{error}</span>
-        </div>
-      );
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // ignore clipboard failures
     }
-
-    if (!lesson) {
-      return (
-        <div className="player-lesson-details__empty" role="status">
-          Lesson not found.
-        </div>
-      );
-    }
-
-    return (
-      <>
-        <section
-          className={`player-lesson-details__banner player-lesson-details__banner--${
-            isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment"
-          }`}
-        >
-          <div className="player-lesson-details__banner-icon" aria-hidden>
-            {isConfirmed ? <CheckCircle2 size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
-          </div>
-          <div className="player-lesson-details__banner-copy">
-            <p className="player-lesson-details__banner-title">
-              {isConfirmed
-                ? "Lesson confirmed"
-                : isAwaitingCoachConfirmation
-                  ? "Awaiting confirmation"
-                  : "Payment pending"}
-            </p>
-            <p className="player-lesson-details__banner-text">
-              {isConfirmed
-                ? `${getCoachName(lesson)} has confirmed. See you on ${formatDateLabel(lesson.start_date_time)} at ${formatTimeRangeLabel(lesson.start_date_time, lesson.end_date_time).split(" · ")[0]}.`
-                : isAwaitingCoachConfirmation
-                  ? `${getCoachName(lesson)} hasn't confirmed this lesson yet. You'll be notified when they do.`
-                  : "Accept and pay to confirm this lesson."}
-            </p>
-          </div>
-        </section>
-
-        <section className="player-lesson-details__card player-lesson-details__coach-card">
-          <div className="player-lesson-details__coach-avatar">
-            {getCoachAvatarUrl(lesson) ? (
-              <img src={getCoachAvatarUrl(lesson) ?? ""} alt={getCoachName(lesson)} />
-            ) : (
-              <span>{getInitials(getCoachName(lesson))}</span>
-            )}
-          </div>
-          <div className="player-lesson-details__coach-copy">
-            <p className="player-lesson-details__coach-name">{getCoachName(lesson)}</p>
-            <p className="player-lesson-details__coach-role">Tennis Coach</p>
-          </div>
-        </section>
-
-        <section className="player-lesson-details__card player-lesson-details__detail-list">
-          <div className="player-lesson-details__detail-row">
-            <div className="player-lesson-details__detail-icon" aria-hidden>
-              <CalendarDays size={18} />
-            </div>
-            <div className="player-lesson-details__detail-copy">
-              <p className="player-lesson-details__detail-title">{formatDateLabel(lesson.start_date_time)}</p>
-              <p className="player-lesson-details__detail-text">{formatTimeRangeLabel(lesson.start_date_time, lesson.end_date_time)}</p>
-            </div>
-          </div>
-          <div className="player-lesson-details__detail-row">
-            <div className="player-lesson-details__detail-icon" aria-hidden>
-              <MapPin size={18} />
-            </div>
-            <div className="player-lesson-details__detail-copy">
-              <p className="player-lesson-details__detail-title">{getLocationTitle(lesson)}</p>
-            </div>
-          </div>
-          <div className="player-lesson-details__detail-row">
-            <div className="player-lesson-details__detail-icon" aria-hidden>
-              <UserRound size={18} />
-            </div>
-            <div className="player-lesson-details__detail-copy">
-              <p className="player-lesson-details__detail-title">{getLessonTypeLabel(lesson)}</p>
-            </div>
-          </div>
-          <div className="player-lesson-details__detail-row">
-            <div className="player-lesson-details__detail-icon" aria-hidden>
-              <CreditCard size={18} />
-            </div>
-            <div className="player-lesson-details__detail-copy">
-              <p className="player-lesson-details__detail-title">
-                {lessonTotalAmountCents != null
-                  ? `$${(lessonTotalAmountCents / 100).toFixed(2)} ${isConfirmed ? "paid" : "total"}`
-                  : isConfirmed
-                    ? "Payment completed"
-                    : "Payment pending"}
-              </p>
-              {lessonTotalAmountCents != null ? (
-                <p className="player-lesson-details__detail-text">
-                  {[
-                    lessonPriceBreakdown ? `$${lessonPriceBreakdown.coachFee.toFixed(2)} coach fee` : null,
-                    lessonPriceBreakdown ? `$${lessonPriceBreakdown.creditFee.toFixed(2)} credit fee` : null,
-                    lessonPriceBreakdown ? `$${lessonPriceBreakdown.serviceFee.toFixed(2)} service fee` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
-
-        <section className="player-lesson-details__status-panel">
-          {isAwaitingCoachConfirmation ? (
-            <div className="player-lesson-details__info-card player-lesson-details__info-card--next">
-              <p className="player-lesson-details__info-title">What happens next</p>
-              <div className="player-lesson-details__steps">
-                <div className="player-lesson-details__step">
-                  <span className="player-lesson-details__step-number">1</span>
-                  <span>A confirmation email has been sent to your inbox</span>
-                </div>
-                <div className="player-lesson-details__step">
-                  <span className="player-lesson-details__step-number">2</span>
-                  <span>{getCoachName(lesson)} will confirm this lesson soon</span>
-                </div>
-                <div className="player-lesson-details__step">
-                  <span className="player-lesson-details__step-number">3</span>
-                  <span>Your card won't be charged until {getCoachName(lesson)} confirms</span>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {isConfirmed ? (
-            <div className="player-lesson-details__info-inline">
-              <Info size={16} aria-hidden />
-              <p>Cancel at least 24 hours before your lesson for a full refund. Cancellations within 24 hours are non-refundable.</p>
-            </div>
-          ) : null}
-          {requiresPlayerAcceptance ? (
-            <>
-              <p className="player-lesson-details__status-pending">Payment pending. Accept and pay to confirm this lesson.</p>
-              <div className="player-lesson-details__payment-choice">
-                <label>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    checked={paymentChoice === "credits"}
-                    onChange={() => setPaymentChoice("credits")}
-                    disabled={!credits.length}
-                  />
-                  Credits
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    checked={paymentChoice === "apple-pay"}
-                    onChange={() => setPaymentChoice("apple-pay")}
-                    disabled={!isApplePayReady}
-                  />
-                  Apple Pay
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="payment-choice"
-                    checked={paymentChoice === "card"}
-                    onChange={() => setPaymentChoice("card")}
-                  />
-                  Card
-                </label>
-              </div>
-              {paymentChoice === "credits" ? (
-                <div className="player-lesson-details__payment-block">
-                  {creditsLoading ? <p>Loading credits…</p> : null}
-                  {creditsError ? <p className="player-lesson-details__status-error">{creditsError}</p> : null}
-                  {!creditsLoading && !credits.length ? <p>No eligible credits available for this coach.</p> : null}
-                  {credits.length > 0 ? (
-                    <select
-                      value={selectedCreditId ?? ""}
-                      onChange={(event) => setSelectedCreditId(event.target.value)}
-                      disabled={submitting}
-                    >
-                      {credits.map((credit) => (
-                        <option key={String(credit.id)} value={String(credit.id)}>
-                          {`Credits remaining: ${credit.credits_remaining ?? 0}`}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                </div>
-              ) : paymentChoice === "apple-pay" ? (
-                <div className="player-lesson-details__payment-block">
-                  <p>
-                    {isApplePayReady
-                      ? "Pay instantly with Apple Pay."
-                      : "Apple Pay is not available on this device/browser."}
-                  </p>
-                </div>
-              ) : (
-                <div className="player-lesson-details__payment-block">
-                  {paymentMethodsLoading ? <p>Loading cards…</p> : null}
-                  {paymentMethodsError ? <p className="player-lesson-details__status-error">{paymentMethodsError}</p> : null}
-                  {paymentMethods.length > 0 ? (
-                    <select
-                      value={selectedPaymentMethodId ?? ""}
-                      onChange={(event) => setSelectedPaymentMethodId(event.target.value)}
-                      disabled={submitting}
-                    >
-                      {paymentMethods.map((method) => {
-                        const card = method.card;
-                        const label = `${card?.brand ?? "Card"} •••• ${card?.last4 ?? ""}`;
-                        return (
-                          <option key={method.id} value={method.id}>
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  ) : null}
-                  {setupIntentError ? <p className="player-lesson-details__status-error">{setupIntentError}</p> : null}
-                  {stripePromise && setupIntentSecret ? (
-                    <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }} key={setupIntentSecret}>
-                      <AddCardForm clientSecret={setupIntentSecret} onCardAdded={handleCardAdded} />
-                    </Elements>
-                  ) : null}
-                  {setupIntentLoading ? <p>Preparing secure card form…</p> : null}
-                </div>
-              )}
-              {actionError ? <p className="player-lesson-details__status-error">{actionError}</p> : null}
-              {actionSuccess ? <p className="player-lesson-details__status-success">{actionSuccess}</p> : null}
-              <button
-                type="button"
-                className="player-lesson-details__accept"
-                onClick={() => void handleAcceptAndPay()}
-                disabled={
-                  submitting ||
-                  (paymentChoice === "card" && !selectedPaymentMethodId) ||
-                  (paymentChoice === "credits" && !selectedCreditId) ||
-                  (paymentChoice === "apple-pay" && !isApplePayReady)
-                }
-              >
-                {submitting
-                  ? "Processing…"
-                  : paymentChoice === "apple-pay"
-                    ? "Accept with Apple Pay"
-                    : "Accept Lesson"}
-              </button>
-            </>
-          ) : null}
-          {messageError ? <p className="player-lesson-details__status-error">{messageError}</p> : null}
-        </section>
-        <section className="player-lesson-details__actions">
-          {isConfirmed ? (
-            <button type="button" className="player-lesson-details__action player-lesson-details__action--primary">
-              <CalendarPlus size={16} aria-hidden />
-              <span>Add to calendar</span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="player-lesson-details__action player-lesson-details__action--secondary"
-            onClick={() => void handleMessageCoach()}
-            disabled={messageLoading || !token || !coachId}
-          >
-            <MessageCircle size={16} aria-hidden />
-            <span>
-              {messageLoading ? "Opening messages…" : `Message ${getCoachName(lesson).split(" ")[0] ?? "coach"}`}
-            </span>
-          </button>
-          <button type="button" className="player-lesson-details__action player-lesson-details__action--danger">
-            Cancel lesson
-          </button>
-        </section>
-      </>
-    );
-  }, [
-    actionError,
-    actionSuccess,
-    credits,
-    creditsError,
-    creditsLoading,
-    error,
-    handleAcceptAndPay,
-    handleCardAdded,
-    handleMessageCoach,
-    coachId,
-    isConfirmed,
-    isApplePayReady,
-    isAwaitingCoachConfirmation,
-    lesson,
-    lessonPriceBreakdown,
-    lessonRecord,
-    lessonTotalAmountCents,
-    loading,
-    messageError,
-    messageLoading,
-    paymentChoice,
-    paymentMethods,
-    paymentMethodsError,
-    paymentMethodsLoading,
-    requiresPlayerAcceptance,
-    selectedCreditId,
-    selectedPaymentMethodId,
-    setupIntentError,
-    setupIntentLoading,
-    setupIntentSecret,
-    submitting,
-  ]);
+  }, [coachName, lessonTitle]);
 
   return (
     <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
       <div className="player-lesson-details">
-        <Link to="/player/calendar" className="player-lesson-details__back">
-          <ArrowLeft size={16} aria-hidden />
-          Back to calendar
-        </Link>
-        {content}
+        {loading ? (
+          <div className="player-lesson-details__empty" role="status">
+            Loading lesson details…
+          </div>
+        ) : error ? (
+          <div className="player-lesson-details__empty player-lesson-details__empty--error" role="alert">
+            <AlertCircle size={18} aria-hidden />
+            <span>{error}</span>
+          </div>
+        ) : !lesson ? (
+          <div className="player-lesson-details__empty" role="status">
+            Lesson not found.
+          </div>
+        ) : (
+          <div className="player-lesson-details__shell">
+            <div className="player-lesson-details__topbar">
+              <button
+                type="button"
+                className="player-lesson-details__back-link"
+                onClick={() => navigate("/player/calendar")}
+              >
+                <ArrowLeft aria-hidden />
+                <span>Back to calendar</span>
+              </button>
+              <div className="player-lesson-details__topbar-title">Lesson details</div>
+              <div className="player-lesson-details__topbar-actions">
+                <button
+                  type="button"
+                  className="player-lesson-details__topbar-action"
+                  onClick={() => void handleShare()}
+                >
+                  <Share2 aria-hidden />
+                  <span>Share</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="player-lesson-details__layout">
+              <section className="player-lesson-details__content">
+                <header className="player-lesson-details__hero">
+                  <div className="player-lesson-details__badge-row">
+                    {sessionMetaChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className={`player-lesson-details__hero-badge${
+                          chip === lessonDateBadgeLabel ? " player-lesson-details__hero-badge--primary" : ""
+                        }`}
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="player-lesson-details__hero-body">
+                    <h1 className="player-lesson-details__hero-title">{lessonTitle}</h1>
+                    <p className="player-lesson-details__hero-copy">{lessonDescription}</p>
+                    <div className="player-lesson-details__hero-meta">
+                      <div className="player-lesson-details__hero-meta-item">
+                        <Clock aria-hidden />
+                        <span>{lessonTimeRange}</span>
+                      </div>
+                      <div className="player-lesson-details__hero-meta-item">
+                        <MapPin aria-hidden />
+                        <span>{locationTitle}</span>
+                      </div>
+                      <div className="player-lesson-details__hero-meta-item">
+                        <UserRound aria-hidden />
+                        <span>{lessonTypeLabel}</span>
+                      </div>
+                      {lessonCapacity ? (
+                        <div className="player-lesson-details__hero-meta-item player-lesson-details__hero-meta-item--capacity">
+                          <Users aria-hidden />
+                          <span>
+                            {lessonCapacity.limit === 1
+                              ? "1 player session"
+                              : `${lessonCapacity.booked} of ${lessonCapacity.limit} spots booked`}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </header>
+
+                <section className={`player-lesson-details__status-banner player-lesson-details__status-banner--${statusVariant}`}>
+                  <div className="player-lesson-details__status-banner-icon" aria-hidden>
+                    {isConfirmed ? <CheckCircle2 size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
+                  </div>
+                  <div className="player-lesson-details__status-banner-copy">
+                    <strong>{statusTitle}</strong>
+                    <span>{statusBody}</span>
+                  </div>
+                </section>
+
+                <section className="player-lesson-details__section">
+                  <h2 className="player-lesson-details__section-label">
+                    {lessonCapacity && lessonCapacity.limit > 1 ? "Who's joining" : "Session format"}
+                  </h2>
+                  <div className="player-lesson-details__card">
+                    <div className="player-lesson-details__card-block">
+                      <h3 className="player-lesson-details__card-title">
+                        {lessonCapacity && lessonCapacity.limit > 1
+                          ? `${lessonCapacity.booked} of ${lessonCapacity.limit} player${lessonCapacity.limit === 1 ? "" : "s"} booked`
+                          : lessonTypeVariantLabel}
+                      </h3>
+                      <p className="player-lesson-details__card-copy">
+                        {lessonCapacity && lessonCapacity.limit > 1
+                          ? lessonCapacity.remaining > 0
+                            ? `${lessonCapacity.remaining} spot${lessonCapacity.remaining === 1 ? "" : "s"} still open for this session.`
+                            : "This session is currently full."
+                          : lessonFormatSummary}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="player-lesson-details__section">
+                  <h2 className="player-lesson-details__section-label">Location</h2>
+                  <div className="player-lesson-details__card">
+                    <h3 className="player-lesson-details__card-title">{locationTitle}</h3>
+                    <ul className="player-lesson-details__location-list">
+                      <li>{lessonDateLabel}</li>
+                      <li>{lessonTimeRange.split(" · ")[0]}</li>
+                      {lessonDurationMinutes > 0 ? <li>{lessonDurationMinutes} min session</li> : null}
+                    </ul>
+                    <a
+                      className="player-lesson-details__secondary-action"
+                      href={`https://maps.google.com/?q=${encodeURIComponent(locationTitle)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Get directions
+                    </a>
+                  </div>
+                </section>
+
+                <section className="player-lesson-details__section">
+                  <h2 className="player-lesson-details__section-label">Your coach</h2>
+                  <div className="player-lesson-details__card">
+                    <div className="player-lesson-details__coach-panel">
+                      {coachAvatarUrl ? (
+                        <img className="player-lesson-details__coach-avatar" src={coachAvatarUrl} alt="" />
+                      ) : (
+                        <span className="player-lesson-details__coach-avatar player-lesson-details__coach-avatar--placeholder" aria-hidden>
+                          {getInitials(coachName)}
+                        </span>
+                      )}
+                      <div className="player-lesson-details__coach-meta">
+                        <p className="player-lesson-details__coach-name">{coachName}</p>
+                        <div className="player-lesson-details__coach-cert-list">
+                          <span className="player-lesson-details__coach-cert">{coachTitle}</span>
+                          <span className="player-lesson-details__coach-cert">{lessonTypeVariantLabel}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="player-lesson-details__card-copy">{coachAboutCopy}</p>
+                    {coachId ? (
+                      <Link to={`/coaches/${coachId}`} className="player-lesson-details__coach-link">
+                        View full profile →
+                      </Link>
+                    ) : null}
+                  </div>
+                </section>
+              </section>
+
+              <aside className="player-lesson-details__sidebar">
+                <div className="player-lesson-details__booking-card">
+                  <p className="player-lesson-details__booking-eyebrow">
+                    {requiresPlayerAcceptance ? "Confirm this session" : "Your booking"}
+                  </p>
+                  <div className="player-lesson-details__booking-price">
+                    {lessonTotalAmountCents != null
+                      ? `$${(lessonTotalAmountCents / 100).toFixed(2)}`
+                      : isConfirmed
+                        ? "Paid"
+                        : "Pending"}
+                  </div>
+                  <p className="player-lesson-details__booking-subcopy">
+                    {lessonTypeVariantLabel}
+                  </p>
+
+                  <div className="player-lesson-details__booking-list">
+                    <div>
+                      <CalendarDays aria-hidden />
+                      <span>{lessonDateLabel}</span>
+                    </div>
+                    <div>
+                      <Clock aria-hidden />
+                      <span>{lessonTimeRange}</span>
+                    </div>
+                    <div>
+                      <MapPin aria-hidden />
+                      <span>{locationTitle}</span>
+                    </div>
+                    <div>
+                      <UserRound aria-hidden />
+                      <span>with {coachName}</span>
+                    </div>
+                  </div>
+
+                  <div className={`player-lesson-details__booking-pill player-lesson-details__booking-pill--${statusVariant}`}>
+                    {sidebarStatusLabel}
+                  </div>
+
+                  {lessonPriceBreakdown ? (
+                    <div className="player-lesson-details__price-breakdown">
+                      <div><span>Coach fee</span><strong>${lessonPriceBreakdown.coachFee.toFixed(2)}</strong></div>
+                      <div><span>Credit fee</span><strong>${lessonPriceBreakdown.creditFee.toFixed(2)}</strong></div>
+                      <div><span>Service fee</span><strong>${lessonPriceBreakdown.serviceFee.toFixed(2)}</strong></div>
+                    </div>
+                  ) : null}
+
+                  {isAwaitingCoachConfirmation ? (
+                    <div className="player-lesson-details__info-card player-lesson-details__info-card--next">
+                      <p className="player-lesson-details__info-title">What happens next</p>
+                      <div className="player-lesson-details__steps">
+                        <div className="player-lesson-details__step">
+                          <span className="player-lesson-details__step-number">1</span>
+                          <span>A confirmation email has been sent to your inbox</span>
+                        </div>
+                        <div className="player-lesson-details__step">
+                          <span className="player-lesson-details__step-number">2</span>
+                          <span>{coachName} will confirm this lesson soon</span>
+                        </div>
+                        <div className="player-lesson-details__step">
+                          <span className="player-lesson-details__step-number">3</span>
+                          <span>Your card won&apos;t be charged until {coachName} confirms</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {isConfirmed ? (
+                    <div className="player-lesson-details__info-inline">
+                      <Info size={16} aria-hidden />
+                      <p>Cancel at least 24 hours before your lesson for a full refund. Cancellations within 24 hours are non-refundable.</p>
+                    </div>
+                  ) : null}
+
+                  {requiresPlayerAcceptance ? (
+                    <div className="player-lesson-details__payment-panel">
+                      <p className="player-lesson-details__status-pending">
+                        {shouldUseGroupCredits ? "Use an eligible package credit to confirm this group lesson." : "Choose how you want to pay."}
+                      </p>
+                      {!shouldUseGroupCredits ? (
+                        <div className="player-lesson-details__payment-choice">
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "credits"}
+                              onChange={() => setPaymentChoice("credits")}
+                              disabled={!eligibleCredits.length}
+                            />
+                            Credits
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "apple-pay"}
+                              onChange={() => setPaymentChoice("apple-pay")}
+                              disabled={!isApplePayReady}
+                            />
+                            Apple Pay
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "card"}
+                              onChange={() => setPaymentChoice("card")}
+                            />
+                            Card
+                          </label>
+                        </div>
+                      ) : null}
+
+                      {paymentChoice === "credits" ? (
+                        <div className="player-lesson-details__payment-block">
+                          {creditsLoading ? <p>Loading credits…</p> : null}
+                          {creditsError ? <p className="player-lesson-details__status-error">{creditsError}</p> : null}
+                          {!creditsLoading && !eligibleCredits.length ? <p>No eligible credits available for this lesson.</p> : null}
+                          {eligibleCredits.length > 0 ? (
+                            <select
+                              value={selectedCreditId ?? ""}
+                              onChange={(event) => setSelectedCreditId(event.target.value)}
+                              disabled={submitting}
+                            >
+                              {eligibleCredits.map((credit) => (
+                                <option key={String(credit.id)} value={String(credit.id)}>
+                                  {`Credits remaining: ${credit.credits_remaining ?? 0}`}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </div>
+                      ) : paymentChoice === "apple-pay" ? (
+                        <div className="player-lesson-details__payment-block">
+                          <p>
+                            {isApplePayReady
+                              ? "Pay instantly with Apple Pay."
+                              : "Apple Pay is not available on this device/browser."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="player-lesson-details__payment-block">
+                          {paymentMethodsLoading ? <p>Loading cards…</p> : null}
+                          {paymentMethodsError ? <p className="player-lesson-details__status-error">{paymentMethodsError}</p> : null}
+                          {paymentMethods.length > 0 ? (
+                            <select
+                              value={selectedPaymentMethodId ?? ""}
+                              onChange={(event) => setSelectedPaymentMethodId(event.target.value)}
+                              disabled={submitting}
+                            >
+                              {paymentMethods.map((method) => {
+                                const card = method.card;
+                                const label = `${card?.brand ?? "Card"} •••• ${card?.last4 ?? ""}`;
+                                return (
+                                  <option key={method.id} value={method.id}>
+                                    {label}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          ) : null}
+                          {setupIntentError ? <p className="player-lesson-details__status-error">{setupIntentError}</p> : null}
+                          {paymentMethods.length === 0 && stripePromise && setupIntentSecret ? (
+                            <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }} key={setupIntentSecret}>
+                              <AddCardForm clientSecret={setupIntentSecret} onCardAdded={handleCardAdded} />
+                            </Elements>
+                          ) : null}
+                          {setupIntentLoading ? <p>Preparing secure card form…</p> : null}
+                        </div>
+                      )}
+
+                      {actionError ? <p className="player-lesson-details__status-error">{actionError}</p> : null}
+                      {actionSuccess ? <p className="player-lesson-details__status-success">{actionSuccess}</p> : null}
+                      <button
+                        type="button"
+                        className="player-lesson-details__primary-action"
+                        onClick={() => void handleAcceptAndPay()}
+                        disabled={
+                          submitting ||
+                          (paymentChoice === "card" && !selectedPaymentMethodId) ||
+                          (paymentChoice === "credits" && !selectedCreditId) ||
+                          (paymentChoice === "apple-pay" && !isApplePayReady)
+                        }
+                      >
+                        {submitting
+                          ? "Processing…"
+                          : shouldUseGroupCredits || paymentChoice === "credits"
+                            ? "Use credit"
+                          : paymentChoice === "apple-pay"
+                            ? "Accept with Apple Pay"
+                            : "Accept lesson"}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {messageError ? <p className="player-lesson-details__status-error">{messageError}</p> : null}
+
+                  <div className="player-lesson-details__sidebar-actions">
+                    {googleCalendarHref ? (
+                      <a
+                        className="player-lesson-details__secondary-action player-lesson-details__secondary-action--button"
+                        href={googleCalendarHref}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Add to calendar
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="player-lesson-details__secondary-action player-lesson-details__secondary-action--button"
+                      onClick={() => void handleMessageCoach()}
+                      disabled={messageLoading || !token || !coachId || !coachPhone}
+                    >
+                      {messageLoading ? "Opening messages…" : `Message ${coachName.split(" ")[0] ?? "coach"}`}
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
