@@ -188,7 +188,7 @@ const buildDateLabels = (startDateTime?: string) => {
   if (!startDateTime) {
     return { day: "TBD", date: "Date TBD", startTime: "Time TBD" };
   }
-  const startMoment = moment(startDateTime);
+  const startMoment = moment.utc(startDateTime);
   return {
     day: startMoment.format("dddd"),
     date: startMoment.format("MMM D"),
