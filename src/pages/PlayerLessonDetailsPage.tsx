@@ -457,6 +457,14 @@ const PlayerLessonDetailsPage = () => {
     };
   }, [loadLesson]);
 
+  useEffect(() => {
+    if (!lesson || !isGroupLessonType(lesson)) {
+      return;
+    }
+
+    navigate(`/group-lessons/${lesson.id}`, { replace: true });
+  }, [lesson, navigate]);
+
   const lessonStatus = useMemo(() => parseLessonStatus(lesson), [lesson]);
   const isPaymentPending = lessonStatus === 0;
   const isConfirmed = lessonStatus === 1;
@@ -541,6 +549,8 @@ const PlayerLessonDetailsPage = () => {
     () => credits.filter((purchase) => isCreditEligibleForLesson(purchase, lesson)),
     [credits, lesson],
   );
+  const hasEligibleCredits = eligibleCredits.length > 0;
+  const shouldUseGroupCredits = Boolean(lesson && isGroupLessonType(lesson) && hasEligibleCredits);
 
   useEffect(() => {
     if (!token || !coachId) return;
@@ -603,7 +613,7 @@ const PlayerLessonDetailsPage = () => {
         );
         setCredits(eligible);
         setSelectedCreditId(eligible.length ? String(eligible[0].id) : null);
-        if (eligible.length && !isGroupLessonType(lesson)) {
+        if (eligible.length) {
           setPaymentChoice("credits");
         }
       } catch (err) {
@@ -1150,38 +1160,42 @@ const PlayerLessonDetailsPage = () => {
 
                   {requiresPlayerAcceptance ? (
                     <div className="player-lesson-details__payment-panel">
-                      <p className="player-lesson-details__status-pending">Choose how you want to pay.</p>
-                      <div className="player-lesson-details__payment-choice">
-                        <label>
-                          <input
-                            type="radio"
-                            name="payment-choice"
-                            checked={paymentChoice === "credits"}
-                            onChange={() => setPaymentChoice("credits")}
-                            disabled={!eligibleCredits.length}
-                          />
-                          Credits
-                        </label>
-                        <label>
-                          <input
-                            type="radio"
-                            name="payment-choice"
-                            checked={paymentChoice === "apple-pay"}
-                            onChange={() => setPaymentChoice("apple-pay")}
-                            disabled={!isApplePayReady}
-                          />
-                          Apple Pay
-                        </label>
-                        <label>
-                          <input
-                            type="radio"
-                            name="payment-choice"
-                            checked={paymentChoice === "card"}
-                            onChange={() => setPaymentChoice("card")}
-                          />
-                          Card
-                        </label>
-                      </div>
+                      <p className="player-lesson-details__status-pending">
+                        {shouldUseGroupCredits ? "Use an eligible package credit to confirm this group lesson." : "Choose how you want to pay."}
+                      </p>
+                      {!shouldUseGroupCredits ? (
+                        <div className="player-lesson-details__payment-choice">
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "credits"}
+                              onChange={() => setPaymentChoice("credits")}
+                              disabled={!eligibleCredits.length}
+                            />
+                            Credits
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "apple-pay"}
+                              onChange={() => setPaymentChoice("apple-pay")}
+                              disabled={!isApplePayReady}
+                            />
+                            Apple Pay
+                          </label>
+                          <label>
+                            <input
+                              type="radio"
+                              name="payment-choice"
+                              checked={paymentChoice === "card"}
+                              onChange={() => setPaymentChoice("card")}
+                            />
+                            Card
+                          </label>
+                        </div>
+                      ) : null}
 
                       {paymentChoice === "credits" ? (
                         <div className="player-lesson-details__payment-block">
@@ -1256,6 +1270,8 @@ const PlayerLessonDetailsPage = () => {
                       >
                         {submitting
                           ? "Processing…"
+                          : shouldUseGroupCredits || paymentChoice === "credits"
+                            ? "Use credit"
                           : paymentChoice === "apple-pay"
                             ? "Accept with Apple Pay"
                             : "Accept lesson"}
