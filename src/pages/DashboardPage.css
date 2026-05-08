@@ -246,25 +246,25 @@
 .ph-main {
   width: min(1240px, 100%);
   margin: 0 auto;
-  padding: 0 0 16px;
+  padding: 0 0 12px;
 }
 
 .ph-welcome {
-  padding: 16px;
+  padding: 12px 16px 10px;
   background: #fff;
   border-bottom: 1px solid var(--ph-border);
 }
 
 .ph-welcome h1 {
-  font-size: 22px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1.2;
   font-weight: 700;
 }
 
 .ph-welcome p {
   margin-top: 4px;
   color: var(--ph-muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ph-invite-banner {
@@ -515,9 +515,9 @@
 .ph-quick-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  padding: 16px;
+  padding: 10px 12px 12px;
   background: #fff;
   border-bottom: 1px solid var(--ph-border);
 }
@@ -526,8 +526,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 6px;
+  gap: 4px;
+  min-height: 78px;
+  padding: 8px 4px;
   border: 1px solid var(--ph-border);
   border-radius: 12px;
   background: var(--ph-bg);
@@ -543,20 +544,20 @@
 }
 
 .ph-quick-action-icon {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .ph-quick-action-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.1;
   text-align: center;
 }
 
@@ -572,7 +573,7 @@
 .ph-content-grid {
   /* display: grid; */
   gap: 16px;
-  padding: 16px;
+  padding: 12px;
 }
 
 .ph-schedule,
@@ -728,17 +729,17 @@
 }
 
 .ph-play-today {
-  margin-top: 16px;
-  padding-bottom: 16px;
+  margin-top: 12px;
+  padding-bottom: 12px;
 }
 
 .ph-day-tabs,
 .ph-type-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 16px;
+  padding: 0 12px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
@@ -759,13 +760,13 @@
 }
 
 .ph-day-tab {
-  min-width: 58px;
-  padding: 9px 14px;
-  border-radius: 12px;
+  min-width: 50px;
+  padding: 6px 10px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .ph-day-tab:hover,
@@ -780,7 +781,7 @@
 }
 
 .ph-day-tab-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--ph-muted);
@@ -791,18 +792,18 @@
 }
 
 .ph-day-tab strong {
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
 }
 
 .ph-day-tab small {
-  margin-top: 2px;
-  min-width: 18px;
-  padding: 2px 6px;
+  margin-top: 1px;
+  min-width: 16px;
+  padding: 1px 5px;
   border-radius: 6px;
   background: #e2e8f0;
   color: var(--ph-muted);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
 }
 
@@ -827,30 +828,32 @@
 }
 
 .ph-type-tabs {
-  margin-top: 12px;
-  margin-bottom: 14px;
-  gap: 6px;
-  flex-wrap: wrap;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow-x: visible;
 }
 
 .ph-type-tabs button {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px 8px;
   border-radius: 999px;
   color: var(--ph-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .ph-type-tabs button small {
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 10px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
 }
 
 .ph-type-tabs button.active {
@@ -864,7 +867,7 @@
 }
 
 .ph-feedback {
-  padding: 12px 16px 4px;
+  padding: 10px 12px 2px;
   color: var(--ph-muted);
   font-size: 14px;
 }
@@ -872,7 +875,7 @@
 .ph-activities {
   display: grid;
   gap: 10px;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .ph-activity {
@@ -1492,6 +1495,7 @@
 
   .ph-quick-actions {
     gap: 6px;
+    padding: 8px 10px 10px;
   }
 
   .ph-invite-item {
@@ -1504,14 +1508,15 @@
   }
 
   .ph-quick-action {
-    padding: 12px 4px;
+    min-height: 72px;
+    padding: 7px 3px;
   }
 
   .ph-quick-action-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    font-size: 18px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 16px;
   }
 
   .ph-quick-action-label {
@@ -1520,7 +1525,7 @@
 
   .ph-section-head,
   .ph-play-head {
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
 
   .ph-play-head {
@@ -1535,17 +1540,18 @@
   .ph-day-tabs,
   .ph-type-tabs,
   .ph-activities {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .ph-day-tab {
-    min-width: 52px;
-    padding: 8px 12px;
+    min-width: 48px;
+    padding: 6px 9px;
   }
 
   .ph-type-tabs button {
-    padding: 6px 10px;
+    gap: 4px;
+    padding: 6px 4px;
     max-width: 100%;
   }
 
@@ -1602,6 +1608,12 @@
   }
 }
 
+@media (max-width: 767px) {
+  .ph-welcome p {
+    display: none;
+  }
+}
+
 @media (min-width: 768px) {
   .ph-main {
     padding: 24px;
@@ -1609,6 +1621,25 @@
 
   .ph-welcome h1 {
     font-size: 28px;
+  }
+
+  .ph-type-tabs {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .ph-type-tabs button {
+    width: auto;
+    justify-content: flex-start;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .ph-type-tabs button small {
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    font-size: 10px;
   }
 
   .ph-activities {
@@ -1774,6 +1805,7 @@
   }
 
   .ph-type-tabs {
+    display: flex;
     margin-bottom: 20px;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -1782,6 +1814,13 @@
   .ph-type-tabs button {
     font-size: 13px;
     padding: 8px 16px;
+  }
+
+  .ph-type-tabs button small {
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    font-size: 10px;
   }
 
   .ph-activity {

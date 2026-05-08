@@ -2,6 +2,25 @@ import { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const FALLBACK_EMAIL = "player@matchplay.app";
+const PLAYER_PERSONAL_DETAILS_KEY = "playerPersonalDetails";
+
+const readStoredPersonalDetails = (): Record<string, unknown> | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PLAYER_PERSONAL_DETAILS_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+};
 
 const getInitialsFromIdentity = (name: string | null | undefined, email: string | null | undefined) => {
   if (name) {
@@ -50,7 +69,7 @@ const getAvatarFromIdentity = (user: unknown): string | null => {
   }
 
   const profile = user as Record<string, unknown>;
-  const avatarFields = ["avatar_url", "avatar", "picture", "image", "photoURL", "photoUrl"] as const;
+  const avatarFields = ["profile_picture", "avatar_url", "avatar", "picture", "image", "photoURL", "photoUrl"] as const;
 
   for (const field of avatarFields) {
     const value = profile[field];
@@ -65,14 +84,21 @@ const getAvatarFromIdentity = (user: unknown): string | null => {
 const usePlayerIdentity = () => {
   const auth = useAuth() as { user?: unknown } | undefined;
   const user = auth?.user;
+  const personalDetails = useMemo(() => readStoredPersonalDetails(), [user]);
+  const identity = useMemo(
+    () => ({ ...((user && typeof user === "object") ? user as Record<string, unknown> : {}), ...(personalDetails ?? {}) }),
+    [personalDetails, user],
+  );
 
-  const displayName = useMemo(() => extractDisplayName(user), [user]);
-  const email = (user as { email?: string } | undefined)?.email || FALLBACK_EMAIL;
+  const displayName = useMemo(() => extractDisplayName(identity), [identity]);
+  const email =
+    (identity as { email?: string } | undefined)?.email ||
+    FALLBACK_EMAIL;
   const initials = useMemo(
     () => getInitialsFromIdentity(displayName, email),
     [displayName, email],
   );
-  const avatarUrl = useMemo(() => getAvatarFromIdentity(user), [user]);
+  const avatarUrl = useMemo(() => getAvatarFromIdentity(identity), [identity]);
 
   return { displayName, email, initials, avatarUrl };
 };
