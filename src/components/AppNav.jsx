@@ -10,6 +10,7 @@ import {
   LogOut,
   MapPin,
   Plus,
+  Search,
   ShieldX,
   Target,
   UserRound,
