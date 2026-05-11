@@ -886,7 +886,8 @@ const CoachProfilePage = () => {
   const aboutRef = useRef<HTMLElement | null>(null);
   const specialtiesRef = useRef<HTMLElement | null>(null);
   const courtsRef = useRef<HTMLElement | null>(null);
-  const packagesRef = useRef<HTMLElement | null>(null);
+  const desktopPackagesRef = useRef<HTMLElement | null>(null);
+  const mobilePackagesRef = useRef<HTMLElement | null>(null);
   const desktopBookingRef = useRef<HTMLElement | null>(null);
   const mobileBookingRef = useRef<HTMLElement | null>(null);
   const bioRef = useRef<HTMLParagraphElement | null>(null);
@@ -2490,7 +2491,18 @@ const CoachProfilePage = () => {
               </small>
             </div>
           </div>
-          <button type="button" onClick={() => packagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          <button
+            type="button"
+            onClick={() => {
+              const isMobileViewport =
+                typeof window !== "undefined" &&
+                window.matchMedia("(max-width: 1023px)").matches;
+              const target = isMobileViewport
+                ? mobilePackagesRef.current ?? desktopPackagesRef.current
+                : desktopPackagesRef.current ?? mobilePackagesRef.current;
+              target?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
             {availableCredits > 0 ? "Top up" : "View packages"}
           </button>
         </div>
@@ -2835,7 +2847,7 @@ const CoachProfilePage = () => {
         ) : null}
 
         <div
-          ref={variant === "desktop" ? packagesRef : undefined}
+          ref={variant === "desktop" ? desktopPackagesRef : mobilePackagesRef}
           className="coach-profile-section coach-profile-section--packages coach-profile-booking-block"
         >
           {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}

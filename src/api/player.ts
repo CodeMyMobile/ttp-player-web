@@ -97,12 +97,9 @@ export const updatePlayerLesson = async ({
   });
 
 export const getPlayerAWSUrl = async (token: string, fileType: string) =>
-  request<UploadUrlResponse>("/player/profile_picture/upload_url", {
-    method: "POST",
+  request<UploadUrlResponse>(`/player/avatars?file_type=${encodeURIComponent(fileType)}`, {
+    method: "GET",
     token,
-    body: {
-      file_extension: fileType,
-    },
   });
 
 const toBlob = async (input: string | Blob | ArrayBuffer | ArrayBufferView) => {
