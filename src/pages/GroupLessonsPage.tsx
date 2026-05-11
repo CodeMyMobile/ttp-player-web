@@ -30,7 +30,20 @@ import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
-const radiusOptions = ["All", "1 mi", "3 mi", "5 mi", "10 mi", "20 mi"];
+const radiusOptions = [
+  "All",
+  "1 mi",
+  "3 mi",
+  "5 mi",
+  "10 mi",
+  "20 mi",
+  "30 mi",
+  "50 mi",
+  "75 mi",
+  "100 mi",
+  "150 mi",
+  "200 mi",
+];
 const DEFAULT_RADIUS_OPTION = "10 mi";
 
 const parseRadius = (radius: string) => {
@@ -44,6 +57,15 @@ const parseRadius = (radius: string) => {
 const formatLevelRange = (level: number) => {
   const upperBound = (level + 0.5).toFixed(1);
   return `${level.toFixed(1)} - ${upperBound}`;
+};
+
+const LEVEL_FILTER_LABELS: Record<string, string> = {
+  "2.5": "Beginner (NTRP 2.5)",
+  "3.0": "Advanced Beginner (NTRP 3.0)",
+  "3.5": "Intermediate (NTRP 3.5)",
+  "4.0": "Advanced (NTRP 4.0)",
+  "4.5": "Advanced Plus (NTRP 4.5)",
+  "5.0": "Expert (NTRP 5.0)",
 };
 
 const toIsoDate = (date: Date) => {
@@ -686,8 +708,8 @@ const GroupLessonsPage = () => {
       setIsLoading(true);
       setLoadError(null);
 
-      const parsedLevel =
-        levelFilter === "All levels" ? undefined : Number.parseFloat(levelFilter);
+      const selectedLevelLabel =
+        levelFilter === "All levels" ? undefined : LEVEL_FILTER_LABELS[levelFilter];
       const radiusMiles = parseRadius(selectedRadius);
       const dateRange =
         dateFilter.type === "all"
@@ -706,8 +728,8 @@ const GroupLessonsPage = () => {
           ...(resolvedPosition ? { position: resolvedPosition } : {}),
           filters: {
             coachId: selectedCoachId,
-            level: Number.isFinite(parsedLevel ?? NaN) ? parsedLevel : undefined,
-            radiusMiles:
+            level: selectedLevelLabel,
+            radius:
               useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
             ...dateRange,
           },
@@ -1261,10 +1283,10 @@ const GroupLessonsPage = () => {
 
           <section aria-labelledby="group-lessons-results-heading" className="group-lessons-results">
             <div className="group-lessons-results__header">
-              <div>
+              {/* <div>
                 <h2 id="group-lessons-results-heading">Available sessions nearby</h2>
                 <p className="group-lessons-results__meta">{resultsSummary}</p>
-              </div>
+              </div> */}
               <div className="group-lessons-results__sort">
                 <span>Sort by</span>
                 <label className="group-lessons-results__sort-select">
