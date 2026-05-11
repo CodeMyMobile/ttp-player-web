@@ -315,7 +315,17 @@ const isInactiveStatus = (value) => {
   ].includes(normalized);
 };
 
-const CONFIRMED_STATUS_TOKENS = new Set(["confirm", "confirmed"]);
+const CONFIRMED_STATUS_TOKENS = new Set([
+  "confirm",
+  "confirmed",
+  "accept",
+  "accepted",
+  "join",
+  "joined",
+  "host",
+  "hosting",
+  "attending",
+]);
 
 const isConfirmedStatus = (value) => {
   if (!value) return false;
@@ -364,6 +374,10 @@ const hasConfirmedIndicator = (invite) => {
   ];
 
   if (confirmedFlags.some((value) => value === true)) {
+    return true;
+  }
+
+  if (invite.joined === true || invite.is_joined === true || invite.isJoined === true) {
     return true;
   }
 
