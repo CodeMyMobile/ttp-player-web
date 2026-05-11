@@ -27,17 +27,14 @@ import {
 import PlayerAvatar from "./PlayerAvatar";
 import {
   cancelMatch,
-  createMatchMessage,
   deleteMatchNotification,
   getShareLink,
   joinMatch,
   leaveMatch,
-  listMatchMessages,
   listMatchNotifications,
   notifyMatchPlayers,
   removeParticipant,
   searchPlayers,
-  sendMatchPlayerDirectMessage,
   updateMatch,
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
@@ -553,6 +550,45 @@ const getInviteStatus = (invite) => {
   return "";
 };
 
+const openSmsComposer = (recipients, onToast) => {
+  if (!Array.isArray(recipients) || recipients.length === 0) {
+    return;
+  }
+
+  try {
+    const ua =
+      typeof navigator !== "undefined" && navigator.userAgent
+        ? navigator.userAgent
+        : "";
+    const isAndroid = /Android/i.test(ua);
+    const isAppleMobile = /(iPad|iPhone|iPod)/i.test(ua);
+
+    let url = "sms:";
+    if (recipients.length > 0) {
+      if (isAndroid) {
+        const path = recipients.map((value) => encodeURIComponent(value)).join(";");
+        const addresses = encodeURIComponent(recipients.join(";"));
+        url = `smsto:${path}?addresses=${addresses}`;
+      } else if (isAppleMobile) {
+        const addresses = encodeURIComponent(recipients.join(","));
+        url = `sms:&addresses=${addresses}`;
+      } else {
+        const path = recipients.map((value) => encodeURIComponent(value)).join(",");
+        url = `sms:${path}`;
+      }
+    }
+
+    onToast?.(isAppleMobile ? "Opening Messages..." : "Opening messages...");
+
+    if (typeof window !== "undefined") {
+      window.location.href = url;
+    }
+  } catch (error) {
+    console.error(error);
+    onToast?.("We couldn't open messages", "error");
+  }
+};
+
 const ACCEPTED_INVITE_STATUSES = new Set([
   "accepted",
   "confirmed",
@@ -808,10 +844,6 @@ const MatchDetailsModal = ({
   const [notifyResults, setNotifyResults] = useState([]);
   const [notifySelected, setNotifySelected] = useState([]);
   const [notifySending, setNotifySending] = useState(false);
-  const [messageText, setMessageText] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [messageSending, setMessageSending] = useState(false);
   const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY;
   const shareCopyTimeoutRef = useRef(null);
 
@@ -1191,30 +1223,9 @@ const MatchDetailsModal = ({
     }
   }, [isHost, isOpenMatch, matchId]);
 
-  const loadMatchMessages = useCallback(async () => {
-    if (!matchId || !isJoined) {
-      setMessages([]);
-      return;
-    }
-    try {
-      setMessagesLoading(true);
-      const data = await listMatchMessages(matchId);
-      setMessages(Array.isArray(data?.messages) ? data.messages : []);
-    } catch (error) {
-      console.error("Failed to load match messages", error);
-      setMessages([]);
-    } finally {
-      setMessagesLoading(false);
-    }
-  }, [isJoined, matchId]);
-
   useEffect(() => {
     loadMatchNotifications();
   }, [loadMatchNotifications]);
-
-  useEffect(() => {
-    loadMatchMessages();
-  }, [loadMatchMessages]);
 
   useEffect(() => {
     if (!isOpen || !isHost || !isOpenMatch) return undefined;
@@ -1326,58 +1337,6 @@ const MatchDetailsModal = ({
       }
     },
     [matchId, onToast],
-  );
-
-  const handleSendGroupMessage = useCallback(async () => {
-    const body = messageText.trim();
-    if (!matchId || !body) return;
-    try {
-      setMessageSending(true);
-      const response = await createMatchMessage(matchId, { body });
-      setMessageText("");
-      if (response?.message) {
-        setMessages((prev) => [...prev, response.message]);
-      } else {
-        await loadMatchMessages();
-      }
-      onToast?.("Message posted.");
-    } catch (error) {
-      console.error(error);
-      onToast?.(
-        error?.response?.data?.message ||
-          error?.response?.data?.error ||
-          error?.message ||
-          "Failed to send message",
-        "error",
-      );
-    } finally {
-      setMessageSending(false);
-    }
-  }, [loadMatchMessages, matchId, messageText, onToast]);
-
-  const handleSendDm = useCallback(
-    async (player) => {
-      if (!matchId || !player?.playerId) return;
-      const body = window.prompt(`Message ${player.name}`);
-      if (!body || !body.trim()) return;
-      try {
-        await sendMatchPlayerDirectMessage(matchId, player.playerId, {
-          body: body.trim(),
-        });
-        onToast?.(`Message sent to ${player.name}.`);
-        loadMatchMessages();
-      } catch (error) {
-        console.error(error);
-        onToast?.(
-          error?.response?.data?.message ||
-            error?.response?.data?.error ||
-            error?.message ||
-            "Failed to send direct message",
-          "error",
-        );
-      }
-    },
-    [loadMatchMessages, matchId, onToast],
   );
 
   useEffect(() => {
@@ -1962,10 +1921,31 @@ const MatchDetailsModal = ({
     return Math.max(remainingSpots, 0);
   }, [remainingSpots]);
 
-  const canMessageParticipants = committedParticipants.length > 1;
+  const participantPhoneRecipients = useMemo(() => {
+    if (!isHost) return [];
+    const seen = new Set();
+    return committedParticipants.reduce((numbers, participant) => {
+      if (!participant) return numbers;
+      if (match?.host_id && participantMatchesMember(participant, match.host_id)) {
+        return numbers;
+      }
+      const phoneRaw = getParticipantPhone(participant);
+      const normalized = normalizePhoneValue(phoneRaw);
+      if (!normalized || seen.has(normalized)) {
+        return numbers;
+      }
+      seen.add(normalized);
+      numbers.push(normalized);
+      return numbers;
+    }, []);
+  }, [committedParticipants, isHost, match?.host_id]);
+
+  const canMessageParticipants = participantPhoneRecipients.length > 0;
   const messageParticipantsDescription = canMessageParticipants
-    ? "Post a group update to confirmed players."
-    : "Add another confirmed player to enable group messages.";
+    ? participantPhoneRecipients.length === 1
+      ? "Start a group text with the confirmed player."
+      : "Start a group text with your confirmed players."
+    : "Add player phone numbers to enable group texts.";
 
   const pendingInvitesList = useMemo(() => {
     if (pendingInvitees.length === 0) return [];
@@ -2895,29 +2875,22 @@ const MatchDetailsModal = ({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-black text-emerald-900">
-                      Message group
+                      Message participants
                     </p>
                     <p className="text-xs font-semibold text-emerald-700">
-                      Post a match-scoped update for everyone confirmed on this roster.
+                      {messageParticipantsDescription}
                     </p>
                   </div>
-                </div>
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    value={messageText}
-                    onChange={(event) => setMessageText(event.target.value)}
-                    placeholder={canMessageParticipants ? "Write a group update..." : messageParticipantsDescription}
-                    disabled={!canMessageParticipants || messageSending}
-                    className="min-h-10 flex-1 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
-                  />
                   <button
                     type="button"
-                    onClick={handleSendGroupMessage}
-                    disabled={!canMessageParticipants || !messageText.trim() || messageSending}
+                    onClick={() =>
+                      openSmsComposer(participantPhoneRecipients, onToast)
+                    }
+                    disabled={!canMessageParticipants}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-white shadow-sm transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    {messageSending ? "Sending" : "Send"}
+                    Message group
                   </button>
                 </div>
               </div>
@@ -3032,46 +3005,6 @@ const MatchDetailsModal = ({
                   })
                 )}
               </div>
-            </section>
-          )}
-
-          {isJoined && (
-            <section className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-slate-600" />
-                  <p className="text-sm font-black text-gray-900">Match messages</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={loadMatchMessages}
-                  className="text-xs font-black text-violet-600"
-                >
-                  Refresh
-                </button>
-              </div>
-              {messagesLoading ? (
-                <p className="text-sm font-semibold text-gray-500">Loading messages...</p>
-              ) : messages.length === 0 ? (
-                <p className="text-sm font-semibold text-gray-500">No messages yet.</p>
-              ) : (
-                <div className="max-h-64 space-y-2 overflow-y-auto">
-                  {messages.map((message) => {
-                    const sender = message.sender || {};
-                    return (
-                      <div key={message.id} className="rounded-xl bg-slate-50 px-3 py-2">
-                        <p className="text-xs font-black text-slate-500">
-                          {sender.full_name || sender.name || `Player ${message.sender_id}`}
-                          {message.recipient_id ? " · Direct message" : ""}
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-slate-800">
-                          {message.body}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </section>
           )}
 
