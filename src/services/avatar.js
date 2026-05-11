@@ -26,13 +26,10 @@ export const getPlayerAWSUrl = async (token, extension = "jpeg") => {
   }
 
   const response = await unwrap(
-    api(`/player/profile_picture/upload_url`, {
-      method: "POST",
+    api(`/player/avatars?file_type=${encodeURIComponent(extension)}`, {
+      method: "GET",
       authToken: authHeader,
       authSchemePreference: "token",
-      json: {
-        file_extension: extension,
-      },
     }),
   );
 
