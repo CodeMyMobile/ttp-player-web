@@ -49,7 +49,7 @@
 
 @media (min-width: 1024px) {
   .group-lessons-page__inner {
-    padding: 32px 32px 88px;
+    padding: 0 32px 88px;
     box-sizing: border-box;
   }
 }
