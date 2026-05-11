@@ -96,8 +96,8 @@ export interface UpcomingGroupLessonsApiResponse {
 
 export interface GroupLessonsFilters {
   coachId?: number;
-  level?: number;
-  radiusMiles?: number;
+  level?: string | number;
+  radius?: number;
   dateStart?: string;
   dateEnd?: string;
   q?: string;
