@@ -20,6 +20,22 @@
   white-space: nowrap;
 }
 
+.group-lessons-page .fc-header__title {
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+.group-lessons-page .fc-header__description {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.group-lessons-page .fc-header {
+  margin-bottom: 16px;
+}
+
 @media (max-width: 640px) {
   .group-lessons-page .fc-header__description {
     white-space: normal;
@@ -33,6 +49,10 @@
 
 @media (min-width: 1024px) {
   .group-lessons-page__inner {
+    width: min(1240px, 100%);
+    margin: 0 auto;
+    padding: 0 16px 88px;
+    box-sizing: border-box;
     padding-bottom: 88px;
   }
 }
@@ -1023,17 +1043,18 @@
 
   .group-lessons-mobile-hero h1 {
     margin: 0;
-    font-size: 24px;
-    font-weight: 800;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 700;
     color: var(--fc-color-text-primary);
-    letter-spacing: -0.03em;
+    letter-spacing: normal;
   }
 
   .group-lessons-mobile-hero p {
     margin: 0;
     font-size: 13px;
     color: var(--fc-color-text-secondary);
-    line-height: 1.35;
+    line-height: 1.4;
     white-space: nowrap;
   }
 
