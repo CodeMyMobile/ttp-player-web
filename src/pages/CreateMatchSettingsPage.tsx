@@ -158,7 +158,7 @@ const CreateMatchSettingsPage = () => {
   };
 
   return (
-    <MainLayout mobileChrome="immersive">
+    <MainLayout mobileChrome="immersive" showDesktopNav={false}>
       <div className="create-match-page">
         <div className="create-match-mobile-header">
           <div className="create-match-mobile-header__top">
@@ -172,12 +172,14 @@ const CreateMatchSettingsPage = () => {
             </button>
             <div className="create-match-mobile-header__meta">
               <span>Step 2 of 3</span>
-              <span>Match details</span>
             </div>
           </div>
           <div className="create-match-mobile-header__progress" aria-hidden="true">
             <span className="create-match-mobile-header__progress-fill" style={{ width: "66.667%" }} />
           </div>
+        </div>
+        <div className="create-match-mobile-page-title">
+          <h1>Match details</h1>
         </div>
         <div className="create-match-page__header">
           <div>

@@ -1548,7 +1548,9 @@ const DashboardPage = () => {
                 <div className="ph-empty-icon">📅</div>
                 <h3>No activities for this date</h3>
                 <p>Try another day or create your own match listing.</p>
-                <Link to="/matches/create">🏆 Post a Match</Link>
+                <button type="button" onClick={handleHostMatch}>
+                  🏆 Post a Match
+                </button>
               </div>
             ) : (
               <div className="ph-activities">

@@ -1499,7 +1499,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.08em] text-slate-500 sm:text-sm sm:tracking-[0.12em]">
                   Min
                 </span>
                 <select
@@ -1518,7 +1518,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                       };
                     });
                   }}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-[18px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[16px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 sm:py-4 sm:text-[18px]"
                 >
                   {skillLevels.map((level) => (
                     <option key={level.value} value={level.value}>
@@ -1528,7 +1528,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                 </select>
               </label>
               <label className="block">
-                <span className="mb-2 block text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.08em] text-slate-500 sm:text-sm sm:tracking-[0.12em]">
                   Max
                 </span>
                 <select
@@ -1547,7 +1547,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                       };
                     });
                   }}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-[18px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[16px] font-bold text-slate-900 focus:border-violet-500 focus:ring-2 focus:ring-violet-100 sm:py-4 sm:text-[18px]"
                 >
                   {skillLevels.map((level) => (
                     <option key={level.value} value={level.value}>
@@ -1557,7 +1557,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                 </select>
               </label>
             </div>
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-[13px] text-slate-500 sm:text-sm">
               Players rated {matchData.skillLevelMin}-
               {matchData.skillLevelMax || matchData.skillLevelMin} will see this match.
             </p>
@@ -1566,14 +1566,14 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
           <div className="rounded-2xl bg-slate-50 p-4">
             <label className="flex items-start justify-between gap-4">
               <span className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-500">
-                  <Check size={20} />
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-500 sm:h-11 sm:w-11 sm:rounded-2xl">
+                  <Check size={16} className="sm:h-5 sm:w-5" />
                 </span>
                 <span>
-                  <span className="block text-[18px] font-black text-slate-900">
+                  <span className="block text-[15px] font-black text-slate-900 sm:text-[18px]">
                     Require verified rating
                   </span>
-                  <span className="mt-1 block text-sm text-slate-500">
+                  <span className="mt-1 block text-[13px] text-slate-500 sm:text-sm">
                     Only players with a UTR, USTA, or league-confirmed NTRP can join.
                   </span>
                 </span>
@@ -1603,7 +1603,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+              <h3 className="mb-3 text-[11px] font-black uppercase tracking-[0.08em] text-slate-500 sm:text-sm sm:tracking-[0.12em]">
                 Match Format
               </h3>
               <div className="rounded-2xl border border-slate-200 px-4 py-4">
@@ -1615,7 +1615,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                       setIsFormatManuallySelected(true);
                       setMatchData((prev) => ({ ...prev, format: e.target.value }));
                     }}
-                    className="flex-1 bg-transparent text-[18px] font-bold text-slate-900 focus:outline-none"
+                    className="flex-1 bg-transparent text-[16px] font-bold text-slate-900 focus:outline-none sm:text-[18px]"
                   >
                     {matchFormatOptions.map((option) => (
                       <option key={option.value} value={option.value}>

@@ -901,6 +901,7 @@ const TennisMatchApp = ({
   hideAppHeader = false,
   openCreateOnReady = false,
   onCreateReadyHandled = null,
+  onScreenChange = null,
 } = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -933,6 +934,12 @@ const TennisMatchApp = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const [participantsMatchId, setParticipantsMatchId] = useState(null);
+
+  useEffect(() => {
+    if (typeof onScreenChange === "function") {
+      onScreenChange(currentScreen);
+    }
+  }, [currentScreen, onScreenChange]);
   const [signInStep, setSignInStep] = useState("initial");
   const [password, setPassword] = useState("");
   const [formData, setFormData] = useState({

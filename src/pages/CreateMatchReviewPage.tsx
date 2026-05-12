@@ -220,7 +220,7 @@ const CreateMatchReviewPage = () => {
       : "Players who match this level will request to join.";
 
   return (
-    <MainLayout mobileChrome="immersive">
+    <MainLayout mobileChrome="immersive" showDesktopNav={false}>
       <div className="create-match-page">
         <div className="create-match-mobile-header">
           <div className="create-match-mobile-header__top">
@@ -234,12 +234,14 @@ const CreateMatchReviewPage = () => {
             </button>
             <div className="create-match-mobile-header__meta">
               <span>Step 3 of 3</span>
-              <span>Review &amp; publish</span>
             </div>
           </div>
           <div className="create-match-mobile-header__progress" aria-hidden="true">
             <span className="create-match-mobile-header__progress-fill" style={{ width: "100%" }} />
           </div>
+        </div>
+        <div className="create-match-mobile-page-title">
+          <h1>Review &amp; publish</h1>
         </div>
         <div className="create-match-page__header">
           <div>
