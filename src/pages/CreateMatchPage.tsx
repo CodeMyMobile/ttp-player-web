@@ -129,7 +129,7 @@ const CreateMatchPage = () => {
   const isPrivateMatch = matchType === "private";
 
   return (
-    <MainLayout mobileChrome="immersive">
+    <MainLayout mobileChrome="immersive" showDesktopNav={false}>
       <div className="create-match-page">
         <div className="create-match-mobile-header">
           <div className="create-match-mobile-header__top">
@@ -143,12 +143,14 @@ const CreateMatchPage = () => {
             </button>
             <div className="create-match-mobile-header__meta">
               <span>Step 1 of 3</span>
-              <span>Match basics</span>
             </div>
           </div>
           <div className="create-match-mobile-header__progress" aria-hidden="true">
             <span className="create-match-mobile-header__progress-fill" style={{ width: "33.333%" }} />
           </div>
+        </div>
+        <div className="create-match-mobile-page-title">
+          <h1>Match basics</h1>
         </div>
         <div className="create-match-page__header">
           <div>

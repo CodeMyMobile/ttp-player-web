@@ -1,11 +1,15 @@
 .create-match-page {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 24px;
   padding-bottom: 96px;
 }
 
 .create-match-mobile-header {
+  display: none;
+}
+
+.create-match-mobile-page-title {
   display: none;
 }
 
@@ -49,19 +53,14 @@
 }
 
 .create-match-page__eyebrow {
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--coach-color-subtle);
-  margin: 0 0 6px;
+  display: none;
 }
 
 .create-match-page__title {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.15;
-  margin: 0 0 12px;
+  line-height: 1.2;
+  margin: 0 0 8px;
   color: var(--coach-color-heading);
 }
 
@@ -74,7 +73,7 @@
 .create-match-page__subtitle {
   margin: 0;
   color: var(--coach-color-body);
-  font-size: 16px;
+  font-size: 15px;
   max-width: 520px;
 }
 
@@ -209,7 +208,7 @@
 
 .create-match-card h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--coach-color-heading);
 }
@@ -495,15 +494,24 @@
 }
 
 .create-match-field__label {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--coach-color-subtle);
 }
 
 .pill-group {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pill-group::-webkit-scrollbar {
+  display: none;
 }
 
 .select-wrapper {
@@ -1345,21 +1353,23 @@
 
 @media (max-width: 600px) {
   .create-match-page {
-    gap: 18px;
+    gap: 0;
     min-height: 100svh;
-    padding: 0 16px calc(112px + env(safe-area-inset-bottom, 0px));
-    background: #f4f6fb;
+    padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px));
+    background: #ffffff;
   }
 
   .create-match-mobile-header {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     position: sticky;
     top: 0;
-    z-index: 20;
-    padding: 12px 0 4px;
-    background: #f4f6fb;
+    z-index: 40;
+    padding: 12px 16px 8px;
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    backdrop-filter: blur(14px);
   }
 
   .create-match-mobile-header__top {
@@ -1382,12 +1392,11 @@
 
   .create-match-mobile-header__meta {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
     min-width: 0;
   }
 
-  .create-match-mobile-header__meta span:first-child {
+  .create-match-mobile-header__meta span {
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -1395,9 +1404,17 @@
     color: var(--coach-color-subtle);
   }
 
-  .create-match-mobile-header__meta span:last-child {
-    font-size: 14px;
-    font-weight: 600;
+  .create-match-mobile-page-title {
+    display: block;
+    padding: 14px 16px 10px;
+    background: #ffffff;
+  }
+
+  .create-match-mobile-page-title h1 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 700;
     color: var(--coach-color-heading);
   }
 
@@ -1421,10 +1438,12 @@
   }
 
   .create-match-card {
-    gap: 18px;
-    padding: 20px 18px;
-    border-radius: 22px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    gap: 16px;
+    padding: 20px 16px;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    border-top: 1px solid rgba(226, 232, 240, 0.9);
   }
 
   .create-match-card h2 {
@@ -1440,9 +1459,7 @@
   }
 
   .create-match-field__label {
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .match-type-options,
@@ -1475,14 +1492,7 @@
   }
 
   .pill-group {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     padding-bottom: 4px;
-    scrollbar-width: none;
-  }
-
-  .pill-group::-webkit-scrollbar {
-    display: none;
   }
 
   .pill {
@@ -1535,7 +1545,10 @@
   }
 
   .visibility-toggle-card {
-    padding: 16px;
+    padding: 14px 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 
   .create-match-actions {
@@ -1544,9 +1557,9 @@
     z-index: 30;
     flex-direction: row;
     align-items: center;
-    margin: 0 -16px;
+    margin: 0;
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-    background: rgba(244, 246, 251, 0.96);
+    background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(14px);
     border-top: 1px solid rgba(148, 163, 184, 0.18);
   }

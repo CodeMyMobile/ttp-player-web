@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
@@ -128,6 +128,8 @@ const PlayDatesAppRoute = () => {
   const navigate = useNavigate();
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
   const shouldOpenCreateOnReady = Boolean(location.state?.openNewMatch);
+  const [playDatesScreen, setPlayDatesScreen] = useState("browse");
+  const shouldHidePlayDatesChrome = playDatesScreen === "create";
 
   useEffect(() => {
     try {
@@ -144,11 +146,13 @@ const PlayDatesAppRoute = () => {
   return (
     <ProtectedRoute>
       <div className="dashboard-page">
-        <AppNav
-          onNewMatch={openNewMatch}
-          hideMobileNewMatch
-          hideMobileNotifications
-        />
+        {!shouldHidePlayDatesChrome ? (
+          <AppNav
+            onNewMatch={openNewMatch}
+            hideMobileNewMatch
+            hideMobileNotifications
+          />
+        ) : null}
         <main className="main-layout__content">
           <PlayDatesQueryClientProvider client={playDatesQueryClient}>
             <PlayDatesMatchesApp
@@ -157,10 +161,11 @@ const PlayDatesAppRoute = () => {
               hideAppHeader
               openCreateOnReady={shouldOpenCreateOnReady}
               onCreateReadyHandled={() => navigate("/matches", { replace: true })}
+              onScreenChange={setPlayDatesScreen}
             />
           </PlayDatesQueryClientProvider>
         </main>
-        <MobileHomeBottomNav />
+        {!shouldHidePlayDatesChrome ? <MobileHomeBottomNav /> : null}
       </div>
     </ProtectedRoute>
   );
