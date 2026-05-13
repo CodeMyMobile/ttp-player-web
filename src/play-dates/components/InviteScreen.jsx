@@ -278,6 +278,23 @@ const InviteScreen = ({
     [setSelectedPlayers],
   );
 
+  const getParticipantPlayerId = useCallback((participant) => {
+    if (!participant || typeof participant !== "object") return null;
+    const profile = participant.profile || {};
+    const player = participant.player || {};
+    return (
+      participant.player_id ??
+      participant.playerId ??
+      player.id ??
+      player.player_id ??
+      player.playerId ??
+      profile.player_id ??
+      profile.playerId ??
+      profile.id ??
+      null
+    );
+  }, []);
+
   const participantIsHost = (participant) => {
     if (!participant) return false;
     if (hostId) {
@@ -323,7 +340,7 @@ const InviteScreen = ({
     try {
       await removeParticipant(matchId, playerId);
       setParticipants((prev) =>
-        prev.filter((p) => !idsMatch(p.player_id, playerId)),
+        prev.filter((p) => !idsMatch(getParticipantPlayerId(p), playerId)),
       );
       setExistingPlayerIds((prev) => {
         const next = new Set([...prev]);
@@ -462,26 +479,32 @@ const InviteScreen = ({
                 <p className="text-sm text-red-600">{participantsError}</p>
               ) : participants.length ? (
                 <ul className="divide-y divide-gray-100 border rounded-xl">
-                  {participants.map((p) => (
-                    <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                      <span className="text-gray-800">
-                        {p.profile?.full_name || `Player ${p.player_id}`}
-                        {participantIsHost(p) && (
-                          <span className="ml-2 text-blue-700 text-xs font-bold">Host</span>
+                  {participants.map((p) => {
+                    const participantPlayerId = getParticipantPlayerId(p);
+                    return (
+                      <li
+                        key={p.id}
+                        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+                      >
+                        <span className="text-gray-800">
+                          {p.profile?.full_name || `Player ${participantPlayerId}`}
+                          {participantIsHost(p) && (
+                            <span className="ml-2 text-blue-700 text-xs font-bold">Host</span>
+                          )}
+                        </span>
+                        {canRemove(participantPlayerId) ? (
+                          <button
+                            onClick={() => handleRemoveParticipant(participantPlayerId)}
+                            className="px-2 py-1 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 flex items-center gap-1"
+                          >
+                            <X className="w-4 h-4" /> Remove
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">No actions</span>
                         )}
-                      </span>
-                      {canRemove(p.player_id) ? (
-                        <button
-                          onClick={() => handleRemoveParticipant(p.player_id)}
-                          className="px-2 py-1 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 flex items-center gap-1"
-                        >
-                          <X className="w-4 h-4" /> Remove
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">No actions</span>
-                      )}
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm text-gray-500">No participants yet.</p>
