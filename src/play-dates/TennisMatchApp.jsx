@@ -189,6 +189,23 @@ const deriveGroupIdFromPath = (path) => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+const getParticipantPlayerId = (participant) => {
+  if (!participant || typeof participant !== "object") return null;
+  const profile = participant.profile || {};
+  const player = participant.player || {};
+  return (
+    participant.player_id ??
+    participant.playerId ??
+    player.id ??
+    player.player_id ??
+    player.playerId ??
+    profile.player_id ??
+    profile.playerId ??
+    profile.id ??
+    null
+  );
+};
+
 const normalizeNtrpLevel = (value) => {
   if (value === undefined || value === null) return "";
   const trimmed = String(value).trim();
@@ -5461,7 +5478,7 @@ const TennisMatchApp = ({
         try {
           await removeParticipant(matchId, playerId);
           setParticipants((prev) =>
-            prev.filter((p) => !idsMatch(p.player_id, playerId)),
+            prev.filter((p) => !idsMatch(getParticipantPlayerId(p), playerId)),
           );
         setExistingPlayerIds((prev) => {
           const next = new Set([...prev]);
@@ -5553,14 +5570,14 @@ const TennisMatchApp = ({
                     {participants.map((p) => (
                       <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
                         <span className="text-gray-800">
-                          {p.profile?.full_name || `Player ${p.player_id}`}
+                          {p.profile?.full_name || `Player ${getParticipantPlayerId(p)}`}
                           {participantIsHost(p) && (
                             <span className="ml-2 text-blue-700 text-xs font-bold">Host</span>
                           )}
                         </span>
-                        {canRemove(p.player_id) ? (
+                        {canRemove(getParticipantPlayerId(p)) ? (
                           <button
-                            onClick={() => handleRemoveParticipant(p.player_id)}
+                            onClick={() => handleRemoveParticipant(getParticipantPlayerId(p))}
                             className="px-2 py-1 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 flex items-center gap-1"
                           >
                             <X className="w-4 h-4" /> Remove
@@ -6841,7 +6858,7 @@ const TennisMatchApp = ({
       try {
         await removeParticipant(matchId, playerId);
         setParticipants((prev) =>
-          prev.filter((p) => !idsMatch(p.player_id, playerId)),
+          prev.filter((p) => !idsMatch(getParticipantPlayerId(p), playerId)),
         );
         setRemoveErr("");
       } catch (error) {
@@ -6886,7 +6903,7 @@ const TennisMatchApp = ({
                       className="flex items-center justify-between px-3 py-2 text-sm"
                     >
                       <span className="text-gray-800">
-                        {p.profile?.full_name || `Player ${p.player_id}`}
+                        {p.profile?.full_name || `Player ${getParticipantPlayerId(p)}`}
                         {participantIsHost(p) && (
                           <span className="ml-2 text-blue-700 text-xs font-bold">
                             Host
@@ -6895,7 +6912,7 @@ const TennisMatchApp = ({
                       </span>
                       {isHost && !participantIsHost(p) ? (
                         <button
-                          onClick={() => handleRemoveParticipant(p.player_id)}
+                          onClick={() => handleRemoveParticipant(getParticipantPlayerId(p))}
                           className="px-2 py-1 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 flex items-center gap-1"
                         >
                           <X className="w-4 h-4" /> Remove
@@ -7011,7 +7028,7 @@ const TennisMatchApp = ({
         if (!matchToEdit?.id) return;
         await removeParticipant(matchToEdit.id, playerId);
         setParticipants((prev) =>
-          prev.filter((p) => !idsMatch(p.player_id, playerId)),
+          prev.filter((p) => !idsMatch(getParticipantPlayerId(p), playerId)),
         );
         setRemoveErr("");
       } catch (error) {
@@ -7190,7 +7207,7 @@ const TennisMatchApp = ({
                         className="flex items-center justify-between px-3 py-2 text-sm"
                       >
                         <span className="text-gray-800">
-                          {p.profile?.full_name || `Player ${p.player_id}`}
+                          {p.profile?.full_name || `Player ${getParticipantPlayerId(p)}`}
                           {participantIsHost(p) && (
                             <span className="ml-2 text-blue-700 text-xs font-bold">
                               Host
@@ -7199,7 +7216,7 @@ const TennisMatchApp = ({
                         </span>
                         {!participantIsHost(p) && (
                           <button
-                            onClick={() => handleRemoveParticipant(p.player_id)}
+                            onClick={() => handleRemoveParticipant(getParticipantPlayerId(p))}
                             className="px-2 py-1 text-red-600 hover:text-red-800 rounded-lg hover:bg-red-50 flex items-center gap-1"
                           >
                             <X className="w-4 h-4" />

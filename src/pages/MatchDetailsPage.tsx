@@ -104,6 +104,29 @@ const uniqueActiveParticipants = (participants: unknown[]): Array<Record<string,
   }) as Array<Record<string, unknown>>;
 };
 
+const getParticipantPlayerId = (participant: Record<string, unknown>) => {
+  const profile =
+    participant.profile && typeof participant.profile === "object"
+      ? (participant.profile as Record<string, unknown>)
+      : {};
+  const player =
+    participant.player && typeof participant.player === "object"
+      ? (participant.player as Record<string, unknown>)
+      : {};
+
+  return (
+    participant.player_id ??
+    participant.playerId ??
+    player.id ??
+    player.player_id ??
+    player.playerId ??
+    profile.player_id ??
+    profile.playerId ??
+    profile.id ??
+    null
+  );
+};
+
 const buildInitialForm = (match: Record<string, unknown> | null): MatchFormState => {
   if (!match) return { ...DEFAULT_FORM };
   const start = (match.start_date_time as string) || (match.startDateTime as string) || (match.start_time as string);
@@ -340,7 +363,9 @@ const MatchDetailsPage = () => {
     setRemovingId(String(playerId));
     try {
       await removeParticipant(rawMatch.id as string, playerId as string);
-      setParticipants((prev) => prev.filter((participant) => !idsMatch(participant.player_id, playerId)));
+      setParticipants((prev) =>
+        prev.filter((participant) => !idsMatch(getParticipantPlayerId(participant), playerId)),
+      );
       setFeedback("Participant removed.");
     } catch (err) {
       console.error("Failed to remove participant", err);
@@ -701,7 +726,10 @@ const MatchDetailsPage = () => {
                           (participant.profile as { phone?: string })?.phone,
                       );
                       const hosting = participant.hosting === true;
-                      const participantId = participant.player_id ?? participant.id ?? participant.user_id;
+                      const participantId =
+                        getParticipantPlayerId(participant) ??
+                        participant.id ??
+                        participant.user_id;
 
                       return (
                         <li key={participantId ?? name} className="match-details-participants__item">
