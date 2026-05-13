@@ -1920,9 +1920,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 18px;
   background: #e2e8f0;
   color: #0f172a;
+}
+
+.auth-welcome__mobile {
+  display: none;
+}
+
+.auth-welcome__desktop {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 18px;
 }
 
 .auth-welcome__shell {
@@ -2427,6 +2438,256 @@
   text-decoration: underline;
 }
 
+.auth-mobile {
+  width: 100%;
+  min-height: 100vh;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-mobile__screen {
+  min-height: 100vh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding-top: 16px;
+}
+
+.auth-mobile__screen--welcome {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-mobile__screen--welcome::before {
+  content: "";
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(190, 242, 100, 0.18) 0%, rgba(190, 242, 100, 0) 65%);
+  pointer-events: none;
+}
+
+.auth-mobile__hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-mobile__logo-tile {
+  width: 124px;
+  height: 124px;
+  background: #bef264;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 12px 32px -8px rgba(132, 204, 22, 0.45),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.auth-mobile__logo-tile::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 50%);
+  pointer-events: none;
+}
+
+.auth-mobile__logo-tile svg {
+  width: 76px;
+  height: 76px;
+}
+
+.auth-mobile__wordmark {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  color: #0f172a;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.auth-mobile__wordmark span,
+.auth-mobile__eyebrow span span {
+  color: #8b5cf6;
+}
+
+.auth-mobile__tagline {
+  max-width: 280px;
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+}
+
+.auth-mobile__actions {
+  padding: 0 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-mobile__email-entry {
+  width: 100%;
+  height: 52px;
+  border-radius: 12px;
+  border: none;
+  background: #8b5cf6;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.auth-mobile__signin-link {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.auth-mobile__signin-link button {
+  margin-left: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #8b5cf6;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-mobile__welcome-footer {
+  padding: 14px 28px 34px;
+  text-align: center;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-mobile__screen--form {
+  overflow-y: auto;
+}
+
+.auth-mobile__nav {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  flex-shrink: 0;
+}
+
+.auth-mobile__back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 4px 8px 0;
+}
+
+.auth-mobile__back-icon {
+  transform: rotate(180deg);
+}
+
+.auth-mobile__body {
+  flex: 1;
+  padding: 8px 28px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-mobile__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.auth-mobile__eyebrow-tile {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #bef264;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auth-mobile__eyebrow-tile svg {
+  width: 24px;
+  height: 24px;
+}
+
+.auth-mobile__eyebrow span {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.auth-welcome__header--mobile {
+  margin-bottom: 20px;
+}
+
+.auth-welcome__header--mobile h1 {
+  font-size: 28px;
+  letter-spacing: -0.04em;
+  margin-bottom: 6px;
+}
+
+.auth-mobile__row {
+  display: flex;
+  gap: 10px;
+}
+
+.auth-mobile__row .auth-welcome__field {
+  flex: 1;
+}
+
+.auth-mobile__footer {
+  padding-top: 12px;
+}
+
+.auth-welcome__mode-switch--mobile {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -2520,32 +2781,16 @@ button.secondary-link {
 }
 
 @media (max-width: 1024px) {
-  .auth-welcome {
-    padding: 0;
-    background: #ffffff;
+  .auth-welcome__desktop {
+    padding: 24px 18px;
   }
 
   .auth-welcome__shell {
-    min-height: 100vh;
-    border-radius: 0;
-    border: none;
-    box-shadow: none;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 1fr);
   }
 
   .auth-welcome__brand-panel {
     padding: 48px 28px 34px;
-  }
-
-  .auth-welcome__logo-tile {
-    width: 124px;
-    height: 124px;
-    border-radius: 32px;
-    margin-bottom: 24px;
-  }
-
-  .auth-welcome__tagline {
-    margin-bottom: 30px;
   }
 
   .auth-welcome__form-panel {
@@ -2554,24 +2799,21 @@ button.secondary-link {
 }
 
 @media (max-width: 640px) {
-  .auth-welcome__brand-panel {
-    padding: 36px 20px 24px;
+  .auth-welcome {
+    background: #ffffff;
   }
 
-  .auth-welcome__form-panel {
-    padding: 22px 20px 32px;
+  .auth-welcome__desktop {
+    display: none;
   }
 
-  .auth-welcome__row {
-    grid-template-columns: 1fr;
+  .auth-welcome__mobile {
+    display: block;
+    width: 100%;
   }
 
-  .auth-welcome__header h1 {
-    font-size: 36px;
-  }
-
-  .auth-welcome__feature {
-    align-items: flex-start;
+  .auth-mobile__row {
+    flex-direction: column;
   }
 }
 

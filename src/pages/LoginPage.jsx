@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Eye,
   EyeOff,
+  Mail,
   MapPinned,
   Phone,
   Users,
@@ -93,6 +94,7 @@ const LoginPage = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mobileScreen, setMobileScreen] = useState("welcome");
 
   const isSignup = mode === "signup";
   const fullName = useMemo(
@@ -153,9 +155,232 @@ const LoginPage = () => {
     setError(`${provider} sign-in isn't available in this app yet. Use email and password for now.`);
   };
 
+  const openMobileForm = (nextMode = mode) => {
+    setError("");
+    setMode(nextMode);
+    setMobileScreen("form");
+  };
+
   return (
     <div className="auth-welcome">
-      <div className="auth-welcome__shell">
+      <div className="auth-welcome__mobile">
+        <div className="auth-mobile">
+          {mobileScreen === "welcome" ? (
+            <div className="auth-mobile__screen auth-mobile__screen--welcome">
+              <div className="auth-mobile__hero">
+                <div className="auth-mobile__logo-tile">{tennisBallMark}</div>
+                <div className="auth-mobile__wordmark">
+                  The Tennis <span>Plan</span>
+                </div>
+                <p className="auth-mobile__tagline">Find your coach. Play your match.</p>
+              </div>
+
+              <div className="auth-mobile__actions">
+                <button
+                  type="button"
+                  className="auth-welcome__social auth-welcome__social--apple"
+                  onClick={() => handleUnavailableAuth("Apple")}
+                >
+                  <Apple size={18} />
+                  <span>Continue with Apple</span>
+                </button>
+                <button
+                  type="button"
+                  className="auth-welcome__social auth-welcome__social--google"
+                  onClick={() => handleUnavailableAuth("Google")}
+                >
+                  <GoogleMark />
+                  <span>Continue with Google</span>
+                </button>
+                <button
+                  type="button"
+                  className="auth-mobile__email-entry"
+                  onClick={() => openMobileForm("signup")}
+                >
+                  <Mail size={18} />
+                  <span>Continue with email</span>
+                </button>
+                <div className="auth-mobile__signin-link">
+                  Already a member?
+                  <button type="button" onClick={() => openMobileForm("signin")}>
+                    Sign in
+                  </button>
+                </div>
+              </div>
+
+              <div className="auth-mobile__welcome-footer">
+                <p className="auth-welcome__terms auth-welcome__terms--signin">
+                  By continuing, you agree to The Tennis Plan&apos;s{" "}
+                  <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="auth-mobile__screen auth-mobile__screen--form">
+              <div className="auth-mobile__nav">
+                <button type="button" className="auth-mobile__back" onClick={() => setMobileScreen("welcome")}>
+                  <ArrowRight size={18} className="auth-mobile__back-icon" />
+                  <span>Back</span>
+                </button>
+              </div>
+
+              <div className="auth-mobile__body">
+                <div className="auth-mobile__eyebrow">
+                  <div className="auth-mobile__eyebrow-tile">{tennisBallMark}</div>
+                  <span>
+                    The Tennis <span>Plan</span>
+                  </span>
+                </div>
+
+                <div className="auth-welcome__header auth-welcome__header--mobile">
+                  <h1>{isSignup ? "Create your account" : "Welcome back"}</h1>
+                  <p>
+                    {isSignup
+                      ? "Welcome to The Tennis Plan"
+                      : "Sign in to The Tennis Plan"}
+                  </p>
+                </div>
+
+                {error ? <div className="auth-welcome__error">{error}</div> : null}
+
+                <form className="auth-welcome__form" onSubmit={handleSubmit}>
+                  {isSignup ? (
+                    <div className="auth-mobile__row">
+                      <div className="auth-welcome__field">
+                        <label htmlFor="mobile-first-name">First name</label>
+                        <input
+                          id="mobile-first-name"
+                          type="text"
+                          value={firstName}
+                          onChange={(event) => setFirstName(event.target.value)}
+                          placeholder="Paul"
+                          required
+                          autoComplete="given-name"
+                        />
+                      </div>
+                      <div className="auth-welcome__field">
+                        <label htmlFor="mobile-last-name">Last name</label>
+                        <input
+                          id="mobile-last-name"
+                          type="text"
+                          value={lastName}
+                          onChange={(event) => setLastName(event.target.value)}
+                          placeholder="Cochrane"
+                          required
+                          autoComplete="family-name"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="auth-welcome__field">
+                    <label htmlFor="mobile-email">Email</label>
+                    <input
+                      id="mobile-email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  {isSignup ? (
+                    <div className="auth-welcome__field">
+                      <label htmlFor="mobile-phone">Phone</label>
+                      <input
+                        id="mobile-phone"
+                        type="tel"
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="(310) 555-0123"
+                        autoComplete="tel"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="auth-welcome__field">
+                    <label htmlFor="mobile-password">Password</label>
+                    <div className="auth-welcome__input-wrap auth-welcome__input-wrap--trailing">
+                      <input
+                        id="mobile-password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder={isSignup ? "Create a password" : "Your password"}
+                        required
+                        autoComplete={isSignup ? "new-password" : "current-password"}
+                      />
+                      <button
+                        type="button"
+                        className="auth-welcome__input-action"
+                        onClick={() => setShowPassword((current) => !current)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {!isSignup ? (
+                    <div className="auth-welcome__helper-row">
+                      <Link to="/forgot-password">Forgot password?</Link>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="auth-welcome__remember"
+                    onClick={() => setRememberMe((current) => !current)}
+                    aria-pressed={rememberMe}
+                  >
+                    <span className={`auth-welcome__toggle ${rememberMe ? "is-on" : ""}`}>
+                      <span />
+                    </span>
+                    <span className="auth-welcome__remember-copy">
+                      <strong>Keep me signed in</strong>
+                      <small>Stay logged in on this device for 30 days</small>
+                    </span>
+                  </button>
+
+                  <div className="auth-mobile__footer">
+                    {isSignup ? (
+                      <p className="auth-welcome__terms">
+                        By creating an account, you agree to our{" "}
+                        <button type="button">Terms</button> and <button type="button">Privacy Policy</button>
+                      </p>
+                    ) : null}
+
+                    <button type="submit" className="auth-welcome__submit" disabled={loading}>
+                      <span>
+                        {loading
+                          ? isSignup
+                            ? "Creating account…"
+                            : "Signing in…"
+                          : isSignup
+                            ? "Create account"
+                            : "Sign in"}
+                      </span>
+                      {!loading ? <ArrowRight size={16} /> : null}
+                    </button>
+
+                    <div className="auth-welcome__mode-switch auth-welcome__mode-switch--mobile">
+                      {isSignup ? "Already have an account?" : "Don't have an account?"}
+                      <button type="button" onClick={handleModeToggle}>
+                        {isSignup ? "Sign in" : "Create one"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="auth-welcome__desktop">
+        <div className="auth-welcome__shell">
         <section className="auth-welcome__brand-panel">
           <div className="auth-welcome__brand-inner">
             <div className="auth-welcome__logo-tile">{tennisBallMark}</div>
@@ -351,6 +576,7 @@ const LoginPage = () => {
             </div>
           </div>
         </section>
+      </div>
       </div>
     </div>
   );
