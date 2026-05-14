@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Apple,
@@ -12,7 +12,48 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { signup as signupService } from "../services/auth";
+import { googlePlayerLogin, signup as signupService } from "../services/auth";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services";
+
+let googleIdentityScriptPromise = null;
+
+const loadGoogleIdentityScript = () => {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Google sign-in is only available in the browser."));
+  }
+
+  if (window.google?.accounts?.id) {
+    return Promise.resolve(window.google);
+  }
+
+  if (googleIdentityScriptPromise) {
+    return googleIdentityScriptPromise;
+  }
+
+  googleIdentityScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById(GOOGLE_IDENTITY_SCRIPT_ID);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.google), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google sign-in.")), {
+        once: true,
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = GOOGLE_IDENTITY_SCRIPT_ID;
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.google);
+    script.onerror = () => reject(new Error("Failed to load Google sign-in."));
+    document.head.appendChild(script);
+  });
+
+  return googleIdentityScriptPromise;
+};
 
 const tennisBallMark = (
   <svg width="92" height="92" viewBox="0 0 88 88" aria-hidden="true">
@@ -93,14 +134,24 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileScreen, setMobileScreen] = useState("welcome");
+  const googleAuthInitialized = useRef(false);
+  const pendingGoogleAuth = useRef(null);
 
   const isSignup = mode === "signup";
   const fullName = useMemo(
     () => `${firstName} ${lastName}`.trim(),
     [firstName, lastName],
   );
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
+    loadGoogleIdentityScript().catch(() => {
+      // Surface errors only when the user actually tries to sign in.
+    });
+  }, []);
 
   const navigateAfterAuth = () => {
     const from = location.state?.from;
@@ -155,6 +206,66 @@ const LoginPage = () => {
     setError(`${provider} sign-in isn't available in this app yet. Use email and password for now.`);
   };
 
+  const handleGoogleLogin = async () => {
+    if (!GOOGLE_CLIENT_ID) {
+      setError("Google sign-in is not configured. Add VITE_GOOGLE_CLIENT_ID to enable it.");
+      return;
+    }
+
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      const google = await loadGoogleIdentityScript();
+      if (!google?.accounts?.id) {
+        throw new Error("Google sign-in is unavailable right now.");
+      }
+
+      const credential = await new Promise((resolve, reject) => {
+        pendingGoogleAuth.current = { resolve, reject };
+
+        if (!googleAuthInitialized.current) {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (response) => {
+              if (response?.credential) {
+                pendingGoogleAuth.current?.resolve(response.credential);
+                pendingGoogleAuth.current = null;
+                return;
+              }
+              pendingGoogleAuth.current?.reject(new Error("Google sign-in did not return a token."));
+              pendingGoogleAuth.current = null;
+            },
+            error_callback: () => {
+              pendingGoogleAuth.current?.reject(new Error("Google sign-in was cancelled or failed."));
+              pendingGoogleAuth.current = null;
+            },
+          });
+          googleAuthInitialized.current = true;
+        }
+
+        google.accounts.id.prompt((notification) => {
+          const notDisplayed =
+            typeof notification?.isNotDisplayed === "function" && notification.isNotDisplayed();
+          const skipped =
+            typeof notification?.isSkippedMoment === "function" && notification.isSkippedMoment();
+          if (notDisplayed || skipped) {
+            pendingGoogleAuth.current?.reject(new Error("Google sign-in is unavailable for this browser session."));
+            pendingGoogleAuth.current = null;
+          }
+        });
+      });
+
+      const response = await googlePlayerLogin(credential);
+      establishSession?.(response);
+      navigateAfterAuth();
+    } catch (err) {
+      setError(err?.response?.data?.error || err?.message || "Unable to sign in with Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   const openMobileForm = (nextMode = mode) => {
     setError("");
     setMode(nextMode);
@@ -187,10 +298,11 @@ const LoginPage = () => {
                 <button
                   type="button"
                   className="auth-welcome__social auth-welcome__social--google"
-                  onClick={() => handleUnavailableAuth("Google")}
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading || loading}
                 >
                   <GoogleMark />
-                  <span>Continue with Google</span>
+                  <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
                 </button>
                 <button
                   type="button"
@@ -427,10 +539,11 @@ const LoginPage = () => {
               <button
                 type="button"
                 className="auth-welcome__social auth-welcome__social--google"
-                onClick={() => handleUnavailableAuth("Google")}
+                onClick={handleGoogleLogin}
+                disabled={googleLoading || loading}
               >
                 <GoogleMark />
-                <span>Continue with Google</span>
+                <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
               </button>
             </div>
 

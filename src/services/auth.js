@@ -69,6 +69,30 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
   return data;
 };
 
+export const googlePlayerLogin = async (idToken) => {
+  const data = await unwrap(
+    api(`/auth/google/player-login`, {
+      method: "POST",
+      body: JSON.stringify({ id_token: idToken }),
+    }),
+  );
+
+  if (data?.access_token) {
+    localStorage.setItem("authToken", data.access_token);
+  }
+  if (data?.token && !data?.access_token) {
+    localStorage.setItem("authToken", data.token);
+  }
+  if (data?.refresh_token) {
+    localStorage.setItem("refreshToken", data.refresh_token);
+  }
+  if (data) {
+    localStorage.setItem("authLoginResponse", JSON.stringify(data));
+  }
+
+  return data;
+};
+
 export const getPersonalDetails = async () => {
   const data = await unwrap(
     api(`/player/personal_details`, {
