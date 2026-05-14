@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Apple,
   ArrowRight,
   CalendarDays,
   Eye,
@@ -286,18 +285,10 @@ const LoginPage = () => {
                 <p className="auth-mobile__tagline">Find your coach. Play your match.</p>
               </div>
 
-              <div className="auth-mobile__actions">
-                <button
-                  type="button"
-                  className="auth-welcome__social auth-welcome__social--apple"
-                  onClick={() => handleUnavailableAuth("Apple")}
-                >
-                  <Apple size={18} />
-                  <span>Continue with Apple</span>
-                </button>
-                <button
-                  type="button"
-                  className="auth-welcome__social auth-welcome__social--google"
+               <div className="auth-mobile__actions">
+                 <button
+                   type="button"
+                   className="auth-welcome__social auth-welcome__social--google"
                   onClick={handleGoogleLogin}
                   disabled={googleLoading || loading}
                 >
@@ -528,14 +519,6 @@ const LoginPage = () => {
             {error ? <div className="auth-welcome__error">{error}</div> : null}
 
             <div className="auth-welcome__socials">
-              <button
-                type="button"
-                className="auth-welcome__social auth-welcome__social--apple"
-                onClick={() => handleUnavailableAuth("Apple")}
-              >
-                <Apple size={18} />
-                <span>Continue with Apple</span>
-              </button>
               <button
                 type="button"
                 className="auth-welcome__social auth-welcome__social--google"
