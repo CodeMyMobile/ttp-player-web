@@ -959,7 +959,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 12px var(--group-lessons-mobile-gutter);
     background: #fff;
     border-bottom: 1px solid var(--fc-color-border);
   }
@@ -1035,7 +1035,7 @@
   .group-lessons-mobile-hero {
     flex-direction: column;
     gap: 4px;
-    padding: 16px 16px 0;
+    padding: 16px var(--group-lessons-mobile-gutter) 0;
   }
 
   .group-lessons-mobile-hero h1 {
@@ -1058,7 +1058,7 @@
   .group-lessons-mobile-search-row {
     align-items: stretch;
     gap: 8px;
-    padding: 0 16px;
+    padding: 0 var(--group-lessons-mobile-gutter);
   }
 
   .group-lessons-mobile-search {
@@ -1106,7 +1106,7 @@
   .group-lessons-mobile-chip-row {
     align-items: center;
     gap: 8px;
-    padding: 0 16px;
+    padding: 0 var(--group-lessons-mobile-gutter);
   }
 
   .group-lessons-mobile-chip-row__label {
@@ -1173,7 +1173,7 @@
 
   .group-lessons-day-filter {
     gap: 4px;
-    padding: 0 16px;
+    padding: 0 var(--group-lessons-mobile-gutter);
   }
 
   .group-lessons-day-filter__controls {
@@ -1233,7 +1233,7 @@
 
   .group-lessons-results {
     gap: 12px;
-    padding: 0 16px;
+    padding: 0 var(--group-lessons-mobile-gutter);
   }
 
   .group-lessons-results__header {
