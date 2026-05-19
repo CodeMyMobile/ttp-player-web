@@ -5,7 +5,12 @@ import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { normalizeMatchRecord } from "../api/matches";
 import { useAuth } from "../context/AuthContext";
-import { getPlayerDiscoverNearby, getPlayerFutureLessons, updatePlayerFutureLessons } from "../api/playerHome";
+import {
+  getPlayerDiscoverNearby,
+  getPlayerExternalLessons,
+  getPlayerFutureLessons,
+  updatePlayerFutureLessons,
+} from "../api/playerHome";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import { acceptInvite, listInvites, rejectInvite } from "../services/invites";
@@ -70,6 +75,7 @@ const extractLessons = (response) => {
 };
 
 const resolveLessonKind = (lesson) => {
+  if (lesson?.metadata?.externalUrl) return "external";
   const limit = parseNumber(lesson.player_limit, lesson.playerLimit, lesson.max_players, lesson.player_capacity);
   const typeValue = pickString(lesson.lesson_type_name, lesson.type, lesson.lesson_type, lesson.program_type) || "";
   if (limit && limit > 1) return "group";
@@ -104,6 +110,15 @@ const getTypeConfig = (type) => {
       label: "Match",
       className: "match",
       availability: "Open",
+    };
+  }
+
+  if (type === "external") {
+    return {
+      badge: "↗",
+      label: "External Lesson",
+      className: "external",
+      availability: "External booking",
     };
   }
 
@@ -737,6 +752,78 @@ const buildActivityItems = (lessons = []) =>
     .filter(Boolean)
     .sort((a, b) => moment(a.dayKey).valueOf() - moment(b.dayKey).valueOf());
 
+const buildExternalLessonActivities = (lessons = []) =>
+  lessons
+    .map((lesson) => {
+      const metadata = firstObject(lesson.metadata) || {};
+      const externalUrl = pickString(metadata.externalUrl);
+      if (!externalUrl) return null;
+
+      const zonedStart = parseNearbyMoment(
+        lesson.startTime ??
+          lesson.start_time ??
+          lesson.start_at ??
+          lesson.start ??
+          lesson.startDate ??
+          lesson.starts_at ??
+          lesson.start_date_time,
+      );
+      const startAt = zonedStart?.toDate() ?? parseDate(
+        lesson.startTime ??
+          lesson.start_time ??
+          lesson.start_at ??
+          lesson.start ??
+          lesson.startDate ??
+          lesson.starts_at ??
+          lesson.start_date_time,
+      );
+      if (!startAt) return null;
+      if (!isFutureNearbyActivity(startAt)) return null;
+
+      const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.uuid ?? null;
+      const providerName =
+        pickString(lesson.full_name, lesson.provider, lesson.provider_name, lesson.coach_name) || "External provider";
+      const location = formatDisplayLocation(
+        pickString(
+          lesson.location_name,
+          lesson.locationName,
+          lesson.location,
+          lesson.location_label,
+          lesson.court_name,
+          lesson.facility_name,
+        ) || "Location TBD",
+      );
+      const typeConfig = getTypeConfig("external");
+
+      return {
+        id: `external-${lessonId ?? startAt.toISOString()}`,
+        lessonId: lessonId != null ? String(lessonId) : null,
+        type: "external",
+        label: typeConfig.label,
+        typeClassName: typeConfig.className,
+        title:
+          pickString(metadata.title, lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name) ||
+          "External lesson",
+        time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
+        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
+        location,
+        secondaryMeta: providerName,
+        rating: null,
+        price: null,
+        status: "External booking",
+        remainingSpots: null,
+        avatar: typeConfig.badge,
+        avatarUrl: pickString(lesson.profile_picture, lesson.logo_url, lesson.image_url),
+        avatarBadge: typeConfig.badge,
+        extraMeta: pickString(metadata.level) ? `Level ${metadata.level}` : null,
+        highlight: "Book offsite",
+        destination: lessonId != null ? `/lessons/external/${lessonId}` : "/group-lessons",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => moment(a.dayKey).valueOf() - moment(b.dayKey).valueOf());
+
 const buildMatchActivities = (records = []) =>
   records
     .map((record) => {
@@ -869,7 +956,7 @@ const DashboardPage = () => {
       setActivityState((prev) => ({ ...prev, status: "loading", error: null }));
       setInviteState((prev) => ({ ...prev, status: "loading", error: null }));
 
-      const [futureLessonsResult, nearbyResult, invitesResult] = await Promise.allSettled([
+      const [futureLessonsResult, nearbyResult, externalLessonsResult, invitesResult] = await Promise.allSettled([
         getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal }),
         getPlayerDiscoverNearby({
           token,
@@ -888,6 +975,20 @@ const DashboardPage = () => {
           lessonsPerPage: 12,
           matchesPage: 1,
           matchesPerPage: 12,
+          signal: controller.signal,
+        }),
+        getPlayerExternalLessons({
+          token,
+          page: 1,
+          perPage: 50,
+          search: "",
+          position: locationPosition,
+          filters: {
+            radius: searchRadius,
+            date: activityFilterStart === activityFilterEnd ? activityFilterStart : "",
+            startDate: activityFilterStart,
+            endDate: activityFilterEnd,
+          },
           signal: controller.signal,
         }),
         listInvites({ status: "pending", page: 1, perPage: 5, filter: "pending" }),
@@ -938,7 +1039,11 @@ const DashboardPage = () => {
         const coachActivities = buildCoachActivities(extractCollection(nearbyResponse?.coaches_availability));
         const groupActivities = buildActivityItems(extractCollection(nearbyResponse?.group_lessons));
         const matchActivities = buildMatchActivities(extractCollection(nearbyResponse?.match_play));
-        const nextActivities = [...coachActivities, ...groupActivities, ...matchActivities].sort(
+        const externalActivities =
+          externalLessonsResult.status === "fulfilled"
+            ? buildExternalLessonActivities(extractLessons(externalLessonsResult.value))
+            : [];
+        const nextActivities = [...coachActivities, ...groupActivities, ...externalActivities, ...matchActivities].sort(
           (a, b) =>
             moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
             moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
@@ -1034,6 +1139,7 @@ const DashboardPage = () => {
       all: sameDay.length,
       private: sameDay.filter((item) => item.type === "private").length,
       group: sameDay.filter((item) => item.type === "group").length,
+      external: sameDay.filter((item) => item.type === "external").length,
       match: sameDay.filter((item) => item.type === "match").length,
     };
   }, [activityState.items, selectedDay]);
@@ -1048,7 +1154,7 @@ const DashboardPage = () => {
   const welcomeHeadline = `Hi ${firstName} 👋`;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
-    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, and matches`;
+    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, external lessons, and matches`;
 
   const onOpenActivity = (activity) => {
     if (!activity.destination) return;
@@ -1532,6 +1638,10 @@ const DashboardPage = () => {
               <button type="button" className={selectedType === "group" ? "active" : ""} onClick={() => setSelectedType("group")}>
                 <span>Groups</span>
                 <small>{counts.group}</small>
+              </button>
+              <button type="button" className={selectedType === "external" ? "active" : ""} onClick={() => setSelectedType("external")}>
+                <span>External</span>
+                <small>{counts.external}</small>
               </button>
               <button type="button" className={selectedType === "match" ? "active" : ""} onClick={() => setSelectedType("match")}>
                 <span>Matches</span>

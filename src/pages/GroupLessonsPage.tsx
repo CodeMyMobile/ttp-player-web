@@ -3,8 +3,8 @@
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, Clock, MapPin, Search } from "lucide-react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { CalendarDays, Clock, ExternalLink, MapPin, Search, Users } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
@@ -15,6 +15,12 @@ import {
   mapUpcomingGroupLessonsResponse,
   type GroupLesson,
 } from "../api/groupLessons";
+import {
+  getPlayerExternalLessonById,
+  getPlayerExternalLessons,
+  recordExternalLessonClick,
+  type PlayerExternalLesson,
+} from "../api/playerHome";
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -165,6 +171,88 @@ const getSpotsTone = (availableSpots: number) => {
   };
 };
 
+const extractExternalLessons = (response: unknown): PlayerExternalLesson[] => {
+  if (!response || typeof response !== "object") return [];
+  const record = response as Record<string, unknown>;
+  if (Array.isArray(record.data)) return record.data as PlayerExternalLesson[];
+  if (Array.isArray(record.lessons)) return record.lessons as PlayerExternalLesson[];
+  if (Array.isArray(record.results)) return record.results as PlayerExternalLesson[];
+  if (Array.isArray(record.items)) return record.items as PlayerExternalLesson[];
+  return [];
+};
+
+const normalizeExternalUrl = (url?: string) => {
+  const trimmed = url?.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
+const getExternalLessonMetadata = (lesson: PlayerExternalLesson) => {
+  const metadata = lesson.metadata && typeof lesson.metadata === "object"
+    ? lesson.metadata as Record<string, unknown>
+    : {};
+  return {
+    title: typeof metadata.title === "string" ? metadata.title : undefined,
+    level: typeof metadata.level === "string" ? metadata.level : undefined,
+    description: typeof metadata.description === "string" ? metadata.description : undefined,
+    externalUrl: typeof metadata.externalUrl === "string" ? metadata.externalUrl : undefined,
+  };
+};
+
+const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLesson => {
+  const metadata = getExternalLessonMetadata(lesson);
+  const start = lesson.start_date_time ? new Date(String(lesson.start_date_time)) : null;
+  const end = lesson.end_date_time ? new Date(String(lesson.end_date_time)) : null;
+  const durationMinutes =
+    start && end && Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())
+      ? Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0)
+      : 60;
+  const locationName =
+    typeof lesson.location === "string" && lesson.location.trim()
+      ? lesson.location
+      : "Location TBD";
+  const fullName = typeof lesson.full_name === "string" && lesson.full_name.trim()
+    ? lesson.full_name
+    : "External provider";
+  const dateLabels = lesson.start_date_time
+    ? {
+        day: moment.utc(String(lesson.start_date_time)).format("dddd"),
+        date: moment.utc(String(lesson.start_date_time)).format("MMM D"),
+        startTime: moment.utc(String(lesson.start_date_time)).format("h:mm A"),
+      }
+    : { day: "TBD", date: "Date TBD", startTime: "Time TBD" };
+
+  return {
+    id: String(lesson.id),
+    title: metadata.title || String(lesson.lesson_type_name ?? "External lesson"),
+    coachId: 0,
+    coachName: fullName,
+    coachAvatarUrl: typeof lesson.profile_picture === "string" ? lesson.profile_picture : "",
+    level: 3,
+    skillLabel: metadata.level || "All levels",
+    description: metadata.description || "Booking is completed through the provider.",
+    day: dateLabels.day,
+    date: dateLabels.date,
+    startTime: dateLabels.startTime,
+    startDateTime: typeof lesson.start_date_time === "string" ? lesson.start_date_time : undefined,
+    endDateTime: typeof lesson.end_date_time === "string" ? lesson.end_date_time : undefined,
+    locationName,
+    locationCity: locationName,
+    distanceMiles: 0,
+    totalSpots: 0,
+    availableSpots: 1,
+    focus: typeof lesson.lesson_type_name === "string" ? lesson.lesson_type_name : "External",
+    durationMinutes,
+    pricePerPlayer: "External booking",
+    participants: [],
+    groupPlayers: [],
+    isExternal: true,
+    externalUrl: metadata.externalUrl,
+    sourceLesson: lesson,
+  };
+};
+
 type DateFilterState =
   | { type: "all" }
   | { type: "day"; iso: string }
@@ -197,6 +285,7 @@ type GroupLessonsRouteState = {
 };
 
 const GroupLessonsPage = () => {
+  const { externalLessonId, externallessonid } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -231,6 +320,9 @@ const GroupLessonsPage = () => {
   const [rangeError, setRangeError] = useState<string | undefined>();
   const [useLocationFilter, setUseLocationFilter] = useState(true);
   const [lessons, setLessons] = useState<GroupLesson[]>([]);
+  const [externalLesson, setExternalLesson] = useState<GroupLesson | null>(null);
+  const [externalClickInFlight, setExternalClickInFlight] = useState(false);
+  const [externalClickError, setExternalClickError] = useState<string | null>(null);
   const [coachProfilesById, setCoachProfilesById] = useState<Record<number, CoachProfileRecord>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -244,6 +336,7 @@ const GroupLessonsPage = () => {
       undefined,
     [user],
   );
+  const routeExternalLessonId = externalLessonId ?? externallessonid;
 
   useEffect(() => {
     const syncStoredLocation = () => {
@@ -289,7 +382,14 @@ const GroupLessonsPage = () => {
   );
 
   const coachOptions = useMemo(
-    () => ["All coaches", ...new Set(lessonsWithIso.map((lesson) => getResolvedCoachName(lesson)))],
+    () => [
+      "All coaches",
+      ...new Set(
+        lessonsWithIso
+          .filter((lesson) => !lesson.isExternal)
+          .map((lesson) => getResolvedCoachName(lesson)),
+      ),
+    ],
     [getResolvedCoachName, lessonsWithIso],
   );
 
@@ -645,7 +745,7 @@ const GroupLessonsPage = () => {
       return undefined;
     }
 
-    return lessons.find((lesson) => getResolvedCoachName(lesson) === coachFilter)?.coachId;
+    return lessons.find((lesson) => !lesson.isExternal && getResolvedCoachName(lesson) === coachFilter)?.coachId;
   }, [coachFilter, getResolvedCoachName, lessons]);
 
   useEffect(() => {
@@ -720,26 +820,53 @@ const GroupLessonsPage = () => {
       const resolvedPosition = useLocationFilter ? position ?? DEFAULT_POSITION : undefined;
 
       try {
-        const response = await fetchUpcomingGroupLessons({
-          token,
-          perPage: 50,
-          page: 1,
-          search: searchTerm.trim(),
-          ...(resolvedPosition ? { position: resolvedPosition } : {}),
-          filters: {
-            coachId: selectedCoachId,
-            level: selectedLevelLabel,
-            radius:
-              useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
-            ...dateRange,
-          },
-          signal: controller.signal,
-        });
+        const filters = {
+          coachId: selectedCoachId,
+          level: selectedLevelLabel,
+          radius:
+            useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
+          ...dateRange,
+        };
+        const externalFilters = {
+          ...filters,
+          date:
+            dateFilter.type === "day"
+              ? dateFilter.iso
+              : "",
+        };
+
+        const [groupResponse, externalResponse] = await Promise.all([
+          fetchUpcomingGroupLessons({
+            token,
+            perPage: 50,
+            page: 1,
+            search: searchTerm.trim(),
+            ...(resolvedPosition ? { position: resolvedPosition } : {}),
+            filters,
+            signal: controller.signal,
+          }),
+          selectedCoachId
+            ? Promise.resolve(null)
+            : getPlayerExternalLessons({
+                token,
+                perPage: 50,
+                page: 1,
+                search: searchTerm.trim(),
+                ...(resolvedPosition ? { position: resolvedPosition } : {}),
+                filters: externalFilters,
+                signal: controller.signal,
+              }),
+        ]);
 
         if (cancelled) return;
 
-        const mapped = mapUpcomingGroupLessonsResponse(response);
-        setLessons(mapped.lessons);
+        const mapped = mapUpcomingGroupLessonsResponse(groupResponse);
+        const externalLessons = externalResponse
+          ? extractExternalLessons(externalResponse)
+              .filter((lesson) => Boolean(getExternalLessonMetadata(lesson).externalUrl))
+              .map(mapExternalLessonToGroupLesson)
+          : [];
+        setLessons([...mapped.lessons, ...externalLessons]);
       } catch (error) {
         if (cancelled) return;
         setLoadError(error instanceof Error ? error.message : "Unable to load group lessons.");
@@ -767,6 +894,91 @@ const GroupLessonsPage = () => {
     position,
     selectedCoachId,
   ]);
+
+  useEffect(() => {
+    if (!routeExternalLessonId) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadExternalLesson = async () => {
+      const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
+      if (!token) {
+        setLoadError("Missing authentication token.");
+        return;
+      }
+
+      setExternalClickError(null);
+
+      try {
+        const response = await getPlayerExternalLessonById({
+          token,
+          lessonId: routeExternalLessonId,
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        const mapped = mapExternalLessonToGroupLesson(response);
+        setExternalLesson(mapped.externalUrl ? mapped : null);
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : "Unable to load external lesson.");
+      }
+    };
+
+    loadExternalLesson();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [authToken, routeExternalLessonId]);
+
+  const openExternalLessonDialog = useCallback((lesson: GroupLesson) => {
+    setExternalClickError(null);
+    setExternalLesson(lesson);
+  }, []);
+
+  const closeExternalLessonDialog = useCallback(() => {
+    setExternalClickError(null);
+    setExternalLesson(null);
+    if (routeExternalLessonId) {
+      navigate("/group-lessons", { replace: true });
+    }
+  }, [navigate, routeExternalLessonId]);
+
+  const continueToExternalBooking = useCallback(async () => {
+    if (!externalLesson?.externalUrl) return;
+
+    const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
+    setExternalClickInFlight(true);
+    setExternalClickError(null);
+
+    try {
+      if (token) {
+        await recordExternalLessonClick({
+          token,
+          lessonId: externalLesson.id,
+          clickPayload: {
+            device_type: "web",
+            metadata: {
+              component: "GroupLessonsPage",
+              clickedUrl: externalLesson.externalUrl,
+            },
+          },
+        });
+      }
+
+      const url = normalizeExternalUrl(externalLesson.externalUrl);
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      closeExternalLessonDialog();
+    } catch (error) {
+      setExternalClickError(error instanceof Error ? error.message : "Unable to open booking link.");
+    } finally {
+      setExternalClickInFlight(false);
+    }
+  }, [authToken, closeExternalLessonDialog, externalLesson]);
 
   const handleApplyRange = () => {
     if (!rangeStartValue || !rangeEndValue) {
@@ -1329,19 +1541,25 @@ const GroupLessonsPage = () => {
                   const levelRange = formatLevelRange(lesson.level);
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
-                  const isSoldOut = lesson.availableSpots === 0;
+                  const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
+                  const isSoldOut = !isExternal && lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
-                  const showPackLink = priceValue !== null && priceValue > 29;
+                  const showPackLink = !isExternal && priceValue !== null && priceValue > 29;
                   const coachName = getResolvedCoachName(lesson);
                   const coachAvatar = getResolvedCoachAvatar(lesson);
 
                   return (
-                    <article key={lesson.id} className="lesson-card lesson-card--desktop">
+                    <article
+                      key={lesson.id}
+                      className={`lesson-card lesson-card--desktop${isExternal ? " lesson-card--external" : ""}`}
+                    >
                       <header className="lesson-card__band">
                         <div className="lesson-card__band-label">
                           {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
-                        <span className="lesson-card__level">{levelRange} NTRP</span>
+                        <span className="lesson-card__level">
+                          {isExternal ? "External" : `${levelRange} NTRP`}
+                        </span>
                       </header>
 
                       <div className="lesson-card__body">
@@ -1354,7 +1572,7 @@ const GroupLessonsPage = () => {
                           </div>
                           <div className="lesson-card__price">
                             <div className="lesson-card__price-value">
-                              {priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
+                              {isExternal ? "Book offsite" : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
                             {showPackLink ? (
                               <button
@@ -1380,13 +1598,17 @@ const GroupLessonsPage = () => {
                             <span>{lesson.locationName}</span>
                           </div>
                           <div className="lesson-card__info-row lesson-card__info-row--spots">
-                            <span className="lesson-card__info-icon-emoji" aria-hidden="true">
-                              👥
-                            </span>
+                            {isExternal ? (
+                              <ExternalLink size={16} aria-hidden="true" />
+                            ) : (
+                              <Users size={16} aria-hidden="true" />
+                            )}
                             <span
-                              className={`lesson-card__spots-pill lesson-card__spots-pill--${spotTone.tone}`}
+                              className={`lesson-card__spots-pill lesson-card__spots-pill--${
+                                isExternal ? "external" : spotTone.tone
+                              }`}
                             >
-                              {spotTone.label}
+                              {isExternal ? "External booking" : spotTone.label}
                             </span>
                           </div>
                         </div>
@@ -1410,7 +1632,7 @@ const GroupLessonsPage = () => {
 
                         <footer className="lesson-card__footer">
                           <Link
-                            to={`/group-lessons/${lesson.id}`}
+                            to={isExternal ? `/lessons/external/${lesson.id}` : `/group-lessons/${lesson.id}`}
                             state={{ groupLessonsState: groupLessonsStateSnapshot }}
                             className="ghost-button"
                           >
@@ -1420,6 +1642,10 @@ const GroupLessonsPage = () => {
                             type="button"
                             className="primary-button"
                             onClick={() => {
+                              if (isExternal) {
+                                openExternalLessonDialog(lesson);
+                                return;
+                              }
                               navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                                 state: {
                                   groupLessonId: lesson.id,
@@ -1429,7 +1655,7 @@ const GroupLessonsPage = () => {
                             }}
                             disabled={isSoldOut || isBooked}
                           >
-                            {isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Book now"}
+                            {isExternal ? "Continue" : isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Book now"}
                           </button>
                         </footer>
                       </div>
@@ -1441,6 +1667,55 @@ const GroupLessonsPage = () => {
           </section>
         </div>
       </div>
+      {externalLesson && typeof document !== "undefined"
+        ? createPortal(
+            <div className="external-lesson-dialog" role="presentation">
+              <button
+                type="button"
+                className="external-lesson-dialog__backdrop"
+                aria-label="Close external booking dialog"
+                onClick={closeExternalLessonDialog}
+              />
+              <section
+                className="external-lesson-dialog__panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="external-lesson-dialog-title"
+              >
+                <div className="external-lesson-dialog__icon" aria-hidden="true">
+                  <ExternalLink size={22} />
+                </div>
+                <h2 id="external-lesson-dialog-title">Leaving TennisTime</h2>
+                <p>
+                  Booking for {externalLesson.title || "this lesson"} is handled by the provider.
+                  Continue to open their booking page in a new tab.
+                </p>
+                {externalLesson.locationName ? (
+                  <div className="external-lesson-dialog__meta">
+                    <MapPin size={15} aria-hidden="true" />
+                    <span>{externalLesson.locationName}</span>
+                  </div>
+                ) : null}
+                {externalClickError ? (
+                  <p className="external-lesson-dialog__error">{externalClickError}</p>
+                ) : null}
+                <div className="external-lesson-dialog__actions">
+                  <button type="button" onClick={closeExternalLessonDialog}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={continueToExternalBooking}
+                    disabled={externalClickInFlight}
+                  >
+                    {externalClickInFlight ? "Opening..." : "Continue to booking"}
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
       {showMobileMoreFilters && typeof document !== "undefined"
         ? createPortal(
             <div className="group-lessons-mobile-sheet">
