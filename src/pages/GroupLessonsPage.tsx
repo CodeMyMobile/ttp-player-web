@@ -1685,7 +1685,7 @@ const GroupLessonsPage = () => {
                 <div className="external-lesson-dialog__icon" aria-hidden="true">
                   <ExternalLink size={22} />
                 </div>
-                <h2 id="external-lesson-dialog-title">Leaving TennisTime</h2>
+                <h2 id="external-lesson-dialog-title">You're Leaving The Tennis Plan App</h2>
                 <p>
                   Booking for {externalLesson.title || "this lesson"} is handled by the provider.
                   Continue to open their booking page in a new tab.
