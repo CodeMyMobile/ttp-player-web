@@ -154,6 +154,20 @@ const getApiDayKey = (value) => {
   return match ? match[1] : null;
 };
 
+const shouldPreserveActivityZone = (activity) =>
+  activity?.type === "group" || activity?.type === "external";
+
+const formatActivityTimeLabel = (activity, includeDate = false) => {
+  if (shouldPreserveActivityZone(activity)) {
+    const dateLabel = moment(activity.dayKey, "YYYY-MM-DD", true).isValid()
+      ? moment(activity.dayKey, "YYYY-MM-DD").format("ddd, MMM D")
+      : moment(activity.startTime).format("ddd, MMM D");
+    return includeDate ? `${dateLabel} · ${activity.time}` : activity.time;
+  }
+
+  return moment(activity.startTime).format(includeDate ? "ddd, MMM D · h:mm A" : "h:mm A");
+};
+
 const formatDisplayLocation = (value) => {
   const label = pickString(value);
   if (!label) return "Location TBD";
@@ -1683,10 +1697,10 @@ const DashboardPage = () => {
                         <span className={`ph-activity-label ${activity.typeClassName}`}>{activity.label}</span>
                         {selectedDay === "all" ? (
                           <span className="ph-activity-time">
-                            {moment(activity.startTime).format("ddd, MMM D · h:mm A")}
+                            {formatActivityTimeLabel(activity, true)}
                           </span>
                         ) : activity.type !== "private" ? (
-                          <span className="ph-activity-time">{moment(activity.startTime).format("h:mm A")}</span>
+                          <span className="ph-activity-time">{formatActivityTimeLabel(activity)}</span>
                         ) : null}
                       </span>
                       <strong>{activity.title}</strong>
