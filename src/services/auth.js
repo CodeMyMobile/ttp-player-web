@@ -42,7 +42,10 @@ export const consumeAppleAuthRedirect = () => {
   }
 
   const response = Object.fromEntries(params.entries());
+  response.oauth_provider = response.oauth_provider || response.provider || "apple";
   persistAuthSession(response);
+  localStorage.setItem("oauthPhoneCapturePending", "true");
+  localStorage.setItem("oauthPhoneCaptureProvider", "apple");
 
   const cleanUrl = `${window.location.pathname}${window.location.search}#/`;
   window.history.replaceState({}, document.title, cleanUrl);

@@ -12,9 +12,11 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
 import {
   getApplePlayerLoginUrl,
   googlePlayerLogin,
+  logout as clearAuthSession,
   signup as signupService,
 } from "../services/auth";
 
@@ -141,6 +143,8 @@ const LoginPage = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [mobileScreen, setMobileScreen] = useState("welcome");
+  const [pendingOAuthSession, setPendingOAuthSession] = useState(null);
+  const [pendingOAuthProvider, setPendingOAuthProvider] = useState("google");
   const googleAuthInitialized = useRef(false);
   const pendingGoogleAuth = useRef(null);
 
@@ -261,7 +265,17 @@ const LoginPage = () => {
         });
       });
 
-      const response = await googlePlayerLogin(credential);
+      const response = {
+        ...(await googlePlayerLogin(credential)),
+        oauth_provider: "google",
+      };
+      if (shouldCaptureOAuthPhone(response)) {
+        localStorage.setItem("oauthPhoneCapturePending", "true");
+        localStorage.setItem("oauthPhoneCaptureProvider", "google");
+        setPendingOAuthProvider("google");
+        setPendingOAuthSession(response);
+        return;
+      }
       establishSession?.(response);
       navigateAfterAuth();
     } catch (err) {
@@ -276,6 +290,25 @@ const LoginPage = () => {
     setMode(nextMode);
     setMobileScreen("form");
   };
+
+  if (pendingOAuthSession) {
+    return (
+      <OAuthPhoneCapture
+        session={pendingOAuthSession}
+        provider={pendingOAuthProvider}
+        onBack={() => {
+          clearAuthSession();
+          localStorage.removeItem("oauthPhoneCapturePending");
+          localStorage.removeItem("oauthPhoneCaptureProvider");
+          setPendingOAuthSession(null);
+        }}
+        onComplete={(nextSession) => {
+          establishSession?.(nextSession);
+          navigateAfterAuth();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="auth-welcome">
@@ -292,14 +325,14 @@ const LoginPage = () => {
               </div>
 
               <div className="auth-mobile__actions">
-                <button
+                {/* <button
                   type="button"
                   className="auth-welcome__social auth-welcome__social--apple"
                   onClick={handleAppleLogin}
                 >
                   <Apple size={18} />
                   <span>Continue with Apple</span>
-                </button>
+                </button> */}
                 <button
                   type="button"
                   className="auth-welcome__social auth-welcome__social--google"
@@ -533,14 +566,14 @@ const LoginPage = () => {
             {error ? <div className="auth-welcome__error">{error}</div> : null}
 
             <div className="auth-welcome__socials">
-              <button
+              {/* <button
                 type="button"
                 className="auth-welcome__social auth-welcome__social--apple"
                 onClick={handleAppleLogin}
               >
                 <Apple size={18} />
                 <span>Continue with Apple</span>
-              </button>
+              </button> */}
               <button
                 type="button"
                 className="auth-welcome__social auth-welcome__social--google"
