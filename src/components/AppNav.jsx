@@ -13,6 +13,7 @@ import {
   Search,
   ShieldX,
   Target,
+  X,
   UserRound,
   Users,
 } from "lucide-react";
@@ -372,7 +373,17 @@ const AppNav = ({
         <div className="app-nav__location-overlay" onClick={() => setLocationOpen(false)}>
           <div className="app-nav__location-sheet" onClick={(event) => event.stopPropagation()}>
             <div className="app-nav__location-handle" />
-            <h3 className="app-nav__location-title">Choose Location</h3>
+            <div className="app-nav__location-header">
+              <h3 className="app-nav__location-title">Choose Location</h3>
+              <button
+                type="button"
+                className="app-nav__location-close"
+                aria-label="Close location picker"
+                onClick={() => setLocationOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <p className="app-nav__location-section-title">Use Current Location</p>
             <button
