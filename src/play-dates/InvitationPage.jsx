@@ -12,6 +12,9 @@ import {
   Archive,
   LogIn,
   UserPlus,
+  LockKeyhole,
+  UserRound,
+  UsersRound,
 } from "lucide-react";
 import {
   getInvitePreview,
@@ -28,7 +31,6 @@ import {
   uniqueMatchOccupants,
   uniqueParticipants,
 } from "./utils/participants";
-import Header from "./components/Header.jsx";
 import MatchDetailsModal from "./components/MatchDetailsModal.jsx";
 import PlayerAvatar from "./components/PlayerAvatar.jsx";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
@@ -41,12 +43,44 @@ import {
   storeRefreshToken,
 } from "./services/authToken";
 
-function InvitationLayout({ children }) {
+function InvitationLayout({ children, currentUser, onLogout, onSignIn }) {
+  const name = (currentUser?.name || "").trim();
+  const initials = getAvatarInitials(name || "Player");
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#4c1d95] via-[#4338ca] to-[#2563eb]">
+    <div className="min-h-screen bg-[#ede9fe] font-sans text-slate-900">
       <div className="flex min-h-screen flex-col">
-        <Header />
-        <main className="flex flex-1 items-center justify-center px-4 py-10">
+        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <button
+              type="button"
+              onClick={() => onSignIn?.()}
+              className="flex items-center gap-2 text-left"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-500 text-base shadow-sm">
+                🎾
+              </span>
+              <span className="text-[15px] font-bold text-slate-800">
+                The Tennis <span className="text-violet-500">Plan</span>
+              </span>
+            </button>
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-xs font-extrabold text-white">
+                  {initials}
+                </div>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="text-[13px] font-semibold text-slate-500 transition hover:text-slate-800"
+                >
+                  Log out
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </header>
+        <main className="flex flex-1 justify-center px-5 py-7">
           {children}
         </main>
       </div>
@@ -66,7 +100,7 @@ function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 px-6 py-3 text-base font-semibold text-white shadow-xl shadow-emerald-500/30 transition-transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-emerald-200 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 ${className}`}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-violet-500 px-6 py-[15px] text-[15px] font-bold text-white shadow-sm transition hover:bg-violet-600 focus:outline-none focus:ring-4 focus:ring-violet-200 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       {children}
     </button>
@@ -85,7 +119,7 @@ function SecondaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-6 py-3 text-base font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-white focus:outline-none focus:ring-4 focus:ring-slate-200 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-slate-200 bg-white px-6 py-[15px] text-[15px] font-bold text-slate-500 shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       {children}
     </button>
@@ -1296,11 +1330,6 @@ export default function InvitationPage() {
   const effectivePlayers = activeParticipants.length
     ? activeParticipants.length
     : occupancyFromMatch ?? null;
-  const occupancyLabel = playerLimit
-    ? `${effectivePlayers ?? avatarPlayers.length}/${playerLimit}`
-    : effectivePlayers ?? avatarPlayers.length
-    ? `${effectivePlayers ?? avatarPlayers.length}`
-    : null;
 
   const inviterName = (preview?.inviter?.full_name || "").trim();
   const inviterFirstName = inviterName.split(" ").filter(Boolean)[0] || "";
@@ -1310,41 +1339,6 @@ export default function InvitationPage() {
   const maskedIdentifier = preview?.maskedIdentifier;
   const isInviteeClaim = inviteeRequiresAccountClaim;
   const identifierDisplay = maskedIdentifier || phone || email;
-  const signedInName = (currentUser?.name || "").trim();
-  const joinHelperText = refreshingSession
-    ? "Reconnecting your account… sit tight while we restore your session."
-    : hasStoredSession
-    ? `You're signed in${signedInName ? ` as ${signedInName}` : ""}. We'll confirm your spot right away.`
-    : "You'll be asked to sign in or create a free account to claim your spot.";
-
-  const infoItems = [];
-  if (startDate) {
-    infoItems.push({
-      key: "datetime",
-      icon: CalendarDays,
-      accent: "bg-rose-100 text-rose-600",
-      label: "Date & Time",
-      value: `${formattedDate}${formattedTime ? `, ${formattedTime}` : ""}`,
-    });
-  }
-  if (locationLabel) {
-    infoItems.push({
-      key: "location",
-      icon: MapPin,
-      accent: "bg-sky-100 text-sky-600",
-      label: "Location",
-      value: locationLabel,
-    });
-  }
-  if (matchType) {
-    infoItems.push({
-      key: "matchType",
-      icon: ClipboardList,
-      accent: "bg-purple-100 text-purple-600",
-      label: "Match Type",
-      value: matchType,
-    });
-  }
 
   const claimSection = (
     <form
@@ -1720,11 +1714,95 @@ export default function InvitationPage() {
     "violet",
     "amber",
   ];
+  const isSignedIn = hasStoredSession;
+  const hostName = inviterName || "The host";
+  const inviteLocation = locationLabel || "the court";
+  const heroSubtitle = `You've been invited to join a match at ${shortLocationName(inviteLocation)}`;
+  const spotsTaken = effectivePlayers ?? avatarPlayers.length;
+  const spotsRemaining =
+    playerLimit && Number.isFinite(spotsTaken)
+      ? Math.max(playerLimit - spotsTaken, 0)
+      : null;
+  const progressPercent =
+    playerLimit && Number.isFinite(spotsTaken)
+      ? Math.min(Math.max((spotsTaken / playerLimit) * 100, 0), 100)
+      : 0;
+  const spotsTakenLabel = playerLimit
+    ? `${spotsTaken} / ${playerLimit} spots taken`
+    : `${spotsTaken} ${spotsTaken === 1 ? "spot" : "spots"} taken`;
+  const remainingLabel =
+    spotsRemaining !== null
+      ? `${spotsRemaining} ${spotsRemaining === 1 ? "spot" : "spots"} remaining`
+      : "Join to confirm your spot";
+  const detailItems = [
+    startDate
+      ? {
+          key: "datetime",
+          icon: CalendarDays,
+          iconClass: "bg-blue-50 text-blue-600",
+          label: "Date & time",
+          value: `${formattedDate}${formattedTime ? ` · ${formattedTime}` : ""}`,
+        }
+      : null,
+    locationLabel
+      ? {
+          key: "location",
+          icon: MapPin,
+          iconClass: "bg-green-50 text-green-700",
+          label: "Location",
+          value: locationLabel,
+        }
+      : null,
+    matchType
+      ? {
+          key: "matchType",
+          icon: ClipboardList,
+          iconClass: "bg-violet-50 text-violet-600",
+          label: "Match type",
+          value: matchType,
+        }
+      : null,
+  ].filter(Boolean);
+  const platformItems = [
+    {
+      icon: UserRound,
+      iconClass: "bg-green-50 text-blue-700",
+      title: "Find a coach near you",
+      body: "Book private or group lessons in Venice.",
+    },
+    {
+      icon: UsersRound,
+      iconClass: "bg-blue-50 text-blue-700",
+      title: "Group sessions & clinics",
+      body: "Join social tennis and coaching groups nearby.",
+    },
+    {
+      icon: ClipboardList,
+      iconClass: "bg-violet-50 text-violet-600",
+      title: "Organise matches",
+      body: "Create and manage your own match invites.",
+    },
+  ];
+  const visibleRoster = avatarPlayers.slice(0, 8);
+  const maskedRosterRows = Array.from({
+    length: Math.max(Math.min(spotsTaken || 4, 4), 3),
+  });
+  const cardClass =
+    "w-full overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.06)]";
+  const detailRowClass =
+    "flex items-center gap-3.5 border-b border-slate-100 px-[18px] py-3 last:border-b-0";
+  const mutedLabelClass =
+    "text-[10px] font-bold uppercase tracking-[0.5px] text-slate-400";
+
   return (
-    <InvitationLayout>
+    <InvitationLayout
+      currentUser={currentUser}
+      onLogout={clearStoredSession}
+      onSignIn={() => navigate("/", { replace: false })}
+    >
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-50 rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg transition ${
+          className={`fixed right-5 top-20 z-50 rounded-[14px] px-4 py-3 text-sm font-semibold shadow-lg transition ${
             toast.type === "error"
               ? "bg-rose-100 text-rose-700"
               : toast.type === "success"
@@ -1735,202 +1813,267 @@ export default function InvitationPage() {
           {toast.message}
         </div>
       )}
-      <div className="w-full max-w-xl">
-        <div className="overflow-hidden rounded-[32px] border border-white/20 bg-white/10 shadow-[0_24px_60px_-15px_rgba(24,24,27,0.45)] backdrop-blur">
-          <div className="bg-gradient-to-br from-[#fef08a] via-[#fbbf24] to-[#f97316] px-8 pt-8 pb-24 text-center text-amber-900">
-            <div className="flex justify-center">
-              <div className="flex items-center gap-2 rounded-full bg-white/35 px-4 py-1.5 text-sm font-semibold uppercase tracking-wide text-amber-900 shadow-sm">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xl text-amber-500 shadow-inner">
-                  🎾
-                </div>
-                Matchplay
-              </div>
-            </div>
-            <div className="mt-6 flex flex-col items-center gap-4">
-              <PlayerAvatar
-                name={inviterName || "Matchplay"}
-                imageUrl={inviterAvatarUrl}
-                fallback={inviterInitials}
-                size="xl"
-                variant="amber"
-                className="shadow-lg shadow-amber-200/70"
-              />
-              <div className="space-y-1">
-                <p className="text-2xl font-bold">
-                  {inviterFirstName
-                    ? `${inviterFirstName} invited you!`
-                    : "You're invited!"}
-                </p>
-                <p className="text-sm text-amber-800/80">
-                  You're invited to play tennis on Matchplay.
-                </p>
-              </div>
-            </div>
+      <div className="flex w-full max-w-[520px] flex-col items-center">
+        <section className="mb-5 text-center">
+          <PlayerAvatar
+            name={inviterName || "The Tennis Plan"}
+            imageUrl={inviterAvatarUrl}
+            fallback={inviterInitials}
+            size="xl"
+            variant="indigo"
+            showBadge={false}
+            className="mx-auto mb-3.5 border-[3px] border-white shadow-[0_4px_16px_rgba(139,92,246,0.3)]"
+          />
+          <h1 className="mb-1 text-[26px] font-extrabold leading-tight text-slate-800">
+            {inviterFirstName ? `${inviterFirstName} invited you!` : "You're invited!"}
+          </h1>
+          <p className="text-sm font-medium text-slate-500">{heroSubtitle}</p>
+        </section>
+
+        <section className={`${cardClass} mb-3.5`}>
+          <div className="border-b border-slate-100 px-[18px] py-4">
+            <h2 className="mb-0.5 text-lg font-extrabold text-slate-800">
+              {matchHeading}
+            </h2>
+            <p className="text-[13px] font-medium text-slate-500">
+              Hosted by {hostName}
+            </p>
           </div>
-          <div className="relative -mt-16 px-6 pb-8">
-            <div className="rounded-[28px] border border-white/70 bg-white/95 p-6 shadow-xl shadow-slate-900/5 backdrop-blur">
-              <div className="space-y-1 text-center">
-                <h2 className="text-xl font-semibold text-slate-900">
-                  {matchHeading}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {inviterFirstName
-                    ? `Hosted by ${inviterFirstName}`
-                    : "Hosted on Matchplay"}
-                </p>
-              </div>
-              {isArchivedMatch && (
-                <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-                  <Archive className="h-4 w-4" />
-                  This match has been archived. Actions are disabled.
-                </div>
-              )}
-              <div className="mt-5 grid gap-3">
-                {infoItems.length ? (
-                  infoItems.map((item) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <div
-                        key={item.key}
-                        className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/90 px-4 py-3 shadow-sm"
-                      >
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.accent}`}
-                        >
-                          <ItemIcon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {item.label}
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {item.value}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-center text-sm text-slate-500">
-                    Match details will appear here once the host finalizes them.
+          {isArchivedMatch && (
+            <div className="mx-[18px] mt-3 flex items-center justify-center gap-2 rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
+              <Archive className="h-4 w-4" />
+              This match has been archived. Actions are disabled.
+            </div>
+          )}
+          {detailItems.length ? (
+            detailItems.map((item) => {
+              const ItemIcon = item.icon;
+              return (
+                <div key={item.key} className={detailRowClass}>
+                  <div
+                    className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] ${item.iconClass}`}
+                  >
+                    <ItemIcon className="h-4 w-4" />
                   </div>
-                )}
-              </div>
-              <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      <Users className="h-4 w-4 text-slate-400" />
-                      Current players{occupancyLabel ? ` (${occupancyLabel})` : ""}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {avatarPlayers.length
-                        ? "Who's already in the game"
-                        : "Be the first to lock in a spot."}
-                    </p>
-                  </div>
-                </div>
-                {avatarPlayers.length ? (
-                  <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {avatarPlayers.map((player, index) => {
-                      const name = participantDisplayName(player) || "Player";
-                      const initials = getAvatarInitials(name);
-                      const avatarUrl = getAvatarUrlFromPlayer(player);
-                      const variant =
-                        avatarVariants[index % avatarVariants.length];
-                      const key =
-                        player?.player_id ||
-                        player?.id ||
-                        player?.invitee_id ||
-                        `${name}-${index}`;
-                      const statusRaw =
-                        player?.status ??
-                        player?.participant_status ??
-                        player?.participantStatus ??
-                        player?.invite_status ??
-                        player?.inviteStatus ??
-                        player?.invitation_status ??
-                        player?.invitationStatus ??
-                        player?.status_label ??
-                        player?.statusLabel ??
-                        null;
-                      const statusLabel = statusRaw
-                        ? statusRaw.toString().replace(/_/g, " ")
-                        : "";
-                      return (
-                        <li
-                          key={key}
-                          title={name}
-                          className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2 shadow-sm"
-                        >
-                          <PlayerAvatar
-                            name={name}
-                            imageUrl={avatarUrl}
-                            fallback={initials}
-                            variant={variant}
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">
-                              {name}
-                            </p>
-                            {statusLabel && (
-                              <p className="text-xs capitalize text-slate-500">
-                                {statusLabel}
-                              </p>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-400">
-                      +
+                  <div className="min-w-0">
+                    <div className={mutedLabelClass}>{item.label}</div>
+                    <div className="truncate text-sm font-semibold text-slate-800">
+                      {item.value}
                     </div>
-                    <span>Share the link to fill the remaining spots.</span>
                   </div>
-                )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="px-[18px] py-4 text-center text-sm text-slate-500">
+              Match details will appear here once the host finalizes them.
+            </div>
+          )}
+          <div className="border-t border-slate-100 px-[18px] py-3">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <span className={mutedLabelClass}>
+                {isSignedIn ? "Who's joined" : "Players joined"}
+              </span>
+              <span className="text-xs font-semibold text-slate-500">
+                {spotsTakenLabel}
+              </span>
+            </div>
+            {!isSignedIn ? (
+              <div className="relative mb-3 min-h-[150px] overflow-hidden">
+                <div className="flex flex-col gap-2 opacity-60 blur-[5px]">
+                  {maskedRosterRows.map((_, index) => (
+                    <div key={index} className="flex items-center gap-2.5">
+                      <div className="h-[34px] w-[34px] rounded-full bg-slate-200" />
+                      <div className="h-3 w-36 rounded-full bg-slate-200" />
+                    </div>
+                  ))}
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 text-center">
+                  <LockKeyhole className="mb-2 h-5 w-5 text-amber-500" />
+                  <p className="mb-2 text-[13px] font-extrabold text-slate-800">
+                    Log in to see who's playing
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("signIn");
+                      setPhase("auth");
+                      setError("");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-[8px] bg-violet-500 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-600"
+                  >
+                    Log in <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
+            ) : visibleRoster.length ? (
+              <ul className="mb-3 flex flex-col gap-2">
+                {visibleRoster.map((player, index) => {
+                  const name = participantDisplayName(player) || "Player";
+                  const initials = getAvatarInitials(name);
+                  const avatarUrl = getAvatarUrlFromPlayer(player);
+                  const variant = avatarVariants[index % avatarVariants.length];
+                  const isHost =
+                    participantIsHost(player, match, preview) ||
+                    valuesMatchIgnoreCase(name, inviterName);
+                  const key =
+                    player?.player_id ||
+                    player?.id ||
+                    player?.invitee_id ||
+                    `${name}-${index}`;
+                  return (
+                    <li key={key} className="flex items-center gap-2.5">
+                      <PlayerAvatar
+                        name={name}
+                        imageUrl={avatarUrl}
+                        fallback={initials}
+                        size="sm"
+                        variant={variant}
+                        showBadge={false}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-slate-800">
+                          {name}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                          isHost
+                            ? "border-green-200 bg-green-50 text-green-700"
+                            : "border-blue-200 bg-blue-50 text-blue-600"
+                        }`}
+                      >
+                        {isHost ? "Hosting" : "Joined"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="mb-3 rounded-[12px] bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                Be the first to lock in a spot.
+              </div>
+            )}
+            <div className="mb-1.5 h-[5px] overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-violet-500"
+                style={{ width: `${progressPercent || 0}%` }}
+              />
             </div>
-            <div className="mt-6 space-y-4">
-              {isInviteeClaim ? (
-                claimSection
-              ) : phase === "auth" ? (
-                authSection
-              ) : (
-                <>
-                  <PrimaryButton
-                    onClick={handleJoinClick}
-                    disabled={
-                      joining || declining || isArchivedMatch || refreshingSession
-                    }
-                  >
-                    {joining ? (
-                      "Securing your spot..."
-                    ) : refreshingSession ? (
-                      "Reconnecting your session..."
-                    ) : (
-                      <>
-                        {hasStoredSession
-                          ? "Join Match"
-                          : "Join Match & Play"}
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </PrimaryButton>
-                  <SecondaryButton
-                    onClick={handleDeclineClick}
-                    disabled={declining || joining || isArchivedMatch}
-                    className="border-transparent bg-white/80 text-slate-600 hover:border-slate-200 hover:bg-white"
-                  >
-                    {declining ? "Declining..." : "Decline invite"}
-                  </SecondaryButton>
-                  <p className="text-xs text-slate-500">{joinHelperText}</p>
-                </>
-              )}
-            </div>
+            <p className="text-[11px] font-medium text-slate-400">
+              {isSignedIn
+                ? remainingLabel
+                : `${spotsTaken} ${spotsTaken === 1 ? "person has" : "people have"} joined · ${remainingLabel}`}
+            </p>
           </div>
+        </section>
+
+        <section className={`${cardClass} mb-3.5 px-[18px] py-3.5`}>
+          <h2 className="mb-0.5 text-[13px] font-bold text-slate-800">
+            More than just this match
+          </h2>
+          <p className="mb-3 text-xs font-medium text-slate-400">
+            The Tennis Plan is your local tennis community
+          </p>
+          {platformItems.map((item) => {
+            const ItemIcon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="flex items-center gap-3.5 border-b border-slate-100 py-3 last:border-b-0"
+              >
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.iconClass}`}
+                >
+                  <ItemIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-slate-800">
+                    {item.title}
+                  </p>
+                  <p className="text-xs font-medium text-slate-500">{item.body}</p>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        <div className="w-full">
+          {isInviteeClaim ? (
+            claimSection
+          ) : phase === "auth" ? (
+            authSection
+          ) : isSignedIn ? (
+            <div className="space-y-2.5">
+              <PrimaryButton
+                onClick={handleJoinClick}
+                disabled={joining || declining || isArchivedMatch || refreshingSession}
+              >
+                {joining ? (
+                  "Securing your spot..."
+                ) : refreshingSession ? (
+                  "Reconnecting your session..."
+                ) : (
+                  <>
+                    Join match <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </PrimaryButton>
+              <SecondaryButton
+                onClick={handleDeclineClick}
+                disabled={declining || joining || isArchivedMatch}
+                className="border-rose-200 text-rose-500 hover:border-rose-300"
+              >
+                {declining ? "Declining..." : "Decline invite"}
+              </SecondaryButton>
+              <p className="px-2 pt-1 text-center text-xs font-medium leading-relaxed text-slate-400">
+                You were invited by {hostName}. You can leave this match at any time from your schedule.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-center text-xs font-bold text-slate-500">
+                Log in or create a free account to join
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signIn");
+                    setPhase("auth");
+                    setError("");
+                  }}
+                  className="inline-flex items-center justify-center rounded-[14px] bg-slate-800 px-4 py-[15px] text-[15px] font-bold text-white shadow-sm transition hover:bg-slate-900"
+                >
+                  Log in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signUp");
+                    setPhase("auth");
+                    setError("");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-violet-500 px-4 py-[15px] text-[15px] font-bold text-white shadow-sm transition hover:bg-violet-600"
+                >
+                  Sign up free <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+              <SecondaryButton
+                onClick={() => {
+                  if (previewMatchId) {
+                    navigate(`/matches/${previewMatchId}`);
+                  }
+                }}
+                disabled={!previewMatchId}
+              >
+                View details only
+              </SecondaryButton>
+              <p className="px-2 pt-1 text-center text-xs font-medium leading-relaxed text-slate-400">
+                You were invited by {hostName}.
+              </p>
+            </div>
+          )}
         </div>
       </div>
       {successModal && (
@@ -2138,6 +2281,14 @@ function formatInviteTime(date) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function shortLocationName(location) {
+  if (!location || typeof location !== "string") return "the court";
+  const [firstSegment] = location.split(",");
+  const trimmed = firstSegment.trim();
+  if (!trimmed) return "the court";
+  return trimmed.replace(/\s+(recreation center|tennis courts?|courts?)$/i, "");
 }
 
 function formatSkillRange(min, max) {
@@ -2515,6 +2666,54 @@ function participantLooksPendingForOpenMatch(participant, match) {
   }
 
   return false;
+}
+
+function participantIsHost(participant, match, preview) {
+  if (!participant || typeof participant !== "object") {
+    return false;
+  }
+
+  if (
+    participant.is_host === true ||
+    participant.hosting === true ||
+    participant.role === "host" ||
+    participant.role === "hosting"
+  ) {
+    return true;
+  }
+
+  const hostId =
+    match?.host_id ??
+    match?.hostId ??
+    match?.host?.id ??
+    match?.host?.player_id ??
+    match?.host?.playerId ??
+    preview?.inviter?.id ??
+    preview?.inviter?.player_id ??
+    preview?.inviter?.playerId ??
+    null;
+
+  if (!hostId) {
+    return false;
+  }
+
+  const participantIds = [
+    participant.player_id,
+    participant.playerId,
+    participant.match_participant_id,
+    participant.matchParticipantId,
+    participant.participant_id,
+    participant.participantId,
+    participant.id,
+    participant.profile?.id,
+    participant.profile?.player_id,
+    participant.profile?.playerId,
+    participant.player?.id,
+    participant.player?.player_id,
+    participant.player?.playerId,
+  ];
+
+  return participantIds.some((value) => valuesMatchIgnoreCase(value, hostId));
 }
 
 function hasTruthyValue(value) {
