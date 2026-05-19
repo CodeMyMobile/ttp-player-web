@@ -57,11 +57,32 @@ const readStoredObject = (key) => {
   }
 };
 
+const hasOwnValue = (record, key) =>
+  record && Object.prototype.hasOwnProperty.call(record, key);
+
+const pickFirstProfilePhone = (profile, loginResponse, legacyUser) => {
+  if (
+    hasOwnValue(profile, "phone") ||
+    hasOwnValue(profile, "mobile") ||
+    hasOwnValue(profile, "phone_number")
+  ) {
+    return profile?.phone ?? profile?.mobile ?? profile?.phone_number ?? "";
+  }
+
+  return (
+    loginResponse?.phone ||
+    loginResponse?.mobile ||
+    loginResponse?.phone_number ||
+    legacyUser?.phone ||
+    ""
+  );
+};
+
 const buildPhoneCaptureSession = (authUser) => {
   const personalDetails = readStoredObject("playerPersonalDetails");
   const loginResponse = readStoredObject("authLoginResponse");
   const legacyUser = readStoredObject("user");
-  const profile = personalDetails || authUser || loginResponse?.profile || loginResponse?.user || legacyUser || {};
+  const profile = authUser || loginResponse?.profile || loginResponse?.user || personalDetails || legacyUser || {};
 
   return {
     ...loginResponse,
@@ -76,14 +97,7 @@ const buildPhoneCaptureSession = (authUser) => {
       legacyUser?.id ??
       null,
     email: profile?.email || loginResponse?.email || legacyUser?.email || "",
-    phone:
-      profile?.phone ||
-      profile?.mobile ||
-      profile?.phone_number ||
-      loginResponse?.phone ||
-      loginResponse?.mobile ||
-      legacyUser?.phone ||
-      "",
+    phone: pickFirstProfilePhone(profile, loginResponse, legacyUser),
     full_name:
       profile?.full_name ||
       profile?.fullName ||
