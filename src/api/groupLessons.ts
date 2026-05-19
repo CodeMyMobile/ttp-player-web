@@ -29,6 +29,9 @@ export interface GroupLesson {
   focus: string;
   courtSurface?: string;
   pricePerPlayer: string;
+  isExternal?: boolean;
+  externalUrl?: string;
+  sourceLesson?: unknown;
   participants: Array<{
     id: string;
     name: string;

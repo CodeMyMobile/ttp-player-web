@@ -244,6 +244,7 @@ export interface PlayerExternalLessonsParams extends PaginationParams {
   search?: string;
   position?: PositionPayload;
   filters?: FiltersPayload;
+  signal?: AbortSignal;
 }
 
 export const getPlayerExternalLessons = async ({
@@ -253,10 +254,12 @@ export const getPlayerExternalLessons = async ({
   search = "",
   position,
   filters = {},
+  signal,
 }: PlayerExternalLessonsParams) =>
   request<PaginatedResponse<PlayerExternalLesson>>("/player/upcoming_external_lessons", {
     method: "POST",
     token,
+    signal,
     query: {
       perPage,
       page,
@@ -271,11 +274,13 @@ export const getPlayerExternalLessons = async ({
 export interface PlayerExternalLessonByIdParams {
   token: string;
   lessonId: number | string;
+  signal?: AbortSignal;
 }
 
-export const getPlayerExternalLessonById = async ({ token, lessonId }: PlayerExternalLessonByIdParams) =>
+export const getPlayerExternalLessonById = async ({ token, lessonId, signal }: PlayerExternalLessonByIdParams) =>
   request<PlayerExternalLesson>(`/player/upcoming_external_lessons/${lessonId}`, {
     token,
+    signal,
   });
 
 export interface PlayerUpcomingLessonsHubParams extends PaginationParams {

@@ -516,6 +516,22 @@ const AppRoutes = () => (
       )}
     />
     <Route
+      path="/lessons/external/:externalLessonId"
+      element={(
+        <ProtectedRoute>
+          <GroupLessonsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/player/externallesson/:externallessonid"
+      element={(
+        <ProtectedRoute>
+          <GroupLessonsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
       path="/player/lesson/:id"
       element={(
         <ProtectedRoute>
