@@ -157,6 +157,12 @@ const getApiDayKey = (value) => {
 const shouldPreserveActivityZone = (activity) =>
   activity?.type === "group" || activity?.type === "external";
 
+const matchesActivityTypeFilter = (item, selectedType) => {
+  if (selectedType === "all") return true;
+  if (selectedType === "group") return item.type === "group" || item.type === "external";
+  return item.type === selectedType;
+};
+
 const formatActivityTimeLabel = (activity, includeDate = false) => {
   if (shouldPreserveActivityZone(activity)) {
     const dateLabel = moment(activity.dayKey, "YYYY-MM-DD", true).isValid()
@@ -1141,7 +1147,7 @@ const DashboardPage = () => {
     () =>
       activityState.items
         .filter((item) => (selectedDay === "all" ? true : item.dayKey === selectedDay))
-        .filter((item) => (selectedType === "all" ? true : item.type === selectedType)),
+        .filter((item) => matchesActivityTypeFilter(item, selectedType)),
     [activityState.items, selectedDay, selectedType],
   );
 
@@ -1150,8 +1156,7 @@ const DashboardPage = () => {
     return {
       all: sameDay.length,
       private: sameDay.filter((item) => item.type === "private").length,
-      group: sameDay.filter((item) => item.type === "group").length,
-      external: sameDay.filter((item) => item.type === "external").length,
+      group: sameDay.filter((item) => item.type === "group" || item.type === "external").length,
       match: sameDay.filter((item) => item.type === "match").length,
     };
   }, [activityState.items, selectedDay]);
@@ -1166,7 +1171,7 @@ const DashboardPage = () => {
   const welcomeHeadline = `Hi ${firstName} 👋`;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
-    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, external lessons, and matches`;
+    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, and matches`;
 
   const onOpenActivity = (activity) => {
     if (!activity.destination) return;
@@ -1650,10 +1655,6 @@ const DashboardPage = () => {
               <button type="button" className={selectedType === "group" ? "active" : ""} onClick={() => setSelectedType("group")}>
                 <span>Groups</span>
                 <small>{counts.group}</small>
-              </button>
-              <button type="button" className={selectedType === "external" ? "active" : ""} onClick={() => setSelectedType("external")}>
-                <span>External</span>
-                <small>{counts.external}</small>
               </button>
               <button type="button" className={selectedType === "match" ? "active" : ""} onClick={() => setSelectedType("match")}>
                 <span>Matches</span>
