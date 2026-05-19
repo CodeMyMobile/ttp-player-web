@@ -1,3 +1,4 @@
+import { buildApiUrl } from "../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
 
@@ -6,6 +7,50 @@ const clearStoredSession = () => {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("authLoginResponse");
   localStorage.removeItem("playerPersonalDetails");
+};
+
+const persistAuthSession = (data) => {
+  if (data?.access_token) {
+    localStorage.setItem("authToken", data.access_token);
+  }
+  if (data?.token && !data?.access_token) {
+    localStorage.setItem("authToken", data.token);
+  }
+  if (data?.refresh_token) {
+    localStorage.setItem("refreshToken", data.refresh_token);
+  }
+  if (data) {
+    localStorage.setItem("authLoginResponse", JSON.stringify(data));
+  }
+};
+
+export const getApplePlayerLoginUrl = () => buildApiUrl("/auth/apple");
+
+export const consumeAppleAuthRedirect = () => {
+  if (typeof window === "undefined") return null;
+
+  const hash = window.location.hash || "";
+  if (!hash || hash.startsWith("#/")) return null;
+
+  const params = new URLSearchParams(hash.slice(1));
+  const accessToken = params.get("access_token");
+  const token = params.get("token");
+  const refreshToken = params.get("refresh_token");
+
+  if (!accessToken && !token && !refreshToken) {
+    return null;
+  }
+
+  const response = Object.fromEntries(params.entries());
+  response.oauth_provider = response.oauth_provider || response.provider || "apple";
+  persistAuthSession(response);
+  localStorage.setItem("oauthPhoneCapturePending", "true");
+  localStorage.setItem("oauthPhoneCaptureProvider", "apple");
+
+  const cleanUrl = `${window.location.pathname}${window.location.search}#/`;
+  window.history.replaceState({}, document.title, cleanUrl);
+
+  return response;
 };
 
 export const login = async (email, password) => {
@@ -25,18 +70,7 @@ export const login = async (email, password) => {
     };
     throw error;
   }
-  if (data) {
-    localStorage.setItem("authLoginResponse", JSON.stringify(data));
-  }
-  if (data?.access_token) {
-    localStorage.setItem("authToken", data.access_token);
-  }
-  if (data?.token && !data?.access_token) {
-    localStorage.setItem("authToken", data.token);
-  }
-  if (data?.refresh_token) {
-    localStorage.setItem("refreshToken", data.refresh_token);
-  }
+  persistAuthSession(data);
   return data;
 };
 
@@ -57,15 +91,7 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
       body: JSON.stringify(payload),
     })
   );
-  if (data?.access_token) {
-    localStorage.setItem("authToken", data.access_token);
-  }
-  if (data?.token && !data?.access_token) {
-    localStorage.setItem("authToken", data.token);
-  }
-  if (data?.refresh_token) {
-    localStorage.setItem("refreshToken", data.refresh_token);
-  }
+  persistAuthSession(data);
   return data;
 };
 
@@ -77,18 +103,7 @@ export const googlePlayerLogin = async (idToken) => {
     }),
   );
 
-  if (data?.access_token) {
-    localStorage.setItem("authToken", data.access_token);
-  }
-  if (data?.token && !data?.access_token) {
-    localStorage.setItem("authToken", data.token);
-  }
-  if (data?.refresh_token) {
-    localStorage.setItem("refreshToken", data.refresh_token);
-  }
-  if (data) {
-    localStorage.setItem("authLoginResponse", JSON.stringify(data));
-  }
+  persistAuthSession(data);
 
   return data;
 };

@@ -2688,6 +2688,162 @@
   font-size: 13px;
 }
 
+.oauth-complete {
+  min-height: 100vh;
+  background: #eef2f7;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 18px;
+}
+
+.oauth-complete__phone {
+  width: min(720px, 100%);
+  min-height: 0;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.oauth-complete__screen {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 40px;
+}
+
+.oauth-complete__back {
+  align-self: flex-start;
+  margin: 0 0 22px;
+}
+
+.oauth-complete__brand {
+  margin-bottom: 24px;
+}
+
+.oauth-complete__brand .auth-mobile__eyebrow-tile span {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #bef264;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 0;
+  position: relative;
+}
+
+.oauth-complete__brand .auth-mobile__eyebrow-tile span::before,
+.oauth-complete__brand .auth-mobile__eyebrow-tile span::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-top: 0;
+  border-bottom: 0;
+  border-radius: 50%;
+}
+
+.oauth-complete__brand .auth-mobile__eyebrow-tile span::before {
+  transform: translateX(-5px);
+}
+
+.oauth-complete__brand .auth-mobile__eyebrow-tile span::after {
+  transform: translateX(5px);
+}
+
+.oauth-complete__provider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  margin-bottom: 24px;
+}
+
+.oauth-complete__provider-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.oauth-complete__provider span,
+.oauth-complete__provider strong {
+  display: block;
+}
+
+.oauth-complete__provider span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.oauth-complete__provider strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.oauth-complete__header h1 {
+  font-size: 32px;
+}
+
+.oauth-complete__form {
+  flex: 0;
+}
+
+.oauth-complete__footer {
+  margin-top: 12px;
+  padding-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .oauth-complete {
+    padding: 0;
+    background: #ffffff;
+    align-items: stretch;
+  }
+
+  .oauth-complete__phone {
+    width: 100%;
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .oauth-complete__screen {
+    min-height: 100vh;
+    padding: 28px 28px 26px;
+  }
+
+  .oauth-complete__form {
+    flex: 1;
+  }
+
+  .oauth-complete__footer {
+    margin-top: auto;
+  }
+}
+
 .auth-page {
   min-height: 100vh;
   display: flex;

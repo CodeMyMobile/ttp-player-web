@@ -24,6 +24,7 @@ import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage
 import FindPlayersPage from "./pages/FindPlayersPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuthPhoneCapture";
 import LessonInvitePage from "./pages/LessonInvitePage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
@@ -47,9 +48,76 @@ import "./App.css";
 
 const playDatesQueryClient = createPlayDatesQueryClient();
 
+const readStoredObject = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const hasOwnValue = (record, key) =>
+  record && Object.prototype.hasOwnProperty.call(record, key);
+
+const pickFirstProfilePhone = (profile, loginResponse, legacyUser) => {
+  if (
+    hasOwnValue(profile, "phone") ||
+    hasOwnValue(profile, "mobile") ||
+    hasOwnValue(profile, "phone_number")
+  ) {
+    return profile?.phone ?? profile?.mobile ?? profile?.phone_number ?? "";
+  }
+
+  return (
+    loginResponse?.phone ||
+    loginResponse?.mobile ||
+    loginResponse?.phone_number ||
+    legacyUser?.phone ||
+    ""
+  );
+};
+
+const buildPhoneCaptureSession = (authUser) => {
+  const personalDetails = readStoredObject("playerPersonalDetails");
+  const loginResponse = readStoredObject("authLoginResponse");
+  const legacyUser = readStoredObject("user");
+  const profile = authUser || loginResponse?.profile || loginResponse?.user || personalDetails || legacyUser || {};
+
+  return {
+    ...loginResponse,
+    ...profile,
+    profile,
+    user_id:
+      profile?.id ??
+      profile?.player_id ??
+      loginResponse?.user_id ??
+      loginResponse?.player_id ??
+      loginResponse?.id ??
+      legacyUser?.id ??
+      null,
+    email: profile?.email || loginResponse?.email || legacyUser?.email || "",
+    phone: pickFirstProfilePhone(profile, loginResponse, legacyUser),
+    full_name:
+      profile?.full_name ||
+      profile?.fullName ||
+      profile?.name ||
+      loginResponse?.full_name ||
+      legacyUser?.name ||
+      "",
+  };
+};
+
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, establishSession, user } = useAuth();
   const location = useLocation();
+  const [phoneCaptureSession, setPhoneCaptureSession] = useState(() => buildPhoneCaptureSession(user));
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      setPhoneCaptureSession(buildPhoneCaptureSession(user));
+    }
+  }, [isAuthenticated, loading, user]);
 
   if (loading) {
     return <div className="loading-screen">Loading your dashboard…</div>;
@@ -57,6 +125,24 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (shouldCaptureProfilePhone(phoneCaptureSession)) {
+    return (
+      <OAuthPhoneCapture
+        session={phoneCaptureSession}
+        provider={
+          localStorage.getItem("oauthPhoneCaptureProvider") ||
+          phoneCaptureSession?.oauth_provider ||
+          phoneCaptureSession?.provider ||
+          "profile"
+        }
+        onComplete={(nextSession) => {
+          establishSession?.(nextSession);
+          setPhoneCaptureSession(nextSession);
+        }}
+      />
+    );
   }
 
   return children;
@@ -83,15 +169,6 @@ const AuthRedirectRoute = ({ children }) => {
   }
 
   return children;
-};
-
-const readStoredObject = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
 };
 
 const buildMatchesUser = (authUser) => {
