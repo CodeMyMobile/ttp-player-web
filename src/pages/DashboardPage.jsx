@@ -1044,9 +1044,7 @@ const DashboardPage = () => {
             ? buildExternalLessonActivities(extractLessons(externalLessonsResult.value))
             : [];
         const nextActivities = [...coachActivities, ...groupActivities, ...externalActivities, ...matchActivities].sort(
-          (a, b) =>
-            moment(`${a.dayKey} ${a.time}`, "YYYY-MM-DD h:mm A").valueOf() -
-            moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
+          (a, b) => moment(a.startTime).valueOf() - moment(b.startTime).valueOf(),
         );
         const nextWindowStart =
           getApiDayKey(nearbyResponse?.search_area?.window_start) ??
@@ -1688,7 +1686,7 @@ const DashboardPage = () => {
                             {moment(activity.startTime).format("ddd, MMM D · h:mm A")}
                           </span>
                         ) : activity.type !== "private" ? (
-                          <span className="ph-activity-time">{activity.time}</span>
+                          <span className="ph-activity-time">{moment(activity.startTime).format("h:mm A")}</span>
                         ) : null}
                       </span>
                       <strong>{activity.title}</strong>
