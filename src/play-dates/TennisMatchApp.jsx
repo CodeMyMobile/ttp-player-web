@@ -7401,6 +7401,7 @@ const TennisMatchApp = ({
                 goToBrowse();
                 fetchMatches();
               }}
+              onCreateGroup={() => openGroupDetail("new")}
               onMatchCreated={() => {
                 fetchMatches();
                 fetchPendingInvites();

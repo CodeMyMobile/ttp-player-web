@@ -330,7 +330,7 @@ const ProgressBar = ({ currentStep }) => {
   );
 };
 
-const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser }) => {
+const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGroup, currentUser }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [matchData, setMatchData] = useState(initialMatchData);
   const [searchQuery, setSearchQuery] = useState("");
@@ -443,6 +443,17 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
   }, []);
+
+  const handleCreateGroup = useCallback(() => {
+    if (typeof onCreateGroup === "function") {
+      onCreateGroup();
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.location.hash = "#/groups/new";
+    }
+  }, [onCreateGroup]);
 
   const resetFlow = useCallback(() => {
     setMatchData(initialMatchData());
@@ -1777,9 +1788,19 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div>
-                  <div className="mb-1.5 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-500">
-                    <Users size={11} className="text-violet-600" />
-                    <span>From your groups</span>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-500">
+                      <Users size={11} className="text-violet-600" />
+                      <span>From your groups</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateGroup}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold text-violet-600 hover:bg-violet-100"
+                    >
+                      <Plus size={11} />
+                      <span>Create group</span>
+                    </button>
                   </div>
                   <div className="mb-2.5 overflow-hidden rounded-[10px] border border-slate-200 bg-white">
                     {groupsLoading ? (
@@ -1787,8 +1808,18 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                         Loading groups...
                       </div>
                     ) : visibleNotifyGroups.length === 0 ? (
-                      <div className="px-3 py-4 text-xs font-semibold text-slate-500">
-                        No groups yet. Create groups from My groups in your profile.
+                      <div className="px-3 py-4">
+                        <p className="mb-2 text-xs font-semibold text-slate-500">
+                          No groups yet. Create one now to reuse this player list.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleCreateGroup}
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-black text-white hover:bg-violet-700"
+                        >
+                          <Plus size={13} />
+                          Create group
+                        </button>
                       </div>
                     ) : (
                       visibleNotifyGroups.map((group, index) => {
@@ -2148,16 +2179,35 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, currentUser 
                       Add regular crews from your player profile.
                     </p>
                   </div>
-                  {groupsLoading && (
+                  {groupsLoading ? (
                     <span className="text-xs font-semibold text-violet-500">
                       Loading...
                     </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCreateGroup}
+                      className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100"
+                    >
+                      <Plus size={13} />
+                      Create group
+                    </button>
                   )}
                 </div>
                 {matchGroups.length === 0 && !groupsLoading ? (
-                  <p className="rounded-lg border border-dashed border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-700">
-                    No groups yet. Create groups from My groups in your profile.
-                  </p>
+                  <div className="rounded-lg border border-dashed border-violet-200 bg-white px-3 py-3">
+                    <p className="mb-2 text-xs font-semibold text-violet-700">
+                      No groups yet. Create a regular crew and add everyone faster.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCreateGroup}
+                      className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-black text-white hover:bg-violet-700"
+                    >
+                      <Plus size={13} />
+                      Create group
+                    </button>
+                  </div>
                 ) : (
                   <div className="grid gap-2 md:grid-cols-2">
                     {matchGroups.slice(0, 4).map((group) => (

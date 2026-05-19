@@ -35,6 +35,7 @@ const CreateMatchPage = () => {
         onCancel={handleCancel}
         onReturnHome={handleReturnHome}
         onMatchCreated={() => {}}
+        onCreateGroup={() => navigate("/groups/new")}
       />
     </div>
   );
