@@ -943,8 +943,8 @@
   position: relative;
   width: min(100%, 430px);
   border-radius: 18px;
-  border: 1px solid var(--fc-color-border);
-  background: var(--fc-color-surface);
+  border: 1px solid var(--fc-color-border, #e2e8f0);
+  background: var(--fc-color-surface, #ffffff);
   padding: 24px;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
 }
@@ -963,14 +963,14 @@
 
 .external-lesson-dialog__panel h2 {
   margin: 0;
-  color: var(--fc-color-text-primary);
+  color: var(--fc-color-text-primary, #0f172a);
   font-size: 22px;
   line-height: 1.2;
 }
 
 .external-lesson-dialog__panel p {
   margin: 10px 0 0;
-  color: var(--fc-color-text-secondary);
+  color: var(--fc-color-text-secondary, #64748b);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -980,7 +980,7 @@
   align-items: flex-start;
   gap: 8px;
   margin-top: 14px;
-  color: var(--fc-color-text-secondary);
+  color: var(--fc-color-text-secondary, #64748b);
   font-size: 13px;
 }
 
@@ -990,7 +990,7 @@
 }
 
 .external-lesson-dialog__error {
-  color: var(--fc-color-error-text) !important;
+  color: var(--fc-color-error-text, #b42318) !important;
 }
 
 .external-lesson-dialog__actions {
@@ -1009,14 +1009,14 @@
 }
 
 .external-lesson-dialog__actions button:first-child {
-  border: 1px solid var(--fc-color-border);
-  background: var(--fc-color-surface);
-  color: var(--fc-color-text-secondary);
+  border: 1px solid var(--fc-color-border, #e2e8f0);
+  background: var(--fc-color-surface, #ffffff);
+  color: var(--fc-color-text-secondary, #64748b);
 }
 
 .external-lesson-dialog__actions button:last-child {
   border: 0;
-  background: var(--fc-color-accent);
+  background: var(--fc-color-accent, #8b5cf6);
   color: #ffffff;
 }
 
