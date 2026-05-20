@@ -305,6 +305,22 @@
   display: none;
 }
 
+.dashboard-page--playdates-create .match-creator-flow {
+  top: 128px;
+  min-height: calc(100dvh - 128px);
+}
+
+.dashboard-page--playdates-create .match-creator-flow__panel {
+  min-height: 100%;
+}
+
+@media (max-width: 768px) {
+  .dashboard-page--playdates-create .match-creator-flow {
+    top: 104px;
+    min-height: calc(100dvh - 104px);
+  }
+}
+
 .play-hero {
   background: #ffffff;
   border-radius: 24px;

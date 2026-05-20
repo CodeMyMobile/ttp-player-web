@@ -29,7 +29,7 @@ const CreateMatchPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50/30 py-8 overflow-x-hidden">
+    <div className="playdates-create-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50/30 py-8 overflow-x-hidden">
       <MatchCreatorFlow
         currentUser={currentUser}
         onCancel={handleCancel}
