@@ -206,7 +206,7 @@ const PlayDatesAppRoute = () => {
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
   const shouldOpenCreateOnReady = Boolean(location.state?.openNewMatch);
   const [playDatesScreen, setPlayDatesScreen] = useState("browse");
-  const shouldHidePlayDatesChrome = playDatesScreen === "create";
+  const isCreatingMatch = playDatesScreen === "create";
 
   useEffect(() => {
     try {
@@ -222,14 +222,12 @@ const PlayDatesAppRoute = () => {
 
   return (
     <ProtectedRoute>
-      <div className="dashboard-page">
-        {!shouldHidePlayDatesChrome ? (
-          <AppNav
-            onNewMatch={openNewMatch}
-            hideMobileNewMatch
-            hideMobileNotifications
-          />
-        ) : null}
+      <div className={`dashboard-page${isCreatingMatch ? " dashboard-page--playdates-create" : ""}`}>
+        <AppNav
+          onNewMatch={openNewMatch}
+          hideMobileNewMatch
+          hideMobileNotifications
+        />
         <main className="main-layout__content">
           <PlayDatesQueryClientProvider client={playDatesQueryClient}>
             <PlayDatesMatchesApp
@@ -242,15 +240,15 @@ const PlayDatesAppRoute = () => {
             />
           </PlayDatesQueryClientProvider>
         </main>
-        {!shouldHidePlayDatesChrome ? <MobileHomeBottomNav /> : null}
+        {!isCreatingMatch ? <MobileHomeBottomNav /> : null}
       </div>
     </ProtectedRoute>
   );
 };
 
-const PlayDatesProtectedPageRoute = ({ children }) => (
+const PlayDatesProtectedPageRoute = ({ children, pageClassName = "" }) => (
   <ProtectedRoute>
-    <div className="dashboard-page">
+    <div className={`dashboard-page${pageClassName ? ` ${pageClassName}` : ""}`}>
       <AppNav />
       <main className="main-layout__content">
         <PlayDatesQueryClientProvider client={playDatesQueryClient}>
@@ -356,7 +354,7 @@ const AppRoutes = () => (
     <Route
       path="/create"
       element={(
-        <PlayDatesProtectedPageRoute>
+        <PlayDatesProtectedPageRoute pageClassName="dashboard-page--playdates-create">
           <PlayDatesCreateMatchPage />
         </PlayDatesProtectedPageRoute>
       )}
