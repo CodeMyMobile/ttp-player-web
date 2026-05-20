@@ -630,6 +630,11 @@ const GroupLessonDetailsPage = () => {
         lessonId: lesson.id,
         purchaseId: selectedCreditId,
       });
+      await updatePlayerLesson({
+        token: authToken,
+        lessonId: lesson.id,
+        status: "CONFIRMED",
+      });
       await refreshLesson();
     } catch (error) {
       setPackagePurchaseError(error instanceof Error ? error.message : "Unable to apply credits.");
@@ -661,6 +666,11 @@ const GroupLessonDetailsPage = () => {
         lessonType: "group",
         lessonId: lesson.id,
         purchaseId: purchaseResponse.purchase?.id,
+      });
+      await updatePlayerLesson({
+        token: authToken,
+        lessonId: lesson.id,
+        status: "CONFIRMED",
       });
       if (purchaseResponse.purchase?.id != null) {
         setSelectedCreditId(String(purchaseResponse.purchase.id));

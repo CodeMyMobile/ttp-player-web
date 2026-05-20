@@ -84,6 +84,7 @@ export interface ConsumePackageCreditsParams {
   lessonType: string;
   lessonId: number | string;
   purchaseId?: number | string;
+  participantId?: number | string;
 }
 
 export interface ConsumePackageCreditsResponse {
@@ -147,6 +148,7 @@ export const consumePackageCredits = ({
   lessonType,
   lessonId,
   purchaseId,
+  participantId,
 }: ConsumePackageCreditsParams) =>
   request<ConsumePackageCreditsResponse>("/player/packages/credits/consume", {
     method: "POST",
@@ -157,5 +159,6 @@ export const consumePackageCredits = ({
       lessonType,
       lessonId,
       purchaseId,
+      ...(participantId != null ? { participantId } : {}),
     },
   });

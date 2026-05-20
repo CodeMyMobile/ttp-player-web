@@ -53,6 +53,7 @@ import {
   type PlayerStripePaymentMethodListResponse,
 } from "../api/playerStripe";
 import { bookGroupLessonWithCard } from "../api/playerLessons";
+import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
@@ -73,6 +74,12 @@ type LocationState = {
   dateId?: string;
   slotId?: string;
   groupLessonId?: string;
+  lessonOrigin?: string;
+  sourceLessonId?: number | string;
+};
+
+type PendingCreditConfirm = {
+  lessonId: number | string;
 };
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -348,6 +355,22 @@ const extractNumericLessonId = (value: unknown) => {
   return undefined;
 };
 
+const pickFirstValue = (record: Record<string, unknown> | undefined, keys: string[]) => {
+  if (!record) return undefined;
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+  return undefined;
+};
+
+const normalizeIdentityValue = (value: unknown) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  return String(value).trim();
+};
+
 const buildInitials = (name: string) => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "";
@@ -442,6 +465,7 @@ const BookingConfirmationPage = () => {
   const [hasAutoSelectedCredits, setHasAutoSelectedCredits] = useState(false);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
+  const [pendingCreditConfirm, setPendingCreditConfirm] = useState<PendingCreditConfirm | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
@@ -715,7 +739,34 @@ const BookingConfirmationPage = () => {
   const isProfileGroupLesson = selectedSlot?.lessonType === "group";
   const isProfileSemiPrivate = selectedSlot?.lessonType === "semi";
   const isGroupLesson = Boolean(groupLesson) || isProfileGroupLesson;
-  const isInstantlyConfirmed = isGroupLesson || isProfileSemiPrivate;
+  const selectedSlotRecord = selectedSlot as (typeof selectedSlot & Record<string, unknown>) | undefined;
+  const sourceLessonId =
+    groupLesson?.id ??
+    state?.sourceLessonId ??
+    pickFirstValue(selectedSlotRecord, [
+      "sourceLessonId",
+      "source_lesson_id",
+      "lessonId",
+      "lesson_id",
+      "backendLessonId",
+      "backend_lesson_id",
+    ]);
+  const numericSourceLessonId = extractNumericLessonId(sourceLessonId);
+  const isOpenGroupLesson = Boolean(groupLessonId || groupLesson || isProfileGroupLesson);
+  const isCoachCreatedSemiPrivateLesson = !isOpenGroupLesson && isProfileSemiPrivate;
+  const isCoachCreatedPrivateLesson =
+    !isOpenGroupLesson &&
+    !isProfileSemiPrivate &&
+    selectedSlot?.lessonType === "private" &&
+    Boolean(numericSourceLessonId);
+  const isPlayerRequestedPrivateLesson =
+    !isOpenGroupLesson &&
+    !isCoachCreatedSemiPrivateLesson &&
+    !isCoachCreatedPrivateLesson &&
+    selectedSlot?.lessonType === "private";
+  const requiresPlayerSideCreditConfirm =
+    isOpenGroupLesson || isCoachCreatedPrivateLesson || isCoachCreatedSemiPrivateLesson;
+  const isInstantlyConfirmed = requiresPlayerSideCreditConfirm;
 
   const timeRange = groupLesson
     ? (() => {
@@ -806,6 +857,53 @@ const BookingConfirmationPage = () => {
 
     return Math.max(selectedSlot?.spotsRemaining ?? 0, 0);
   }, [capacity, groupLesson, isProfileGroupLesson, participantCount, selectedSlot]);
+
+  const currentUserIdentity = useMemo(() => {
+    const userRecord = user as Record<string, unknown> | undefined;
+    const sessionRecord =
+      userRecord?.session && typeof userRecord.session === "object"
+        ? (userRecord.session as Record<string, unknown>)
+        : undefined;
+    const profileRecord =
+      userRecord?.profile && typeof userRecord.profile === "object"
+        ? (userRecord.profile as Record<string, unknown>)
+        : undefined;
+
+    return {
+      id: normalizeIdentityValue(
+        userRecord?.id ??
+          userRecord?.user_id ??
+          userRecord?.player_id ??
+          sessionRecord?.user_id ??
+          sessionRecord?.id ??
+          profileRecord?.user_id ??
+          profileRecord?.id,
+      ),
+      email: normalizeIdentityValue(
+        userRecord?.email ?? userRecord?.user_email ?? sessionRecord?.email ?? profileRecord?.email,
+      )?.toLowerCase(),
+      phone: normalizeIdentityValue(
+        userRecord?.phone ?? userRecord?.phone_number ?? sessionRecord?.phone ?? profileRecord?.phone,
+      ),
+    };
+  }, [user]);
+
+  const currentPlayerParticipantId = useMemo(() => {
+    const groupPlayers = groupLesson?.groupPlayers ?? [];
+    const playerRecord = groupPlayers.find((player) => {
+      if (currentUserIdentity.id && player.playerId != null && String(player.playerId) === currentUserIdentity.id) {
+        return true;
+      }
+      if (currentUserIdentity.email && player.email?.toLowerCase() === currentUserIdentity.email) {
+        return true;
+      }
+      if (currentUserIdentity.phone && player.phone && String(player.phone) === currentUserIdentity.phone) {
+        return true;
+      }
+      return false;
+    });
+    return playerRecord?.participantId ?? playerRecord?.id;
+  }, [currentUserIdentity, groupLesson?.groupPlayers]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1102,9 +1200,140 @@ const BookingConfirmationPage = () => {
     isConsumingCredits ||
     isPurchasingPackage ||
     isProcessingPayment ||
+    Boolean(pendingCreditConfirm) ||
     isUsingNewCard ||
     (groupLessonId ? groupLessonLoading : false) ||
     (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
+
+  const refreshCreditState = useCallback(async () => {
+    if (!authToken || !resolvedCoachId) {
+      return;
+    }
+
+    const [refreshedCredits, refreshedBalance] = await Promise.allSettled([
+      fetchPackageCredits({
+        token: authToken,
+        coachId: resolvedCoachId,
+        includeExpired: false,
+      }),
+      fetchPackageCreditsBalance({
+        token: authToken,
+        coachId: resolvedCoachId,
+        lessonType: creditLessonType,
+      }),
+    ]);
+
+    if (refreshedCredits.status === "fulfilled") {
+      setCredits(refreshedCredits.value?.purchases ?? []);
+      setCreditsError(null);
+    } else {
+      const message = refreshedCredits.reason instanceof Error ? refreshedCredits.reason.message : "Unable to refresh credits.";
+      setCreditsError(message);
+    }
+
+    if (refreshedBalance.status === "fulfilled") {
+      setCreditsBalance(refreshedBalance.value ?? null);
+    } else {
+      setCreditsBalance(null);
+    }
+  }, [authToken, creditLessonType, resolvedCoachId]);
+
+  const getCreditLessonId = useCallback(() => {
+    const lessonIdForConsume =
+      groupLesson?.id ??
+      groupLessonId ??
+      numericSourceLessonId ??
+      selectedSlot?.id ??
+      slotId;
+    return extractNumericLessonId(lessonIdForConsume);
+  }, [groupLesson?.id, groupLessonId, numericSourceLessonId, selectedSlot?.id, slotId]);
+
+  const completeCreditBookingSuccess = useCallback(async () => {
+    setPendingCreditConfirm(null);
+    setIsConfirmed(true);
+    setIsConfirmationModalOpen(true);
+    await Promise.allSettled([refreshGroupLesson(), refreshCreditState()]);
+  }, [refreshCreditState, refreshGroupLesson]);
+
+  const confirmReservedCreditLesson = useCallback(
+    async (lessonId: number | string) => {
+      if (!authToken) {
+        throw new Error("Sign in to confirm this lesson.");
+      }
+      await updatePlayerLesson({
+        token: authToken,
+        lessonId,
+        status: "CONFIRMED",
+      });
+      await completeCreditBookingSuccess();
+    },
+    [authToken, completeCreditBookingSuccess],
+  );
+
+  const handleRetryCreditConfirm = useCallback(async () => {
+    if (!pendingCreditConfirm) {
+      return;
+    }
+
+    setConsumeError(null);
+    setIsConsumingCredits(true);
+    try {
+      await confirmReservedCreditLesson(pendingCreditConfirm.lessonId);
+    } catch (err) {
+      setConsumeError(err instanceof Error ? err.message : "Credit reserved, but lesson confirmation failed. Please retry.");
+    } finally {
+      setIsConsumingCredits(false);
+    }
+  }, [confirmReservedCreditLesson, pendingCreditConfirm]);
+
+  const consumeCreditsForLesson = useCallback(
+    async (purchaseId?: number | string) => {
+      if (!authToken) {
+        throw new Error("Sign in to use credits.");
+      }
+      if (!resolvedCoachId || !lessonType) {
+        throw new Error("Missing lesson details for credits.");
+      }
+
+      const numericLessonId = getCreditLessonId();
+      if (!numericLessonId) {
+        throw new Error("We need a numeric lesson ID to reserve credits.");
+      }
+
+      await consumePackageCredits({
+        token: authToken,
+        coachId: resolvedCoachId,
+        lessonType: creditLessonType,
+        lessonId: numericLessonId,
+        purchaseId,
+        participantId: isOpenGroupLesson ? currentPlayerParticipantId : undefined,
+      });
+
+      if (!requiresPlayerSideCreditConfirm) {
+        await completeCreditBookingSuccess();
+        return;
+      }
+
+      try {
+        await confirmReservedCreditLesson(numericLessonId);
+      } catch {
+        setPendingCreditConfirm({ lessonId: numericLessonId });
+        throw new Error("Credit reserved, but lesson confirmation failed. Please retry.");
+      }
+    },
+    [
+      authToken,
+      completeCreditBookingSuccess,
+      confirmReservedCreditLesson,
+      creditLessonType,
+      currentPlayerParticipantId,
+      getCreditLessonId,
+      isOpenGroupLesson,
+      lessonType,
+      requiresPlayerSideCreditConfirm,
+      resolvedCoachId,
+    ],
+  );
 
   const handleConfirm = async () => {
     setConsumeError(null);
@@ -1258,46 +1487,13 @@ const BookingConfirmationPage = () => {
 
       setIsConsumingCredits(true);
       try {
-        const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
         const bestPurchase = eligibleCredits[0];
-        const numericLessonId = extractNumericLessonId(lessonIdForConsume);
-        if (!numericLessonId) {
-          setConsumeError("We need a numeric lesson ID to reserve credits.");
-          setPaymentMethod(fallbackCardId);
+        await consumeCreditsForLesson(bestPurchase?.id);
+      } catch (err) {
+        if (pendingCreditConfirm || (err instanceof Error && err.message.includes("Credit reserved"))) {
+          setConsumeError("Credit reserved, but lesson confirmation failed. Please retry.");
           return;
         }
-        await consumePackageCredits({
-          token: authToken,
-          coachId: resolvedCoachId,
-          lessonType: creditLessonType,
-          lessonId: numericLessonId,
-          purchaseId: bestPurchase?.id,
-        });
-        setIsConfirmed(true);
-        setIsConfirmationModalOpen(true);
-        try {
-          const refreshed = await fetchPackageCredits({
-            token: authToken,
-            coachId: resolvedCoachId,
-            includeExpired: false,
-          });
-          setCredits(refreshed?.purchases ?? []);
-          setCreditsError(null);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Unable to refresh credits.";
-          setCreditsError(message);
-        }
-        try {
-          const refreshedBalance = await fetchPackageCreditsBalance({
-            token: authToken,
-            coachId: resolvedCoachId,
-            lessonType: creditLessonType,
-          });
-          setCreditsBalance(refreshedBalance ?? null);
-        } catch {
-          setCreditsBalance(null);
-        }
-      } catch (err) {
         const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
         const errorMessage = (() => {
           switch (code) {
@@ -1521,7 +1717,7 @@ const BookingConfirmationPage = () => {
 
   const modalStatus: BookingStatus = isInstantlyConfirmed ? "CONFIRMED" : "PENDING";
   const paymentMethodLabel = isUsingCredits
-    ? "1 group credit"
+    ? `1 ${creditLessonType} credit`
     : isUsingApplePay
       ? "Apple Pay"
       : selectedSavedCard
@@ -1690,12 +1886,12 @@ const BookingConfirmationPage = () => {
         .toUpperCase()}`
     : summaryDateBand;
   const groupConfirmButtonLabel = isUsingCredits
-    ? "Pay with credits"
+    ? isConsumingCredits
+      ? "Applying credits..."
+      : "Pay with credits"
     : isProcessingPayment
       ? "Processing Apple Pay..."
-      : isConsumingCredits
-        ? "Applying credits..."
-        : `Pay ${totalPriceLabel}`;
+      : `Pay ${totalPriceLabel}`;
   const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
 
   const handleBuySelectedPackage = async () => {
@@ -1714,9 +1910,7 @@ const BookingConfirmationPage = () => {
       return;
     }
 
-    const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
-    const numericLessonId = extractNumericLessonId(lessonIdForConsume);
-    if (!numericLessonId) {
+    if (!getCreditLessonId()) {
       setPackagePurchaseError("We need a numeric lesson ID to apply credits to this lesson.");
       setIsPurchasingPackage(false);
       return;
@@ -1724,6 +1918,7 @@ const BookingConfirmationPage = () => {
 
     let paymentMethodId: string | null = null;
     let applePayEvent: PaymentRequestPaymentMethodEvent | null = null;
+    let applePayCompleted = false;
 
     try {
       if (paymentMethod === "apple-pay") {
@@ -1782,18 +1977,12 @@ const BookingConfirmationPage = () => {
         paymentMethodId,
       });
       applePayEvent?.complete("success");
-
-      await consumePackageCredits({
-        token: authToken,
-        coachId: resolvedCoachId,
-        lessonType: creditLessonType,
-        lessonId: numericLessonId,
-        purchaseId: purchaseResponse.purchase?.id,
-      });
+      applePayCompleted = true;
 
       setPaymentMethod("credits");
       setIsCreditsPackageOpen(false);
       setHasAutoSelectedCredits(true);
+      await consumeCreditsForLesson(purchaseResponse.purchase?.id);
       const [refreshedCredits, refreshedBalance] = await Promise.allSettled([
         fetchPackageCredits({
           token: authToken,
@@ -1824,11 +2013,22 @@ const BookingConfirmationPage = () => {
       if (refreshedBalance.status === "fulfilled") {
         setCreditsBalance(refreshedBalance.value ?? null);
       }
-      setIsConfirmed(true);
-      setIsConfirmationModalOpen(true);
     } catch (err) {
-      applePayEvent?.complete("fail");
-      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to buy credits.");
+      if (!applePayCompleted) {
+        applePayEvent?.complete("fail");
+      }
+      const isReservedConfirmFailure = err instanceof Error && err.message.includes("Credit reserved");
+      if (isReservedConfirmFailure) {
+        setConsumeError("Credit reserved, but lesson confirmation failed. Please retry.");
+        setIsCreditsPackageOpen(true);
+      }
+      setPackagePurchaseError(
+        isReservedConfirmFailure
+          ? "Credit reserved, but lesson confirmation failed. Please retry."
+          : err instanceof Error
+            ? err.message
+            : "Unable to buy credits.",
+      );
     } finally {
       setIsPurchasingPackage(false);
     }
@@ -1933,6 +2133,16 @@ const BookingConfirmationPage = () => {
           </button>
           {packagePurchaseError ? (
             <p className="payment-methods__notice payment-methods__notice--error">{packagePurchaseError}</p>
+          ) : null}
+          {pendingCreditConfirm ? (
+            <button
+              type="button"
+              className="payment-methods__cta"
+              onClick={() => void handleRetryCreditConfirm()}
+              disabled={isConsumingCredits}
+            >
+              {isConsumingCredits ? "Retrying..." : "Retry confirmation"}
+            </button>
           ) : null}
         </div>
       ) : null}
@@ -2202,6 +2412,16 @@ const BookingConfirmationPage = () => {
                 </div>
 
                 {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                {pendingCreditConfirm ? (
+                  <button
+                    type="button"
+                    className="payment-methods__cta"
+                    onClick={() => void handleRetryCreditConfirm()}
+                    disabled={isConsumingCredits}
+                  >
+                    {isConsumingCredits ? "Retrying..." : "Retry confirmation"}
+                  </button>
+                ) : null}
               </div>
 
               <div className="booking-confirmation__group-footer">
@@ -2340,6 +2560,16 @@ const BookingConfirmationPage = () => {
                   <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
                 </button>
                 {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                {pendingCreditConfirm ? (
+                  <button
+                    type="button"
+                    className="payment-methods__cta"
+                    onClick={() => void handleRetryCreditConfirm()}
+                    disabled={isConsumingCredits}
+                  >
+                    {isConsumingCredits ? "Retrying..." : "Retry confirmation"}
+                  </button>
+                ) : null}
                 <span className="booking-confirmation__disclaimer">{disclaimerCopy}</span>
                 {isConfirmed && isGroupLesson ? (
                   <div

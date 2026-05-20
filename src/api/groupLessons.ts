@@ -41,6 +41,8 @@ export interface GroupLesson {
     avatarUrl?: string;
   }>;
   groupPlayers?: Array<{
+    id?: number | string;
+    participantId?: number | string;
     playerId?: number | string;
     email?: string;
     phone?: string;
@@ -56,6 +58,8 @@ export interface GroupLessonsResponse {
 }
 
 export interface UpcomingGroupLessonPlayerApi {
+  id?: number | string;
+  participant_id?: number | string;
   player_id?: number | string;
   full_name?: string;
   profile_picture?: string;
@@ -244,6 +248,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
         : Number(player.status);
 
     return {
+      id: player.id,
+      participantId: player.participant_id ?? player.id,
       playerId: player.player_id,
       name: player.full_name ?? "Player",
       avatarUrl: player.profile_picture,
