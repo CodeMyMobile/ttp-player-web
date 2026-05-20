@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
+  ChevronDown,
   Clock,
   MapPin,
   Share2,
@@ -21,11 +22,21 @@ import {
 } from "../api/groupLessons";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import { updatePlayerLesson } from "../api/player";
+import {
+  consumePackageCredits,
+  fetchCoachPackages,
+  fetchPackageCredits,
+  purchaseCoachPackage,
+  type CoachPackage,
+  type PackagePurchase,
+} from "../api/playerPackages";
+import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
+import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -71,6 +82,47 @@ const buildTimeRangeLabel = (startLabel: string, durationMinutes: number) => {
 };
 
 const formatLevel = (level: number) => `NTRP ${level.toFixed(1)}`;
+
+const parseMoney = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const formatMoney = (value: unknown) => {
+  const amount = parseMoney(value);
+  if (amount == null) return "--";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+  }).format(amount);
+};
+
+const formatPackageLessonTypes = (types?: string[]) => {
+  if (!Array.isArray(types) || types.length === 0) return "All lesson types";
+  return types
+    .map((type) => type.replace(/_/g, " "))
+    .map((type) => type.charAt(0).toUpperCase() + type.slice(1))
+    .join(", ");
+};
+
+const formatPackageValidity = (months?: number | null) => {
+  if (!months || months <= 0) return "No expiry listed";
+  return `Valid ${months} month${months === 1 ? "" : "s"}`;
+};
+
+const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<string, unknown> | null | undefined) => {
+  if (!payload) return [] as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.payment_methods)) return payload.payment_methods as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload.data)) return payload.data as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload.results)) return payload.results as PlayerStripePaymentMethod[];
+  return [];
+};
 
 const buildInitials = (name: string) => {
   const trimmed = name.trim();
@@ -149,10 +201,32 @@ const GroupLessonDetailsPage = () => {
   const [cancelInFlight, setCancelInFlight] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
+  const [credits, setCredits] = useState<PackagePurchase[]>([]);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [packages, setPackages] = useState<CoachPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [paymentChoice, setPaymentChoice] = useState<"credits" | "apple-pay" | "card">("card");
+  const [creditsPackageOpen, setCreditsPackageOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
+  const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
+  const [bookingWithCredits, setBookingWithCredits] = useState(false);
+  const [purchasingPackage, setPurchasingPackage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const routeState = (location.state as GroupLessonDetailsRouteState | null | undefined) ?? null;
   const groupLessonsReturnState = routeState?.groupLessonsState ?? null;
+  const authToken =
+    user?.session?.access_token ??
+    user?.access_token ??
+    user?.token ??
+    getStoredAuthToken({ preferScheme: "Token" }) ??
+    getStoredAuthToken({ preferScheme: "token" });
   const goBackToGroupLessons = useCallback(() => {
     navigate("/group-lessons", {
       state: groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined,
@@ -325,6 +399,97 @@ const GroupLessonDetailsPage = () => {
     setCancelSuccessMessage(null);
   }, [lesson?.id]);
 
+  const refreshLesson = useCallback(async () => {
+    if (!lesson?.id || !authToken) return;
+    const response = await fetchUpcomingGroupLessonById({
+      token: authToken,
+      lessonId: lesson.id,
+    });
+    setLesson(mapUpcomingGroupLesson(response.lesson));
+  }, [authToken, lesson?.id]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!lesson?.coachId || !authToken) {
+      setCredits([]);
+      setPackages([]);
+      setPaymentMethods([]);
+      return () => controller.abort();
+    }
+
+    setCreditsLoading(true);
+    setCreditsError(null);
+    fetchPackageCredits({
+      token: authToken,
+      coachId: lesson.coachId,
+      includeExpired: false,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        const groupCredits = (response.purchases ?? []).filter((purchase) => {
+          const remaining = Number(purchase.credits_remaining ?? 0);
+          if (!Number.isFinite(remaining) || remaining <= 0) return false;
+          return packageAllowsLessonCreditType(purchase.lesson_types_allowed, "group");
+        });
+        setCredits(groupCredits);
+        setSelectedCreditId(groupCredits[0]?.id != null ? String(groupCredits[0].id) : null);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setCredits([]);
+        setCreditsError(error instanceof Error ? error.message : "Unable to load credits.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCreditsLoading(false);
+      });
+
+    setPackagesLoading(true);
+    setPackagesError(null);
+    fetchCoachPackages({
+      token: authToken,
+      coachId: lesson.coachId,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        setPackages((response.packages ?? []).filter((pkg) => pkg.is_active !== false));
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setPackages([]);
+        setPackagesError(error instanceof Error ? error.message : "Unable to load packages.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPackagesLoading(false);
+      });
+
+    setPaymentMethodsLoading(true);
+    getPlayerStripePaymentMethods(authToken)
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const methods = extractPaymentMethods(payload as Record<string, unknown>);
+        setPaymentMethods(methods);
+        setSelectedPaymentMethodId((current) => {
+          if (current && methods.some((method) => method.id === current)) return current;
+          const defaultMethod =
+            methods.find((method) => method.is_default || method.default || method.default_for_currency) ??
+            methods[0];
+          return defaultMethod?.id ?? null;
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setPaymentMethods([]);
+        setSelectedPaymentMethodId(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPaymentMethodsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [authToken, lesson?.coachId]);
+
   const themeVars = useMemo(
     () => ({
       "--fc-color-bg": colors.pageBackground,
@@ -412,6 +577,115 @@ const GroupLessonDetailsPage = () => {
     if (!playerRecord) return undefined;
     return playerRecord.status;
   }, [currentUserIdentity, lesson?.groupPlayers]);
+
+  const availableCredits = useMemo(
+    () => credits.reduce((sum, credit) => sum + Math.max(Number(credit.credits_remaining ?? 0), 0), 0),
+    [credits],
+  );
+
+  useEffect(() => {
+    if (availableCredits > 0 && selectedCreditId) {
+      setPaymentChoice("credits");
+      return;
+    }
+    setPaymentChoice((current) => (current === "credits" ? "card" : current));
+  }, [availableCredits, selectedCreditId]);
+
+  const packageOptions = useMemo(() => {
+    return packages
+      .filter((pkg) => {
+        if (!pkg.lesson_count || pkg.lesson_count <= 0) return false;
+        return packageAllowsLessonCreditType(pkg.lesson_types_allowed, "group");
+      })
+      .sort((a, b) => a.lesson_count - b.lesson_count);
+  }, [packages]);
+  const bestValuePackage = packageOptions.reduce<CoachPackage | null>((best, pkg) => {
+    const total = parseMoney(pkg.total_price);
+    const bestTotal = best ? parseMoney(best.total_price) : null;
+    if (total == null) return best;
+    if (!best || bestTotal == null) return pkg;
+    return total / pkg.lesson_count < bestTotal / best.lesson_count ? pkg : best;
+  }, null);
+  const selectedPackage =
+    packageOptions.find((pkg) => String(pkg.id) === selectedPackageId) ??
+    bestValuePackage ??
+    packageOptions[0] ??
+    null;
+
+  useEffect(() => {
+    if (selectedPackageId || packageOptions.length === 0) return;
+    const defaultPackage = bestValuePackage ?? packageOptions[0];
+    setSelectedPackageId(String(defaultPackage.id));
+  }, [bestValuePackage, packageOptions, selectedPackageId]);
+
+  const handleBookWithCredits = useCallback(async () => {
+    if (!lesson?.id || !lesson.coachId || !authToken || !selectedCreditId) return;
+    setBookingWithCredits(true);
+    setPackagePurchaseError(null);
+    try {
+      await consumePackageCredits({
+        token: authToken,
+        coachId: lesson.coachId,
+        lessonType: "group",
+        lessonId: lesson.id,
+        purchaseId: selectedCreditId,
+      });
+      await refreshLesson();
+    } catch (error) {
+      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to apply credits.");
+    } finally {
+      setBookingWithCredits(false);
+    }
+  }, [authToken, lesson?.coachId, lesson?.id, refreshLesson, selectedCreditId]);
+
+  const handleBuyPackageAndApply = useCallback(async () => {
+    if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
+    setPurchasingPackage(true);
+    setPackagePurchaseError(null);
+    try {
+      const defaultMethod =
+        paymentMethods.find((method) => method.id === selectedPaymentMethodId) ??
+        paymentMethods.find((method) => method.is_default || method.default || method.default_for_currency) ??
+        paymentMethods[0];
+      if (!defaultMethod?.id) {
+        throw new Error("Add a saved card at checkout before buying credits.");
+      }
+      const purchaseResponse = await purchaseCoachPackage({
+        token: authToken,
+        packageId: selectedPackage.id,
+        paymentMethodId: defaultMethod.id,
+      });
+      await consumePackageCredits({
+        token: authToken,
+        coachId: lesson.coachId,
+        lessonType: "group",
+        lessonId: lesson.id,
+        purchaseId: purchaseResponse.purchase?.id,
+      });
+      if (purchaseResponse.purchase?.id != null) {
+        setSelectedCreditId(String(purchaseResponse.purchase.id));
+      }
+      setCreditsPackageOpen(false);
+      const refreshed = await fetchPackageCredits({
+        token: authToken,
+        coachId: lesson.coachId,
+        includeExpired: false,
+      });
+      const groupCredits = (refreshed.purchases ?? []).filter((purchase) => {
+        const remaining = Number(purchase.credits_remaining ?? 0);
+        if (!Number.isFinite(remaining) || remaining <= 0) return false;
+        return packageAllowsLessonCreditType(purchase.lesson_types_allowed, "group");
+      });
+      setCredits(groupCredits);
+      const boughtCredit = groupCredits.find((credit) => String(credit.id) === String(purchaseResponse.purchase?.id));
+      setSelectedCreditId(boughtCredit?.id != null ? String(boughtCredit.id) : groupCredits[0]?.id != null ? String(groupCredits[0].id) : null);
+      await refreshLesson();
+    } catch (error) {
+      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to buy and apply credits.");
+    } finally {
+      setPurchasingPackage(false);
+    }
+  }, [authToken, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
 
   if (isLoading) {
     return (
@@ -512,6 +786,13 @@ const GroupLessonDetailsPage = () => {
       : spotsRemaining <= 2
         ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
         : `${spotsRemaining} spots available`;
+  const groupCoachFee = parseMoney(lesson.pricePerPlayer) ?? 0;
+  const groupCreditFee = Math.round(groupCoachFee * 0.03 * 100) / 100;
+  const groupServiceFee = 1;
+  const groupUsesCredits = paymentChoice === "credits" && availableCredits > 0 && selectedCreditId != null;
+  const groupTotalDue = groupUsesCredits
+    ? groupCoachFee + groupServiceFee
+    : groupCoachFee + groupCreditFee + groupServiceFee;
   const handleShare = async () => {
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
     if (!shareUrl) return;
@@ -1048,9 +1329,9 @@ const GroupLessonDetailsPage = () => {
                     </>
                   ) : (
                     <>
-                      <p className="group-lesson-details__booking-label">Book this session</p>
-                      <p className="group-lesson-details__booking-price">{lesson.pricePerPlayer.replace(" per player", "")}</p>
-                      <p className="group-lesson-details__booking-price-caption">per class</p>
+                      <p className="group-lesson-details__booking-label">Confirm this session</p>
+                      <p className="group-lesson-details__booking-price">{formatMoney(groupTotalDue)}</p>
+                      <p className="group-lesson-details__booking-price-caption">{lesson.title}</p>
 
                       <div className="group-lesson-details__booking-meta">
                         <div className="group-lesson-details__booking-meta-item">
@@ -1073,19 +1354,174 @@ const GroupLessonDetailsPage = () => {
                         </div>
                       </div>
 
-                      <div className={`group-lesson-details__availability-pill ${availabilityToneClass}`}>
-                        {availabilityLabel}
+                      <div className="group-lesson-details__booking-pill group-lesson-details__booking-pill--payment">
+                        Needs payment
                       </div>
 
-                      <div className="group-lesson-details__credit-note">
-                        🎟️ Credits and saved payment methods are available at checkout
+                      <div className="group-lesson-details__price-breakdown">
+                        <div><span>Coach fee</span><strong>${groupCoachFee.toFixed(2)}</strong></div>
+                        {!groupUsesCredits ? (
+                          <div><span>Credit fee</span><strong>${groupCreditFee.toFixed(2)}</strong></div>
+                        ) : null}
+                        <div><span>Service fee</span><strong>${groupServiceFee.toFixed(2)}</strong></div>
                       </div>
+
+                      <div className="group-lesson-details__payment-panel">
+                        <p className="group-lesson-details__status-pending">Choose how you want to pay.</p>
+
+                        <div className="group-lesson-details__payment-choice">
+                          {availableCredits > 0 ? (
+                            <label className={`group-lesson-details__payment-option${paymentChoice === "credits" ? " is-selected" : ""}`}>
+                              <input
+                                type="radio"
+                                name="group-payment-choice"
+                                checked={paymentChoice === "credits"}
+                                onChange={() => setPaymentChoice("credits")}
+                                disabled={!selectedCreditId}
+                              />
+                              <span>🎟️</span>
+                              <span>
+                                {availableCredits} group credit{availableCredits === 1 ? "" : "s"} available
+                              </span>
+                            </label>
+                          ) : null}
+                          <label className={`group-lesson-details__payment-option${paymentChoice === "apple-pay" ? " is-selected" : ""}`}>
+                            <input
+                              type="radio"
+                              name="group-payment-choice"
+                              checked={paymentChoice === "apple-pay"}
+                              onChange={() => setPaymentChoice("apple-pay")}
+                            />
+                            <span aria-hidden>🍎</span>
+                            <span>Apple Pay</span>
+                          </label>
+                          <label className={`group-lesson-details__payment-option${paymentChoice === "card" ? " is-selected" : ""}`}>
+                            <input
+                              type="radio"
+                              name="group-payment-choice"
+                              checked={paymentChoice === "card"}
+                              onChange={() => setPaymentChoice("card")}
+                            />
+                            <span>Credit card</span>
+                          </label>
+                        </div>
+
+                        {paymentChoice === "apple-pay" ? (
+                          <div className="group-lesson-details__payment-block">
+                            <p>Continue to checkout to complete Apple Pay.</p>
+                          </div>
+                        ) : null}
+
+                        {paymentChoice === "card" ? (
+                          <div className="group-lesson-details__payment-block">
+                            {paymentMethodsLoading ? <p>Loading cards...</p> : null}
+                            {paymentMethods.length > 0 ? (
+                              <select
+                                value={selectedPaymentMethodId ?? ""}
+                                onChange={(event) => setSelectedPaymentMethodId(event.target.value)}
+                              >
+                                {paymentMethods.map((method) => {
+                                  const card = method.card;
+                                  const label = `${card?.brand ?? "Card"} .... ${card?.last4 ?? ""}`;
+                                  return (
+                                    <option key={method.id} value={method.id}>
+                                      {label}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            ) : !paymentMethodsLoading ? (
+                              <p>No saved card yet. Continue to checkout to add one.</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {availableCredits === 0 ? (
+                          <div className={`group-lesson-details__credits-package${creditsPackageOpen ? " is-open" : ""}`}>
+                            <button
+                              type="button"
+                              className="group-lesson-details__credits-package-toggle"
+                              onClick={() => setCreditsPackageOpen((open) => !open)}
+                              aria-expanded={creditsPackageOpen}
+                            >
+                              <span aria-hidden>🎟️</span>
+                              <span>
+                                <strong>Buy a lesson package</strong>
+                                <small>Save with credits and use one for this class.</small>
+                              </span>
+                              <ChevronDown aria-hidden />
+                            </button>
+                            {creditsPackageOpen ? (
+                              <div className="group-lesson-details__credits-package-panel">
+                                <p>Buy sessions now — one credit covers this lesson, the rest are yours to use any time.</p>
+                                {packagesLoading ? <p>Loading packages...</p> : null}
+                                {packagesError ? <p className="group-lesson-details__checkout-error">{packagesError}</p> : null}
+                                {!packagesLoading && !packagesError && packageOptions.length === 0 ? <p>No group packages are available right now.</p> : null}
+                                {packageOptions.map((lessonPackage) => {
+                                  const total = parseMoney(lessonPackage.total_price);
+                                  const perCredit = total != null ? total / lessonPackage.lesson_count : null;
+                                  const isSelectedPackage = selectedPackage?.id === lessonPackage.id;
+                                  const isBestValue = bestValuePackage?.id === lessonPackage.id;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={lessonPackage.id}
+                                      className={`group-lesson-details__package-tier${isSelectedPackage ? " is-selected" : ""}`}
+                                      onClick={() => setSelectedPackageId(String(lessonPackage.id))}
+                                    >
+                                      <span>
+                                        <strong>
+                                          {lessonPackage.name || `${lessonPackage.lesson_count} lesson package`}
+                                          {isBestValue ? <em>Best value</em> : null}
+                                        </strong>
+                                        {lessonPackage.description ? <small>{lessonPackage.description}</small> : null}
+                                        <small>
+                                          {lessonPackage.lesson_count} credits ·{" "}
+                                          {perCredit != null ? `${formatMoney(perCredit)}/credit` : formatPackageLessonTypes(lessonPackage.lesson_types_allowed)}
+                                        </small>
+                                        <small>
+                                          {formatPackageValidity(lessonPackage.validity_months)} ·{" "}
+                                          {formatPackageLessonTypes(lessonPackage.lesson_types_allowed)}
+                                        </small>
+                                      </span>
+                                      <span>
+                                        <strong>{formatMoney(lessonPackage.total_price)}</strong>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  className="group-lesson-details__buy-package"
+                                  onClick={() => void handleBuyPackageAndApply()}
+                                  disabled={!selectedPackage || purchasingPackage || paymentMethodsLoading}
+                                  aria-busy={purchasingPackage}
+                                >
+                                  {purchasingPackage
+                                    ? "Buying package..."
+                                    : selectedPackage
+                                      ? `Buy ${selectedPackage.lesson_count} credits — ${formatMoney(selectedPackage.total_price)}`
+                                      : "Choose a package"}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {creditsLoading ? <p className="group-lesson-details__checkout-caption">Checking credits...</p> : null}
+                      {creditsError ? <p className="group-lesson-details__checkout-error">{creditsError}</p> : null}
+                      {packagePurchaseError ? <p className="group-lesson-details__checkout-error">{packagePurchaseError}</p> : null}
 
                       <button
                         type="button"
                         className="group-lesson-details__checkout-action"
-                        disabled={spotsRemaining === 0 || isBooked}
+                        disabled={spotsRemaining === 0 || isBooked || bookingWithCredits}
                         onClick={() => {
+                          if (paymentChoice === "credits" && availableCredits > 0 && selectedCreditId) {
+                            void handleBookWithCredits();
+                            return;
+                          }
                           navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                             state: {
                               groupLessonId: lesson.id,
@@ -1094,7 +1530,17 @@ const GroupLessonDetailsPage = () => {
                           });
                         }}
                       >
-                        {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+                        {bookingWithCredits
+                          ? "Applying credits..."
+                          : isBooked
+                            ? "Booked"
+                            : spotsRemaining === 0
+                              ? "Join waitlist"
+                              : groupUsesCredits
+                                ? "Book with credits"
+                                : paymentChoice === "apple-pay"
+                                  ? "Continue with Apple Pay"
+                                : "Book now"}
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">

@@ -5,17 +5,16 @@ import {
   Apple,
   ArrowLeft,
   CalendarDays,
+  ChevronDown,
   CheckCircle2,
   Clock,
   CreditCard,
   Loader2,
   MapPin,
-  Package,
   Plus,
   ShieldCheck,
   Star,
   Users,
-  Wallet,
 } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
 import {
@@ -37,8 +36,11 @@ import {
   type GroupLesson,
 } from "../api/groupLessons";
 import {
+  fetchCoachPackages,
   fetchPackageCredits,
   fetchPackageCreditsBalance,
+  purchaseCoachPackage,
+  type CoachPackage,
   consumePackageCredits,
   type PackageCreditsBalanceResponse,
   type PackagePurchase,
@@ -53,7 +55,7 @@ import {
 import { bookGroupLessonWithCard } from "../api/playerLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
-import { resolveLessonCreditType } from "../utils/lessonPricing";
+import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./BookingConfirmationPage.css";
 
@@ -128,6 +130,46 @@ const parsePriceValue = (value?: string) => {
   if (/credit/i.test(value)) return null;
   const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const parseCurrencyValue = (value?: number | string | null) => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value === "string") {
+    const numeric = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+  }
+  return null;
+};
+
+const formatMoney = (value?: number | string | null) => {
+  const numeric = parseCurrencyValue(value);
+  if (numeric == null) {
+    return typeof value === "string" && value.trim() ? value : "--";
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: Number.isInteger(numeric) ? 0 : 2,
+  }).format(numeric);
+};
+
+const formatPackageLessonTypes = (types?: string[]) => {
+  if (!Array.isArray(types) || types.length === 0) {
+    return "All lesson types";
+  }
+  return types
+    .map((type) => type.replace(/_/g, " "))
+    .map((type) => type.charAt(0).toUpperCase() + type.slice(1))
+    .join(", ");
+};
+
+const formatPackageValidity = (months?: number | null) => {
+  if (!months || months <= 0) {
+    return "No expiry listed";
+  }
+  return `Valid ${months} month${months === 1 ? "" : "s"}`;
 };
 
 const isGenericCoachName = (value?: string | null) => {
@@ -390,6 +432,14 @@ const BookingConfirmationPage = () => {
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [creditsError, setCreditsError] = useState<string | null>(null);
   const [creditsBalance, setCreditsBalance] = useState<PackageCreditsBalanceResponse | null>(null);
+  const [packages, setPackages] = useState<CoachPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [isCreditsPackageOpen, setIsCreditsPackageOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [isPurchasingPackage, setIsPurchasingPackage] = useState(false);
+  const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
+  const [hasAutoSelectedCredits, setHasAutoSelectedCredits] = useState(false);
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -833,6 +883,49 @@ const BookingConfirmationPage = () => {
     return () => controller.abort();
   }, [authToken, creditLessonType, resolvedCoachId]);
 
+  useEffect(() => {
+    setHasAutoSelectedCredits(false);
+    setIsCreditsPackageOpen(false);
+    setSelectedPackageId(null);
+    setPackagePurchaseError(null);
+  }, [creditLessonType, resolvedCoachId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!resolvedCoachId || !authToken) {
+      setPackages([]);
+      setPackagesError(null);
+      setPackagesLoading(false);
+      return () => controller.abort();
+    }
+
+    setPackagesLoading(true);
+    setPackagesError(null);
+
+    fetchCoachPackages({
+      token: authToken,
+      coachId: resolvedCoachId,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setPackages((data?.packages ?? []).filter((pkg) => pkg.is_active !== false));
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setPackages([]);
+        setPackagesError(err instanceof Error ? err.message : "Unable to load packages.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setPackagesLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [authToken, resolvedCoachId]);
+
   const rosterCaption = useMemo(() => {
     if (groupLesson) {
       const base = `${participantCount}/${groupLesson.totalSpots} players confirmed`;
@@ -877,11 +970,7 @@ const BookingConfirmationPage = () => {
 
   const eligibleCredits = useMemo(() => {
     const allowedForLesson = (purchase: PackagePurchase) => {
-      const allowed = purchase.lesson_types_allowed;
-      if (Array.isArray(allowed) && allowed.length > 0) {
-        return allowed.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === creditLessonType);
-      }
-      return true;
+      return packageAllowsLessonCreditType(purchase.lesson_types_allowed, creditLessonType);
     };
     return credits.filter(
       (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
@@ -986,7 +1075,7 @@ const BookingConfirmationPage = () => {
 
   const confirmButtonLabel = (() => {
     if (isUsingCredits) {
-      return isGroupLesson ? "Confirm with credits" : "Request with credits";
+      return "Pay with credits";
     }
     if (isUsingApplePay) {
       return isGroupLesson ? "Confirm with Apple Pay" : "Request with Apple Pay";
@@ -1011,6 +1100,7 @@ const BookingConfirmationPage = () => {
   const isConfirmDisabled =
     isConfirmed ||
     isConsumingCredits ||
+    isPurchasingPackage ||
     isProcessingPayment ||
     isUsingNewCard ||
     (groupLessonId ? groupLessonLoading : false) ||
@@ -1407,52 +1497,6 @@ const BookingConfirmationPage = () => {
     </div>
   );
 
-  const lessonCreditsSection = (
-    <div className="payment-methods__group">
-      <span className="payment-methods__group-label">Lesson credits</span>
-      <label
-        className={`payment-method-card payment-method-card--credits${
-          isUsingCredits ? " payment-method-card--selected" : ""
-        }${canUseCredits ? "" : " payment-method-card--disabled"}`}
-      >
-        <input
-          type="radio"
-          name="payment-method"
-          value="credits"
-          checked={isUsingCredits}
-          onChange={() => setPaymentMethod("credits")}
-          disabled={!canUseCredits || creditsLoading || !authToken}
-        />
-        <span className="payment-method-card__selector" aria-hidden />
-        <span className="payment-method-card__icon">
-          <Wallet aria-hidden size={18} />
-        </span>
-        <span className="payment-method-card__body">
-          <span className="payment-method-card__title">Use lesson credits</span>
-          <span className="payment-method-card__subtitle">
-            {creditsLoading
-              ? "Checking credits…"
-              : creditsError
-                ? creditsError
-                : !authToken
-                    ? "Sign in to use credits."
-                    : canUseCredits
-                    ? `${creditSummary.remaining} credit${creditSummary.remaining === 1 ? "" : "s"} available for this lesson type${heldCreditsLabel}`
-                    : "No credits available for this lesson type."}
-          </span>
-        </span>
-        {creditSummary.nextExpiry && canUseCredits ? (
-          <span className="payment-method-card__tag payment-method-card__tag--success">Next expiry {creditSummary.nextExpiry}</span>
-        ) : null}
-      </label>
-      {isUsingCredits ? (
-        <div className="payment-methods__credits-note">
-          Applying one credit will cover this lesson. You'll have {remainingCreditsLabel} after booking.
-        </div>
-      ) : null}
-    </div>
-  );
-
   const nextStepsItems = isInstantlyConfirmed
     ? [
         "Your spot is reserved immediately as long as space remains.",
@@ -1523,6 +1567,49 @@ const BookingConfirmationPage = () => {
     }
     window.alert("Sharing isn't available on this device.");
   };
+
+  const packageOptions = useMemo(() => {
+    const isAllowedForLesson = (pkg: CoachPackage) => {
+      return packageAllowsLessonCreditType(pkg.lesson_types_allowed, creditLessonType);
+    };
+
+    return packages
+      .filter((pkg) => pkg.lesson_count > 0 && isAllowedForLesson(pkg))
+      .sort((a, b) => a.lesson_count - b.lesson_count);
+  }, [creditLessonType, packages]);
+  const bestValuePackage = packageOptions.reduce<CoachPackage | null>((best, pkg) => {
+    const total = parseCurrencyValue(pkg.total_price);
+    const bestTotal = best ? parseCurrencyValue(best.total_price) : null;
+    if (total == null) return best;
+    if (!best || bestTotal == null) return pkg;
+    return total / pkg.lesson_count < bestTotal / best.lesson_count ? pkg : best;
+  }, null);
+  const selectedPackage =
+    packageOptions.find((pkg) => String(pkg.id) === selectedPackageId) ??
+    bestValuePackage ??
+    packageOptions[0] ??
+    null;
+  const selectedPackagePrice = selectedPackage ? parseCurrencyValue(selectedPackage.total_price) : null;
+  const selectedPackageLabel = selectedPackage
+    ? `${selectedPackage.lesson_count} sessions — ${formatMoney(selectedPackage.total_price)}`
+    : "Choose a package";
+  const selectedPackageBuyLabel = isPurchasingPackage ? "Buying package..." : `Buy ${selectedPackageLabel}`;
+
+  useEffect(() => {
+    if (selectedPackageId || packageOptions.length === 0) {
+      return;
+    }
+    const defaultPackage = bestValuePackage ?? packageOptions[0];
+    setSelectedPackageId(String(defaultPackage.id));
+  }, [bestValuePackage, packageOptions, selectedPackageId]);
+
+  useEffect(() => {
+    if (creditsLoading || !canUseCredits || hasAutoSelectedCredits) {
+      return;
+    }
+    setPaymentMethod("credits");
+    setHasAutoSelectedCredits(true);
+  }, [canUseCredits, creditsLoading, hasAutoSelectedCredits]);
 
   const shouldShowEmptyState = groupLessonId
     ? !groupLessonLoading && !groupLesson
@@ -1603,7 +1690,7 @@ const BookingConfirmationPage = () => {
         .toUpperCase()}`
     : summaryDateBand;
   const groupConfirmButtonLabel = isUsingCredits
-    ? "Use 1 credit to book"
+    ? "Pay with credits"
     : isProcessingPayment
       ? "Processing Apple Pay..."
       : isConsumingCredits
@@ -1611,40 +1698,263 @@ const BookingConfirmationPage = () => {
         : `Pay ${totalPriceLabel}`;
   const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
 
+  const handleBuySelectedPackage = async () => {
+    setConsumeError(null);
+    setPackagePurchaseError(null);
+    setIsPurchasingPackage(true);
+
+    if (!authToken) {
+      setPackagePurchaseError("Sign in to buy credits.");
+      setIsPurchasingPackage(false);
+      return;
+    }
+    if (!resolvedCoachId || !selectedPackage) {
+      setPackagePurchaseError("Choose a lesson package to continue.");
+      setIsPurchasingPackage(false);
+      return;
+    }
+
+    const lessonIdForConsume = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
+    const numericLessonId = extractNumericLessonId(lessonIdForConsume);
+    if (!numericLessonId) {
+      setPackagePurchaseError("We need a numeric lesson ID to apply credits to this lesson.");
+      setIsPurchasingPackage(false);
+      return;
+    }
+
+    let paymentMethodId: string | null = null;
+    let applePayEvent: PaymentRequestPaymentMethodEvent | null = null;
+
+    try {
+      if (paymentMethod === "apple-pay") {
+        if (!stripePromise || selectedPackagePrice == null) {
+          throw new Error("Apple Pay is not ready for package checkout.");
+        }
+        const stripe = await stripePromise;
+        if (!stripe) {
+          throw new Error("Stripe is not available for Apple Pay.");
+        }
+        const packagePaymentRequest = stripe.paymentRequest({
+          country: "US",
+          currency: "usd",
+          total: {
+            label: selectedPackage.name || `${selectedPackage.lesson_count} lesson credits`,
+            amount: Math.round(selectedPackagePrice * 100),
+          },
+          requestPayerName: true,
+          requestPayerEmail: true,
+        });
+        const canPay = await packagePaymentRequest.canMakePayment();
+        if (!canPay?.applePay) {
+          throw new Error("Apple Pay is not available on this device.");
+        }
+        applePayEvent = await new Promise<PaymentRequestPaymentMethodEvent>((resolve, reject) => {
+          const handlePayment = (event: PaymentRequestPaymentMethodEvent) => {
+            packagePaymentRequest.off("cancel", handleCancel);
+            resolve(event);
+          };
+          const handleCancel = () => {
+            packagePaymentRequest.off("paymentmethod", handlePayment);
+            reject(new Error("Apple Pay was canceled."));
+          };
+          packagePaymentRequest.once("paymentmethod", handlePayment);
+          packagePaymentRequest.once("cancel", handleCancel);
+          try {
+            packagePaymentRequest.show();
+          } catch (error) {
+            packagePaymentRequest.off("paymentmethod", handlePayment);
+            packagePaymentRequest.off("cancel", handleCancel);
+            reject(error);
+          }
+        });
+        paymentMethodId = applePayEvent.paymentMethod.id;
+      } else if (paymentMethod && paymentMethod !== "credits" && paymentMethod !== "new-card") {
+        paymentMethodId = paymentMethod;
+      }
+
+      if (!paymentMethodId) {
+        throw new Error("Choose Apple Pay or a saved card to buy credits.");
+      }
+
+      const purchaseResponse = await purchaseCoachPackage({
+        token: authToken,
+        packageId: selectedPackage.id,
+        paymentMethodId,
+      });
+      applePayEvent?.complete("success");
+
+      await consumePackageCredits({
+        token: authToken,
+        coachId: resolvedCoachId,
+        lessonType: creditLessonType,
+        lessonId: numericLessonId,
+        purchaseId: purchaseResponse.purchase?.id,
+      });
+
+      setPaymentMethod("credits");
+      setIsCreditsPackageOpen(false);
+      setHasAutoSelectedCredits(true);
+      const [refreshedCredits, refreshedBalance] = await Promise.allSettled([
+        fetchPackageCredits({
+          token: authToken,
+          coachId: resolvedCoachId,
+          includeExpired: false,
+        }),
+        fetchPackageCreditsBalance({
+          token: authToken,
+          coachId: resolvedCoachId,
+          lessonType: creditLessonType,
+        }),
+      ]);
+      if (refreshedCredits.status === "fulfilled") {
+        const nextCredits = refreshedCredits.value?.purchases ?? [];
+        setCredits(nextCredits);
+        setCreditsError(null);
+        const boughtCredit = nextCredits.find(
+          (purchase) =>
+            purchase.id != null &&
+            String(purchase.id) === String(purchaseResponse.purchase?.id) &&
+            (purchase.credits_remaining ?? 0) > 0,
+        );
+        if (boughtCredit) {
+          setPaymentMethod("credits");
+          setHasAutoSelectedCredits(true);
+        }
+      }
+      if (refreshedBalance.status === "fulfilled") {
+        setCreditsBalance(refreshedBalance.value ?? null);
+      }
+      setIsConfirmed(true);
+      setIsConfirmationModalOpen(true);
+    } catch (err) {
+      applePayEvent?.complete("fail");
+      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to buy credits.");
+    } finally {
+      setIsPurchasingPackage(false);
+    }
+  };
+
+  const creditsPaymentCard = canUseCredits ? (
+    <label className={`payment-method-card payment-method-card--credits${isUsingCredits ? " payment-method-card--selected" : ""}`}>
+      <input
+        type="radio"
+        name="payment-method"
+        value="credits"
+        checked={isUsingCredits}
+        onChange={() => setPaymentMethod("credits")}
+        disabled={creditsLoading || !authToken}
+      />
+      <span className="payment-method-card__selector" aria-hidden />
+      <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
+      <span className="payment-method-card__body">
+        <span className="payment-method-card__title">
+          {creditSummary.remaining} {creditLessonType} credit{creditSummary.remaining === 1 ? "" : "s"} available
+        </span>
+        <span className="payment-method-card__subtitle">Auto-applied to this lesson{heldCreditsLabel}</span>
+      </span>
+      {creditSummary.nextExpiry ? (
+        <span className="payment-method-card__tag payment-method-card__tag--success">Next expiry {creditSummary.nextExpiry}</span>
+      ) : null}
+    </label>
+  ) : (
+    <div className={`payment-method-card payment-method-card--credits-package${isCreditsPackageOpen ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="payment-method-card__package-toggle"
+        onClick={() => setIsCreditsPackageOpen((open) => !open)}
+        aria-expanded={isCreditsPackageOpen}
+      >
+        <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
+        <span className="payment-method-card__body">
+          <span className="payment-method-card__title">Buy a lesson package</span>
+          <span className="payment-method-card__subtitle">Save up to 20% · pay with credits</span>
+        </span>
+        <ChevronDown className="payment-method-card__chevron" aria-hidden size={18} />
+      </button>
+      {isCreditsPackageOpen ? (
+        <div className="payment-method-card__package-panel">
+          <p className="payment-method-card__package-intro">
+            Buy sessions now — one credit covers this lesson, the rest are yours to use any time.
+          </p>
+          {packagesLoading ? <p className="payment-methods__notice">Loading packages...</p> : null}
+          {packagesError ? <p className="payment-methods__notice payment-methods__notice--error">{packagesError}</p> : null}
+          {!packagesLoading && !packagesError && packageOptions.length === 0 ? (
+            <p className="payment-methods__notice">No lesson packages are available right now.</p>
+          ) : null}
+          {packageOptions.map((lessonPackage) => {
+            const isSelectedPackage = selectedPackage?.id === lessonPackage.id;
+            const total = parseCurrencyValue(lessonPackage.total_price);
+            const perSession = total != null ? total / lessonPackage.lesson_count : null;
+            const savings =
+              sessionPriceAmount != null && total != null
+                ? Math.max(sessionPriceAmount * lessonPackage.lesson_count - total, 0)
+                : 0;
+            const isBestValue = bestValuePackage?.id === lessonPackage.id;
+            const title = lessonPackage.name || `${lessonPackage.lesson_count} lesson package`;
+            const description = lessonPackage.description?.trim();
+            return (
+              <button
+                type="button"
+                key={lessonPackage.id}
+                className={`payment-method-card__package-option${
+                  isSelectedPackage ? " payment-method-card__package-option--selected" : ""
+                }`}
+                onClick={() => setSelectedPackageId(String(lessonPackage.id))}
+              >
+                <span>
+                  <span className="payment-method-card__package-title">
+                    {title}
+                    {isBestValue ? <span className="payment-method-card__package-badge">Best value</span> : null}
+                  </span>
+                  {description ? <span className="payment-method-card__package-description">{description}</span> : null}
+                  <span className="payment-method-card__package-subtitle">
+                    {lessonPackage.lesson_count} credits ·{" "}
+                    {perSession != null ? `${formatMoney(perSession)}/credit` : formatPackageLessonTypes(lessonPackage.lesson_types_allowed)}
+                  </span>
+                  <span className="payment-method-card__package-meta">
+                    {formatPackageValidity(lessonPackage.validity_months)} · {formatPackageLessonTypes(lessonPackage.lesson_types_allowed)}
+                  </span>
+                </span>
+                <span className="payment-method-card__package-price">
+                  <strong>{formatMoney(lessonPackage.total_price)}</strong>
+                  {savings > 0 ? <small>Save {formatMoney(savings)}</small> : null}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="payment-method-card__package-buy"
+            onClick={() => void handleBuySelectedPackage()}
+            disabled={!selectedPackage || isPurchasingPackage}
+            aria-busy={isPurchasingPackage}
+          >
+            {selectedPackageBuyLabel}
+          </button>
+          {packagePurchaseError ? (
+            <p className="payment-methods__notice payment-methods__notice--error">{packagePurchaseError}</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const lessonCreditsSection = (
+    <div className="payment-methods__group">
+      <span className="payment-methods__group-label">Lesson credits</span>
+      {creditsPaymentCard}
+      {isUsingCredits ? (
+        <div className="payment-methods__credits-note">
+          Applying one credit will cover this lesson. You&apos;ll have {remainingCreditsLabel} after booking.
+        </div>
+      ) : null}
+    </div>
+  );
+
   const groupPaymentMethods = (
     <>
       <div className="payment-methods__stack payment-methods__stack--group">
-        <label
-          className={`payment-method-card payment-method-card--credits${
-            isUsingCredits ? " payment-method-card--selected" : ""
-          }${canUseCredits ? "" : " payment-method-card--disabled"}`}
-        >
-          <input
-            type="radio"
-            name="payment-method"
-            value="credits"
-            checked={isUsingCredits}
-            onChange={() => setPaymentMethod("credits")}
-            disabled={!canUseCredits || creditsLoading || !authToken}
-          />
-          <span className="payment-method-card__selector" aria-hidden />
-          <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
-          <span className="payment-method-card__body">
-            <span className="payment-method-card__title">Use a group credit</span>
-            <span className="payment-method-card__subtitle">
-              {creditsLoading
-                ? "Checking credits…"
-                : creditsError
-                  ? creditsError
-                  : !authToken
-                    ? "Sign in to use credits."
-                    : canUseCredits
-                      ? `${creditSummary.remaining} credits available`
-                      : "No credits available for this lesson type."}
-            </span>
-          </span>
-          {canUseCredits ? <span className="payment-method-card__amount">$0.00</span> : null}
-        </label>
+        {creditsPaymentCard}
 
         <label className={`payment-method-card payment-method-card--wallet${isUsingApplePay ? " payment-method-card--selected" : ""}`}>
           <input
@@ -1971,26 +2281,9 @@ const BookingConfirmationPage = () => {
               <div className="booking-confirmation__payment">
                 <p className="booking-confirmation__section-label">Payment method</p>
                 <div className="payment-methods">
-                  {canUseCredits ? lessonCreditsSection : null}
+                  {lessonCreditsSection}
                   {digitalWalletSection}
                   {savedCardsSection}
-                  {!canUseCredits ? lessonCreditsSection : null}
-                  <div className="payment-packages-banner">
-                    <span className="payment-packages-banner__icon">
-                      <Package aria-hidden size={20} />
-                    </span>
-                    <div className="payment-packages-banner__body">
-                      <h4>Need more credits?</h4>
-                      <p>Lock in savings with lesson packages and top up your credit balance anytime.</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="payment-packages-banner__action"
-                      onClick={() => navigate("/find-coaches")}
-                    >
-                      Browse packages
-                    </button>
-                  </div>
                 </div>
               </div>
 

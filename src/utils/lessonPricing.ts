@@ -86,3 +86,20 @@ export const resolveLessonCreditType = ({
   if (checkoutType === "group" || checkoutType === "open-group") return "group";
   return "private";
 };
+
+export const normalizePackageLessonCreditType = (value: string): LessonCreditType => {
+  const normalized = value.trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (normalized.includes("semi")) return "semi";
+  if (normalized.includes("group")) return "group";
+  return "private";
+};
+
+export const packageAllowsLessonCreditType = (
+  allowedTypes: string[] | undefined,
+  lessonType: LessonCreditType,
+) => {
+  if (!Array.isArray(allowedTypes) || allowedTypes.length === 0) {
+    return true;
+  }
+  return allowedTypes.some((type) => normalizePackageLessonCreditType(type) === lessonType);
+};
