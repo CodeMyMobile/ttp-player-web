@@ -233,6 +233,17 @@ const resolveInviteLessonLabel = (lesson) => {
   return "private lesson";
 };
 
+const resolveCoachInviteLessonDestination = (lessonId, lesson) => {
+  if (lessonId == null) return "/notifications";
+
+  const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
+  const typeName = (pickString(lesson.lesson_type_name, lesson.lesson_type, lesson.type) || "").toLowerCase();
+  const isSemiPrivate = typeId === 2 || typeName.includes("semi");
+  const isGroupLesson = typeId === 3 || typeName.includes("group");
+
+  return isGroupLesson && !isSemiPrivate ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`;
+};
+
 const extractInvites = (response) => {
   if (!response) return [];
   if (Array.isArray(response)) return response;
@@ -464,12 +475,7 @@ const buildCoachInviteItems = (records = [], currentUser) => {
         expiresLabel: startMoment?.isValid() ? `starts ${startMoment.fromNow()}` : null,
         ctaHint: "Tap for details →",
         accentClassName: "coach",
-        destination:
-          lessonId != null
-            ? resolveLessonKind(lesson) === "group"
-              ? `/group-lessons/${lessonId}`
-              : `/player/lesson/${lessonId}`
-            : "/notifications",
+        destination: resolveCoachInviteLessonDestination(lessonId, lesson),
         inviteKind: "coach",
       };
     });
