@@ -124,10 +124,18 @@ class SimpleSurvey extends Component {
   constructor(props) {
     super(props);
     const answers = props.survey.map((question) => {
-      if (question.answerText || (question.answerMetadata && question.answerMetadata.value)) {
+      const metadataValue = question.answerMetadata?.value;
+      if (metadataValue !== undefined && metadataValue !== null) {
         return {
           questionId: question.questionId,
-          value: question.answerText || question.answerMetadata.value,
+          value: metadataValue,
+          additionalText: question.answerMetadata?.additionalText ?? "",
+        };
+      }
+      if (question.answerText !== undefined && question.answerText !== null && question.answerText !== "") {
+        return {
+          questionId: question.questionId,
+          value: question.answerText,
           additionalText: question.answerMetadata?.additionalText ?? "",
         };
       }
@@ -259,9 +267,9 @@ class SimpleSurvey extends Component {
 
   renderQuestionText = (question) => {
     if (this.props.renderQuestionText) {
-      return this.props.renderQuestionText(question.questionText, question.questionSubtext);
+      return this.props.renderQuestionText(question.questionText, question.questionSubtext ?? question.subText);
     }
-    return defaultQuestionTextRenderer(question.questionText, question.questionSubtext);
+    return defaultQuestionTextRenderer(question.questionText, question.questionSubtext ?? question.subText);
   };
 
   renderPreviousButton = () => {
