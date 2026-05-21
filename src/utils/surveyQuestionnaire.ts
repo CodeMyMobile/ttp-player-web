@@ -57,6 +57,12 @@ export const extractSurveyQuestions = (payload: unknown): NormalizedSurveyQuesti
   if (isObject(payload) && Array.isArray(payload.questions)) {
     return payload.questions.map((item) => normalizeSurveyQuestion(item as SurveyQuestion));
   }
+  if (isObject(payload) && Array.isArray(payload.answers)) {
+    return payload.answers.map((item) => normalizeSurveyQuestion(item as SurveyQuestion));
+  }
+  if (isObject(payload) && Array.isArray(payload.data)) {
+    return payload.data.map((item) => normalizeSurveyQuestion(item as SurveyQuestion));
+  }
   return [];
 };
 
