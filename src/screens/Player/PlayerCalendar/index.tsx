@@ -61,6 +61,18 @@ const firstNumber = (...values: unknown[]) => {
   return null;
 };
 
+const formatLessonStatus = (...values: unknown[]) => {
+  for (const value of values) {
+    const numericValue = firstNumber(value);
+    if (numericValue === 0) return "Pending";
+    if (numericValue === 1) return "Confirmed";
+    if (numericValue === 2) return "Cancelled";
+    const textValue = firstString(value);
+    if (textValue) return textValue.replace(/_/g, " ");
+  }
+  return null;
+};
+
 const parseMoment = (...values: unknown[]) => {
   for (const value of values) {
     if (!value) continue;
@@ -165,8 +177,13 @@ const buildLessonItem = (lesson: LessonSummary, segment: ScheduleSegment): Sched
   if (isGroup && playerLimit !== null) {
     chips.push(`${currentPlayers ?? 0}/${playerLimit} spots`);
   } else if (segment === "past") {
-    const statusLabel = firstString((lesson as { status?: string }).status, (lesson as { booking_status?: string }).booking_status);
-    chips.push(statusLabel ? statusLabel.replace(/_/g, " ") : "Completed");
+    const statusLabel = formatLessonStatus(
+      (lesson as { payment_status?: unknown }).payment_status,
+      (lesson as { paymentStatus?: unknown }).paymentStatus,
+      (lesson as { status?: unknown }).status,
+      (lesson as { booking_status?: unknown }).booking_status,
+    );
+    chips.push(statusLabel ?? "Completed");
   }
 
   return {

@@ -12,6 +12,8 @@ export interface NotificationGroupPlayer {
   full_name?: string;
   email?: string;
   profile_picture?: string;
+  payment_status?: number | string;
+  paymentStatus?: number | string;
   status?: number;
   [key: string]: unknown;
 }
@@ -22,6 +24,8 @@ export interface NotificationLesson {
   start_date_time?: string;
   end_date_time?: string;
   status?: number;
+  payment_status?: number | string;
+  paymentStatus?: number | string;
   court?: number | null;
   location_id?: number;
   created_by?: number;
@@ -36,6 +40,9 @@ export interface NotificationLesson {
   group_price_per_person?: number | string | null;
   discount_percentage?: number | null;
   lesson_type_name?: string;
+  lessontype_id?: number | string;
+  lesson_type_id?: number | string;
+  lessonTypeId?: number | string;
   group_players?: NotificationGroupPlayer[] | null;
   [key: string]: unknown;
 }

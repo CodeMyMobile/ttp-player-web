@@ -37,6 +37,20 @@ const discountCalc = (bill: number, discount = 0) => {
 const percentageCalc = (percentage: number, amount: number) =>
   Math.round(((percentage / 100) * amount) * 100) / 100;
 
+const parseStatusCode = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const getPlayerStatusCode = (player: unknown) => {
+  const record = player as Record<string, unknown>;
+  return parseStatusCode(record.payment_status ?? record.paymentStatus ?? record.status);
+};
+
 const resolveStatus = (
   lesson: Lesson,
   statusLabel?: string,
@@ -92,9 +106,8 @@ const resolveStatus = (
   const derivedStatus = playerRecord
     ? (playerRecord as Record<string, unknown>).payment_status ?? (playerRecord as Record<string, unknown>).status
     : lessonRecord.status;
-  const numericStatus =
-    typeof derivedStatus === "number" ? derivedStatus : Number(derivedStatus);
-  if (typeof numericStatus === "number") {
+  const numericStatus = parseStatusCode(derivedStatus);
+  if (numericStatus !== null) {
     if (numericStatus === 0) return { label: "Pending", tone: "pending" };
     if (numericStatus === 1) return { label: "Confirmed", tone: "success" };
     if (numericStatus === 2) return { label: "Cancelled", tone: "danger" };
@@ -146,9 +159,9 @@ const LessonDetailCard = ({
       ? record.group_players
       : [];
   const [playersOpen, setPlayersOpen] = useState(false);
-  const confirmedCount = groupPlayers.filter((player) => (player as Record<string, unknown>).status === 1).length;
-  const pendingCount = groupPlayers.filter((player) => (player as Record<string, unknown>).status === 0).length;
-  const cancelledCount = groupPlayers.filter((player) => (player as Record<string, unknown>).status === 2).length;
+  const confirmedCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 1).length;
+  const pendingCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 0).length;
+  const cancelledCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 2).length;
   const showStatusCounts = isGroupLesson && groupPlayers.length > 0;
   const privateName =
     (typeof record.full_name === "string" ? record.full_name : undefined) || lesson.coach_name;
@@ -167,7 +180,7 @@ const LessonDetailCard = ({
     Number(court) !== 0;
   const locationLabel = locationName && hasCourt ? `${locationName}, Court#${court}` : locationName;
   const cancelledByCoach =
-    (record.status ?? lesson.status) === 2 &&
+    parseStatusCode(record.status ?? lesson.status) === 2 &&
     record.created_by != null &&
     record.updated_by != null &&
     record.created_by === record.updated_by;
@@ -181,8 +194,7 @@ const LessonDetailCard = ({
       const limit = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
       if (!Number.isFinite(limit) || limit <= 0) return null;
       const confirmed = groupPlayers.filter((player) => {
-        const playerRecord = player as Record<string, unknown>;
-        return playerRecord.status === 1 || playerRecord.payment_status === 1;
+        return getPlayerStatusCode(player) === 1;
       }).length;
       const available = Math.max(limit - confirmed, 0);
       return {
@@ -241,8 +253,7 @@ const LessonDetailCard = ({
   const totalFee =
     discountedRate != null && creditFee != null ? discountedRate + creditFee + SERVICE_FEE : null;
   const resolvePlayerStatus = (player: Record<string, unknown>) => {
-    const raw = player.payment_status ?? player.status;
-    const parsed = typeof raw === "number" ? raw : Number(raw);
+    const parsed = getPlayerStatusCode(player);
     if (parsed === 1) return { label: "Confirmed", tone: "success" as const };
     if (parsed === 2) return { label: "Cancelled", tone: "danger" as const };
     return { label: "Pending", tone: "pending" as const };

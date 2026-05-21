@@ -73,7 +73,22 @@ const parseNumber = (value: unknown): number | null => {
 const parseLessonStatus = (lesson: Lesson | null) => {
   if (!lesson) return null;
   const record = lesson as Record<string, unknown>;
-  return parseNumber(record.status);
+  const playerId = record.player_id ?? record.playerId ?? record.user_id ?? record.userId;
+  const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+  const currentPlayerRecord =
+    playerId != null
+      ? groupPlayers.find((player) => {
+          const participant = player as Record<string, unknown>;
+          const candidateId = participant.player_id ?? participant.playerId ?? participant.id ?? participant.user_id ?? participant.userId;
+          return candidateId != null && String(candidateId) === String(playerId);
+        })
+      : undefined;
+  const currentPlayerStatus = currentPlayerRecord
+    ? (currentPlayerRecord as Record<string, unknown>).payment_status ??
+      (currentPlayerRecord as Record<string, unknown>).paymentStatus ??
+      (currentPlayerRecord as Record<string, unknown>).status
+    : undefined;
+  return parseNumber(currentPlayerStatus ?? record.payment_status ?? record.paymentStatus ?? record.status);
 };
 
 const formatDateLabel = (value?: string | null) => {
@@ -506,6 +521,7 @@ const PlayerLessonDetailsPage = () => {
   const lessonStatus = useMemo(() => parseLessonStatus(lesson), [lesson]);
   const isPaymentPending = lessonStatus === 0;
   const isConfirmed = lessonStatus === 1;
+  const isCancelled = lessonStatus === 2;
   const lessonRecord = lesson as Record<string, unknown> | null;
   const coachId = useMemo(
     () => parseNumber(lessonRecord?.coach_id ?? lessonRecord?.coachId),
@@ -562,19 +578,25 @@ const PlayerLessonDetailsPage = () => {
     () => buildGoogleCalendarHref(lesson, lessonTitle, lessonDescription, locationTitle),
     [lesson, lessonDescription, lessonTitle, locationTitle],
   );
-  const statusVariant = isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
+  const statusVariant = isCancelled ? "cancelled" : isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
   const statusTitle = isConfirmed
     ? "Lesson confirmed"
+    : isCancelled
+      ? "Lesson cancelled"
     : isAwaitingCoachConfirmation
       ? "Awaiting coach confirmation"
       : "Payment pending";
   const statusBody = isConfirmed
     ? `${coachName} has confirmed your session. You’re set for ${lessonDateLabel} at ${lessonTimeRange.split(" · ")[0]}.`
+    : isCancelled
+      ? "This lesson has been cancelled. Contact your coach if you need help rebooking."
     : isAwaitingCoachConfirmation
       ? `${coachName} still needs to confirm this lesson. You’ll be notified as soon as they do.`
       : "Accept and pay to lock this lesson in.";
   const sidebarStatusLabel = isConfirmed
     ? "Booked"
+    : isCancelled
+      ? "Cancelled"
     : isAwaitingCoachConfirmation
       ? "Pending coach"
       : "Needs payment";
@@ -1225,7 +1247,7 @@ const PlayerLessonDetailsPage = () => {
 
                 <section className={`player-lesson-details__status-banner player-lesson-details__status-banner--${statusVariant}`}>
                   <div className="player-lesson-details__status-banner-icon" aria-hidden>
-                    {isConfirmed ? <CheckCircle2 size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
+                    {isConfirmed ? <CheckCircle2 size={20} /> : isCancelled ? <AlertCircle size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
                   </div>
                   <div className="player-lesson-details__status-banner-copy">
                     <strong>{statusTitle}</strong>
@@ -1312,6 +1334,8 @@ const PlayerLessonDetailsPage = () => {
                   <div className="player-lesson-details__booking-price">
                     {totalDueCents != null
                       ? `$${(totalDueCents / 100).toFixed(2)}`
+                      : isCancelled
+                        ? "Cancelled"
                       : isConfirmed
                         ? "Paid"
                         : "Pending"}

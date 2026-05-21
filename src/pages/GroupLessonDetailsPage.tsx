@@ -575,7 +575,7 @@ const GroupLessonDetailsPage = () => {
       return false;
     });
     if (!playerRecord) return undefined;
-    return playerRecord.status;
+    return playerRecord.paymentStatus ?? playerRecord.status;
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
   const availableCredits = useMemo(

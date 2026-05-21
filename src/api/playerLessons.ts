@@ -25,6 +25,13 @@ export interface Lesson {
   metadata_level?: string;
   price_per_person?: number;
   lesson_type_name?: string;
+  lessontype_id?: number | string | null;
+  lesson_type_id?: number | string | null;
+  lessonTypeId?: number | string | null;
+  status?: number | string | null;
+  payment_status?: number | string | null;
+  paymentStatus?: number | string | null;
+  group_players?: Array<Record<string, unknown>>;
   player_has_booking?: boolean;
 }
 

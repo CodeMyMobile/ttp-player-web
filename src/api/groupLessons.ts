@@ -228,11 +228,12 @@ const extractCityState = (location?: string) => {
   return parts.slice(-2).join(", ");
 };
 
-export const isActiveGroupLessonBookingStatus = (status?: number | null) => {
-  if (typeof status !== "number" || !Number.isFinite(status)) {
+export const isActiveGroupLessonBookingStatus = (status?: number | string | null) => {
+  const numericStatus = typeof status === "number" ? status : Number(status);
+  if (!Number.isFinite(numericStatus)) {
     return false;
   }
-  return status === 1;
+  return numericStatus === 1;
 };
 
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
@@ -259,7 +260,9 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       status: Number.isFinite(status) ? status : undefined,
     };
   });
-  const activeGroupPlayers = normalizedGroupPlayers.filter((player) => isActiveGroupLessonBookingStatus(player.status));
+  const activeGroupPlayers = normalizedGroupPlayers.filter((player) =>
+    isActiveGroupLessonBookingStatus(player.paymentStatus ?? player.status),
+  );
   const totalSpots = lesson.player_limit ?? normalizedGroupPlayers.length ?? 0;
   const bookedCountRaw = typeof lesson.booked_count === "number" ? lesson.booked_count : Number(lesson.booked_count);
   const openSpotsRaw = typeof lesson.open_spots === "number" ? lesson.open_spots : Number(lesson.open_spots);

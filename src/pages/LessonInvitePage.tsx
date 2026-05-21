@@ -507,7 +507,23 @@ const resolveLessonStatusPills = (payload: LessonInviteBeginResponse | null): In
   if (!lesson) return [];
 
   const pills: InviteStatusPill[] = [];
-  const lessonStatus = typeof lesson.status === "number" ? lesson.status : Number(lesson.status);
+  const groupPlayers = Array.isArray(lesson.group_players) ? lesson.group_players : [];
+  const lessonPlayerId = lesson.player_id ?? lesson.playerId ?? lesson.user_id ?? lesson.userId;
+  const currentPlayerRecord =
+    lessonPlayerId != null
+      ? groupPlayers.find((player) => {
+          const record = player as Record<string, unknown>;
+          const candidateId = record.player_id ?? record.playerId ?? record.id ?? record.user_id ?? record.userId;
+          return candidateId != null && String(candidateId) === String(lessonPlayerId);
+        })
+      : undefined;
+  const currentPlayerStatus = currentPlayerRecord
+    ? (currentPlayerRecord as Record<string, unknown>).payment_status ??
+      (currentPlayerRecord as Record<string, unknown>).paymentStatus ??
+      (currentPlayerRecord as Record<string, unknown>).status
+    : undefined;
+  const rawLessonStatus = currentPlayerStatus ?? lesson.payment_status ?? lesson.paymentStatus ?? lesson.status;
+  const lessonStatus = typeof rawLessonStatus === "number" ? rawLessonStatus : Number(rawLessonStatus);
 
   if (Number.isFinite(lessonStatus)) {
     if (lessonStatus === 1) {
