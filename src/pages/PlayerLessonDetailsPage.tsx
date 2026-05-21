@@ -128,11 +128,31 @@ const getCoachName = (lesson: Lesson | null) => {
   return String(record.full_name ?? lesson.coach_name ?? "Coach");
 };
 
+const getCoachProfileName = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    full_name?: string;
+    name?: string;
+  };
+  const value = record.fullName ?? record.full_name ?? record.name;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
 const getCoachAvatarUrl = (lesson: Lesson | null) => {
   if (!lesson) return null;
   const record = lesson as Record<string, unknown>;
   const value = record.profile_picture;
   return typeof value === "string" && value.trim() ? value : null;
+};
+
+const getCoachProfileAvatarUrl = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    profile_picture?: string;
+    avatarUrl?: string;
+  };
+  const value = record.profilePicture ?? record.profile_picture ?? record.avatarUrl;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
 const getInitials = (name: string) => {
@@ -551,10 +571,13 @@ const PlayerLessonDetailsPage = () => {
     [lesson],
   );
   const lessonDurationMinutes = useMemo(() => getLessonDurationMinutes(lesson), [lesson]);
-  const coachName = useMemo(() => getCoachName(lesson), [lesson]);
+  const coachName = useMemo(
+    () => getCoachProfileName(coachProfile) ?? getCoachName(lesson),
+    [coachProfile, lesson],
+  );
   const coachAvatarUrl = useMemo(
-    () => getCoachAvatarUrl(lesson) ?? coachProfile?.profilePicture ?? null,
-    [coachProfile?.profilePicture, lesson],
+    () => getCoachProfileAvatarUrl(coachProfile) ?? getCoachAvatarUrl(lesson),
+    [coachProfile, lesson],
   );
   const locationTitle = useMemo(() => getLocationTitle(lesson), [lesson]);
   const lessonCapacity = useMemo(() => getLessonCapacityDetails(lesson), [lesson]);
@@ -1123,7 +1146,7 @@ const PlayerLessonDetailsPage = () => {
       if (!phone) {
         throw new Error("Coach phone number is not available.");
       }
-      const message = `Hi ${getCoachName(lesson)}, I have a question about our ${getLessonTypeLabel(lesson).toLowerCase()} on ${formatDateLabel(lesson.start_date_time)}.`;
+      const message = `Hi ${coachName}, I have a question about our ${getLessonTypeLabel(lesson).toLowerCase()} on ${formatDateLabel(lesson.start_date_time)}.`;
       const href = buildSmsHref(phone, message);
       if (!href) {
         throw new Error("Coach phone number is not available.");
@@ -1134,7 +1157,7 @@ const PlayerLessonDetailsPage = () => {
     } finally {
       setMessageLoading(false);
     }
-  }, [coachId, coachProfile, lesson, token]);
+  }, [coachId, coachName, coachProfile, lesson, token]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
