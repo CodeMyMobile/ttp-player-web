@@ -14,7 +14,7 @@ import type { MatchProfileDetails } from "../components/players/MatchProfileModa
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
-import { getSuggestedPlayerCheckLocation } from "../api/playerHome";
+import { getAllSurveyQuestionAnswered, getSuggestedPlayerCheckLocation } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import {
@@ -26,6 +26,7 @@ import {
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import type { ConnectIntent } from "../types/matchPlay";
+import { extractSurveyQuestions } from "../utils/surveyQuestionnaire";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -235,6 +236,14 @@ const storeMatchProfile = (profile: StoredMatchProfile) => {
     // ignore storage failures
   }
 };
+
+const hasIncompleteMatchProfileQuestions = (payload: unknown) =>
+  extractSurveyQuestions(payload).some(
+    (item) =>
+      item.questionType !== "AddressPicker" &&
+      item.questionType !== "TextInput" &&
+      !item.answerMetadata,
+  );
 
 const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
@@ -1307,6 +1316,8 @@ const FindPlayersPage = () => {
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
+  const [hasIncompleteMatchProfile, setHasIncompleteMatchProfile] = useState(false);
+  const [matchProfileCheckLoaded, setMatchProfileCheckLoaded] = useState(false);
   const [showBestMatches, setShowBestMatches] = useState(false);
   const [connectModalPlayer, setConnectModalPlayer] = useState<Player | null>(null);
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
@@ -1315,7 +1326,8 @@ const FindPlayersPage = () => {
     getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
   );
   const hasMatchProfile = Boolean(matchProfile);
-  const hasProfile = hasMatchProfile;
+  const hasCompletedMatchProfile = hasMatchProfile && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
+  const hasProfile = hasCompletedMatchProfile;
   const isMobile = useIsMobile();
   const { displayName } = usePlayerIdentity();
   const storedLocation = useMemo(() => getStoredLocation(), []);
@@ -1348,8 +1360,42 @@ const FindPlayersPage = () => {
     return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!playerToken) {
+      setHasIncompleteMatchProfile(false);
+      setMatchProfileCheckLoaded(true);
+      return undefined;
+    }
+
+    const loadAnsweredQuestions = async () => {
+      setMatchProfileCheckLoaded(false);
+      try {
+        const answered = await getAllSurveyQuestionAnswered({ token: playerToken });
+        if (cancelled) return;
+        setHasIncompleteMatchProfile(hasIncompleteMatchProfileQuestions(answered));
+      } catch (requestError) {
+        if (cancelled) return;
+        console.error("Failed to load answered match profile questions", requestError);
+        setHasIncompleteMatchProfile(true);
+      } finally {
+        if (!cancelled) {
+          setMatchProfileCheckLoaded(true);
+        }
+      }
+    };
+
+    void loadAnsweredQuestions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playerToken]);
+
   const positionKey = position ? `${position.latitude.toFixed(4)}:${position.longitude.toFixed(4)}` : "none";
   const locationQuery = buildLocationSearch(locationFilter);
+  const hasSearchLocation = Boolean(position || locationFilter);
   const locationLabel = (() => {
     if (locationFilter) {
       return locationFilter.label;
@@ -1554,6 +1600,30 @@ const FindPlayersPage = () => {
       return undefined;
     }
 
+    if (!matchProfileCheckLoaded) {
+      setPlayers([]);
+      setStatus("loading");
+      setMode("normal");
+      setError(null);
+      return undefined;
+    }
+
+    if (hasIncompleteMatchProfile) {
+      setPlayers([]);
+      setStatus("ready");
+      setMode("empty");
+      setError(null);
+      return undefined;
+    }
+
+    if (!hasSearchLocation) {
+      setPlayers([]);
+      setStatus("ready");
+      setMode("empty");
+      setError(null);
+      return undefined;
+    }
+
     const fetchPlayers = async () => {
       setStatus("loading");
       setError(null);
@@ -1600,7 +1670,16 @@ const FindPlayersPage = () => {
     return () => {
       isCancelled = true;
     };
-  }, [playerToken, appliedSearchTerm, appliedRadius, locationQuery, positionKey]);
+  }, [
+    playerToken,
+    appliedSearchTerm,
+    appliedRadius,
+    locationQuery,
+    positionKey,
+    hasIncompleteMatchProfile,
+    matchProfileCheckLoaded,
+    hasSearchLocation,
+  ]);
 
   const themeVars = useMemo(
     () => ({
@@ -1888,7 +1967,7 @@ const FindPlayersPage = () => {
                 className="fc-button fc-button--secondary"
                 onClick={() => setProfileModalOpen(true)}
               >
-                {hasMatchProfile ? "Edit match profile" : "Create match profile"}
+                {hasCompletedMatchProfile ? "Edit match profile" : "Create match profile"}
               </button>
             }
           />
@@ -1904,7 +1983,44 @@ const FindPlayersPage = () => {
             />
           ) : null}
 
-          {!hasProfile && status === "ready" && mode !== "error" && (
+          {hasIncompleteMatchProfile && matchProfileCheckLoaded && (
+            <StateBanner
+              tone="empty"
+              title="Profile incomplete"
+              message="Complete your player match profile before searching for match partners."
+              action={
+                <button
+                  type="button"
+                  className="fc-button fc-button--primary"
+                  onClick={() => setProfileModalOpen(true)}
+                >
+                  Complete my match profile
+                </button>
+              }
+            />
+          )}
+
+          {!hasSearchLocation && matchProfileCheckLoaded && !hasIncompleteMatchProfile && (
+            <StateBanner
+              tone="empty"
+              title="Location required"
+              message="Choose a location or use your current location to search nearby players."
+              action={
+                <button
+                  type="button"
+                  className="fc-button fc-button--primary"
+                  onClick={() => {
+                    setGeoError("");
+                    setShowLocationPicker(true);
+                  }}
+                >
+                  Set search location
+                </button>
+              }
+            />
+          )}
+
+          {!hasProfile && status === "ready" && mode !== "error" && !hasIncompleteMatchProfile && (
             <StateBanner
               tone="empty"
               title="Create your player match profile"
@@ -2099,7 +2215,7 @@ const FindPlayersPage = () => {
                 <PlayerCard
                   key={player.id}
                   player={player}
-                  canConnect={hasMatchProfile}
+                  canConnect={hasCompletedMatchProfile}
                   onConnect={openConnectModalForPlayer}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {
@@ -2138,6 +2254,8 @@ const FindPlayersPage = () => {
         onComplete={(profileDetails) => {
           const normalizedProfile = sanitizeMatchProfile(profileDetails) ?? profileDetails;
           setMatchProfile(normalizedProfile);
+          setHasIncompleteMatchProfile(false);
+          setMatchProfileCheckLoaded(true);
           storeMatchProfile(normalizedProfile);
           setProfileModalOpen(false);
           window.alert(

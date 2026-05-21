@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, MessageCircle } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import { verifyUserLevel } from "../api/playerHome";
 import type { Player } from "../data/mockPlayers";
+import { getStoredAuthToken } from "../services/authToken";
 
 import "./PlayerProfilePage.css";
 
@@ -47,6 +49,9 @@ const PlayerProfilePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
+  const [verifyingLevel, setVerifyingLevel] = useState(false);
+  const [levelConfirmed, setLevelConfirmed] = useState(false);
+  const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const player = useMemo(() => {
     if (!locationState?.player) {
       return undefined;
@@ -99,6 +104,8 @@ const PlayerProfilePage = () => {
       : typeof verificationCountRaw === "string"
         ? Number.parseInt(verificationCountRaw, 10)
         : undefined;
+  const resolvedVerificationCount = Math.max(0, (verificationCount ?? 0) + verificationCountDelta);
+  const resolvedLevelConfirmed = isLevelConfirmed || levelConfirmed;
   const matchPreferences =
     (Array.isArray(player.matchPreferences) && player.matchPreferences.length > 0
       ? player.matchPreferences
@@ -119,6 +126,43 @@ const PlayerProfilePage = () => {
 
   const blockPlayer = () => {
     window.alert(`You blocked ${player.name}.`);
+  };
+
+  const handleVerifyLevel = async () => {
+    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+    const userId = player.raw?.userId;
+    const level = typeof playerLevel === "string" ? playerLevel.trim() : "";
+
+    if (!token) {
+      window.alert("Please sign in again to verify a player's level.");
+      return;
+    }
+
+    if (!userId || !level) {
+      window.alert("We couldn't verify this player's level because their profile data is incomplete.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Do you confirm ${player.name}'s tennis level as "${level}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setVerifyingLevel(true);
+      await verifyUserLevel({ token, userId, level });
+      setLevelConfirmed(true);
+      setVerificationCountDelta((current) => current + 1);
+      window.alert("Thanks. Your level verification has been recorded.");
+    } catch (requestError) {
+      window.alert(
+        requestError instanceof Error
+          ? requestError.message
+          : "We couldn't verify this player's level right now.",
+      );
+    } finally {
+      setVerifyingLevel(false);
+    }
   };
 
   return (
@@ -165,13 +209,13 @@ const PlayerProfilePage = () => {
               <section className="player-profile-section">
                 <div className="player-profile-section-heading">
                   <h2>Player level</h2>
-                  <span className={isLevelConfirmed ? "player-profile-pill player-profile-pill--verified" : "player-profile-pill"}>
-                    {isLevelConfirmed && <BadgeCheck size={14} strokeWidth={2} aria-hidden="true" />}
-                    {isLevelConfirmed ? "Verified player" : "Level unverified"}
+                  <span className={resolvedLevelConfirmed ? "player-profile-pill player-profile-pill--verified" : "player-profile-pill"}>
+                    {resolvedLevelConfirmed && <BadgeCheck size={14} strokeWidth={2} aria-hidden="true" />}
+                    {resolvedLevelConfirmed ? "Verified player" : "Level unverified"}
                   </span>
                 </div>
                 <p className="player-profile-section-subhead">
-                  {isLevelConfirmed
+                  {resolvedLevelConfirmed
                     ? "This player's rating is verified by the community."
                     : "This player's level hasn't been confirmed yet."}
                 </p>
@@ -181,14 +225,22 @@ const PlayerProfilePage = () => {
                     <small>NTRP level</small>
                   </div>
                   <p>
-                    {verificationCount && verificationCount > 0
-                      ? `${verificationCount} ${verificationCount === 1 ? "player has" : "players have"} verified this level.`
+                    {resolvedVerificationCount > 0
+                      ? `${resolvedVerificationCount} ${resolvedVerificationCount === 1 ? "player has" : "players have"} verified this level.`
                       : "Be the first to confirm this player's level."}
                   </p>
                 </div>
                 <div className="player-profile-level-support">
                   <h3>Verify player level</h3>
                   <p>Help the community keep player ratings accurate.</p>
+                  <button
+                    type="button"
+                    className="fc-button fc-button--secondary"
+                    onClick={handleVerifyLevel}
+                    disabled={verifyingLevel}
+                  >
+                    {verifyingLevel ? "Verifying..." : "Verify user's level"}
+                  </button>
                 </div>
               </section>
 
