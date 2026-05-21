@@ -1,3 +1,5 @@
+/// <reference types="google.maps" />
+
 import {
   useCallback,
   useEffect,
@@ -9,6 +11,8 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
+import { createPortal } from "react-dom";
+import Autocomplete from "react-google-autocomplete";
 import { Check, UploadCloud, X } from "lucide-react";
 
 import "./MatchProfileModal.css";
@@ -104,58 +108,13 @@ const EMPTY_PROFILE: MatchProfileDetails = {
   availability: [],
 };
 
-type PlacesStatus = "idle" | "loading" | "ready" | "unavailable";
-
-let placesScriptPromise: Promise<void> | null = null;
-
-const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY as string | undefined;
-
-const loadGooglePlacesScript = () => {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("Window is not available."));
-  }
-
-  const hasPlacesLibrary =
-    (window as typeof window & {
-      google?: { maps?: { places?: unknown } };
-    }).google?.maps?.places;
-
-  if (hasPlacesLibrary) {
-    return Promise.resolve();
-  }
-
-  if (!GOOGLE_PLACES_API_KEY) {
-    return Promise.reject(new Error("Missing Google Places API key."));
-  }
-
-  if (!placesScriptPromise) {
-    placesScriptPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_PLACES_API_KEY}&libraries=places&loading=async`;
-      script.async = true;
-      script.onerror = () => {
-        placesScriptPromise = null;
-        reject(new Error("Failed to load Google Places script."));
-      };
-      script.onload = () => {
-        resolve();
-      };
-      document.head.appendChild(script);
-    });
-  }
-
-  return placesScriptPromise;
-};
+const GOOGLE_PLACES_API_KEY = (import.meta.env.VITE_GOOGLE_API_KEY ??
+  import.meta.env.VITE_GOOGLE_PLACES_API_KEY) as string | undefined;
 
 const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: MatchProfileModalProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const courtsInputRef = useRef<HTMLInputElement | null>(null);
-  const autocompleteRef = useRef<{ remove(): void } | null>(null);
-  const autocompleteInstanceRef = useRef<{ getPlace: () => { place_id?: string; name?: string; formatted_address?: string } } | null>(
-    null,
-  );
 
   const [about, setAbout] = useState(EMPTY_PROFILE.about);
   const [photoName, setPhotoName] = useState<string | null>(null);
@@ -166,7 +125,6 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
   const [localCourtPlaceId, setLocalCourtPlaceId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<string[]>(EMPTY_PROFILE.availability);
   const [touched, setTouched] = useState(false);
-  const [placesStatus, setPlacesStatus] = useState<PlacesStatus>("idle");
 
   useEffect(() => {
     if (!isOpen) {
@@ -243,7 +201,7 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
   const hasGenderError = touched && gender.length === 0;
   const hasAvailabilityError = touched && availability.length === 0;
   const requiresCourtVerification =
-    placesStatus === "ready" && localCourts.trim().length > 0 && !localCourtPlaceId;
+    Boolean(GOOGLE_PLACES_API_KEY) && localCourts.trim().length > 0 && !localCourtPlaceId;
   const hasCourtsError = touched && requiresCourtVerification;
 
   const isSubmitDisabled = useMemo(() => {
@@ -278,152 +236,38 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
 
   useEffect(() => {
     if (!isOpen) {
-      return undefined;
-    }
-
-    if (!courtsInputRef.current) {
-      return undefined;
-    }
-
-    let isSubscribed = true;
-
-    const initializeAutocomplete = async () => {
-      if (!GOOGLE_PLACES_API_KEY) {
-        setPlacesStatus("unavailable");
-        return;
-      }
-
-      setPlacesStatus("loading");
-
-      try {
-        await loadGooglePlacesScript();
-
-        if (!isSubscribed || !courtsInputRef.current) {
-          return;
-        }
-
-        const googleMaps = (window as typeof window & {
-          google?: {
-            maps?: {
-              places?: {
-                Autocomplete: new (
-                  input: HTMLInputElement,
-                  options?: {
-                    fields?: Array<"place_id" | "name" | "formatted_address">;
-                    types?: string[];
-                  },
-                ) => {
-                  getPlace: () => {
-                    place_id?: string;
-                    name?: string;
-                    formatted_address?: string;
-                  };
-                  addListener: (eventName: string, handler: () => void) => { remove: () => void };
-                };
-              };
-            };
-            event?: {
-              removeListener: (listener: { remove(): void }) => void;
-              clearInstanceListeners: (instance: unknown) => void;
-            };
-          };
-        }).google?.maps;
-
-        if (!googleMaps?.places?.Autocomplete) {
-          setPlacesStatus("unavailable");
-          return;
-        }
-
-        const autocomplete = new googleMaps.places.Autocomplete(courtsInputRef.current, {
-          fields: ["place_id", "name", "formatted_address"],
-          types: ["establishment"],
-        });
-
-        autocompleteInstanceRef.current = autocomplete;
-
-        autocompleteRef.current = autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-          const placeId = place?.place_id ?? null;
-          const placeLabel = place?.name ?? place?.formatted_address ?? "";
-
-          if (placeLabel) {
-            setLocalCourts(placeLabel);
-          }
-          setLocalCourtPlaceId(placeId);
-        });
-
-        setPlacesStatus("ready");
-      } catch (error) {
-        if (!isSubscribed) {
-          return;
-        }
-        setPlacesStatus("unavailable");
-      }
-    };
-
-    initializeAutocomplete();
-
-    return () => {
-      isSubscribed = false;
-      const googleMaps = (window as typeof window & {
-        google?: {
-          maps?: {
-            event?: {
-              removeListener: (listener: { remove(): void }) => void;
-              clearInstanceListeners: (instance: unknown) => void;
-            };
-          };
-        };
-      }).google?.maps;
-
-      if (autocompleteRef.current && googleMaps?.event?.removeListener) {
-        googleMaps.event.removeListener(autocompleteRef.current);
-      }
-
-      if (autocompleteInstanceRef.current && googleMaps?.event?.clearInstanceListeners) {
-        googleMaps.event.clearInstanceListeners(autocompleteInstanceRef.current);
-      }
-
-      autocompleteRef.current = null;
-      autocompleteInstanceRef.current = null;
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setPlacesStatus("idle");
       setLocalCourtPlaceId(null);
     }
   }, [isOpen]);
 
-  if (!isOpen) {
+  if (!isOpen || typeof document === "undefined") {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
-      className="match-profile-modal-overlay"
+      className="match-profile-form-modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       onMouseDown={handleOverlayClick}
     >
-      <div className="match-profile-modal" role="document">
-        <header className="match-profile-modal__header">
-          <div className="match-profile-modal__heading">
+      <div className="match-profile-form-modal" role="document">
+        <header className="match-profile-form-modal__header">
+          <div className="match-profile-form-modal__heading">
             <h2 id={titleId}>Build your player match profile</h2>
             <p id={descriptionId}>
               Share a few details to help local players understand your vibe, level, and availability.
             </p>
           </div>
-          <button type="button" className="match-profile-modal__close" onClick={onClose} aria-label="Close profile form">
+          <button type="button" className="match-profile-form-modal__close" onClick={onClose} aria-label="Close profile form">
             <X size={20} strokeWidth={2} />
           </button>
         </header>
 
-        <form className="match-profile-modal__form" onSubmit={handleSubmit}>
-          <div className="match-profile-modal__body">
+        <form className="match-profile-form-modal__form" onSubmit={handleSubmit}>
+          <div className="match-profile-form-modal__body">
             <div className="match-profile-field">
               <label htmlFor="match-profile-about" className="match-profile-label">
                 About me
@@ -558,29 +402,38 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
                 My local courts
               </label>
               <p className="match-profile-helper">Search for your go-to courts so players know where to meet.</p>
-              <input
+              <Autocomplete
                 id="match-profile-courts"
-                type="text"
+                apiKey={GOOGLE_PLACES_API_KEY || undefined}
                 value={localCourts}
                 onChange={(event) => {
                   setLocalCourts(event.target.value);
                   setLocalCourtPlaceId(null);
                 }}
+                onPlaceSelected={(place: google.maps.places.PlaceResult | null) => {
+                  if (!place) {
+                    return;
+                  }
+
+                  const placeLabel = place.name || place.formatted_address || localCourts;
+                  setLocalCourts(placeLabel);
+                  setLocalCourtPlaceId(place.place_id ?? null);
+                }}
+                options={{
+                  fields: ["place_id", "formatted_address", "geometry", "name", "address_components"],
+                  types: ["geocode", "establishment"],
+                }}
                 placeholder="Start typing a court name or neighborhood"
                 className={`match-profile-input${hasCourtsError ? " match-profile-input--error" : ""}`}
-                ref={courtsInputRef}
                 autoComplete="off"
               />
-              {placesStatus === "loading" && (
-                <p className="match-profile-status">Loading Google Places suggestions…</p>
-              )}
-              {placesStatus === "ready" && !localCourtPlaceId && (
+              {GOOGLE_PLACES_API_KEY && !localCourtPlaceId && (
                 <p className="match-profile-status">Powered by Google Places. Select a result to confirm.</p>
               )}
-              {placesStatus === "ready" && localCourtPlaceId && (
+              {GOOGLE_PLACES_API_KEY && localCourtPlaceId && (
                 <p className="match-profile-status match-profile-status--success">Court verified with Google Places.</p>
               )}
-              {placesStatus === "unavailable" && (
+              {!GOOGLE_PLACES_API_KEY && (
                 <p className="match-profile-status match-profile-status--warning">
                   Autocomplete is unavailable right now, but you can still type your courts manually.
                 </p>
@@ -625,18 +478,18 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
             </div>
           </div>
 
-          <footer className="match-profile-modal__footer">
-            <p className="match-profile-modal__disclaimer">
+          <footer className="match-profile-form-modal__footer">
+            <p className="match-profile-form-modal__disclaimer">
               By completing your profile you agree to share your contact details with other Matchplay members and
               accept our terms of use. You can remove yourself from player matching anytime from the settings menu.
             </p>
-            <div className="match-profile-modal__actions">
+            <div className="match-profile-form-modal__actions">
               {showCompletionError && (
-                <p className="match-profile-modal__submit-error" role="alert">
+                <p className="match-profile-form-modal__submit-error" role="alert">
                   Please complete your full profile before saving.
                 </p>
               )}
-              <div className="match-profile-modal__buttons">
+              <div className="match-profile-form-modal__buttons">
                 <button type="button" className="fc-button fc-button--secondary" onClick={onClose}>
                   Cancel
                 </button>
@@ -653,7 +506,8 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
           </footer>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
