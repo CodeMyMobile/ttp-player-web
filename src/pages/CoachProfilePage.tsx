@@ -69,6 +69,20 @@ const stripePublishableKey =
 
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
+const parseStatusCode = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const getLessonStatusCode = (lesson: unknown) => {
+  const record = lesson as Record<string, unknown>;
+  return parseStatusCode(record.payment_status ?? record.paymentStatus ?? record.status);
+};
+
 type LessonTypeFilter = "all" | "private" | "group";
 type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
@@ -493,7 +507,7 @@ const getLessonMomentRange = (lesson: PlayerLesson) => {
 };
 
 const getUpcomingLessonBookingState = (lesson: PlayerLesson): LoadedSlot["bookingState"] | null => {
-  const status = Number((lesson as Record<string, unknown>).status ?? lesson.status);
+  const status = getLessonStatusCode(lesson);
   if (status === 1) return "confirmed";
   if (status === 0) return "pending";
   return null;
@@ -2540,10 +2554,10 @@ const CoachProfilePage = () => {
                 <LessonDetailCard
                   key={String(lesson.id)}
                   lesson={lesson as Lesson}
-                  statusLabel={Number((lesson as Record<string, unknown>).status) === 0 ? "Requested" : undefined}
+                  statusLabel={getLessonStatusCode(lesson) === 0 ? "Requested" : undefined}
                   footerActionLabel={
                     resolveLessonType(lesson as Lesson) === "private" &&
-                    Number((lesson as Record<string, unknown>).status ?? lesson.status) !== 2
+                    getLessonStatusCode(lesson) !== 2
                       ? "Cancel lesson"
                       : undefined
                   }

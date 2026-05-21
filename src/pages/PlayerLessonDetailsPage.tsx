@@ -73,7 +73,22 @@ const parseNumber = (value: unknown): number | null => {
 const parseLessonStatus = (lesson: Lesson | null) => {
   if (!lesson) return null;
   const record = lesson as Record<string, unknown>;
-  return parseNumber(record.status);
+  const playerId = record.player_id ?? record.playerId ?? record.user_id ?? record.userId;
+  const groupPlayers = Array.isArray(record.group_players) ? record.group_players : [];
+  const currentPlayerRecord =
+    playerId != null
+      ? groupPlayers.find((player) => {
+          const participant = player as Record<string, unknown>;
+          const candidateId = participant.player_id ?? participant.playerId ?? participant.id ?? participant.user_id ?? participant.userId;
+          return candidateId != null && String(candidateId) === String(playerId);
+        })
+      : undefined;
+  const currentPlayerStatus = currentPlayerRecord
+    ? (currentPlayerRecord as Record<string, unknown>).payment_status ??
+      (currentPlayerRecord as Record<string, unknown>).paymentStatus ??
+      (currentPlayerRecord as Record<string, unknown>).status
+    : undefined;
+  return parseNumber(currentPlayerStatus ?? record.payment_status ?? record.paymentStatus ?? record.status);
 };
 
 const formatDateLabel = (value?: string | null) => {
@@ -113,11 +128,31 @@ const getCoachName = (lesson: Lesson | null) => {
   return String(record.full_name ?? lesson.coach_name ?? "Coach");
 };
 
+const getCoachProfileName = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    full_name?: string;
+    name?: string;
+  };
+  const value = record.fullName ?? record.full_name ?? record.name;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
 const getCoachAvatarUrl = (lesson: Lesson | null) => {
   if (!lesson) return null;
   const record = lesson as Record<string, unknown>;
   const value = record.profile_picture;
   return typeof value === "string" && value.trim() ? value : null;
+};
+
+const getCoachProfileAvatarUrl = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    profile_picture?: string;
+    avatarUrl?: string;
+  };
+  const value = record.profilePicture ?? record.profile_picture ?? record.avatarUrl;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
 const getInitials = (name: string) => {
@@ -506,6 +541,7 @@ const PlayerLessonDetailsPage = () => {
   const lessonStatus = useMemo(() => parseLessonStatus(lesson), [lesson]);
   const isPaymentPending = lessonStatus === 0;
   const isConfirmed = lessonStatus === 1;
+  const isCancelled = lessonStatus === 2;
   const lessonRecord = lesson as Record<string, unknown> | null;
   const coachId = useMemo(
     () => parseNumber(lessonRecord?.coach_id ?? lessonRecord?.coachId),
@@ -535,10 +571,13 @@ const PlayerLessonDetailsPage = () => {
     [lesson],
   );
   const lessonDurationMinutes = useMemo(() => getLessonDurationMinutes(lesson), [lesson]);
-  const coachName = useMemo(() => getCoachName(lesson), [lesson]);
+  const coachName = useMemo(
+    () => getCoachProfileName(coachProfile) ?? getCoachName(lesson),
+    [coachProfile, lesson],
+  );
   const coachAvatarUrl = useMemo(
-    () => getCoachAvatarUrl(lesson) ?? coachProfile?.profilePicture ?? null,
-    [coachProfile?.profilePicture, lesson],
+    () => getCoachProfileAvatarUrl(coachProfile) ?? getCoachAvatarUrl(lesson),
+    [coachProfile, lesson],
   );
   const locationTitle = useMemo(() => getLocationTitle(lesson), [lesson]);
   const lessonCapacity = useMemo(() => getLessonCapacityDetails(lesson), [lesson]);
@@ -562,19 +601,25 @@ const PlayerLessonDetailsPage = () => {
     () => buildGoogleCalendarHref(lesson, lessonTitle, lessonDescription, locationTitle),
     [lesson, lessonDescription, lessonTitle, locationTitle],
   );
-  const statusVariant = isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
+  const statusVariant = isCancelled ? "cancelled" : isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
   const statusTitle = isConfirmed
     ? "Lesson confirmed"
+    : isCancelled
+      ? "Lesson cancelled"
     : isAwaitingCoachConfirmation
       ? "Awaiting coach confirmation"
       : "Payment pending";
   const statusBody = isConfirmed
     ? `${coachName} has confirmed your session. You’re set for ${lessonDateLabel} at ${lessonTimeRange.split(" · ")[0]}.`
+    : isCancelled
+      ? "This lesson has been cancelled. Contact your coach if you need help rebooking."
     : isAwaitingCoachConfirmation
       ? `${coachName} still needs to confirm this lesson. You’ll be notified as soon as they do.`
       : "Accept and pay to lock this lesson in.";
   const sidebarStatusLabel = isConfirmed
     ? "Booked"
+    : isCancelled
+      ? "Cancelled"
     : isAwaitingCoachConfirmation
       ? "Pending coach"
       : "Needs payment";
@@ -1101,7 +1146,7 @@ const PlayerLessonDetailsPage = () => {
       if (!phone) {
         throw new Error("Coach phone number is not available.");
       }
-      const message = `Hi ${getCoachName(lesson)}, I have a question about our ${getLessonTypeLabel(lesson).toLowerCase()} on ${formatDateLabel(lesson.start_date_time)}.`;
+      const message = `Hi ${coachName}, I have a question about our ${getLessonTypeLabel(lesson).toLowerCase()} on ${formatDateLabel(lesson.start_date_time)}.`;
       const href = buildSmsHref(phone, message);
       if (!href) {
         throw new Error("Coach phone number is not available.");
@@ -1112,7 +1157,7 @@ const PlayerLessonDetailsPage = () => {
     } finally {
       setMessageLoading(false);
     }
-  }, [coachId, coachProfile, lesson, token]);
+  }, [coachId, coachName, coachProfile, lesson, token]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -1225,7 +1270,7 @@ const PlayerLessonDetailsPage = () => {
 
                 <section className={`player-lesson-details__status-banner player-lesson-details__status-banner--${statusVariant}`}>
                   <div className="player-lesson-details__status-banner-icon" aria-hidden>
-                    {isConfirmed ? <CheckCircle2 size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
+                    {isConfirmed ? <CheckCircle2 size={20} /> : isCancelled ? <AlertCircle size={20} /> : isAwaitingCoachConfirmation ? <Hourglass size={20} /> : <CreditCard size={20} />}
                   </div>
                   <div className="player-lesson-details__status-banner-copy">
                     <strong>{statusTitle}</strong>
@@ -1312,6 +1357,8 @@ const PlayerLessonDetailsPage = () => {
                   <div className="player-lesson-details__booking-price">
                     {totalDueCents != null
                       ? `$${(totalDueCents / 100).toFixed(2)}`
+                      : isCancelled
+                        ? "Cancelled"
                       : isConfirmed
                         ? "Paid"
                         : "Pending"}

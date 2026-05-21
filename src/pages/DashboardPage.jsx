@@ -77,7 +77,9 @@ const extractLessons = (response) => {
 const resolveLessonKind = (lesson) => {
   if (lesson?.metadata?.externalUrl) return "external";
   const limit = parseNumber(lesson.player_limit, lesson.playerLimit, lesson.max_players, lesson.player_capacity);
+  const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
   const typeValue = pickString(lesson.lesson_type_name, lesson.type, lesson.lesson_type, lesson.program_type) || "";
+  if (typeId === 3 || typeId === 4) return "group";
   if (limit && limit > 1) return "group";
   if (/\b(group|semi|clinic|camp)\b/i.test(typeValue)) return "group";
   return "private";
@@ -85,6 +87,17 @@ const resolveLessonKind = (lesson) => {
 
 const formatStatusLabel = (value) => {
   if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") {
+    if (value === 0) return "Pending";
+    if (value === 1) return "Confirmed";
+    if (value === 2) return "Cancelled";
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (normalized === "0") return "Pending";
+    if (normalized === "1") return "Confirmed";
+    if (normalized === "2") return "Cancelled";
+  }
   return value
     .toString()
     .replace(/[_]+/g, " ")
@@ -229,7 +242,7 @@ const resolveInviteLessonLabel = (lesson) => {
   const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
   const typeName = (pickString(lesson.lesson_type_name, lesson.lesson_type, lesson.type) || "").toLowerCase();
   if (typeId === 2 || typeName.includes("semi")) return "semi-private lesson";
-  if (typeId === 3 || typeName.includes("group")) return "group lesson";
+  if (typeId === 3 || typeId === 4 || typeName.includes("group")) return "group lesson";
   return "private lesson";
 };
 
@@ -239,7 +252,7 @@ const resolveCoachInviteLessonDestination = (lessonId, lesson) => {
   const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
   const typeName = (pickString(lesson.lesson_type_name, lesson.lesson_type, lesson.type) || "").toLowerCase();
   const isSemiPrivate = typeId === 2 || typeName.includes("semi");
-  const isGroupLesson = typeId === 3 || typeName.includes("group");
+  const isGroupLesson = typeId === 3 || typeId === 4 || typeName.includes("group");
 
   return isGroupLesson && !isSemiPrivate ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`;
 };
@@ -365,7 +378,7 @@ const buildCoachInviteItems = (records = [], currentUser) => {
     .filter((lesson) => {
       if (!lesson || typeof lesson !== "object") return false;
 
-      const lessonStatus = lesson.status ?? lesson.booking_status ?? lesson.lesson_status;
+      const lessonStatus = lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status;
       const participantRecords = [
         ...(Array.isArray(lesson.participants) ? lesson.participants : []),
         ...(Array.isArray(lesson.group_players) ? lesson.group_players : []),
@@ -383,7 +396,7 @@ const buildCoachInviteItems = (records = [], currentUser) => {
       const matchingParticipant =
         userIdentities.size === 0
           ? participantRecords.find((participant) =>
-              isPendingValue(participant.status ?? participant.booking_status ?? participant.lesson_status ?? participant.payment_status),
+              isPendingValue(participant.payment_status ?? participant.paymentStatus ?? participant.status ?? participant.booking_status ?? participant.lesson_status),
             ) ?? participantRecords[0]
           : participantRecords.find((participant) =>
               collectIdentityValues(participant).some((value) => userIdentities.has(value)),
@@ -391,22 +404,24 @@ const buildCoachInviteItems = (records = [], currentUser) => {
       const isCurrentPlayerParticipant = Boolean(matchingParticipant);
       const participantPending = matchingParticipant
         ? isPendingValue(
-            matchingParticipant.status ??
+            matchingParticipant.payment_status ??
+              matchingParticipant.paymentStatus ??
+              matchingParticipant.status ??
               matchingParticipant.booking_status ??
-              matchingParticipant.lesson_status ??
-              matchingParticipant.payment_status,
+              matchingParticipant.lesson_status,
           )
         : participantRecords.some((participant) =>
             isPendingValue(
-              participant.status ?? participant.booking_status ?? participant.lesson_status ?? participant.payment_status,
+              participant.payment_status ?? participant.paymentStatus ?? participant.status ?? participant.booking_status ?? participant.lesson_status,
             ),
           );
       const participantConfirmed = matchingParticipant
         ? isConfirmedValue(
-            matchingParticipant.status ??
+            matchingParticipant.payment_status ??
+              matchingParticipant.paymentStatus ??
+              matchingParticipant.status ??
               matchingParticipant.booking_status ??
-              matchingParticipant.lesson_status ??
-              matchingParticipant.payment_status,
+              matchingParticipant.lesson_status,
           )
         : false;
       const lessonPending = isPendingValue(lessonStatus);
@@ -662,7 +677,7 @@ const buildScheduleItems = (lessons = []) =>
             lesson.court_name,
             lesson.facility_name,
           ) || "Location TBD",
-        status: formatStatusLabel(lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
+        status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         startTime: startAt.toISOString(),
         icon: getTypeConfig(type).badge,
       };
@@ -758,7 +773,7 @@ const buildActivityItems = (lessons = []) =>
         coachName,
         rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
-        status: formatStatusLabel(lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
+        status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         remainingSpots,
         avatar: type === "private" ? initials : typeConfig.badge,
         avatarUrl: pickString(lesson.profile_picture, lesson?.coach?.profile_picture, lesson?.coach?.avatarUrl),

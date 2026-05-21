@@ -228,6 +228,11 @@
   background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
 }
 
+.player-lesson-details__status-banner--cancelled {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
+}
+
 .player-lesson-details__status-banner-icon {
   flex-shrink: 0;
   color: #7c3aed;
@@ -243,6 +248,10 @@
 
 .player-lesson-details__status-banner--payment .player-lesson-details__status-banner-icon {
   color: #3730a3;
+}
+
+.player-lesson-details__status-banner--cancelled .player-lesson-details__status-banner-icon {
+  color: #b91c1c;
 }
 
 .player-lesson-details__status-banner-copy {
@@ -480,6 +489,11 @@
 .player-lesson-details__booking-pill--payment {
   background: #ede9fe;
   color: #6d28d9;
+}
+
+.player-lesson-details__booking-pill--cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .player-lesson-details__price-breakdown {

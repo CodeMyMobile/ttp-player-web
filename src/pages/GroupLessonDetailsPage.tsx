@@ -142,6 +142,26 @@ const isGenericCoachName = (value?: string | null) => {
   return value.trim().toLowerCase() === "coach";
 };
 
+const getCoachProfileName = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    full_name?: string;
+    name?: string;
+  };
+  const value = record.fullName ?? record.full_name ?? record.name;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
+const getCoachProfileAvatarUrl = (profile: CoachProfileRecord | null) => {
+  if (!profile) return null;
+  const record = profile as CoachProfileRecord & {
+    profile_picture?: string;
+    avatarUrl?: string;
+  };
+  const value = record.profilePicture ?? record.profile_picture ?? record.avatarUrl;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error && typeof error === "object") {
     const data = (error as { data?: Record<string, unknown> }).data;
@@ -575,7 +595,7 @@ const GroupLessonDetailsPage = () => {
       return false;
     });
     if (!playerRecord) return undefined;
-    return playerRecord.status;
+    return playerRecord.paymentStatus ?? playerRecord.status;
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
   const availableCredits = useMemo(
@@ -760,10 +780,10 @@ const GroupLessonDetailsPage = () => {
     : buildTimeRangeLabel(lesson.startTime, lesson.durationMinutes);
   const levelLabel = formatLevel(lesson.level);
   const coachName =
+    getCoachProfileName(coachProfile) ??
     (isGenericCoachName(lesson.coachName) ? undefined : lesson.coachName) ??
-    coachProfile?.fullName ??
     "Coach";
-  const coachAvatar = lesson.coachAvatarUrl || coachProfile?.profilePicture || "";
+  const coachAvatar = getCoachProfileAvatarUrl(coachProfile) ?? lesson.coachAvatarUrl ?? "";
   const dateLabel = lesson.startDateTime
     ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
     : lesson.date;
