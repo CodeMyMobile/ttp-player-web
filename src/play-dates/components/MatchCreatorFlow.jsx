@@ -1195,7 +1195,7 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGrou
         </div>
       )}
 
-      <div className="match-creator-flow__panel flex h-full min-h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-none md:mx-auto md:h-auto md:min-h-0 md:max-h-[90vh] md:max-w-[680px] md:rounded-2xl md:shadow-[0_22px_54px_rgba(0,0,0,0.24)]">
+      <div className="match-creator-flow__panel flex h-full min-h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-none md:mx-auto md:min-h-0 md:max-h-[90vh] md:max-w-[680px] md:rounded-2xl md:shadow-[0_22px_54px_rgba(0,0,0,0.24)]">
         <div className="border-b border-slate-100 px-5 py-4 md:px-6 md:py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
