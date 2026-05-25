@@ -70,6 +70,9 @@ export interface UpcomingGroupLessonPlayerApi {
 
 export interface UpcomingGroupLessonApi {
   id: number | string;
+  lesson_id?: number | string | null;
+  occurrence_id?: string | null;
+  group_class_id?: number | string | null;
   full_name?: string;
   coach_id?: number;
   profile_picture?: string;
@@ -308,6 +311,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     availableSpots,
     focus: lesson.lesson_type_name ?? description,
     pricePerPlayer: formatPricePerPlayer(lesson.group_price_per_person),
+    sourceLesson: lesson,
     participants: activeGroupPlayers.map((player, index) => ({
       id: String(player.playerId ?? `${lesson.id}-${index}`),
       name: player.name,

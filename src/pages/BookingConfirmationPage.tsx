@@ -52,7 +52,7 @@ import {
   type PlayerStripePaymentMethod,
   type PlayerStripePaymentMethodListResponse,
 } from "../api/playerStripe";
-import { bookGroupLessonWithCard } from "../api/playerLessons";
+import { bookGroupLessonWithCard, joinLesson } from "../api/playerLessons";
 import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -211,6 +211,14 @@ const isGroupBookingResponseSuccessful = (response: unknown) => {
     return true;
   }
 
+  if (record.lesson && typeof record.lesson === "object") {
+    return true;
+  }
+
+  if (record.id || record.lesson_id) {
+    return true;
+  }
+
   const message = typeof record.message === "string" ? record.message.toLowerCase() : "";
   return message.includes("booked successfully");
 };
@@ -355,6 +363,12 @@ const extractNumericLessonId = (value: unknown) => {
   return undefined;
 };
 
+const extractGroupClassOccurrenceId = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return /^group-class-\d+-\d{4}-\d{2}-\d{2}$/i.test(trimmed) ? trimmed : undefined;
+};
+
 const pickFirstValue = (record: Record<string, unknown> | undefined, keys: string[]) => {
   if (!record) return undefined;
   for (const key of keys) {
@@ -364,6 +378,56 @@ const pickFirstValue = (record: Record<string, unknown> | undefined, keys: strin
     }
   }
   return undefined;
+};
+
+const getBookableGroupLessonId = (lesson: GroupLesson | null, fallbackId?: string | number) => {
+  const sourceRecord =
+    lesson?.sourceLesson && typeof lesson.sourceLesson === "object"
+      ? (lesson.sourceLesson as Record<string, unknown>)
+      : undefined;
+  const materializedLessonId = pickFirstValue(sourceRecord, [
+    "sourceLessonId",
+    "source_lesson_id",
+    "lessonId",
+    "lesson_id",
+    "backendLessonId",
+    "backend_lesson_id",
+  ]);
+  const occurrenceId = pickFirstValue(sourceRecord, [
+    "occurrenceId",
+    "occurrence_id",
+    "id",
+  ]);
+
+  return (
+    extractNumericLessonId(materializedLessonId) ??
+    extractNumericLessonId(lesson?.id) ??
+    extractNumericLessonId(fallbackId) ??
+    extractGroupClassOccurrenceId(occurrenceId) ??
+    extractGroupClassOccurrenceId(lesson?.id) ??
+    extractGroupClassOccurrenceId(fallbackId)
+  );
+};
+
+const getMaterializedGroupLessonId = (lesson: GroupLesson | null, fallbackId?: string | number) => {
+  const sourceRecord =
+    lesson?.sourceLesson && typeof lesson.sourceLesson === "object"
+      ? (lesson.sourceLesson as Record<string, unknown>)
+      : undefined;
+  const materializedLessonId = pickFirstValue(sourceRecord, [
+    "sourceLessonId",
+    "source_lesson_id",
+    "lessonId",
+    "lesson_id",
+    "backendLessonId",
+    "backend_lesson_id",
+  ]);
+
+  return (
+    extractNumericLessonId(materializedLessonId) ??
+    extractNumericLessonId(lesson?.id) ??
+    extractNumericLessonId(fallbackId)
+  );
 };
 
 const normalizeIdentityValue = (value: unknown) => {
@@ -752,6 +816,11 @@ const BookingConfirmationPage = () => {
       "backend_lesson_id",
     ]);
   const numericSourceLessonId = extractNumericLessonId(sourceLessonId);
+  const materializedCreditLessonId =
+    getMaterializedGroupLessonId(groupLesson, groupLessonId) ??
+    numericSourceLessonId ??
+    extractNumericLessonId(selectedSlot?.id) ??
+    extractNumericLessonId(slotId);
   const isOpenGroupLesson = Boolean(groupLessonId || groupLesson || isProfileGroupLesson);
   const isCoachCreatedSemiPrivateLesson = !isOpenGroupLesson && isProfileSemiPrivate;
   const isCoachCreatedPrivateLesson =
@@ -1127,7 +1196,7 @@ const BookingConfirmationPage = () => {
     : `Lock in your preferred time. We’ll notify ${coachFirstName} once you submit the request.`;
 
   const selectedSavedCard = paymentMethods.find((card) => card.id === paymentMethod) ?? null;
-  const canUseCredits = eligibleCredits.length > 0;
+  const canUseCredits = eligibleCredits.length > 0 && (!isOpenGroupLesson || Boolean(materializedCreditLessonId));
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
@@ -1239,14 +1308,62 @@ const BookingConfirmationPage = () => {
   }, [authToken, creditLessonType, resolvedCoachId]);
 
   const getCreditLessonId = useCallback(() => {
-    const lessonIdForConsume =
-      groupLesson?.id ??
-      groupLessonId ??
-      numericSourceLessonId ??
-      selectedSlot?.id ??
-      slotId;
-    return extractNumericLessonId(lessonIdForConsume);
-  }, [groupLesson?.id, groupLessonId, numericSourceLessonId, selectedSlot?.id, slotId]);
+    return materializedCreditLessonId;
+  }, [materializedCreditLessonId]);
+
+  const bookOpenGroupLessonWithPayment = useCallback(
+    async (paymentMethodId: string) => {
+      if (!authToken) {
+        throw new Error("Sign in to complete your booking.");
+      }
+
+      const bookableLessonId =
+        getBookableGroupLessonId(groupLesson, groupLessonId) ??
+        numericSourceLessonId ??
+        extractNumericLessonId(selectedSlot?.id) ??
+        extractNumericLessonId(slotId);
+
+      if (!bookableLessonId) {
+        throw new Error("Missing lesson details for booking.");
+      }
+
+      const shouldBookOccurrence = Boolean(
+        groupLesson &&
+          !extractNumericLessonId(groupLesson.id) &&
+          extractGroupClassOccurrenceId(bookableLessonId) &&
+          (groupLesson.startDateTime || groupLesson.endDateTime),
+      );
+
+      if (shouldBookOccurrence && groupLesson) {
+        const start = groupLesson.startDateTime ? moment.utc(groupLesson.startDateTime) : null;
+        const end = groupLesson.endDateTime ? moment.utc(groupLesson.endDateTime) : null;
+        if (!start?.isValid() || !end?.isValid()) {
+          throw new Error("Missing lesson time details for booking.");
+        }
+
+        return joinLesson({
+          token: authToken,
+          lessonId: bookableLessonId,
+          coachId: groupLesson.coachId,
+          startDateTime: start.toISOString(),
+          endDateTime: end.toISOString(),
+          startDateTimeTz: moment(groupLesson.startDateTime).toISOString(),
+          endDateTimeTz: moment(groupLesson.endDateTime).toISOString(),
+          locationId: groupLesson.locationId ?? 0,
+          court: groupLesson.court ?? 0,
+          status: "CONFIRMED",
+          paymentMethodId,
+        });
+      }
+
+      return bookGroupLessonWithCard({
+        token: authToken,
+        lessonId: bookableLessonId,
+        paymentMethodId,
+      });
+    },
+    [authToken, groupLesson, groupLessonId, numericSourceLessonId, selectedSlot?.id, slotId],
+  );
 
   const completeCreditBookingSuccess = useCallback(async () => {
     setPendingCreditConfirm(null);
@@ -1376,15 +1493,7 @@ const BookingConfirmationPage = () => {
             try {
               const paymentMethodId = event.paymentMethod.id;
               if (isGroupLesson) {
-                const lessonIdForBooking = groupLesson?.id ?? selectedSlot?.id ?? slotId;
-                if (!lessonIdForBooking) {
-                  throw new Error("Missing lesson details for Apple Pay.");
-                }
-                const response = await bookGroupLessonWithCard({
-                  token: authToken,
-                  lessonId: lessonIdForBooking,
-                  paymentMethodId,
-                });
+                const response = await bookOpenGroupLessonWithPayment(paymentMethodId);
                 if (!isGroupBookingResponseSuccessful(response)) {
                   throw new Error("Booking could not be confirmed.");
                 }
@@ -1520,12 +1629,6 @@ const BookingConfirmationPage = () => {
         return;
       }
 
-      const lessonIdForBooking = groupLesson?.id ?? selectedSlot?.id ?? slotId ?? groupLessonId;
-      if (!lessonIdForBooking) {
-        setConsumeError("Missing lesson details for booking.");
-        return;
-      }
-
       if (!paymentMethod || paymentMethod === "new-card" || paymentMethod === "apple-pay") {
         setConsumeError("Select a saved card to complete booking.");
         return;
@@ -1533,11 +1636,7 @@ const BookingConfirmationPage = () => {
 
       setIsProcessingPayment(true);
       try {
-        const response = await bookGroupLessonWithCard({
-          token: authToken,
-          lessonId: lessonIdForBooking,
-          paymentMethodId: paymentMethod,
-        });
+        const response = await bookOpenGroupLessonWithPayment(paymentMethod);
         if (!isGroupBookingResponseSuccessful(response)) {
           throw new Error("Booking could not be confirmed.");
         }
