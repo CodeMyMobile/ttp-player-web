@@ -1477,7 +1477,7 @@ const GroupLessonDetailsPage = () => {
                               <span aria-hidden>🎟️</span>
                               <span>
                                 <strong>Buy a lesson package</strong>
-                                <small>Save with credits and use one for this class.</small>
+                                <small>Save up to 20% · pay with credits</small>
                               </span>
                               <ChevronDown aria-hidden />
                             </button>
@@ -1527,11 +1527,7 @@ const GroupLessonDetailsPage = () => {
                                   disabled={!selectedPackage || purchasingPackage || paymentMethodsLoading}
                                   aria-busy={purchasingPackage}
                                 >
-                                  {purchasingPackage
-                                    ? "Buying package..."
-                                    : selectedPackage
-                                      ? `Buy ${selectedPackage.lesson_count} credits — ${formatMoney(selectedPackage.total_price)}`
-                                      : "Choose a package"}
+                                  {purchasingPackage ? "Buying package..." : "Buy with credit card"}
                                 </button>
                               </div>
                             ) : null}
