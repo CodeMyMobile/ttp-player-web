@@ -655,9 +655,6 @@ const PlayerLessonDetailsPage = () => {
     bestValuePackage ??
     packageOptions[0] ??
     null;
-  const selectedPackageLabel = selectedPackage
-    ? `${selectedPackage.lesson_count} sessions — ${formatMoney(selectedPackage.total_price)}`
-    : "Choose a package";
   const selectedPackagePrice = selectedPackage ? parseMoney(selectedPackage.total_price) : null;
   const totalDueCents = useMemo(() => {
     if (!lessonPriceBreakdown) return lessonTotalAmountCents;
@@ -1512,7 +1509,7 @@ const PlayerLessonDetailsPage = () => {
                                   disabled={!selectedPackage || submitting || purchasingPackage}
                                   aria-busy={purchasingPackage}
                                 >
-                                  {purchasingPackage ? "Buying package…" : `Buy ${selectedPackageLabel}`}
+                                  {purchasingPackage ? "Buying package..." : "Buy with credit card"}
                                 </button>
                                 {packagePurchaseError ? <p className="player-lesson-details__status-error">{packagePurchaseError}</p> : null}
                               </div>

@@ -1884,9 +1884,6 @@ const BookingConfirmationPage = () => {
     packageOptions[0] ??
     null;
   const selectedPackagePrice = selectedPackage ? parseCurrencyValue(selectedPackage.total_price) : null;
-  const selectedPackageLabel = selectedPackage
-    ? `${selectedPackage.lesson_count} sessions — ${formatMoney(selectedPackage.total_price)}`
-    : "Choose a package";
   const selectedPackageBuyLabel = isPurchasingPackage
     ? "Buying package..."
     : isUsingApplePay
@@ -2159,7 +2156,7 @@ const BookingConfirmationPage = () => {
       ) : null}
     </label>
   ) : (
-    <div className={`payment-method-card payment-method-card--credits-package${isCreditsPackageOpen ? " is-open" : ""}`}>
+    <div className={`payment-method-card--credits-package${isCreditsPackageOpen ? " is-open" : ""}`}>
       <button
         type="button"
         className="payment-method-card__package-toggle"
