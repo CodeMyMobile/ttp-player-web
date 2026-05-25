@@ -298,6 +298,49 @@ const isConfirmedValue = (value) => {
   return normalized === "1" || normalized.includes("confirmed") || normalized.includes("paid") || normalized.includes("accepted");
 };
 
+const getParticipantStatusValue = (participant) =>
+  participant?.payment_status ??
+  participant?.paymentStatus ??
+  participant?.status ??
+  participant?.booking_status ??
+  participant?.bookingStatus ??
+  participant?.lesson_status ??
+  participant?.lessonStatus;
+
+const isActiveGroupParticipant = (participant) => {
+  const status = getParticipantStatusValue(participant);
+  if (status === null || status === undefined || status === "") return true;
+  return isConfirmedValue(status);
+};
+
+const getActiveGroupParticipantCount = (lesson) => {
+  const participantRecords = [
+    ...(Array.isArray(lesson?.participants) ? lesson.participants : []),
+    ...(Array.isArray(lesson?.group_players) ? lesson.group_players : []),
+  ];
+  if (participantRecords.length === 0) return null;
+
+  const seen = new Set();
+  return participantRecords.reduce((count, participant, index) => {
+    if (!participant || typeof participant !== "object") return count;
+    const key =
+      participant.participant_id ??
+      participant.participantId ??
+      participant.group_player_id ??
+      participant.groupPlayerId ??
+      participant.player_id ??
+      participant.playerId ??
+      participant.user_id ??
+      participant.userId ??
+      participant.id ??
+      index;
+    const normalizedKey = String(key);
+    if (seen.has(normalizedKey)) return count;
+    seen.add(normalizedKey);
+    return isActiveGroupParticipant(participant) ? count + 1 : count;
+  }, 0);
+};
+
 const buildPlayerInviteItems = (records = []) =>
   records
     .map((record, index) => {
@@ -725,12 +768,13 @@ const buildActivityItems = (lessons = []) =>
       const typeConfig = getTypeConfig(type);
       const rating = parseNumber(lesson.rating, lesson.coach_rating, lesson?.coach?.rating);
       const capacity = parseNumber(lesson.player_limit, lesson.playerLimit, lesson.max_players, lesson.player_capacity);
+      const participantBookedCount = type === "group" ? getActiveGroupParticipantCount(lesson) : null;
       const booked = parseNumber(
+        participantBookedCount,
         lesson.booked_players,
         lesson.bookedPlayers,
         lesson.players_booked,
         lesson.player_count,
-        Array.isArray(lesson.group_players) ? lesson.group_players.length : null,
       );
       const remainingSpots =
         capacity !== null && booked !== null ? Math.max(capacity - booked, 0) : null;
