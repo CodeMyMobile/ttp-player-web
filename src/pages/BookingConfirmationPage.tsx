@@ -1887,7 +1887,11 @@ const BookingConfirmationPage = () => {
   const selectedPackageLabel = selectedPackage
     ? `${selectedPackage.lesson_count} sessions — ${formatMoney(selectedPackage.total_price)}`
     : "Choose a package";
-  const selectedPackageBuyLabel = isPurchasingPackage ? "Buying package..." : `Buy ${selectedPackageLabel}`;
+  const selectedPackageBuyLabel = isPurchasingPackage
+    ? "Buying package..."
+    : isUsingApplePay
+      ? "Buy with Apple Pay"
+      : "Buy with credit card";
 
   useEffect(() => {
     if (selectedPackageId || packageOptions.length === 0) {
