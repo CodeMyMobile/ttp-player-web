@@ -1329,9 +1329,8 @@ const BookingConfirmationPage = () => {
 
       const shouldBookOccurrence = Boolean(
         groupLesson &&
-          !extractNumericLessonId(groupLesson.id) &&
-          extractGroupClassOccurrenceId(bookableLessonId) &&
-          (groupLesson.startDateTime || groupLesson.endDateTime),
+          groupLesson.startDateTime &&
+          groupLesson.endDateTime,
       );
 
       if (shouldBookOccurrence && groupLesson) {
