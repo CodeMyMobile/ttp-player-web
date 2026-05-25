@@ -1180,6 +1180,83 @@
     align-items: flex-start;
   }
 
+  .payment-method-card--credits-package {
+    display: block;
+    padding: 0;
+  }
+
+  .payment-method-card__package-toggle {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .payment-method-card__package-toggle .payment-method-card__body {
+    min-width: 0;
+  }
+
+  .payment-method-card__package-panel {
+    padding: 0 14px 14px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .payment-method-card__package-intro {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .payment-method-card__package-option {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .payment-method-card__package-title {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .payment-method-card__package-badge {
+    display: inline-flex;
+    width: fit-content;
+    margin: 4px 0 0;
+  }
+
+  .payment-method-card__package-description,
+  .payment-method-card__package-subtitle,
+  .payment-method-card__package-meta {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .payment-method-card__package-price {
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .payment-method-card__package-price strong {
+    font-size: 14px;
+  }
+
+  .payment-method-card__package-price small {
+    margin-top: 0;
+    text-align: right;
+  }
+
+  .payment-method-card__package-buy {
+    white-space: normal;
+    line-height: 1.35;
+    padding: 12px;
+  }
+
   .payment-method-card__tag {
     grid-column: 2 / 4;
     justify-self: start;
