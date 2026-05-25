@@ -1646,9 +1646,8 @@ const GroupLessonsPage = () => {
                                 openExternalLessonDialog(lesson);
                                 return;
                               }
-                              navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
+                              navigate(`/group-lessons/${lesson.id}`, {
                                 state: {
-                                  groupLessonId: lesson.id,
                                   groupLessonsState: groupLessonsStateSnapshot,
                                 },
                               });
