@@ -2562,6 +2562,28 @@ const CoachProfilePage = () => {
     }
     navigate(`/coaches/${profile.id}/purchase`);
   };
+
+  const handleOpenPackageCheckoutFromPayment = () => {
+    if (!profile?.id || !selectedSlot) {
+      return;
+    }
+
+    navigate(`/coaches/${profile.id}/purchase`, {
+      state: {
+        returnTo: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+          state: {
+            resumeBookingSlotId: selectedSlot.id,
+            resumePaymentChoice: "credits",
+            focusBookCta: true,
+          },
+        },
+      },
+    });
+  };
+
   const availabilityLabels = useMemo(() => {
     if (Array.isArray(profile?.availability)) {
       return formatDisplayLabelList(
@@ -3831,11 +3853,10 @@ const CoachProfilePage = () => {
                             <button
                               type="button"
                               className="coach-payment-choice__package-buy"
-                              onClick={() => void handleBuyCheckoutPackage()}
-                              disabled={!selectedCheckoutPackage || purchasingPackage || (paymentChoice === "card" && !selectedPaymentMethodId)}
-                              aria-busy={purchasingPackage}
+                              onClick={handleOpenPackageCheckoutFromPayment}
+                              disabled={!selectedCheckoutPackage}
                             >
-                              {purchasingPackage ? "Buying package..." : `Buy ${selectedCheckoutPackageLabel}`}
+                              Buy with credit card
                             </button>
                           </div>
                         ) : null}

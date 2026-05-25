@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeftCircle, Loader2 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
@@ -8,12 +8,23 @@ import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile"
 
 import "./PurchaseLessonPackagePage.css";
 
+type PurchaseLessonPackageRouteState = {
+  returnTo?: {
+    pathname?: string;
+    search?: string;
+    hash?: string;
+    state?: Record<string, unknown>;
+  };
+};
+
 const PurchaseLessonPackagePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<CoachProfileRecord | undefined>();
   const [error, setError] = useState<string | null>(null);
+  const routeState = (location.state as PurchaseLessonPackageRouteState | null | undefined) ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,10 +74,37 @@ const PurchaseLessonPackagePage = () => {
   }, [id]);
 
   const handleClose = () => {
+    if (routeState?.returnTo?.pathname) {
+      navigate(
+        {
+          pathname: routeState.returnTo.pathname,
+          search: routeState.returnTo.search ?? "",
+          hash: routeState.returnTo.hash ?? "",
+        },
+        { state: routeState.returnTo.state },
+      );
+      return;
+    }
     if (coach) {
       navigate(`/coaches/${coach.id}`);
     } else {
       navigate(-1);
+    }
+  };
+
+  const handleSuccess = () => {
+    if (routeState?.returnTo?.pathname) {
+      navigate(
+        {
+          pathname: routeState.returnTo.pathname,
+          search: routeState.returnTo.search ?? "",
+          hash: routeState.returnTo.hash ?? "",
+        },
+        {
+          replace: true,
+          state: routeState.returnTo.state,
+        },
+      );
     }
   };
 
@@ -94,7 +132,9 @@ const PurchaseLessonPackagePage = () => {
           </div>
         ) : null}
 
-        {!loading && coach ? <PurchaseLessonPackageCheckout coach={coach} onClose={handleClose} /> : null}
+        {!loading && coach ? (
+          <PurchaseLessonPackageCheckout coach={coach} onClose={handleClose} onSuccess={handleSuccess} />
+        ) : null}
       </div>
     </MainLayout>
   );

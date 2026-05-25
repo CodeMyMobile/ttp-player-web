@@ -38,6 +38,7 @@ type PurchaseLessonPackagePresentation = "modal" | "page";
 type PurchaseLessonPackageExperienceProps = {
   coach: CoachProfileRecord;
   onClose?: () => void;
+  onSuccess?: () => void;
   presentation?: PurchaseLessonPackagePresentation;
 };
 
@@ -193,6 +194,7 @@ const buildPurchaseErrorMessage = (code?: string, fallback?: string) => {
 const PurchaseLessonPackageExperience = ({
   coach,
   onClose,
+  onSuccess,
   presentation = "modal",
 }: PurchaseLessonPackageExperienceProps) => {
   const { user } = useAuth();
@@ -468,6 +470,7 @@ const PurchaseLessonPackageExperience = ({
       });
       setPurchaseState("success");
       await refreshCredits();
+      onSuccess?.();
     } catch (err) {
       const data = (err as Error & { data?: { error?: string; message?: string } }).data;
       const message = buildPurchaseErrorMessage(
@@ -941,9 +944,11 @@ export const PurchaseLessonPackageModal = ({ coach, onClose }: { coach: CoachPro
 export const PurchaseLessonPackageCheckout = ({
   coach,
   onClose,
+  onSuccess,
 }: {
   coach: CoachProfileRecord;
   onClose?: () => void;
-}) => <PurchaseLessonPackageExperience coach={coach} onClose={onClose} presentation="page" />;
+  onSuccess?: () => void;
+}) => <PurchaseLessonPackageExperience coach={coach} onClose={onClose} onSuccess={onSuccess} presentation="page" />;
 
 export default PurchaseLessonPackageExperience;
