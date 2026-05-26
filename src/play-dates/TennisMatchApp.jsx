@@ -292,15 +292,32 @@ const formatDayKey = (date) => {
   )}-${String(date.getDate()).padStart(2, "0")}`;
 };
 
+const parseDateValue = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [, year, month, day] = dateOnlyMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const getMatchStartDate = (match = {}) => {
   const value =
     match.dateTime ??
     match.start_date_time ??
     match.startDateTime ??
     match.startsAt;
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseDateValue(value);
 };
 
 const buildDayStripOptions = () => {
@@ -3145,7 +3162,8 @@ const TennisMatchApp = ({
   }, [currentScreen, location.pathname, openInviteScreen]);
 
   const formatDateTime = (dateTime) => {
-    const date = new Date(dateTime);
+    const date = parseDateValue(dateTime);
+    if (!date) return "";
     return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
