@@ -96,13 +96,17 @@ const addDays = (iso: string, amount: number) => {
 };
 
 const formatWeekday = (iso: string, length: "long" | "short" = "long") => {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: length });
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    weekday: length,
+    timeZone: "UTC",
+  });
 };
 
 const formatMonthDay = (iso: string, options: "long" | "short" = "long") => {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
     month: options === "long" ? "long" : "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 };
 
