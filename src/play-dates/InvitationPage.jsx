@@ -198,6 +198,7 @@ export default function InvitationPage() {
   const [joining, setJoining] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [declined, setDeclined] = useState(false);
+  const authSectionRef = useRef(null);
 
   const successDateFormatter = useMemo(
     () =>
@@ -226,6 +227,15 @@ export default function InvitationPage() {
     const timeout = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timeout);
   }, [toast]);
+
+  const scrollAuthSectionIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      authSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -1020,6 +1030,23 @@ export default function InvitationPage() {
     token,
   ]);
 
+  const openSignIn = useCallback(() => {
+    setAuthMode("signIn");
+    setPhase("auth");
+    setError("");
+    setShowForgotPassword(false);
+    setForgotEmail(signInEmail || inviteeEmail || "");
+    scrollAuthSectionIntoView();
+  }, [inviteeEmail, scrollAuthSectionIntoView, signInEmail]);
+
+  const openSignUp = useCallback(() => {
+    setAuthMode("signUp");
+    setPhase("auth");
+    setError("");
+    setShowForgotPassword(false);
+    scrollAuthSectionIntoView();
+  }, [scrollAuthSectionIntoView]);
+
   const handleSignInSubmit = async (event) => {
     event.preventDefault();
     if (authSubmitting) return;
@@ -1474,7 +1501,10 @@ export default function InvitationPage() {
   );
 
   const authSection = (
-    <div className="space-y-5 rounded-[28px] border border-slate-100 bg-white/95 p-6 shadow-xl">
+    <div
+      ref={authSectionRef}
+      className="space-y-5 rounded-[28px] border border-slate-100 bg-white/95 p-6 shadow-xl"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
@@ -1516,6 +1546,7 @@ export default function InvitationPage() {
             setAuthMode("signIn");
             setError("");
             setShowForgotPassword(false);
+            scrollAuthSectionIntoView();
           }}
           className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
             authMode === "signIn"
@@ -1532,6 +1563,7 @@ export default function InvitationPage() {
             setAuthMode("signUp");
             setError("");
             setShowForgotPassword(false);
+            scrollAuthSectionIntoView();
           }}
           className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
             authMode === "signUp"
@@ -1895,11 +1927,7 @@ export default function InvitationPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setAuthMode("signIn");
-                      setPhase("auth");
-                      setError("");
-                    }}
+                    onClick={openSignIn}
                     className="inline-flex items-center gap-1 rounded-[8px] bg-violet-500 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-600"
                   >
                     Log in <ArrowRight className="h-3.5 w-3.5" />
@@ -2038,22 +2066,14 @@ export default function InvitationPage() {
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAuthMode("signIn");
-                    setPhase("auth");
-                    setError("");
-                  }}
+                  onClick={openSignIn}
                   className="inline-flex items-center justify-center rounded-[14px] bg-slate-800 px-4 py-[15px] text-[15px] font-bold text-white shadow-sm transition hover:bg-slate-900"
                 >
                   Log in
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setAuthMode("signUp");
-                    setPhase("auth");
-                    setError("");
-                  }}
+                  onClick={openSignUp}
                   className="inline-flex items-center justify-center gap-2 rounded-[14px] bg-violet-500 px-4 py-[15px] text-[15px] font-bold text-white shadow-sm transition hover:bg-violet-600"
                 >
                   Sign up free <ArrowRight className="h-4 w-4" />
