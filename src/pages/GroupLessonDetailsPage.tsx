@@ -579,7 +579,7 @@ const GroupLessonDetailsPage = () => {
     };
   }, [user]);
 
-  const currentUserStatus = useMemo(() => {
+  const currentUserBookingStatus = useMemo(() => {
     const groupPlayers = lesson?.groupPlayers ?? [];
     if (!groupPlayers.length) return undefined;
     const playerRecord = groupPlayers.find((player) => {
@@ -595,7 +595,10 @@ const GroupLessonDetailsPage = () => {
       return false;
     });
     if (!playerRecord) return undefined;
-    return playerRecord.paymentStatus ?? playerRecord.status;
+    return {
+      status: playerRecord.status,
+      paymentStatus: playerRecord.paymentStatus,
+    };
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
   const availableCredits = useMemo(
@@ -765,7 +768,10 @@ const GroupLessonDetailsPage = () => {
     );
   }
 
-  const isBooked = isActiveGroupLessonBookingStatus(currentUserStatus);
+  const isBooked = isActiveGroupLessonBookingStatus(
+    currentUserBookingStatus?.status,
+    currentUserBookingStatus?.paymentStatus,
+  );
   const confirmedCount = lesson.participants.length;
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
   const timeRange = lesson.startDateTime && lesson.endDateTime
