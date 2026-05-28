@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronRight, MapPin, Plus, Star } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
-import { normalizeMatchRecord } from "../api/matches";
+import { listMatches, normalizeMatchRecord } from "../api/matches";
 import { useAuth } from "../context/AuthContext";
 import {
   getPlayerDiscoverNearby,
@@ -723,6 +723,71 @@ const buildScheduleItems = (lessons = []) =>
         status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
         startTime: startAt.toISOString(),
         icon: getTypeConfig(type).badge,
+        destination:
+          lessonId != null
+            ? type === "group"
+              ? `/group-lessons/${lessonId}`
+              : `/player/lesson/${lessonId}`
+            : null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => moment(a.startTime).valueOf() - moment(b.startTime).valueOf());
+
+const buildScheduleMatchItems = (records = [], currentUser) =>
+  records
+    .map((record) => {
+      const normalizedMatch = normalizeMatchRecord(record, { currentUser });
+      const zonedStart = parseNearbyMoment(
+        normalizedMatch.startDateTimeIso,
+        record?.match_date_time,
+        record?.start_date_time,
+        record?.start_time,
+        record?.startTime,
+        record?.start_at,
+        record?.date_time,
+        record?.match_date,
+        record?.scheduled_at,
+      );
+      const startAt = zonedStart?.toDate() ?? parseNearbyDate(
+        normalizedMatch.startDateTimeIso,
+        record?.match_date_time,
+        record?.start_date_time,
+        record?.start_time,
+        record?.startTime,
+        record?.start_at,
+        record?.date_time,
+        record?.match_date,
+        record?.scheduled_at,
+      );
+      if (!startAt) return null;
+      if (!isFutureNearbyActivity(startAt)) return null;
+
+      const matchId = record?.id ?? record?.match_id ?? record?.matchId ?? normalizedMatch.id ?? null;
+      const relationshipLabel =
+        normalizedMatch.relationship === "host"
+          ? "Hosting"
+          : normalizedMatch.relationship === "participant"
+            ? "Joined"
+            : "Match";
+      const matchTitle = normalizedMatch.format ? `${normalizedMatch.format} Match` : "Match Play";
+
+      return {
+        id: `match-${matchId ?? startAt.toISOString()}`,
+        lessonId: matchId != null ? String(matchId) : null,
+        type: "match",
+        time: moment(startAt).calendar(null, {
+          sameDay: "[Today] · h:mm A",
+          nextDay: "[Tomorrow] · h:mm A",
+          nextWeek: "ddd · h:mm A",
+          sameElse: "ddd · h:mm A",
+        }),
+        title: relationshipLabel === "Match" ? matchTitle : `${relationshipLabel} ${matchTitle}`,
+        location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
+        status: relationshipLabel,
+        startTime: startAt.toISOString(),
+        icon: getTypeConfig("match").badge,
+        destination: matchId != null ? `/matches/${matchId}` : null,
       };
     })
     .filter(Boolean)
@@ -1041,8 +1106,18 @@ const DashboardPage = () => {
       setActivityState((prev) => ({ ...prev, status: "loading", error: null }));
       setInviteState((prev) => ({ ...prev, status: "loading", error: null }));
 
-      const [futureLessonsResult, nearbyResult, externalLessonsResult, invitesResult] = await Promise.allSettled([
+      const [futureLessonsResult, scheduleMatchesResult, nearbyResult, externalLessonsResult, invitesResult] = await Promise.allSettled([
         getPlayerFutureLessons({ token, page: 1, perPage: 25, signal: controller.signal }),
+        listMatches({
+          token,
+          filter: "my",
+          status: "upcoming",
+          includeHidden: true,
+          include_hidden: true,
+          perPage: 25,
+          page: 1,
+          signal: controller.signal,
+        }),
         getPlayerDiscoverNearby({
           token,
           location: locationPosition,
@@ -1080,9 +1155,25 @@ const DashboardPage = () => {
       ]);
       if (cancelled) return;
 
-      if (futureLessonsResult.status === "fulfilled") {
-        const lessons = extractLessons(futureLessonsResult.value);
-        setScheduleState({ status: "ready", items: buildScheduleItems(lessons), error: null });
+      if (futureLessonsResult.status === "fulfilled" || scheduleMatchesResult.status === "fulfilled") {
+        const lessons = futureLessonsResult.status === "fulfilled" ? extractLessons(futureLessonsResult.value) : [];
+        const matches = scheduleMatchesResult.status === "fulfilled" ? scheduleMatchesResult.value.matches : [];
+        const scheduleItems = [
+          ...buildScheduleItems(lessons),
+          ...buildScheduleMatchItems(matches, user),
+        ].sort((a, b) => moment(a.startTime).valueOf() - moment(b.startTime).valueOf());
+        const scheduleError =
+          futureLessonsResult.status === "rejected"
+            ? futureLessonsResult.reason instanceof Error
+              ? futureLessonsResult.reason.message
+              : "Unable to load booked lessons."
+            : scheduleMatchesResult.status === "rejected"
+              ? scheduleMatchesResult.reason instanceof Error
+                ? scheduleMatchesResult.reason.message
+                : "Unable to load your matches."
+              : null;
+
+        setScheduleState({ status: "ready", items: scheduleItems, error: scheduleError });
         const coachInviteItems = buildCoachInviteItems(lessons, user);
 
         if (invitesResult.status === "fulfilled") {
@@ -1102,7 +1193,9 @@ const DashboardPage = () => {
         const scheduleMessage =
           futureLessonsResult.reason instanceof Error
             ? futureLessonsResult.reason.message
-            : "Unable to load your schedule.";
+            : scheduleMatchesResult.reason instanceof Error
+              ? scheduleMatchesResult.reason.message
+              : "Unable to load your schedule.";
         setScheduleState({ status: "error", items: [], error: scheduleMessage });
         if (invitesResult.status === "fulfilled") {
           setInviteState({
@@ -1658,8 +1751,7 @@ const DashboardPage = () => {
                   type="button"
                   className="ph-schedule-item"
                   onClick={() =>
-                    item.lessonId &&
-                    navigate(item.type === "group" ? `/group-lessons/${item.lessonId}` : `/player/lesson/${item.lessonId}`)
+                    item.destination && navigate(item.destination)
                   }
                 >
                   <span className="ph-schedule-icon">{item.icon}</span>
