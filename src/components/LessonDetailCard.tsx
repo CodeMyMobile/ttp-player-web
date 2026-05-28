@@ -48,6 +48,29 @@ const getPlayerStatusCode = (player: unknown) => {
   return parseStatusCode(record.payment_status ?? record.paymentStatus ?? record.status);
 };
 
+const normalizeName = (value: unknown) =>
+  typeof value === "string" ? value.trim().replace(/\s+/g, " ").toLowerCase() : "";
+
+const isGeneratedPlayerDescription = (description: string, groupPlayers: unknown[]) => {
+  if (!description || groupPlayers.length === 0) return false;
+
+  const descriptionNames = description
+    .split(",")
+    .map((name) => normalizeName(name))
+    .filter(Boolean);
+  if (descriptionNames.length < 2) return false;
+
+  const playerNames = new Set(
+    groupPlayers
+      .map((player) => normalizeName((player as Record<string, unknown>)?.full_name))
+      .filter(Boolean),
+  );
+  if (playerNames.size === 0) return false;
+
+  const matchingNames = descriptionNames.filter((name) => playerNames.has(name));
+  return matchingNames.length / descriptionNames.length >= 0.75;
+};
+
 const resolveStatus = (
   lesson: Lesson,
   statusLabel?: string,
@@ -126,7 +149,6 @@ const LessonDetailCard = ({
   footerActionTone = "neutral",
   footerActionDisabled = false,
 }: LessonDetailCardProps) => {
-  console.log("Rendering LessonDetailCard for lesson ID:", lesson.id,currentUserId);
   // Align time handling with mobile: treat API timestamps as UTC and provide a 1h fallback if end is missing
   const start = moment.utc(lesson.start_date_time);
   const end = lesson.end_date_time
@@ -248,11 +270,17 @@ const LessonDetailCard = ({
   const creditFee = discountedRate != null ? percentageCalc(CREDIT_FEE_PERCENTAGE, discountedRate) : null;
   const totalFee =
     discountedRate != null && creditFee != null ? discountedRate + creditFee + SERVICE_FEE : null;
+  const descriptionCandidates = [
+    lesson.metadata?.description,
+    typeof record.description === "string" ? record.description : "",
+    typeof record.lesson_description === "string" ? record.lesson_description : "",
+    typeof record.lessonDescription === "string" ? record.lessonDescription : "",
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
   const description =
-    lesson.metadata?.description ||
-    (typeof record.description === "string" ? record.description : "") ||
-    (typeof record.lesson_description === "string" ? record.lesson_description : "") ||
-    (typeof record.lessonDescription === "string" ? record.lessonDescription : "");
+    descriptionCandidates.find((value) => !isGeneratedPlayerDescription(value, groupPlayers)) ||
+    (isGroupLesson ? "Live coached group session." : "");
 
   const status = resolveStatus(lesson, statusLabel, currentUserId);
 
