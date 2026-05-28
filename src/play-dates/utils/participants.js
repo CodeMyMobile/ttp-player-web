@@ -1,4 +1,4 @@
-import { getPhoneDigits } from "../services/phone";
+import { getPhoneDigits } from "../services/phone.js";
 
 const PARTICIPANT_IDENTITY_KEYS = [
   "match_participant_id",
@@ -31,6 +31,20 @@ const INVITE_IDENTITY_KEYS = [
   "profile.id",
   "profile.player_id",
   "profile.playerId",
+];
+
+const ACCEPTED_INVITE_OCCUPANT_IDENTITY_KEYS = [
+  "invitee_id",
+  "inviteeId",
+  "player_id",
+  "playerId",
+  "participant_id",
+  "participantId",
+  "profile.user_id",
+  "profile.userId",
+  "profile.player_id",
+  "profile.playerId",
+  "profile.id",
 ];
 
 const DEFAULT_IDENTITY_KEYS = PARTICIPANT_IDENTITY_KEYS;
@@ -443,19 +457,11 @@ const isInviteActive = (invite) => {
 
 export const uniqueAcceptedInvitees = (invitees = []) => {
   if (!Array.isArray(invitees) || invitees.length === 0) return [];
-  const identityKeys = INVITE_IDENTITY_KEYS;
-  const activeInvitees = invitees.filter((invite) => isInviteActive(invite));
-  const withIdentity = activeInvitees.filter((invite) =>
-    hasIdentity(invite, identityKeys),
+  const identityKeys = ACCEPTED_INVITE_OCCUPANT_IDENTITY_KEYS;
+  const activeInvitees = invitees.filter(
+    (invite) => isInviteActive(invite) && hasIdentity(invite, identityKeys),
   );
-  const deduped = dedupeByIdentity(withIdentity, identityKeys);
-  if (deduped.length === activeInvitees.length) {
-    return deduped;
-  }
-  const withoutIdentity = activeInvitees.filter(
-    (invite) => !hasIdentity(invite, identityKeys),
-  );
-  return [...deduped, ...withoutIdentity];
+  return dedupeByIdentity(activeInvitees, identityKeys);
 };
 
 export const countUniqueAcceptedInvitees = (invitees = []) =>
