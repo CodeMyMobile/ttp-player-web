@@ -1174,10 +1174,12 @@ const GroupLessonDetailsPage = () => {
                               </span>
                               <div className="group-lesson-details__participant-body">
                                 <span className="group-lesson-details__participant-name">{participant.name}</span>
-                                <span className="group-lesson-details__participant-meta">
-                                  {participant.skillLevel ?? "Skill level pending"}
-                                  {participant.focusArea ? ` • ${participant.focusArea}` : ""}
-                                </span>
+                                {participant.skillLevel || participant.focusArea ? (
+                                  <span className="group-lesson-details__participant-meta">
+                                    {participant.skillLevel}
+                                    {participant.focusArea ? `${participant.skillLevel ? " • " : ""}${participant.focusArea}` : ""}
+                                  </span>
+                                ) : null}
                                 {participant.joinedLabel ? (
                                   <span className="group-lesson-details__participant-joined">
                                     {participant.joinedLabel}
