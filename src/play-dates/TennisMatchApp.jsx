@@ -241,9 +241,8 @@ const formatSkillRange = (match = {}) => {
   return min || max || "";
 };
 
-const getMatchWhenParam = (selectedDayKey) => {
-  if (!selectedDayKey) return "upcoming";
-  return selectedDayKey;
+const getMatchWhenParam = () => {
+  return "upcoming";
 };
 
 const getMatchLevelParam = (selectedLevelFilter) => {
@@ -1781,7 +1780,7 @@ const TennisMatchApp = ({
           : {};
       const includeHidden =
         apiFilter === "my" || activeFilter === "archived" || activeFilter === "draft";
-      const when = getMatchWhenParam(selectedDayKey);
+      const when = getMatchWhenParam();
       const level = getMatchLevelParam(selectedLevelFilter);
       const format =
         selectedFormatFilter && selectedFormatFilter !== "Any"
@@ -1795,7 +1794,7 @@ const TennisMatchApp = ({
         status,
         search: matchSearch,
         page: matchPage,
-        perPage: 10,
+        perPage: selectedDayKey ? 50 : 10,
         when,
         level,
         format,
@@ -1980,11 +1979,7 @@ const TennisMatchApp = ({
         })();
         const isHost = hostMatchByIds || matchesHostEmail || matchesHostPhone;
 
-        const matchStartDate = (() => {
-          if (!m || !m.start_date_time) return null;
-          const candidate = new Date(m.start_date_time);
-          return Number.isNaN(candidate.getTime()) ? null : candidate;
-        })();
+        const matchStartDate = parseDateValue(m?.start_date_time);
         const startTimestamp = matchStartDate ? matchStartDate.getTime() : null;
         const hoursUntilStartRaw =
           startTimestamp !== null ? (startTimestamp - now) / (1000 * 60 * 60) : null;
@@ -3340,10 +3335,9 @@ const TennisMatchApp = ({
     );
 
   const getMatchTimestamp = useCallback((match) => {
-    if (!match?.dateTime) return null;
-    const parsed = new Date(match.dateTime);
-    const ts = parsed.getTime();
-    return Number.isNaN(ts) ? null : ts;
+    const parsed = getMatchStartDate(match);
+    const ts = parsed?.getTime?.();
+    return Number.isFinite(ts) ? ts : null;
   }, []);
 
   const sortMatchesByRecency = useCallback(
@@ -3398,12 +3392,15 @@ const TennisMatchApp = ({
   }, [hasLocationFilter, locationFilter, matches]);
 
   const displayedMatches = useMemo(() => {
-    return sortMatchesByRecency(matchesWithDistance);
-  }, [matchesWithDistance, sortMatchesByRecency]);
+    const filteredByDay = selectedDayKey
+      ? matchesWithDistance.filter((match) => formatDayKey(getMatchStartDate(match)) === selectedDayKey)
+      : matchesWithDistance;
+    return sortMatchesByRecency(filteredByDay);
+  }, [matchesWithDistance, selectedDayKey, sortMatchesByRecency]);
 
   const distanceOptions = useMemo(() => [5, 10, 20, 50], []);
   const dayStripOptions = useMemo(() => buildDayStripOptions(), []);
-  const allWeekMatchCount = displayedMatches.length;
+  const allWeekMatchCount = matchesWithDistance.length;
   const matchCountsByDay = useMemo(() => {
     const counts = new Map();
     matchesWithDistance.forEach((match) => {
@@ -3435,14 +3432,14 @@ const TennisMatchApp = ({
     const getTimestamp = (match) => {
       const alertStart = match?.alerts?.lowOccupancy?.startTime;
       if (alertStart) {
-        const parsed = new Date(alertStart);
-        const ts = parsed.getTime();
-        if (!Number.isNaN(ts)) return ts;
+        const parsed = parseDateValue(alertStart);
+        const ts = parsed?.getTime?.();
+        if (Number.isFinite(ts)) return ts;
       }
       if (match?.dateTime) {
-        const parsed = new Date(match.dateTime);
-        const ts = parsed.getTime();
-        if (!Number.isNaN(ts)) return ts;
+        const parsed = getMatchStartDate(match);
+        const ts = parsed?.getTime?.();
+        if (Number.isFinite(ts)) return ts;
       }
       return Number.POSITIVE_INFINITY;
     };
