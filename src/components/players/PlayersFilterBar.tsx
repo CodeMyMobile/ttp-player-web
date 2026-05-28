@@ -1,5 +1,5 @@
-import { ChevronDown, MapPin, Search } from "lucide-react";
-import type { FormEvent } from "react";
+import { Filter, MapPin, Search } from "lucide-react";
+import { useState, type FormEvent } from "react";
 
 import "../coaches/coaches.css";
 import "./players.css";
@@ -55,6 +55,8 @@ const PlayersFilterBar = ({
   verifiedOnly,
   onVerifiedOnlyChange,
 }: PlayersFilterBarProps) => {
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSearch();
@@ -62,8 +64,21 @@ const PlayersFilterBar = ({
 
   return (
     <div className="fc-filter">
-      <div className="fc-filter__distance-row">
-        <div className="fc-filter__distance-group">
+      <form className="fc-filter__search-form" onSubmit={handleSubmit}>
+        <div className="fc-filter__search">
+          <Search className="fc-filter__search-icon" size={18} strokeWidth={2} />
+          <input
+            aria-label="Search players"
+            placeholder="Search by name, style or neighbourhood..."
+            value={searchTerm}
+            onChange={(event) => onSearchTermChange(event.target.value)}
+          />
+        </div>
+      </form>
+
+      <div className="fc-filter__row">
+        <span className="fc-filter__label">Within</span>
+        <div className="fc-filter__chips">
           <button
             type="button"
             className={`fc-distance-chip fc-distance-chip--location${
@@ -90,98 +105,94 @@ const PlayersFilterBar = ({
         </div>
       </div>
 
-      <form className="fc-filter__form" onSubmit={handleSubmit}>
-        <div className="fc-filter__search">
-          <Search className="fc-filter__search-icon" size={18} strokeWidth={2} />
+      <div className="fc-filter__row">
+        <span className="fc-filter__label">Level</span>
+        <div className="fc-filter__chips">
+          {levelOptions.map((level) => (
+            <button
+              key={level}
+              type="button"
+              className={`fc-distance-chip${selectedLevel === level ? " fc-distance-chip--active" : ""}`}
+              onClick={() => onLevelChange(level)}
+            >
+              {level === "All levels" ? "Any" : level}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`fc-filter__row fc-filter__row--secondary${showMoreFilters ? " fc-filter__row--mobile-open" : ""}`}>
+        <span className="fc-filter__label">Gender</span>
+        <div className="fc-filter__chips">
+          {genderOptions.map((gender) => (
+            <button
+              key={gender}
+              type="button"
+              className={`fc-distance-chip${selectedGender === gender ? " fc-distance-chip--active" : ""}`}
+              onClick={() => onGenderChange(gender)}
+            >
+              {gender === "All genders" ? "Any" : gender}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`fc-filter__row fc-filter__row--secondary${showMoreFilters ? " fc-filter__row--mobile-open" : ""}`}>
+        <span className="fc-filter__label">Style</span>
+        <div className="fc-filter__chips">
+          {playTypeOptions.map((playType) => (
+            <button
+              key={playType}
+              type="button"
+              className={`fc-distance-chip${selectedPlayType === playType ? " fc-distance-chip--active" : ""}`}
+              onClick={() => onPlayTypeChange(playType)}
+            >
+              {playType === "All play types" ? "Any" : playType}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`fc-filter__row fc-filter__row--secondary${showMoreFilters ? " fc-filter__row--mobile-open" : ""}`}>
+        <span className="fc-filter__label">When</span>
+        <div className="fc-filter__chips">
+          {availabilityOptions.map((availability) => (
+            <button
+              key={availability}
+              type="button"
+              className={`fc-distance-chip${selectedAvailability === availability ? " fc-distance-chip--active" : ""}`}
+              onClick={() => onAvailabilityChange(availability)}
+            >
+              {availability === "All availability" ? "Any" : availability}
+            </button>
+          ))}
+        </div>
+        <label
+          className={`fp-verified-toggle${verifiedOnly ? " fp-verified-toggle--active" : ""}`}
+          htmlFor="verified-toggle"
+        >
           <input
-            aria-label="Search players"
-            placeholder="Search by name, style, or neighborhood"
-            value={searchTerm}
-            onChange={(event) => onSearchTermChange(event.target.value)}
+            id="verified-toggle"
+            type="checkbox"
+            checked={verifiedOnly}
+            onChange={(event) => onVerifiedOnlyChange(event.target.checked)}
           />
-        </div>
-        <div className="fc-filter__selects">
-          <div className="fc-select">
-            <select
-              aria-label="Filter by level"
-              value={selectedLevel}
-              className="fc-select__field"
-              onChange={(event) => onLevelChange(event.target.value)}
-            >
-              {levelOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
-          </div>
+          <span className="fp-verified-toggle__pill">
+            <span className="fp-verified-toggle__thumb" />
+          </span>
+          Verified only
+        </label>
+      </div>
 
-          <div className="fc-select">
-            <select
-              aria-label="Filter by gender"
-              value={selectedGender}
-              className="fc-select__field"
-              onChange={(event) => onGenderChange(event.target.value)}
-            >
-              {genderOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
-          </div>
-
-          <div className="fc-select">
-            <select
-              aria-label="Filter by play type"
-              value={selectedPlayType}
-              className="fc-select__field"
-              onChange={(event) => onPlayTypeChange(event.target.value)}
-            >
-              {playTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
-          </div>
-
-          <div className="fc-select">
-            <select
-              aria-label="Filter by availability"
-              value={selectedAvailability}
-              className="fc-select__field"
-              onChange={(event) => onAvailabilityChange(event.target.value)}
-            >
-              {availabilityOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="fc-select__icon" aria-hidden="true" />
-          </div>
-
-          <label
-            className={`fp-verified-toggle${verifiedOnly ? " fp-verified-toggle--active" : ""}`}
-            htmlFor="verified-toggle"
-          >
-            <input
-              id="verified-toggle"
-              type="checkbox"
-              checked={verifiedOnly}
-              onChange={(event) => onVerifiedOnlyChange(event.target.checked)}
-            />
-            <span className="fp-verified-toggle__pill">
-              <span className="fp-verified-toggle__thumb" />
-            </span>
-            Verified players
-          </label>
-        </div>
-      </form>
+      <button
+        type="button"
+        className="fc-filter__more"
+        aria-expanded={showMoreFilters}
+        onClick={() => setShowMoreFilters((current) => !current)}
+      >
+        <Filter size={14} strokeWidth={2} aria-hidden="true" />
+        More filters
+      </button>
     </div>
   );
 };

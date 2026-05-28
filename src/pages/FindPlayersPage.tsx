@@ -10,7 +10,6 @@ import PlayersFilterBar from "../components/players/PlayersFilterBar";
 import PlayerCard from "../components/players/PlayerCard";
 import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
-import type { MatchProfileDetails } from "../components/players/MatchProfileModal";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
@@ -26,7 +25,16 @@ import {
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import type { ConnectIntent } from "../types/matchPlay";
-import { extractSurveyQuestions } from "../utils/surveyQuestionnaire";
+import {
+  buildMatchProfileFromSurvey,
+  ensureStringArray,
+  getStoredMatchProfile,
+  hasIncompleteMatchProfileQuestions,
+  sanitizeMatchProfile,
+  storeMatchProfile,
+  toCanonicalAvailability,
+  type StoredMatchProfile,
+} from "../utils/matchProfile";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -69,9 +77,6 @@ const genderOptions = ["All genders", "Male", "Female", "Other"];
 const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Social"];
 const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
-const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
-const MATCH_PROFILE_STORAGE_KEY = "player:web:match-profile";
-
 const normalize = (value: string) => value.trim().toLowerCase();
 
 const parseRadius = (radius: string) => {
@@ -94,47 +99,6 @@ const toInitials = (name: string) => {
     return segments[0].slice(0, 2).toUpperCase();
   }
   return `${segments[0][0]}${segments[segments.length - 1][0]}`.toUpperCase();
-};
-
-const canonicalAvailabilityLabels: Record<string, string> = {
-  "weekdays am": "Weekdays AM",
-  "weekday am": "Weekdays AM",
-  "weekday morning": "Weekdays AM",
-  "weekday mornings": "Weekdays AM",
-  "weekdays pm": "Weekday PM",
-  "weekday pm": "Weekday PM",
-  "weekday evening": "Weekday PM",
-  "weekday evenings": "Weekday PM",
-  "weekend": "Weekends",
-  "weekends": "Weekends",
-  "weekend only": "Weekends",
-};
-
-const toCanonicalAvailability = (value: string): string => {
-  const normalized = value.trim().toLowerCase();
-  return canonicalAvailabilityLabels[normalized] ?? value.trim();
-};
-
-const ensureStringArray = (value: unknown, normalizer?: (value: string) => string): string[] => {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => {
-        if (typeof item !== "string") {
-          return "";
-        }
-        const trimmed = item.trim();
-        return normalizer ? normalizer(trimmed) : trimmed;
-      })
-      .filter((item): item is string => item.length > 0);
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return [];
-    }
-    return [normalizer ? normalizer(trimmed) : trimmed];
-  }
-  return [];
 };
 
 const formatCoordinatesLabel = (coords: Coordinates | null) => {
@@ -174,8 +138,6 @@ const buildLocationSearch = (location: SelectedLocation | null): string => {
   return label;
 };
 
-type StoredMatchProfile = MatchProfileDetails;
-
 const formatAvailabilityList = (slots: string[]): string => {
   const cleaned = slots
     .map((slot) => (typeof slot === "string" ? toCanonicalAvailability(slot) : ""))
@@ -193,57 +155,6 @@ const formatAvailabilityList = (slots: string[]): string => {
   const head = cleaned.slice(0, -1).join(", ");
   return `${head}, and ${cleaned[cleaned.length - 1]}`;
 };
-
-const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null => {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const record = value as Record<string, unknown>;
-  const level = typeof record.level === "string" && record.level.trim().length > 0 ? record.level.trim() : "3.0";
-  const about = typeof record.about === "string" ? record.about.trim() : "";
-  const gender = typeof record.gender === "string" ? record.gender.trim() : "";
-  const localCourts = typeof record.localCourts === "string" ? record.localCourts.trim() : "";
-  const playStyles = ensureStringArray(record.playStyles);
-  const availability = ensureStringArray(record.availability, toCanonicalAvailability);
-
-  return { about, level, playStyles, gender, localCourts, availability };
-};
-
-const getStoredMatchProfile = (): StoredMatchProfile | null => {
-  try {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return null;
-    }
-    const raw = window.localStorage.getItem(MATCH_PROFILE_STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as unknown;
-    return sanitizeMatchProfile(parsed);
-  } catch {
-    return null;
-  }
-};
-
-const storeMatchProfile = (profile: StoredMatchProfile) => {
-  try {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return;
-    }
-    window.localStorage.setItem(MATCH_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-  } catch {
-    // ignore storage failures
-  }
-};
-
-const hasIncompleteMatchProfileQuestions = (payload: unknown) =>
-  extractSurveyQuestions(payload).some(
-    (item) =>
-      item.questionType !== "AddressPicker" &&
-      item.questionType !== "TextInput" &&
-      !item.answerMetadata,
-  );
 
 const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
@@ -412,402 +323,54 @@ const renderAvatar = (
   );
 };
 
-const generateBestMatches = (playerList: DirectoryPlayer[]) =>
-  playerList.slice(0, 3).map((player, index) => ({
-    ...player,
-    matchScore: [95, 88, 82][index],
-    matchReasons: [
-      ["Same NTRP level", "Both available weekday mornings", "0.8 mi away"],
-      ["Close skill level", "Prefers competitive singles", "1.2 mi away"],
-      ["Same NTRP level", "Looking for doubles partner", "2.1 mi away"],
-    ][index],
-  }));
-
 type MyProfileQuickViewProps = {
   user: ProfileQuickViewUser;
   onEdit: () => void;
-  onRequestVerification: () => void;
-  isMobile: boolean;
 };
 
-const MyProfileQuickView = ({ user, onEdit, onRequestVerification, isMobile }: MyProfileQuickViewProps) => {
+const MyProfileQuickView = ({ user, onEdit }: MyProfileQuickViewProps) => {
   const isVerified = user?.isVerified ?? false;
-  const verificationCount = user?.verificationCount ?? 2;
-  const verificationsNeeded = 3;
   const initials = user.initials || toInitials(user.name);
-  const avatarSize = isMobile ? "72px" : "64px";
+  const availability = user.availability?.length ? user.availability : ["Add availability"];
+  const courts = user.courts?.length ? user.courts : ["Add local courts"];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "center" : "flex-start",
-        justifyContent: "space-between",
-        gap: "24px",
-        padding: isMobile ? "16px" : "20px 24px",
-        backgroundColor: "#F5F3FF",
-        borderRadius: "12px",
-        border: "1px solid #E9E3FF",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "center" : "flex-start",
-          gap: "16px",
-          flex: 1,
-          textAlign: isMobile ? "center" : "left",
-        }}
-      >
-        {renderAvatar(user.photo || user.avatarUrl, initials, user.name, avatarSize, "3px")}
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginBottom: "4px",
-              justifyContent: isMobile ? "center" : "flex-start",
-            }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: "16px",
-                fontWeight: 600,
-                color: "#111827",
-              }}
-            >
-              {user.name}
-            </h3>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "4px 10px",
-                  backgroundColor: "#7C3AED",
-                  color: "white",
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  borderRadius: "20px",
-                }}
-              >
-                NTRP {user.ntrp}
-              </span>
-
-              {isVerified && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    padding: "4px 10px",
-                    backgroundColor: "#ECFDF5",
-                    color: "#059669",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    borderRadius: "20px",
-                    border: "1px solid #A7F3D0",
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginRight: 4 }}>
-                    <path
-                      d="M10 3L4.5 8.5L2 6"
-                      stroke="#059669"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Verified rating
-                </span>
-              )}
-            </div>
-          </div>
-
-          <p style={{ margin: "0 0 12px 0", fontSize: "14px", color: "#6B7280" }}>
-            {user.tagline || user.bio}
-          </p>
-
-          {!isVerified && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: isMobile ? "column" : "row",
-                alignItems: isMobile ? "stretch" : "center",
-                justifyContent: "space-between",
-                gap: isMobile ? "12px" : "16px",
-                padding: "12px 16px",
-                backgroundColor: "#FFFBEB",
-                borderRadius: "8px",
-                border: "1px solid #FDE68A",
-                marginBottom: "12px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  flex: isMobile ? "none" : 1,
-                }}
-              >
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor: "#FEF3C7",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 1L10.163 5.279L15 6.026L11.5 9.421L12.326 14.236L8 12.013L3.674 14.236L4.5 9.421L1 6.026L5.837 5.279L8 1Z"
-                      stroke="#F59E0B"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "#92400E",
-                    }}
-                  >
-                    Get your rating verified
-                  </span>
-                  <span style={{ fontSize: "12px", color: "#B45309" }}>
-                    {verificationCount} of {verificationsNeeded} player confirmations
-                  </span>
-                </div>
-
-                {!isMobile && (
-                  <div style={{ flex: 1, maxWidth: "120px" }}>
-                    <div
-                      style={{
-                        height: "6px",
-                        backgroundColor: "#FDE68A",
-                        borderRadius: "3px",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${(verificationCount / verificationsNeeded) * 100}%`,
-                          backgroundColor: "#F59E0B",
-                          borderRadius: "3px",
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={onRequestVerification}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "8px 14px",
-                  backgroundColor: "#F59E0B",
-                  color: "white",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  borderRadius: "6px",
-                  border: "none",
-                  cursor: "pointer",
-                  width: isMobile ? "100%" : "auto",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginRight: 6 }}>
-                  <path
-                    d="M12.25 8.75V11.0833C12.25 11.3928 12.1271 11.6895 11.9083 11.9083C11.6895 12.1271 11.3928 12.25 11.0833 12.25H2.91667C2.60725 12.25 2.3105 12.1271 2.09171 11.9083C1.87292 11.6895 1.75 11.3928 1.75 11.0833V8.75"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M9.91667 4.66667L7 1.75L4.08333 4.66667"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M7 1.75V8.75"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                Request verification
-              </button>
-            </div>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: isMobile ? "column" : "row",
-              gap: isMobile ? "16px" : "24px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-                alignItems: isMobile ? "center" : "flex-start",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 600,
-                  color: "#9CA3AF",
-                  letterSpacing: "0.5px",
-                  textTransform: "uppercase",
-                }}
-              >
-                AVAILABILITY
-              </span>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "6px",
-                  justifyContent: isMobile ? "center" : "flex-start",
-                }}
-              >
-                {(user.availability?.length ? user.availability : ["Add availability"]).map((slot, idx) => (
-                  <span
-                    key={idx}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      padding: "4px 10px",
-                      backgroundColor: "white",
-                      color: "#374151",
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      borderRadius: "20px",
-                      border: "1px solid #E5E7EB",
-                    }}
-                  >
-                    {slot}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-                alignItems: isMobile ? "center" : "flex-start",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 600,
-                  color: "#9CA3AF",
-                  letterSpacing: "0.5px",
-                  textTransform: "uppercase",
-                }}
-              >
-                LOCAL COURTS
-              </span>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "4px",
-                  alignItems: isMobile ? "center" : "flex-start",
-                }}
-              >
-                {(user.courts?.length ? user.courts : ["Add local courts"]).map((court, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      fontSize: "13px",
-                      color: "#4B5563",
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ marginRight: 6 }}>
-                      <path
-                        d="M7 1.16667C4.42 1.16667 2.33333 3.25334 2.33333 5.83334C2.33333 9.04167 7 12.8333 7 12.8333C7 12.8333 11.6667 9.04167 11.6667 5.83334C11.6667 3.25334 9.58 1.16667 7 1.16667Z"
-                        stroke="#6B7280"
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="7" cy="5.83333" r="1.75" stroke="#6B7280" strokeWidth="1.2" />
-                    </svg>
-                    <span>{court}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+    <section className="fp-profile-summary" aria-label="Your match profile">
+      <div className="fp-profile-summary__primary">
+        {renderAvatar(user.photo || user.avatarUrl, initials, user.name, "42px", "0")}
+        <div className="fp-profile-summary__identity">
+          <h2>{user.name}</h2>
+          <div className="fp-profile-summary__badges">
+            <span className="fp-pill fp-pill--purple">NTRP {user.ntrp}</span>
+            {isVerified ? <span className="fp-pill fp-pill--green">Verified</span> : null}
           </div>
         </div>
       </div>
 
-      <div style={{ marginTop: isMobile ? "16px" : "0", width: isMobile ? "100%" : "auto" }}>
-        <button
-          type="button"
-          onClick={onEdit}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "10px 20px",
-            backgroundColor: "white",
-            color: "#7C3AED",
-            fontSize: "14px",
-            fontWeight: 500,
-            borderRadius: "8px",
-            border: "1px solid #E5E7EB",
-            cursor: "pointer",
-            width: isMobile ? "100%" : "auto",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ marginRight: 6 }}>
-            <path
-              d="M11.333 2.00004C11.5081 1.82494 11.7169 1.68605 11.9471 1.59129C12.1773 1.49653 12.4244 1.44775 12.6738 1.44775C12.9232 1.44775 13.1703 1.49653 13.4005 1.59129C13.6307 1.68605 13.8395 1.82494 14.0147 2.00004C14.1898 2.17513 14.3287 2.38398 14.4234 2.61417C14.5182 2.84436 14.567 3.09145 14.567 3.34087C14.567 3.59029 14.5182 3.83738 14.4234 4.06757C14.3287 4.29776 14.1898 4.50661 14.0147 4.6817L5.00001 13.6964L1.33334 14.6667L2.30368 11.0001L11.333 2.00004Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Edit profile
-        </button>
+      <div className="fp-profile-summary__divider" aria-hidden="true" />
+
+      <div className="fp-profile-summary__group">
+        <span className="fp-profile-summary__label">Available</span>
+        <div className="fp-profile-summary__chips">
+          {availability.slice(0, 3).map((slot) => (
+            <span className="fp-card__availability-chip" key={slot}>
+              {slot}
+            </span>
+          ))}
+        </div>
       </div>
-    </div>
+
+      <div className="fp-profile-summary__divider" aria-hidden="true" />
+
+      <div className="fp-profile-summary__group fp-profile-summary__group--courts">
+        <span className="fp-profile-summary__label">Courts</span>
+        <p>{courts.slice(0, 2).join(" · ")}</p>
+      </div>
+
+      <button type="button" className="fp-profile-summary__edit" onClick={onEdit}>
+        Edit
+      </button>
+    </section>
   );
 };
 
@@ -1318,7 +881,6 @@ const FindPlayersPage = () => {
   const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
   const [hasIncompleteMatchProfile, setHasIncompleteMatchProfile] = useState(false);
   const [matchProfileCheckLoaded, setMatchProfileCheckLoaded] = useState(false);
-  const [showBestMatches, setShowBestMatches] = useState(false);
   const [connectModalPlayer, setConnectModalPlayer] = useState<Player | null>(null);
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
@@ -1328,7 +890,6 @@ const FindPlayersPage = () => {
   const hasMatchProfile = Boolean(matchProfile);
   const hasCompletedMatchProfile = hasMatchProfile && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
   const hasProfile = hasCompletedMatchProfile;
-  const isMobile = useIsMobile();
   const { displayName } = usePlayerIdentity();
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
@@ -1374,11 +935,17 @@ const FindPlayersPage = () => {
       try {
         const answered = await getAllSurveyQuestionAnswered({ token: playerToken });
         if (cancelled) return;
-        setHasIncompleteMatchProfile(hasIncompleteMatchProfileQuestions(answered));
+        const nextIncomplete = hasIncompleteMatchProfileQuestions(answered);
+        const savedProfile = buildMatchProfileFromSurvey(answered, getStoredMatchProfile());
+        if (savedProfile) {
+          setMatchProfile(savedProfile);
+          storeMatchProfile(savedProfile);
+        }
+        setHasIncompleteMatchProfile(nextIncomplete);
       } catch (requestError) {
         if (cancelled) return;
         console.error("Failed to load answered match profile questions", requestError);
-        setHasIncompleteMatchProfile(true);
+        setHasIncompleteMatchProfile(!getStoredMatchProfile());
       } finally {
         if (!cancelled) {
           setMatchProfileCheckLoaded(true);
@@ -1608,14 +1175,6 @@ const FindPlayersPage = () => {
       return undefined;
     }
 
-    if (hasIncompleteMatchProfile) {
-      setPlayers([]);
-      setStatus("ready");
-      setMode("empty");
-      setError(null);
-      return undefined;
-    }
-
     if (!hasSearchLocation) {
       setPlayers([]);
       setStatus("ready");
@@ -1751,14 +1310,14 @@ const FindPlayersPage = () => {
 
   const openConnectModalForPlayer = useCallback(
     (player: Player) => {
-      if (!hasMatchProfile) {
-        window.alert("Create your match profile to connect.");
+      if (!hasCompletedMatchProfile) {
+        setProfileModalOpen(true);
         return;
       }
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasMatchProfile],
+    [hasCompletedMatchProfile],
   );
 
   const handleShareIntro = useCallback(
@@ -1928,11 +1487,6 @@ const FindPlayersPage = () => {
     verifiedOnly,
   ]);
 
-  const bestMatches = useMemo(
-    () => (hasProfile ? generateBestMatches(filteredPlayers.length ? filteredPlayers : players) : []),
-    [filteredPlayers, hasProfile, players],
-  );
-
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredPlayers.length === 0));
@@ -1976,28 +1530,19 @@ const FindPlayersPage = () => {
             <MyProfileQuickView
               user={profileQuickViewUser}
               onEdit={() => setProfileModalOpen(true)}
-              onRequestVerification={() => {
-                window.alert("Verification requests are coming soon.");
-              }}
-              isMobile={isMobile}
             />
           ) : null}
 
           {hasIncompleteMatchProfile && matchProfileCheckLoaded && (
-            <StateBanner
-              tone="empty"
-              title="Profile incomplete"
-              message="Complete your player match profile before searching for match partners."
-              action={
-                <button
-                  type="button"
-                  className="fc-button fc-button--primary"
-                  onClick={() => setProfileModalOpen(true)}
-                >
-                  Complete my match profile
-                </button>
-              }
-            />
+            <section className="fp-profile-setup" aria-label="Set up your match profile">
+              <div>
+                <h2>Add your match profile</h2>
+                <p>Share your level, availability and courts so players can find you too.</p>
+              </div>
+              <button type="button" onClick={() => setProfileModalOpen(true)}>
+                Set up
+              </button>
+            </section>
           )}
 
           {!hasSearchLocation && matchProfileCheckLoaded && !hasIncompleteMatchProfile && (
@@ -2021,20 +1566,15 @@ const FindPlayersPage = () => {
           )}
 
           {!hasProfile && status === "ready" && mode !== "error" && !hasIncompleteMatchProfile && (
-            <StateBanner
-              tone="empty"
-              title="Create your player match profile"
-              message="Share your playing style and availability to unlock player connections."
-              action={
-                <button
-                  type="button"
-                  className="fc-button fc-button--primary"
-                  onClick={() => setProfileModalOpen(true)}
-                >
-                  Build my match profile
-                </button>
-              }
-            />
+            <section className="fp-profile-setup" aria-label="Set up your match profile">
+              <div>
+                <h2>Add your match profile</h2>
+                <p>Share your level, availability and courts so players can find you too.</p>
+              </div>
+              <button type="button" onClick={() => setProfileModalOpen(true)}>
+                Set up
+              </button>
+            </section>
           )}
 
           <PlayersFilterBar
@@ -2152,25 +1692,6 @@ const FindPlayersPage = () => {
                 </p>
               ) : null}
             </section>
-          ) : null}
-
-          {hasProfile ? (
-            <BestMatchCTA
-              onClick={() => setShowBestMatches((prev) => !prev)}
-              isMobile={isMobile}
-            />
-          ) : null}
-
-          {hasProfile && showBestMatches ? (
-            <BestMatchesPanel
-              matches={bestMatches}
-              onClose={() => setShowBestMatches(false)}
-              onConnect={(player) => openConnectModalForPlayer(player)}
-              onViewProfile={(player) => {
-                navigate(`/players/${player.id}`, { state: { player } });
-              }}
-              isMobile={isMobile}
-            />
           ) : null}
 
           <span className="fc-results-count">{resultsCountLabel}</span>
