@@ -1,4 +1,3 @@
-import { useState } from "react";
 import moment from "moment";
 import {
   MapPin,
@@ -10,8 +9,6 @@ import {
   Hourglass,
   AlertTriangle,
   Circle,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { Lesson } from "../api/playerLessons";
 import "./LessonDetailCard.css";
@@ -158,7 +155,6 @@ const LessonDetailCard = ({
     : Array.isArray(record.group_players)
       ? record.group_players
       : [];
-  const [playersOpen, setPlayersOpen] = useState(false);
   const confirmedCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 1).length;
   const pendingCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 0).length;
   const cancelledCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 2).length;
@@ -252,12 +248,11 @@ const LessonDetailCard = ({
   const creditFee = discountedRate != null ? percentageCalc(CREDIT_FEE_PERCENTAGE, discountedRate) : null;
   const totalFee =
     discountedRate != null && creditFee != null ? discountedRate + creditFee + SERVICE_FEE : null;
-  const resolvePlayerStatus = (player: Record<string, unknown>) => {
-    const parsed = getPlayerStatusCode(player);
-    if (parsed === 1) return { label: "Confirmed", tone: "success" as const };
-    if (parsed === 2) return { label: "Cancelled", tone: "danger" as const };
-    return { label: "Pending", tone: "pending" as const };
-  };
+  const description =
+    lesson.metadata?.description ||
+    (typeof record.description === "string" ? record.description : "") ||
+    (typeof record.lesson_description === "string" ? record.lesson_description : "") ||
+    (typeof record.lessonDescription === "string" ? record.lessonDescription : "");
 
   const status = resolveStatus(lesson, statusLabel, currentUserId);
 
@@ -341,42 +336,8 @@ const LessonDetailCard = ({
           </div>
         </header>
 
-        {lesson.metadata?.description ? (
-          <p className="lesson-detail-card__description">{lesson.metadata.description}</p>
-        ) : null}
-
-        {showStatusCounts ? (
-          <div className="lesson-detail-card__players">
-            <button
-              type="button"
-              className="lesson-detail-card__players-toggle"
-              onClick={() => setPlayersOpen((prev) => !prev)}
-            >
-              <span>Players</span>
-              <span className="lesson-detail-card__players-count">
-                {confirmedCount} confirmed
-                {typeof lesson.player_limit === "number" ? ` / ${lesson.player_limit}` : ""}
-              </span>
-              {playersOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {playersOpen ? (
-              <ul className="lesson-detail-card__players-list">
-                {groupPlayers.map((player) => {
-                  const playerRecord = player as Record<string, unknown>;
-                  const name = String(playerRecord.full_name ?? "Player");
-                  const status = resolvePlayerStatus(playerRecord);
-                  return (
-                    <li key={`${playerRecord.player_id ?? name}`} className="lesson-detail-card__players-item">
-                      <span>{name}</span>
-                      <span className={`lesson-detail-card__players-status lesson-detail-card__players-status--${status.tone}`}>
-                        {status.label}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </div>
+        {description ? (
+          <p className="lesson-detail-card__description">{description}</p>
         ) : null}
 
         <footer className="lesson-detail-card__footer">
