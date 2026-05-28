@@ -3,9 +3,12 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, MessageCircle } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
+import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import { verifyUserLevel } from "../api/playerHome";
 import type { Player } from "../data/mockPlayers";
 import { getStoredAuthToken } from "../services/authToken";
+import type { ConnectIntent } from "../types/matchPlay";
+import { getStoredMatchProfile } from "../utils/matchProfile";
 
 import "./PlayerProfilePage.css";
 
@@ -52,6 +55,8 @@ const PlayerProfilePage = () => {
   const [verifyingLevel, setVerifyingLevel] = useState(false);
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [matchProfile] = useState(() => getStoredMatchProfile());
   const player = useMemo(() => {
     if (!locationState?.player) {
       return undefined;
@@ -120,8 +125,61 @@ const PlayerProfilePage = () => {
       : normalizeStringArray(player.raw?.playerCourtLocations)) || [];
   const favoriteCourt = typeof player.favoriteCourt === "string" ? player.favoriteCourt : undefined;
 
-  const messagePlayer = () => {
-    window.alert(`Opening a new conversation with ${player.name}.`);
+  const openConnectModal = () => {
+    if (!matchProfile) {
+      navigate("/find-players");
+      return;
+    }
+    setConnectModalOpen(true);
+  };
+
+  const closeConnectModal = () => setConnectModalOpen(false);
+
+  const shareIntro = () => {
+    if (!matchProfile) {
+      navigate("/find-players");
+      return;
+    }
+
+    const senderLevel = matchProfile.level ?? "3.0";
+    const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
+    const message = `Hi ${player.name}, I found you on The Tennis Plan. I'm a ${senderLevel} player looking to hit ${preferredTimes}. Let me know if you'd like to connect.`;
+    const encodedMessage = encodeURIComponent(message);
+    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    const smsUrl = isIos ? `sms:&body=${encodedMessage}` : `sms:?body=${encodedMessage}`;
+
+    closeConnectModal();
+    if (typeof window.navigator.share === "function") {
+      window.navigator.share({ text: message }).catch(() => {
+        window.location.href = smsUrl;
+      });
+      return;
+    }
+    window.location.href = smsUrl;
+  };
+
+  const createMatchInvite = () => {
+    if (!matchProfile) {
+      navigate("/find-players");
+      return;
+    }
+
+    const connectIntent: ConnectIntent = {
+      invitee: {
+        id: player.id,
+        name: player.name,
+        avatarUrl: player.profileImageUrl,
+        level: player.level,
+      },
+      senderName: "You",
+      senderLevel: matchProfile.level,
+      suggestedAvailability: [...(matchProfile.availability ?? [])],
+      preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
+      source: "find-players",
+    };
+
+    closeConnectModal();
+    navigate("/matches/create", { state: { connectIntent } });
   };
 
   const blockPlayer = () => {
@@ -200,9 +258,9 @@ const PlayerProfilePage = () => {
 
             {player.bio && <p className="player-profile-bio">{player.bio}</p>}
 
-            <button type="button" className="player-profile-contact" onClick={messagePlayer}>
+            <button type="button" className="player-profile-contact" onClick={openConnectModal}>
               <MessageCircle size={18} strokeWidth={2} aria-hidden="true" />
-              <span>Contact {firstName}</span>
+              <span>Connect with {firstName}</span>
             </button>
 
             <div className="player-profile-sections">
@@ -310,6 +368,15 @@ const PlayerProfilePage = () => {
           </article>
         </div>
       </div>
+      <ConnectPlayerModal
+        isOpen={connectModalOpen}
+        player={player}
+        onClose={closeConnectModal}
+        onShareIntro={shareIntro}
+        onCreateMatch={createMatchInvite}
+        senderAvailability={matchProfile?.availability ?? []}
+        senderCourts={matchProfile?.localCourts ?? ""}
+      />
     </MainLayout>
   );
 };

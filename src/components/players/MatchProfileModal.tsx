@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Loader2, Target, UploadCloud, X } from "lucide-react";
 
 import {
-  getAllSurveyQuestion,
   getAllSurveyQuestionAnswered,
   submitSurveyAnswers,
 } from "../../api/playerHome";
@@ -365,31 +364,21 @@ const MatchProfileModal = ({ isOpen, onClose, onComplete, initialProfile }: Matc
     setPendingAnswers([]);
     setAnswersByQuestionId({});
 
-    const [questionsResult, answeredResult] = await Promise.allSettled([
-      getAllSurveyQuestion({ token: playerToken }),
-      getAllSurveyQuestionAnswered({ token: playerToken }),
-    ]);
-
-    if (questionsResult.status === "rejected" && answeredResult.status === "rejected") {
+    try {
+      const scopedQuestions = await getAllSurveyQuestionAnswered({ token: playerToken });
+      const mergedQuestions = mergeAnsweredQuestions([], extractSurveyQuestions(scopedQuestions));
+      setQuestions(mergedQuestions);
+      setAnswersByQuestionId(buildInitialAnswers(mergedQuestions));
+    } catch (requestError) {
       setQuestions([]);
       setError(
-        questionsResult.reason instanceof Error
-          ? questionsResult.reason.message
+        requestError instanceof Error
+          ? requestError.message
           : "We couldn't load the match profile questions right now.",
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const baseQuestions =
-      questionsResult.status === "fulfilled" ? extractSurveyQuestions(questionsResult.value) : [];
-    const answeredQuestions =
-      answeredResult.status === "fulfilled" ? extractSurveyQuestions(answeredResult.value) : [];
-
-    const mergedQuestions = mergeAnsweredQuestions(baseQuestions, answeredQuestions);
-    setQuestions(mergedQuestions);
-    setAnswersByQuestionId(buildInitialAnswers(mergedQuestions));
-    setLoading(false);
   }, [playerToken]);
 
   useEffect(() => {
