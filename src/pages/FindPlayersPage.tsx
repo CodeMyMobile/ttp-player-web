@@ -116,6 +116,32 @@ const formatCoordinatesLabel = (coords: Coordinates | null) => {
 
 const sanitizeLocationLabel = (label: string) => label.replace(/\s+/g, " ").trim().toLowerCase();
 
+const getSmsRecipient = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("@")) {
+    return null;
+  }
+
+  const hasLeadingPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) {
+    return null;
+  }
+
+  return hasLeadingPlus ? `+${digits}` : digits;
+};
+
+const buildSmsUrl = (recipient: string, message: string) => {
+  const encodedMessage = encodeURIComponent(message);
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const separator = isIos ? "&" : "?";
+  return `sms:${recipient}${separator}body=${encodedMessage}`;
+};
+
 const buildLocationSearch = (location: SelectedLocation | null): string => {
   if (!location) {
     return "";
@@ -881,7 +907,7 @@ const FindPlayersPage = () => {
   const [matchProfile, setMatchProfile] = useState<StoredMatchProfile | null>(() => getStoredMatchProfile());
   const [hasIncompleteMatchProfile, setHasIncompleteMatchProfile] = useState(false);
   const [matchProfileCheckLoaded, setMatchProfileCheckLoaded] = useState(false);
-  const [connectModalPlayer, setConnectModalPlayer] = useState<Player | null>(null);
+  const [connectModalPlayer, setConnectModalPlayer] = useState<DirectoryPlayer | null>(null);
   const [isConnectModalOpen, setConnectModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [playerToken] = useState(() =>
@@ -1309,7 +1335,7 @@ const FindPlayersPage = () => {
   }, []);
 
   const openConnectModalForPlayer = useCallback(
-    (player: Player) => {
+    (player: DirectoryPlayer) => {
       if (!hasCompletedMatchProfile) {
         setProfileModalOpen(true);
         return;
@@ -1321,9 +1347,15 @@ const FindPlayersPage = () => {
   );
 
   const handleShareIntro = useCallback(
-    (nextPlayer: Player) => {
+    (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
         window.alert("Create your match profile to connect.");
+        return;
+      }
+
+      const recipientPhone = getSmsRecipient(nextPlayer.raw?.phone);
+      if (!recipientPhone) {
+        window.alert("This player doesn't have a valid mobile number available for SMS yet.");
         return;
       }
 
@@ -1336,26 +1368,13 @@ const FindPlayersPage = () => {
         `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
         "Let me know if you'd like to hit sometime.";
 
-      const encodedMessage = encodeURIComponent(message);
-      const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-      const smsUrl = isIos ? `sms:&body=${encodedMessage}` : `sms:?body=${encodedMessage}`;
-
-      if (typeof window.navigator.share === "function") {
-        window.navigator
-          .share({ text: message })
-          .catch(() => {
-            window.location.href = smsUrl;
-          });
-        return;
-      }
-
-      window.location.href = smsUrl;
+      window.location.assign(buildSmsUrl(recipientPhone, message));
     },
     [displayName, matchProfile, profileShareUrl],
   );
 
   const handleCreateMatchPlayIntent = useCallback(
-    (nextPlayer: Player) => {
+    (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
         window.alert("Create your match profile to start building MatchPlay invites.");
         return;
@@ -1753,6 +1772,12 @@ const FindPlayersPage = () => {
         isOpen={isConnectModalOpen}
         player={connectModalPlayer}
         onClose={closeConnectModal}
+        canShareIntro={Boolean(connectModalPlayer && getSmsRecipient(connectModalPlayer.raw?.phone))}
+        shareIntroDescription={
+          connectModalPlayer && getSmsRecipient(connectModalPlayer.raw?.phone)
+            ? "Open a text message with this player's number and your profile details prefilled."
+            : "This player doesn't have a valid mobile number available for SMS yet."
+        }
         onShareIntro={() => {
           if (connectModalPlayer) {
             closeConnectModal();
