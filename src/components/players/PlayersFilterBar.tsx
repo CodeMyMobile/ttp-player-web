@@ -153,7 +153,7 @@ const PlayersFilterBar = ({
         </div>
       </div>
 
-      <div className={`fc-filter__row fc-filter__row--secondary${showMoreFilters ? " fc-filter__row--mobile-open" : ""}`}>
+      <div className={`fc-filter__row fc-filter__row--secondary fc-filter__row--availability${showMoreFilters ? " fc-filter__row--mobile-open" : ""}`}>
         <span className="fc-filter__label">When</span>
         <div className="fc-filter__chips">
           {availabilityOptions.map((availability) => (
@@ -167,6 +167,9 @@ const PlayersFilterBar = ({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className={`fc-filter__verified${showMoreFilters ? " fc-filter__verified--mobile-open" : ""}`}>
         <label
           className={`fp-verified-toggle${verifiedOnly ? " fp-verified-toggle--active" : ""}`}
           htmlFor="verified-toggle"

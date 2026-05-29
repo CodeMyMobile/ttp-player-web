@@ -7,12 +7,16 @@ interface MainLayoutProps {
   mobileChrome?: "default" | "home" | "immersive";
   desktopChrome?: "default" | "home";
   showDesktopNav?: boolean;
+  hideMobileNewMatch?: boolean;
+  hideMobileNotifications?: boolean;
 }
 
 const MainLayout = ({
   children,
   mobileChrome = "default",
   showDesktopNav = true,
+  hideMobileNewMatch = false,
+  hideMobileNotifications = false,
 }: MainLayoutProps) => {
   const isHomeMobileChrome = mobileChrome === "home";
   const isImmersiveMobileChrome = mobileChrome === "immersive";
@@ -23,8 +27,8 @@ const MainLayout = ({
     >
       {showDesktopNav ? (
         <AppNav
-          hideMobileNewMatch={isHomeMobileChrome}
-          hideMobileNotifications={isHomeMobileChrome}
+          hideMobileNewMatch={isHomeMobileChrome || hideMobileNewMatch}
+          hideMobileNotifications={isHomeMobileChrome || hideMobileNotifications}
         />
       ) : null}
       <main className="main-layout__content">{children}</main>

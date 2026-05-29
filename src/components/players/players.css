@@ -907,24 +907,31 @@
   transform: translateX(16px);
 }
 
+.fc-filter__verified {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 768px) {
   .find-players-page__inner {
     padding: 12px 16px 90px;
-    gap: 12px;
+    gap: 14px;
   }
 
   .find-players-page .fc-header {
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
   }
 
   .find-players-page .fc-header__text {
-    gap: 2px;
+    gap: 4px;
   }
 
   .find-players-page .fc-header__title {
-    font-size: 2.75rem;
-    line-height: 1.02;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: normal;
   }
 
   .find-players-page .fc-header__description {
@@ -934,8 +941,8 @@
   .find-players-page .fc-header__description--mobile {
     display: block;
     max-width: none;
-    font-size: 14px;
-    line-height: 1.2;
+    font-size: 13px;
+    line-height: 1.4;
     white-space: nowrap;
   }
 
@@ -944,6 +951,7 @@
   }
 
   .fp-profile-summary {
+    position: relative;
     align-items: stretch;
     flex-direction: column;
     gap: 0;
@@ -1046,6 +1054,20 @@
     display: flex;
   }
 
+  .fc-filter__row--availability.fc-filter__row--mobile-open {
+    align-items: flex-start;
+    overflow: visible;
+  }
+
+  .fc-filter__verified {
+    display: none;
+  }
+
+  .fc-filter__verified.fc-filter__verified--mobile-open {
+    display: flex;
+    justify-content: flex-start;
+  }
+
   .fc-filter__more {
     display: inline-flex;
   }
@@ -1053,5 +1075,20 @@
   .fp-verified-toggle {
     margin-left: 0;
     flex-shrink: 0;
+  }
+
+  .fc-filter__row--availability .fc-filter__chips {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .fc-filter__row--availability .fc-filter__chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fc-filter__verified .fp-verified-toggle {
+    width: 100%;
+    justify-content: flex-start;
+    padding-top: 0;
   }
 }
