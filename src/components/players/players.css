@@ -909,8 +909,38 @@
 
 @media (max-width: 768px) {
   .find-players-page__inner {
-    padding: 16px 16px 90px;
-    gap: 14px;
+    padding: 12px 16px 90px;
+    gap: 12px;
+  }
+
+  .find-players-page .fc-header {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .find-players-page .fc-header__text {
+    gap: 2px;
+  }
+
+  .find-players-page .fc-header__title {
+    font-size: 2.75rem;
+    line-height: 1.02;
+  }
+
+  .find-players-page .fc-header__description {
+    display: none;
+  }
+
+  .find-players-page .fc-header__description--mobile {
+    display: block;
+    max-width: none;
+    font-size: 14px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .find-players-page .fc-header__actions {
+    display: none;
   }
 
   .fp-profile-summary {
