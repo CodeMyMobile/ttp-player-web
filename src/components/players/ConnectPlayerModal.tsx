@@ -10,6 +10,8 @@ type ConnectPlayerModalProps = {
   onCreateMatch: () => void;
   senderAvailability?: string[];
   senderCourts?: string | null;
+  canShareIntro?: boolean;
+  shareIntroDescription?: string;
 };
 
 const formatAvailability = (slots?: string[]) => {
@@ -27,6 +29,8 @@ const ConnectPlayerModal = ({
   onCreateMatch,
   senderAvailability,
   senderCourts,
+  canShareIntro = true,
+  shareIntroDescription = "Open a text message with your profile details prefilled.",
 }: ConnectPlayerModalProps) => {
   if (!isOpen || !player) {
     return null;
@@ -73,11 +77,14 @@ const ConnectPlayerModal = ({
           </div>
 
           <div className="connect-modal__actions">
-            <button type="button" className="connect-modal__action" onClick={onShareIntro}>
+            <button
+              type="button"
+              className="connect-modal__action"
+              onClick={onShareIntro}
+              disabled={!canShareIntro}
+            >
               <span className="connect-modal__action-title">Send quick intro</span>
-              <span className="connect-modal__action-description">
-                Open SMS or your share sheet with your profile details prefilled.
-              </span>
+              <span className="connect-modal__action-description">{shareIntroDescription}</span>
             </button>
             <button
               type="button"
