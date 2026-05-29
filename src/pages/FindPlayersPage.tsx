@@ -1605,7 +1605,7 @@ const FindPlayersPage = () => {
               setGeoError("");
               setShowLocationPicker((prev) => {
                 if (!prev) {
-                  setLocationSearchTerm(locationFilter?.label ?? "");
+                  setLocationSearchTerm("");
                 }
                 return !prev;
               });
@@ -1634,7 +1634,7 @@ const FindPlayersPage = () => {
             <section className="fp-location-panel" id="player-location-picker" aria-label="Location picker">
               <Autocomplete
                 apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                placeholder="Search for a city, club, or court"
+                placeholder="Enter your location"
                 className="fp-autocomplete-input"
                 value={locationSearchTerm}
                 onChange={(event) => setLocationSearchTerm(event.target.value)}
@@ -1663,6 +1663,7 @@ const FindPlayersPage = () => {
                 options={{
                   types: ["geocode", "establishment"],
                   fields: ["formatted_address", "geometry", "name", "address_components"],
+                  componentRestrictions: { country: "us" },
                 }}
               />
 
