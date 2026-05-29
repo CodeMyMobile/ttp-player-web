@@ -694,7 +694,7 @@ const GroupLessonsPage = () => {
         return false;
       });
       if (!playerRecord) return false;
-      return isActiveGroupLessonBookingStatus(playerRecord.paymentStatus ?? playerRecord.status);
+      return isActiveGroupLessonBookingStatus(playerRecord.status, playerRecord.paymentStatus);
     },
     [currentUserIdentity],
   );

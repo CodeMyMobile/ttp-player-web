@@ -1,4 +1,3 @@
-import { useState } from "react";
 import moment from "moment";
 import {
   MapPin,
@@ -10,8 +9,6 @@ import {
   Hourglass,
   AlertTriangle,
   Circle,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { Lesson } from "../api/playerLessons";
 import "./LessonDetailCard.css";
@@ -46,9 +43,35 @@ const parseStatusCode = (value: unknown) => {
   return null;
 };
 
-const getPlayerStatusCode = (player: unknown) => {
+const isConfirmedGroupPlayer = (player: unknown) => {
   const record = player as Record<string, unknown>;
-  return parseStatusCode(record.payment_status ?? record.paymentStatus ?? record.status);
+  return (
+    parseStatusCode(record.status) === 1 &&
+    parseStatusCode(record.payment_status ?? record.paymentStatus) === 1
+  );
+};
+
+const normalizeName = (value: unknown) =>
+  typeof value === "string" ? value.trim().replace(/\s+/g, " ").toLowerCase() : "";
+
+const isGeneratedPlayerDescription = (description: string, groupPlayers: unknown[]) => {
+  if (!description || groupPlayers.length === 0) return false;
+
+  const descriptionNames = description
+    .split(",")
+    .map((name) => normalizeName(name))
+    .filter(Boolean);
+  if (descriptionNames.length < 2) return false;
+
+  const playerNames = new Set(
+    groupPlayers
+      .map((player) => normalizeName((player as Record<string, unknown>)?.full_name))
+      .filter(Boolean),
+  );
+  if (playerNames.size === 0) return false;
+
+  const matchingNames = descriptionNames.filter((name) => playerNames.has(name));
+  return matchingNames.length / descriptionNames.length >= 0.75;
 };
 
 const resolveStatus = (
@@ -103,10 +126,15 @@ const resolveStatus = (
           return candidateId != null && String(candidateId) === String(playerId);
         })
       : undefined;
-  const derivedStatus = playerRecord
-    ? (playerRecord as Record<string, unknown>).payment_status ?? (playerRecord as Record<string, unknown>).status
-    : lessonRecord.status;
-  const numericStatus = parseStatusCode(derivedStatus);
+  const numericStatus = playerRecord
+    ? isConfirmedGroupPlayer(playerRecord)
+      ? 1
+      : parseStatusCode((playerRecord as Record<string, unknown>).status) === 2 ||
+          parseStatusCode((playerRecord as Record<string, unknown>).payment_status) === 2 ||
+          parseStatusCode((playerRecord as Record<string, unknown>).paymentStatus) === 2
+        ? 2
+        : 0
+    : parseStatusCode(lessonRecord.status);
   if (numericStatus !== null) {
     if (numericStatus === 0) return { label: "Pending", tone: "pending" };
     if (numericStatus === 1) return { label: "Confirmed", tone: "success" };
@@ -129,7 +157,6 @@ const LessonDetailCard = ({
   footerActionTone = "neutral",
   footerActionDisabled = false,
 }: LessonDetailCardProps) => {
-  console.log("Rendering LessonDetailCard for lesson ID:", lesson.id,currentUserId);
   // Align time handling with mobile: treat API timestamps as UTC and provide a 1h fallback if end is missing
   const start = moment.utc(lesson.start_date_time);
   const end = lesson.end_date_time
@@ -158,11 +185,8 @@ const LessonDetailCard = ({
     : Array.isArray(record.group_players)
       ? record.group_players
       : [];
-  const [playersOpen, setPlayersOpen] = useState(false);
-  const confirmedCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 1).length;
-  const pendingCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 0).length;
-  const cancelledCount = groupPlayers.filter((player) => getPlayerStatusCode(player) === 2).length;
-  const showStatusCounts = isGroupLesson && groupPlayers.length > 0;
+  const confirmedCount = groupPlayers.filter(isConfirmedGroupPlayer).length;
+  const showStatusCounts = isGroupLesson && confirmedCount > 0;
   const privateName =
     (typeof record.full_name === "string" ? record.full_name : undefined) || lesson.coach_name;
   const title = isPrivateLesson
@@ -193,9 +217,7 @@ const LessonDetailCard = ({
       const limitRaw = record.player_limit ?? lesson.player_limit;
       const limit = typeof limitRaw === "number" ? limitRaw : Number(limitRaw);
       if (!Number.isFinite(limit) || limit <= 0) return null;
-      const confirmed = groupPlayers.filter((player) => {
-        return getPlayerStatusCode(player) === 1;
-      }).length;
+      const confirmed = groupPlayers.filter(isConfirmedGroupPlayer).length;
       const available = Math.max(limit - confirmed, 0);
       return {
         label: `Avail. spots: ${available}/${limit}`,
@@ -252,12 +274,17 @@ const LessonDetailCard = ({
   const creditFee = discountedRate != null ? percentageCalc(CREDIT_FEE_PERCENTAGE, discountedRate) : null;
   const totalFee =
     discountedRate != null && creditFee != null ? discountedRate + creditFee + SERVICE_FEE : null;
-  const resolvePlayerStatus = (player: Record<string, unknown>) => {
-    const parsed = getPlayerStatusCode(player);
-    if (parsed === 1) return { label: "Confirmed", tone: "success" as const };
-    if (parsed === 2) return { label: "Cancelled", tone: "danger" as const };
-    return { label: "Pending", tone: "pending" as const };
-  };
+  const descriptionCandidates = [
+    lesson.metadata?.description,
+    typeof record.description === "string" ? record.description : "",
+    typeof record.lesson_description === "string" ? record.lesson_description : "",
+    typeof record.lessonDescription === "string" ? record.lessonDescription : "",
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  const description =
+    descriptionCandidates.find((value) => !isGeneratedPlayerDescription(value, groupPlayers)) ||
+    (isGroupLesson ? "Live coached group session." : "");
 
   const status = resolveStatus(lesson, statusLabel, currentUserId);
 
@@ -304,16 +331,6 @@ const LessonDetailCard = ({
                   {confirmedCount} Confirmed
                 </span>
               ) : null}
-              {showStatusCounts && pendingCount > 0 ? (
-                <span className="lesson-detail-card__pill lesson-detail-card__pill--pending">
-                  {pendingCount} Pending
-                </span>
-              ) : null}
-              {showStatusCounts && cancelledCount > 0 ? (
-                <span className="lesson-detail-card__pill lesson-detail-card__pill--cancel">
-                  {cancelledCount} Cancelled
-                </span>
-              ) : null}
               {availabilityPill ? (
                 <span className={`lesson-detail-card__pill lesson-detail-card__pill--${availabilityPill.tone}`}>
                   {availabilityPill.label}
@@ -341,42 +358,8 @@ const LessonDetailCard = ({
           </div>
         </header>
 
-        {lesson.metadata?.description ? (
-          <p className="lesson-detail-card__description">{lesson.metadata.description}</p>
-        ) : null}
-
-        {showStatusCounts ? (
-          <div className="lesson-detail-card__players">
-            <button
-              type="button"
-              className="lesson-detail-card__players-toggle"
-              onClick={() => setPlayersOpen((prev) => !prev)}
-            >
-              <span>Players</span>
-              <span className="lesson-detail-card__players-count">
-                {confirmedCount} confirmed
-                {typeof lesson.player_limit === "number" ? ` / ${lesson.player_limit}` : ""}
-              </span>
-              {playersOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {playersOpen ? (
-              <ul className="lesson-detail-card__players-list">
-                {groupPlayers.map((player) => {
-                  const playerRecord = player as Record<string, unknown>;
-                  const name = String(playerRecord.full_name ?? "Player");
-                  const status = resolvePlayerStatus(playerRecord);
-                  return (
-                    <li key={`${playerRecord.player_id ?? name}`} className="lesson-detail-card__players-item">
-                      <span>{name}</span>
-                      <span className={`lesson-detail-card__players-status lesson-detail-card__players-status--${status.tone}`}>
-                        {status.label}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </div>
+        {description ? (
+          <p className="lesson-detail-card__description">{description}</p>
         ) : null}
 
         <footer className="lesson-detail-card__footer">

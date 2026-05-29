@@ -231,12 +231,33 @@ const extractCityState = (location?: string) => {
   return parts.slice(-2).join(", ");
 };
 
-export const isActiveGroupLessonBookingStatus = (status?: number | string | null) => {
-  const numericStatus = typeof status === "number" ? status : Number(status);
-  if (!Number.isFinite(numericStatus)) {
-    return false;
+const parseStatusValue = (value?: number | string | null) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
-  return numericStatus === 1;
+  return null;
+};
+
+export const isActiveGroupLessonBookingStatus = (
+  status?: number | string | null,
+  paymentStatus?: number | string | null,
+) => {
+  const numericStatus = parseStatusValue(status);
+  const numericPaymentStatus = parseStatusValue(paymentStatus);
+  return numericStatus === 1 && numericPaymentStatus === 1;
+};
+
+export const isActiveGroupLessonPlayer = (player: {
+  status?: number | string | null;
+  paymentStatus?: number | string | null;
+  payment_status?: number | string | null;
+}) => {
+  return isActiveGroupLessonBookingStatus(
+    player.status,
+    player.paymentStatus ?? player.payment_status,
+  );
 };
 
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
@@ -263,9 +284,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       status: Number.isFinite(status) ? status : undefined,
     };
   });
-  const activeGroupPlayers = normalizedGroupPlayers.filter((player) =>
-    isActiveGroupLessonBookingStatus(player.paymentStatus ?? player.status),
-  );
+  const activeGroupPlayers = normalizedGroupPlayers.filter(isActiveGroupLessonPlayer);
   const totalSpots = lesson.player_limit ?? normalizedGroupPlayers.length ?? 0;
   const bookedCountRaw = typeof lesson.booked_count === "number" ? lesson.booked_count : Number(lesson.booked_count);
   const openSpotsRaw = typeof lesson.open_spots === "number" ? lesson.open_spots : Number(lesson.open_spots);

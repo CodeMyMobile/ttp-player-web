@@ -149,6 +149,149 @@ function StatusCard({ emoji, title, message }) {
   );
 }
 
+function FullInviteStatus({ match, preview, onBrowseMatches }) {
+  const sourceMatch = match || preview?.match || {};
+  const startDate = sourceMatch.start_date_time
+    ? new Date(sourceMatch.start_date_time)
+    : null;
+  const formattedDate = startDate ? formatInviteDate(startDate) : "";
+  const formattedTime = startDate ? formatInviteTime(startDate) : "";
+  const locationLabel = sourceMatch.location_text || preview?.location_text || "";
+  const skill = formatSkillRange(
+    sourceMatch.skill_level_min,
+    sourceMatch.skill_level_max,
+  );
+  const matchType = [
+    sourceMatch.match_format,
+    skill ? `${skill} Level` : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  const hostName =
+    (preview?.inviter?.full_name || sourceMatch.host_name || "").trim() ||
+    "the host";
+  const matchHeading = sourceMatch.match_format
+    ? `${sourceMatch.match_format} Match`
+    : "Match";
+  const playerLimit =
+    asNumber(sourceMatch.player_limit) ?? asNumber(sourceMatch.playerLimit);
+  const occupied =
+    asNumber(sourceMatch.occupied) ??
+    asNumber(sourceMatch.current_players) ??
+    asNumber(sourceMatch.currentPlayers) ??
+    playerLimit;
+
+  const detailItems = [
+    startDate
+      ? {
+          key: "datetime",
+          icon: CalendarDays,
+          iconClass: "bg-blue-50 text-blue-600",
+          label: "Date & time",
+          value: `${formattedDate}${formattedTime ? ` · ${formattedTime}` : ""}`,
+        }
+      : null,
+    locationLabel
+      ? {
+          key: "location",
+          icon: MapPin,
+          iconClass: "bg-green-50 text-green-700",
+          label: "Location",
+          value: locationLabel,
+        }
+      : null,
+    matchType
+      ? {
+          key: "matchType",
+          icon: ClipboardList,
+          iconClass: "bg-violet-50 text-violet-600",
+          label: "Match type",
+          value: matchType,
+        }
+      : null,
+  ].filter(Boolean);
+
+  const cardClass =
+    "w-full overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.06)]";
+  const detailRowClass =
+    "flex items-center gap-3.5 border-b border-slate-100 px-[18px] py-3 last:border-b-0";
+  const mutedLabelClass =
+    "text-[10px] font-bold uppercase tracking-[0.5px] text-slate-400";
+
+  return (
+    <div className="flex w-full max-w-[520px] flex-col items-center">
+      <section className="mb-6 text-center">
+        <div className="mx-auto mb-4 flex h-[72px] w-[72px] items-center justify-center rounded-full border-2 border-slate-200 bg-white text-[32px] shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+          🎾
+        </div>
+        <h1 className="mb-1.5 text-[26px] font-extrabold leading-tight text-slate-800">
+          This match is full
+        </h1>
+        <p className="mx-auto max-w-sm text-sm leading-6 text-slate-500">
+          All spots have been taken, so this invite link is no longer accepting players.
+        </p>
+      </section>
+
+      <section className={`${cardClass} mb-3.5`}>
+        <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-[18px] py-4">
+          <div className="min-w-0">
+            <h2 className="mb-0.5 truncate text-lg font-extrabold text-slate-800">
+              {matchHeading}
+            </h2>
+            <p className="truncate text-[13px] font-medium text-slate-500">
+              Hosted by {hostName}
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
+            <span aria-hidden="true">●</span> Full
+          </span>
+        </div>
+        {detailItems.length ? (
+          detailItems.map((item) => {
+            const ItemIcon = item.icon;
+            return (
+              <div key={item.key} className={detailRowClass}>
+                <div
+                  className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] ${item.iconClass}`}
+                >
+                  <ItemIcon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className={mutedLabelClass}>{item.label}</div>
+                  <div className="truncate text-sm font-semibold text-slate-800">
+                    {item.value}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="px-[18px] py-4 text-center text-sm text-slate-500">
+            Ask the host if they are opening another session.
+          </div>
+        )}
+        {playerLimit ? (
+          <div className="border-t border-slate-100 px-[18px] py-3">
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <span className="text-xs font-bold text-red-600">
+                {Math.min(occupied, playerLimit)} / {playerLimit} spots taken
+              </span>
+              <span className="text-xs text-slate-400">0 remaining</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full w-full rounded-full bg-red-500" />
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <SecondaryButton onClick={onBrowseMatches}>
+        Browse all matches <ArrowRight className="h-4 w-4" />
+      </SecondaryButton>
+    </div>
+  );
+}
+
 export default function InvitationPage() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -444,8 +587,25 @@ export default function InvitationPage() {
           setDeclined(false);
           setPhase("preview");
           const isNotFound = err?.status === 404 || err?.message === "not_found";
+          const isExpiredInvite = inviteErrorLooksExpired(err);
+          const isFullInvite = inviteErrorLooksFull(err);
           setLoadError(
-            isNotFound
+            isFullInvite
+              ? {
+                  emoji: "🎾",
+                  title: "This match is full",
+                  message:
+                    "All spots have been taken, so this invite link is no longer accepting players.",
+                  reason: "full",
+                }
+              : isExpiredInvite
+              ? {
+                  emoji: "⌛",
+                  title: "This invite has expired",
+                  message:
+                    "Ask the host to send a fresh invite so you can still join the match.",
+                }
+              : isNotFound
               ? {
                   emoji: "🔍",
                   title: "Invite not found",
@@ -1269,14 +1429,18 @@ export default function InvitationPage() {
   if (!preview)
     return (
       <InvitationLayout>
-        <StatusCard
-          emoji={loadError?.emoji || "😕"}
-          title={loadError?.title || "Invite not found"}
-          message={
-            loadError?.message ||
-            "This invite may have been removed or the link is incorrect."
-          }
-        />
+        {loadError?.reason === "full" ? (
+          <FullInviteStatus onBrowseMatches={() => navigate("/", { replace: false })} />
+        ) : (
+          <StatusCard
+            emoji={loadError?.emoji || "😕"}
+            title={loadError?.title || "Invite not found"}
+            message={
+              loadError?.message ||
+              "This invite may have been removed or the link is incorrect."
+            }
+          />
+        )}
       </InvitationLayout>
     );
   if (hasDeclined)
@@ -1309,13 +1473,17 @@ export default function InvitationPage() {
         />
       </InvitationLayout>
     );
-  if (normalizedPreviewStatus === "full")
+  if (isFullInviteStatus(normalizedPreviewStatus, preview))
     return (
-      <InvitationLayout>
-        <StatusCard
-          emoji="🎉"
-          title="This match is full"
-          message="All spots have been claimed, but you can ask the host to open up another session."
+      <InvitationLayout
+        currentUser={currentUser}
+        onLogout={clearStoredSession}
+        onSignIn={() => navigate("/", { replace: false })}
+      >
+        <FullInviteStatus
+          match={match}
+          preview={previewWithRoster}
+          onBrowseMatches={() => navigate("/", { replace: false })}
         />
       </InvitationLayout>
     );
@@ -2117,16 +2285,139 @@ export default function InvitationPage() {
 }
 
   // Helpers
+function collectErrorStrings(value, seen = new Set()) {
+  if (value === null || value === undefined || seen.has(value)) return [];
+  if (typeof value === "string") return [value.toLowerCase()];
+  if (typeof value === "number" || typeof value === "boolean") {
+    return [String(value).toLowerCase()];
+  }
+  if (Array.isArray(value)) {
+    seen.add(value);
+    return value.flatMap((item) => collectErrorStrings(item, seen));
+  }
+  if (typeof value === "object") {
+    seen.add(value);
+    return [
+      ...Object.keys(value).map((key) => key.toLowerCase()),
+      ...Object.values(value).flatMap((item) => collectErrorStrings(item, seen)),
+    ];
+  }
+  return [];
+}
+
+function inviteErrorLooksFull(error) {
+  if (!error) return false;
+  const status = Number(error.status ?? error.response?.status);
+  const searchable = [
+    error.message,
+    error.data?.error,
+    error.data?.message,
+    error.response?.data?.error,
+    error.response?.data?.message,
+    ...collectErrorStrings(error.data),
+    ...collectErrorStrings(error.response?.data),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const fullMarkers = [
+    "full",
+    "match_full",
+    "lesson_full",
+    "capacity",
+    "player_limit",
+    "roster_full",
+    "no_spots",
+    "no spots",
+    "0 spots",
+    "not_accepting_invites",
+    "not accepting invites",
+    "invites_closed",
+    "invite_closed",
+    "closed to invites",
+  ];
+
+  if (fullMarkers.some((marker) => searchable.includes(marker))) {
+    return true;
+  }
+
+  return status === 409 && searchable.includes("invite");
+}
+
+function inviteErrorLooksExpired(error) {
+  if (!error) return false;
+  const status = Number(error.status ?? error.response?.status);
+  const searchable = [
+    error.message,
+    error.data?.error,
+    error.data?.message,
+    error.response?.data?.error,
+    error.response?.data?.message,
+    ...collectErrorStrings(error.data),
+    ...collectErrorStrings(error.response?.data),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return status === 410 || searchable.includes("expired");
+}
+
+function inviteErrorLooksInvalidToken(error) {
+  if (!error) return false;
+  const status = Number(error.status ?? error.response?.status);
+  const searchable = [
+    error.message,
+    error.data?.error,
+    error.data?.message,
+    error.response?.data?.error,
+    error.response?.data?.message,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return status === 400 && (searchable.includes("invalid token") || searchable.includes("invalid_token"));
+}
+
+function isFullInviteStatus(status, preview) {
+  const normalized = String(status || "").toLowerCase();
+  if (
+    normalized === "full" ||
+    normalized === "match_full" ||
+    normalized === "lesson_full" ||
+    normalized === "not_accepting_invites" ||
+    normalized === "invites_closed" ||
+    normalized === "closed"
+  ) {
+    return true;
+  }
+
+  const match = preview?.match || {};
+  const playerLimit = asNumber(match.player_limit) ?? asNumber(match.playerLimit);
+  const remaining =
+    asNumber(match.remaining_spots) ??
+    asNumber(match.remainingSpots) ??
+    asNumber(preview?.remaining_spots) ??
+    asNumber(preview?.remainingSpots);
+
+  if (match.is_full === true || preview?.is_full === true) return true;
+  if (remaining !== null && remaining <= 0 && playerLimit) return true;
+
+  return false;
+}
+
 function isAcceptError(error) {
   if (!error) return false;
   if (isMatchArchivedError(error)) return true;
   const status = error.status ?? error.response?.status;
-  if (status && [404, 409, 410, 423].includes(status)) return true;
+  if (status && [400, 404, 409, 410, 423].includes(status)) return true;
   const code = (error.data?.error || error.message || "")
     .toString()
     .toLowerCase();
   if (!code) return false;
-  return code.includes("invite") || code.includes("match");
+  return code.includes("invite") || code.includes("match") || code.includes("token");
 }
 
 function mapSignInError(error) {
@@ -2225,11 +2516,17 @@ function mapAcceptError(error) {
     .toString()
     .toLowerCase();
 
+  if (inviteErrorLooksFull(error)) {
+    return "This match is full and no longer accepting invites.";
+  }
+  if (inviteErrorLooksExpired(error)) {
+    return "This invite has expired. Ask the host to send a fresh invite.";
+  }
+  if (inviteErrorLooksInvalidToken(error)) {
+    return "This invite link is invalid. Ask the host to send a new one.";
+  }
   if (status === 404 || code.includes("not_found")) {
     return "This invite is no longer available. Ask the host to send a new link.";
-  }
-  if (status === 409 || code.includes("full")) {
-    return "This match is already full or unavailable.";
   }
   if (code.includes("revoked")) {
     return "The host revoked this invite. Ask them for a new link.";
