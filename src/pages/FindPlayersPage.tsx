@@ -1528,7 +1528,7 @@ const FindPlayersPage = () => {
   })();
 
   return (
-    <MainLayout>
+    <MainLayout hideMobileNewMatch>
       <div className="find-players-page" style={themeVars}>
         <div className="find-players-page__inner">
           <ResultsHeader
