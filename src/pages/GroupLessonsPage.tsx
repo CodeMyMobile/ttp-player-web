@@ -1092,35 +1092,6 @@ const GroupLessonsPage = () => {
                 </div>
               </div>
 
-              <div className="group-lessons-desktop-meta">
-                <div className="group-lessons-desktop-meta__location">
-                  <MapPin size={15} aria-hidden="true" />
-                  <span>{useLocationFilter ? locationLabel : "All locations"}</span>
-                </div>
-                <div className="group-lessons-desktop-meta__buttons">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGeoError("");
-                      setShowLocationPicker((prev) => {
-                        if (!prev) {
-                          setLocationSearchTerm(locationFilter?.label ?? "");
-                        }
-                        return !prev;
-                      });
-                    }}
-                  >
-                    Change location
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseLocationFilter((current) => !current)}
-                  >
-                    {useLocationFilter ? "Use all locations" : "Search nearby"}
-                  </button>
-                </div>
-              </div>
-
               <div className="group-lessons-desktop-chip-row">
                 <span className="group-lessons-desktop-chip-row__label">Level</span>
                 <div className="group-lessons-desktop-chip-row__chips">
