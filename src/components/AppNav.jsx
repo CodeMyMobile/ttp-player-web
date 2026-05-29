@@ -249,7 +249,7 @@ const AppNav = ({
               className="app-nav__location"
               title={locationLabel}
               onClick={() => {
-                setLocationSearchTerm(locationLabel);
+                setLocationSearchTerm("");
                 setLocationError("");
                 setLocationOpen(true);
               }}
@@ -410,7 +410,7 @@ const AppNav = ({
               <Search size={16} />
               <Autocomplete
                 apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                placeholder="City, neighborhood or zip code..."
+                placeholder="Enter your location"
                 className="app-nav__location-search-input"
                 value={locationSearchTerm}
                 onChange={(event) => {
@@ -421,6 +421,7 @@ const AppNav = ({
                 options={{
                   types: ["geocode", "establishment"],
                   fields: ["formatted_address", "geometry", "name", "address_components"],
+                  componentRestrictions: { country: "us" },
                 }}
               />
             </div>
