@@ -1,6 +1,6 @@
 // src/InvitationPage.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   CalendarDays,
   MapPin,
@@ -43,7 +43,7 @@ import {
   storeRefreshToken,
 } from "./services/authToken";
 
-function InvitationLayout({ children, currentUser, onLogout, onSignIn }) {
+function InvitationLayout({ children, currentUser, onLogout }) {
   const name = (currentUser?.name || "").trim();
   const initials = getAvatarInitials(name || "Player");
 
@@ -52,18 +52,14 @@ function InvitationLayout({ children, currentUser, onLogout, onSignIn }) {
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
           <div className="flex items-center justify-between px-5 py-3.5">
-            <button
-              type="button"
-              onClick={() => onSignIn?.()}
-              className="flex items-center gap-2 text-left"
-            >
+            <Link to="/" className="flex items-center gap-2 text-left">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime-500 text-base shadow-sm">
                 🎾
               </span>
               <span className="text-[15px] font-bold text-slate-800">
                 The Tennis <span className="text-violet-500">Plan</span>
               </span>
-            </button>
+            </Link>
             {currentUser ? (
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-xs font-extrabold text-white">
@@ -151,6 +147,7 @@ function StatusCard({ emoji, title, message }) {
 
 function FullInviteStatus({ match, preview, onBrowseMatches }) {
   const sourceMatch = match || preview?.match || {};
+  const capacity = sourceMatch.capacity || {};
   const startDate = sourceMatch.start_date_time
     ? new Date(sourceMatch.start_date_time)
     : null;
@@ -174,12 +171,24 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
     ? `${sourceMatch.match_format} Match`
     : "Match";
   const playerLimit =
-    asNumber(sourceMatch.player_limit) ?? asNumber(sourceMatch.playerLimit);
+    asNumber(capacity.limit) ??
+    asNumber(capacity.max) ??
+    asNumber(sourceMatch.player_limit) ??
+    asNumber(sourceMatch.playerLimit);
   const occupied =
+    asNumber(capacity.confirmed) ??
+    asNumber(capacity.current) ??
+    asNumber(capacity.occupied) ??
+    asNumber(capacity.filled) ??
     asNumber(sourceMatch.occupied) ??
     asNumber(sourceMatch.current_players) ??
     asNumber(sourceMatch.currentPlayers) ??
     playerLimit;
+  const openSpots =
+    asNumber(capacity.open) ??
+    asNumber(capacity.remaining) ??
+    asNumber(capacity.available) ??
+    (playerLimit ? Math.max(playerLimit - occupied, 0) : null);
 
   const detailItems = [
     startDate
@@ -228,7 +237,7 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
           This match is full
         </h1>
         <p className="mx-auto max-w-sm text-sm leading-6 text-slate-500">
-          All spots have been taken, so this invite link is no longer accepting players.
+          All spots have been taken. Check out other matches near you below.
         </p>
       </section>
 
@@ -276,7 +285,9 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
               <span className="text-xs font-bold text-red-600">
                 {Math.min(occupied, playerLimit)} / {playerLimit} spots taken
               </span>
-              <span className="text-xs text-slate-400">0 remaining</span>
+              <span className="text-xs text-slate-400">
+                {openSpots ?? 0} remaining
+              </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
               <div className="h-full w-full rounded-full bg-red-500" />
@@ -285,6 +296,9 @@ function FullInviteStatus({ match, preview, onBrowseMatches }) {
         ) : null}
       </section>
 
+      <h2 className="mb-2 w-full text-[13px] font-bold text-slate-800">
+        Other matches near you
+      </h2>
       <SecondaryButton onClick={onBrowseMatches}>
         Browse all matches <ArrowRight className="h-4 w-4" />
       </SecondaryButton>
@@ -1473,12 +1487,11 @@ export default function InvitationPage() {
         />
       </InvitationLayout>
     );
-  if (isFullInviteStatus(normalizedPreviewStatus, preview))
+  if (isFullInviteStatus(normalizedPreviewStatus, previewWithRoster, match))
     return (
       <InvitationLayout
         currentUser={currentUser}
         onLogout={clearStoredSession}
-        onSignIn={() => navigate("/", { replace: false })}
       >
         <FullInviteStatus
           match={match}
@@ -1998,7 +2011,6 @@ export default function InvitationPage() {
     <InvitationLayout
       currentUser={currentUser}
       onLogout={clearStoredSession}
-      onSignIn={() => navigate("/", { replace: false })}
     >
       {toast && (
         <div
@@ -2381,7 +2393,7 @@ function inviteErrorLooksInvalidToken(error) {
   return status === 400 && (searchable.includes("invalid token") || searchable.includes("invalid_token"));
 }
 
-function isFullInviteStatus(status, preview) {
+function isFullInviteStatus(status, preview, resolvedMatch) {
   const normalized = String(status || "").toLowerCase();
   if (
     normalized === "full" ||
@@ -2394,16 +2406,37 @@ function isFullInviteStatus(status, preview) {
     return true;
   }
 
-  const match = preview?.match || {};
-  const playerLimit = asNumber(match.player_limit) ?? asNumber(match.playerLimit);
+  const match = {
+    ...(preview?.match || {}),
+    ...(resolvedMatch || {}),
+  };
+  const capacity = match.capacity || {};
+  const playerLimit =
+    asNumber(capacity.limit) ??
+    asNumber(capacity.max) ??
+    asNumber(match.player_limit) ??
+    asNumber(match.playerLimit);
+  const confirmed =
+    asNumber(capacity.confirmed) ??
+    asNumber(capacity.current) ??
+    asNumber(capacity.occupied) ??
+    asNumber(capacity.filled) ??
+    asNumber(match.occupied) ??
+    asNumber(match.current_players) ??
+    asNumber(match.currentPlayers);
   const remaining =
+    asNumber(capacity.open) ??
+    asNumber(capacity.remaining) ??
+    asNumber(capacity.available) ??
     asNumber(match.remaining_spots) ??
     asNumber(match.remainingSpots) ??
     asNumber(preview?.remaining_spots) ??
     asNumber(preview?.remainingSpots);
 
-  if (match.is_full === true || preview?.is_full === true) return true;
+  if (capacity.isFull === true || capacity.is_full === true) return true;
+  if (match.is_full === true || match.isFull === true || preview?.is_full === true) return true;
   if (remaining !== null && remaining <= 0 && playerLimit) return true;
+  if (confirmed !== null && playerLimit && confirmed >= playerLimit) return true;
 
   return false;
 }
