@@ -1534,6 +1534,7 @@ const FindPlayersPage = () => {
           <ResultsHeader
             title="Find Players"
             description="Connect with local players who match your level and style."
+            mobileDescription="Connect with local players by level and style."
             actionSlot={
               <button
                 type="button"

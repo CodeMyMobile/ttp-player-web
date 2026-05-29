@@ -42,6 +42,10 @@
   color: var(--fc-color-text-secondary);
 }
 
+.fc-header__description--mobile {
+  display: none;
+}
+
 .fc-header__actions {
   display: flex;
   align-items: center;
