@@ -134,6 +134,14 @@ const MatchPage = () => {
     navigate("/login", { state: { from: location } });
   }, [location, navigate]);
 
+  const handleManageInvites = useCallback(
+    (matchId) => {
+      if (!matchId) return;
+      navigate(`/matches/${matchId}/invite`);
+    },
+    [navigate],
+  );
+
   const handleMatchRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["play-dates-match-page", id] });
   }, [id, queryClient]);
@@ -194,6 +202,7 @@ const MatchPage = () => {
         onUpdateMatch={setMatchData}
         onToast={() => {}}
         formatDateTime={formatDateTime}
+        onManageInvites={handleManageInvites}
       />
     </div>
   );
