@@ -598,6 +598,7 @@ const GroupLessonDetailsPage = () => {
     return {
       status: playerRecord.status,
       paymentStatus: playerRecord.paymentStatus,
+      participantId: playerRecord.participantId ?? playerRecord.id,
     };
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
@@ -643,6 +644,10 @@ const GroupLessonDetailsPage = () => {
 
   const handleBookWithCredits = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedCreditId) return;
+    if (!currentUserBookingStatus?.participantId) {
+      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
+      return;
+    }
     setBookingWithCredits(true);
     setPackagePurchaseError(null);
     try {
@@ -652,6 +657,7 @@ const GroupLessonDetailsPage = () => {
         lessonType: "group",
         lessonId: lesson.id,
         purchaseId: selectedCreditId,
+        participantId: currentUserBookingStatus.participantId,
       });
       await updatePlayerLesson({
         token: authToken,
@@ -664,10 +670,14 @@ const GroupLessonDetailsPage = () => {
     } finally {
       setBookingWithCredits(false);
     }
-  }, [authToken, lesson?.coachId, lesson?.id, refreshLesson, selectedCreditId]);
+  }, [authToken, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, refreshLesson, selectedCreditId]);
 
   const handleBuyPackageAndApply = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
+    if (!currentUserBookingStatus?.participantId) {
+      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
+      return;
+    }
     setPurchasingPackage(true);
     setPackagePurchaseError(null);
     try {
@@ -689,6 +699,7 @@ const GroupLessonDetailsPage = () => {
         lessonType: "group",
         lessonId: lesson.id,
         purchaseId: purchaseResponse.purchase?.id,
+        participantId: currentUserBookingStatus.participantId,
       });
       await updatePlayerLesson({
         token: authToken,
@@ -718,7 +729,7 @@ const GroupLessonDetailsPage = () => {
     } finally {
       setPurchasingPackage(false);
     }
-  }, [authToken, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
+  }, [authToken, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
 
   if (isLoading) {
     return (
