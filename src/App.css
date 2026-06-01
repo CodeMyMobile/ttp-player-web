@@ -12,6 +12,10 @@
   gap: 32px;
 }
 
+.dashboard-page--find-players {
+  gap: 0;
+}
+
 .main-nav {
   background: #ffffff;
   border-radius: 20px;
