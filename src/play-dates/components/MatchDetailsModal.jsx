@@ -601,10 +601,7 @@ const DECLINED_INVITE_STATUSES = new Set([
   "declined",
   "rejected",
   "withdrawn",
-  "canceled",
   "cancelled",
-  "expired",
-  "inactive",
 ]);
 
 const PENDING_INVITE_STATUS_TOKENS = [
@@ -635,6 +632,13 @@ const isInviteAwaitingResponse = (status) => {
     return true;
   }
   return PENDING_INVITE_STATUS_TOKENS.some((token) => normalized.includes(token));
+};
+
+const isInviteDeclined = (status) => {
+  if (!status) return false;
+  const normalized = status.toString().trim().toLowerCase();
+  if (!normalized) return false;
+  return DECLINED_INVITE_STATUSES.has(normalized);
 };
 
 const isPlaceholderInviteName = (value) => {
@@ -762,6 +766,36 @@ const getInviteAvatar = (invite) => {
     if (image) return image;
   }
   return null;
+};
+
+const getInviteDeclinedAt = (invite) => {
+  if (!invite || typeof invite !== "object") return null;
+  return firstNonEmptyValue([
+    invite.declined_at,
+    invite.declinedAt,
+    invite.rejected_at,
+    invite.rejectedAt,
+    invite.responded_at,
+    invite.respondedAt,
+    invite.response_at,
+    invite.responseAt,
+    invite.updated_at,
+    invite.updatedAt,
+    invite.created_at,
+    invite.createdAt,
+    invite.sent_at,
+    invite.sentAt,
+  ]);
+};
+
+const formatInviteDate = (value) => {
+  const date = safeDate(value);
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  }).format(date);
 };
 
 const inviteMatchesParticipant = (invite, participant) => {
@@ -1032,6 +1066,28 @@ const MatchDetailsModal = ({
       if (!invite || typeof invite !== "object") return false;
       const status = getInviteStatus(invite);
       if (!isInviteAwaitingResponse(status)) {
+        return false;
+      }
+      if (isPlaceholderInviteStatus(status)) {
+        return false;
+      }
+      if (
+        committedParticipants.some((participant) =>
+          inviteMatchesParticipant(invite, participant),
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [committedParticipants, normalizedInvitees]);
+
+  const declinedInvitees = useMemo(() => {
+    if (normalizedInvitees.length === 0) return [];
+    return normalizedInvitees.filter((invite) => {
+      if (!invite || typeof invite !== "object") return false;
+      const status = getInviteStatus(invite);
+      if (!isInviteDeclined(status)) {
         return false;
       }
       if (isPlaceholderInviteStatus(status)) {
@@ -2031,6 +2087,80 @@ const MatchDetailsModal = ({
     }, []);
   }, [pendingInvitees]);
 
+  const declinedInvitesList = useMemo(() => {
+    if (declinedInvitees.length === 0) return [];
+    const seen = new Set();
+    return declinedInvitees.reduce((list, invite, index) => {
+      if (!invite || typeof invite !== "object") {
+        return list;
+      }
+      if (
+        invite.placeholder === true ||
+        invite.is_placeholder === true ||
+        invite.isPlaceholder === true ||
+        invite.placeholder_invite === true ||
+        invite.placeholderInvite === true ||
+        invite.is_open === true ||
+        invite.isOpen === true
+      ) {
+        return list;
+      }
+      const explicitName = getInviteDisplayName(invite, null);
+      const name = explicitName ? explicitName.trim() : "";
+      if (!name || isPlaceholderInviteName(name)) {
+        return list;
+      }
+      const phoneRaw = getInvitePhone(invite);
+      const phoneDigits = getPhoneDigits(phoneRaw);
+      const email = getInviteEmail(invite);
+      const phoneDisplay = phoneDigits
+        ? formatPhoneDisplay(phoneDigits) || phoneDigits
+        : "";
+      const phone = phoneDisplay || null;
+      const phoneHref = phoneDigits
+        ? `tel:${normalizePhoneValue(phoneRaw) || phoneDigits}`
+        : null;
+      const identity = getInviteIdentity(invite);
+      const normalizedExplicitName = explicitName
+        ? (() => {
+            const trimmed = explicitName.trim();
+            if (!trimmed) return null;
+            if (/^invited player/i.test(trimmed)) return null;
+            return trimmed.toLowerCase();
+          })()
+        : null;
+      const identityCandidates = [
+        phoneDigits ? `phone:${phoneDigits}` : null,
+        email ? `email:${email.toLowerCase()}` : null,
+        identity ? `identity:${identity}` : null,
+        normalizedExplicitName ? `name:${normalizedExplicitName}` : null,
+      ].filter(Boolean);
+
+      if (identityCandidates.length === 0) {
+        identityCandidates.push(`declined-invite:${index}:${name.toLowerCase()}`);
+      }
+
+      if (identityCandidates.some((candidate) => seen.has(candidate))) {
+        return list;
+      }
+
+      identityCandidates.forEach((candidate) => seen.add(candidate));
+
+      const declinedDate = formatInviteDate(getInviteDeclinedAt(invite));
+      const key =
+        identity ?? identityCandidates[0] ?? `declined-invite-${index}`;
+
+      list.push({
+        key,
+        name,
+        phone,
+        phoneHref,
+        declinedDate,
+      });
+      return list;
+    }, []);
+  }, [declinedInvitees]);
+
   if (!isOpen || !match) return null;
 
   const handleCalendarAction = (type) => {
@@ -2463,6 +2593,65 @@ const MatchDetailsModal = ({
                 ) : (
                   <Mail className="h-4 w-4" />
                 )}
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
+  const renderDeclinedInvites = () => (
+    <section className="space-y-3 rounded-2xl border border-red-100 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true">❌</span>
+          <p className="text-sm font-black text-gray-900">Declined</p>
+        </div>
+        <span
+          className="rounded-full px-2.5 py-1 text-xs font-black"
+          style={{
+            backgroundColor: "#FEF2F2",
+            border: "1px solid #FECACA",
+            color: "#DC2626",
+          }}
+        >
+          {declinedInvitesList.length}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {declinedInvitesList.map((invite) => (
+          <div
+            key={invite.key}
+            className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+          >
+            <div
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white shadow-sm"
+              style={{ backgroundColor: "#94A3B8" }}
+              aria-label={`${invite.name} avatar`}
+              role="img"
+            >
+              {getAvatarInitials(invite.name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black" style={{ color: "#64748B" }}>
+                {invite.name}
+              </p>
+              <p
+                className="font-semibold"
+                style={{ color: "#94A3B8", fontSize: "11px", lineHeight: 1.35 }}
+              >
+                Declined{invite.declinedDate ? ` · ${invite.declinedDate}` : ""}
+              </p>
+            </div>
+            {invite.phoneHref && (
+              <a
+                href={invite.phoneHref}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-500 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+                aria-label={`Call ${invite.name}`}
+                title={invite.phone || `Call ${invite.name}`}
+              >
+                <Phone className="h-4 w-4" />
               </a>
             )}
           </div>
@@ -3010,6 +3199,10 @@ const MatchDetailsModal = ({
 
           {isHost && matchPrivacy === "private" && pendingInvitesList.length > 0 && (
             renderPendingInvites()
+          )}
+
+          {isHost && matchPrivacy === "private" && declinedInvitesList.length > 0 && (
+            renderDeclinedInvites()
           )}
 
           {!isArchived && !isCancelled && (
