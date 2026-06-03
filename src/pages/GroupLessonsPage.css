@@ -718,6 +718,11 @@
   color: #0369a1;
 }
 
+.lesson-card__spots-pill--mindbody {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
 .lesson-card--external .lesson-card__band {
   background: #ecfeff;
   border-bottom-color: #bae6fd;
@@ -730,6 +735,20 @@
 
 .lesson-card--external .lesson-card__level {
   border-color: #bae6fd;
+}
+
+.lesson-card--mindbody .lesson-card__band {
+  background: #f5f3ff;
+  border-bottom-color: #ddd6fe;
+}
+
+.lesson-card--mindbody .lesson-card__band-label,
+.lesson-card--mindbody .lesson-card__level {
+  color: #6d28d9;
+}
+
+.lesson-card--mindbody .lesson-card__level {
+  border-color: #ddd6fe;
 }
 
 .lesson-card__coach-strip {

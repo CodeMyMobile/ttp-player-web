@@ -16,6 +16,11 @@ import {
   type GroupLesson,
 } from "../api/groupLessons";
 import {
+  fetchMindbodyClasses,
+  extractMindbodyClasses,
+  mapMindbodyClassToGroupLesson,
+} from "../api/mindbodyClasses";
+import {
   getPlayerExternalLessonById,
   getPlayerExternalLessons,
   recordExternalLessonClick,
@@ -119,6 +124,10 @@ const parsePriceValue = (pricePerPlayer: string) => {
 };
 
 const getLessonFormatLabel = (lesson: GroupLesson) => {
+  if (lesson.isMindbody) {
+    return "Partner class";
+  }
+
   const candidate = lesson.focus?.trim();
   if (!candidate) {
     return "Open Group";
@@ -839,7 +848,14 @@ const GroupLessonsPage = () => {
               : "",
         };
 
-        const [groupResponse, externalResponse] = await Promise.all([
+        const mindbodyDateRange =
+          dateFilter.type === "all"
+            ? {}
+            : dateFilter.type === "day"
+              ? { from: dateFilter.iso, to: dateFilter.iso }
+              : { from: dateFilter.start, to: dateFilter.end };
+
+        const [groupResponse, externalResponse, mindbodyResponse] = await Promise.all([
           fetchUpcomingGroupLessons({
             token,
             perPage: 50,
@@ -848,6 +864,9 @@ const GroupLessonsPage = () => {
             ...(resolvedPosition ? { position: resolvedPosition } : {}),
             filters,
             signal: controller.signal,
+          }).catch((error) => {
+            console.warn("Group lessons source failed", error);
+            return null;
           }),
           selectedCoachId
             ? Promise.resolve(null)
@@ -859,18 +878,43 @@ const GroupLessonsPage = () => {
                 ...(resolvedPosition ? { position: resolvedPosition } : {}),
                 filters: externalFilters,
                 signal: controller.signal,
+              }).catch((error) => {
+                console.warn("External lessons source failed", error);
+                return null;
+              }),
+          selectedCoachId
+            ? Promise.resolve(null)
+            : fetchMindbodyClasses({
+                token,
+                perPage: 50,
+                page: 1,
+                search: searchTerm.trim(),
+                filters: mindbodyDateRange,
+                signal: controller.signal,
+              }).catch((error) => {
+                console.warn("Mindbody lessons source failed", error);
+                return null;
               }),
         ]);
 
         if (cancelled) return;
 
-        const mapped = mapUpcomingGroupLessonsResponse(groupResponse);
+        const mapped = groupResponse
+          ? mapUpcomingGroupLessonsResponse(groupResponse)
+          : { lessons: [] };
         const externalLessons = externalResponse
           ? extractExternalLessons(externalResponse)
               .filter((lesson) => Boolean(getExternalLessonMetadata(lesson).externalUrl))
               .map(mapExternalLessonToGroupLesson)
           : [];
-        setLessons([...mapped.lessons, ...externalLessons]);
+        const mindbodyLessons = mindbodyResponse
+          ? extractMindbodyClasses(mindbodyResponse).map(mapMindbodyClassToGroupLesson)
+          : [];
+        const nextLessons = [...mapped.lessons, ...externalLessons, ...mindbodyLessons];
+        if (nextLessons.length === 0 && !groupResponse && !externalResponse && !mindbodyResponse) {
+          throw new Error("Unable to load group lessons.");
+        }
+        setLessons(nextLessons);
       } catch (error) {
         if (cancelled) return;
         setLoadError(error instanceof Error ? error.message : "Unable to load group lessons.");
@@ -1517,23 +1561,29 @@ const GroupLessonsPage = () => {
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
+                  const isMindbody = Boolean(lesson.isMindbody);
                   const isSoldOut = !isExternal && lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
-                  const showPackLink = !isExternal && priceValue !== null && priceValue > 29;
+                  const showPackLink = !isExternal && !isMindbody && priceValue !== null && priceValue > 29;
                   const coachName = getResolvedCoachName(lesson);
                   const coachAvatar = getResolvedCoachAvatar(lesson);
+                  const detailsPath = isExternal
+                    ? `/lessons/external/${lesson.id}`
+                    : isMindbody
+                      ? `/mindbody/classes/${lesson.partnerClassId ?? lesson.id}`
+                      : `/group-lessons/${lesson.id}`;
 
                   return (
                     <article
                       key={lesson.id}
-                      className={`lesson-card lesson-card--desktop${isExternal ? " lesson-card--external" : ""}`}
+                      className={`lesson-card lesson-card--desktop${isExternal ? " lesson-card--external" : ""}${isMindbody ? " lesson-card--mindbody" : ""}`}
                     >
                       <header className="lesson-card__band">
                         <div className="lesson-card__band-label">
                           {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
                         <span className="lesson-card__level">
-                          {isExternal ? "External" : `${levelRange} NTRP`}
+                          {isExternal ? "External" : isMindbody ? lesson.partnerName ?? "Partner" : `${levelRange} NTRP`}
                         </span>
                       </header>
 
@@ -1547,7 +1597,11 @@ const GroupLessonsPage = () => {
                           </div>
                           <div className="lesson-card__price">
                             <div className="lesson-card__price-value">
-                              {isExternal ? "Book offsite" : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
+                              {isExternal
+                                ? "Book offsite"
+                                : isMindbody
+                                  ? `$${((lesson.platformFeeAmountCents ?? 0) / 100).toFixed(2)} fee`
+                                  : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
                             {showPackLink ? (
                               <button
@@ -1580,10 +1634,10 @@ const GroupLessonsPage = () => {
                             )}
                             <span
                               className={`lesson-card__spots-pill lesson-card__spots-pill--${
-                                isExternal ? "external" : spotTone.tone
+                                isExternal ? "external" : isMindbody ? "mindbody" : spotTone.tone
                               }`}
                             >
-                              {isExternal ? "External booking" : spotTone.label}
+                              {isExternal ? "External booking" : isMindbody ? `Partner booking · ${spotTone.label}` : spotTone.label}
                             </span>
                           </div>
                         </div>
@@ -1607,7 +1661,7 @@ const GroupLessonsPage = () => {
 
                         <footer className="lesson-card__footer">
                           <Link
-                            to={isExternal ? `/lessons/external/${lesson.id}` : `/group-lessons/${lesson.id}`}
+                            to={detailsPath}
                             state={{ groupLessonsState: groupLessonsStateSnapshot }}
                             className="ghost-button"
                           >
@@ -1621,7 +1675,7 @@ const GroupLessonsPage = () => {
                                 openExternalLessonDialog(lesson);
                                 return;
                               }
-                              navigate(`/group-lessons/${lesson.id}`, {
+                              navigate(detailsPath, {
                                 state: {
                                   groupLessonsState: groupLessonsStateSnapshot,
                                 },
@@ -1629,7 +1683,7 @@ const GroupLessonsPage = () => {
                             }}
                             disabled={isSoldOut || isBooked}
                           >
-                            {isExternal ? "Continue" : isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Book now"}
+                            {isExternal ? "Continue" : isBooked ? "Booked" : isSoldOut ? "Join waitlist" : isMindbody ? "Book partner class" : "Book now"}
                           </button>
                         </footer>
                       </div>

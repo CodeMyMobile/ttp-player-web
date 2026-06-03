@@ -38,6 +38,7 @@ import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
 import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
+import MindbodyClassDetailsPage from "./pages/MindbodyClassDetailsPage";
 import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
@@ -510,6 +511,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <GroupLessonDetailsPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/mindbody/classes/:id"
+      element={(
+        <ProtectedRoute>
+          <MindbodyClassDetailsPage />
         </ProtectedRoute>
       )}
     />

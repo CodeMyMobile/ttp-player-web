@@ -30,7 +30,14 @@ export interface GroupLesson {
   courtSurface?: string;
   pricePerPlayer: string;
   isExternal?: boolean;
+  isMindbody?: boolean;
   externalUrl?: string;
+  partnerClassId?: number | string;
+  mindbodyClassId?: number | string;
+  partnerName?: string;
+  platformFeeAmountCents?: number;
+  classPriceCents?: number;
+  requireMindbodyPayment?: boolean;
   sourceLesson?: unknown;
   participants: Array<{
     id: string;

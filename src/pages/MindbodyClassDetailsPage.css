@@ -1,0 +1,248 @@
+.mindbody-class-page {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.mindbody-class-page__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 72px;
+}
+
+.mindbody-class-page__back {
+  display: inline-flex;
+  margin-bottom: 18px;
+  color: #6d28d9;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.mindbody-class-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+.mindbody-class-page__main,
+.mindbody-class-page__checkout,
+.mindbody-class-page__state,
+.mindbody-class-page__error {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mindbody-class-page__main {
+  padding: 28px;
+}
+
+.mindbody-class-page__eyebrow {
+  margin: 0 0 10px;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mindbody-class-page h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.mindbody-class-page__description {
+  max-width: 720px;
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.mindbody-class-page__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.mindbody-class-page__facts div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mindbody-class-page__facts svg {
+  flex-shrink: 0;
+  color: #6d28d9;
+}
+
+.mindbody-class-page__partner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 22px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mindbody-class-page__partner strong {
+  color: #0f172a;
+  font-size: 17px;
+}
+
+.mindbody-class-page__checkout {
+  position: sticky;
+  top: 18px;
+  padding: 22px;
+}
+
+.mindbody-class-page__checkout h2 {
+  margin: 0 0 18px;
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.mindbody-class-page__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 14px;
+}
+
+.mindbody-class-page__line strong {
+  color: #0f172a;
+}
+
+.mindbody-class-page__note {
+  margin: 14px 0 18px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f3ff;
+  color: #5b21b6;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mindbody-class-page__payment-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mindbody-class-page__checkout select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #0f172a;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.mindbody-class-page__muted,
+.mindbody-class-page__empty-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.mindbody-class-page__empty-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mindbody-class-page__empty-card button,
+.mindbody-class-page__book {
+  min-height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.mindbody-class-page__empty-card button {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+
+.mindbody-class-page__book {
+  width: 100%;
+  margin-top: 18px;
+  color: #ffffff;
+  background: #6d28d9;
+}
+
+.mindbody-class-page__book:disabled {
+  cursor: not-allowed;
+  background: #cbd5e1;
+}
+
+.mindbody-class-page__state,
+.mindbody-class-page__error,
+.mindbody-class-page__success {
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mindbody-class-page__error {
+  margin-top: 14px;
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.mindbody-class-page__success {
+  margin-top: 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+@media (max-width: 860px) {
+  .mindbody-class-page__inner {
+    padding: 22px 14px 96px;
+  }
+
+  .mindbody-class-page__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mindbody-class-page__checkout {
+    position: static;
+  }
+
+  .mindbody-class-page h1 {
+    font-size: 28px;
+  }
+
+  .mindbody-class-page__facts {
+    grid-template-columns: 1fr;
+  }
+}
