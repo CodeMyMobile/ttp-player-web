@@ -20,6 +20,7 @@ export interface MindbodyClassRow {
   class_price_cents?: number | string | null;
   partner_name?: string | null;
   platform_fee_amount_cents?: number | string | null;
+  stripe_connected_account_id?: string | null;
   require_payment?: boolean;
   metadata?: Record<string, unknown> | null;
   [key: string]: unknown;

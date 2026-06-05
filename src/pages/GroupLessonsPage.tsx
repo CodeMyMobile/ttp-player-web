@@ -1567,6 +1567,8 @@ const GroupLessonsPage = () => {
                   const showPackLink = !isExternal && !isMindbody && priceValue !== null && priceValue > 29;
                   const coachName = getResolvedCoachName(lesson);
                   const coachAvatar = getResolvedCoachAvatar(lesson);
+                  const mindbodyTotalCents =
+                    (lesson.classPriceCents ?? 0) + (lesson.platformFeeAmountCents ?? 0);
                   const detailsPath = isExternal
                     ? `/lessons/external/${lesson.id}`
                     : isMindbody
@@ -1600,7 +1602,7 @@ const GroupLessonsPage = () => {
                               {isExternal
                                 ? "Book offsite"
                                 : isMindbody
-                                  ? `$${((lesson.platformFeeAmountCents ?? 0) / 100).toFixed(2)} fee`
+                                  ? `$${(mindbodyTotalCents / 100).toFixed(2)} total`
                                   : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
                             {showPackLink ? (

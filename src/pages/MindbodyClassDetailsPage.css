@@ -131,6 +131,15 @@
   color: #0f172a;
 }
 
+.mindbody-class-page__line--total {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-bottom: none;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 900;
+}
+
 .mindbody-class-page__note {
   margin: 14px 0 18px;
   padding: 12px;

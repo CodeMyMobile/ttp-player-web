@@ -163,6 +163,7 @@ const MindbodyClassDetailsPage = () => {
   const partnerName = mindbodyClass?.partner_name?.trim() || "Partner coach";
   const instructorName = mindbodyClass?.instructor_name?.trim() || partnerName;
   const classPriceCents = parseNumber(mindbodyClass?.class_price_cents, 0);
+  const totalCents = classPriceCents + platformFeeCents;
 
   const handleBookClass = async () => {
     if (!id || !authToken || !mindbodyClass) return;
@@ -180,7 +181,7 @@ const MindbodyClassDetailsPage = () => {
         token: authToken,
         classId: id,
         paymentMethodId: selectedPaymentMethodId,
-        sendEmail: true,
+        sendEmail: false,
       });
       setSuccess(response);
     } catch (requestError) {
@@ -250,13 +251,17 @@ const MindbodyClassDetailsPage = () => {
                 <span>The Tennis Plan booking fee</span>
                 <strong>{formatMoney(platformFeeCents)}</strong>
               </div>
+              <div className="mindbody-class-page__line mindbody-class-page__line--total">
+                <span>Total due today</span>
+                <strong>{formatMoney(totalCents)}</strong>
+              </div>
               <p className="mindbody-class-page__note">
-                Today we charge only the booking fee in The Tennis Plan. The partner handles the class payment.
+                One payment in The Tennis Plan. The class payment goes to {partnerName}; TTP keeps the booking fee. Your spot is added to the coach's Mindbody roster.
               </p>
 
               <label className="mindbody-class-page__payment-label" htmlFor="mindbody-payment-method">
                 <CreditCard size={16} aria-hidden="true" />
-                Payment method for booking fee
+                Payment method
               </label>
               {paymentLoading ? (
                 <p className="mindbody-class-page__muted">Loading cards...</p>
@@ -284,7 +289,7 @@ const MindbodyClassDetailsPage = () => {
               {error ? <div className="mindbody-class-page__error">{error}</div> : null}
               {success ? (
                 <div className="mindbody-class-page__success">
-                  Partner booking created. Mindbody will send the class confirmation email.
+                  Booking confirmed. Your payment was processed and your spot was added to the coach's Mindbody roster.
                 </div>
               ) : null}
 
@@ -294,7 +299,7 @@ const MindbodyClassDetailsPage = () => {
                 onClick={handleBookClass}
                 disabled={booking || paymentLoading || isFull || !selectedPaymentMethodId}
               >
-                {booking ? "Booking..." : isFull ? "Class full" : `Pay ${formatMoney(platformFeeCents)} and book`}
+                {booking ? "Booking..." : isFull ? "Class full" : `Pay ${formatMoney(totalCents)} and book`}
               </button>
             </aside>
           </div>
