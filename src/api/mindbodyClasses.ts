@@ -10,6 +10,15 @@ export interface MindbodyClassRow {
   name?: string;
   description?: string | null;
   instructor_name?: string | null;
+  mindbody_instructor_email?: string | null;
+  ttp_coach_match?: {
+    id?: number | string;
+    user_id?: number | string;
+    full_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    stripe_account_id?: string | null;
+  } | null;
   location?: string | null;
   start_date_time?: string;
   end_date_time?: string;
@@ -158,7 +167,10 @@ export const mapMindbodyClassToGroupLesson = (mindbodyClass: MindbodyClassRow): 
       : Math.max(totalSpots - bookedSpots, 0);
   const locationName = mindbodyClass.location?.trim() || "Partner location";
   const partnerName = mindbodyClass.partner_name?.trim() || "Partner coach";
-  const instructorName = mindbodyClass.instructor_name?.trim() || partnerName;
+  const instructorName =
+    mindbodyClass.ttp_coach_match?.full_name?.trim() ||
+    mindbodyClass.instructor_name?.trim() ||
+    partnerName;
   const durationMinutes =
     start && end && start.isValid() && end.isValid()
       ? Math.max(end.diff(start, "minutes"), 0)

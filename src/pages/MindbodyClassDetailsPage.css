@@ -104,6 +104,12 @@
   font-size: 17px;
 }
 
+.mindbody-class-page__partner small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .mindbody-class-page__checkout {
   position: sticky;
   top: 18px;
@@ -148,6 +154,29 @@
   color: #5b21b6;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.mindbody-class-page__flow {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 18px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f3ff;
+  color: #5b21b6;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.mindbody-class-page__flow div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mindbody-class-page__flow svg {
+  flex-shrink: 0;
 }
 
 .mindbody-class-page__payment-label {

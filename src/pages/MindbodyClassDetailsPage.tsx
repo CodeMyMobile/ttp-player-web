@@ -1,7 +1,7 @@
 import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Clock, CreditCard, MapPin, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, CreditCard, Landmark, MapPin, Users } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import {
@@ -161,14 +161,23 @@ const MindbodyClassDetailsPage = () => {
   const isFull = openSpots <= 0;
   const platformFeeCents = parseNumber(mindbodyClass?.platform_fee_amount_cents, 0);
   const partnerName = mindbodyClass?.partner_name?.trim() || "Partner coach";
-  const instructorName = mindbodyClass?.instructor_name?.trim() || partnerName;
+  const ttpCoachMatch = mindbodyClass?.ttp_coach_match;
+  const instructorName =
+    ttpCoachMatch?.full_name?.trim() ||
+    mindbodyClass?.instructor_name?.trim() ||
+    partnerName;
   const classPriceCents = parseNumber(mindbodyClass?.class_price_cents, 0);
   const totalCents = classPriceCents + platformFeeCents;
+  const partnerPayoutReady = classPriceCents <= 0 || Boolean(mindbodyClass?.stripe_connected_account_id);
 
   const handleBookClass = async () => {
     if (!id || !authToken || !mindbodyClass) return;
     if (!selectedPaymentMethodId) {
       setError("Add or select a payment method first.");
+      return;
+    }
+    if (!partnerPayoutReady) {
+      setError("This partner is not ready for direct payouts yet.");
       return;
     }
 
@@ -238,6 +247,11 @@ const MindbodyClassDetailsPage = () => {
               <div className="mindbody-class-page__partner">
                 <span>Instructor</span>
                 <strong>{instructorName}</strong>
+                {ttpCoachMatch?.email ? (
+                  <small>TTP coach match: {ttpCoachMatch.email}</small>
+                ) : mindbodyClass.mindbody_instructor_email ? (
+                  <small>Partner instructor: {mindbodyClass.mindbody_instructor_email}</small>
+                ) : null}
               </div>
             </section>
 
@@ -251,13 +265,35 @@ const MindbodyClassDetailsPage = () => {
                 <span>The Tennis Plan booking fee</span>
                 <strong>{formatMoney(platformFeeCents)}</strong>
               </div>
+              <div className="mindbody-class-page__line">
+                <span>Coach payout</span>
+                <strong>{formatMoney(classPriceCents)}</strong>
+              </div>
               <div className="mindbody-class-page__line mindbody-class-page__line--total">
                 <span>Total due today</span>
                 <strong>{formatMoney(totalCents)}</strong>
               </div>
-              <p className="mindbody-class-page__note">
-                One payment in The Tennis Plan. The class payment goes to {partnerName}; TTP keeps the booking fee. Your spot is added to the coach's Mindbody roster.
-              </p>
+
+              <div className="mindbody-class-page__flow">
+                <div>
+                  <CreditCard size={16} aria-hidden="true" />
+                  <span>One card charge in The Tennis Plan</span>
+                </div>
+                <div>
+                  <Landmark size={16} aria-hidden="true" />
+                  <span>{formatMoney(classPriceCents)} goes to {partnerName}</span>
+                </div>
+                <div>
+                  <CheckCircle2 size={16} aria-hidden="true" />
+                  <span>Your spot is added to the coach's Mindbody roster</span>
+                </div>
+              </div>
+
+              {!partnerPayoutReady ? (
+                <div className="mindbody-class-page__error">
+                  This partner needs to finish payout setup before paid bookings can be accepted.
+                </div>
+              ) : null}
 
               <label className="mindbody-class-page__payment-label" htmlFor="mindbody-payment-method">
                 <CreditCard size={16} aria-hidden="true" />
@@ -289,7 +325,7 @@ const MindbodyClassDetailsPage = () => {
               {error ? <div className="mindbody-class-page__error">{error}</div> : null}
               {success ? (
                 <div className="mindbody-class-page__success">
-                  Booking confirmed. Your payment was processed and your spot was added to the coach's Mindbody roster.
+                  Booking confirmed. Your payment was split automatically, your spot was added to Mindbody, and a confirmation text is being sent.
                 </div>
               ) : null}
 
@@ -297,9 +333,15 @@ const MindbodyClassDetailsPage = () => {
                 type="button"
                 className="mindbody-class-page__book"
                 onClick={handleBookClass}
-                disabled={booking || paymentLoading || isFull || !selectedPaymentMethodId}
+                disabled={booking || paymentLoading || isFull || !selectedPaymentMethodId || !partnerPayoutReady}
               >
-                {booking ? "Booking..." : isFull ? "Class full" : `Pay ${formatMoney(totalCents)} and book`}
+                {booking
+                  ? "Booking..."
+                  : isFull
+                    ? "Class full"
+                    : !partnerPayoutReady
+                      ? "Payout setup needed"
+                      : `Pay ${formatMoney(totalCents)} and book`}
               </button>
             </aside>
           </div>

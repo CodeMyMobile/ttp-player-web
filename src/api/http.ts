@@ -56,6 +56,36 @@ const isJsonLike = (body: unknown): body is Record<string, unknown> =>
   !(body instanceof ArrayBuffer) &&
   !(body instanceof URLSearchParams);
 
+const getErrorMessage = (payload: unknown, fallback: string) => {
+  if (typeof payload === "string" && payload.trim()) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const data = payload as Record<string, unknown>;
+  const candidates = [data.detail, data.message, data.error];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as Record<string, unknown>;
+      if (typeof nested.message === "string" && nested.message.trim()) {
+        return nested.message;
+      }
+      if (typeof nested.detail === "string" && nested.detail.trim()) {
+        return nested.detail;
+      }
+    }
+  }
+
+  return fallback;
+};
+
 export async function request<TResponse = unknown, TBody = unknown>(
   path: string,
   {
@@ -117,9 +147,7 @@ export async function request<TResponse = unknown, TBody = unknown>(
     } catch {
       // ignore
     }
-    const error = new Error(
-      (errorPayload as Record<string, unknown>)?.error as string ?? response.statusText ?? "Request failed",
-    );
+    const error = new Error(getErrorMessage(errorPayload, response.statusText || "Request failed"));
     (error as Error & { status?: number; data?: unknown }).status = response.status;
     (error as Error & { status?: number; data?: unknown }).data = errorPayload;
     throw error;
