@@ -151,16 +151,31 @@ type LoadedSlot = {
 
 type ApiBookingSlot = {
   id?: string;
+  lessonId?: number;
+  sourceLessonId?: number;
   time?: string;
   duration?: string;
   price?: string;
   lessonType?: string;
+  lessonTypeId?: number | null;
   title?: string;
   location?: string;
   locationId?: number | null;
   court?: number | string | null;
   lessonStatus?: string | null;
   spotsRemaining?: number;
+  totalSpots?: number | null;
+  level?: string;
+  description?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  groupLessonPriceId?: number | null;
+  metadata?: {
+    title?: string;
+    level?: string;
+    description?: string;
+    levels?: string[];
+  };
 };
 
 type ApiBookingDate = {
@@ -953,13 +968,28 @@ const CoachProfilePage = () => {
   const privateType = bookingLessonTypes.find((item) => item.id === "private");
   const groupType = bookingLessonTypes.find((item) => item.id === "group");
   const pricing = apiProfile?.pricing;
+  const firstGroupSlotPriceLabel = useMemo(() => {
+    const dates = apiProfile?.booking?.availableDates ?? [];
+    for (const date of dates) {
+      const groupSlot = (date.slots ?? []).find((slot) =>
+        String(slot.lessonType ?? "").toLowerCase().includes("group") && slot.price,
+      );
+      if (groupSlot?.price) return groupSlot.price;
+    }
+    return undefined;
+  }, [apiProfile?.booking?.availableDates]);
   const privatePriceLabel =
     privateType?.price ??
     profile?.lessonRates?.private ??
     formatCurrency(pricing?.private) ??
     profile?.pricePerHour ??
     "$0";
-  const groupPriceLabel = groupType?.price ?? profile?.lessonRates?.group ?? formatCurrency(pricing?.group) ?? undefined;
+  const groupPriceLabel =
+    groupType?.price ??
+    profile?.lessonRates?.group ??
+    formatCurrency(pricing?.group) ??
+    firstGroupSlotPriceLabel ??
+    undefined;
   const metrics = [
     ...(profile?.highlightChips?.map((chip) => chip.label) ?? []),
     ...(profile?.metrics?.map((metric) => `${metric.value} ${metric.label}`) ?? []),
@@ -1244,6 +1274,8 @@ const CoachProfilePage = () => {
               const segmentEnd = segmentStart ? segmentStart.clone().add(durationMin, "minutes") : null;
               const baseId = slot.id ?? `${isoDate}-${type}-${index}`;
               const id = durationSegments.length > 1 ? `${baseId}-${segmentIndex}` : baseId;
+              const sourceLessonId = Number(slot.sourceLessonId ?? slot.lessonId ?? 0) || undefined;
+              const metadata = slot.metadata ?? {};
 
               return {
                 id,
@@ -1256,18 +1288,22 @@ const CoachProfilePage = () => {
                 durationMin,
                 court: shortenLocationLabel(slot.location ?? slot.title ?? primaryLocationLabel),
                 priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
-                start: segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
-                end: segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
-                className: type === "group" ? slot.title ?? "Group lesson" : undefined,
+                start: slot.startDateTime ?? segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
+                end: slot.endDateTime ?? segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
+                className: type === "group" ? slot.title ?? metadata.title ?? "Group lesson" : undefined,
+                level: type === "group" ? slot.level ?? metadata.level ?? "All levels" : undefined,
+                description: type === "group" ? slot.description ?? metadata.description ?? "Live coached group session." : undefined,
                 spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
+                totalSpots: type === "group" ? slot.totalSpots ?? undefined : undefined,
                 locationId: slot.locationId ?? null,
                 courtValue: slot.court ?? null,
+                sourceLessonId,
                 bookingState,
                 hourlyRate: type === "private" ? parseCurrency(slot.price ?? privatePriceLabel) ?? null : null,
                 groupPricePerPerson: type === "group" ? parseCurrency(slot.price ?? groupPriceLabel) ?? null : null,
                 discountPercentage: 0,
                 lessonTypeName: type === "group" ? String(slot.lessonType ?? "Group") : "Private",
-                lessonTypeId: type === "group" ? 3 : 1,
+                lessonTypeId: type === "group" ? Number(slot.lessonTypeId ?? 3) : 1,
                 coachId: Number(profile?.id ?? 0) || null,
               };
             });
@@ -1529,6 +1565,10 @@ const CoachProfilePage = () => {
     }
     return visibleDays.find((day) => day.isoDate === selectedDate)?.slots ?? [];
   }, [selectedDate, visibleDays]);
+  const hasGroupSlots = useMemo(
+    () => slotsByDay.some((day) => day.slots.some((slot) => slot.type === "group")),
+    [slotsByDay],
+  );
 
   const routeState = (location.state as CoachProfileRouteState | null | undefined) ?? null;
   const findCoachesReturnState = routeState?.findCoachesState ?? null;
@@ -1773,15 +1813,15 @@ const CoachProfilePage = () => {
       });
     }
 
-    if (hasGroupPackages && groupPriceLabel) {
+    if (hasGroupPackages || hasGroupSlots || groupPriceLabel) {
       options.push({
         id: "group",
-        label: `Group · ${groupPriceLabel}/hr`,
+        label: groupPriceLabel ? `Group · ${groupPriceLabel}/hr` : "Group",
       });
     }
 
     return options;
-  }, [groupPriceLabel, packages, privatePriceLabel]);
+  }, [groupPriceLabel, hasGroupSlots, packages, privatePriceLabel]);
 
   useEffect(() => {
     if (!packageLessonTypeOptions.length) return;
@@ -2918,7 +2958,7 @@ const CoachProfilePage = () => {
 
         <div className="coach-booking-toggle">
           {(["all", "private", "group"] as LessonTypeFilter[])
-            .filter((type) => type !== "group" || Boolean(groupPriceLabel))
+            .filter((type) => type !== "group" || Boolean(groupPriceLabel) || hasGroupSlots)
             .map((type) => (
               <button
                 key={type}
