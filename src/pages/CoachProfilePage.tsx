@@ -64,6 +64,10 @@ import {
   resolveLessonCheckoutType,
   resolveLessonCreditType,
 } from "../utils/lessonPricing";
+import {
+  findUpcomingLessonForSlot,
+  getGroupParticipantBookingState,
+} from "../utils/coachProfileBookingState.js";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -147,6 +151,7 @@ type LoadedSlot = {
   lessonTypeName?: string;
   lessonTypeId?: number | null;
   coachId?: number | null;
+  groupPlayers?: Array<Record<string, unknown>>;
 };
 
 type ApiBookingSlot = {
@@ -170,6 +175,8 @@ type ApiBookingSlot = {
   startDateTime?: string;
   endDateTime?: string;
   groupLessonPriceId?: number | null;
+  groupPlayers?: Array<Record<string, unknown>>;
+  group_players?: Array<Record<string, unknown>>;
   metadata?: {
     title?: string;
     level?: string;
@@ -665,6 +672,7 @@ const mapAvailableLessonToSlot = (lesson: Lesson): LoadedSlot | null => {
     courtValue: null,
     sourceLessonId: lesson.id,
     bookingState: lesson.player_has_booking ? "confirmed" : undefined,
+    groupPlayers: Array.isArray(lesson.group_players) ? lesson.group_players : undefined,
     hourlyRate,
     groupPricePerPerson: pricePerPerson,
     discountPercentage,
@@ -1262,7 +1270,15 @@ const CoachProfilePage = () => {
             const lessonTypeConfig = bookingLessonTypes.find((item) => item.id === slot.lessonType || item.id === lessonType);
             const durationSegments = resolveSlotDurationSegments(slot.duration, lessonTypeConfig?.duration);
             const parsedStart = parseClock(isoDate, slot.time);
+            const groupPlayers = Array.isArray(slot.groupPlayers)
+              ? slot.groupPlayers
+              : Array.isArray(slot.group_players)
+                ? slot.group_players
+                : undefined;
             const bookingState = (() => {
+              if (type === "group") {
+                return getGroupParticipantBookingState(groupPlayers, user) ?? undefined;
+              }
               const normalizedStatus = extractBookingStatus(slot.lessonStatus);
               if (normalizedStatus === "CONFIRMED") return "confirmed" as const;
               if (normalizedStatus === "PENDING") return "pending" as const;
@@ -1299,6 +1315,7 @@ const CoachProfilePage = () => {
                 courtValue: slot.court ?? null,
                 sourceLessonId,
                 bookingState,
+                groupPlayers,
                 hourlyRate: type === "private" ? parseCurrency(slot.price ?? privatePriceLabel) ?? null : null,
                 groupPricePerPerson: type === "group" ? parseCurrency(slot.price ?? groupPriceLabel) ?? null : null,
                 discountPercentage: 0,
@@ -1471,6 +1488,7 @@ const CoachProfilePage = () => {
               locationId: lesson.location_id ?? null,
               courtValue: null,
               sourceLessonId: lesson.id,
+              bookingState: getGroupParticipantBookingState(lesson.group_players, user) ?? undefined,
               hourlyRate:
                 parseCurrency((lesson as Record<string, unknown>).hourly_rate as string | number | null | undefined) ??
                 parseCurrency(privatePriceLabel) ??
@@ -1485,6 +1503,7 @@ const CoachProfilePage = () => {
               lessonTypeId:
                 Number((lesson as Record<string, unknown>).lessontype_id ?? (lesson as Record<string, unknown>).lesson_type_id) || 3,
               coachId: Number(lesson.coach_id ?? profile?.id ?? 0) || null,
+              groupPlayers: Array.isArray(lesson.group_players) ? lesson.group_players : undefined,
             };
           });
 
@@ -1509,7 +1528,7 @@ const CoachProfilePage = () => {
     return () => {
       active = false;
     };
-  }, [authToken, apiProfile?.booking?.availableDates, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id]);
+  }, [authToken, apiProfile?.booking?.availableDates, groupPriceLabel, groupType?.duration, primaryLocationLabel, privatePriceLabel, profile?.id, user]);
 
   const availableCredits = useMemo(() => {
     const balance = creditsBalance?.available;
@@ -1754,10 +1773,14 @@ const CoachProfilePage = () => {
         const slotEnd = moment.utc(slot.end);
         if (!slotStart.isValid() || !slotEnd.isValid()) return;
 
-        const matchingLesson = upcomingCoachLessons.find((lesson) => {
-          const range = getLessonMomentRange(lesson);
-          if (!range) return false;
-          return slotStart.isBefore(range.end) && slotEnd.isAfter(range.start);
+        const matchingLesson = findUpcomingLessonForSlot({
+          slot,
+          upcomingLessons: upcomingCoachLessons,
+          currentUser: user,
+          getLessonRange: getLessonMomentRange,
+          overlapsRange: (range: { start: moment.Moment; end: moment.Moment }) => {
+            return slotStart.isBefore(range.end) && slotEnd.isAfter(range.start);
+          },
         });
 
         if (matchingLesson) {
@@ -1767,7 +1790,7 @@ const CoachProfilePage = () => {
     });
 
     return map;
-  }, [slotsByDay, upcomingCoachLessons]);
+  }, [slotsByDay, upcomingCoachLessons, user]);
 
   const privatePackages = useMemo(
     () =>
@@ -3015,7 +3038,12 @@ const CoachProfilePage = () => {
           <div className="coach-slot-list coach-slot-list--aside">
             {visibleSlots.map((slot) => {
               const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
-              const effectiveBookingState = slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
+              const effectiveBookingState =
+                slot.type === "group"
+                  ? slot.bookingState ??
+                    getGroupParticipantBookingState(slot.groupPlayers, user) ??
+                    (upcomingLesson ? getGroupParticipantBookingState(upcomingLesson.group_players, user) : null)
+                  : slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
               const privateSlotLabel =
                 effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →";
 
@@ -3074,11 +3102,11 @@ const CoachProfilePage = () => {
                     </div>
                     <button
                       type="button"
-                      className="coach-slot__button coach-slot__button--group"
+                      className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}
                       disabled={effectiveBookingState != null}
                       onClick={() => openBookingFlow(slot)}
                     >
-                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Reserve spot"}
+                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →"}
                     </button>
                   </div>
                 </article>

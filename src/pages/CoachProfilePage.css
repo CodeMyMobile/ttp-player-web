@@ -818,6 +818,14 @@
   border-radius: 0;
 }
 
+.coach-slot button.coach-slot__button--private {
+  background: transparent;
+  color: #8b5cf6;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .coach-slot__button--private.coach-slot__button--status {
   color: #64748b;
 }
@@ -1809,6 +1817,14 @@
   line-height: 1;
   border-radius: 0;
 }
+
+  .coach-slot button.coach-slot__button--private {
+    background: transparent;
+    color: #8b5cf6;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 
   .coach-slot__button--private.coach-slot__button--status {
     color: #64748b;
