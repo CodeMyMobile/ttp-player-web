@@ -1653,8 +1653,9 @@ const CoachProfilePage = () => {
       setPaymentChoice(resumeState.resumePaymentChoice);
       setPaymentSheetOpen(true);
     } else {
-      setBookingStep(isLoggedIn && !coachHistoryLoaded ? "confirm" : isFirstBooking ? "about" : "confirm");
-      setBookingOpen(true);
+      setPaymentChoice("card");
+      setPaymentSheetOpen(true);
+      setBookingOpen(false);
     }
     clearResumeState();
   }, [
@@ -2030,30 +2031,21 @@ const CoachProfilePage = () => {
 
   const openBookingFlow = (slot: LoadedSlot) => {
     if (!isLoggedIn) {
-      openAuthPrompt({ resumeBookingSlotId: slot.id });
+      openAuthPrompt({ resumeBookingSlotId: slot.id, resumePaymentChoice: "card" });
       return;
     }
 
-    const shouldCollectIntro = slot.type === "private" && isFirstBooking;
-
     setUpsellDismissed(false);
     setSelectedSlot(slot);
+    setPaymentChoice("card");
     setPaymentMethodsError(null);
     setBookingError(null);
     setBookingSuccess(null);
     setConsumeError(null);
     setPackagePurchaseError(null);
     setCreditsPackageOpen(false);
-
-    if (slot.type === "private" && !shouldCollectIntro) {
-      setPaymentChoice("card");
-      setPaymentSheetOpen(true);
-      setBookingOpen(false);
-      return;
-    }
-
-    setBookingStep(shouldCollectIntro ? "about" : "confirm");
-    setBookingOpen(true);
+    setPaymentSheetOpen(true);
+    setBookingOpen(false);
   };
 
   const closeBookingFlow = () => {
