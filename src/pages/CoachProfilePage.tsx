@@ -68,6 +68,10 @@ import {
   findUpcomingLessonForSlot,
   getGroupParticipantBookingState,
 } from "../utils/coachProfileBookingState.js";
+import {
+  filterCoachPackagesByLessonType,
+  getCoachPackageLessonTypeOptions,
+} from "../utils/coachPackageFilters.js";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -98,7 +102,7 @@ type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
 type PaymentChoice = "credits" | "card" | "wallet";
-type PackageLessonTypeFilter = "private" | "group";
+type PackageLessonTypeFilter = "all" | "private" | "group";
 
 type FindCoachesStateSnapshot = {
   searchTerm: string;
@@ -826,7 +830,7 @@ const CoachProfilePage = () => {
   } = useCoachRoster(profile?.id, authToken);
 
   const [bookingType, setBookingType] = useState<LessonTypeFilter>("all");
-  const [packageLessonType, setPackageLessonType] = useState<PackageLessonTypeFilter>("private");
+  const [packageLessonType, setPackageLessonType] = useState<PackageLessonTypeFilter>("all");
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [pendingSelectedDate, setPendingSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1819,53 +1823,36 @@ const CoachProfilePage = () => {
   }, [privatePackages, privatePriceLabel]);
 
   const packageLessonTypeOptions = useMemo(() => {
-    const options: Array<{ id: PackageLessonTypeFilter; label: string }> = [];
-    const hasPrivatePackages = packages.some((pkg) => {
-      const types = pkg.lesson_types_allowed ?? [];
-      return !types.length || types.some((type) => type.toLowerCase().includes("private"));
-    });
-    const hasGroupPackages = packages.some((pkg) => {
-      const types = pkg.lesson_types_allowed ?? [];
-      return types.some((type) => type.toLowerCase().includes("group"));
-    });
-
-    if (hasPrivatePackages || privatePriceLabel) {
-      options.push({
-        id: "private",
-        label: `Private · ${privatePriceLabel}/hr`,
-      });
-    }
-
-    if (hasGroupPackages || hasGroupSlots || groupPriceLabel) {
-      options.push({
-        id: "group",
-        label: groupPriceLabel ? `Group · ${groupPriceLabel}/hr` : "Group",
-      });
-    }
-
-    return options;
+    return getCoachPackageLessonTypeOptions({
+      packages,
+      hasGroupSlots,
+      privatePriceLabel,
+      groupPriceLabel,
+    }) as Array<{ id: PackageLessonTypeFilter; label: string }>;
   }, [groupPriceLabel, hasGroupSlots, packages, privatePriceLabel]);
 
   useEffect(() => {
     if (!packageLessonTypeOptions.length) return;
     if (packageLessonTypeOptions.some((option) => option.id === packageLessonType)) return;
-    setPackageLessonType(packageLessonTypeOptions[0]?.id ?? "private");
+    setPackageLessonType(packageLessonTypeOptions[0]?.id ?? "all");
   }, [packageLessonType, packageLessonTypeOptions]);
 
+  useEffect(() => {
+    const nextPackageType =
+      bookingType === "private" || bookingType === "group" ? bookingType : "all";
+    if (packageLessonType === nextPackageType) return;
+    if (!packageLessonTypeOptions.some((option) => option.id === nextPackageType)) return;
+    setPackageLessonType(nextPackageType);
+  }, [bookingType, packageLessonType, packageLessonTypeOptions]);
+
   const filteredPackageOffers = useMemo(() => {
-    return packages.filter((pkg) => {
-      const types = pkg.lesson_types_allowed ?? [];
-      if (!types.length) return true;
-      return types.some((type) => {
-        const normalized = type.toLowerCase();
-        return packageLessonType === "private" ? normalized.includes("private") : normalized.includes("group");
-      });
-    });
+    return filterCoachPackagesByLessonType(packages, packageLessonType);
   }, [packageLessonType, packages]);
 
   const selectedPackageCredits = useMemo(() => {
     return packageCredits
       .filter((purchase) => {
+        if (packageLessonType === "all") return true;
         const types = purchase.lesson_types_allowed ?? [];
         if (!types.length) return true;
         return types.some((type) => {
@@ -1878,7 +1865,11 @@ const CoachProfilePage = () => {
 
   const featuredPackageId = useMemo(() => {
     const lessonRate =
-      packageLessonType === "private" ? parseCurrency(privatePriceLabel) : parseCurrency(groupPriceLabel ?? undefined);
+      packageLessonType === "private"
+        ? parseCurrency(privatePriceLabel)
+        : packageLessonType === "group"
+          ? parseCurrency(groupPriceLabel ?? undefined)
+          : null;
 
     const ranked = [...filteredPackageOffers].sort((a, b) => {
       const aTotal = parseCurrency(a.total_price);
@@ -2085,20 +2076,6 @@ const CoachProfilePage = () => {
 
     if (!isLoggedIn) {
       openAuthPrompt(targetSlot ? { resumeBookingSlotId: targetSlot.id, resumePaymentChoice: choice } : undefined);
-      return;
-    }
-
-    if (choice === "card" && !paymentMethodsLoading && paymentMethods.length === 0) {
-      navigate("/settings/payment-methods", {
-        state: {
-          from: {
-            pathname: location.pathname,
-            search: location.search,
-            hash: location.hash,
-            state: targetSlot ? { resumeBookingSlotId: targetSlot.id, resumePaymentChoice: "card" } : undefined,
-          },
-        },
-      });
       return;
     }
 
@@ -3159,12 +3136,20 @@ const CoachProfilePage = () => {
                   <div className="coach-package-summary__body">
                     <div className="coach-package-summary__count">
                       <strong>{selectedPackageCredits}</strong>
-                      <span>{packageLessonType === "private" ? "private credits" : "group credits"}</span>
+                      <span>
+                        {packageLessonType === "all"
+                          ? "credits"
+                          : packageLessonType === "private"
+                            ? "private credits"
+                            : "group credits"}
+                      </span>
                     </div>
                     <p>
                       {selectedPackageCredits > 0
                         ? "Select a slot above and your credit will be applied automatically - no payment needed."
-                        : `Buy a ${packageLessonType} package to apply credits automatically at booking.`}
+                        : packageLessonType === "all"
+                          ? "Buy a package to apply credits automatically at booking."
+                          : `Buy a ${packageLessonType} package to apply credits automatically at booking.`}
                     </p>
                   </div>
                 </div>
@@ -3202,7 +3187,9 @@ const CoachProfilePage = () => {
                     const lessonRate =
                       packageLessonType === "private"
                         ? parseCurrency(privatePriceLabel)
-                        : parseCurrency(groupPriceLabel ?? undefined);
+                        : packageLessonType === "group"
+                          ? parseCurrency(groupPriceLabel ?? undefined)
+                          : null;
                     const baseTotal = lessonRate != null ? lessonRate * lessonCount : null;
                     const savingsAmount =
                       numericTotal != null && baseTotal != null ? Math.max(baseTotal - numericTotal, 0) : 0;
@@ -3240,7 +3227,12 @@ const CoachProfilePage = () => {
                             </div>
                           </div>
                           <p className="coach-package-card__meta">
-                            {pkg.description?.trim() || `${lessonCount} ${normalizeSingleLessonTypeLabel(packageLessonType).toLowerCase()} lessons`}
+                            {pkg.description?.trim() ||
+                              `${lessonCount} ${
+                                packageLessonType === "all"
+                                  ? "lessons"
+                                  : `${normalizeSingleLessonTypeLabel(packageLessonType).toLowerCase()} lessons`
+                              }`}
                           </p>
                           {pkg.lesson_types_allowed?.length ? (
                             <p className="coach-package-card__eyebrow">{normalizeLessonTypeLabel(pkg.lesson_types_allowed)}</p>
