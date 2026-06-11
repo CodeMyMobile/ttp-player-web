@@ -503,28 +503,25 @@ const buildCoachActivities = (records = []) =>
 const buildScheduleItems = (lessons = []) =>
   lessons
     .map((lesson) => {
-      const zonedStart = parseNearbyMoment(
+      const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
+      const type = resolveLessonKind(lesson);
+      const startSource =
         lesson.startTime ??
-          lesson.start_time ??
-          lesson.start_at ??
-          lesson.start ??
-          lesson.startDate ??
-          lesson.starts_at ??
-          lesson.start_date_time,
-      );
+        lesson.start_time ??
+        lesson.start_at ??
+        lesson.start ??
+        lesson.startDate ??
+        lesson.starts_at ??
+        lesson.start_date_time;
+      const zonedStart = type === "group" && startSource
+        ? moment.utc(startSource)
+        : parseNearbyMoment(startSource);
       const startAt = zonedStart?.toDate() ?? parseDate(
-        lesson.startTime ??
-          lesson.start_time ??
-          lesson.start_at ??
-          lesson.start ??
-          lesson.startDate ??
-          lesson.starts_at ??
-          lesson.start_date_time,
+        startSource,
       );
       if (!startAt) return null;
 
-      const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
-      const type = resolveLessonKind(lesson);
+      const displayStart = type === "group" && startSource ? moment.utc(startSource) : moment(startAt);
       const coachName = pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name);
       const title =
         pickString(lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name, lesson.program_name) ||
@@ -534,7 +531,7 @@ const buildScheduleItems = (lessons = []) =>
         id: `${type}-${lessonId ?? startAt.toISOString()}`,
         lessonId: lessonId != null ? String(lessonId) : null,
         type,
-        time: moment(startAt).calendar(null, {
+        time: displayStart.calendar(type === "group" ? moment.utc() : null, {
           sameDay: "[Today] · h:mm A",
           nextDay: "[Tomorrow] · h:mm A",
           nextWeek: "ddd · h:mm A",
