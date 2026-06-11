@@ -15,6 +15,10 @@ import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import { acceptInvite, listInvites, rejectInvite } from "../services/invites";
 import {
+  buildCoachInviteItems,
+  getDashboardUserIdentityRecord,
+} from "../utils/dashboardInvites";
+import {
   DEFAULT_POSITION,
   getStoredLocation,
   getStoredLocationLabel,
@@ -212,11 +216,6 @@ const formatClockTime = (value) => {
   return parsed.isValid() ? parsed.format("h A") : null;
 };
 
-const formatMoney = (value) => {
-  const amount = parseNumber(value);
-  return amount === null ? null : `$${amount.toFixed(0)}`;
-};
-
 const toInitials = (value, fallback = "TP") => {
   const label = pickString(value);
   if (!label) return fallback;
@@ -238,25 +237,6 @@ const formatInviteExpiry = (value) => {
   return parsed.fromNow();
 };
 
-const resolveInviteLessonLabel = (lesson) => {
-  const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
-  const typeName = (pickString(lesson.lesson_type_name, lesson.lesson_type, lesson.type) || "").toLowerCase();
-  if (typeId === 2 || typeName.includes("semi")) return "semi-private lesson";
-  if (typeId === 3 || typeId === 4 || typeName.includes("group")) return "group lesson";
-  return "private lesson";
-};
-
-const resolveCoachInviteLessonDestination = (lessonId, lesson) => {
-  if (lessonId == null) return "/notifications";
-
-  const typeId = parseNumber(lesson.lessontype_id, lesson.lesson_type_id, lesson.lessonTypeId);
-  const typeName = (pickString(lesson.lesson_type_name, lesson.lesson_type, lesson.type) || "").toLowerCase();
-  const isSemiPrivate = typeId === 2 || typeName.includes("semi");
-  const isGroupLesson = typeId === 3 || typeId === 4 || typeName.includes("group");
-
-  return isGroupLesson && !isSemiPrivate ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`;
-};
-
 const extractInvites = (response) => {
   if (!response) return [];
   if (Array.isArray(response)) return response;
@@ -264,31 +244,6 @@ const extractInvites = (response) => {
   if (Array.isArray(response.invites)) return response.invites;
   if (Array.isArray(response.items)) return response.items;
   return [];
-};
-
-const collectIdentityValues = (record) => {
-  if (!record || typeof record !== "object") return [];
-
-  return [
-    record.id,
-    record.user_id,
-    record.userId,
-    record.player_id,
-    record.playerId,
-    record.coach_id,
-    record.coachId,
-    record.email,
-  ]
-    .filter((value) => value !== null && value !== undefined && value !== "")
-    .map((value) => String(value).trim().toLowerCase())
-    .filter(Boolean);
-};
-
-const isPendingValue = (value) => {
-  if (value === null || value === undefined || value === "") return false;
-  if (typeof value === "number") return value === 0;
-  const normalized = String(value).trim().toLowerCase();
-  return normalized === "0" || normalized.includes("pending") || normalized.includes("invite") || normalized.includes("requested");
 };
 
 const isConfirmedValue = (value) => {
@@ -413,131 +368,6 @@ const buildPlayerInviteItems = (records = []) =>
       };
     })
     .filter(Boolean);
-
-const buildCoachInviteItems = (records = [], currentUser) => {
-  const userIdentities = new Set(collectIdentityValues(currentUser));
-
-  return records
-    .filter((lesson) => {
-      if (!lesson || typeof lesson !== "object") return false;
-
-      const lessonStatus = lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status;
-      const participantRecords = [
-        ...(Array.isArray(lesson.participants) ? lesson.participants : []),
-        ...(Array.isArray(lesson.group_players) ? lesson.group_players : []),
-      ];
-      const createdBy = lesson.created_by ?? lesson.createdBy;
-      const coachId = lesson.coach_id ?? lesson.coachId;
-      const lessonPlayerIdentities = collectIdentityValues({
-        player_id: lesson.player_id,
-        user_id: lesson.user_id,
-        email: lesson.email,
-      });
-      const isCurrentPlayerAssigned =
-        lessonPlayerIdentities.length > 0 &&
-        (userIdentities.size === 0 || lessonPlayerIdentities.some((value) => userIdentities.has(value)));
-      const matchingParticipant =
-        userIdentities.size === 0
-          ? participantRecords.find((participant) =>
-              isPendingValue(participant.payment_status ?? participant.paymentStatus ?? participant.status ?? participant.booking_status ?? participant.lesson_status),
-            ) ?? participantRecords[0]
-          : participantRecords.find((participant) =>
-              collectIdentityValues(participant).some((value) => userIdentities.has(value)),
-            );
-      const isCurrentPlayerParticipant = Boolean(matchingParticipant);
-      const participantPending = matchingParticipant
-        ? isPendingValue(
-            matchingParticipant.payment_status ??
-              matchingParticipant.paymentStatus ??
-              matchingParticipant.status ??
-              matchingParticipant.booking_status ??
-              matchingParticipant.lesson_status,
-          )
-        : participantRecords.some((participant) =>
-            isPendingValue(
-              participant.payment_status ?? participant.paymentStatus ?? participant.status ?? participant.booking_status ?? participant.lesson_status,
-            ),
-          );
-      const participantConfirmed = matchingParticipant
-        ? isConfirmedValue(
-            matchingParticipant.payment_status ??
-              matchingParticipant.paymentStatus ??
-              matchingParticipant.status ??
-              matchingParticipant.booking_status ??
-              matchingParticipant.lesson_status,
-          )
-        : false;
-      const lessonPending = isPendingValue(lessonStatus);
-      const createdByCoach =
-        createdBy !== null && createdBy !== undefined
-          ? coachId !== null && coachId !== undefined
-            ? String(createdBy) === String(coachId)
-            : userIdentities.size > 0
-              ? !userIdentities.has(String(createdBy).trim().toLowerCase())
-              : true
-          : false;
-
-      if (!createdByCoach) return false;
-      if (participantConfirmed) return false;
-
-      const assignedPending = isCurrentPlayerAssigned && lessonPending;
-      const participantInvitePending = isCurrentPlayerParticipant && participantPending;
-
-      return assignedPending || participantInvitePending;
-    })
-    .map((lesson, index) => {
-      const senderName =
-        pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name) || "Coach invite";
-      const startMoment =
-        parseNearbyMoment(
-          lesson.startTime ??
-            lesson.start_time ??
-            lesson.start_at ??
-            lesson.start ??
-            lesson.startDate ??
-            lesson.starts_at ??
-            lesson.start_date_time,
-        ) ?? null;
-      const location = formatDisplayLocation(
-        pickString(
-          lesson.location_name,
-          lesson.locationName,
-          lesson.location,
-          lesson.location_label,
-          lesson.court_name,
-          lesson.facility_name,
-        ) || "Location TBD",
-      );
-      const lessonType = resolveInviteLessonLabel(lesson);
-      const priceLabel = formatMoney(
-        lesson.price_per_person ?? lesson.group_price_per_person ?? lesson.price ?? lesson.hourly_rate ?? lesson.lesson_price,
-      );
-      const chips = [
-        startMoment?.isValid() ? `📅 ${startMoment.format("ddd MMM D")}` : null,
-        startMoment?.isValid() ? `⏰ ${startMoment.format("h:mm A")}` : null,
-        location ? `📍 ${location}` : null,
-        priceLabel ? `💵 ${priceLabel}` : null,
-      ].filter(Boolean);
-      const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? null;
-
-      return {
-        id: lessonId ?? `coach-invite-${index}`,
-        lessonId,
-        type: "coach",
-        senderName,
-        initials: toInitials(senderName, "CO"),
-        avatarUrl: pickString(lesson.profile_picture, lesson?.coach?.profile_picture, lesson?.coach?.avatarUrl),
-        typeLabel: "Coach",
-        description: `Invited you to a ${lessonType}`,
-        chips,
-        expiresLabel: startMoment?.isValid() ? `starts ${startMoment.fromNow()}` : null,
-        ctaHint: "Tap for details →",
-        accentClassName: "coach",
-        destination: resolveCoachInviteLessonDestination(lessonId, lesson),
-        inviteKind: "coach",
-      };
-    });
-};
 
 const isFutureNearbyActivity = (date) => {
   if (!(date instanceof Date) || Number.isNaN(date.valueOf())) return false;
@@ -1067,6 +897,7 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { displayName } = usePlayerIdentity();
+  const dashboardInviteIdentity = useMemo(() => getDashboardUserIdentityRecord(user), [user]);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const [scheduleState, setScheduleState] = useState({ status: "idle", items: [], error: null });
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
@@ -1174,7 +1005,7 @@ const DashboardPage = () => {
               : null;
 
         setScheduleState({ status: "ready", items: scheduleItems, error: scheduleError });
-        const coachInviteItems = buildCoachInviteItems(lessons, user);
+        const coachInviteItems = buildCoachInviteItems(lessons, dashboardInviteIdentity);
 
         if (invitesResult.status === "fulfilled") {
           setInviteState({
@@ -1261,7 +1092,7 @@ const DashboardPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [activityFilterEnd, activityFilterStart, locationPosition, searchRadius, user]);
+  }, [activityFilterEnd, activityFilterStart, dashboardInviteIdentity, locationPosition, searchRadius, user]);
 
   const dayTabs = useMemo(
     () => {
