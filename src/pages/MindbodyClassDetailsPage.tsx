@@ -265,10 +265,10 @@ const MindbodyClassDetailsPage = () => {
                 <span>The Tennis Plan booking fee</span>
                 <strong>{formatMoney(platformFeeCents)}</strong>
               </div>
-              <div className="mindbody-class-page__line">
+              {/* <div className="mindbody-class-page__line">
                 <span>Coach payout</span>
                 <strong>{formatMoney(classPriceCents)}</strong>
-              </div>
+              </div> */}
               <div className="mindbody-class-page__line mindbody-class-page__line--total">
                 <span>Total due today</span>
                 <strong>{formatMoney(totalCents)}</strong>
