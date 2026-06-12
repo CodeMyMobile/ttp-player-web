@@ -128,6 +128,12 @@ export const getPlayerCoaches = async ({
     method: "GET",
   });
 
+  // An empty roster is reported by the API as 404 — treat it as "no coaches",
+  // not a failure, so the page can show its empty state (see playerLessons 404 handling).
+  if (response?.status === 404) {
+    return [];
+  }
+
   if (!response?.ok) {
     throw new Error("Failed to fetch player coaches");
   }
