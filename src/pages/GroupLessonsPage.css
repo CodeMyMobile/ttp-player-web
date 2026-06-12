@@ -983,7 +983,7 @@
 
 .external-lesson-dialog__actions button:last-child {
   border: 0;
-  background: var(--fc-color-accent, #8b5cf6);
+  background: var(--fc-color-accent, var(--color-primary));
   color: #ffffff;
 }
 

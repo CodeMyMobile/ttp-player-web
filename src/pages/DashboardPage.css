@@ -5,8 +5,8 @@
   --ph-muted: #64748b;
   --ph-border: #e2e8f0;
   --ph-border-soft: #f1f5f9;
-  --ph-purple: #8b5cf6;
-  --ph-purple-deep: #7c3aed;
+  --ph-purple: var(--color-primary);
+  --ph-purple-deep: var(--color-primary-dark);
   --ph-blue: #3b82f6;
   --ph-amber: #f59e0b;
   --ph-red: #ef4444;

@@ -250,7 +250,7 @@
   outline: none;
   transform: translateY(-2px);
   box-shadow: 0 0 0 4px rgba(127, 86, 217, 0.24), 0 24px 40px -18px rgba(15, 23, 42, 0.28);
-  border-color: #7f56d9;
+  border-color: var(--color-primary);
 }
 
 .fc-card__top {
@@ -948,7 +948,7 @@
 .coach-questionnaire__progress-bar {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #7f56d9 0%, #12b76a 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, #12b76a 100%);
   transition: width 0.25s ease;
 }
 
@@ -1019,7 +1019,7 @@
 }
 
 .coach-questionnaire__intro--ai .coach-questionnaire__title {
-  background: linear-gradient(90deg, #7f56d9 0%, #22c55e 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, #22c55e 100%);
   -webkit-background-clip: text;
   color: transparent;
 }

@@ -115,7 +115,7 @@
   margin-right: 2px;
   font-size: 13px;
   font-weight: 800;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fcv2-coach-match-summary__pill {
@@ -144,7 +144,7 @@
 .fcv2-coach-match-summary__pill-value {
   font-size: 11px;
   font-weight: 700;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fcv2-coach-match-summary__actions {
@@ -158,7 +158,7 @@
   border: 1px solid #ddd6fe;
   border-radius: 6px;
   background: #fff;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -255,7 +255,7 @@
   padding: 7px 16px;
   border: none;
   border-radius: 8px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font: inherit;
   font-size: 12px;
@@ -368,7 +368,7 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .fcv2-coach-match-modal__head h2 {
@@ -462,7 +462,7 @@
 .fcv2-card-actions .primary {
   border: 0;
   border-radius: 12px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -506,9 +506,9 @@
 }
 
 .fcv2-location-button.is-open {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #f5f3ff;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fcv2-radius-slider {
@@ -567,9 +567,9 @@
 
 .fcv2-radius-group button.active,
 .fcv2-chip-row button.active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fcv2-location-panel {
@@ -885,9 +885,9 @@
 }
 
 .fcv2-mobile-filter-chips button.active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .fcv2-mobile-sheet-actions {
@@ -917,7 +917,7 @@
 
 .fcv2-mobile-sheet-actions .primary {
   border: 0;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -980,7 +980,7 @@
   }
 
   .fcv2-mobile-brand em {
-    color: #8b5cf6;
+    color: var(--color-primary);
     font-style: normal;
   }
 
@@ -1354,9 +1354,9 @@
   }
 
   .fcv2-mobile-filter-chips button.active {
-    border-color: #8b5cf6;
+    border-color: var(--color-primary);
     background: #ede9fe;
-    color: #8b5cf6;
+    color: var(--color-primary);
   }
 
   .fcv2-mobile-sheet-actions {
@@ -1386,7 +1386,7 @@
 
   .fcv2-mobile-sheet-actions .primary {
     border: 0;
-    background: #8b5cf6;
+    background: var(--color-primary);
     color: #fff;
   }
 
@@ -1416,6 +1416,6 @@
   }
 
   .fcv2-mobile-tabbar a.active {
-    color: #8b5cf6;
+    color: var(--color-primary);
   }
 }

@@ -147,7 +147,7 @@
 .group-lesson-details__hero-badge--primary {
   background: #ede9fe;
   border-color: #ddd6fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   letter-spacing: 0.06em;
 }
 
@@ -372,7 +372,7 @@
 }
 
 .group-lesson-details__participants-stack-item {
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -429,7 +429,7 @@
   height: 32px;
   border-radius: 999px;
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -482,9 +482,9 @@
   gap: 6px;
   padding: 9px 16px;
   border-radius: 8px;
-  border: 1.5px solid #8b5cf6;
+  border: 1.5px solid var(--color-primary);
   background: #fff;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
@@ -514,7 +514,7 @@
 }
 
 .group-lesson-details__coach-avatar--placeholder {
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font-size: 17px;
   font-weight: 700;
@@ -542,7 +542,7 @@
   padding: 2px 8px;
   border-radius: 4px;
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 10px;
   font-weight: 700;
 }
@@ -551,7 +551,7 @@
   padding: 0;
   border: none;
   background: none;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
@@ -585,7 +585,7 @@
 }
 
 .group-lesson-details__related-copy strong {
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -764,13 +764,13 @@
 }
 
 .group-lesson-details__payment-option.is-selected {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
   color: #5b21b6;
 }
 
 .group-lesson-details__payment-option input {
-  accent-color: #8b5cf6;
+  accent-color: var(--color-primary);
 }
 
 .group-lesson-details__payment-block {
@@ -805,7 +805,7 @@
   border-radius: 8px;
   background: #ede9fe;
   border: 1px solid #ddd6fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 12px;
   margin-bottom: 12px;
 }
@@ -834,7 +834,7 @@
 }
 
 .group-lesson-details__credits-package.is-open {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -848,7 +848,7 @@
   gap: 12px;
   padding: 13px 14px;
   text-align: left;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   cursor: pointer;
   font: inherit;
 }
@@ -896,7 +896,7 @@
 
 .group-lesson-details__credits-package-panel p {
   margin: 0;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -917,7 +917,7 @@
 }
 
 .group-lesson-details__package-tier.is-selected {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #faf5ff;
 }
 
@@ -947,7 +947,7 @@
   margin-left: 6px;
   border-radius: 5px;
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   padding: 2px 6px;
   font-size: 10px;
   font-style: normal;
@@ -958,7 +958,7 @@
   width: 100%;
   border: 0;
   border-radius: 9px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   padding: 11px 12px;
   font-size: 13px;
@@ -983,7 +983,7 @@
   border: none;
   border-radius: 12px;
   padding: 14px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -1439,7 +1439,7 @@
     border: none;
     border-radius: 0;
     background: transparent;
-    color: #7c3aed;
+    color: var(--color-primary-dark);
     font-size: 11px;
     font-weight: 800;
   }
@@ -1577,7 +1577,7 @@
     border: none;
     border-radius: 12px;
     padding: 13px;
-    background: #8b5cf6;
+    background: var(--color-primary);
     color: #fff;
     font-size: 14px;
     font-weight: 700;

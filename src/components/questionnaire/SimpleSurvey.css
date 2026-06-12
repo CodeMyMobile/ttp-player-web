@@ -81,7 +81,7 @@
 
 .simple-survey__option--selected {
   background: #f8f5ff;
-  border-color: #7c3aed;
+  border-color: var(--color-primary-dark);
   box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.12);
 }
 
@@ -102,8 +102,8 @@
 }
 
 .simple-survey__option--selected .simple-survey__option-indicator {
-  background: #7c3aed;
-  border-color: #7c3aed;
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
   color: #fff;
 }
 
@@ -152,8 +152,8 @@
 }
 
 .simple-survey__button--primary {
-  background: #7c3aed;
-  border-color: #7c3aed;
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
   color: #fff;
 }
 

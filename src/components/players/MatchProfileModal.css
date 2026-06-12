@@ -127,7 +127,7 @@
 .match-profile-survey-progress__bar {
   height: 100%;
   border-radius: inherit;
-  background: #7f56d9;
+  background: var(--color-primary);
   transition: width 0.2s ease;
 }
 
@@ -289,7 +289,7 @@
 }
 
 .match-profile-survey-question__eyebrow {
-  color: #7f56d9;
+  color: var(--color-primary);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -352,7 +352,7 @@
 }
 
 .match-profile-survey-option--selected {
-  border-color: #7f56d9;
+  border-color: var(--color-primary);
   background: #f9f5ff;
   box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.12);
 }
@@ -377,8 +377,8 @@
 }
 
 .match-profile-survey-option--selected .match-profile-survey-option__indicator {
-  border-color: #7f56d9;
-  background: #7f56d9;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
 }
 
 .match-profile-survey-option__copy {
@@ -407,8 +407,8 @@
 }
 
 .match-profile-form-modal .simple-survey__button--primary {
-  background: #7f56d9;
-  border-color: #7f56d9;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .match-profile-form-modal .simple-survey__button--primary:hover {
@@ -458,7 +458,7 @@
 
 .match-profile-textarea:focus,
 .match-profile-input:focus {
-  border-color: #7f56d9;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 4px rgba(127, 86, 217, 0.15);
   outline: none;
 }
@@ -523,7 +523,7 @@
 }
 
 .match-profile-upload__button:hover {
-  border-color: #7f56d9;
+  border-color: var(--color-primary);
   background: #f4ebff;
   color: #53389e;
 }
@@ -565,14 +565,14 @@
 }
 
 .match-profile-choice--selected {
-  border-color: #7f56d9;
+  border-color: var(--color-primary);
   background: #f9f5ff;
   box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.12);
 }
 
 .match-profile-choice input {
   margin: 4px 0 0 0;
-  accent-color: #7f56d9;
+  accent-color: var(--color-primary);
   width: 18px;
   height: 18px;
 }
@@ -604,7 +604,7 @@
   height: 22px;
   border-radius: 50%;
   background: rgba(127, 86, 217, 0.12);
-  color: #7f56d9;
+  color: var(--color-primary);
   transform: scale(0.8);
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -647,8 +647,8 @@
 }
 
 .match-profile-form-modal__actions .fc-button--primary {
-  background: #7f56d9;
-  border-color: #7f56d9;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #ffffff;
   box-shadow: 0 14px 26px -12px rgba(127, 86, 217, 0.45);
 }

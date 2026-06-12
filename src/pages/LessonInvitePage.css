@@ -21,7 +21,7 @@
   height: 52px;
   margin: 0 auto 10px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   display: grid;
   place-items: center;
   font-size: 24px;
@@ -89,7 +89,7 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .lesson-invite-coach-name {
@@ -142,7 +142,7 @@
 
 .lesson-invite-lesson-icon--purple {
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .lesson-invite-lesson-icon--blue {
@@ -210,7 +210,7 @@
 .lesson-invite-total-value {
   font-size: 22px;
   font-weight: 700;
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .lesson-invite-status-pills {
@@ -296,13 +296,13 @@
 
 .lesson-invite-confirm-button,
 .primary-button {
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #ffffff;
 }
 
 .lesson-invite-confirm-button:hover,
 .primary-button:hover {
-  background: #7c3aed;
+  background: var(--color-primary-dark);
 }
 
 .lesson-invite-confirm-button:disabled,
@@ -360,7 +360,7 @@
 .lesson-invite-payment-link {
   font-size: 13px;
   font-weight: 700;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   text-decoration: none;
 }
 
@@ -402,7 +402,7 @@
 .form-input:focus,
 .lesson-invite-message:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ffffff;
 }
 
@@ -423,7 +423,7 @@
   background: transparent;
   text-align: left;
   padding: 0;
-  color: #8b5cf6;
+  color: var(--color-primary);
   cursor: pointer;
 }
 
@@ -452,7 +452,7 @@
 }
 
 .lesson-invite-reason--selected {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #faf5ff;
 }
 
@@ -559,7 +559,7 @@
 
 .lesson-invite-card__payment .payment-form__input:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ffffff;
 }
 
@@ -597,7 +597,7 @@
 .lesson-invite-card__payment .payment-form__submit {
   border: none;
   border-radius: 12px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #ffffff;
   font-size: 14px;
   font-weight: 700;

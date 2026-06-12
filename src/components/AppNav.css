@@ -71,7 +71,7 @@
 }
 
 .app-nav__brand em {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-style: normal;
 }
 
@@ -115,7 +115,7 @@
 }
 
 .app-nav__links a.active {
-  color: #8b5cf6;
+  color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -126,7 +126,7 @@
   padding: 0 18px;
   border: 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: #fff;
   box-shadow: 0 8px 18px rgba(124, 58, 237, 0.28);
   font-size: 14px;
@@ -341,7 +341,7 @@
 }
 
 .app-nav__location-radius-head strong {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-weight: 800;
 }
 
@@ -371,7 +371,7 @@
   width: 20px;
   height: 20px;
   margin-top: -7px;
-  border: 2px solid #8b5cf6;
+  border: 2px solid var(--color-primary);
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
@@ -380,7 +380,7 @@
 .app-nav__location-slider-input::-moz-range-thumb {
   width: 20px;
   height: 20px;
-  border: 2px solid #8b5cf6;
+  border: 2px solid var(--color-primary);
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
@@ -389,7 +389,7 @@
 .app-nav__location-slider-input::-moz-range-progress {
   height: 6px;
   border-radius: 999px;
-  background: #8b5cf6;
+  background: var(--color-primary);
 }
 
 .app-nav__location-check {
@@ -448,7 +448,7 @@
   justify-content: center;
   border: 3px solid #fff;
   border-radius: 999px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: #fff;
   font-size: 13px;
   font-weight: 900;

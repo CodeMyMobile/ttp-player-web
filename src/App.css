@@ -486,7 +486,7 @@
 .play-hero__distance-chip--location {
   background: #f4ebff;
   border-color: #d6bbfb;
-  color: #7f56d9;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -499,7 +499,7 @@
 .play-hero__distance-chip--ready {
   background: #f4ebff;
   border-color: #d6bbfb;
-  color: #7f56d9;
+  color: var(--color-primary);
 }
 
 .play-hero__distance-chip--loading {
@@ -2042,7 +2042,7 @@
 }
 
 .auth-welcome__wordmark span {
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .auth-welcome__tagline {
@@ -2246,7 +2246,7 @@
 
 .auth-welcome__field input:focus {
   outline: none;
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
 }
 
@@ -2301,7 +2301,7 @@
 }
 
 .auth-welcome__helper-row a {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
@@ -2353,7 +2353,7 @@
 }
 
 .auth-welcome__toggle.is-on {
-  background: #8b5cf6;
+  background: var(--color-primary);
 }
 
 .auth-welcome__toggle.is-on span {
@@ -2393,7 +2393,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-weight: 700;
   font: inherit;
   cursor: pointer;
@@ -2413,7 +2413,7 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #ffffff;
-  background: #8b5cf6;
+  background: var(--color-primary);
   box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
   display: flex;
   align-items: center;
@@ -2424,7 +2424,7 @@
 }
 
 .auth-welcome__submit:hover {
-  background: #7c3aed;
+  background: var(--color-primary-dark);
 }
 
 .auth-welcome__submit:active {
@@ -2448,7 +2448,7 @@
   margin-left: 6px;
   border: 0;
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -2543,7 +2543,7 @@
 
 .auth-mobile__wordmark span,
 .auth-mobile__eyebrow span span {
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .auth-mobile__tagline {
@@ -2570,7 +2570,7 @@
   height: 52px;
   border-radius: 12px;
   border: none;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #ffffff;
   font: inherit;
   font-size: 15px;
@@ -2597,7 +2597,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
