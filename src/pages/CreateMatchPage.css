@@ -1430,7 +1430,7 @@
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
   }
 
   .create-match-page__header {

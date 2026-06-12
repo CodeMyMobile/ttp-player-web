@@ -49,7 +49,7 @@
   display: grid;
   place-items: center;
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .coach-profile-empty__title {
@@ -71,7 +71,7 @@
   gap: 8px;
   padding: 12px 18px;
   border-radius: 999px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   text-decoration: none;
   font-weight: 700;
@@ -188,7 +188,7 @@
 .coach-profile-hero-v2__avatar--fallback {
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  background: linear-gradient(135deg, var(--color-primary), #6d28d9);
   color: #fff;
   font-size: 32px;
   font-weight: 800;
@@ -201,7 +201,7 @@
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   display: grid;
   place-items: center;
@@ -327,7 +327,7 @@
   margin-top: 12px;
   border: 0;
   background: transparent;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-weight: 700;
   cursor: pointer;
   padding: 0;
@@ -412,7 +412,7 @@
 .coach-credit-strip button {
   border: 0;
   background: transparent;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-weight: 800;
   cursor: pointer;
 }
@@ -452,7 +452,7 @@
 .coach-profile-price-card__sub {
   margin: 8px 0 0;
   font-size: 13px;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-weight: 700;
 }
 
@@ -568,8 +568,8 @@
 }
 
 .coach-day-chip.is-active {
-  background: #8b5cf6;
-  border-color: #8b5cf6;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 
@@ -787,7 +787,7 @@
 .coach-payment-option,
 .coach-empty-card__actions button:not(.is-secondary),
 .coach-payment-modal__confirm {
-  background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
   color: #fff;
   font-weight: 800;
   padding: 10px 14px;
@@ -796,7 +796,7 @@
 .coach-slot__button {
   border: 0;
   border-radius: 8px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font: inherit;
   font-weight: 700;
@@ -810,7 +810,7 @@
 
 .coach-slot__button--private {
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   padding: 0;
   font-size: 12px;
   font-weight: 700;
@@ -820,7 +820,7 @@
 
 .coach-slot button.coach-slot__button--private {
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   padding: 0;
   border-radius: 0;
   box-shadow: none;
@@ -957,7 +957,7 @@
 
 .coach-package-summary__eyebrow {
   margin-bottom: 10px;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -980,7 +980,7 @@
 
 .coach-package-summary__count strong {
   display: block;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 28px;
   font-weight: 800;
   line-height: 1;
@@ -1044,9 +1044,9 @@
 }
 
 .coach-package-filters button.is-active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .coach-package-card {
@@ -1065,7 +1065,7 @@
 }
 
 .coach-package-card--featured {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -1084,7 +1084,7 @@
   right: 0;
   padding: 3px 10px;
   border-bottom-left-radius: 8px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font-size: 9px;
   font-weight: 800;
@@ -1126,7 +1126,7 @@
 }
 
 .coach-package-card--featured .coach-package-card__price-total strong {
-  color: #8b5cf6;
+  color: var(--color-primary);
 }
 
 .coach-package-card__price-total small {
@@ -1145,7 +1145,7 @@
 
 .coach-package-card__eyebrow {
   margin: 8px 0 0;
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -1255,7 +1255,7 @@
 .coach-profile-pill--purple {
   background: #ede9fe;
   border-color: #ddd6fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .coach-profile-pill--white {
@@ -1320,7 +1320,7 @@
 .coach-court-card__icon--primary {
   background: #ede9fe;
   border-color: #ddd6fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .coach-profile-sticky-chrome {
@@ -1348,8 +1348,8 @@
 }
 
 .coach-profile-tab--active {
-  color: #7c3aed;
-  border-bottom-color: #7c3aed;
+  color: var(--color-primary-dark);
+  border-bottom-color: var(--color-primary-dark);
 }
 
 .coach-profile-section--packages {
@@ -1521,7 +1521,7 @@
   .coach-profile-compact-bar__avatar--fallback {
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    background: linear-gradient(135deg, var(--color-primary), #6d28d9);
     color: #fff;
     font-size: 14px;
     font-weight: 800;
@@ -1535,7 +1535,7 @@
     height: 16px;
     border: 2px solid #fff;
     border-radius: 999px;
-    background: #8b5cf6;
+    background: var(--color-primary);
     color: #fff;
     display: flex;
     align-items: center;
@@ -1576,7 +1576,7 @@
   }
 
   .coach-profile-compact-bar__meta span:first-child {
-    color: #7c3aed;
+    color: var(--color-primary-dark);
     font-weight: 700;
   }
 
@@ -1702,7 +1702,7 @@
   }
 
   .coach-profile-mobile-meta span:first-child {
-    color: #7c3aed;
+    color: var(--color-primary-dark);
     font-weight: 700;
   }
 
@@ -1810,7 +1810,7 @@
 
 .coach-slot__button--private {
   background: transparent;
-  color: #8b5cf6;
+  color: var(--color-primary);
   padding: 0;
   font-size: 12px;
   font-weight: 700;
@@ -1820,7 +1820,7 @@
 
   .coach-slot button.coach-slot__button--private {
     background: transparent;
-    color: #8b5cf6;
+    color: var(--color-primary);
     padding: 0;
     border-radius: 0;
     box-shadow: none;
@@ -2047,7 +2047,7 @@
 .coach-booking-step__coach-card span {
   display: grid;
   place-items: center;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font-weight: 800;
 }
@@ -2096,9 +2096,9 @@
 }
 
 .coach-choice-chip.is-active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .coach-primary-button,
@@ -2216,7 +2216,7 @@
 .coach-auth-sheet__coach > span {
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  background: linear-gradient(135deg, var(--color-primary), #6d28d9);
   color: #fff;
   font-size: 15px;
   font-weight: 800;
@@ -2230,7 +2230,7 @@
 }
 
 .coach-auth-sheet__coach small {
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: 700;
 }
@@ -2280,7 +2280,7 @@
 
 .coach-auth-sheet__primary {
   border: 0;
-  background: #7c3aed;
+  background: var(--color-primary-dark);
   color: #fff;
 }
 
@@ -2649,7 +2649,7 @@
 .coach-payment-modal__summary-avatar--fallback {
   display: grid;
   place-items: center;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -2751,7 +2751,7 @@
 }
 
 .coach-payment-choice--active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -2767,7 +2767,7 @@
 }
 
 .coach-payment-choice--package-open {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -2785,7 +2785,7 @@
 }
 
 .coach-payment-choice__chevron {
-  color: #8b5cf6;
+  color: var(--color-primary);
   transition: transform 0.2s ease;
 }
 
@@ -2801,7 +2801,7 @@
 
 .coach-payment-choice__package-intro {
   margin: 0;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -2821,7 +2821,7 @@
 }
 
 .coach-payment-package-option--selected {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #faf5ff;
 }
 
@@ -2847,7 +2847,7 @@
   margin-left: 6px;
   border-radius: 5px;
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 800;
@@ -2866,7 +2866,7 @@
 }
 
 .coach-payment-package-option__price small {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 10px;
   font-weight: 800;
 }
@@ -2875,7 +2875,7 @@
   width: 100%;
   border: 0;
   border-radius: 9px;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   padding: 11px 12px;
   font-size: 13px;
@@ -2921,7 +2921,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #8b5cf6;
+  background: var(--color-primary);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -2944,7 +2944,7 @@
 }
 
 .coach-payment-card--active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
 }
 
@@ -2988,7 +2988,7 @@
 .coach-payment-modal__add-card,
 .coach-payment-modal__empty a,
 .coach-payment-modal__link {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
@@ -3036,7 +3036,7 @@
 }
 
 .coach-payment-modal__price-row--total strong {
-  color: #8b5cf6;
+  color: var(--color-primary);
   font-size: 18px;
   font-weight: 800;
 }
@@ -3083,7 +3083,7 @@
   gap: 6px;
   border: 0;
   background: transparent;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-weight: 800;
   cursor: pointer;
 }

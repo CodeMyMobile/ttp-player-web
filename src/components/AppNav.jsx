@@ -452,7 +452,7 @@ const AppNav = ({
                 className="app-nav__location-slider-input"
                 aria-label="Search Radius"
                 style={{
-                  background: `linear-gradient(90deg, #8b5cf6 0%, #8b5cf6 ${radiusProgress}%, #e2e8f0 ${radiusProgress}%, #e2e8f0 100%)`,
+                  background: `linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary) ${radiusProgress}%, #e2e8f0 ${radiusProgress}%, #e2e8f0 100%)`,
                 }}
               />
             </div>

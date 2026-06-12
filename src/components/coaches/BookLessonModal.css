@@ -274,7 +274,7 @@
   height: 36px;
   border-radius: 999px;
   border: 3px solid rgba(148, 163, 184, 0.25);
-  border-top-color: var(--fc-color-accent, #7f56d9);
+  border-top-color: var(--fc-color-accent, var(--color-primary));
   animation: book-lesson-modal-spin 1s linear infinite;
 }
 

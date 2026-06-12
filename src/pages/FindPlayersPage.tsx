@@ -414,7 +414,7 @@ const BestMatchCTA = ({ onClick, isMobile }: BestMatchCTAProps) => (
       justifyContent: "space-between",
       gap: "20px",
       padding: isMobile ? "16px" : "20px 24px",
-      background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)",
+      background: "linear-gradient(135deg, var(--color-primary-dark) 0%, #9333EA 100%)",
       borderRadius: "12px",
       boxShadow: "0 4px 20px rgba(124, 58, 237, 0.3)",
     }}
@@ -466,7 +466,7 @@ const BestMatchCTA = ({ onClick, isMobile }: BestMatchCTAProps) => (
         justifyContent: "center",
         padding: isMobile ? "14px 20px" : "14px 24px",
         backgroundColor: "white",
-        color: "#7C3AED",
+        color: "var(--color-primary-dark)",
         fontSize: "15px",
         fontWeight: 600,
         borderRadius: "10px",
@@ -540,7 +540,7 @@ const BestMatchesPanel = ({
           <svg width={isMobile ? "18" : "20"} height={isMobile ? "18" : "20"} viewBox="0 0 20 20" fill="none">
             <path
               d="M10 1L12.163 5.279L17 6.026L13.5 9.421L14.326 14.236L10 12.013L5.674 14.236L6.5 9.421L3 6.026L7.837 5.279L10 1Z"
-              fill="#7C3AED"
+              style={{ fill: "var(--color-primary-dark)" }}
             />
           </svg>
         </div>
@@ -614,7 +614,7 @@ const BestMatchesPanel = ({
         style={{
           padding: "6px 14px",
           backgroundColor: "white",
-          color: "#7C3AED",
+          color: "var(--color-primary-dark)",
           fontSize: "13px",
           fontWeight: 500,
           borderRadius: "6px",
@@ -660,7 +660,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
         alignItems: "baseline",
         gap: "2px",
         padding: "4px 10px",
-        background: "linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)",
+        background: "linear-gradient(135deg, var(--color-primary-dark) 0%, #9333EA 100%)",
         borderRadius: "12px",
         boxShadow: "0 2px 6px rgba(124, 58, 237, 0.3)",
       }}
@@ -687,7 +687,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
                   fontSize: "11px",
                   fontWeight: 500,
                   color: "white",
-                  backgroundColor: "#7C3AED",
+                  backgroundColor: "var(--color-primary-dark)",
                   padding: "2px 8px",
                   borderRadius: "12px",
                 }}
@@ -751,7 +751,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
             style={{
               flex: 1,
               padding: "8px 16px",
-              backgroundColor: "#7C3AED",
+              backgroundColor: "var(--color-primary-dark)",
               color: "white",
               fontSize: "13px",
               fontWeight: 500,
@@ -799,7 +799,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
                 fontSize: "11px",
                 fontWeight: 500,
                 color: "white",
-                backgroundColor: "#7C3AED",
+                backgroundColor: "var(--color-primary-dark)",
                 padding: "2px 8px",
                 borderRadius: "12px",
               }}
@@ -856,7 +856,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
             onClick={onConnect}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#7C3AED",
+              backgroundColor: "var(--color-primary-dark)",
               color: "white",
               fontSize: "13px",
               fontWeight: 500,

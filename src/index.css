@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  /* Brand primary — single source of truth for app purple. See CLAUDE.md. */
+  --color-primary: #8b5cf6;
+  --color-primary-dark: #7c3aed;
+
   --coach-color-page: #f5f7fb;
   --coach-color-surface: #ffffff;
   --coach-color-surface-soft: #f3f5fb;

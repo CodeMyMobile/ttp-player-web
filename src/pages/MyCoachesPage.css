@@ -73,6 +73,9 @@
   flex: 1;
   border: none;
   outline: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   font-size: 14px;
   color: #0f172a;
 }

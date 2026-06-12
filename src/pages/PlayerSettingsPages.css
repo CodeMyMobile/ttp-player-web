@@ -523,8 +523,8 @@
 }
 
 .match-profile-inline-button--primary {
-  border-color: #7c3aed;
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  border-color: var(--color-primary-dark);
+  background: linear-gradient(135deg, var(--color-primary-dark), #4f46e5);
   color: #fff;
 }
 
@@ -848,7 +848,7 @@
   flex-shrink: 0;
   border: 0;
   border-radius: 999px;
-  background: #7c3aed;
+  background: var(--color-primary-dark);
   color: #fff;
   padding: 8px 12px;
   font: inherit;
@@ -943,7 +943,7 @@
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  background: linear-gradient(135deg, #6366f1, var(--color-primary-dark));
   cursor: pointer;
   box-shadow: 0 24px 48px rgba(99, 102, 241, 0.24);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -1121,7 +1121,7 @@
   font-size: 15px;
   font-weight: 700;
   color: #ffffff;
-  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  background: linear-gradient(135deg, #6366f1, var(--color-primary-dark));
   cursor: pointer;
   box-shadow: 0 24px 48px rgba(99, 102, 241, 0.24);
   transition: transform 0.2s ease, box-shadow 0.2s ease;

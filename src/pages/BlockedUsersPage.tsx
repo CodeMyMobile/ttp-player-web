@@ -25,7 +25,7 @@ const initialBlockedUsers: BlockedUser[] = [
     name: "Taylor Morgan",
     reason: "Unsportsmanlike conduct",
     blockedOn: "February 20, 2024",
-    avatarColor: "linear-gradient(135deg, #c084fc, #8b5cf6)",
+    avatarColor: "linear-gradient(135deg, #c084fc, var(--color-primary))",
   },
 ];
 

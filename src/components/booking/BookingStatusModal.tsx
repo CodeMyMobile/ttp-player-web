@@ -308,7 +308,7 @@ const BookingStatusModal = ({
                 <div className="text-[14.5px] font-bold text-slate-900">Book this weekly? Save with class packs</div>
                 <div className="mt-[2px] text-[12.5px] text-slate-500">Use credits for future group bookings and skip card entry next time.</div>
               </div>
-              <span className="text-lg font-bold text-[#8b5cf6]">→</span>
+              <span className="text-lg font-bold text-[var(--color-primary)]">→</span>
             </button>
           ) : null}
 
@@ -353,7 +353,7 @@ const BookingStatusModal = ({
             <button
               type="button"
               onClick={onPrimary}
-              className="rounded-xl bg-[#8b5cf6] px-4 py-[14px] text-sm font-bold text-white"
+              className="rounded-xl bg-[var(--color-primary)] px-4 py-[14px] text-sm font-bold text-white"
             >
               Done
             </button>

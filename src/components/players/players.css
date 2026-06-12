@@ -251,7 +251,7 @@
 
 .fp-card__badge--level {
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fp-card__badge--verified {
@@ -330,7 +330,7 @@
   border-radius: 999px;
   background: #ede9fe;
   border: 0;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0;
@@ -404,7 +404,7 @@
 }
 
 .fp-card__connect {
-  background: #8b5cf6;
+  background: var(--color-primary);
   border: none;
   color: #ffffff;
   box-shadow: none;
@@ -412,7 +412,7 @@
 }
 
 .fp-card__connect:hover {
-  background: #7c3aed;
+  background: var(--color-primary-dark);
 }
 
 .fp-card .fc-button[disabled] {
@@ -640,7 +640,7 @@
 
 .fp-pill--purple {
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fp-pill--green {
@@ -706,7 +706,7 @@
   padding: 16px;
   color: #ffffff;
   border: 0;
-  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
 }
 
 .fp-profile-setup h2 {
@@ -727,7 +727,7 @@
   padding: 9px 16px;
   border-radius: 10px;
   background: #ffffff;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: 700;
   border: none;
@@ -768,7 +768,7 @@
 }
 
 .fc-filter__search input:focus {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
 }
 
 .fc-filter__search-icon {
@@ -828,9 +828,9 @@
 }
 
 .fc-distance-chip--active {
-  border-color: #8b5cf6;
+  border-color: var(--color-primary);
   background: #ede9fe;
-  color: #7c3aed;
+  color: var(--color-primary-dark);
 }
 
 .fc-distance-chip--location {
