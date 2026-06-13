@@ -4,6 +4,29 @@
   box-sizing: border-box;
 }
 
+/* Page-scoped header overrides (via MainLayout pageClassName="my-coaches-page").
+   Cleaner interior header for this page only: logo + location pill + avatar.
+   Hide the "+ New match" button and notifications bell at all breakpoints. */
+.my-coaches-page .app-nav__new-match,
+.my-coaches-page .app-nav__notifications {
+  display: none;
+}
+
+/* With the + and bell gone there is room for the full location label — don't truncate. */
+.my-coaches-page .app-nav__location-wrap {
+  flex: 0 1 auto;
+}
+
+.my-coaches-page .app-nav__location {
+  width: auto;
+  max-width: none;
+}
+
+.my-coaches-page .app-nav__location span {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .my-coaches__header {
   display: flex;
   align-items: flex-start;
@@ -12,18 +35,12 @@
   margin-bottom: 20px;
 }
 
-.my-coaches__eyebrow {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 12px;
-  color: #6b7280;
-  margin: 0 0 6px;
-  font-weight: 600;
-}
-
 .my-coaches__title {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   color: #0f172a;
 }
 
@@ -73,6 +90,9 @@
   flex: 1;
   border: none;
   outline: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
   font-size: 14px;
   color: #0f172a;
 }

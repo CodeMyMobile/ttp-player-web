@@ -261,15 +261,12 @@ const MyCoachesPage = () => {
   const showEmpty = !loading && !error && coaches.length === 0;
 
   return (
-    <MainLayout>
+    <MainLayout pageClassName="my-coaches-page">
       <div className="my-coaches">
         <header className="my-coaches__header">
           <div>
-            <p className="my-coaches__eyebrow">Roster</p>
             <h1 className="my-coaches__title">My coaches</h1>
-            <p className="my-coaches__subtitle">
-              Keep track of the coaches you are working with and jump to their profiles quickly.
-            </p>
+            <p className="my-coaches__subtitle">Coaches you're working with, in one place.</p>
           </div>
           <button
             type="button"
