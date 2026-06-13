@@ -171,6 +171,13 @@ const getApiDayKey = (value) => {
   return match ? match[1] : null;
 };
 
+// Bucket a class into the viewer's LOCAL calendar day — the same basis the day
+// strip cells, "Today", and selectedDay use. parseZone preserves the source
+// offset, so formatting it directly buckets classes under their origin-zone
+// date, which can miss every local day cell and render the counts as 0.
+const toLocalDayKey = (zonedStart, fallbackDate) =>
+  (zonedStart ? zonedStart.clone().local() : moment(fallbackDate)).format("YYYY-MM-DD");
+
 const shouldPreserveActivityZone = (activity) =>
   activity?.type === "group" || activity?.type === "external";
 
@@ -472,7 +479,7 @@ const buildCoachActivities = (records = []) =>
             typeClassName: "lesson",
             title: formatCoachTitle({ ...record, coach }),
             time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
-            dayKey: slot.date || (zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD")),
+            dayKey: slot.date || toLocalDayKey(zonedStart, startAt),
             startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
             location,
             secondaryMeta: distanceLabel,
@@ -702,7 +709,7 @@ const buildActivityItems = (lessons = []) =>
         typeClassName: typeConfig.className,
         title,
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
-        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
         location,
         secondaryMeta,
@@ -782,7 +789,7 @@ const buildExternalLessonActivities = (lessons = []) =>
           pickString(metadata.title, lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name) ||
           "External lesson",
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
-        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
         location,
         secondaryMeta: providerName,
@@ -851,7 +858,7 @@ const buildMatchActivities = (records = []) =>
         typeClassName: "match",
         title: normalizedMatch.format ? `${normalizedMatch.format} Match` : "Open Match",
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
-        dayKey: zonedStart ? zonedStart.format("YYYY-MM-DD") : moment(startAt).format("YYYY-MM-DD"),
+        dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
         location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
         secondaryMeta: normalizedMatch.level?.summary || normalizedMatch.distance || null,
