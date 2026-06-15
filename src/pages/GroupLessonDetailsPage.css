@@ -1415,7 +1415,9 @@
   }
 
   .group-lesson-details__content {
-    padding: 0 0 calc(var(--home-mobile-bottom-nav-space, 92px) + 24px);
+    /* Nav is hidden on this page; reserve space only for the bottom-flush
+       "Book now" bar (plus the home-indicator safe area). */
+    padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   .group-lesson-details__hero {
@@ -1525,10 +1527,17 @@
     font-size: 14px;
   }
 
+  /* Focused booking state: hide the global bottom tab bar on this page only.
+     Scoped by the page class (set via MainLayout pageClassName), so no other
+     page is affected — MainLayout/MobileHomeBottomNav are untouched. */
+  .dashboard-page.group-lesson-details-page .ph-bottom-nav {
+    display: none;
+  }
+
   .group-lesson-details__mobile-footer {
     position: fixed;
     right: 0;
-    bottom: var(--home-mobile-bottom-nav-space, 92px);
+    bottom: 0;
     left: 0;
     z-index: 25;
     display: flex;
@@ -1542,7 +1551,7 @@
   .group-lesson-details__mobile-footer--booked {
     position: static;
     display: block;
-    padding: 10px 16px calc(var(--home-mobile-bottom-nav-space, 92px) + 14px);
+    padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px));
   }
 
   .group-lesson-details__mobile-footer-stack {
