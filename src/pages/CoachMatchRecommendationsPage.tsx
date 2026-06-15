@@ -1,4 +1,4 @@
-import { Search, Sparkles, Star } from "lucide-react";
+import { MapPin, Search, Sparkles, Star } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -8,7 +8,9 @@ import { getStoredAuthToken } from "../services/authToken";
 import {
   getCoachMatchRecommendations,
   type CoachMatchRecommendationItem,
+  type Coordinates,
 } from "../api/playerHome";
+import { getStoredLocation, USER_LOCATION_CHANGED_EVENT } from "../utils/userLocation";
 import "./CoachMatchRecommendationsPage.css";
 
 const PER_PAGE = 10;
@@ -16,7 +18,13 @@ const PER_PAGE = 10;
 const toList = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return "";
+      const record = item as Record<string, unknown>;
+      const label = record.label ?? record.location ?? record.name ?? record.address;
+      return typeof label === "string" ? label.trim() : "";
+    })
     .filter(Boolean);
 };
 
@@ -30,6 +38,13 @@ const formatExperience = (value: unknown) => {
   return `${value.trim()} years`;
 };
 
+const formatDistance = (value: unknown) => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < 0.1) return "<0.1 mi";
+  return `${numeric.toFixed(numeric < 10 ? 1 : 0)} mi`;
+};
+
 const CoachMatchRecommendationsPage = () => {
   const { user } = useAuth();
   const [searchDraft, setSearchDraft] = useState("");
@@ -40,12 +55,28 @@ const CoachMatchRecommendationsPage = () => {
   const [items, setItems] = useState<CoachMatchRecommendationItem[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [navbarPosition, setNavbarPosition] = useState<Coordinates | null>(() => getStoredLocation());
 
   const storedToken = useMemo(
     () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }) ?? undefined,
     [],
   );
   const token = user?.session?.access_token ?? user?.access_token ?? user?.token ?? storedToken ?? null;
+
+  useEffect(() => {
+    const syncNavbarLocation = () => {
+      setNavbarPosition(getStoredLocation());
+      setPage(1);
+    };
+
+    window.addEventListener("storage", syncNavbarLocation);
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncNavbarLocation);
+
+    return () => {
+      window.removeEventListener("storage", syncNavbarLocation);
+      window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncNavbarLocation);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +98,8 @@ const CoachMatchRecommendationsPage = () => {
           perPage: PER_PAGE,
           page,
           search,
+          latitude: navbarPosition?.latitude,
+          longitude: navbarPosition?.longitude,
         });
 
         if (cancelled) return;
@@ -105,7 +138,7 @@ const CoachMatchRecommendationsPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [page, search, token]);
+  }, [navbarPosition?.latitude, navbarPosition?.longitude, page, search, token]);
 
   return (
     <MainLayout>
@@ -221,6 +254,12 @@ const CoachMatchRecommendationsPage = () => {
                   const reasons = toList(coach.reasons);
                   const homeCourts = toList(coach.home_courts);
                   const score = Number(coach.score ?? 0);
+                  const distanceText = formatDistance(coach.distance?.miles);
+                  const distanceLocation =
+                    typeof coach.distance?.location === "string" && coach.distance.location.trim()
+                      ? coach.distance.location.trim()
+                      : homeCourts[0];
+                  const primaryCourt = homeCourts[0] || distanceLocation;
 
                   return (
                     <article key={coach.coach_id} className="coach-match-card">
@@ -282,6 +321,10 @@ const CoachMatchRecommendationsPage = () => {
                           <span>Languages</span>
                           <strong>{languages.slice(0, 2).join(", ") || "N/A"}</strong>
                         </div>
+                        <div>
+                          <span>Distance</span>
+                          <strong>{distanceText || "N/A"}</strong>
+                        </div>
                       </div>
 
                       <div className="coach-match-card__breakdown">
@@ -296,7 +339,13 @@ const CoachMatchRecommendationsPage = () => {
 
                       <div className="coach-match-card__footer">
                         <div className="coach-match-card__courts">
-                          {homeCourts[0] || "Home courts not listed"}
+                          {distanceText ? (
+                            <span className="coach-match-card__distance">
+                              <MapPin size={14} aria-hidden="true" />
+                              {distanceText}
+                            </span>
+                          ) : null}
+                          {primaryCourt || "Home courts not listed"}
                         </div>
                         <Link to={`/coaches/${coach.coach_id}`} className="coach-match-card__action">
                           View profile

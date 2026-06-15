@@ -50,11 +50,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   min-height: 42px;
   padding: 0 16px;
   border-radius: 12px;
   text-decoration: none;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .coach-match-page__secondary-link {
@@ -513,7 +515,7 @@
 
 .coach-match-card__meta-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -614,9 +616,24 @@
 }
 
 .coach-match-card__courts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   color: #475569;
   font-size: 13px;
   font-weight: 600;
+}
+
+.coach-match-card__distance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #0f766e;
+  white-space: nowrap;
 }
 
 .coach-match-card__availability {
@@ -690,6 +707,10 @@
 @media (max-width: 900px) {
   .coach-match-page__grid {
     grid-template-columns: 1fr;
+  }
+
+  .coach-match-page__filter {
+    flex-wrap: wrap;
   }
 
   .coach-match-card__meta-grid {
@@ -822,5 +843,9 @@
 
   .coach-match-card__action--ghost {
     width: 100%;
+  }
+
+  .coach-match-card__footer > .coach-match-card__action:not(.coach-match-card__action--ghost) {
+    align-self: flex-start;
   }
 }
