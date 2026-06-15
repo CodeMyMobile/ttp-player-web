@@ -50,11 +50,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   min-height: 42px;
   padding: 0 16px;
   border-radius: 12px;
   text-decoration: none;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .coach-match-page__secondary-link {
@@ -841,5 +843,9 @@
 
   .coach-match-card__action--ghost {
     width: 100%;
+  }
+
+  .coach-match-card__footer > .coach-match-card__action:not(.coach-match-card__action--ghost) {
+    align-self: flex-start;
   }
 }
