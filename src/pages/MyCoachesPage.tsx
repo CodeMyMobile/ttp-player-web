@@ -1,4 +1,4 @@
-import { RefreshCcw, Search, Star, MapPin } from "lucide-react";
+import { Check, MapPin, RefreshCcw, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -6,6 +6,9 @@ import { getPlayerCoaches, type PlayerCoach } from "../api/playerCalendar";
 import MainLayout from "../components/MainLayout";
 import StateBanner from "../components/coaches/StateBanner";
 import useDebouncedValue from "../hooks/useDebouncedValue";
+import useCoachNextAvailability, {
+  type CoachAvailabilityState,
+} from "../hooks/useCoachNextAvailability";
 
 import "./MyCoachesPage.css";
 
@@ -15,7 +18,14 @@ type CoachStatusBadgeProps = {
 
 const CoachStatusBadge = ({ status }: CoachStatusBadgeProps) => {
   if (status === null || status === undefined || status === "") return null;
-  return <span className="my-coaches__status">{String(status)}</span>;
+  const text = String(status);
+  const isConfirmed = text.toLowerCase() === "confirmed";
+  return (
+    <span className={`my-coaches__badge${isConfirmed ? " my-coaches__badge--confirmed" : ""}`}>
+      {isConfirmed && <Check size={11} strokeWidth={3} />}
+      {text}
+    </span>
+  );
 };
 
 const pickCoachId = (coach: PlayerCoach) =>
@@ -54,14 +64,41 @@ const resolveAvatar = (coach: PlayerCoach) => {
       return candidate;
     }
   }
-  return "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80";
+  // No real image — the card renders an initials tile instead.
+  return null;
 };
 
-const resolveRating = (coach: PlayerCoach) => {
-  const record = coach as Record<string, unknown>;
-  const value = record.rating ?? record.average_rating ?? record.avg_rating ?? record.score;
-  const numeric = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(numeric) ? numeric.toFixed(1) : null;
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
+
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg, #86EFAC, #22C55E)",
+  "linear-gradient(135deg, #93C5FD, #3B82F6)",
+  "linear-gradient(135deg, #C4B5FD, #8B5CF6)",
+  "linear-gradient(135deg, #FDBA74, #F97316)",
+  "linear-gradient(135deg, #F9A8D4, #EC4899)",
+  "linear-gradient(135deg, #67E8F9, #06B6D4)",
+];
+
+const getAvatarGradient = (seed: string | number) => {
+  const str = String(seed);
+  let hash = 0;
+  for (let i = 0; i < str.length; i += 1) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+};
+
+// Show a location only when it's a real place name — never a bare zip code
+// (there is no zip -> neighborhood mapping available).
+const isDisplayableLocation = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^(zip\s*)?\d{5}(-\d{4})?$/i.test(trimmed)) return false;
+  return true;
 };
 
 const resolveLocation = (coach: PlayerCoach) => {
@@ -85,13 +122,6 @@ const resolveLocation = (coach: PlayerCoach) => {
   }
 
   return "";
-};
-
-const resolveDistance = (coach: PlayerCoach) => {
-  const record = coach as Record<string, unknown>;
-  const value = record.distance ?? record.distance_miles ?? record.distanceMiles;
-  const numeric = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
-  return Number.isFinite(numeric) ? `${numeric.toFixed(1)} mi away` : "";
 };
 
 const resolveStatus = (coach: PlayerCoach) => {
@@ -128,89 +158,92 @@ const resolveHourlyRate = (coach: PlayerCoach) => {
   return `$${numeric.toFixed(0)}`;
 };
 
-const resolveAbout = (coach: PlayerCoach) => {
-  const record = coach as Record<string, unknown>;
-  const about =
-    record.about_me ?? record.about ?? record.bio ?? record.description ?? record.summary;
-  if (typeof about !== "string") return "";
-  return about.trim();
-};
-
-const resolveLocationTags = (coach: PlayerCoach) => {
-  const record = coach as Record<string, unknown>;
-  const rawLocations =
-    record.coach_locations ?? record.locations ?? record.location_tags ?? record.service_locations;
-  if (Array.isArray(rawLocations)) {
-    return rawLocations
-      .map((loc) => (typeof loc === "string" ? loc : String(loc ?? "")))
-      .filter(Boolean)
-      .slice(0, 3);
+const AvailabilityBlock = ({ state }: { state: CoachAvailabilityState }) => {
+  if (state.loading) {
+    return <div className="my-coaches__avail my-coaches__avail--loading" aria-hidden />;
   }
-  return [];
+
+  if (!state.slot) {
+    return (
+      <div className="my-coaches__avail my-coaches__avail--none">
+        <span className="my-coaches__avail-dot" />
+        <div className="my-coaches__avail-text">
+          <div className="my-coaches__avail-label">Availability</div>
+          <div className="my-coaches__avail-slot">No open times in the next 7 days</div>
+        </div>
+      </div>
+    );
+  }
+
+  const { slot } = state;
+  return (
+    <div className={`my-coaches__avail my-coaches__avail--${slot.bucket}`}>
+      <span className="my-coaches__avail-dot" />
+      <div className="my-coaches__avail-text">
+        <div className="my-coaches__avail-label">Next available</div>
+        <div className="my-coaches__avail-slot">
+          {slot.whenLabel} · {slot.timeLabel}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
   const coachId = pickCoachId(coach);
   const name = resolveName(coach);
   const avatar = resolveAvatar(coach);
-  const rating = resolveRating(coach);
-  const location = resolveLocation(coach);
-  const distance = resolveDistance(coach);
   const status = resolveStatus(coach);
+  const locationRaw = resolveLocation(coach);
+  const location = isDisplayableLocation(locationRaw) ? locationRaw : "";
   const hourlyRate = resolveHourlyRate(coach);
-  const about = resolveAbout(coach);
-  const locations = resolveLocationTags(coach);
+
+  const availability = useCoachNextAvailability(coachId as string | number | null | undefined);
+  const noSlot = !availability.loading && !availability.slot;
 
   return (
     <article className="my-coaches__card">
       <div className="my-coaches__card-top">
-        <div className="my-coaches__card-left">
-          <img className="my-coaches__avatar" src={avatar} alt={`Portrait of ${name}`} />
-          <div className="my-coaches__identity">
-            <div className="my-coaches__name-row">
-              <h3 className="my-coaches__name">{name}</h3>
-              {status && <CoachStatusBadge status={status} />}
-            </div>
-            {rating && (
-              <div className="my-coaches__rating">
-                <Star size={16} className="my-coaches__rating-icon" />
-                <span>{rating}</span>
-              </div>
-            )}
-            {location && (
-              <div className="my-coaches__meta">
-                <MapPin size={14} />
-                <span>{location}</span>
-              </div>
-            )}
-            {distance && <div className="my-coaches__distance">{distance}</div>}
+        {avatar ? (
+          <img className="my-coaches__photo" src={avatar} alt={`Portrait of ${name}`} />
+        ) : (
+          <div
+            className="my-coaches__photo my-coaches__photo--initials"
+            style={{ background: getAvatarGradient((coachId as string | number) ?? name) }}
+            aria-hidden
+          >
+            {getInitials(name)}
           </div>
-        </div>
-        {hourlyRate && <div className="my-coaches__rate">{hourlyRate}</div>}
-      </div>
+        )}
 
-      {(about || locations.length > 0) && (
-        <div className="my-coaches__details">
-          {about && <p className="my-coaches__about">{about}</p>}
-          {locations.length > 0 && (
-            <div className="my-coaches__tags">
-              {locations.map((loc) => (
-                <span key={loc} className="my-coaches__tag">
-                  {loc}
-                </span>
-              ))}
+        <div className="my-coaches__info">
+          <div className="my-coaches__name-row">
+            <span className="my-coaches__name">{name}</span>
+            {status && <CoachStatusBadge status={status} />}
+          </div>
+          {location && (
+            <div className="my-coaches__loc">
+              <MapPin size={12} />
+              <span>{location}</span>
             </div>
           )}
         </div>
-      )}
 
-      <div className="my-coaches__actions">
-        {coachId && (
-          <Link className="my-coaches__button" to={`/coaches/${coachId}`}>
-            View profile
-          </Link>
+        {hourlyRate && (
+          <div className="my-coaches__rate-inline">
+            <span className="my-coaches__rate-amt">{hourlyRate}</span>
+            <span className="my-coaches__rate-unit">/hour</span>
+          </div>
         )}
       </div>
+
+      <AvailabilityBlock state={availability} />
+
+      {coachId && (
+        <Link className="my-coaches__book" to={`/coaches/${coachId}`} state={{ focusBookCta: true }}>
+          {noSlot ? "See full calendar" : "Book a lesson"}
+        </Link>
+      )}
     </article>
   );
 };
