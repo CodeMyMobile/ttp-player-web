@@ -484,6 +484,15 @@ export interface CoachMatchRecommendationPrices {
   [key: string]: unknown;
 }
 
+export interface CoachMatchRecommendationDistance {
+  miles?: number | null;
+  location_id?: number | null;
+  location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  [key: string]: unknown;
+}
+
 export interface CoachMatchRecommendationItem {
   coach_id: number;
   name?: string;
@@ -496,6 +505,7 @@ export interface CoachMatchRecommendationItem {
   prices?: CoachMatchRecommendationPrices;
   languages?: string[];
   home_courts?: string[];
+  distance?: CoachMatchRecommendationDistance | null;
   charges_enabled?: boolean;
   score?: number;
   breakdown?: CoachMatchRecommendationBreakdown;
@@ -516,6 +526,8 @@ export interface GetCoachMatchRecommendationsParams extends PlayerTokenOnlyParam
   perPage?: number;
   page?: number;
   search?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export const submitCoachMatchSurveyAnswers = async ({
@@ -542,6 +554,8 @@ export const getCoachMatchRecommendations = async ({
   perPage = 10,
   page = 1,
   search = "",
+  latitude,
+  longitude,
 }: GetCoachMatchRecommendationsParams) =>
   request<CoachMatchRecommendationsResponse>("/player/coach-match/recommendations", {
     token,
@@ -549,6 +563,8 @@ export const getCoachMatchRecommendations = async ({
       perPage,
       page,
       search,
+      latitude,
+      longitude,
     },
   });
 
