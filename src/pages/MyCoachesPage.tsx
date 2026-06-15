@@ -302,7 +302,19 @@ const MyCoachesPage = () => {
           </div>
         </div>
 
-        {error && <StateBanner tone="error" title="Couldn’t load coaches" message={error} />}
+        {error && (
+          <StateBanner
+            tone="error"
+            title="Couldn’t load coaches"
+            message={error}
+            action={
+              <button type="button" className="my-coaches__retry" onClick={fetchCoaches}>
+                <RefreshCcw size={16} />
+                Try again
+              </button>
+            }
+          />
+        )}
 
         {loading && (
           <div className="my-coaches__grid">
@@ -312,17 +324,24 @@ const MyCoachesPage = () => {
           </div>
         )}
 
-        {showEmpty && (
-          <StateBanner
-            tone="empty"
-            title={hasFilters ? "No matches yet" : "No coaches in your roster"}
-            message={
-              hasFilters
-                ? "Try a different search or clear your filters."
-                : "Once you start working with coaches, they’ll appear here."
-            }
-          />
-        )}
+        {showEmpty &&
+          (hasFilters ? (
+            <StateBanner
+              tone="empty"
+              title="No matches yet"
+              message="Try a different search or clear your filters."
+            />
+          ) : (
+            <div className="my-coaches__empty">
+              <h2 className="my-coaches__empty-title">No coaches yet</h2>
+              <p className="my-coaches__empty-text">
+                When you book a lesson, your coaches will appear here
+              </p>
+              <Link className="my-coaches__empty-cta" to="/find-coaches">
+                Find a coach
+              </Link>
+            </div>
+          ))}
 
         {!loading && !error && coaches.length > 0 && (
           <div className="my-coaches__grid">

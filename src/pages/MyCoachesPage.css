@@ -80,6 +80,73 @@
   color: #0f172a;
 }
 
+.my-coaches__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.my-coaches__retry:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.my-coaches__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 56px 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.my-coaches__empty-title {
+  margin: 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.my-coaches__empty-text {
+  margin: 0;
+  max-width: 360px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.my-coaches__empty-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 11px 20px;
+  background: #8b5cf6;
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.my-coaches__empty-cta:hover {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(139, 92, 246, 0.35);
+}
+
 .my-coaches__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
