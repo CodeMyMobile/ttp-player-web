@@ -117,6 +117,10 @@ import {
   deriveListingVisibility,
   normalizeListingVisibility,
 } from "./utils/listingVisibility";
+import {
+  buildPlayerProfileShareUrl,
+  getProfileShareUserId,
+} from "./utils/profileShare";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
 import { buildRecentPartnerSuggestions } from "./utils/inviteSuggestions";
 import {
@@ -209,30 +213,6 @@ const derivePlayerProfileIdFromPath = (path) => {
     path.match(/^\/players\/([^/]+)$/) ||
     path.match(/^\/player\/profile\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : null;
-};
-
-const getCurrentUserId = (user) => {
-  if (!user || typeof user !== "object") return null;
-  return (
-    user.id ??
-    user.user_id ??
-    user.userId ??
-    user.player_id ??
-    user.playerId ??
-    user.profile?.user_id ??
-    user.profile?.userId ??
-    user.profile?.player_id ??
-    user.profile?.playerId ??
-    user.profile?.id ??
-    null
-  );
-};
-
-const buildPlayerProfileShareUrl = (playerId) => {
-  if (playerId === undefined || playerId === null) return "";
-  const normalizedId = String(playerId).trim();
-  if (!normalizedId || typeof window === "undefined") return "";
-  return `${window.location.origin}/player/profile/${encodeURIComponent(normalizedId)}`;
 };
 
 const getParticipantPlayerId = (participant) => {
@@ -995,11 +975,15 @@ const TennisMatchApp = ({
     [currentUser],
   );
   const currentUserId = useMemo(
-    () => getCurrentUserId(currentUser),
+    () => getProfileShareUserId(currentUser),
     [currentUser],
   );
   const profileShareUrl = useMemo(
-    () => buildPlayerProfileShareUrl(currentUserId),
+    () =>
+      buildPlayerProfileShareUrl(
+        currentUserId,
+        typeof window !== "undefined" ? window.location.origin : "",
+      ),
     [currentUserId],
   );
   const [currentScreen, setCurrentScreen] = useState(() =>
@@ -1202,6 +1186,8 @@ const TennisMatchApp = ({
 
         const nextUser = {
           ...prev,
+          user_id: profileDetails.user_id ?? profileDetails.userId ?? prev.user_id,
+          userId: profileDetails.userId ?? profileDetails.user_id ?? prev.userId,
           profile: mergedProfile,
         };
 
