@@ -1,0 +1,446 @@
+/* =====================================================================
+   Coach Recommendations — redesign styles.
+   ALL selectors are scoped under .cmr-page so they cannot leak to other
+   pages. This file is imported ONLY by CoachMatchRecommendationsPage.tsx.
+   Do NOT add .coach-match-* selectors here (those are shared with
+   Find a Coach via CoachMatchRecommendationsPage.css).
+   ===================================================================== */
+
+.cmr-page {
+  --cmr-purple: #8b5cf6;
+  --cmr-purple-700: #7c3aed;
+  --cmr-slate-50: #f8fafc;
+  --cmr-slate-100: #f1f5f9;
+  --cmr-slate-200: #e2e8f0;
+  --cmr-slate-300: #cbd5e1;
+  --cmr-slate-400: #94a3b8;
+  --cmr-slate-500: #64748b;
+  --cmr-slate-600: #475569;
+  --cmr-slate-700: #334155;
+  --cmr-slate-900: #0f172a;
+  --cmr-green-600: #059669;
+  --cmr-green-700: #047857;
+  --cmr-green-50: #ecfdf5;
+  --cmr-white: #ffffff;
+  --cmr-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --cmr-radius-card: 18px;
+  --cmr-radius-pill: 999px;
+
+  color: var(--cmr-slate-900);
+}
+
+.cmr-page__inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* --- Header --------------------------------------------------------- */
+.cmr-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--cmr-slate-500);
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+
+.cmr-page__back:hover {
+  color: var(--cmr-slate-700);
+}
+
+.cmr-page__title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cmr-page__title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.cmr-page__count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cmr-slate-500);
+  white-space: nowrap;
+}
+
+.cmr-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--cmr-white);
+  border: 1.5px solid var(--cmr-slate-200);
+  border-radius: 13px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+}
+
+.cmr-search svg {
+  color: var(--cmr-slate-400);
+  flex: 0 0 auto;
+}
+
+.cmr-search input {
+  flex: 1;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  outline: none;
+  min-width: 0;
+}
+
+.cmr-search input::placeholder {
+  color: var(--cmr-slate-400);
+}
+
+/* --- States -------------------------------------------------------- */
+.cmr-state {
+  background: var(--cmr-white);
+  border: 1px solid var(--cmr-slate-200);
+  border-radius: var(--cmr-radius-card);
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.cmr-state h2 {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.cmr-state p {
+  font-size: 14px;
+  color: var(--cmr-slate-600);
+  margin: 0 auto 16px;
+  max-width: 42ch;
+}
+
+.cmr-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.cmr-state__primary,
+.cmr-state__secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cmr-state__primary {
+  background: var(--cmr-purple-700);
+  color: var(--cmr-white);
+}
+
+.cmr-state__secondary {
+  background: var(--cmr-white);
+  color: var(--cmr-slate-700);
+  border: 1.5px solid var(--cmr-slate-200);
+}
+
+/* --- Grid ---------------------------------------------------------- */
+.cmr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 540px) {
+  .cmr-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Card ---------------------------------------------------------- */
+.cmr-card {
+  background: var(--cmr-white);
+  border: 1px solid var(--cmr-slate-200);
+  border-radius: var(--cmr-radius-card);
+  box-shadow: var(--cmr-shadow-card);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cmr-card--skeleton {
+  min-height: 280px;
+  background: linear-gradient(110deg, var(--cmr-slate-100) 30%, var(--cmr-slate-50) 50%, var(--cmr-slate-100) 70%);
+  background-size: 200% 100%;
+  animation: cmr-shimmer 1.3s ease-in-out infinite;
+  border-color: var(--cmr-slate-100);
+}
+
+@keyframes cmr-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.cmr-card__head {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.cmr-card__photo {
+  width: 58px;
+  height: 58px;
+  border-radius: 15px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--cmr-purple), var(--cmr-purple-700));
+  overflow: hidden;
+}
+
+.cmr-card__mid {
+  flex: 1;
+  min-width: 0;
+}
+
+.cmr-card__name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.cmr-card__meta {
+  font-size: 13px;
+  color: var(--cmr-slate-500);
+  font-weight: 650;
+  margin: 3px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cmr-card__meta-dot {
+  color: var(--cmr-slate-300);
+}
+
+.cmr-card__distance {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--cmr-slate-600);
+  font-weight: 750;
+}
+
+.cmr-card__distance svg {
+  color: var(--cmr-purple-700);
+}
+
+.cmr-card__match {
+  flex: 0 0 auto;
+  background: var(--cmr-green-50);
+  border-radius: 13px;
+  padding: 8px 11px;
+  text-align: center;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cmr-card__match-pct {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--cmr-green-700);
+  line-height: 1;
+}
+
+.cmr-card__match-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: var(--cmr-green-600);
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.cmr-card__bio {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cmr-slate-600);
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-top: 13px;
+  margin: 13px 0 0;
+  border-top: 1px solid var(--cmr-slate-100);
+}
+
+.cmr-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.cmr-card__tag {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cmr-slate-600);
+  background: var(--cmr-slate-100);
+  border-radius: var(--cmr-radius-pill);
+  padding: 6px 12px;
+}
+
+.cmr-card__prices {
+  display: flex;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.cmr-card__price {
+  flex: 1;
+  background: var(--cmr-slate-50);
+  border: 1px solid var(--cmr-slate-100);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.cmr-card__price-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cmr-slate-500);
+}
+
+.cmr-card__price-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.cmr-card__price-value small {
+  font-size: 11px;
+  color: var(--cmr-slate-500);
+  font-weight: 700;
+}
+
+.cmr-card__why {
+  background: var(--cmr-green-50);
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-top: 13px;
+}
+
+.cmr-card__why-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cmr-green-700);
+  margin: 0 0 7px;
+}
+
+.cmr-card__why-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cmr-green-700);
+  margin: 0;
+}
+
+.cmr-card__why-row + .cmr-card__why-row {
+  margin-top: 5px;
+}
+
+.cmr-card__why-row svg {
+  flex: 0 0 auto;
+}
+
+.cmr-card__langs {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--cmr-slate-500);
+  margin: 12px 0 0;
+}
+
+.cmr-card__langs b {
+  color: var(--cmr-slate-600);
+  font-weight: 750;
+}
+
+.cmr-card__profile-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: 12px;
+  background: var(--cmr-white);
+  color: var(--cmr-slate-700);
+  border: 1.5px solid var(--cmr-slate-200);
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cmr-card__profile-btn:hover {
+  background: var(--cmr-slate-50);
+}
+
+/* --- Pagination ---------------------------------------------------- */
+.cmr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.cmr-pagination button {
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--cmr-slate-200);
+  background: var(--cmr-white);
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--cmr-slate-700);
+  cursor: pointer;
+}
+
+.cmr-pagination button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cmr-pagination span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cmr-slate-500);
+}

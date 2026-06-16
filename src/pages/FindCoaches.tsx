@@ -37,6 +37,7 @@ import {
   hasSurveyAnswer,
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
+import { normalizeDisplayArray } from "../utils/displayLabels";
 
 import "./CoachMatchRecommendationsPage.css";
 import "./FindCoachesPage.css";
@@ -204,42 +205,6 @@ const extractPagination = (payload: unknown): CoachesPagination | null => {
     totalPages: resolvedTotalPages,
   };
 };
-
-const LANGUAGE_LABELS: Record<string, string> = {
-  en: "English",
-  es: "Spanish",
-  fr: "French",
-  zh: "Chinese",
-};
-
-const toTitleCase = (value: string) =>
-  value
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-
-const normalizeDisplayLabel = (value: string) => {
-  const normalized = value.trim();
-  if (!normalized) return "";
-
-  const lower = normalized.toLowerCase();
-  if (LANGUAGE_LABELS[lower]) return LANGUAGE_LABELS[lower];
-  if (lower === "semi") return "Semi-Private";
-  if (lower === "semi private") return "Semi-Private";
-  if (lower === "weekday_mornings") return "Weekday Mornings";
-  if (lower === "weekday_afternoons") return "Weekday Afternoons";
-  if (lower === "weekday_evenings") return "Weekday Evenings";
-
-  return toTitleCase(normalized);
-};
-
-const normalizeDisplayArray = (values: string[]) =>
-  values
-    .map((value) => normalizeDisplayLabel(value))
-    .filter(Boolean);
 
 const formatMoney = (value: unknown) => {
   const numeric = typeof value === "number" ? value : Number(value);
