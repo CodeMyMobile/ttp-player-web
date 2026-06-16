@@ -16,6 +16,8 @@ const routes = [
   { path: "/invites", element: <TennisMatchApp /> },
   { path: "/matches/:id/invite", element: <TennisMatchApp /> },
   { path: "/players", element: <TennisMatchApp /> },
+  { path: "/players/:id", element: <TennisMatchApp /> },
+  { path: "/player/profile/:id", element: <TennisMatchApp /> },
   { path: "/groups", element: <TennisMatchApp /> },
   { path: "/groups/:id", element: <TennisMatchApp /> },
   { path: "/create", element: <CreateMatchPage /> },

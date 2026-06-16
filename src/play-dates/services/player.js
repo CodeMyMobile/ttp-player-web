@@ -109,3 +109,17 @@ export const updatePlayerPersonalDetails = async ({
     }),
   );
 };
+
+export const getOtherPlayerDetails = async (userId) => {
+  const normalizedId =
+    userId === undefined || userId === null ? "" : String(userId).trim();
+  if (!normalizedId) {
+    throw new Error("Missing player id");
+  }
+
+  return unwrap(
+    api(`/player/profile/${encodeURIComponent(normalizedId)}`, {
+      authSchemePreference: "token",
+    }),
+  );
+};

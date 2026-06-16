@@ -83,6 +83,7 @@ import MatchDetailsModal from "./components/MatchDetailsModal";
 import MatchCreatorFlow from "./components/MatchCreatorFlow";
 import LandingPage from "./pages/LandingPage.jsx";
 import PlayerConnectionsPage from "./pages/PlayerConnectionsPage.jsx";
+import PlayerProfilePage from "./pages/PlayerProfilePage.jsx";
 import MyGroupsPage from "./pages/MyGroupsPage.jsx";
 import GroupDetailPage from "./pages/GroupDetailPage.jsx";
 import {
@@ -171,10 +172,24 @@ const getInitialPath = () => {
 const deriveScreenFromPath = (path) => {
   if (path === "/invites") return "invites";
   if (path === "/players") return "players";
+  if (/^\/players\/[^/]+$/.test(path)) return "player-profile";
+  if (/^\/player\/profile\/[^/]+$/.test(path)) return "player-profile";
   if (path === "/groups") return "groups";
   if (/^\/groups\/[^/]+$/.test(path)) return "group-detail";
   if (/^\/matches\/[^/]+\/invite$/.test(path)) return "invite";
   return "browse";
+};
+
+const getEffectiveAppPath = (routerPath) => {
+  if (routerPath && routerPath !== "/") return routerPath;
+  if (typeof window === "undefined") return routerPath || "/";
+  if (window.location.hash && window.location.hash !== "#") {
+    return routerPath || "/";
+  }
+  const browserPath = window.location.pathname || "/";
+  if (/^\/players\/[^/]+$/.test(browserPath)) return browserPath;
+  if (/^\/player\/profile\/[^/]+$/.test(browserPath)) return browserPath;
+  return routerPath || "/";
 };
 
 const deriveInviteMatchId = (path) => {
@@ -186,6 +201,13 @@ const deriveInviteMatchId = (path) => {
 
 const deriveGroupIdFromPath = (path) => {
   const match = path.match(/^\/groups\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const derivePlayerProfileIdFromPath = (path) => {
+  const match =
+    path.match(/^\/players\/([^/]+)$/) ||
+    path.match(/^\/player\/profile\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : null;
 };
 
@@ -939,6 +961,10 @@ const TennisMatchApp = ({
   const navigate = useNavigate();
   const location = useLocation();
   const initialPath = getInitialPath();
+  const effectivePath = useMemo(
+    () => getEffectiveAppPath(location.pathname),
+    [location.pathname],
+  );
   const [currentUser, setCurrentUser] = useState(null);
   const memberIdentityIds = useMemo(
     () => collectMemberIds(currentUser),
@@ -3083,6 +3109,8 @@ const TennisMatchApp = ({
       goToInvites();
     } else if (matchDetailsOrigin === "create") {
       setCurrentScreen("create");
+    } else if (matchDetailsOrigin === "player-profile") {
+      setCurrentScreen("player-profile");
     }
     setMatchDetailsOrigin("browse");
   }, [goToBrowse, goToInvites, matchDetailsOrigin]);
@@ -3096,7 +3124,7 @@ const TennisMatchApp = ({
   );
 
   useEffect(() => {
-    const path = location.pathname;
+    const path = effectivePath;
     if (path === "/invites") {
       lastInviteLoadRef.current = null;
       if (currentScreen !== "invites") {
@@ -3109,6 +3137,17 @@ const TennisMatchApp = ({
       lastInviteLoadRef.current = null;
       if (currentScreen !== "players") {
         setCurrentScreen("players");
+      }
+      return;
+    }
+
+    const profileRouteMatch =
+      path.match(/^\/players\/([^/]+)$/) ||
+      path.match(/^\/player\/profile\/([^/]+)$/);
+    if (profileRouteMatch) {
+      lastInviteLoadRef.current = null;
+      if (currentScreen !== "player-profile") {
+        setCurrentScreen("player-profile");
       }
       return;
     }
@@ -3149,12 +3188,13 @@ const TennisMatchApp = ({
     if (
       currentScreen !== "browse" &&
       currentScreen !== "create" &&
+      currentScreen !== "player-profile" &&
       currentScreen !== "groups" &&
       currentScreen !== "group-detail"
     ) {
       setCurrentScreen("browse");
     }
-  }, [currentScreen, location.pathname, openInviteScreen]);
+  }, [currentScreen, effectivePath, openInviteScreen]);
 
   const formatDateTime = (dateTime) => {
     const date = parseDateValue(dateTime);
@@ -7456,6 +7496,14 @@ const TennisMatchApp = ({
             <PlayerConnectionsPage
               currentUser={currentUser}
               memberIdentityIds={memberIdentityIds}
+              onOpenMatch={handleViewDetails}
+              formatDateTime={formatDateTime}
+            />
+          )}
+          {currentScreen === "player-profile" && (
+            <PlayerProfilePage
+              currentUser={currentUser}
+              playerId={derivePlayerProfileIdFromPath(effectivePath)}
               onOpenMatch={handleViewDetails}
               formatDateTime={formatDateTime}
             />

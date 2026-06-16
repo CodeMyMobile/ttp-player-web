@@ -228,11 +228,15 @@ const buildProfileUrlFromString = (value) => {
 
 const buildProfileUrlFromPlayerId = (playerId) => {
   const idString = asNonEmptyString(playerId);
-  if (!idString || !ENV_PROFILE_BASE_URL) return null;
+  if (!idString) return null;
+  const baseUrl = ENV_PROFILE_BASE_URL || getProfileBaseUrl();
+  if (!baseUrl) return null;
   try {
     const url = new URL(
       encodeURIComponent(idString),
-      `${ENV_PROFILE_BASE_URL}/`,
+      ENV_PROFILE_BASE_URL
+        ? `${baseUrl}/`
+        : `${baseUrl}/player/profile/`,
     );
     if (url.protocol === "http:" || url.protocol === "https:") {
       return url.toString();

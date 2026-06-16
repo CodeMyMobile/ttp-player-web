@@ -182,6 +182,10 @@ export const listMatches = (
     longitude,
     distance,
     radius,
+    createdBy,
+    created_by,
+    hostId,
+    host_id,
     includeHidden = false,
     include_hidden,
     hidden: hiddenOption,
@@ -198,6 +202,8 @@ export const listMatches = (
   if (format) params.format = format;
   if (gender) params.gender = gender;
   if (category) params.category = category;
+  const creatorId = createdBy ?? created_by ?? hostId ?? host_id;
+  if (creatorId) params.created_by = creatorId;
   const includeHiddenFlag =
     includeHidden ||
     include_hidden === true ||
