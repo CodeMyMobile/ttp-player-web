@@ -21,5 +21,5 @@ export const buildPlayerProfileShareUrl = (playerId, origin) => {
   if (playerId === undefined || playerId === null) return "";
   const normalizedId = String(playerId).trim();
   if (!normalizedId || !origin) return "";
-  return `${String(origin).replace(/\/+$/, "")}/player/profile/${encodeURIComponent(normalizedId)}`;
+  return `${String(origin).replace(/\/+$/, "")}/#/player/profile/${encodeURIComponent(normalizedId)}`;
 };

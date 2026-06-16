@@ -35,6 +35,7 @@ import {
   notifyMatchPlayers,
   removeParticipant,
   searchPlayers,
+  sendMatchPlayerDirectMessage,
   updateMatch,
 } from "../services/matches";
 import { rejectInvite } from "../services/invites";
@@ -236,7 +237,7 @@ const buildProfileUrlFromPlayerId = (playerId) => {
       encodeURIComponent(idString),
       ENV_PROFILE_BASE_URL
         ? `${baseUrl}/`
-        : `${baseUrl}/player/profile/`,
+        : `${baseUrl}/#/player/profile/`,
     );
     if (url.protocol === "http:" || url.protocol === "https:") {
       return url.toString();
@@ -2422,6 +2423,31 @@ const MatchDetailsModal = ({
       }
     } finally {
       setLeaving(false);
+    }
+  };
+
+  const handleSendDm = async (player) => {
+    if (!match?.id || !player?.playerId) return;
+    if (!currentUser) {
+      onRequireSignIn?.();
+      return;
+    }
+
+    const body = window.prompt(`Message ${player.name || "this player"}`);
+    if (!body || !body.trim()) return;
+
+    try {
+      await sendMatchPlayerDirectMessage(match.id, player.playerId, {
+        body: body.trim(),
+      });
+      onToast?.("Message sent.");
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Failed to send message.";
+      onToast?.(message, "error");
     }
   };
 

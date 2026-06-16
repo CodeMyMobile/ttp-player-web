@@ -19,6 +19,6 @@ test("profile share id prefers user_id over personal detail row id", () => {
       getProfileShareUserId({ profile: personalDetails }),
       "https://app.example.com/",
     ),
-    "https://app.example.com/player/profile/6",
+    "https://app.example.com/#/player/profile/6",
   );
 });
