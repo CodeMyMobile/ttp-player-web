@@ -7,6 +7,8 @@ import { getPlayerFutureLessons, getPlayerPastLessons, type LessonSummary } from
 import { listMatches, normalizeMatchRecord } from "../../../api/matches";
 import { getStoredAuthToken } from "../../../services/authToken";
 import usePlayerIdentity from "../../../hooks/usePlayerIdentity";
+import { useAuth } from "../../../context/AuthContext";
+import { isLessonCancelled } from "../../../utils/lessonStatus";
 import MainLayout from "../../../components/MainLayout";
 
 type ScheduleSegment = "upcoming" | "past";
@@ -27,6 +29,8 @@ type ScheduleItem = {
   icon: ReactNode;
   accent: AccentTone;
   destination: string | null;
+  isCancelled: boolean;
+  rebookDestination: string | null;
 };
 
 type ScheduleDayGroup = {
@@ -114,7 +118,11 @@ const classifyLessonType = (lesson: LessonSummary): ScheduleItemType => {
   return "lesson";
 };
 
-const buildLessonItem = (lesson: LessonSummary, segment: ScheduleSegment): ScheduleItem | null => {
+const buildLessonItem = (
+  lesson: LessonSummary,
+  segment: ScheduleSegment,
+  playerId?: string | number | null,
+): ScheduleItem | null => {
   const startsAt = parseMoment(
     (lesson as { start_date_time_tz?: string }).start_date_time_tz,
     (lesson as { start_date_time?: string }).start_date_time,
@@ -174,9 +182,18 @@ const buildLessonItem = (lesson: LessonSummary, segment: ScheduleSegment): Sched
   const leadingMeta = coachName ? `Coach ${coachName}` : isGroup ? "Group session" : "Lesson session";
   const chips = [level];
 
+  const coachId = firstNumber(
+    lesson.coach?.id,
+    (lesson as { coach_id?: number }).coach_id,
+  );
+  const isCancelled = isLessonCancelled(lesson, playerId);
+  const lessonDestination = lessonId ? (isGroup ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`) : null;
+  const rebookDestination = coachId !== null ? `/coaches/${coachId}` : lessonDestination;
+
   if (isGroup && playerLimit !== null) {
     chips.push(`${currentPlayers ?? 0}/${playerLimit} spots`);
-  } else if (segment === "past") {
+  } else if (segment === "past" && !isCancelled) {
+    // Cancelled lessons surface a dedicated "Cancelled" pill, so skip the chip here.
     const statusLabel = formatLessonStatus(
       (lesson as { payment_status?: unknown }).payment_status,
       (lesson as { paymentStatus?: unknown }).paymentStatus,
@@ -198,7 +215,9 @@ const buildLessonItem = (lesson: LessonSummary, segment: ScheduleSegment): Sched
     priceLabel: price !== null ? `$${Number.isInteger(price) ? price : price.toFixed(2)}` : null,
     icon: isGroup ? <Users size={26} strokeWidth={2.2} /> : <User size={26} strokeWidth={2.2} />,
     accent: isGroup ? "purple" : "green",
-    destination: lessonId ? (isGroup ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`) : null,
+    destination: lessonDestination,
+    isCancelled,
+    rebookDestination,
   };
 };
 
@@ -228,6 +247,8 @@ const buildMatchItem = (record: unknown): ScheduleItem | null => {
     icon: match.relationship === "host" ? <Trophy size={26} strokeWidth={2.2} /> : <Target size={26} strokeWidth={2.2} />,
     accent: match.relationship === "host" ? "amber" : "blue",
     destination: `/matches/${match.id}`,
+    isCancelled: false,
+    rebookDestination: null,
   };
 };
 
@@ -279,6 +300,10 @@ const buildDayGroups = (items: ScheduleItem[], segment: ScheduleSegment): Schedu
 const PlayerCalendar = () => {
   const navigate = useNavigate();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
+  const { user } = useAuth() as {
+    user?: { session?: { user_id?: string | number }; id?: string | number };
+  };
+  const playerId = user?.session?.user_id ?? user?.id ?? null;
   const [segment, setSegment] = useState<ScheduleSegment>("upcoming");
   const [selectedFilter, setSelectedFilter] = useState<ScheduleFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -332,12 +357,12 @@ const PlayerCalendar = () => {
         if (cancelled) return;
 
         const nextUpcomingItems = [
-          ...(futureLessons.status === "fulfilled" ? extractLessons(futureLessons.value).map((item) => buildLessonItem(item, "upcoming")) : []),
+          ...(futureLessons.status === "fulfilled" ? extractLessons(futureLessons.value).map((item) => buildLessonItem(item, "upcoming", playerId)) : []),
           ...(upcomingMatches.status === "fulfilled" ? upcomingMatches.value.matches.map(buildMatchItem) : []),
         ].filter(Boolean) as ScheduleItem[];
 
         const nextPastItems = [
-          ...(pastLessons.status === "fulfilled" ? extractLessons(pastLessons.value).map((item) => buildLessonItem(item, "past")) : []),
+          ...(pastLessons.status === "fulfilled" ? extractLessons(pastLessons.value).map((item) => buildLessonItem(item, "past", playerId)) : []),
           ...(archivedMatches.status === "fulfilled" ? archivedMatches.value.matches.map(buildMatchItem) : []),
         ].filter(Boolean) as ScheduleItem[];
 
@@ -368,7 +393,7 @@ const PlayerCalendar = () => {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [playerId]);
 
   const activeItems = segment === "upcoming" ? upcomingItems : pastItems;
 
@@ -489,14 +514,12 @@ const PlayerCalendar = () => {
                       return `${start.format("h:mm A")} – ${end.format("h:mm A")}`;
                     })();
 
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`schedule-card schedule-card--${item.accent}`}
-                        onClick={() => item.destination && navigate(item.destination)}
-                        disabled={!item.destination}
-                      >
+                    const cardClassName = `schedule-card schedule-card--${item.accent}${
+                      item.isCancelled ? " schedule-card--cancelled" : ""
+                    }`;
+
+                    const cardBody = (
+                      <>
                         <span className={`schedule-card__icon schedule-card__icon--${item.accent}`}>{item.icon}</span>
 
                         <span className="schedule-card__content">
@@ -507,6 +530,7 @@ const PlayerCalendar = () => {
                             <span>{item.location}</span>
                           </span>
                           <span className="schedule-card__meta">
+                            {item.isCancelled ? <span className="schedule-card__status-pill">Cancelled</span> : null}
                             <span>{item.leadingMeta}</span>
                             {item.chips.map((chip) => (
                               <span key={chip} className="schedule-card__chip">
@@ -517,9 +541,39 @@ const PlayerCalendar = () => {
                         </span>
 
                         <span className="schedule-card__aside">
-                          {item.priceLabel ? <strong>{item.priceLabel}</strong> : <span />}
-                          <ChevronRight size={20} />
+                          {item.isCancelled ? (
+                            item.rebookDestination ? (
+                              <Link to={item.rebookDestination} className="schedule-card__rebook">
+                                Rebook
+                              </Link>
+                            ) : null
+                          ) : (
+                            <>
+                              {item.priceLabel ? <strong>{item.priceLabel}</strong> : <span />}
+                              <ChevronRight size={20} />
+                            </>
+                          )}
                         </span>
+                      </>
+                    );
+
+                    if (item.isCancelled) {
+                      return (
+                        <div key={item.id} className={cardClassName}>
+                          {cardBody}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={cardClassName}
+                        onClick={() => item.destination && navigate(item.destination)}
+                        disabled={!item.destination}
+                      >
+                        {cardBody}
                       </button>
                     );
                   })}
