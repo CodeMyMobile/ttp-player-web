@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
+  Check,
+  ChevronDown,
   Search,
-  Sparkles,
-  Star,
   X,
 } from "lucide-react";
 
@@ -249,6 +249,51 @@ const formatMoney = (value: unknown) => {
 const formatDistance = (value: unknown) => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? `${numeric.toFixed(1)} mi` : "Distance unavailable";
+};
+
+// --- Presentational helpers for the redesigned coach card (no effect on matching/sorting) ---
+
+// Reduce a formatted address to just its venue/neighborhood name —
+// everything before the first comma — dropping city, state, ZIP, and country.
+const toVenueLabel = (value: string): string => value.split(",")[0]?.trim() ?? "";
+
+// Show a location only when it's a real place name — never a bare zip code.
+const isDisplayableLocation = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^(zip\s*)?\d{5}(-\d{4})?$/i.test(trimmed)) return false;
+  return true;
+};
+
+// Parse a budget answer like "$50–80", "$50-$80", "$50 to 80" into a {min,max} range.
+const parseBudgetRange = (value?: string): { min: number; max: number } | null => {
+  if (!value) return null;
+  const numbers = (value.match(/\d+(?:\.\d+)?/g) ?? []).map(Number).filter((n) => Number.isFinite(n));
+  if (numbers.length === 0) return null;
+  if (numbers.length === 1) return { min: 0, max: numbers[0] };
+  return { min: Math.min(numbers[0], numbers[1]), max: Math.max(numbers[0], numbers[1]) };
+};
+
+// Display-only: how a rate compares to the player's budget. Does not affect matching or sorting.
+const budgetFlag = (
+  rate: number | null | undefined,
+  budget: { min: number; max: number } | null,
+): "over" | "in" | null => {
+  if (rate == null || !Number.isFinite(rate) || !budget) return null;
+  return rate > budget.max ? "over" : "in";
+};
+
+// A time-anchored availability phrase derived from existing label data (no fabricated dates).
+const deriveAvailabilityPhrase = (coach: CoachCardModel): string => {
+  const raw =
+    (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows[0] : "") ||
+    (typeof coach.availability === "string" ? coach.availability : "") ||
+    "";
+  const cleaned = String(raw).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim();
+  if (cleaned && !/^availability/i.test(cleaned)) return `Next opening · ${cleaned}`;
+  if ((coach.availableSlotCount ?? 0) > 0) return "Openings available";
+  return "Availability on request";
 };
 
 const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
@@ -1113,6 +1158,11 @@ const FindCoaches = () => {
   const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
   const shouldShowCoachMatchSummary =
     !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const coachMatchBudgetRange = useMemo(
+    () => parseBudgetRange(coachMatchSummaryItems.find((item) => item.label === "Budget")?.value),
+    [coachMatchSummaryItems],
+  );
 
   useEffect(() => {
     if (hasSavedCoachMatchPreferences && sortBy === "distance") {
@@ -1140,23 +1190,43 @@ const FindCoaches = () => {
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
   const renderCoachMatchPanel = () =>
     shouldShowCoachMatchSummary ? (
-      <section className="fcv2-coach-match-summary" aria-label="Matched for you">
-        <span className="fcv2-coach-match-summary__title">🎾 Matched for you</span>
-        {coachMatchSummaryItems.map((item) => (
-          <div key={item.label} className="fcv2-coach-match-summary__pill">
-            <span className="fcv2-coach-match-summary__pill-label">{item.label}</span>
-            <span className="fcv2-coach-match-summary__pill-separator">·</span>
-            <span className="fcv2-coach-match-summary__pill-value">{item.value}</span>
-          </div>
-        ))}
-        <div className="fcv2-coach-match-summary__actions">
-          <button type="button" className="fcv2-coach-match-summary__edit" onClick={openCoachMatchSurvey}>
-            Edit ✏️
+      <section className="fc-summary" aria-label="Matched for you">
+        <div className="fc-summary__top">
+          <span className="fc-summary__ball" aria-hidden="true">🎾</span>
+          <span className="fc-summary__title">Matched for you</span>
+          <button type="button" className="fc-summary__edit" onClick={openCoachMatchSurvey}>
+            Edit
           </button>
-          <button type="button" className="fcv2-coach-match-summary__clear" onClick={clearCoachMatchSummary}>
-            {coachMatchClearing ? "Clearing..." : "Clear"}
+          <button
+            type="button"
+            className="fc-summary__toggle"
+            aria-expanded={summaryExpanded}
+            aria-label={summaryExpanded ? "Collapse match criteria" : "Expand match criteria"}
+            onClick={() => setSummaryExpanded((value) => !value)}
+          >
+            <ChevronDown size={16} className={`fc-summary__chev${summaryExpanded ? " is-open" : ""}`} />
           </button>
         </div>
+        {summaryExpanded ? (
+          <div className="fc-summary__detail">
+            {coachMatchSummaryItems.map((item) => (
+              <div key={item.label} className="fc-summary__row">
+                <span className="fc-summary__row-label">{item.label}</span>
+                <span className="fc-summary__row-value">{item.value}</span>
+              </div>
+            ))}
+            <button type="button" className="fc-summary__clear" onClick={clearCoachMatchSummary}>
+              {coachMatchClearing ? "Clearing..." : "Clear preferences"}
+            </button>
+          </div>
+        ) : (
+          <div className="fc-summary__line">
+            {coachMatchSummaryItems
+              .filter((item) => item.label !== "Who")
+              .map((item) => item.value)
+              .join(" · ")}
+          </div>
+        )}
       </section>
     ) : (
       <section className="fcv2-coach-match-banner" aria-label="Find my coach">
@@ -1348,131 +1418,144 @@ const FindCoaches = () => {
             <>
               <section className="fcv2-grid coach-match-page__grid">
                 {filteredCoaches.map((coach) => {
+                  const isMatched = shouldShowCoachMatchSummary;
                   const matchPercent = shouldNormalizeCoachScores
                     ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
                     : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
-                  const hasStrongMatch = matchPercent >= 80;
-                  const hasMidMatch = matchPercent >= 50 && matchPercent < 80;
-                  const chipValues = [
-                    ...coach.specialties.slice(0, 3).map((value) => ({ value, tone: "neutral" as const })),
-                    ...coach.formats.slice(0, 1).map((value) => ({ value, tone: "format" as const })),
-                  ].slice(0, 4);
                   const reasons = coach.matchReasons.slice(0, 3);
-                  const primaryRate = formatMoney(coach.hourlyRateValue);
+                  const privateRate = formatMoney(coach.hourlyRateValue);
                   const groupRate = formatMoney(coach.groupRateValue);
-                  const ratingLabel = coach.rating > 0 ? coach.rating.toFixed(1) : "New";
+                  const certLabel = coach.certifications[0] ?? "";
+                  const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
+                  const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
+                  const rawLocation = [coach.courts?.[0], coach.cityLabel].find(isDisplayableLocation) || "";
+                  const locationLabel = toVenueLabel(rawLocation);
+                  const tags = coach.specialties.slice(0, 3);
 
                   return (
-                    <article key={coach.id} className="coach-match-card coach-match-card--find">
-                      <div className="coach-match-card__head">
-                        <div className="coach-match-card__identity-row">
-                          <div className="coach-match-card__avatar-wrap">
-                            {coach.imageUrl ? (
-                              <img src={coach.imageUrl} alt={coach.name} className="coach-match-card__avatar-image" />
+                    <article key={coach.id} className="fc-card">
+                      <div className="fc-card__head">
+                        <div className="fc-card__photo">
+                          {coach.imageUrl ? (
+                            <img src={coach.imageUrl} alt={coach.name} />
+                          ) : (
+                            <span>{coach.initials}</span>
+                          )}
+                        </div>
+
+                        <div className="fc-card__mid">
+                          <div className="fc-card__name">{coach.name}</div>
+                          <div className="fc-card__signals">
+                            {certLabel ? (
+                              <span className="fc-card__cert">{certLabel}</span>
                             ) : (
-                              <div className="coach-match-card__avatar-fallback">{coach.initials}</div>
+                              <span className="fc-card__new">New coach</span>
                             )}
-                            {coach.verified ? <span className="coach-match-card__verified-badge">✓</span> : null}
-                          </div>
-
-                          <div className="coach-match-card__identity-copy">
-                            <h2>{coach.name}</h2>
-
-                            <div className="coach-match-card__stats">
-                              <span className="coach-match-card__rating">
-                                <Star size={13} fill="currentColor" />
-                                {ratingLabel}
-                              </span>
-                              {coach.reviewCount > 0 ? <span>({coach.reviewCount})</span> : null}
-                              <span className="coach-match-card__stats-dot" />
-                              <span>{formatDistance(coach.distanceMiles)}</span>
-                            </div>
+                            <span className="fc-card__dist">· {formatDistance(coach.distanceMiles)}</span>
                           </div>
                         </div>
 
-                        <div className="coach-match-card__price-row">
-                          {coach.certifications.length > 0 ? (
-                            <div className="coach-match-card__certifications">
-                              {coach.certifications.slice(0, 2).map((certification) => (
-                                <span key={`${coach.id}-${certification}`}>{certification}</span>
-                              ))}
+                        <div className="fc-card__head-right">
+                          {isMatched && matchPercent > 0 ? (
+                            <div className="fc-card__match">
+                              <div className="fc-card__match-pct">{matchPercent}%</div>
+                              <div className="fc-card__match-lbl">Match</div>
                             </div>
                           ) : (
-                            <div />
-                          )}
-
-                          <div className="coach-match-card__price">
-                            <div className="coach-match-card__price-main">
-                              <span className="coach-match-card__price-currency">$</span>
-                              <strong>{primaryRate ? primaryRate.replace("$", "") : "N/A"}</strong>
+                            <div className="fc-card__rate-right">
+                              <div className="fc-card__rate-main">
+                                <span className="fc-card__sm">$</span>
+                                {privateRate ? privateRate.replace("$", "") : "N/A"}
+                                <span className="fc-card__sm">/hour</span>
+                              </div>
+                              {groupRate ? <div className="fc-card__rate-group">group {groupRate}</div> : null}
                             </div>
-                            <span>{groupRate ? `/hr · group ${groupRate}` : "/hr"}</span>
-                          </div>
+                          )}
                         </div>
-
-                        {matchPercent > 0 ? (
-                          <div
-                            className={[
-                              "coach-match-card__score-badge",
-                              hasStrongMatch ? "is-strong" : "",
-                              hasMidMatch ? "is-mid" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                          >
-                            <Sparkles size={14} />
-                            <strong>{matchPercent}%</strong>
-                            <span>match</span>
-                          </div>
-                        ) : null}
-
-                        <p className="coach-match-card__bio">{coach.bio || "Coach bio coming soon."}</p>
                       </div>
 
-                      {chipValues.length > 0 ? (
-                        <div className="coach-match-card__chips">
-                          {chipValues.map(({ value, tone }) => (
-                            <span
-                              key={`${coach.id}-${tone}-${value}`}
-                              className={tone === "format" ? "coach-match-card__chip coach-match-card__chip--format" : "coach-match-card__chip"}
-                            >
-                              {value}
+                      {isMatched ? (
+                        <div className="fc-card__rate-line">
+                          <span className="fc-card__rate-main">
+                            <span className="fc-card__sm">$</span>
+                            {privateRate ? privateRate.replace("$", "") : "N/A"}
+                            <span className="fc-card__sm">/hour</span>
+                          </span>
+                          {privateFlag ? (
+                            <span className={`fc-card__flag fc-card__flag--${privateFlag}`}>
+                              {privateFlag === "over" ? "Over budget" : "In budget"}
+                            </span>
+                          ) : null}
+                          {groupRate ? <span className="fc-card__rate-group">· group {groupRate}</span> : null}
+                          {groupRate && groupFlag ? (
+                            <span className={`fc-card__flag fc-card__flag--${groupFlag}`}>
+                              {groupFlag === "over" ? "Over budget" : "In budget"}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {isMatched && reasons.length > 0 ? (
+                        <div className="fc-card__why">
+                          {reasons.map((reason) => (
+                            <div key={`${coach.id}-${reason}`} className="fc-card__why-row">
+                              <Check size={14} strokeWidth={3} />
+                              <span>{reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      <p className="fc-card__bio">{coach.bio || "Coach bio coming soon."}</p>
+
+                      {tags.length > 0 ? (
+                        <div className="fc-card__tags">
+                          {tags.map((tag) => (
+                            <span key={`${coach.id}-${tag}`} className="fc-card__tag">
+                              {tag}
                             </span>
                           ))}
                         </div>
                       ) : null}
 
-                      {reasons.length > 0 ? (
-                        <div className="coach-match-card__breakdown">
-                          <div className="coach-match-card__breakdown-title">Why this coach matches</div>
-                          <ul>
-                            {reasons.map((reason) => (
-                              <li key={`${coach.id}-${reason}`}>{reason}</li>
-                            ))}
-                          </ul>
+                      {!isMatched ? (
+                        <div className="fc-card__avail">
+                          <span className="fc-card__avail-dot" />
+                          <span>
+                            {deriveAvailabilityPhrase(coach)}
+                            {locationLabel ? ` · ${locationLabel}` : ""}
+                          </span>
                         </div>
                       ) : null}
 
-                      <div className="coach-match-card__footer">
-                        <div className="coach-match-card__availability">
-                          <span className={`coach-match-card__availability-dot ${(coach.availableSlotCount ?? 0) > 0 ? "is-open" : ""}`} />
-                          <div>
-                            <strong>
-                              {coach.availableSlotCount && coach.availableSlotCount > 0
-                                ? `${coach.availableSlotCount} slot${coach.availableSlotCount === 1 ? "" : "s"} available`
-                                : "Availability on request"}
-                            </strong>
-                            <span>{coach.courts[0] || coach.cityLabel || "Home court not listed"}</span>
-                          </div>
-                        </div>
-
-                        <Link
-                          to={`/coaches/${coach.id}`}
-                          state={{ findCoachesState: findCoachesStateSnapshot }}
-                          className="coach-match-card__action coach-match-card__action--ghost"
-                        >
-                          View profile
-                        </Link>
+                      <div className="fc-card__actions">
+                        {isMatched ? (
+                          <>
+                            {/* Book a lesson is not wired this PR (separate booking PR); temporarily routes to the profile. */}
+                            <Link
+                              to={`/coaches/${coach.id}`}
+                              state={{ findCoachesState: findCoachesStateSnapshot }}
+                              className="fc-card__btn fc-card__btn--book"
+                            >
+                              Book a lesson
+                            </Link>
+                            <Link
+                              to={`/coaches/${coach.id}`}
+                              state={{ findCoachesState: findCoachesStateSnapshot }}
+                              className="fc-card__btn fc-card__btn--profile"
+                            >
+                              Profile
+                            </Link>
+                          </>
+                        ) : (
+                          <Link
+                            to={`/coaches/${coach.id}`}
+                            state={{ findCoachesState: findCoachesStateSnapshot }}
+                            className="fc-card__btn fc-card__btn--profile fc-card__btn--full"
+                          >
+                            View profile
+                          </Link>
+                        )}
                       </div>
                     </article>
                   );
