@@ -211,6 +211,30 @@ const derivePlayerProfileIdFromPath = (path) => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+const getCurrentUserId = (user) => {
+  if (!user || typeof user !== "object") return null;
+  return (
+    user.id ??
+    user.user_id ??
+    user.userId ??
+    user.player_id ??
+    user.playerId ??
+    user.profile?.user_id ??
+    user.profile?.userId ??
+    user.profile?.player_id ??
+    user.profile?.playerId ??
+    user.profile?.id ??
+    null
+  );
+};
+
+const buildPlayerProfileShareUrl = (playerId) => {
+  if (playerId === undefined || playerId === null) return "";
+  const normalizedId = String(playerId).trim();
+  if (!normalizedId || typeof window === "undefined") return "";
+  return `${window.location.origin}/player/profile/${encodeURIComponent(normalizedId)}`;
+};
+
 const getParticipantPlayerId = (participant) => {
   if (!participant || typeof participant !== "object") return null;
   const profile = participant.profile || {};
@@ -970,6 +994,14 @@ const TennisMatchApp = ({
     () => collectMemberIds(currentUser),
     [currentUser],
   );
+  const currentUserId = useMemo(
+    () => getCurrentUserId(currentUser),
+    [currentUser],
+  );
+  const profileShareUrl = useMemo(
+    () => buildPlayerProfileShareUrl(currentUserId),
+    [currentUserId],
+  );
   const [currentScreen, setCurrentScreen] = useState(() =>
     deriveScreenFromPath(initialPath),
   );
@@ -1352,6 +1384,34 @@ const TennisMatchApp = ({
     setShowToast({ message, type });
     setTimeout(() => setShowToast(null), 3000);
   }, []);
+
+  const handleShareProfile = useCallback(async () => {
+    if (!profileShareUrl) {
+      displayToast("Profile link is unavailable until your profile loads.", "error");
+      return;
+    }
+
+    const shareText =
+      "View my Match Play profile and open matches I am trying to fill.";
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "My Match Play profile",
+          text: shareText,
+          url: profileShareUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(profileShareUrl);
+      displayToast("Profile link copied.");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.error("Failed to share profile link", error);
+      displayToast("Unable to share profile link.", "error");
+    }
+  }, [displayToast, profileShareUrl]);
 
   const applyAuthSession = useCallback(
     (session, fallback = {}) => {
@@ -3700,6 +3760,36 @@ const TennisMatchApp = ({
                     );
                   })}
                 </div>
+
+                {activeFilter === "my" && profileShareUrl && (
+                  <div className="rounded-[14px] border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-black text-emerald-800">
+                          <Share2 className="h-4 w-4" />
+                          Share your profile link
+                        </div>
+                        <p className="mt-1 text-sm leading-6 text-emerald-900/80">
+                          Friends who open this link while signed in can view your profile,
+                          see open link-only matches you are trying to fill, and join through
+                          the normal match flow. Sharing this link does not send invites or
+                          notifications.
+                        </p>
+                        <p className="mt-2 break-all rounded-[10px] bg-white/75 px-3 py-2 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-100">
+                          {profileShareUrl}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleShareProfile}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[11px] bg-emerald-600 px-4 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
                   <div>
