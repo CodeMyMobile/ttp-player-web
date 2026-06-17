@@ -92,6 +92,7 @@ const PlayerProfilePage = () => {
           latitude: location.latitude,
           longitude: location.longitude,
           distance: 5,
+          ignoreLocation: true,
         });
         setOpenMatches(Array.isArray(result?.matches) ? result.matches : []);
       } catch {
