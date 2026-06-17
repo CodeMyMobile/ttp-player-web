@@ -184,6 +184,12 @@ export const listMatches = (
     longitude,
     distance,
     radius,
+    ignoreLocation = false,
+    ignore_location,
+    allLocations = false,
+    all_locations,
+    disableLocationFilter = false,
+    disable_location_filter,
     includeHidden = false,
     include_hidden,
     hidden: hiddenOption,
@@ -201,6 +207,22 @@ export const listMatches = (
   if (format) params.format = format;
   if (gender) params.gender = gender;
   if (category) params.category = category;
+  const ignoreLocationFlag =
+    ignoreLocation ||
+    ignore_location === true ||
+    ignore_location === "true" ||
+    ignore_location === 1 ||
+    allLocations ||
+    all_locations === true ||
+    all_locations === "true" ||
+    all_locations === 1 ||
+    disableLocationFilter ||
+    disable_location_filter === true ||
+    disable_location_filter === "true" ||
+    disable_location_filter === 1;
+  if (ignoreLocationFlag) {
+    params.ignoreLocation = true;
+  }
   const includeHiddenFlag =
     includeHidden ||
     include_hidden === true ||

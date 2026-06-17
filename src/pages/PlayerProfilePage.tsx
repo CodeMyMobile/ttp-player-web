@@ -86,7 +86,6 @@ const PlayerProfilePage = () => {
         const location = getStoredLocation() ?? DEFAULT_COORDINATES;
         const result = await (listMatches as Function)(undefined, {
           created_by: id,
-          status: "open",
           when: "upcoming",
           includeHidden: true,
           latitude: location.latitude,
