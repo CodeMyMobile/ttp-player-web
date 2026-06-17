@@ -11,6 +11,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import { useAuth } from "../context/AuthContext";
 import type { ConnectIntent } from "../types/matchPlay";
 import { getStoredMatchProfile } from "../utils/matchProfile";
+import { getStoredLocation, DEFAULT_COORDINATES } from "../utils/userLocation";
 import {
   extractSuggestedPlayer,
   mapSuggestedPlayer,
@@ -82,11 +83,15 @@ const PlayerProfilePage = () => {
         setMatchesError(false);
       }
       try {
-        const result = await listMatches(undefined, {
+        const location = getStoredLocation() ?? DEFAULT_COORDINATES;
+        const result = await (listMatches as Function)(undefined, {
           created_by: id,
           status: "open",
           when: "upcoming",
           includeHidden: true,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          distance: 5,
         });
         setOpenMatches(Array.isArray(result?.matches) ? result.matches : []);
       } catch {
