@@ -10,6 +10,11 @@ const DEFAULT_COORDINATES_VALUE: Coordinates = { latitude: 34.0549076, longitude
 export const DEFAULT_COORDINATES: Coordinates = DEFAULT_COORDINATES_VALUE;
 export const DEFAULT_POSITION: Coordinates = DEFAULT_COORDINATES_VALUE;
 
+// Single source of truth for the default search radius (miles) when none is
+// stored. getStoredLocationRadius() still returns null when unset; callers fall
+// back to this constant so the default can't drift across pages.
+export const DEFAULT_RADIUS_MILES = 10;
+
 export const getStoredLocation = (): Coordinates | null => {
   try {
     const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);

@@ -10,7 +10,7 @@ export interface GroupLesson {
   coachId: number;
   coachName: string;
   coachAvatarUrl: string;
-  level: GroupLessonLevel;
+  level: GroupLessonLevel | null;
   skillLabel: string;
   description: string;
   day: string;
@@ -164,16 +164,25 @@ const normalizeGroupLessonFilters = (filters?: GroupLessonsFilters) => {
   });
 };
 
-const normalizeLevel = (level?: string | number): GroupLessonLevel => {
+// Returns the class's real NTRP level, or null when it is unset / "All" /
+// non-numeric. The API sends labeled levels like "Beginner (NTRP 2.5)", so we
+// extract the first embedded number rather than parseFloat-ing the whole label
+// (which reads as NaN). Returns null only when there's truly no digit — "All",
+// empty, or lesson-type fallbacks like "Open Group" — so the UI can show
+// "All levels" instead of inventing a range.
+const normalizeLevel = (level?: string | number): GroupLessonLevel | null => {
   if (level !== undefined && level !== null) {
-    const parsed = Number.parseFloat(String(level));
-    if (Number.isFinite(parsed)) {
-      const rounded = Math.round(parsed * 2) / 2;
-      const clamped = Math.min(6, Math.max(2, rounded));
-      return clamped as GroupLessonLevel;
+    const match = String(level).match(/\d+(?:\.\d+)?/);
+    if (match) {
+      const parsed = Number.parseFloat(match[0]);
+      if (Number.isFinite(parsed)) {
+        const rounded = Math.round(parsed * 2) / 2;
+        const clamped = Math.min(6, Math.max(2, rounded));
+        return clamped as GroupLessonLevel;
+      }
     }
   }
-  return 3;
+  return null;
 };
 
 const parseDurationMinutes = (lesson: UpcomingGroupLessonApi) => {
