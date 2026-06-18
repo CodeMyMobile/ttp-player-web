@@ -57,6 +57,26 @@ const api = (path, options = {}) => {
   });
 };
 
+const getErrorMessage = (payload, fallback) => {
+  if (typeof payload === "string" && payload.trim()) return payload;
+  if (!payload || typeof payload !== "object") return fallback;
+
+  const candidates = [payload.detail, payload.message, payload.error];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+    if (candidate && typeof candidate === "object") {
+      if (typeof candidate.message === "string" && candidate.message.trim()) {
+        return candidate.message;
+      }
+      if (typeof candidate.detail === "string" && candidate.detail.trim()) {
+        return candidate.detail;
+      }
+    }
+  }
+
+  return fallback;
+};
+
 export const unwrap = (p) =>
   p.then(async (r) => {
     let data = null;
@@ -66,7 +86,7 @@ export const unwrap = (p) =>
       // ignore non-JSON responses
     }
     if (!r.ok) {
-      const msg = data?.message || data?.error || r.statusText || "API_ERROR";
+      const msg = getErrorMessage(data, r.statusText || "API_ERROR");
       const error = new Error(msg);
       error.status = r.status;
       error.data = data;
