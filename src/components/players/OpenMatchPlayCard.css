@@ -1,0 +1,166 @@
+.omp-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 15px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
+  padding: 15px;
+}
+
+.omp-card--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.omp-card--clickable:hover {
+  border-color: #ddd6fe;
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.12);
+}
+
+.omp-card--clickable:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+.omp-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+  gap: 12px;
+}
+
+.omp-format {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.omp-fico {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #ede9fe;
+  color: #7c3aed;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.omp-fmt {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.omp-lvl {
+  font-size: 12.5px;
+  color: #64748b;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.omp-spots {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.omp-spots-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #047857;
+}
+
+.omp-spots-num.tight {
+  color: #b45309;
+}
+
+/* On host / joined cards capacity is informational, not a call to action:
+   neutral gray instead of green/amber urgency. */
+.omp-spots-num--muted {
+  color: #64748b;
+}
+
+.omp-spots-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.omp-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  padding: 7px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.omp-detail svg {
+  color: #94a3b8;
+  flex: 0 0 auto;
+}
+
+.omp-roster {
+  display: flex;
+  align-items: center;
+  margin: 10px 0 12px;
+}
+
+.omp-ra {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #ffffff;
+  background: linear-gradient(135deg, #c084fc, #9333ea);
+  object-fit: cover;
+}
+
+.omp-ra:not(:first-child) {
+  margin-left: -8px;
+}
+
+.omp-ra--empty {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-style: dashed;
+  border-color: #cbd5e1;
+}
+
+.omp-join {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  background: #8b5cf6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.omp-join:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.omp-join:disabled:not(.omp-join--self) {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Host / already-joined: neutral, non-actionable state */
+.omp-join--self {
+  background: #f1f5f9;
+  color: #64748b;
+  box-shadow: none;
+  cursor: default;
+}

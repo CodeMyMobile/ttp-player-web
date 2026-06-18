@@ -1,4 +1,5 @@
 import api, { unwrap } from "./api";
+import { countUniqueMatchOccupants } from "../utils/participants";
 
 const qs = (params) => {
   const search = new URLSearchParams();
@@ -174,6 +175,7 @@ export const listMatches = (
     page = 1,
     perPage = 10,
     when,
+    created_by,
     level,
     format,
     gender,
@@ -182,6 +184,12 @@ export const listMatches = (
     longitude,
     distance,
     radius,
+    ignoreLocation = false,
+    ignore_location,
+    allLocations = false,
+    all_locations,
+    disableLocationFilter = false,
+    disable_location_filter,
     includeHidden = false,
     include_hidden,
     hidden: hiddenOption,
@@ -194,10 +202,27 @@ export const listMatches = (
   if (status) params.status = status;
   if (search) params.search = search;
   if (when) params.when = when;
+  if (created_by) params.created_by = created_by;
   if (level) params.level = level;
   if (format) params.format = format;
   if (gender) params.gender = gender;
   if (category) params.category = category;
+  const ignoreLocationFlag =
+    ignoreLocation ||
+    ignore_location === true ||
+    ignore_location === "true" ||
+    ignore_location === 1 ||
+    allLocations ||
+    all_locations === true ||
+    all_locations === "true" ||
+    all_locations === 1 ||
+    disableLocationFilter ||
+    disable_location_filter === true ||
+    disable_location_filter === "true" ||
+    disable_location_filter === 1;
+  if (ignoreLocationFlag) {
+    params.ignoreLocation = true;
+  }
   const includeHiddenFlag =
     includeHidden ||
     include_hidden === true ||
@@ -256,6 +281,50 @@ export const listMatches = (
     addNumericParam("radius", radius);
   }
   return unwrap(api(`/matches${qs(params)}`)).then(normalizeMatchesResponse);
+};
+
+// Derives roster occupancy from a raw match. The backend has no flat
+// `current_players`/`spots_left` field — capacity lives in a `capacity` object
+// (confirmed/limit/open) with a participants+invitees roster fallback. Mirrors
+// the inline logic in TennisMatchApp.jsx so spots-left stays consistent.
+export const getMatchSpots = (match) => {
+  if (!match || typeof match !== "object") {
+    return { joined: 0, total: null, spotsLeft: null };
+  }
+
+  const capacity =
+    match.capacity && typeof match.capacity === "object" ? match.capacity : null;
+  const confirmedFromCapacity = Number(capacity?.confirmed ?? capacity?.players);
+  const limitFromCapacity = Number(
+    capacity?.limit ?? capacity?.max ?? capacity?.capacity,
+  );
+  const openFromCapacity = Number(capacity?.open);
+
+  const fallbackOccupied = countUniqueMatchOccupants(
+    match.participants,
+    match.invitees,
+  );
+  const joined =
+    Number.isFinite(confirmedFromCapacity) && confirmedFromCapacity >= 0
+      ? confirmedFromCapacity
+      : fallbackOccupied;
+
+  const total = (() => {
+    if (Number.isFinite(limitFromCapacity) && limitFromCapacity > 0) {
+      return limitFromCapacity;
+    }
+    const raw = match.player_limit;
+    const numeric = typeof raw === "string" ? Number.parseInt(raw, 10) : raw;
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+  })();
+
+  const spotsLeft = Number.isFinite(openFromCapacity)
+    ? Math.max(openFromCapacity, 0)
+    : total !== null
+      ? Math.max(total - joined, 0)
+      : null;
+
+  return { joined, total, spotsLeft };
 };
 
 export const updateMatch = (id, updates) =>

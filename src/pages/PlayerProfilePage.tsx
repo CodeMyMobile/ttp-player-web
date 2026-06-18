@@ -1,38 +1,26 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, MessageCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, MapPin, MessageCircle } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
-import { verifyUserLevel } from "../api/playerHome";
-import type { Player } from "../data/mockPlayers";
+import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
+import { fetchPlayerDetails, verifyUserLevel } from "../api/playerHome";
+import { joinMatch, listMatches } from "../play-dates/services/matches";
 import { getStoredAuthToken } from "../services/authToken";
+import { useAuth } from "../context/AuthContext";
 import type { ConnectIntent } from "../types/matchPlay";
 import { getStoredMatchProfile } from "../utils/matchProfile";
+import { getStoredLocation, DEFAULT_COORDINATES } from "../utils/userLocation";
+import {
+  extractSuggestedPlayer,
+  mapSuggestedPlayer,
+  type DirectoryPlayer,
+} from "../utils/suggestedPlayer";
+
+type OpenMatch = Record<string, unknown>;
 
 import "./PlayerProfilePage.css";
-
-type SuggestedPlayerRecord = {
-  userId: number;
-  email?: string;
-  phone?: string;
-  full_name?: string;
-  profile_picture?: string;
-  skillLevel?: string;
-  availability?: string[] | string;
-  playerLocations?: string[] | string;
-  playerCourtLocations?: string[] | string;
-  lookingFor?: string[] | string;
-  gender?: string;
-  about_me?: string;
-  genderAdditionalText?: string;
-  isLevelConfirmed?: boolean;
-  verifiedLevelCount?: string | number;
-  is_favorite?: boolean;
-  [key: string]: unknown;
-};
-
-type DirectoryPlayer = Player & { raw?: SuggestedPlayerRecord };
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -51,21 +39,145 @@ const PlayerProfilePage = () => {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth() as { user?: Record<string, unknown> | undefined };
+  const currentUserId = (user?.id ?? user?.user_id ?? user?.userId ?? null) as string | number | null;
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
+
+  // The router-state player (set when navigating in-app) is only a fast-path so
+  // we can render instantly. We always fetch by id below so cold/shared links
+  // — which carry no router state — still resolve.
+  const fastPathPlayer = useMemo(() => {
+    const candidate = locationState?.player;
+    if (!candidate) {
+      return undefined;
+    }
+    if (!id || candidate.id === id) {
+      return candidate;
+    }
+    return undefined;
+  }, [id, locationState?.player]);
+
+  const [player, setPlayer] = useState<DirectoryPlayer | undefined>(fastPathPlayer);
+  const [loading, setLoading] = useState(!fastPathPlayer);
+  const [loadError, setLoadError] = useState(false);
   const [verifyingLevel, setVerifyingLevel] = useState(false);
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [matchProfile] = useState(() => getStoredMatchProfile());
-  const player = useMemo(() => {
-    if (!locationState?.player) {
-      return undefined;
+  const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(true);
+  const [matchesError, setMatchesError] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  // `silent` refetches (e.g. after a join) leave the section's loading/error
+  // chrome untouched so the list updates in place without flashing a spinner.
+  const loadOpenMatches = useCallback(
+    async ({ silent = false }: { silent?: boolean } = {}) => {
+      if (!id) {
+        setMatchesLoading(false);
+        return;
+      }
+      if (!silent) {
+        setMatchesLoading(true);
+        setMatchesError(false);
+      }
+      try {
+        const location = getStoredLocation() ?? DEFAULT_COORDINATES;
+        const result = await (listMatches as Function)(undefined, {
+          created_by: id,
+          when: "upcoming",
+          includeHidden: true,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          distance: 5,
+          ignoreLocation: true,
+        });
+        setOpenMatches(Array.isArray(result?.matches) ? result.matches : []);
+      } catch {
+        if (!silent) {
+          setMatchesError(true);
+        }
+      } finally {
+        if (!silent) {
+          setMatchesLoading(false);
+        }
+      }
+    },
+    [id],
+  );
+
+  useEffect(() => {
+    loadOpenMatches();
+  }, [loadOpenMatches]);
+
+  const handleJoinMatch = useCallback(
+    async (matchId: string) => {
+      if (!matchId || joiningId) {
+        return;
+      }
+      try {
+        setJoiningId(matchId);
+        await joinMatch(matchId);
+        await loadOpenMatches({ silent: true });
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "We couldn't join this match right now.",
+        );
+      } finally {
+        setJoiningId(null);
+      }
+    },
+    [joiningId, loadOpenMatches],
+  );
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      setLoadError(true);
+      return;
     }
-    if (!id || locationState.player.id === id) {
-      return locationState.player;
+
+    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+    if (!token) {
+      setLoading(false);
+      setLoadError(true);
+      return;
     }
-    return undefined;
-  }, [id, locationState?.player]);
+
+    let cancelled = false;
+    if (!fastPathPlayer) {
+      setLoading(true);
+    }
+    setLoadError(false);
+
+    fetchPlayerDetails({ token, userId: id })
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        const record = extractSuggestedPlayer(payload);
+        if (record) {
+          setPlayer(mapSuggestedPlayer(record));
+        } else if (!fastPathPlayer) {
+          setLoadError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled && !fastPathPlayer) {
+          setLoadError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fastPathPlayer]);
 
   const goBackToResults = () => {
     if (typeof window !== "undefined" && window.history.length <= 2) {
@@ -79,17 +191,29 @@ const PlayerProfilePage = () => {
     navigate("/find-players");
   };
 
-  if (!player) {
+  if (loading) {
     return (
-      <MainLayout>
-        <div className="player-profile-page player-profile-page--empty" role="alert">
-          <div className="player-profile-empty-card">
+      <MainLayout mobileChrome="home">
+        <div className="ppv ppv--state" role="status" aria-live="polite">
+          <div className="ppv-state-card">
+            <p>Loading player profile…</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!player || loadError) {
+    return (
+      <MainLayout mobileChrome="home">
+        <div className="ppv ppv--state" role="alert">
+          <div className="ppv-state-card">
             <h1>Player profile not found</h1>
             <p>
               We couldn&apos;t find the player you were looking for. Try heading back to the player directory to explore other
               match partners.
             </p>
-            <button type="button" className="fc-button fc-button--primary" onClick={goToPlayers}>
+            <button type="button" className="ppv-state-btn" onClick={goToPlayers}>
               Back to players
             </button>
           </div>
@@ -223,150 +347,189 @@ const PlayerProfilePage = () => {
     }
   };
 
+  const courtList = Array.from(
+    new Set([favoriteCourt, ...preferredCourts].filter((court): court is string => Boolean(court))),
+  );
+  const showBackButton =
+    Boolean(locationState?.player) ||
+    (typeof window !== "undefined" && window.history.length > 2);
+
   return (
-    <MainLayout>
-      <div className="player-profile-page">
-        <div className="player-profile-wrapper">
-          <button type="button" className="player-profile-back" onClick={goBackToResults}>
+    <MainLayout mobileChrome="home">
+      <div className="ppv">
+        {showBackButton ? (
+          <button type="button" className="ppv-back" onClick={goBackToResults}>
             <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
-            Back to search results
+            Back
+          </button>
+        ) : null}
+
+        <aside className="ppv-identity">
+          <div className="ppv-id-top">
+            <div className="ppv-photo">
+              {player.profileImageUrl ? (
+                <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
+              ) : (
+                <span aria-hidden="true">{player.initials}</span>
+              )}
+            </div>
+            <div className="ppv-id-head">
+              <h1 className="ppv-name">{player.name}</h1>
+              <div className="ppv-creds">
+                {resolvedLevelConfirmed ? (
+                  <span className="ppv-cred ppv-cred--verified">
+                    <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                    Verified
+                  </span>
+                ) : null}
+                {playerLevel ? <span className="ppv-cred ppv-cred--level">{playerLevel} NTRP</span> : null}
+              </div>
+            </div>
+          </div>
+
+          <p className="ppv-loc">
+            <MapPin size={14} strokeWidth={2} aria-hidden="true" />
+            {primaryLocation}
+          </p>
+
+          {player.bio ? <p className="ppv-bio">{player.bio}</p> : null}
+
+          <button type="button" className="ppv-connect" onClick={openConnectModal}>
+            <MessageCircle size={18} strokeWidth={2.2} aria-hidden="true" />
+            Connect with {firstName}
           </button>
 
-          <article className="player-profile-card">
-            <div className="player-profile-header">
-              <div className="player-profile-media">
-                {player.profileImageUrl ? (
-                  <img src={player.profileImageUrl} alt={`${player.name} profile portrait`} />
-                ) : (
-                  <span aria-hidden="true">{player.initials}</span>
-                )}
-              </div>
+          <button type="button" className="ppv-block-link" onClick={blockPlayer}>
+            Report or block this player
+          </button>
+        </aside>
 
-              <div className="player-profile-summary">
-                <div className="player-profile-heading">
-                  <h1>{player.name}</h1>
-                  {player.verified && (
-                    <span className="player-profile-verified">
-                      <BadgeCheck size={16} strokeWidth={2} aria-hidden="true" />
-                      Verified player
-                    </span>
-                  )}
-                </div>
-                <p className="player-profile-location">{primaryLocation}</p>
-              </div>
+        <main className="ppv-main">
+          <section className="ppv-section" aria-labelledby="open-match-play-heading">
+            <div className="ppv-sec-head">
+              <h2 id="open-match-play-heading" className="ppv-sec-title">
+                Open match play
+              </h2>
+              {!matchesLoading && !matchesError && openMatches.length > 0 ? (
+                <span className="ppv-sec-count">{openMatches.length} open</span>
+              ) : null}
             </div>
+            {matchesLoading ? (
+              <p className="ppv-state-text">Loading open matches…</p>
+            ) : matchesError ? (
+              <p className="ppv-state-text">We couldn&apos;t load open matches right now.</p>
+            ) : openMatches.length === 0 ? (
+              <p className="ppv-state-text">No open matches right now.</p>
+            ) : (
+              <div className="ppv-matches-list">
+                {openMatches.map((openMatch, index) => {
+                  const cardId = String(openMatch.match_id ?? openMatch.id ?? index);
+                  return (
+                    <OpenMatchPlayCard
+                      key={cardId}
+                      match={openMatch}
+                      onJoin={handleJoinMatch}
+                      joining={joiningId === cardId}
+                      currentUserId={currentUserId}
+                      hostId={id ?? null}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-            {player.bio && <p className="player-profile-bio">{player.bio}</p>}
-
-            <button type="button" className="player-profile-contact" onClick={openConnectModal}>
-              <MessageCircle size={18} strokeWidth={2} aria-hidden="true" />
-              <span>Connect with {firstName}</span>
-            </button>
-
-            <div className="player-profile-sections">
-              <section className="player-profile-section">
-                <div className="player-profile-section-heading">
-                  <h2>Player level</h2>
-                  <span className={resolvedLevelConfirmed ? "player-profile-pill player-profile-pill--verified" : "player-profile-pill"}>
-                    {resolvedLevelConfirmed && <BadgeCheck size={14} strokeWidth={2} aria-hidden="true" />}
-                    {resolvedLevelConfirmed ? "Verified player" : "Level unverified"}
+          <section className="ppv-about" aria-label={`About ${firstName}`}>
+            <div className="ppv-card">
+              <div className="ppv-card-head">
+                <h3 className="ppv-card-title">Player level</h3>
+                {resolvedLevelConfirmed ? (
+                  <span className="ppv-cred ppv-cred--verified">
+                    <BadgeCheck size={13} strokeWidth={2.2} aria-hidden="true" />
+                    Verified
                   </span>
+                ) : null}
+              </div>
+              <div className="ppv-level-detail">
+                <div className="ppv-level-big">
+                  <span className="ppv-level-n">{playerLevel ?? "—"}</span>
+                  <span className="ppv-level-l">NTRP</span>
                 </div>
-                <p className="player-profile-section-subhead">
-                  {resolvedLevelConfirmed
-                    ? "This player's rating is verified by the community."
-                    : "This player's level hasn't been confirmed yet."}
+                <p className="ppv-level-txt">
+                  {resolvedVerificationCount > 0 ? (
+                    <>
+                      Community-verified.{" "}
+                      <b>
+                        {resolvedVerificationCount} {resolvedVerificationCount === 1 ? "player" : "players"}
+                      </b>{" "}
+                      {resolvedVerificationCount === 1 ? "has" : "have"} confirmed {firstName} plays at this level.
+                    </>
+                  ) : (
+                    `Be the first to confirm ${firstName}'s level.`
+                  )}
                 </p>
-                <div className="player-profile-level-card">
-                  <div className="player-profile-level-value">
-                    <span>{playerLevel ?? "Level unavailable"}</span>
-                    <small>NTRP level</small>
-                  </div>
-                  <p>
-                    {resolvedVerificationCount > 0
-                      ? `${resolvedVerificationCount} ${resolvedVerificationCount === 1 ? "player has" : "players have"} verified this level.`
-                      : "Be the first to confirm this player's level."}
-                  </p>
-                </div>
-                <div className="player-profile-level-support">
-                  <h3>Verify player level</h3>
-                  <p>Help the community keep player ratings accurate.</p>
-                  <button
-                    type="button"
-                    className="fc-button fc-button--secondary"
-                    onClick={handleVerifyLevel}
-                    disabled={verifyingLevel}
-                  >
-                    {verifyingLevel ? "Verifying..." : "Verify user's level"}
-                  </button>
-                </div>
-              </section>
-
-              <section className="player-profile-section">
-                <div className="player-profile-section-heading">
-                  <h2>Play style</h2>
-                </div>
-                <p className="player-profile-section-subhead">What kind of session {firstName} is looking for.</p>
-                {matchPreferences.length > 0 ? (
-                  <div className="player-profile-chips">
-                    {matchPreferences.map((preference) => (
-                      <span key={preference} className="player-profile-chip">
-                        {preference}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="player-profile-empty-state">No play preferences shared yet.</p>
-                )}
-              </section>
-
-              <section className="player-profile-section">
-                <div className="player-profile-section-heading">
-                  <h2>Weekly availability</h2>
-                </div>
-                <p className="player-profile-section-subhead">Times that typically work best.</p>
-                {availabilityOptions.length > 0 ? (
-                  <ul className="player-profile-list">
-                    {availabilityOptions.map((slot) => (
-                      <li key={slot}>{slot}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="player-profile-empty-state">No availability shared yet.</p>
-                )}
-              </section>
-
-              <section className="player-profile-section">
-                <div className="player-profile-section-heading">
-                  <h2>Preferred courts</h2>
-                </div>
-                <p className="player-profile-section-subhead">Courts {firstName} can usually play on.</p>
-                {favoriteCourt || preferredCourts.length > 0 ? (
-                  <ul className="player-profile-list">
-                    {favoriteCourt && <li key={favoriteCourt}>{favoriteCourt}</li>}
-                    {preferredCourts.map((court) => (
-                      <li key={court}>{court}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="player-profile-empty-state">No preferred courts listed yet.</p>
-                )}
-              </section>
-
-              <section className="player-profile-section player-profile-section--alert">
-                <div className="player-profile-section-heading">
-                  <h2>Report or block this player</h2>
-                </div>
-                <p className="player-profile-section-subhead">
-                  Block this player if you no longer want to match or receive messages from them.
-                </p>
-                <button type="button" className="player-profile-block" onClick={blockPlayer}>
-                  Block player
-                </button>
-              </section>
+              </div>
+              <button
+                type="button"
+                className="ppv-verify"
+                onClick={handleVerifyLevel}
+                disabled={verifyingLevel}
+              >
+                {verifyingLevel ? "Verifying…" : "Verify level"}
+              </button>
             </div>
-          </article>
-        </div>
+
+            {availabilityOptions.length > 0 ? (
+              <div className="ppv-card">
+                <h3 className="ppv-card-title">Availability</h3>
+                <div className="ppv-chips">
+                  {availabilityOptions.map((slot) => (
+                    <span key={slot} className="ppv-chip">
+                      {slot}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {courtList.length > 0 ? (
+              <div className="ppv-card">
+                <h3 className="ppv-card-title">Preferred courts</h3>
+                <div className="ppv-courts">
+                  {courtList.map((court) => (
+                    <div key={court} className="ppv-court">
+                      <MapPin size={16} strokeWidth={2} aria-hidden="true" />
+                      {court}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {matchPreferences.length > 0 ? (
+              <div className="ppv-card">
+                <h3 className="ppv-card-title">Play style</h3>
+                <div className="ppv-chips">
+                  {matchPreferences.map((preference) => (
+                    <span key={preference} className="ppv-chip">
+                      {preference}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="ppv-danger">
+            <h3 className="ppv-danger-title">Report or block this player</h3>
+            <p className="ppv-danger-sub">
+              Block this player if you no longer want to match or receive messages from them.
+            </p>
+            <button type="button" className="ppv-block-btn" onClick={blockPlayer}>
+              Block player
+            </button>
+          </section>
+        </main>
       </div>
       <ConnectPlayerModal
         isOpen={connectModalOpen}
