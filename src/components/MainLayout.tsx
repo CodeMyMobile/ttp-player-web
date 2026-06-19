@@ -9,6 +9,8 @@ interface MainLayoutProps {
   showDesktopNav?: boolean;
   hideMobileNewMatch?: boolean;
   hideMobileNotifications?: boolean;
+  onMobileBack?: () => void;
+  hideMobileLocation?: boolean;
   pageClassName?: string;
 }
 
@@ -18,6 +20,8 @@ const MainLayout = ({
   showDesktopNav = true,
   hideMobileNewMatch = false,
   hideMobileNotifications = false,
+  onMobileBack,
+  hideMobileLocation = false,
   pageClassName = "",
 }: MainLayoutProps) => {
   const isHomeMobileChrome = mobileChrome === "home";
@@ -31,6 +35,9 @@ const MainLayout = ({
         <AppNav
           hideMobileNewMatch={isHomeMobileChrome || hideMobileNewMatch}
           hideMobileNotifications={isHomeMobileChrome || hideMobileNotifications}
+          showBack={Boolean(onMobileBack)}
+          onBack={onMobileBack}
+          hideLocation={hideMobileLocation}
         />
       ) : null}
       <main className="main-layout__content">{children}</main>
