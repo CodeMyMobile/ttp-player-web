@@ -81,6 +81,8 @@ import AppHeader from "./components/AppHeader";
 import InviteScreen from "./components/InviteScreen";
 import MatchDetailsModal from "./components/MatchDetailsModal";
 import MatchCreatorFlow from "./components/MatchCreatorFlow";
+import MultiMatchCreatorFlow from "./components/MultiMatchCreatorFlow";
+import { isMultiMatchEnabled } from "./utils/featureFlags";
 import LandingPage from "./pages/LandingPage.jsx";
 import PlayerConnectionsPage from "./pages/PlayerConnectionsPage.jsx";
 import MyGroupsPage from "./pages/MyGroupsPage.jsx";
@@ -7408,21 +7410,27 @@ const TennisMatchApp = ({
           ) : null}
 
           {currentScreen === "browse" && BrowseScreen()}
-          {currentScreen === "create" && (
-            <MatchCreatorFlow
-              currentUser={currentUser}
-              onCancel={() => goToBrowse()}
-              onReturnHome={() => {
-                goToBrowse();
-                fetchMatches();
-              }}
-              onCreateGroup={() => openGroupDetail("new")}
-              onMatchCreated={() => {
-                fetchMatches();
-                fetchPendingInvites();
-              }}
-            />
-          )}
+          {currentScreen === "create" &&
+            (() => {
+              const CreateFlow = isMultiMatchEnabled()
+                ? MultiMatchCreatorFlow
+                : MatchCreatorFlow;
+              return (
+                <CreateFlow
+                  currentUser={currentUser}
+                  onCancel={() => goToBrowse()}
+                  onReturnHome={() => {
+                    goToBrowse();
+                    fetchMatches();
+                  }}
+                  onCreateGroup={() => openGroupDetail("new")}
+                  onMatchCreated={() => {
+                    fetchMatches();
+                    fetchPendingInvites();
+                  }}
+                />
+              );
+            })()}
           {currentScreen === "invite" && (
             <InviteScreen
               matchId={inviteMatchId}
