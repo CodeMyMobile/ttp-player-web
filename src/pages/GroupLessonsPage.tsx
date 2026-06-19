@@ -26,7 +26,9 @@ import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import {
   DEFAULT_POSITION,
+  DEFAULT_RADIUS_MILES,
   getStoredLocation,
+  getStoredLocationRadius,
   storeLocation,
   USER_LOCATION_CHANGED_EVENT,
   type Coordinates,
@@ -36,64 +38,25 @@ import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
-const radiusOptions = [
-  "All",
-  "1 mi",
-  "3 mi",
-  "5 mi",
-  "10 mi",
-  "20 mi",
-  "30 mi",
-  "50 mi",
-  "75 mi",
-  "100 mi",
-  "150 mi",
-  "200 mi",
-];
-const DEFAULT_RADIUS_OPTION = "10 mi";
-
-const parseRadius = (radius: string) => {
-  if (radius === "All") {
-    return Number.POSITIVE_INFINITY;
-  }
-  const match = /^(\d+)/.exec(radius);
-  return match ? Number.parseInt(match[1], 10) : Number.POSITIVE_INFINITY;
-};
 
 const formatLevelRange = (level: number) => {
   const upperBound = (level + 0.5).toFixed(1);
   return `${level.toFixed(1)} - ${upperBound}`;
 };
 
-const LEVEL_FILTER_LABELS: Record<string, string> = {
-  "2.5": "Beginner (NTRP 2.5)",
-  "3.0": "Advanced Beginner (NTRP 3.0)",
-  "3.5": "Intermediate (NTRP 3.5)",
-  "4.0": "Advanced (NTRP 4.0)",
-  "4.5": "Advanced Plus (NTRP 4.5)",
-  "5.0": "Expert (NTRP 5.0)",
-};
+// Fixed day window: today through today+9 (10 days).
+const DAY_WINDOW_LENGTH = 10;
 
-const toIsoDate = (date: Date) => {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-    .toISOString()
-    .slice(0, 10);
-};
-
-const parseLessonDateToIso = (label: string) => {
-  const currentYear = new Date().getFullYear();
-  const parsed = new Date(`${label}, ${currentYear} 12:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-  return toIsoDate(parsed);
-};
-
-const addDays = (iso: string, amount: number) => {
-  const base = new Date(`${iso}T00:00:00Z`);
-  base.setUTCDate(base.getUTCDate() + amount);
-  return base;
-};
+// Bucket a class by its UTC wall-clock day. Group-lesson timestamps are naive
+// wall-clock values stored with a fake Z (a 9am class is ...T09:00:00Z), so we
+// must NOT convert to local like the dashboard's parseZone().local() — that
+// subtracts the offset and pushes days/times backward. moment.utc keeps the
+// stored wall-clock date, which lines up with the local-today-anchored strip
+// (and with the moment.utc time labels) for a Pacific viewer.
+const toLessonDayKey = (lesson: GroupLesson) =>
+  lesson.startDateTime
+    ? moment.utc(lesson.startDateTime).format("YYYY-MM-DD")
+    : undefined;
 
 const formatWeekday = (iso: string, length: "long" | "short" = "long") => {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -116,27 +79,6 @@ const parsePriceValue = (pricePerPlayer: string) => {
     return null;
   }
   return Number.parseFloat(match[1]);
-};
-
-const getLessonFormatLabel = (lesson: GroupLesson) => {
-  const candidate = lesson.focus?.trim();
-  if (!candidate) {
-    return "Open Group";
-  }
-
-  if (candidate.length <= 24 && !/[.,]/.test(candidate)) {
-    return candidate;
-  }
-
-  if (/cardio/i.test(candidate)) {
-    return "Cardio Tennis";
-  }
-
-  if (/clinic/i.test(candidate)) {
-    return "Clinic";
-  }
-
-  return "Open Group";
 };
 
 const getCoachInitials = (name: string) =>
@@ -233,7 +175,7 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     coachId: 0,
     coachName: fullName,
     coachAvatarUrl: typeof lesson.profile_picture === "string" ? lesson.profile_picture : "",
-    level: 3,
+    level: null,
     skillLabel: metadata.level || "All levels",
     description: metadata.description || "Booking is completed through the provider.",
     day: dateLabels.day,
@@ -272,8 +214,6 @@ type SelectedLocation = {
 type GroupLessonsStateSnapshot = {
   coachFilter: string;
   levelFilter: string;
-  formatFilter: string;
-  selectedRadius: string;
   searchTerm: string;
   dateFilter: DateFilterState;
   rangeStartValue: string;
@@ -314,9 +254,10 @@ const GroupLessonsPage = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [geoError, setGeoError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState<string>(DEFAULT_RADIUS_OPTION);
+  const [radiusMiles, setRadiusMiles] = useState<number>(
+    () => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
+  );
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showMobileMoreFilters, setShowMobileMoreFilters] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: "all" });
   const [isRangeOpen, setIsRangeOpen] = useState(false);
   const [rangeStartValue, setRangeStartValue] = useState<string>("");
@@ -344,6 +285,8 @@ const GroupLessonsPage = () => {
 
   useEffect(() => {
     const syncStoredLocation = () => {
+      setRadiusMiles(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+
       const stored = getStoredLocation();
       if (!stored) return;
 
@@ -380,7 +323,7 @@ const GroupLessonsPage = () => {
     () =>
       lessons.map((lesson) => ({
         ...lesson,
-        isoDate: parseLessonDateToIso(lesson.date),
+        isoDate: toLessonDayKey(lesson),
       })),
     [lessons],
   );
@@ -398,25 +341,24 @@ const GroupLessonsPage = () => {
   );
 
   const levelOptions = useMemo(() => {
-    const uniqueLevels = Array.from(new Set(lessonsWithIso.map((lesson) => lesson.level)))
+    const uniqueLevels = Array.from(
+      new Set(
+        lessonsWithIso
+          .map((lesson) => lesson.level)
+          .filter((level): level is number => level != null),
+      ),
+    )
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
     return ["All levels", ...uniqueLevels];
   }, [lessonsWithIso]);
 
-  const formatOptions = useMemo(
-    () => ["All formats", ...new Set(lessonsWithIso.map((lesson) => getLessonFormatLabel(lesson)))],
-    [lessonsWithIso],
-  );
-  const [formatFilter, setFormatFilter] = useState<string>("All formats");
   const [sortBy, setSortBy] = useState<"soonest" | "price-low" | "price-high">("soonest");
 
   const groupLessonsStateSnapshot = useMemo<GroupLessonsStateSnapshot>(
     () => ({
       coachFilter,
       levelFilter,
-      formatFilter,
-      selectedRadius,
       searchTerm,
       dateFilter,
       rangeStartValue,
@@ -429,62 +371,83 @@ const GroupLessonsPage = () => {
     [
       coachFilter,
       dateFilter,
-      formatFilter,
       levelFilter,
       locationFilter,
       locationSearchTerm,
       rangeEndValue,
       rangeStartValue,
       searchTerm,
-      selectedRadius,
       sortBy,
       useLocationFilter,
     ],
   );
 
+  // Fixed window: today through today+9. Server fetch and the day strip both
+  // anchor here, so counts always reconcile against what was loaded.
   const dateAnchors = useMemo(() => {
-    const validIsos = lessonsWithIso
-      .map((lesson) => lesson.isoDate)
-      .filter((iso): iso is string => Boolean(iso))
-      .sort();
-
-    if (validIsos.length === 0) {
-      const todayIso = toIsoDate(new Date());
-      return { start: todayIso, end: toIsoDate(addDays(todayIso, 7)) };
-    }
-
-    const base = validIsos[0];
-    const last = validIsos[validIsos.length - 1];
-    const start = base;
-    const endAnchor = addDays(base, 7);
-    const computedEnd = toIsoDate(endAnchor);
-    const max = last > computedEnd ? last : computedEnd;
-    return { start, end: max };
-  }, [lessonsWithIso]);
+    const start = moment().format("YYYY-MM-DD");
+    const end = moment().add(DAY_WINDOW_LENGTH - 1, "days").format("YYYY-MM-DD");
+    return { start, end };
+  }, []);
 
   const dayOptions = useMemo(() => {
-    const startDate = dateAnchors.start;
-    return Array.from({ length: 8 }, (_, index) => {
-      const date = addDays(startDate, index);
-      const iso = toIsoDate(date);
+    const today = moment();
+    return Array.from({ length: DAY_WINDOW_LENGTH }, (_, index) => {
+      const day = moment(dateAnchors.start, "YYYY-MM-DD").add(index, "days");
+      const isToday = day.isSame(today, "day");
+      const iso = day.format("YYYY-MM-DD");
       return {
         iso,
-        day: formatWeekday(iso),
-        shortDay: formatWeekday(iso, "short"),
-        label: formatMonthDay(iso),
-        dayNumber: new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" }),
+        isToday,
+        day: isToday ? "Today" : day.format("dddd"),
+        shortDay: isToday ? "Today" : day.format("ddd"),
+        label: day.format("MMM D"),
+        dayNumber: day.format("D"),
       };
     });
   }, [dateAnchors.start]);
 
+  // Client-side filters that are independent of the day strip selection. The day
+  // pills and the All/Wk total both derive from this set so their counts reconcile.
+  const lessonsMatchingFilters = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return lessonsWithIso.filter((lesson) => {
+      if (levelFilter !== "All levels" && (lesson.level == null || lesson.level.toFixed(1) !== levelFilter)) {
+        return false;
+      }
+      if (coachFilter !== "All coaches" && getResolvedCoachName(lesson) !== coachFilter) {
+        return false;
+      }
+      if (term) {
+        const haystack = [lesson.title, lesson.description, getResolvedCoachName(lesson), lesson.locationName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(term)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [coachFilter, getResolvedCoachName, lessonsWithIso, levelFilter, searchTerm]);
+
   const dayLessonCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    lessonsWithIso.forEach((lesson) => {
+    lessonsMatchingFilters.forEach((lesson) => {
       if (!lesson.isoDate) return;
       counts.set(lesson.isoDate, (counts.get(lesson.isoDate) ?? 0) + 1);
     });
     return counts;
-  }, [lessonsWithIso]);
+  }, [lessonsMatchingFilters]);
+
+  // All/Wk total — counted over the same fixed window the day pills render, so
+  // it equals the sum of the per-day counts shown in the strip.
+  const allWeekCount = useMemo(() => {
+    const windowIsos = new Set(dayOptions.map((option) => option.iso));
+    return lessonsMatchingFilters.filter(
+      (lesson) => lesson.isoDate != null && windowIsos.has(lesson.isoDate),
+    ).length;
+  }, [dayOptions, lessonsMatchingFilters]);
 
   const themeVars = useMemo(
     () => ({
@@ -520,10 +483,6 @@ const GroupLessonsPage = () => {
     }),
     [],
   );
-
-  const locationLabel = useLocationFilter
-    ? locationFilter?.label ?? DEFAULT_LOCATION
-    : "All locations";
 
   const hasLocationFilter = Boolean(locationFilter);
 
@@ -608,8 +567,6 @@ const GroupLessonsPage = () => {
 
     setCoachFilter(restoredState.coachFilter);
     setLevelFilter(restoredState.levelFilter);
-    setFormatFilter(restoredState.formatFilter);
-    setSelectedRadius(restoredState.selectedRadius);
     setSearchTerm(restoredState.searchTerm);
     setDateFilter(restoredState.dateFilter);
     setRangeStartValue(restoredState.rangeStartValue);
@@ -714,11 +671,17 @@ const GroupLessonsPage = () => {
   }, [dateFilter, dayOptions]);
 
   const displayedLessons = useMemo(() => {
-    const filteredLessons = lessonsWithIso.filter((lesson) => {
-      if (formatFilter !== "All formats" && getLessonFormatLabel(lesson) !== formatFilter) {
+    const filteredLessons = lessonsMatchingFilters.filter((lesson) => {
+      if (dateFilter.type === "all") {
+        return true;
+      }
+      if (!lesson.isoDate) {
         return false;
       }
-      return true;
+      if (dateFilter.type === "day") {
+        return lesson.isoDate === dateFilter.iso;
+      }
+      return lesson.isoDate >= dateFilter.start && lesson.isoDate <= dateFilter.end;
     });
 
     return [...filteredLessons].sort((a, b) => {
@@ -732,7 +695,7 @@ const GroupLessonsPage = () => {
       const dateB = b.startDateTime ? new Date(b.startDateTime).getTime() : Number.MAX_SAFE_INTEGER;
       return dateA - dateB;
     });
-  }, [formatFilter, lessonsWithIso, sortBy]);
+  }, [dateFilter, lessonsMatchingFilters, sortBy]);
 
   const resultsSummary =
     displayedLessons.length === totalLessons
@@ -744,13 +707,6 @@ const GroupLessonsPage = () => {
         } match your filters ${dateSummary} (${totalLessons} total)`;
 
   const maxSelectableDate = dateAnchors.end;
-  const selectedCoachId = useMemo(() => {
-    if (coachFilter === "All coaches") {
-      return undefined;
-    }
-
-    return lessons.find((lesson) => !lesson.isExternal && getResolvedCoachName(lesson) === coachFilter)?.coachId;
-  }, [coachFilter, getResolvedCoachName, lessons]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -812,31 +768,16 @@ const GroupLessonsPage = () => {
       setIsLoading(true);
       setLoadError(null);
 
-      const selectedLevelLabel =
-        levelFilter === "All levels" ? undefined : LEVEL_FILTER_LABELS[levelFilter];
-      const radiusMiles = parseRadius(selectedRadius);
-      const dateRange =
-        dateFilter.type === "all"
-          ? {}
-          : dateFilter.type === "day"
-            ? { dateStart: dateFilter.iso, dateEnd: dateFilter.iso }
-            : { dateStart: dateFilter.start, dateEnd: dateFilter.end };
+      // Server-side: location + radius + a fixed today..today+9 window only.
+      // Day, level, coach, and search are all applied client-side below.
+      // Radius is governed by the shared location store, not a local filter.
       const resolvedPosition = useLocationFilter ? position ?? DEFAULT_POSITION : undefined;
 
       try {
         const filters = {
-          coachId: selectedCoachId,
-          level: selectedLevelLabel,
-          radius:
-            useLocationFilter && Number.isFinite(radiusMiles) ? radiusMiles : undefined,
-          ...dateRange,
-        };
-        const externalFilters = {
-          ...filters,
-          date:
-            dateFilter.type === "day"
-              ? dateFilter.iso
-              : "",
+          radius: useLocationFilter ? radiusMiles : undefined,
+          dateStart: dateAnchors.start,
+          dateEnd: dateAnchors.end,
         };
 
         const [groupResponse, externalResponse] = await Promise.all([
@@ -844,22 +785,18 @@ const GroupLessonsPage = () => {
             token,
             perPage: 50,
             page: 1,
-            search: searchTerm.trim(),
             ...(resolvedPosition ? { position: resolvedPosition } : {}),
             filters,
             signal: controller.signal,
           }),
-          selectedCoachId
-            ? Promise.resolve(null)
-            : getPlayerExternalLessons({
-                token,
-                perPage: 50,
-                page: 1,
-                search: searchTerm.trim(),
-                ...(resolvedPosition ? { position: resolvedPosition } : {}),
-                filters: externalFilters,
-                signal: controller.signal,
-              }),
+          getPlayerExternalLessons({
+            token,
+            perPage: 50,
+            page: 1,
+            ...(resolvedPosition ? { position: resolvedPosition } : {}),
+            filters,
+            signal: controller.signal,
+          }),
         ]);
 
         if (cancelled) return;
@@ -890,13 +827,11 @@ const GroupLessonsPage = () => {
     };
   }, [
     authToken,
-    levelFilter,
-    selectedRadius,
-    searchTerm,
-    dateFilter,
+    radiusMiles,
     useLocationFilter,
     position,
-    selectedCoachId,
+    dateAnchors.start,
+    dateAnchors.end,
   ]);
 
   useEffect(() => {
@@ -1009,17 +944,13 @@ const GroupLessonsPage = () => {
   const resetAllFilters = useCallback(() => {
     setCoachFilter("All coaches");
     setLevelFilter("All levels");
-    setFormatFilter("All formats");
     applyLocationFilter(null);
-    setSelectedRadius(DEFAULT_RADIUS_OPTION);
     setSearchTerm("");
   }, [applyLocationFilter]);
 
   const hasActiveFilters =
     coachFilter !== "All coaches" ||
     levelFilter !== "All levels" ||
-    formatFilter !== "All formats" ||
-    selectedRadius !== DEFAULT_RADIUS_OPTION ||
     searchTerm.trim().length > 0 ||
     !useLocationFilter;
 
@@ -1046,34 +977,6 @@ const GroupLessonsPage = () => {
                 </label>
 
                 <div className="group-lessons-desktop-filters__actions">
-                  <label className="group-lessons-desktop-select">
-                    <select
-                      aria-label="Filter by format"
-                      value={formatFilter}
-                      onChange={(event) => setFormatFilter(event.target.value)}
-                    >
-                      {formatOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="group-lessons-desktop-select">
-                    <select
-                      aria-label="Filter by distance"
-                      value={selectedRadius}
-                      onChange={(event) => setSelectedRadius(event.target.value)}
-                    >
-                      {radiusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option === "All" ? "Any distance" : option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
                   {hasActiveFilters && (
                     <button
                       type="button"
@@ -1081,8 +984,6 @@ const GroupLessonsPage = () => {
                       onClick={() => {
                         setCoachFilter("All coaches");
                         setLevelFilter("All levels");
-                        setFormatFilter("All formats");
-                        setSelectedRadius(DEFAULT_RADIUS_OPTION);
                         setSearchTerm("");
                       }}
                     >
@@ -1171,28 +1072,6 @@ const GroupLessonsPage = () => {
                   onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </label>
-              <button
-                type="button"
-                className={`group-lessons-mobile-more${
-                  formatFilter !== "All formats" ||
-                  selectedRadius !== DEFAULT_RADIUS_OPTION
-                    ? " group-lessons-mobile-more--active"
-                    : ""
-                }`}
-                onClick={() => setShowMobileMoreFilters(true)}
-              >
-                <span>⚙</span>
-                <span>
-                  More
-                  {formatFilter !== "All formats" ||
-                  selectedRadius !== DEFAULT_RADIUS_OPTION
-                    ? ` · ${
-                        Number(formatFilter !== "All formats") +
-                        Number(selectedRadius !== DEFAULT_RADIUS_OPTION)
-                      }`
-                    : ""}
-                </span>
-              </button>
             </div>
 
             <div className="group-lessons-mobile-chip-row">
@@ -1354,7 +1233,7 @@ const GroupLessonsPage = () => {
                 >
                   <span className="group-lessons-day-filter__day">All</span>
                   <span className="group-lessons-day-filter__date group-lessons-day-filter__date--primary">Wk</span>
-                  <span className="group-lessons-day-filter__count">{totalLessons}</span>
+                  <span className="group-lessons-day-filter__count">{allWeekCount}</span>
                 </button>
                 {dayOptions.map((option) => {
                   const isActive = dateFilter.type === "day" && dateFilter.iso === option.iso;
@@ -1513,13 +1392,12 @@ const GroupLessonsPage = () => {
             ) : (
               <div className="lessons-grid">
                 {displayedLessons.map((lesson) => {
-                  const levelRange = formatLevelRange(lesson.level);
+                  const levelRange = lesson.level != null ? formatLevelRange(lesson.level) : null;
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
                   const isSoldOut = !isExternal && lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
-                  const showPackLink = !isExternal && priceValue !== null && priceValue > 29;
                   const coachName = getResolvedCoachName(lesson);
                   const coachAvatar = getResolvedCoachAvatar(lesson);
 
@@ -1533,7 +1411,7 @@ const GroupLessonsPage = () => {
                           {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
                         <span className="lesson-card__level">
-                          {isExternal ? "External" : `${levelRange} NTRP`}
+                          {isExternal ? "External" : levelRange ? `${levelRange} NTRP` : "All levels"}
                         </span>
                       </header>
 
@@ -1549,15 +1427,7 @@ const GroupLessonsPage = () => {
                             <div className="lesson-card__price-value">
                               {isExternal ? "Book offsite" : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
-                            {showPackLink ? (
-                              <button
-                                type="button"
-                                className="lesson-card__pack-link"
-                                onClick={() => navigate("/credits")}
-                              >
-                                $29 w/ pack
-                              </button>
-                            ) : null}
+                            <span className="lesson-card__pack-note">Save with packages</span>
                           </div>
                         </div>
 
@@ -1686,72 +1556,6 @@ const GroupLessonsPage = () => {
                   </button>
                 </div>
               </section>
-            </div>,
-            document.body,
-          )
-        : null}
-      {showMobileMoreFilters && typeof document !== "undefined"
-        ? createPortal(
-            <div className="group-lessons-mobile-sheet">
-              <button
-                type="button"
-                className="group-lessons-mobile-sheet__backdrop"
-                aria-label="Close filters"
-                onClick={() => setShowMobileMoreFilters(false)}
-              />
-              <div className="group-lessons-mobile-sheet__panel">
-                <div className="group-lessons-mobile-sheet__handle" />
-                <div className="group-lessons-mobile-sheet__header">
-                  <h2>More filters</h2>
-                  <button type="button" onClick={resetAllFilters}>
-                    Clear
-                  </button>
-                </div>
-                <div className="group-lessons-mobile-sheet__content">
-                  <section className="group-lessons-mobile-sheet__group">
-                    <h3>Distance</h3>
-                    <p>Within radius of {useLocationFilter ? locationLabel : DEFAULT_LOCATION}</p>
-                    <div className="group-lessons-mobile-sheet__chips">
-                      {radiusOptions.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          className={`group-lessons-mobile-sheet__chip${
-                            selectedRadius === option ? " group-lessons-mobile-sheet__chip--active" : ""
-                          }`}
-                          onClick={() => setSelectedRadius(option)}
-                        >
-                          {option === "All" ? "Any" : option}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                  <section className="group-lessons-mobile-sheet__group">
-                    <h3>Format</h3>
-                    <div className="group-lessons-mobile-sheet__chips">
-                      {formatOptions
-                        .filter((option) => option !== "All formats")
-                        .map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            className={`group-lessons-mobile-sheet__chip${
-                              formatFilter === option ? " group-lessons-mobile-sheet__chip--active" : ""
-                            }`}
-                            onClick={() => setFormatFilter(option)}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                    </div>
-                  </section>
-                </div>
-                <div className="group-lessons-mobile-sheet__footer">
-                  <button type="button" onClick={() => setShowMobileMoreFilters(false)}>
-                    Show results
-                  </button>
-                </div>
-              </div>
             </div>,
             document.body,
           )

@@ -26,6 +26,7 @@ import {
   getNotifications,
 } from "../api/notification";
 import {
+  DEFAULT_RADIUS_MILES,
   getStoredLocationLabel,
   getStoredLocationRadius,
   storeLocation,
@@ -72,7 +73,7 @@ const AppNav = ({
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? 5);
+  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
@@ -119,7 +120,7 @@ const AppNav = ({
   useEffect(() => {
     const syncLocationState = () => {
       setLocationLabel(getStoredLocationLabel() || "Current location");
-      setSearchRadius(getStoredLocationRadius() ?? 5);
+      setSearchRadius(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
     };
 
     syncLocationState();
