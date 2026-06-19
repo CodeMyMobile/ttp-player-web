@@ -20,6 +20,7 @@ import { formatDayLabel, formatTimeLabel } from "../utils/matchTimeLabels";
 import { createMatch, searchPlayers, sendInvites } from "../services/matches";
 import { getMatchGroup, listMatchGroups } from "../services/matchGroups";
 import { getStoredAuthToken } from "../services/authToken";
+import { getPersonalDetails } from "../services/auth";
 import { updatePlayerPersonalDetails } from "../services/player";
 import { buildMatchPayloadFromCard } from "../utils/buildMatchPayload";
 import { mergeCreateResults, summarizeResults } from "../utils/multiMatchCreate";
@@ -173,6 +174,50 @@ function MultiMatchCreatorFlow({
     return Number.isFinite(id) ? id : null;
   }, [currentUser]);
 
+  const profileDetailsId = useMemo(() => {
+    const id = Number(
+      currentUser?.profile?.id ??
+        currentUser?.personal_details_id ??
+        currentUser?.personalDetailsId ??
+        currentUser?.profile_id,
+    );
+    return Number.isFinite(id) ? id : null;
+  }, [currentUser]);
+
+  useEffect(() => {
+    const nextRating = initialRating(currentUser);
+    if (!nextRating) return;
+    setPlayerRating((previous) => previous || nextRating);
+  }, [currentUser]);
+
+  const persistPlayerRating = useCallback((value, profileDetails = null) => {
+    try {
+      const stored = localStorage.getItem("user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      if (!parsed || typeof parsed !== "object") return;
+      const profile =
+        parsed.profile && typeof parsed.profile === "object"
+          ? parsed.profile
+          : {};
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...parsed,
+          skillLevel: value,
+          profile: {
+            ...profile,
+            ...(profileDetails && typeof profileDetails === "object"
+              ? profileDetails
+              : {}),
+            usta_rating: value,
+          },
+        }),
+      );
+    } catch (error) {
+      console.warn("Unable to persist player rating", error);
+    }
+  }, []);
+
   // Native share with clipboard fallback so the button never dead-ends.
   const handleShareAvailability = useCallback(
     async (message) => {
@@ -209,19 +254,30 @@ function MultiMatchCreatorFlow({
       setPlayerRating(value);
       setEditingRating(false);
       const token = getStoredAuthToken();
-      if (!token || !hostId) return;
+      if (!token) return;
       try {
+        let detailsId = profileDetailsId;
+        let profileDetails = null;
+        if (!detailsId) {
+          profileDetails = await getPersonalDetails();
+          detailsId = Number(profileDetails?.id);
+        }
+        if (!Number.isFinite(detailsId)) {
+          throw new Error("Missing player profile id");
+        }
+        const apiRating = value === "4.5+" ? "4.5" : value;
         await updatePlayerPersonalDetails({
           player: token,
-          id: hostId,
-          usta_rating: value === "4.5+" ? "4.5" : value,
+          id: detailsId,
+          usta_rating: apiRating,
         });
+        persistPlayerRating(apiRating, profileDetails);
         showToast("Saved to your profile");
       } catch (err) {
         console.warn("Failed to save rating to profile", err);
       }
     },
-    [hostId, showToast],
+    [persistPlayerRating, profileDetailsId, showToast],
   );
 
   // reset scroll to top whenever the visible screen changes
