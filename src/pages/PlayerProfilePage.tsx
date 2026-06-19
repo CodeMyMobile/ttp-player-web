@@ -45,6 +45,26 @@ const matchStartMs = (match: OpenMatch): number => {
   return parsed.isValid() ? parsed.valueOf() : Number.POSITIVE_INFINITY;
 };
 
+// AuthContext doesn't rehydrate `user` from storage on mount, so on a cold load
+// (refresh / shared link) `user` is null. Fall back to the persisted login
+// response (services/auth.js → "authLoginResponse") for the id, like CoachProfilePage.
+const readStoredUserId = (): string | number | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem("authLoginResponse");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const id = parsed.user_id ?? parsed.id;
+    return typeof id === "string" || typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
+
 const normalizeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value
@@ -63,7 +83,14 @@ const PlayerProfilePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth() as { user?: Record<string, unknown> | undefined };
-  const currentUserId = (user?.id ?? user?.user_id ?? user?.userId ?? null) as string | number | null;
+  const currentUserId = useMemo<string | number | null>(() => {
+    const session = user?.session as Record<string, unknown> | undefined;
+    const fromUser = user?.id ?? user?.user_id ?? user?.userId ?? session?.user_id;
+    if (typeof fromUser === "string" || typeof fromUser === "number") {
+      return fromUser;
+    }
+    return readStoredUserId();
+  }, [user]);
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
 
   // The router-state player (set when navigating in-app) is only a fast-path so

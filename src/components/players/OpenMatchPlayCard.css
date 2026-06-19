@@ -151,16 +151,22 @@
   background: #7c3aed;
 }
 
-.omp-join:disabled:not(.omp-join--self) {
+.omp-join:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-/* Host / already-joined: neutral, non-actionable state */
-.omp-join--self {
-  background: #f1f5f9;
-  color: #64748b;
+/* Host / already-joined: actionable secondary that opens the match detail page */
+.omp-join--details {
+  background: #ffffff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
   box-shadow: none;
-  cursor: default;
+  cursor: pointer;
+}
+
+.omp-join--details:hover {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
 }

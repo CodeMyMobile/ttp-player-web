@@ -235,15 +235,8 @@ const OpenMatchPlayCard = ({
     !isHost && participants.some((participant) => idsMatch(currentUserId, getParticipantId(participant)));
   const isSelf = isHost || isParticipant;
 
-  const joinLabel = isHost
-    ? "You're hosting"
-    : isParticipant
-      ? "Joined"
-      : joining
-        ? "Joining…"
-        : isFull
-          ? "Match full"
-          : "Join this match";
+  // Non-member label only; host/joined render a "View Details" button instead.
+  const joinLabel = joining ? "Joining…" : isFull ? "Match full" : "Join this match";
 
   return (
     <article
@@ -317,19 +310,30 @@ const OpenMatchPlayCard = ({
         </div>
       ) : null}
 
-      <button
-        type="button"
-        className={`omp-join${isSelf ? " omp-join--self" : ""}`}
-        disabled={joining || isFull || isSelf}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (!isSelf) {
+      {isSelf ? (
+        <button
+          type="button"
+          className="omp-join omp-join--details"
+          onClick={(event) => {
+            event.stopPropagation();
+            openDetail();
+          }}
+        >
+          View Details
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="omp-join"
+          disabled={joining || isFull}
+          onClick={(event) => {
+            event.stopPropagation();
             onJoin?.(matchId);
-          }
-        }}
-      >
-        {joinLabel}
-      </button>
+          }}
+        >
+          {joinLabel}
+        </button>
+      )}
     </article>
   );
 };
