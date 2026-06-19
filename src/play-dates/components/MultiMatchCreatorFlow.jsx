@@ -23,7 +23,12 @@ import { getStoredAuthToken } from "../services/authToken";
 import { getPersonalDetails } from "../services/auth";
 import { updatePlayerPersonalDetails } from "../services/player";
 import { buildMatchPayloadFromCard } from "../utils/buildMatchPayload";
-import { mergeCreateResults, summarizeResults } from "../utils/multiMatchCreate";
+import {
+  buildAvailabilityShareMessage,
+  mergeCreateResults,
+  resolveShareHostId,
+  summarizeResults,
+} from "../utils/multiMatchCreate";
 import {
   loadRecentLocations,
   recordRecentLocation,
@@ -53,9 +58,8 @@ const FORMATS = Object.keys(FMT);
 const DURATIONS = ["1", "1.5", "2", "3"];
 const MAX_PRIVATE_INVITES = 30;
 
-// Default, host-editable share message for the open-match success screen.
-const SHARE_MESSAGE =
-  "I've got open match times this week — take a look and grab whichever works for you 🎾";
+// Fallback, host-editable share message for the open-match success screen.
+const SHARE_MESSAGE = buildAvailabilityShareMessage();
 
 const normalizePlayer = (player) => {
   const id = Number(player?.user_id ?? player?.id);
@@ -165,13 +169,7 @@ function MultiMatchCreatorFlow({
   }, []);
 
   const hostId = useMemo(() => {
-    const id = Number(
-      currentUser?.id ??
-        currentUser?.user_id ??
-        currentUser?.userId ??
-        currentUser?.profile_id,
-    );
-    return Number.isFinite(id) ? id : null;
+    return resolveShareHostId(currentUser);
   }, [currentUser]);
 
   const profileDetailsId = useMemo(() => {
@@ -1581,9 +1579,16 @@ const SuccessScreen = ({
   onShareAvailability,
   onDone,
 }) => {
-  const [shareMessage, setShareMessage] = useState(SHARE_MESSAGE);
   const succeeded = results.filter((r) => r.ok);
   const failed = results.filter((r) => !r.ok);
+  const defaultShareMessage = useMemo(
+    () => buildAvailabilityShareMessage(succeeded),
+    [succeeded],
+  );
+  const [shareMessage, setShareMessage] = useState(defaultShareMessage);
+  useEffect(() => {
+    setShareMessage(defaultShareMessage);
+  }, [defaultShareMessage]);
   const n = succeeded.length;
   const title =
     type === "private"

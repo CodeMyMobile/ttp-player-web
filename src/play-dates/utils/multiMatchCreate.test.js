@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeCreateResults, summarizeResults } from "./multiMatchCreate.js";
+import {
+  buildAvailabilityShareMessage,
+  mergeCreateResults,
+  resolveShareHostId,
+  summarizeResults,
+} from "./multiMatchCreate.js";
 
 const ok = (id) => ({ card: { id }, matchId: id * 100, ok: true });
 const fail = (id) => ({ card: { id }, ok: false, error: "boom" });
@@ -61,4 +66,75 @@ test("summarizeResults reports counts and flags", () => {
     allOk: false,
     anyFailed: false,
   });
+});
+
+test("resolveShareHostId prefers the real player/user id over a profile row id", () => {
+  assert.equal(
+    resolveShareHostId({
+      id: 2,
+      user_id: 42,
+      profile_id: 2,
+      profile: { id: 2, user_id: 42 },
+    }),
+    42,
+  );
+});
+
+test("resolveShareHostId uses user_id from profile data before top-level ids", () => {
+  assert.equal(
+    resolveShareHostId({
+      id: 2,
+      user_id: 99,
+      profile: { id: 2, user_id: 42 },
+    }),
+    42,
+  );
+});
+
+test("resolveShareHostId reads nested profile/player identity fields before generic id", () => {
+  assert.equal(resolveShareHostId({ id: 2, profile: { player_id: 77 } }), 77);
+  assert.equal(resolveShareHostId({ id: 2, player: { user_id: 88 } }), 88);
+});
+
+test("resolveShareHostId skips blank identity values", () => {
+  assert.equal(resolveShareHostId({ user_id: null, profile: { user_id: "" }, id: 42 }), 42);
+});
+
+test("buildAvailabilityShareMessage formats one distinct match day", () => {
+  assert.equal(
+    buildAvailabilityShareMessage([
+      { ok: true, card: { date: "2026-06-23" } },
+      { ok: false, card: { date: "2026-06-24" } },
+    ]),
+    "Hey — looking to play Tue, grab a time 🎾",
+  );
+});
+
+test("buildAvailabilityShareMessage formats two distinct match days", () => {
+  assert.equal(
+    buildAvailabilityShareMessage([
+      { ok: true, card: { date: "2026-06-23" } },
+      { ok: true, card: { date: "2026-06-27" } },
+      { ok: true, card: { date: "2026-06-23" } },
+    ]),
+    "Hey — looking to play Tue & Sat, grab a time 🎾",
+  );
+});
+
+test("buildAvailabilityShareMessage formats three or more distinct match days", () => {
+  assert.equal(
+    buildAvailabilityShareMessage([
+      { ok: true, card: { date: "2026-06-23" } },
+      { ok: true, card: { date: "2026-06-27" } },
+      { ok: true, card: { date: "2026-06-28" } },
+    ]),
+    "Hey — looking to play Tue, Sat & Sun, grab a time 🎾",
+  );
+});
+
+test("buildAvailabilityShareMessage falls back when no successful match days exist", () => {
+  assert.equal(
+    buildAvailabilityShareMessage([{ ok: false, card: { date: "2026-06-23" } }]),
+    "I'm looking to play this week — take a look at what times I'm free 🎾",
+  );
 });
