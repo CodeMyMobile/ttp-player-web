@@ -505,3 +505,120 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Logged-out (build-ahead) chrome. Additive only — none of the rules above are
+   affected. Used solely by the logged-out render path of PlayerProfilePage.
+   --------------------------------------------------------------------------- */
+.ppv-lo-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+}
+
+.ppv-lo-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ppv-lo-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #a3e635, #65c913);
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.ppv-lo-brandname {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.ppv-lo-signin {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  background: #8b5cf6;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.ppv-lo-ribbon {
+  background: linear-gradient(135deg, #ede9fe, #f5f3ff);
+  border-bottom: 1px solid #ddd6fe;
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.ppv-lo-ribbon svg {
+  flex: 0 0 auto;
+}
+
+.ppv-lo-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.ppv-lo-bar-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.ppv-lo-bar-text b {
+  color: #0f172a;
+  font-weight: 800;
+  display: block;
+  font-size: 13.5px;
+}
+
+.ppv-lo-bar-btn {
+  flex: 0 0 auto;
+  background: #8b5cf6;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  border-radius: 11px;
+  padding: 11px 18px;
+  font-size: 14.5px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+/* The logged-out path shows its own danger card on all widths (the desktop
+   `display:none` above is scoped to .ppv-main's authenticated layout). */
+.ppv-lo-header ~ .ppv .ppv-danger {
+  display: block;
+}
+

@@ -1,0 +1,59 @@
+/* Logged-out bounded match card. Card chrome / format icon / spots come from
+   matchCardAtoms.css; these rules are the locked-only bits (lock hint, detail
+   rows, sign-in button) mirroring the design prototype. */
+
+.lmc-card {
+  margin-bottom: 12px;
+}
+
+.lmc-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+  gap: 12px;
+}
+
+.lmc-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #334155;
+  padding: 7px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.lmc-detail svg {
+  color: #94a3b8;
+  flex: 0 0 auto;
+}
+
+.lmc-lock-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #94a3b8;
+  font-weight: 650;
+  font-size: 12.5px;
+}
+
+.lmc-join {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #8b5cf6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.lmc-join:hover {
+  background: #7c3aed;
+}
