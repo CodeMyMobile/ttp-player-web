@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, MapPin, MessageCircle } from "lucide-react";
+import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
@@ -21,6 +22,28 @@ import {
 type OpenMatch = Record<string, unknown>;
 
 import "./PlayerProfilePage.css";
+
+// "Open match play" = the app's canonical open/upcoming definition
+// (mirrors TennisMatchApp.jsx: `status || "upcoming"`, then ["upcoming","open"]).
+// Allowlist, so any other status — cancelled/canceled, completed, in_progress,
+// draft, archived, expired — is excluded regardless of spelling.
+const MATCH_OPEN_STATUSES = ["upcoming", "open"];
+const isOpenStatus = (match: OpenMatch): boolean => {
+  const status = String(match.status ?? "upcoming").trim().toLowerCase();
+  return MATCH_OPEN_STATUSES.includes(status);
+};
+
+// Timezone-safe start instant for soonest-first ordering. Uses the same
+// start-field precedence as getMatchStartDate (TennisMatchApp) and strict
+// moment.utc parsing; missing/unparseable dates sort to the end.
+const matchStartMs = (match: OpenMatch): number => {
+  const value = match.dateTime ?? match.start_date_time ?? match.startDateTime ?? match.startsAt;
+  if (value == null || value === "") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const parsed = moment.utc(String(value), moment.ISO_8601, true);
+  return parsed.isValid() ? parsed.valueOf() : Number.POSITIVE_INFINITY;
+};
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -178,6 +201,13 @@ const PlayerProfilePage = () => {
       cancelled = true;
     };
   }, [id, fastPathPlayer]);
+
+  // Single source for the section: open/upcoming only (Change 2), soonest-first
+  // (Change 4). Count, empty-state, and list all read this — they can't drift.
+  const visibleMatches = useMemo(
+    () => openMatches.filter(isOpenStatus).sort((a, b) => matchStartMs(a) - matchStartMs(b)),
+    [openMatches],
+  );
 
   const goBackToResults = () => {
     if (typeof window !== "undefined" && window.history.length <= 2) {
@@ -410,19 +440,19 @@ const PlayerProfilePage = () => {
               <h2 id="open-match-play-heading" className="ppv-sec-title">
                 Open match play
               </h2>
-              {!matchesLoading && !matchesError && openMatches.length > 0 ? (
-                <span className="ppv-sec-count">{openMatches.length} open</span>
+              {!matchesLoading && !matchesError && visibleMatches.length > 0 ? (
+                <span className="ppv-sec-count">{visibleMatches.length} open</span>
               ) : null}
             </div>
             {matchesLoading ? (
               <p className="ppv-state-text">Loading open matches…</p>
             ) : matchesError ? (
               <p className="ppv-state-text">We couldn&apos;t load open matches right now.</p>
-            ) : openMatches.length === 0 ? (
+            ) : visibleMatches.length === 0 ? (
               <p className="ppv-state-text">No open matches right now.</p>
             ) : (
               <div className="ppv-matches-list">
-                {openMatches.map((openMatch, index) => {
+                {visibleMatches.map((openMatch, index) => {
                   const cardId = String(openMatch.match_id ?? openMatch.id ?? index);
                   return (
                     <OpenMatchPlayCard
