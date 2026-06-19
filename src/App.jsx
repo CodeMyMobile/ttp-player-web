@@ -108,6 +108,12 @@ const buildPhoneCaptureSession = (authUser) => {
   };
 };
 
+// Build-ahead: gates the logged-out player profile PREVIEW route. Default OFF.
+// When off the preview route below is not registered at all (not just hidden),
+// so there is no anonymous exposure in production. See `/players/:id/preview-loggedout`.
+const ENABLE_LOGGEDOUT_PROFILE =
+  `${import.meta.env.VITE_ENABLE_LOGGEDOUT_PROFILE ?? ""}`.toLowerCase() === "true";
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading, establishSession, user } = useAuth();
   const location = useLocation();
@@ -489,6 +495,12 @@ const AppRoutes = () => (
         </ProtectedRoute>
       )}
     />
+    {ENABLE_LOGGEDOUT_PROFILE ? (
+      <Route
+        path="/players/:id/preview-loggedout"
+        element={<PlayerProfilePage loggedOut />}
+      />
+    ) : null}
     <Route
       path="/coaches/:id"
       element={<CoachProfilePage />}
