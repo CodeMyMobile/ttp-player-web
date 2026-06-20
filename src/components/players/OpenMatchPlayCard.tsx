@@ -3,6 +3,7 @@ import { Calendar, MapPin, Swords, Users } from "lucide-react";
 
 import { getMatchSpots } from "../../play-dates/services/matches";
 import { getAvatarInitials, getProfileImageFromSource } from "../../play-dates/utils/avatar";
+import { getMatchHostId, idsMatch } from "../../play-dates/utils/matchHost";
 
 import "./OpenMatchPlayCard.css";
 
@@ -152,31 +153,6 @@ const participantImage = (participant: MatchRecord): string =>
   getProfileImageFromSource(participant.player) ||
   getProfileImageFromSource(participant) ||
   "";
-
-// Loose id comparison (ids arrive as number or string across the API).
-const idsMatch = (a: unknown, b: unknown): boolean => {
-  if (a === undefined || a === null || b === undefined || b === null) {
-    return false;
-  }
-  return String(a).trim() === String(b).trim();
-};
-
-const getMatchHostId = (match: MatchRecord): unknown => {
-  const host = asRecord(match.host);
-  const creator = asRecord(match.creator);
-  return (
-    match.host_id ??
-    match.hostId ??
-    match.created_by ??
-    match.createdBy ??
-    match.creator_id ??
-    match.creatorId ??
-    host.id ??
-    host.user_id ??
-    creator.id ??
-    null
-  );
-};
 
 // Mirrors getParticipantPlayerId in MatchDetailsPage, plus user_id variants.
 const getParticipantId = (participant: MatchRecord): unknown => {

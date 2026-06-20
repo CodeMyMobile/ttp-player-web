@@ -8,6 +8,7 @@ import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, verifyUserLevel } from "../api/playerHome";
 import { joinMatch, listMatches } from "../play-dates/services/matches";
+import { getMatchHostId, idsMatch } from "../play-dates/utils/matchHost";
 import { getStoredAuthToken } from "../services/authToken";
 import { useAuth } from "../context/AuthContext";
 import type { ConnectIntent } from "../types/matchPlay";
@@ -229,11 +230,16 @@ const PlayerProfilePage = () => {
     };
   }, [id, fastPathPlayer]);
 
-  // Single source for the section: open/upcoming only (Change 2), soonest-first
-  // (Change 4). Count, empty-state, and list all read this — they can't drift.
+  // Single source for the section: open/upcoming only (Change 2), hosted by THIS
+  // profile owner (the feed guard — the backend currently ignores created_by, so
+  // we scope client-side and drop anything we can't attribute to the owner),
+  // soonest-first (Change 4). Count, empty-state, and list all read this.
   const visibleMatches = useMemo(
-    () => openMatches.filter(isOpenStatus).sort((a, b) => matchStartMs(a) - matchStartMs(b)),
-    [openMatches],
+    () =>
+      openMatches
+        .filter((match) => isOpenStatus(match) && idsMatch(getMatchHostId(match), id))
+        .sort((a, b) => matchStartMs(a) - matchStartMs(b)),
+    [openMatches, id],
   );
 
   const goBackToResults = () => {
