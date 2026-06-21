@@ -43,8 +43,10 @@ import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
+import LogResultPage from "./pages/log-result";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
+import { isLogResultEnabled } from "./play-dates/utils/featureFlags";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
 
@@ -352,6 +354,18 @@ const AppRoutes = () => (
         </ProtectedRoute>
       )}
     />
+    {/* Stub-driven "Log a result" flow. Gated on VITE_LOG_RESULT (off by default) so
+        the fixture page never reaches real users — enable it only in deploy previews. */}
+    {isLogResultEnabled() ? (
+      <Route
+        path="/log-result"
+        element={(
+          <ProtectedRoute>
+            <LogResultPage />
+          </ProtectedRoute>
+        )}
+      />
+    ) : null}
     <Route
       path="/matches/:id"
       element={(
