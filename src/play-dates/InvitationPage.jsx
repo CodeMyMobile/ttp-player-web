@@ -34,6 +34,8 @@ import {
 import MatchDetailsModal from "./components/MatchDetailsModal.jsx";
 import PlayerAvatar from "./components/PlayerAvatar.jsx";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
+import { hasViewerJoinedInvitePreview } from "./utils/inviteViewerState";
+import { memberMatchesParticipant } from "./utils/memberIdentity";
 import {
   clearStoredAuthToken,
   clearStoredRefreshToken,
@@ -1501,7 +1503,29 @@ export default function InvitationPage() {
         />
       </InvitationLayout>
     );
-  if (isFullInviteStatus(normalizedPreviewStatus, previewWithRoster, match))
+
+  // Whether the signed-in viewer has already joined this match. Prefer server
+  // viewer truth when present; fall back to the exact legacy joined status and
+  // the roster identity match the feed uses for its "Joined" pill.
+  // previewWithRoster must be built before this — anchored here, right before
+  // the full-invite guard already reads it, so getActiveParticipants sees a
+  // populated roster rather than silently reading an empty one.
+  const viewerInviteJoined =
+    hasViewerJoinedInvitePreview(preview, hasStoredSession) ||
+    (hasStoredSession && normalizedPreviewStatus === "joined");
+  const viewerInRoster =
+    hasStoredSession &&
+    getActiveParticipants(match, previewWithRoster).some((participant) =>
+      memberMatchesParticipant(currentUser, participant),
+    );
+  const viewerHasJoined = viewerInviteJoined || viewerInRoster;
+
+  // An already-joined viewer should still see their match card, not the
+  // full-match dead end, even if the match has since filled.
+  if (
+    !viewerHasJoined &&
+    isFullInviteStatus(normalizedPreviewStatus, previewWithRoster, match)
+  )
     return (
       <InvitationLayout
         currentUser={currentUser}
@@ -2225,6 +2249,22 @@ export default function InvitationPage() {
             claimSection
           ) : phase === "auth" ? (
             authSection
+          ) : isSignedIn && viewerHasJoined ? (
+            <div className="space-y-2.5">
+              <PrimaryButton
+                onClick={() => {
+                  if (previewMatchId) {
+                    navigate(`/matches/${previewMatchId}`);
+                  }
+                }}
+                disabled={!previewMatchId}
+              >
+                View match <ArrowRight className="h-4 w-4" />
+              </PrimaryButton>
+              <p className="px-2 pt-1 text-center text-xs font-medium leading-relaxed text-slate-400">
+                You're in this match. You can leave it at any time from your schedule.
+              </p>
+            </div>
           ) : isSignedIn ? (
             <div className="space-y-2.5">
               <PrimaryButton
