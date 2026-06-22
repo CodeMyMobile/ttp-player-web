@@ -779,3 +779,35 @@
     display: none;
   }
 }
+
+/* Coach-profile route: back slot + hidden location picker, MOBILE ONLY.
+   Opt-in via props (showBack / hideLocation) so other routes are unaffected.
+   Hidden by default so desktop (>= 1024px) stays pixel-identical. */
+.app-nav__back {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #1b1830;
+  cursor: pointer;
+}
+
+.app-nav__back:active {
+  background: #f4f3f8;
+}
+
+@media (max-width: 1023px) {
+  .app-nav__back {
+    display: inline-flex;
+  }
+
+  .app-nav__location-wrap--mobile-hidden {
+    display: none;
+  }
+}
