@@ -3,6 +3,7 @@ import { Calendar, MapPin, Swords, Users } from "lucide-react";
 
 import { getMatchSpots } from "../../play-dates/services/matches";
 import { getAvatarInitials, getProfileImageFromSource } from "../../play-dates/utils/avatar";
+import { isCurrentUserInMatch } from "./openMatchPlayCardState.js";
 
 import "./OpenMatchPlayCard.css";
 
@@ -153,49 +154,6 @@ const participantImage = (participant: MatchRecord): string =>
   getProfileImageFromSource(participant) ||
   "";
 
-// Loose id comparison (ids arrive as number or string across the API).
-const idsMatch = (a: unknown, b: unknown): boolean => {
-  if (a === undefined || a === null || b === undefined || b === null) {
-    return false;
-  }
-  return String(a).trim() === String(b).trim();
-};
-
-const getMatchHostId = (match: MatchRecord): unknown => {
-  const host = asRecord(match.host);
-  const creator = asRecord(match.creator);
-  return (
-    match.host_id ??
-    match.hostId ??
-    match.created_by ??
-    match.createdBy ??
-    match.creator_id ??
-    match.creatorId ??
-    host.id ??
-    host.user_id ??
-    creator.id ??
-    null
-  );
-};
-
-// Mirrors getParticipantPlayerId in MatchDetailsPage, plus user_id variants.
-const getParticipantId = (participant: MatchRecord): unknown => {
-  const profile = asRecord(participant.profile);
-  const player = asRecord(participant.player);
-  return (
-    participant.player_id ??
-    participant.playerId ??
-    participant.user_id ??
-    participant.userId ??
-    participant.id ??
-    player.id ??
-    player.player_id ??
-    profile.user_id ??
-    profile.id ??
-    null
-  );
-};
-
 const OpenMatchPlayCard = ({
   match,
   onJoin,
@@ -227,23 +185,12 @@ const OpenMatchPlayCard = ({
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const isTight = spotsLeft === 1;
 
-  // You can't join your own match, or one you're already in. Check the match's
-  // own host field first, then fall back to the listing's authoritative host.
-  const isHost =
-    idsMatch(currentUserId, getMatchHostId(match)) || idsMatch(currentUserId, hostId);
-  const isParticipant =
-    !isHost && participants.some((participant) => idsMatch(currentUserId, getParticipantId(participant)));
-  const isSelf = isHost || isParticipant;
+  // You can't join your own match, one you're already in, or one where your
+  // invite is already attached.
+  const isSelf = isCurrentUserInMatch(match, currentUserId, hostId);
 
-  const joinLabel = isHost
-    ? "You're hosting"
-    : isParticipant
-      ? "Joined"
-      : joining
-        ? "Joining…"
-        : isFull
-          ? "Match full"
-          : "Join this match";
+  // Non-member label only; host/joined render a "View Details" button instead.
+  const joinLabel = joining ? "Joining…" : isFull ? "Match full" : "Join this match";
 
   return (
     <article
@@ -317,19 +264,30 @@ const OpenMatchPlayCard = ({
         </div>
       ) : null}
 
-      <button
-        type="button"
-        className={`omp-join${isSelf ? " omp-join--self" : ""}`}
-        disabled={joining || isFull || isSelf}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (!isSelf) {
+      {isSelf ? (
+        <button
+          type="button"
+          className="omp-join omp-join--details"
+          onClick={(event) => {
+            event.stopPropagation();
+            openDetail();
+          }}
+        >
+          View Details
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="omp-join"
+          disabled={joining || isFull}
+          onClick={(event) => {
+            event.stopPropagation();
             onJoin?.(matchId);
-          }
-        }}
-      >
-        {joinLabel}
-      </button>
+          }}
+        >
+          {joinLabel}
+        </button>
+      )}
     </article>
   );
 };
