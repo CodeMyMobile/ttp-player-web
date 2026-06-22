@@ -6,15 +6,35 @@ import type { CurrentUser, Player } from "./scoring";
 interface PlayerPickerProps {
   me: CurrentUser;
   players: Player[];
+  playersLoading?: boolean;
+  playersError?: string | null;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
   value: Player | null;
   onChange: (player: Player) => void;
 }
 
 // You vs Opponent. Opponent is chosen from registered players only — no free text.
-export function PlayerPicker({ me, players, value, onChange }: PlayerPickerProps) {
+export function PlayerPicker({
+  me,
+  players,
+  playersLoading = false,
+  playersError = null,
+  searchQuery,
+  onSearchChange,
+  value,
+  onChange,
+}: PlayerPickerProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filtered = players.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+  const [localQuery, setLocalQuery] = useState("");
+  const query = searchQuery ?? localQuery;
+  const filtered = onSearchChange
+    ? players
+    : players.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+  const updateQuery = (nextQuery: string) => {
+    setLocalQuery(nextQuery);
+    onSearchChange?.(nextQuery);
+  };
 
   return (
     <div>
@@ -52,13 +72,15 @@ export function PlayerPicker({ me, players, value, onChange }: PlayerPickerProps
         <div className="mt-2 rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100">
             <Search className="h-4 w-4 text-slate-400" />
-            <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search players" className="w-full text-base sm:text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none" />
+            <input autoFocus value={query} onChange={(e) => updateQuery(e.target.value)} placeholder="Search players" className="w-full text-base sm:text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none" />
             <button onClick={() => setOpen(false)} aria-label="Close" className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
           </div>
           <ul className="max-h-56 overflow-y-auto py-1">
-            {filtered.map((p) => (
+            {playersLoading && <li className="px-3 py-6 text-center text-sm text-slate-400">Loading players…</li>}
+            {!playersLoading && playersError && <li className="px-3 py-6 text-center text-sm text-rose-500">{playersError}</li>}
+            {!playersLoading && !playersError && filtered.map((p) => (
               <li key={p.id}>
-                <button onClick={() => { onChange(p); setOpen(false); setQuery(""); }} className="w-full flex items-center gap-3 px-3 py-3 hover:bg-violet-50/60 transition-colors text-left">
+                <button onClick={() => { onChange(p); setOpen(false); updateQuery(""); }} className="w-full flex items-center gap-3 px-3 py-3 hover:bg-violet-50/60 transition-colors text-left">
                   <Avatar name={p.name} color={p.color} size="h-9 w-9" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900 truncate">{p.name}</div>
@@ -67,7 +89,7 @@ export function PlayerPicker({ me, players, value, onChange }: PlayerPickerProps
                 </button>
               </li>
             ))}
-            {filtered.length === 0 && <li className="px-3 py-6 text-center text-sm text-slate-400">No players match “{query}”.</li>}
+            {!playersLoading && !playersError && filtered.length === 0 && <li className="px-3 py-6 text-center text-sm text-slate-400">No players match “{query}”.</li>}
           </ul>
         </div>
       )}

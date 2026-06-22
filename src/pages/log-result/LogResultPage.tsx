@@ -17,11 +17,12 @@ type Step = "form" | "review" | "sent";
 
 export default function LogResultPage() {
   const me = useCurrentUser();
-  const players = usePlayers();
   const courts = useCourts();
 
   const [step, setStep] = useState<Step>("form");
   const [opponent, setOpponent] = useState<Player | null>(null);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const { players, loading: playersLoading, error: playersError } = usePlayers(playerSearch);
   const [date, setDate] = useState<string>(TODAY);
   const [court, setCourt] = useState<Court | null>(null);
   const [format, setFormat] = useState<Format>("bo3");
@@ -114,7 +115,16 @@ export default function LogResultPage() {
         </div>
         <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
           <MatchTypeToggle />
-          <PlayerPicker me={me} players={players} value={opponent} onChange={setOpponent} />
+          <PlayerPicker
+            me={me}
+            players={players}
+            playersLoading={playersLoading}
+            playersError={playersError}
+            searchQuery={playerSearch}
+            onSearchChange={setPlayerSearch}
+            value={opponent}
+            onChange={setOpponent}
+          />
           <WhenWhere date={date} onDateChange={setDate} court={court} onCourtChange={setCourt} courts={courts} />
           <ScoreSection me={me} opponent={opponent} format={format} sets={sets} dnf={dnf} dnfWinner={dnfWinner} result={result} controls={controls} />
         </div>
