@@ -34,6 +34,7 @@ import {
 import MatchDetailsModal from "./components/MatchDetailsModal.jsx";
 import PlayerAvatar from "./components/PlayerAvatar.jsx";
 import { getAvatarInitials, getAvatarUrlFromPlayer } from "./utils/avatar";
+import { hasViewerJoinedInvitePreview } from "./utils/inviteViewerState";
 import { memberMatchesParticipant } from "./utils/memberIdentity";
 import {
   clearStoredAuthToken,
@@ -1488,15 +1489,15 @@ export default function InvitationPage() {
         />
       </InvitationLayout>
     );
-  // Whether the signed-in viewer has already joined this match. Two truthful
-  // signals: (a) the invite's own status (the token is this viewer's invite),
-  // and (b) the viewer matching an active participant via the same identity
-  // logic the matches feed uses for its "Joined" pill (memberIdentity.js).
+  // Whether the signed-in viewer has already joined this match. Prefer server
+  // viewer truth when present; fall back to the invite's own status and the
+  // roster identity match the feed uses for its "Joined" pill.
   // previewWithRoster must be built before this — anchored here, right before
   // the full-invite guard already reads it, so getActiveParticipants sees a
   // populated roster rather than silently reading an empty one.
   const viewerInviteJoined =
-    hasStoredSession && OPEN_MATCH_JOINED_STATUS_VALUES.has(normalizedPreviewStatus);
+    hasViewerJoinedInvitePreview(preview, hasStoredSession) ||
+    (hasStoredSession && normalizedPreviewStatus === "joined");
   const viewerInRoster =
     hasStoredSession &&
     getActiveParticipants(match, previewWithRoster).some((participant) =>
