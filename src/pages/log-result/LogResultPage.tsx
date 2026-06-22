@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Info } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import { Shell } from "./Shell";
 import { MatchTypeToggle } from "./MatchTypeToggle";
 import { PlayerPicker } from "./PlayerPicker";
@@ -9,15 +10,16 @@ import type { ScoreControls } from "./Scoreboard";
 import { ReviewCard } from "./ReviewCard";
 import { SentCard } from "./SentCard";
 import { PrimaryButton } from "./ui";
-import { useCurrentUser, usePlayers, useCourts } from "./data";
+import { submitMatchResult, useCurrentUser, usePlayers, useCourtsApi } from "./data";
 import { TODAY, newSet, computeResult, buildSubmitPayload } from "./scoring";
 import type { Player, Court, Format, MatchSet, Side } from "./scoring";
 
 type Step = "form" | "review" | "sent";
 
 export default function LogResultPage() {
-  const me = useCurrentUser();
-  const courts = useCourts();
+  const { user } = useAuth();
+  const me = useCurrentUser(user);
+  const { courts, loading: courtsLoading, error: courtsError } = useCourtsApi();
 
   const [step, setStep] = useState<Step>("form");
   const [opponent, setOpponent] = useState<Player | null>(null);
@@ -29,6 +31,8 @@ export default function LogResultPage() {
   const [sets, setSets] = useState<MatchSet[]>([newSet(), newSet()]);
   const [dnf, setDnf] = useState(false);
   const [dnfWinner, setDnfWinner] = useState<Side | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // all set/format mutations live here so the score components stay presentational
   const controls = useMemo<ScoreControls>(() => ({
@@ -52,8 +56,10 @@ export default function LogResultPage() {
   }), []);
 
   const result = useMemo(() => computeResult({ sets, dnf, dnfWinner, format }), [sets, dnf, dnfWinner, format]);
-  const valid = !!(opponent && court && result.complete);
+  const valid = !!(opponent && court && result.complete && me.id);
   const missing = !opponent ? "Choose your opponent to continue."
+    : courtsLoading ? "Loading courts."
+    : courtsError ? "Courts are unavailable right now."
     : !court ? "Choose a court to continue."
     : !result.complete ? "Finish entering the score."
     : "You’ll check it on the next screen before it’s sent.";
@@ -61,15 +67,29 @@ export default function LogResultPage() {
   const reset = () => {
     setStep("form"); setOpponent(null); setDate(TODAY); setCourt(null);
     setFormat("bo3"); setSets([newSet(), newSet()]); setDnf(false); setDnfWinner(null);
+    setSubmitting(false); setSubmitError(null);
   };
 
-  const submit = () => {
-    // No API yet — log the payload Sahil's endpoint will receive, then show "sent".
-    // TODO(Sahil): POST /matches with this body → { match_id, status, confirm_window_ends_at }
+  const submit = async () => {
     if (!opponent || !court) return;
-    const payload = buildSubmitPayload({ me, opponent, date, court, format, sets, dnf, dnfWinner });
-    console.log("[LogResult] would POST /matches:", payload);
-    setStep("sent");
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const payload = buildSubmitPayload({ me, opponent, date, court, format, sets, dnf, dnfWinner });
+      await submitMatchResult(payload);
+      setStep("sent");
+    } catch (error) {
+      const apiErrors = (error as { data?: { errors?: string[] } })?.data?.errors;
+      setSubmitError(
+        Array.isArray(apiErrors) && apiErrors.length
+          ? apiErrors.join(", ")
+          : error instanceof Error
+            ? error.message
+            : "Could not submit result.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (step === "review" && opponent && court) {
@@ -80,7 +100,12 @@ export default function LogResultPage() {
         onBack={() => setStep("form")}
         footer={
           <>
-            <PrimaryButton onClick={submit}>Send to {opponent.name}</PrimaryButton>
+            <PrimaryButton disabled={submitting} onClick={submit}>
+              {submitting ? "Sending..." : `Send to ${opponent.name}`}
+            </PrimaryButton>
+            {submitError && (
+              <p className="mt-2 text-center text-xs font-semibold text-rose-600">{submitError}</p>
+            )}
             <button onClick={() => setStep("form")} className="mt-2 w-full rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Back to edit</button>
           </>
         }

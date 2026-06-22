@@ -1,9 +1,8 @@
-// Stub data hooks. Current user and courts still use fixtures; player search is
-// live because the matches API already exposes the registered-player endpoint.
 import { useEffect, useState } from "react";
+import api, { unwrap } from "../../services/api";
 import { searchPlayers } from "../../services/matches";
-import type { CurrentUser, Player, Court } from "./scoring";
-import { CURRENT_USER, COURTS } from "./fixtures";
+import type { CurrentUser, Player, Court, SubmitPayload } from "./scoring";
+import { CURRENT_USER } from "./fixtures";
 
 interface ApiPlayer {
   id?: number | string;
@@ -19,6 +18,24 @@ interface PlayersState {
   players: Player[];
   loading: boolean;
   error: string | null;
+}
+
+interface CourtsState {
+  courts: Court[];
+  loading: boolean;
+  error: string | null;
+}
+
+interface ApiCourt {
+  id?: number | string;
+  name?: string | null;
+  area?: string | null;
+}
+
+interface MatchResultResponse {
+  match_id?: number | string;
+  status?: string;
+  confirm_window_ends_at?: string;
 }
 
 const PLAYER_COLORS = [
@@ -43,8 +60,81 @@ const normalizePlayer = (player: ApiPlayer, index: number): Player => {
   };
 };
 
-export function useCurrentUser(): CurrentUser {
-  return CURRENT_USER;
+const readStoredObject = (key: string): Record<string, unknown> | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+};
+
+const firstString = (...values: unknown[]): string | null => {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    return String(value);
+  }
+  return null;
+};
+
+const normalizeCurrentUser = (authUser?: unknown): CurrentUser => {
+  const loginResponse = readStoredObject("authLoginResponse") || {};
+  const personalDetails = readStoredObject("playerPersonalDetails") || {};
+  const authRecord = authUser && typeof authUser === "object" ? authUser as Record<string, unknown> : {};
+  const profile = (
+    authRecord.profile && typeof authRecord.profile === "object"
+      ? authRecord.profile as Record<string, unknown>
+      : {}
+  );
+  const loginProfile = (
+    loginResponse.profile && typeof loginResponse.profile === "object"
+      ? loginResponse.profile as Record<string, unknown>
+      : loginResponse.user && typeof loginResponse.user === "object"
+        ? loginResponse.user as Record<string, unknown>
+        : {}
+  );
+
+  return {
+    id: firstString(
+      authRecord.id,
+      authRecord.user_id,
+      profile.user_id,
+      profile.id,
+      personalDetails.user_id,
+      personalDetails.id,
+      loginProfile.user_id,
+      loginProfile.id,
+      loginResponse.user_id,
+    ) || CURRENT_USER.id,
+    name: firstString(
+      authRecord.name,
+      authRecord.full_name,
+      profile.full_name,
+      personalDetails.full_name,
+      loginProfile.full_name,
+      loginResponse.full_name,
+      authRecord.email,
+    ) || CURRENT_USER.name,
+    ntrp: firstString(
+      authRecord.skillLevel,
+      authRecord.skill_level,
+      authRecord.usta_rating,
+      profile.usta_rating,
+      personalDetails.usta_rating,
+      loginProfile.usta_rating,
+    ) || CURRENT_USER.ntrp,
+  };
+};
+
+const normalizeCourt = (court: ApiCourt): Court => ({
+  id: String(court.id ?? ""),
+  name: court.name || "Court",
+  area: court.area || "",
+});
+
+export function useCurrentUser(authUser?: unknown): CurrentUser {
+  return normalizeCurrentUser(authUser);
 }
 
 export function usePlayers(search = ""): PlayersState {
@@ -89,6 +179,47 @@ export function usePlayers(search = ""): PlayersState {
   return state;
 }
 
-export function useCourts(): Court[] {
-  return COURTS;
+export function useCourtsApi(): CourtsState {
+  const [state, setState] = useState<CourtsState>({
+    courts: [],
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    unwrap(api("/courts"))
+      .then((data: { courts?: ApiCourt[] }) => {
+        if (!alive) return;
+        setState({
+          courts: (data.courts || []).map(normalizeCourt).filter((court) => court.id),
+          loading: false,
+          error: null,
+        });
+      })
+      .catch((error: Error) => {
+        if (!alive) return;
+        console.error("[LogResult] failed to load courts", error);
+        setState({
+          courts: [],
+          loading: false,
+          error: "Failed to load courts",
+        });
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return state;
+}
+
+export function submitMatchResult(payload: SubmitPayload): Promise<MatchResultResponse> {
+  return unwrap(
+    api("/match-results", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
 }

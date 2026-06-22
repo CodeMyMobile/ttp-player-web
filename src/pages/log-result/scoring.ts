@@ -59,7 +59,7 @@ export type CellState = "win" | "lose" | "neutral";
 
 // The body this page WOULD POST. Shaped to the Match model in the league brief.
 export interface SubmitPayloadBase {
-  context: "casual";
+  context: "recreational";
   reported_by: string; // player_a is the current user
   player_b: string;
   played_at: string; // local yyyy-mm-dd
@@ -177,7 +177,7 @@ export function computeResult(
 }
 
 // The body this page WOULD POST. Shaped to the Match model in the league brief.
-// TODO(Sahil): POST /matches  → { match_id, status: "pending", confirm_window_ends_at }
+// TODO(Sahil): Phase 2 response will include confirm_window_ends_at for pending results.
 export function buildSubmitPayload(
   { me, opponent, date, court, format, sets, dnf, dnfWinner }:
   {
@@ -186,7 +186,7 @@ export function buildSubmitPayload(
   },
 ): SubmitPayload {
   const base: SubmitPayloadBase = {
-    context: "casual",
+    context: "recreational",
     reported_by: me.id,     // player_a is the current user
     player_b: opponent.id,
     played_at: date,        // local yyyy-mm-dd
