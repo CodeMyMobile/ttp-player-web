@@ -3,7 +3,7 @@ import { Calendar, MapPin, Swords, Users } from "lucide-react";
 
 import { getMatchSpots } from "../../play-dates/services/matches";
 import { getAvatarInitials, getProfileImageFromSource } from "../../play-dates/utils/avatar";
-import { getMatchHostId, idsMatch } from "../../play-dates/utils/matchHost";
+import { isCurrentUserInMatch } from "./openMatchPlayCardState.js";
 
 import "./OpenMatchPlayCard.css";
 
@@ -154,24 +154,6 @@ const participantImage = (participant: MatchRecord): string =>
   getProfileImageFromSource(participant) ||
   "";
 
-// Mirrors getParticipantPlayerId in MatchDetailsPage, plus user_id variants.
-const getParticipantId = (participant: MatchRecord): unknown => {
-  const profile = asRecord(participant.profile);
-  const player = asRecord(participant.player);
-  return (
-    participant.player_id ??
-    participant.playerId ??
-    participant.user_id ??
-    participant.userId ??
-    participant.id ??
-    player.id ??
-    player.player_id ??
-    profile.user_id ??
-    profile.id ??
-    null
-  );
-};
-
 const OpenMatchPlayCard = ({
   match,
   onJoin,
@@ -203,13 +185,9 @@ const OpenMatchPlayCard = ({
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const isTight = spotsLeft === 1;
 
-  // You can't join your own match, or one you're already in. Check the match's
-  // own host field first, then fall back to the listing's authoritative host.
-  const isHost =
-    idsMatch(currentUserId, getMatchHostId(match)) || idsMatch(currentUserId, hostId);
-  const isParticipant =
-    !isHost && participants.some((participant) => idsMatch(currentUserId, getParticipantId(participant)));
-  const isSelf = isHost || isParticipant;
+  // You can't join your own match, one you're already in, or one where your
+  // invite is already attached.
+  const isSelf = isCurrentUserInMatch(match, currentUserId, hostId);
 
   // Non-member label only; host/joined render a "View Details" button instead.
   const joinLabel = joining ? "Joining…" : isFull ? "Match full" : "Join this match";
