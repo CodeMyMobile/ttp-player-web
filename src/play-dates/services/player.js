@@ -42,12 +42,12 @@ const personalDetailsEndpoint = "/player/personal_details/";
 export const updatePlayerPersonalDetails = async ({
   player = null,
   id: rawId = null,
-  date_of_birth = null,
-  usta_rating = null,
-  uta_rating = null,
-  fullName = null,
-  mobile = null,
-  about_me = null,
+  date_of_birth,
+  usta_rating,
+  uta_rating,
+  fullName,
+  mobile,
+  about_me,
   profile_picture,
 }) => {
   const authHeader = normalizeAuthToken(player, {

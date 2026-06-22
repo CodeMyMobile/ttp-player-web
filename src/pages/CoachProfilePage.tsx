@@ -13,10 +13,12 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Clock3,
   MapPin,
   MessageCircle,
+  Target,
   Users,
   Wallet,
   X,
@@ -276,6 +278,13 @@ const LEVEL_OPTIONS = [
   "Competitive",
 ];
 
+// Skill order for the hero tagline level range (lowest → highest). Unknown labels sort last.
+const LEVEL_SKILL_ORDER = ["beginner", "beginner+", "intermediate", "intermediate+", "advanced", "competitive"];
+const levelSkillRank = (label: string) => {
+  const index = LEVEL_SKILL_ORDER.indexOf(label.trim().toLowerCase());
+  return index === -1 ? LEVEL_SKILL_ORDER.length : index;
+};
+
 const DISPLAY_LABEL_OVERRIDES: Record<string, string> = {
   private: "Private",
   semi: "Semi-Private",
@@ -328,6 +337,22 @@ const shortenLocationLabel = (value?: string | null) => {
   if (words.length <= 3) return base;
 
   return words.slice(0, 3).join(" ");
+};
+
+// §4 mobile booking module — time-of-day buckets, derived client-side from slot start time.
+type MobileTimeBucket = "morning" | "afternoon" | "evening";
+
+const MOBILE_TIME_BUCKETS: Array<{ key: MobileTimeBucket; label: string }> = [
+  { key: "morning", label: "Morning" },
+  { key: "afternoon", label: "Afternoon" },
+  { key: "evening", label: "Evening" },
+];
+
+const getSlotTimeBucket = (slot: LoadedSlot): MobileTimeBucket => {
+  const hour = moment(slot.start).hour();
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
 };
 
 const useCoachProfile = (id?: string, token?: string) => {
@@ -830,6 +855,8 @@ const CoachProfilePage = () => {
   } = useCoachRoster(profile?.id, authToken);
 
   const [bookingType, setBookingType] = useState<LessonTypeFilter>("all");
+  const [mobileSelectedDay, setMobileSelectedDay] = useState<string | null>(null);
+  const [mobileSheetSlot, setMobileSheetSlot] = useState<LoadedSlot | null>(null);
   const [packageLessonType, setPackageLessonType] = useState<PackageLessonTypeFilter>("all");
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [pendingSelectedDate, setPendingSelectedDate] = useState<string | null>(null);
@@ -1018,6 +1045,34 @@ const CoachProfilePage = () => {
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
   const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
   const cityLabel = heroLocationLabel || "Location TBD";
+  // Mobile-redesign hero (v3): derived client-side from existing real fields only.
+  const heroStudents =
+    typeof apiProfile?.studentCount === "number" && Number.isFinite(apiProfile.studentCount)
+      ? `${apiProfile.studentCount}+`
+      : null;
+  const heroExperience = profile?.yearsExperience
+    ? `${profile.yearsExperience} yrs`
+    : apiProfile?.experienceYears
+      ? `${apiProfile.experienceYears} yrs`
+      : null;
+  const heroTagline = useMemo(() => {
+    const sentence = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
+    const lowerLevels = [...levels]
+      .sort((a, b) => levelSkillRank(a) - levelSkillRank(b))
+      .map((level) => level.toLowerCase());
+    const levelsPart =
+      lowerLevels.length >= 2
+        ? `${lowerLevels[0]} to ${lowerLevels[lowerLevels.length - 1]}`
+        : lowerLevels[0] ?? "";
+    const focus = specialties.slice(0, 3).map((item) => item.toLowerCase());
+    const focusPart =
+      focus.length <= 1
+        ? focus.join("")
+        : `${focus.slice(0, -1).join(", ")} & ${focus[focus.length - 1]}`;
+    return [sentence(levelsPart), sentence(focusPart)].filter(Boolean).join(" · ");
+  }, [levels, specialties]);
+  // §3: lesson-format chip group renders only when the profile actually carries formats.
+  const hasLessonFormats = Boolean(bookingLessonTypes.length || apiProfile?.formats?.length);
   const playerId =
     user?.session?.user_id ??
     user?.id ??
@@ -2722,6 +2777,255 @@ const CoachProfilePage = () => {
     }
   };
 
+  const renderMobileBookingSheet = (slot: LoadedSlot) => {
+    const isGroup = slot.type === "group";
+    const isFull = slot.spotsLeft === 0;
+    const spotsLabel =
+      isGroup && slot.spotsLeft != null && slot.totalSpots != null
+        ? isFull
+          ? "Full"
+          : `${slot.spotsLeft} of ${slot.totalSpots} spots left`
+        : null;
+    const closeSheet = () => setMobileSheetSlot(null);
+
+    return (
+      <div className="coach-bm-sheet" role="dialog" aria-modal="true">
+        <div className="coach-bm-sheet__backdrop" onClick={closeSheet} />
+        <div className="coach-bm-sheet__panel">
+          <div className="coach-bm-sheet__handle" aria-hidden />
+          <div className="coach-bm-sheet__time">
+            {slot.timeLabel}
+            <span className={`coach-bm-sheet__pill coach-bm-sheet__pill--${slot.type}`}>
+              {isGroup ? "Group" : "Private"}
+            </span>
+          </div>
+          <div className="coach-bm-sheet__day">
+            {slot.dayLabel} {slot.dateLabel}
+          </div>
+          {isGroup && slot.className ? <div className="coach-bm-sheet__session">{slot.className}</div> : null}
+          {isGroup && slot.description ? <p className="coach-bm-sheet__desc">{slot.description}</p> : null}
+          <div className="coach-bm-sheet__rows">
+            <div className="coach-bm-sheet__row">
+              <span className="coach-bm-sheet__ic">
+                <MapPin size={18} />
+              </span>
+              <span className="coach-bm-sheet__lbl">Location</span>
+              <span className="coach-bm-sheet__val">{slot.court}</span>
+            </div>
+            <div className="coach-bm-sheet__row">
+              <span className="coach-bm-sheet__ic">
+                <Clock3 size={18} />
+              </span>
+              <span className="coach-bm-sheet__lbl">Duration</span>
+              <span className="coach-bm-sheet__val">{slot.durationLabel}</span>
+            </div>
+            <div className="coach-bm-sheet__row">
+              <span className="coach-bm-sheet__ic">
+                <Wallet size={18} />
+              </span>
+              <span className="coach-bm-sheet__lbl">Price</span>
+              <span className="coach-bm-sheet__val">
+                {slot.priceLabel}
+                {isGroup ? " / person" : ""}
+              </span>
+            </div>
+            {isGroup && slot.level ? (
+              <div className="coach-bm-sheet__row">
+                <span className="coach-bm-sheet__ic">
+                  <Target size={18} />
+                </span>
+                <span className="coach-bm-sheet__lbl">Level</span>
+                <span className="coach-bm-sheet__val">{slot.level}</span>
+              </div>
+            ) : null}
+            {isGroup && spotsLabel ? (
+              <div className="coach-bm-sheet__row">
+                <span className="coach-bm-sheet__ic">
+                  <Users size={18} />
+                </span>
+                <span className="coach-bm-sheet__lbl">Spots left</span>
+                <span
+                  className={`coach-bm-sheet__val${slot.spotsLeft != null && slot.spotsLeft <= 2 && !isFull ? " is-lime" : ""}`}
+                >
+                  {spotsLabel}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="coach-bm-sheet__book"
+            onClick={() => {
+              closeSheet();
+              openBookingFlow(slot);
+            }}
+          >
+            {isFull ? "Join waitlist" : "Book this lesson"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileBookingModule = () => {
+    const filterByType = (list: LoadedSlot[]) =>
+      list.filter((slot) => bookingType === "all" || slot.type === bookingType);
+
+    const dayEntries = slotsByDay.map((day) => ({ day, slots: filterByType(day.slots) }));
+    const firstAvailableIso = dayEntries.find((entry) => entry.slots.length > 0)?.day.isoDate ?? null;
+    const activeIso =
+      mobileSelectedDay &&
+      dayEntries.some((entry) => entry.day.isoDate === mobileSelectedDay && entry.slots.length > 0)
+        ? mobileSelectedDay
+        : firstAvailableIso;
+    const activeEntry = dayEntries.find((entry) => entry.day.isoDate === activeIso) ?? null;
+    const daySlots = (activeEntry?.slots ?? [])
+      .slice()
+      .sort((a, b) => moment(a.start).valueOf() - moment(b.start).valueOf());
+    const soonestSlotId = daySlots[0]?.id;
+    const isLoading = scheduleLoading || datePickerLoading;
+
+    return (
+      <div className="coach-bm">
+        <p className="coach-bm__eyebrow">
+          <span className="coach-bm__edot" aria-hidden />
+          Book a lesson
+        </p>
+
+        <div className="coach-bm__segmented">
+          {(["all", "private", "group"] as LessonTypeFilter[])
+            .filter((type) => type !== "group" || Boolean(groupPriceLabel) || hasGroupSlots)
+            .map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`coach-bm__seg${bookingType === type ? " is-active" : ""}`}
+                onClick={() => setBookingType(type)}
+              >
+                {type === "all" ? "All" : type === "private" ? "Private" : "Group"}
+              </button>
+            ))}
+        </div>
+
+        {isLoading ? (
+          <div className="coach-empty-card">Loading availability…</div>
+        ) : firstAvailableIso == null ? (
+          <div className="coach-bm__empty">No availability posted yet. Try messaging the coach.</div>
+        ) : (
+          <>
+            <div className="coach-bm__daystrip">
+              {dayEntries.map(({ day, slots }) => {
+                const isActive = day.isoDate === activeIso;
+                const isEmpty = slots.length === 0;
+                return (
+                  <button
+                    key={day.isoDate}
+                    type="button"
+                    className={`coach-bm__day${isActive ? " is-active" : ""}${isEmpty ? " is-empty" : ""}`}
+                    onClick={() => {
+                      if (!isEmpty) setMobileSelectedDay(day.isoDate);
+                    }}
+                    disabled={isEmpty}
+                  >
+                    <span className="coach-bm__day-d">{day.dayLabel}</span>
+                    <span className="coach-bm__day-dt">{day.dateLabel}</span>
+                    <span className="coach-bm__day-cnt">{isEmpty ? "—" : `${slots.length} open`}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {daySlots.length > 0 && activeEntry ? (
+              <div className="coach-bm__ctx">
+                <span>
+                  {daySlots.length} open · {activeEntry.day.dayLabel} {activeEntry.day.dateLabel}
+                </span>
+                <span className="coach-bm__next">
+                  <span className="coach-bm__next-dot" aria-hidden />
+                  Next: {daySlots[0].timeLabel}
+                </span>
+              </div>
+            ) : null}
+
+            {daySlots.length === 0 ? (
+              <div className="coach-bm__empty">
+                No {bookingType === "all" ? "" : `${bookingType} `}times on this day. Try another day above.
+              </div>
+            ) : (
+              MOBILE_TIME_BUCKETS.map((bucket) => {
+                const bucketSlots = daySlots.filter((slot) => getSlotTimeBucket(slot) === bucket.key);
+                if (!bucketSlots.length) return null;
+                return (
+                  <div key={bucket.key} className="coach-bm__bucket">
+                    <div className="coach-bm__bucket-head">
+                      {bucket.label} <span className="coach-bm__bucket-cnt">· {bucketSlots.length}</span>
+                    </div>
+                    {bucketSlots.map((slot) => {
+                      const isSoon = slot.id === soonestSlotId;
+                      const spotsTextValue =
+                        slot.type === "group" && slot.spotsLeft != null && slot.totalSpots != null
+                          ? slot.spotsLeft === 0
+                            ? "Full"
+                            : `${slot.spotsLeft} of ${slot.totalSpots} spots left`
+                          : null;
+                      const spotsTone =
+                        slot.spotsLeft === 0
+                          ? " is-full"
+                          : slot.spotsLeft != null && slot.spotsLeft <= 2
+                            ? " is-low"
+                            : "";
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          className={`coach-bm__row coach-bm__row--${slot.type}${isSoon ? " coach-bm__row--soon" : ""}`}
+                          onClick={() => setMobileSheetSlot(slot)}
+                        >
+                          <div className="coach-bm__row-main">
+                            <div className="coach-bm__row-top">
+                              <span className="coach-bm__row-time">{slot.timeLabel}</span>
+                              <span className={`coach-bm__row-type coach-bm__row-type--${slot.type}`}>
+                                {slot.type === "group" ? "Group" : "Private"}
+                              </span>
+                              {isSoon ? <span className="coach-bm__row-soon">Soonest</span> : null}
+                            </div>
+                            <div className="coach-bm__row-meta">
+                              <MapPin size={13} />
+                              <span>
+                                {slot.court} · {slot.durationLabel}
+                              </span>
+                            </div>
+                            {slot.type === "group" ? (
+                              <div className="coach-bm__row-grp">
+                                <span>
+                                  {slot.className}
+                                  {slot.level ? ` · ${slot.level}` : ""}
+                                </span>
+                                {spotsTextValue ? (
+                                  <span className={`coach-bm__row-spots${spotsTone}`}>· {spotsTextValue}</span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="coach-bm__row-right">
+                            <span className="coach-bm__row-price">{slot.priceLabel}</span>
+                            <ChevronRight size={18} className="coach-bm__row-chev" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {mobileSheetSlot ? renderMobileBookingSheet(mobileSheetSlot) : null}
+      </div>
+    );
+  };
+
   const renderBookingPanel = (variant: "mobile" | "desktop") => (
     <aside
       ref={variant === "desktop" ? desktopBookingRef : mobileBookingRef}
@@ -2741,7 +3045,7 @@ const CoachProfilePage = () => {
         </div>
       </div>
 
-      {isLoggedIn && !creditsLoading ? (
+      {variant !== "mobile" && isLoggedIn && !creditsLoading ? (
         <div className="coach-credit-strip coach-profile-booking-block">
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
@@ -2944,6 +3248,10 @@ const CoachProfilePage = () => {
       ) : null}
 
       <section className="coach-booking-card coach-profile-booking-block">
+        {variant === "mobile" ? (
+          renderMobileBookingModule()
+        ) : (
+        <>
         <div className="coach-profile-section__header coach-profile-section__header--compact">
           <h2>Book a lesson</h2>
         </div>
@@ -3113,10 +3421,14 @@ const CoachProfilePage = () => {
             ) : null}
           </div>
         ) : null}
+        </>
+        )}
 
         <div
           ref={variant === "desktop" ? desktopPackagesRef : mobilePackagesRef}
-          className="coach-profile-section coach-profile-section--packages coach-profile-booking-block"
+          className={`coach-profile-section coach-profile-section--packages coach-profile-booking-block${
+            variant === "mobile" && packages.length === 0 ? " coach-profile-section--packages-hidden-mobile" : ""
+          }`}
         >
           {packagesLoading ? <div className="coach-empty-card">Loading packages…</div> : null}
           {packagesError ? <div className="coach-empty-card">{packagesError}</div> : null}
@@ -3246,7 +3558,13 @@ const CoachProfilePage = () => {
 
   if (loading) {
     return (
-      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
+      <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
         <div className="coach-profile-page coach-profile-page--loading">
           <div className="coach-profile-loading-card" />
         </div>
@@ -3256,7 +3574,13 @@ const CoachProfilePage = () => {
 
   if (profileError || !profile) {
     return (
-      <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
+      <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
         <div className="coach-profile-page">
           <div className="coach-profile-empty">
             <div className="coach-profile-empty__icon">
@@ -3280,7 +3604,13 @@ const CoachProfilePage = () => {
   }
 
   return (
-    <MainLayout mobileChrome="home" desktopChrome="home" showDesktopNav={true}>
+    <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
       <div className="coach-profile-page">
         <div className="coach-profile-shell coach-profile-shell--layout">
           {/* <JoinMyRosterBanner
@@ -3300,7 +3630,7 @@ const CoachProfilePage = () => {
               <div className="coach-profile-fixed-chrome">
                 <div className="coach-profile-chrome-header">
                   <button type="button" className="coach-profile-top-action" onClick={handleBackToFindCoaches}>
-                    <ArrowLeft size={16} /> Find a Coach
+                    <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Find a Coach</span>
                   </button>
                   {smsHref ? (
                     <a
@@ -3361,6 +3691,77 @@ const CoachProfilePage = () => {
                   </div>
                 </div>
               </div>
+
+              <section className="coach-hero-m" aria-label="Coach overview">
+                <div className="coach-hero-m__row">
+                  <div className="coach-hero-m__avatar">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt={coachName} />
+                    ) : (
+                      <span className="coach-hero-m__avatar-fallback">{buildInitials(coachName)}</span>
+                    )}
+                  </div>
+                  <div className="coach-hero-m__id">
+                    <h1>{coachName}</h1>
+                    {certifications[0] ? (
+                      <span className="coach-hero-m__cert">
+                        <span className="coach-hero-m__cert-dot" aria-hidden />
+                        {certifications[0]}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="coach-hero-m__price">
+                    <div className="coach-hero-m__amt">
+                      {privatePriceLabel}
+                      <small>/hr</small>
+                    </div>
+                    {groupPriceLabel ? (
+                      <span className="coach-hero-m__grp">Group {groupPriceLabel}/hr</span>
+                    ) : null}
+                  </div>
+                </div>
+                {heroTagline ? <p className="coach-hero-m__tagline">{heroTagline}</p> : null}
+                {heroStudents || heroExperience ? (
+                  <div className="coach-hero-m__stats">
+                    {heroStudents ? (
+                      <div className="coach-hero-m__stat">
+                        <div className="coach-hero-m__stat-num">{heroStudents}</div>
+                        <div className="coach-hero-m__stat-lbl">Students coached</div>
+                      </div>
+                    ) : null}
+                    {heroExperience ? (
+                      <div className="coach-hero-m__stat">
+                        <div className="coach-hero-m__stat-num">{heroExperience}</div>
+                        <div className="coach-hero-m__stat-lbl">Experience</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="coach-hero-m__actions">
+                  {smsHref ? (
+                    <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
+                      <MessageCircle size={17} /> Message
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
+                      disabled
+                    >
+                      <MessageCircle size={17} /> Message
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="coach-hero-m__btn coach-hero-m__btn--primary"
+                    onClick={() =>
+                      mobileBookingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                  >
+                    See availability
+                  </button>
+                </div>
+              </section>
 
               <section className="coach-profile-hero-v2">
                 <div className="coach-profile-hero-v2__identity">
@@ -3428,6 +3829,123 @@ const CoachProfilePage = () => {
                   </div>
                 </div>
               </section>
+
+              <div className="coach-sections-m">
+                {aboutCopy ? (
+                  <section className="coach-sec-m" aria-label="About">
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      About
+                    </p>
+                    <p className={`coach-sec-m__bio${bioExpanded ? "" : " coach-sec-m__bio--clamped"}`}>{aboutCopy}</p>
+                    {aboutCopy.length > 160 ? (
+                      <button
+                        type="button"
+                        className="coach-sec-m__seemore"
+                        onClick={() => setBioExpanded((value) => !value)}
+                      >
+                        {bioExpanded ? "See less" : "See more"}
+                      </button>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {levels.length || specialties.length || hasLessonFormats || availabilityLabels.length ? (
+                  <section className="coach-sec-m" aria-label={`What ${coachFirstName} teaches`}>
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      What {coachFirstName} teaches
+                    </p>
+                    {levels.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Player levels</p>
+                        <div className="coach-sec-m__chips">
+                          {levels.map((level) => (
+                            <span key={level} className="coach-sec-m__chip">{level}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {specialties.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Focus areas</p>
+                        <div className="coach-sec-m__chips">
+                          {specialties.map((item) => (
+                            <span key={item} className="coach-sec-m__chip">{item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {hasLessonFormats ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Lesson formats</p>
+                        <div className="coach-sec-m__chips">
+                          {lessonFormatLabels.map((format) => (
+                            <span key={format} className="coach-sec-m__chip">{format}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {availabilityLabels.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Typically available</p>
+                        <div className="coach-sec-m__chips">
+                          {availabilityLabels.map((label) => (
+                            <span key={label} className="coach-sec-m__chip coach-sec-m__chip--avail">
+                              <span className="coach-sec-m__pulse" aria-hidden />
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {coachingLocations.length ? (
+                  <section className="coach-sec-m" aria-label="Where you'll play">
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      Where you'll play
+                    </p>
+                    {coachingLocations.map((court, index) => (
+                      <div
+                        key={`${court}-${index}`}
+                        className={`coach-sec-m__court${index === 0 ? "" : " coach-sec-m__court--secondary"}`}
+                      >
+                        <span className="coach-sec-m__court-pin" aria-hidden>
+                          <MapPin size={18} />
+                        </span>
+                        <div className="coach-sec-m__court-body">
+                          <div className="coach-sec-m__court-name">{shortenLocationLabel(court)}</div>
+                          <div className="coach-sec-m__court-meta">
+                            <span className="coach-sec-m__court-tag">{index === 0 ? "Primary" : "Secondary"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+                ) : null}
+
+                {packages.length ? (
+                  <section className="coach-sec-m" aria-label="Lesson packages">
+                    <button
+                      type="button"
+                      className="coach-sec-m__pkg"
+                      onClick={() =>
+                        mobilePackagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }
+                    >
+                      <span className="coach-sec-m__pkg-txt">
+                        <b>Lesson packages</b> — book in bulk and lock in today's rate.
+                      </span>
+                      <span className="coach-sec-m__pkg-cta">
+                        View <ChevronRight size={13} />
+                      </span>
+                    </button>
+                  </section>
+                ) : null}
+              </div>
 
               {renderBookingPanel("mobile")}
 

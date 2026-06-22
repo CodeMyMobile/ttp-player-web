@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MatchCreatorFlow from "../components/MatchCreatorFlow";
+import MultiMatchCreatorFlow from "../components/MultiMatchCreatorFlow";
+import { isMultiMatchEnabled } from "../utils/featureFlags";
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
@@ -28,9 +30,11 @@ const CreateMatchPage = () => {
     navigate("/", { replace: true });
   };
 
+  const Flow = isMultiMatchEnabled() ? MultiMatchCreatorFlow : MatchCreatorFlow;
+
   return (
     <div className="playdates-create-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50/30 py-8 overflow-x-hidden">
-      <MatchCreatorFlow
+      <Flow
         currentUser={currentUser}
         onCancel={handleCancel}
         onReturnHome={handleReturnHome}

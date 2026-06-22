@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
   CreditCard,
   Home,
   LogOut,
@@ -26,6 +27,7 @@ import {
   getNotifications,
 } from "../api/notification";
 import {
+  DEFAULT_RADIUS_MILES,
   getStoredLocationLabel,
   getStoredLocationRadius,
   storeLocation,
@@ -57,6 +59,9 @@ const AppNav = ({
   onNewMatch,
   hideMobileNewMatch = false,
   hideMobileNotifications = false,
+  showBack = false,
+  onBack,
+  hideLocation = false,
 }) => {
   const { logout, user } = useAuth();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
@@ -72,7 +77,7 @@ const AppNav = ({
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? 5);
+  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
@@ -119,7 +124,7 @@ const AppNav = ({
   useEffect(() => {
     const syncLocationState = () => {
       setLocationLabel(getStoredLocationLabel() || "Current location");
-      setSearchRadius(getStoredLocationRadius() ?? 5);
+      setSearchRadius(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
     };
 
     syncLocationState();
@@ -221,6 +226,16 @@ const AppNav = ({
     <>
       <header className="app-nav">
         <div className="app-nav__left">
+          {showBack ? (
+            <button
+              type="button"
+              className="app-nav__back"
+              aria-label="Go back"
+              onClick={onBack}
+            >
+              <ChevronLeft size={22} />
+            </button>
+          ) : null}
           <Link className="app-nav__brand" to="/">
             <span className="app-nav__brand-mark">🎾</span>
             <strong>
@@ -243,7 +258,7 @@ const AppNav = ({
         </div>
 
         <div className="app-nav__right">
-          <div className="app-nav__location-wrap">
+          <div className={`app-nav__location-wrap${hideLocation ? " app-nav__location-wrap--mobile-hidden" : ""}`}>
             <button
               type="button"
               className="app-nav__location"

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BadgeCheck, MapPin, MessageCircle } from "lucide-react";
+import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, verifyUserLevel } from "../api/playerHome";
 import { joinMatch, listMatches } from "../play-dates/services/matches";
+import { getMatchHostId, idsMatch } from "../play-dates/utils/matchHost";
 import { getStoredAuthToken } from "../services/authToken";
 import { useAuth } from "../context/AuthContext";
 import type { ConnectIntent } from "../types/matchPlay";
@@ -21,6 +23,48 @@ import {
 type OpenMatch = Record<string, unknown>;
 
 import "./PlayerProfilePage.css";
+
+// "Open match play" = the app's canonical open/upcoming definition
+// (mirrors TennisMatchApp.jsx: `status || "upcoming"`, then ["upcoming","open"]).
+// Allowlist, so any other status — cancelled/canceled, completed, in_progress,
+// draft, archived, expired — is excluded regardless of spelling.
+const MATCH_OPEN_STATUSES = ["upcoming", "open"];
+const isOpenStatus = (match: OpenMatch): boolean => {
+  const status = String(match.status ?? "upcoming").trim().toLowerCase();
+  return MATCH_OPEN_STATUSES.includes(status);
+};
+
+// Timezone-safe start instant for soonest-first ordering. Uses the same
+// start-field precedence as getMatchStartDate (TennisMatchApp) and strict
+// moment.utc parsing; missing/unparseable dates sort to the end.
+const matchStartMs = (match: OpenMatch): number => {
+  const value = match.dateTime ?? match.start_date_time ?? match.startDateTime ?? match.startsAt;
+  if (value == null || value === "") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const parsed = moment.utc(String(value), moment.ISO_8601, true);
+  return parsed.isValid() ? parsed.valueOf() : Number.POSITIVE_INFINITY;
+};
+
+// AuthContext doesn't rehydrate `user` from storage on mount, so on a cold load
+// (refresh / shared link) `user` is null. Fall back to the persisted login
+// response (services/auth.js → "authLoginResponse") for the id, like CoachProfilePage.
+const readStoredUserId = (): string | number | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem("authLoginResponse");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const id = parsed.user_id ?? parsed.id;
+    return typeof id === "string" || typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -40,7 +84,14 @@ const PlayerProfilePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth() as { user?: Record<string, unknown> | undefined };
-  const currentUserId = (user?.id ?? user?.user_id ?? user?.userId ?? null) as string | number | null;
+  const currentUserId = useMemo<string | number | null>(() => {
+    const session = user?.session as Record<string, unknown> | undefined;
+    const fromUser = user?.id ?? user?.user_id ?? user?.userId ?? session?.user_id;
+    if (typeof fromUser === "string" || typeof fromUser === "number") {
+      return fromUser;
+    }
+    return readStoredUserId();
+  }, [user]);
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
 
   // The router-state player (set when navigating in-app) is only a fast-path so
@@ -178,6 +229,18 @@ const PlayerProfilePage = () => {
       cancelled = true;
     };
   }, [id, fastPathPlayer]);
+
+  // Single source for the section: open/upcoming only (Change 2), hosted by THIS
+  // profile owner (the feed guard — the backend currently ignores created_by, so
+  // we scope client-side and drop anything we can't attribute to the owner),
+  // soonest-first (Change 4). Count, empty-state, and list all read this.
+  const visibleMatches = useMemo(
+    () =>
+      openMatches
+        .filter((match) => isOpenStatus(match) && idsMatch(getMatchHostId(match), id))
+        .sort((a, b) => matchStartMs(a) - matchStartMs(b)),
+    [openMatches, id],
+  );
 
   const goBackToResults = () => {
     if (typeof window !== "undefined" && window.history.length <= 2) {
@@ -410,19 +473,19 @@ const PlayerProfilePage = () => {
               <h2 id="open-match-play-heading" className="ppv-sec-title">
                 Open match play
               </h2>
-              {!matchesLoading && !matchesError && openMatches.length > 0 ? (
-                <span className="ppv-sec-count">{openMatches.length} open</span>
+              {!matchesLoading && !matchesError && visibleMatches.length > 0 ? (
+                <span className="ppv-sec-count">{visibleMatches.length} open</span>
               ) : null}
             </div>
             {matchesLoading ? (
               <p className="ppv-state-text">Loading open matches…</p>
             ) : matchesError ? (
               <p className="ppv-state-text">We couldn&apos;t load open matches right now.</p>
-            ) : openMatches.length === 0 ? (
+            ) : visibleMatches.length === 0 ? (
               <p className="ppv-state-text">No open matches right now.</p>
             ) : (
               <div className="ppv-matches-list">
-                {openMatches.map((openMatch, index) => {
+                {visibleMatches.map((openMatch, index) => {
                   const cardId = String(openMatch.match_id ?? openMatch.id ?? index);
                   return (
                     <OpenMatchPlayCard

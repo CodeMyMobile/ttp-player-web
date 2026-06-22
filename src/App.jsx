@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
@@ -44,6 +44,8 @@ import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
+import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
+import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
 
 const playDatesQueryClient = createPlayDatesQueryClient();
@@ -175,10 +177,17 @@ const buildMatchesUser = (authUser) => {
   const personalDetails = readStoredObject("playerPersonalDetails");
   const loginResponse = readStoredObject("authLoginResponse");
   const profile = authUser || personalDetails || loginResponse?.profile || loginResponse?.user || {};
+  const playerId = resolveShareHostId({
+    ...loginResponse,
+    ...profile,
+    profile: profile?.profile || loginResponse?.profile || profile,
+    user: loginResponse?.user,
+  });
 
   return {
     ...profile,
-    id: profile?.id ?? loginResponse?.user_id ?? loginResponse?.id ?? null,
+    id: playerId,
+    user_id: playerId ?? profile?.user_id ?? loginResponse?.user_id ?? null,
     type: profile?.user_type ?? loginResponse?.user_type ?? 2,
     name:
       profile?.name ||
@@ -613,10 +622,25 @@ const AppRoutes = () => (
   </Routes>
 );
 
+const ScrollToTop = () => {
+  const location = useLocation();
+  const scrollResetKey = getScrollResetKey(location);
+  const previousScrollResetKey = useRef(scrollResetKey);
+
+  useEffect(() => {
+    if (previousScrollResetKey.current === scrollResetKey) return;
+    previousScrollResetKey.current = scrollResetKey;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [scrollResetKey]);
+
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <HashRouter>
+        <ScrollToTop />
         <div className="app-shell">
           <AppRoutes />
         </div>

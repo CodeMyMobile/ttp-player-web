@@ -81,7 +81,8 @@ const buildTimeRangeLabel = (startLabel: string, durationMinutes: number) => {
   return `${formatMinutesToTimeLabel(startMinutes)} – ${formatMinutesToTimeLabel(endMinutes)}`;
 };
 
-const formatLevel = (level: number) => `NTRP ${level.toFixed(1)}`;
+const formatLevel = (level: number | null) =>
+  level == null ? "All levels" : `NTRP ${level.toFixed(1)}`;
 
 const parseMoney = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) return value;

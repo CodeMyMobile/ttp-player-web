@@ -20,6 +20,7 @@ import {
 } from "../utils/dashboardInvites";
 import {
   DEFAULT_POSITION,
+  DEFAULT_RADIUS_MILES,
   getStoredLocation,
   getStoredLocationLabel,
   getStoredLocationRadius,
@@ -916,7 +917,7 @@ const DashboardPage = () => {
   const [draftRangeEnd, setDraftRangeEnd] = useState(moment().add(6, "days").format("YYYY-MM-DD"));
   const [, setLocationName] = useState(getStoredLocationLabel() || "Venice, CA");
   const [locationPosition, setLocationPosition] = useState(getStoredLocation() ?? DEFAULT_POSITION);
-  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? 5);
+  const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
