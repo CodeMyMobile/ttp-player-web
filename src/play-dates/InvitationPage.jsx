@@ -1489,9 +1489,26 @@ export default function InvitationPage() {
         />
       </InvitationLayout>
     );
+
+  // The invite status (declined/expired/revoked above) is invite-level; a host
+  // cancelling the match surfaces on the match record instead, so gate on it
+  // here — same `match.status === "cancelled"` signal MatchDetailsModal uses.
+  // Sits before the join/full CTA paths so no action is offered on a dead match.
+  if (preview?.match?.status === "cancelled")
+    return (
+      <InvitationLayout>
+        <StatusCard
+          emoji="🚫"
+          title="This match was cancelled"
+          message="The host cancelled this match. Reach out to them if you think this was a mistake."
+        />
+      </InvitationLayout>
+    );
+
   // Whether the signed-in viewer has already joined this match. Prefer server
-  // viewer truth when present; fall back to the invite's own status and the
-  // roster identity match the feed uses for its "Joined" pill.
+  // viewer truth when present; fall back to the exact legacy joined status and
+  // the roster identity match the feed uses for its "Joined" pill.
+
   // previewWithRoster must be built before this — anchored here, right before
   // the full-invite guard already reads it, so getActiveParticipants sees a
   // populated roster rather than silently reading an empty one.

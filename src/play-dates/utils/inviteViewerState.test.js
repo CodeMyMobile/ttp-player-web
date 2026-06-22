@@ -22,3 +22,4 @@ test("accepted invite status alone is not server joined truth", () => {
     false,
   );
 });
+

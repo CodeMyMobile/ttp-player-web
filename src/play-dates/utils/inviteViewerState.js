@@ -8,3 +8,4 @@ export const hasViewerJoinedInvitePreview = (preview, hasSession) => {
   const viewerStatus = String(preview.viewer_status ?? preview.viewerStatus ?? "").toLowerCase();
   return viewerStatus === "joined";
 };
+
