@@ -13,6 +13,7 @@ import {
   Search,
   ShieldX,
   Target,
+  Trophy,
   X,
   UserRound,
   Users,
@@ -34,6 +35,7 @@ import {
   storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
+import { isLogResultEnabled } from "../play-dates/utils/featureFlags";
 import "./AppNav.css";
 
 const navItems = [
@@ -77,6 +79,9 @@ const AppNav = ({
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
+  const visibleUserMenuItems = isLogResultEnabled()
+    ? [...userMenuItems, { label: "Log result", to: "/log-result", icon: Trophy }]
+    : userMenuItems;
   const skillLevel =
     user?.skillLevel ||
     user?.skill_level ||
@@ -340,7 +345,7 @@ const AppNav = ({
 
             {isUserMenuOpen ? (
               <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
-                {userMenuItems.map((item) => (
+                {visibleUserMenuItems.map((item) => (
                   <Link
                     key={item.label}
                     to={item.to}

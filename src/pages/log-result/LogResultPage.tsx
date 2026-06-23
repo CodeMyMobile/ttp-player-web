@@ -33,6 +33,10 @@ export default function LogResultPage() {
   const [dnfWinner, setDnfWinner] = useState<Side | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [sentMatch, setSentMatch] = useState<{ id: string | number | null; status: string | null }>({
+    id: null,
+    status: null,
+  });
 
   // all set/format mutations live here so the score components stay presentational
   const controls = useMemo<ScoreControls>(() => ({
@@ -68,6 +72,7 @@ export default function LogResultPage() {
     setStep("form"); setOpponent(null); setDate(TODAY); setCourt(null);
     setFormat("bo3"); setSets([newSet(), newSet()]); setDnf(false); setDnfWinner(null);
     setSubmitting(false); setSubmitError(null);
+    setSentMatch({ id: null, status: null });
   };
 
   const submit = async () => {
@@ -76,7 +81,11 @@ export default function LogResultPage() {
     setSubmitError(null);
     try {
       const payload = buildSubmitPayload({ me, opponent, date, court, format, sets, dnf, dnfWinner });
-      await submitMatchResult(payload);
+      const response = await submitMatchResult(payload);
+      setSentMatch({
+        id: response.match_id || null,
+        status: response.status || "pending",
+      });
       setStep("sent");
     } catch (error) {
       const apiErrors = (error as { data?: { errors?: string[] } })?.data?.errors;
@@ -118,7 +127,17 @@ export default function LogResultPage() {
   if (step === "sent" && opponent && court) {
     return (
       <Shell title="Sent" me={me} onBack={reset}>
-        <SentCard me={me} opponent={opponent} date={date} court={court} sets={sets} dnf={dnf} onLogAnother={reset} />
+        <SentCard
+          me={me}
+          opponent={opponent}
+          date={date}
+          court={court}
+          sets={sets}
+          dnf={dnf}
+          matchId={sentMatch.id}
+          status={sentMatch.status}
+          onLogAnother={reset}
+        />
       </Shell>
     );
   }

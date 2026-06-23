@@ -38,6 +38,22 @@ interface MatchResultResponse {
   confirm_window_ends_at?: string;
 }
 
+export interface MatchResultDetail {
+  id: number | string;
+  status: "pending" | "confirmed" | "disputed" | "voided" | string;
+  player_a: number | string;
+  player_b: number | string;
+  player_a_name?: string | null;
+  player_b_name?: string | null;
+  court_name?: string | null;
+  court_area?: string | null;
+  played_at?: string | null;
+  score?: string | null;
+  sets?: SubmitSet[] | string | null;
+  retired?: boolean | null;
+  winner?: number | string | null;
+}
+
 const PLAYER_COLORS = [
   "bg-rose-100 text-rose-700",
   "bg-sky-100 text-sky-700",
@@ -220,6 +236,26 @@ export function submitMatchResult(payload: SubmitPayload): Promise<MatchResultRe
     api("/match-results", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function getMatchResult(id: string): Promise<{ match_result: MatchResultDetail }> {
+  return unwrap(api(`/match-results/${id}`));
+}
+
+export function confirmMatchResult(id: string): Promise<{ match_result: MatchResultDetail }> {
+  return unwrap(
+    api(`/match-results/${id}/confirm`, {
+      method: "POST",
+    }),
+  );
+}
+
+export function rejectMatchResult(id: string): Promise<{ match_result: MatchResultDetail }> {
+  return unwrap(
+    api(`/match-results/${id}/reject`, {
+      method: "POST",
     }),
   );
 }

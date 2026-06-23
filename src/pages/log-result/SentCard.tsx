@@ -10,11 +10,13 @@ interface SentCardProps {
   court: Court;
   sets: MatchSet[];
   dnf: boolean;
+  matchId?: string | number | null;
+  status?: string | null;
   onLogAnother: () => void;
 }
 
 // Success state — shows the result exactly as it reads while awaiting confirmation.
-export function SentCard({ me, opponent, date, court, sets, dnf, onLogAnother }: SentCardProps) {
+export function SentCard({ me, opponent, date, court, sets, dnf, matchId, status, onLogAnother }: SentCardProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-md shadow-slate-200/60 text-center">
       <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 grid place-items-center shadow-lg shadow-violet-600/30"><Check className="h-7 w-7 text-white" /></div>
@@ -23,7 +25,7 @@ export function SentCard({ me, opponent, date, court, sets, dnf, onLogAnother }:
 
       <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-left">
         <div className="flex items-center justify-between">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">Awaiting confirmation</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">{status || "Awaiting confirmation"}</span>
           <span className="text-xs font-medium text-slate-400">just now</span>
         </div>
         <div className="mt-3 flex items-center gap-3">
@@ -39,6 +41,9 @@ export function SentCard({ me, opponent, date, court, sets, dnf, onLogAnother }:
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
           No response within 48 hours and it’s confirmed automatically. {opponent.name} can dispute it in that window.
         </p>
+        {matchId ? (
+          <p className="mt-2 text-[11px] font-medium text-slate-400">Result #{matchId}</p>
+        ) : null}
       </div>
 
       <PrimaryButton onClick={onLogAnother} className="mt-5">Log another result</PrimaryButton>
