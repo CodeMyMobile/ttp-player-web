@@ -24,3 +24,4 @@ npm run dev
 ```
 
 Navigate to `http://localhost:5173/ttp-player-web/find-coaches` (or click **Find Coaches** in the in-app navigation) to view the page. Enter `error` or `empty` in the search field to preview the simulated error or empty states.
+Pulic profile url added
