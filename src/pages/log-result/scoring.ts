@@ -42,6 +42,8 @@ export interface Court {
   id: string;
   name: string;
   area: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Result {

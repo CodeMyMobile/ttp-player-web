@@ -30,6 +30,8 @@ interface ApiCourt {
   id?: number | string;
   name?: string | null;
   area?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 }
 
 interface MatchResultResponse {
@@ -147,6 +149,8 @@ const normalizeCourt = (court: ApiCourt): Court => ({
   id: String(court.id ?? ""),
   name: court.name || "Court",
   area: court.area || "",
+  latitude: court.latitude === undefined || court.latitude === null ? null : Number(court.latitude),
+  longitude: court.longitude === undefined || court.longitude === null ? null : Number(court.longitude),
 });
 
 export function useCurrentUser(authUser?: unknown): CurrentUser {
@@ -238,6 +242,22 @@ export function submitMatchResult(payload: SubmitPayload): Promise<MatchResultRe
       body: JSON.stringify(payload),
     }),
   );
+}
+
+export function createCourt(payload: {
+  name: string;
+  area: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}): Promise<{ court: Court }> {
+  return unwrap(
+    api("/courts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  ).then((data: { court?: ApiCourt }) => ({
+    court: normalizeCourt(data.court || {}),
+  }));
 }
 
 export function getMatchResult(id: string): Promise<{ match_result: MatchResultDetail }> {
