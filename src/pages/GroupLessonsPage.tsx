@@ -49,6 +49,15 @@ const isNumericLevelFilter = (value: string) => /^\d+(?:\.\d+)?$/.test(value.tri
 const formatLevelFilterLabel = (value: string) =>
   isNumericLevelFilter(value) ? formatLevelRange(Number.parseFloat(value)) : value;
 
+const normalizeExternalLevel = (level?: string | number | null): GroupLesson["level"] => {
+  if (level === undefined || level === null) return null;
+  const match = String(level).match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[0]);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.min(6, Math.max(2, Math.round(parsed * 2) / 2)) as GroupLesson["level"];
+};
+
 // Fixed day window: today through today+9 (10 days).
 const DAY_WINDOW_LENGTH = 10;
 
@@ -187,7 +196,7 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     coachId: 0,
     coachName: fullName,
     coachAvatarUrl: typeof lesson.profile_picture === "string" ? lesson.profile_picture : "",
-    level: normalizeLevel(rawLevel),
+    level: normalizeExternalLevel(rawLevel),
     skillLabel: rawLevel || "All levels",
     description: metadata.description || "Booking is completed through the provider.",
     day: dateLabels.day,
