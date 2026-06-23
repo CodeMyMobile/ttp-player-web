@@ -26,6 +26,7 @@ export interface GroupLesson {
   distanceMiles: number;
   totalSpots: number;
   availableSpots: number;
+  cancelled: boolean;
   focus: string;
   courtSurface?: string;
   pricePerPlayer: string;
@@ -73,6 +74,9 @@ export interface UpcomingGroupLessonApi {
   lesson_id?: number | string | null;
   occurrence_id?: string | null;
   group_class_id?: number | string | null;
+  status?: number | string | null;
+  created_by?: number | string | null;
+  updated_by?: number | string | null;
   full_name?: string;
   coach_id?: number;
   profile_picture?: string;
@@ -269,6 +273,22 @@ export const isActiveGroupLessonPlayer = (player: {
   );
 };
 
+// A group lesson is cancelled by the coach when its status code is 2 and the
+// same account created and last-updated it (i.e. the coach cancelled their own
+// class). Mirrors the convention in LessonDetailCard / PlayerLessonDetailsPage.
+export const isCancelledGroupLesson = (lesson: {
+  status?: number | string | null;
+  created_by?: number | string | null;
+  updated_by?: number | string | null;
+}) => {
+  return (
+    parseStatusValue(lesson.status) === 2 &&
+    lesson.created_by != null &&
+    lesson.updated_by != null &&
+    lesson.created_by === lesson.updated_by
+  );
+};
+
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
   const normalizedGroupPlayers = (lesson.group_players ?? []).map((player) => {
@@ -337,6 +357,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     distanceMiles,
     totalSpots,
     availableSpots,
+    cancelled: isCancelledGroupLesson(lesson),
     focus: lesson.lesson_type_name ?? description,
     pricePerPlayer: formatPricePerPlayer(lesson.group_price_per_person),
     sourceLesson: lesson,

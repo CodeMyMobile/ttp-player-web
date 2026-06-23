@@ -1128,7 +1128,21 @@ const GroupLessonDetailsPage = () => {
                   </div>
                 </header>
 
-                {isBooked ? (
+                {lesson.cancelled ? (
+                  <section className="group-lesson-details__section group-lesson-details__section--cancelled">
+                    <div className="group-lesson-details__cancelled-banner" role="alert">
+                      <div className="group-lesson-details__cancelled-icon" aria-hidden>
+                        ⚠
+                      </div>
+                      <div className="group-lesson-details__cancelled-copy">
+                        <strong>This lesson has been cancelled</strong>
+                        <span>The coach cancelled this class, so it can no longer be booked.</span>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {isBooked && !lesson.cancelled ? (
                   <section className="group-lesson-details__section group-lesson-details__section--booked">
                     <div className="group-lesson-details__booked-banner">
                       <div className="group-lesson-details__booked-icon" aria-hidden>
@@ -1562,7 +1576,7 @@ const GroupLessonDetailsPage = () => {
                       <button
                         type="button"
                         className="group-lesson-details__checkout-action"
-                        disabled={spotsRemaining === 0 || isBooked || bookingWithCredits}
+                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits}
                         onClick={() => {
                           if (paymentChoice === "credits" && availableCredits > 0 && selectedCreditId) {
                             void handleBookWithCredits();
@@ -1576,7 +1590,9 @@ const GroupLessonDetailsPage = () => {
                           });
                         }}
                       >
-                        {bookingWithCredits
+                        {lesson.cancelled
+                          ? "Cancelled"
+                          : bookingWithCredits
                           ? "Applying credits..."
                           : isBooked
                             ? "Booked"
@@ -1635,7 +1651,7 @@ const GroupLessonDetailsPage = () => {
                   <button
                     type="button"
                     className="group-lesson-details__mobile-footer-action"
-                    disabled={spotsRemaining === 0 || isBooked}
+                    disabled={lesson.cancelled || spotsRemaining === 0 || isBooked}
                     onClick={() => {
                       navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                         state: {
@@ -1645,7 +1661,13 @@ const GroupLessonDetailsPage = () => {
                       });
                     }}
                   >
-                    {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : "Book now"}
+                    {lesson.cancelled
+                      ? "Cancelled"
+                      : isBooked
+                        ? "Booked"
+                        : spotsRemaining === 0
+                          ? "Join waitlist"
+                          : "Book now"}
                   </button>
                 </>
               )}

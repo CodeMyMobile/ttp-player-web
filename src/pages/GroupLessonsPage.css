@@ -713,6 +713,23 @@
   color: #0369a1;
 }
 
+.lesson-card__spots-pill--cancelled {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.lesson-card--cancelled .lesson-card__band {
+  background: #fef2f2;
+  border-bottom-color: #fecaca;
+}
+
+.lesson-card--cancelled .lesson-card__title-wrap,
+.lesson-card--cancelled .lesson-card__price,
+.lesson-card--cancelled .lesson-card__info-list,
+.lesson-card--cancelled .lesson-card__coach-strip {
+  opacity: 0.62;
+}
+
 .lesson-card--external .lesson-card__band {
   background: #ecfeff;
   border-bottom-color: #bae6fd;
