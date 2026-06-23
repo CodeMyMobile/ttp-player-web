@@ -44,6 +44,11 @@ const formatLevelRange = (level: number) => {
   return `${level.toFixed(1)} - ${upperBound}`;
 };
 
+const isNumericLevelFilter = (value: string) => /^\d+(?:\.\d+)?$/.test(value.trim());
+
+const formatLevelFilterLabel = (value: string) =>
+  isNumericLevelFilter(value) ? formatLevelRange(Number.parseFloat(value)) : value;
+
 // Fixed day window: today through today+9 (10 days).
 const DAY_WINDOW_LENGTH = 10;
 
@@ -143,11 +148,17 @@ const getExternalLessonMetadata = (lesson: PlayerExternalLesson) => {
     level: typeof metadata.level === "string" ? metadata.level : undefined,
     description: typeof metadata.description === "string" ? metadata.description : undefined,
     externalUrl: typeof metadata.externalUrl === "string" ? metadata.externalUrl : undefined,
+    fullName: typeof metadata.full_name === "string" ? metadata.full_name : undefined,
+    coachName: typeof metadata.coach_name === "string" ? metadata.coach_name : undefined,
   };
 };
 
 const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLesson => {
   const metadata = getExternalLessonMetadata(lesson);
+  const rawLevel =
+    lesson.level !== undefined && lesson.level !== null && String(lesson.level).trim()
+      ? String(lesson.level).trim()
+      : metadata.level;
   const start = lesson.start_date_time ? new Date(String(lesson.start_date_time)) : null;
   const end = lesson.end_date_time ? new Date(String(lesson.end_date_time)) : null;
   const durationMinutes =
@@ -158,9 +169,10 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     typeof lesson.location === "string" && lesson.location.trim()
       ? lesson.location
       : "Location TBD";
-  const fullName = typeof lesson.full_name === "string" && lesson.full_name.trim()
-    ? lesson.full_name
-    : "External provider";
+  const fullName =
+    typeof lesson.full_name === "string" && lesson.full_name.trim()
+      ? lesson.full_name
+      : metadata.coachName || metadata.fullName || "External provider";
   const dateLabels = lesson.start_date_time
     ? {
         day: moment.utc(String(lesson.start_date_time)).format("dddd"),
@@ -175,8 +187,8 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     coachId: 0,
     coachName: fullName,
     coachAvatarUrl: typeof lesson.profile_picture === "string" ? lesson.profile_picture : "",
-    level: null,
-    skillLabel: metadata.level || "All levels",
+    level: normalizeLevel(rawLevel),
+    skillLabel: rawLevel || "All levels",
     description: metadata.description || "Booking is completed through the provider.",
     day: dateLabels.day,
     date: dateLabels.date,
@@ -194,7 +206,7 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     participants: [],
     groupPlayers: [],
     isExternal: true,
-    externalUrl: metadata.externalUrl,
+    externalUrl: metadata.externalUrl || lesson.external_url,
     sourceLesson: lesson,
   };
 };
@@ -333,7 +345,6 @@ const GroupLessonsPage = () => {
       "All coaches",
       ...new Set(
         lessonsWithIso
-          .filter((lesson) => !lesson.isExternal)
           .map((lesson) => getResolvedCoachName(lesson)),
       ),
     ],
@@ -341,7 +352,7 @@ const GroupLessonsPage = () => {
   );
 
   const levelOptions = useMemo(() => {
-    const uniqueLevels = Array.from(
+    const numericLevels = Array.from(
       new Set(
         lessonsWithIso
           .map((lesson) => lesson.level)
@@ -350,7 +361,15 @@ const GroupLessonsPage = () => {
     )
       .sort((a, b) => a - b)
       .map((lessonLevel) => lessonLevel.toFixed(1));
-    return ["All levels", ...uniqueLevels];
+    const externalLevels = Array.from(
+      new Set(
+        lessonsWithIso
+          .filter((lesson) => lesson.isExternal)
+          .map((lesson) => lesson.skillLabel.trim())
+          .filter((level) => level && level !== "All levels" && !numericLevels.includes(level)),
+      ),
+    ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return ["All levels", ...numericLevels, ...externalLevels];
   }, [lessonsWithIso]);
 
   const [sortBy, setSortBy] = useState<"soonest" | "price-low" | "price-high">("soonest");
@@ -412,8 +431,14 @@ const GroupLessonsPage = () => {
   const lessonsMatchingFilters = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return lessonsWithIso.filter((lesson) => {
-      if (levelFilter !== "All levels" && (lesson.level == null || lesson.level.toFixed(1) !== levelFilter)) {
-        return false;
+      if (levelFilter !== "All levels") {
+        if (isNumericLevelFilter(levelFilter)) {
+          if (lesson.level == null || lesson.level.toFixed(1) !== levelFilter) {
+            return false;
+          }
+        } else if (!lesson.skillLabel.toLowerCase().includes(levelFilter.toLowerCase())) {
+          return false;
+        }
       }
       if (coachFilter !== "All coaches" && getResolvedCoachName(lesson) !== coachFilter) {
         return false;
@@ -1016,7 +1041,7 @@ const GroupLessonsPage = () => {
                         }`}
                         onClick={() => setLevelFilter(option)}
                       >
-                        {formatLevelRange(Number.parseFloat(option))}
+                          {formatLevelFilterLabel(option)}
                       </button>
                     ))}
                 </div>
@@ -1097,7 +1122,7 @@ const GroupLessonsPage = () => {
                       }`}
                       onClick={() => setLevelFilter(option)}
                     >
-                      {formatLevelRange(Number.parseFloat(option))}
+                      {formatLevelFilterLabel(option)}
                     </button>
                   ))}
               </div>
@@ -1393,6 +1418,8 @@ const GroupLessonsPage = () => {
               <div className="lessons-grid">
                 {displayedLessons.map((lesson) => {
                   const levelRange = lesson.level != null ? formatLevelRange(lesson.level) : null;
+                  const externalLevelLabel =
+                    lesson.skillLabel && lesson.skillLabel !== "All levels" ? lesson.skillLabel : null;
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
@@ -1411,7 +1438,11 @@ const GroupLessonsPage = () => {
                           {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
                         <span className="lesson-card__level">
-                          {isExternal ? "External" : levelRange ? `${levelRange} NTRP` : "All levels"}
+                          {isExternal
+                            ? externalLevelLabel
+                              ? `External · ${externalLevelLabel}`
+                              : "External"
+                            : levelRange ? `${levelRange} NTRP` : "All levels"}
                         </span>
                       </header>
 
@@ -1427,7 +1458,7 @@ const GroupLessonsPage = () => {
                             <div className="lesson-card__price-value">
                               {isExternal ? "Book offsite" : priceValue !== null ? `$${priceValue}` : lesson.pricePerPlayer}
                             </div>
-                            <span className="lesson-card__pack-note">Save with packages</span>
+                            {!isExternal ? <span className="lesson-card__pack-note">Save with packages</span> : null}
                           </div>
                         </div>
 
