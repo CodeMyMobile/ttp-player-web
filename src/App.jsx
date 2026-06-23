@@ -492,7 +492,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/players/:id"
-      element={<PlayerProfilePage />}
+      element={(
+        <ProtectedRoute>
+          <PlayerProfilePage />
+        </ProtectedRoute>
+      )}
     />
     <Route
       path="/coaches/:id"

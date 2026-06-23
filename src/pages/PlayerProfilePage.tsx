@@ -6,7 +6,7 @@ import moment from "moment";
 import MainLayout from "../components/MainLayout";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
-import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
+import { fetchPlayerDetails, verifyUserLevel } from "../api/playerHome";
 import { joinMatch, listMatches } from "../play-dates/services/matches";
 import { getMatchHostId, idsMatch } from "../play-dates/utils/matchHost";
 import { getStoredAuthToken } from "../services/authToken";
@@ -16,7 +16,6 @@ import { getStoredMatchProfile } from "../utils/matchProfile";
 import { getStoredLocation, DEFAULT_COORDINATES } from "../utils/userLocation";
 import {
   extractSuggestedPlayer,
-  mapPublicPlayerProfileRecord,
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
@@ -121,24 +120,12 @@ const PlayerProfilePage = () => {
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchesError, setMatchesError] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const authToken = useMemo(
-    () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }),
-    [user],
-  );
-  const isSignedIn = Boolean(authToken);
-  const promptSignIn = useCallback(() => {
-    navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
-  }, [location.pathname, location.search, navigate]);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
   const loadOpenMatches = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!id) {
-        setMatchesLoading(false);
-        return;
-      }
-      if (!authToken) {
         setMatchesLoading(false);
         return;
       }
@@ -168,7 +155,7 @@ const PlayerProfilePage = () => {
         }
       }
     },
-    [authToken, id],
+    [id],
   );
 
   useEffect(() => {
@@ -178,10 +165,6 @@ const PlayerProfilePage = () => {
   const handleJoinMatch = useCallback(
     async (matchId: string) => {
       if (!matchId || joiningId) {
-        return;
-      }
-      if (!isSignedIn) {
-        promptSignIn();
         return;
       }
       try {
@@ -196,11 +179,18 @@ const PlayerProfilePage = () => {
         setJoiningId(null);
       }
     },
-    [isSignedIn, joiningId, loadOpenMatches, promptSignIn],
+    [joiningId, loadOpenMatches],
   );
 
   useEffect(() => {
     if (!id) {
+      setLoading(false);
+      setLoadError(true);
+      return;
+    }
+
+    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+    if (!token) {
       setLoading(false);
       setLoadError(true);
       return;
@@ -212,26 +202,14 @@ const PlayerProfilePage = () => {
     }
     setLoadError(false);
 
-    const loadProfile = authToken
-      ? fetchPlayerDetails({ token: authToken, userId: id })
-      : fetchPublicPlayerProfile({ userId: id });
-
-    loadProfile
+    fetchPlayerDetails({ token, userId: id })
       .then((payload) => {
         if (cancelled) {
           return;
         }
-        const record = authToken
-          ? extractSuggestedPlayer(payload)
-          : mapPublicPlayerProfileRecord(payload);
+        const record = extractSuggestedPlayer(payload);
         if (record) {
           setPlayer(mapSuggestedPlayer(record));
-          if (!authToken && payload && typeof payload === "object") {
-            const publicMatches = (payload as { matches?: unknown }).matches;
-            setOpenMatches(Array.isArray(publicMatches) ? (publicMatches as OpenMatch[]) : []);
-            setMatchesLoading(false);
-            setMatchesError(false);
-          }
         } else if (!fastPathPlayer) {
           setLoadError(true);
         }
@@ -250,7 +228,7 @@ const PlayerProfilePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [authToken, id, fastPathPlayer]);
+  }, [id, fastPathPlayer]);
 
   // Single source for the section: open/upcoming only (Change 2), hosted by THIS
   // profile owner (the feed guard — the backend currently ignores created_by, so
@@ -259,9 +237,9 @@ const PlayerProfilePage = () => {
   const visibleMatches = useMemo(
     () =>
       openMatches
-        .filter((match) => isOpenStatus(match) && (!isSignedIn || idsMatch(getMatchHostId(match), id)))
+        .filter((match) => isOpenStatus(match) && idsMatch(getMatchHostId(match), id))
         .sort((a, b) => matchStartMs(a) - matchStartMs(b)),
-    [openMatches, id, isSignedIn],
+    [openMatches, id],
   );
 
   const goBackToResults = () => {
@@ -335,10 +313,6 @@ const PlayerProfilePage = () => {
   const favoriteCourt = typeof player.favoriteCourt === "string" ? player.favoriteCourt : undefined;
 
   const openConnectModal = () => {
-    if (!isSignedIn) {
-      promptSignIn();
-      return;
-    }
     if (!matchProfile) {
       navigate("/find-players");
       return;
@@ -349,10 +323,6 @@ const PlayerProfilePage = () => {
   const closeConnectModal = () => setConnectModalOpen(false);
 
   const shareIntro = () => {
-    if (!isSignedIn) {
-      promptSignIn();
-      return;
-    }
     if (!matchProfile) {
       navigate("/find-players");
       return;
@@ -376,10 +346,6 @@ const PlayerProfilePage = () => {
   };
 
   const createMatchInvite = () => {
-    if (!isSignedIn) {
-      promptSignIn();
-      return;
-    }
     if (!matchProfile) {
       navigate("/find-players");
       return;
@@ -404,15 +370,11 @@ const PlayerProfilePage = () => {
   };
 
   const blockPlayer = () => {
-    if (!isSignedIn) {
-      promptSignIn();
-      return;
-    }
     window.alert(`You blocked ${player.name}.`);
   };
 
   const handleVerifyLevel = async () => {
-    const token = authToken;
+    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
     const userId = player.raw?.userId;
     const level = typeof playerLevel === "string" ? playerLevel.trim() : "";
 
@@ -533,7 +495,6 @@ const PlayerProfilePage = () => {
                       joining={joiningId === cardId}
                       currentUserId={currentUserId}
                       hostId={id ?? null}
-                      onViewDetails={isSignedIn ? undefined : promptSignIn}
                     />
                   );
                 })}

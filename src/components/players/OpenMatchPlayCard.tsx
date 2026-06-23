@@ -21,7 +21,6 @@ export interface OpenMatchPlayCardProps {
   // Authoritative host id for this listing (the profile owner — every card here
   // is created_by them). Fallback when the match object omits a host-id field.
   hostId?: string | number | null;
-  onViewDetails?: (matchId: string) => void;
 }
 
 const firstString = (...values: unknown[]): string => {
@@ -119,10 +118,6 @@ const formatDuration = (match: MatchRecord): string => {
 };
 
 const formatWhen = (match: MatchRecord): string => {
-  const publicBand = firstString(match.day_time_band, match.dayTimeBand);
-  if (publicBand) {
-    return publicBand;
-  }
   const date = parseDate(match.dateTime ?? match.start_date_time ?? match.startDateTime ?? match.startsAt);
   if (!date) {
     return "Date to be announced";
@@ -134,7 +129,7 @@ const formatWhen = (match: MatchRecord): string => {
 };
 
 const formatLocation = (match: MatchRecord): string =>
-  firstString(match.general_area, match.generalArea, match.location_text, match.location, match.court_name, match.courtName) ||
+  firstString(match.location_text, match.location, match.court_name, match.courtName) ||
   "Location to be announced";
 
 const participantName = (participant: MatchRecord): string => {
@@ -165,7 +160,6 @@ const OpenMatchPlayCard = ({
   joining = false,
   currentUserId = null,
   hostId = null,
-  onViewDetails,
 }: OpenMatchPlayCardProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -176,21 +170,16 @@ const OpenMatchPlayCard = ({
   // lets that page's close button return here instead of the matches feed.
   const openDetail = () => {
     if (!matchId) return;
-    if (onViewDetails) {
-      onViewDetails(matchId);
-      return;
-    }
     navigate(`/matches/${matchId}`, {
       state: { from: `${location.pathname}${location.search}` },
     });
   };
   const doubles = /doubles|mixed/i.test(formatType(match));
 
-  const hasRoster = Array.isArray(match.participants);
-  const participants = hasRoster ? (match.participants as MatchRecord[]) : [];
+  const participants = Array.isArray(match.participants) ? (match.participants as MatchRecord[]) : [];
   const total = spots.total ?? participants.length;
   const filled = participants.slice(0, total || participants.length);
-  const emptyCount = hasRoster && total ? Math.max(total - filled.length, 0) : 0;
+  const emptyCount = total ? Math.max(total - filled.length, 0) : 0;
 
   const { spotsLeft } = spots;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
