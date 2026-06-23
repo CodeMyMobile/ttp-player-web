@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
+import LegalFooter from "../components/LegalFooter";
 import {
   getApplePlayerLoginUrl,
   googlePlayerLogin,
@@ -361,7 +362,7 @@ const LoginPage = () => {
               <div className="auth-mobile__welcome-footer">
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
                 </p>
               </div>
             </div>
@@ -498,7 +499,7 @@ const LoginPage = () => {
                     {isSignup ? (
                       <p className="auth-welcome__terms">
                         By creating an account, you agree to our{" "}
-                        <button type="button">Terms</button> and <button type="button">Privacy Policy</button>
+                        <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
                       </p>
                     ) : null}
 
@@ -696,12 +697,12 @@ const LoginPage = () => {
               {isSignup ? (
                 <p className="auth-welcome__terms">
                   By creating an account, you agree to our{" "}
-                  <button type="button">Terms</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
                 </p>
               ) : (
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
                 </p>
               )}
 
@@ -729,6 +730,7 @@ const LoginPage = () => {
         </section>
       </div>
       </div>
+      <LegalFooter />
     </div>
   );
 };

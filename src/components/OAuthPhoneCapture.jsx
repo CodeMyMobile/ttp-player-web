@@ -262,8 +262,8 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
 
             <div className="oauth-complete__footer">
               <p className="auth-welcome__terms">
-                By continuing, you agree to our <button type="button">Terms</button> and{" "}
-                <button type="button">Privacy Policy</button>
+                By continuing, you agree to our <a href="/terms">Terms</a> and{" "}
+                <a href="/privacy">Privacy Policy</a>
               </p>
               <button type="submit" className="auth-welcome__submit" disabled={saving}>
                 <span>{saving ? "Saving..." : "Finish setup"}</span>

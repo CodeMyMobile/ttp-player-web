@@ -2,6 +2,24 @@
   command = "npm run build"
   publish = "dist"
 
+# Permanent (301) redirects from the long-form legal URLs to the canonical
+# short URLs. These MUST come before the SPA catch-all below — Netlify applies
+# redirect rules top-to-bottom, first match wins.
+[[redirects]]
+  from = "/privacy-policy"
+  to = "/privacy"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/terms-of-service"
+  to = "/terms"
+  status = 301
+  force = true
+
+# SPA fallback. This does NOT override real files, so the statically generated
+# /privacy and /terms pages (dist/privacy/index.html, dist/terms/index.html)
+# are served directly rather than falling through to the app shell.
 [[redirects]]
   from = "/*"
   to = "/index.html"
