@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Check,
   X,
+  Plus,
 } from "lucide-react";
 
 import MatchCard from "./MatchCard";
@@ -137,18 +138,18 @@ const BrowseScreen = ({
     // Working quick-chip dropdown (Level / Format) — same interaction pattern as
     // the v2 reference's Level menu: toggle, select → apply + close.
     const renderQuickFilter = ({ menuKey, label, value, options, onSelect }) => (
-      <div className="relative">
+      <div className="relative shrink-0">
         <button
           type="button"
           onClick={() => setOpenMenu(openMenu === menuKey ? null : menuKey)}
-          className={`inline-flex items-center gap-1.5 rounded-[10px] border bg-white px-3 py-2 text-[12.5px] font-extrabold transition hover:bg-slate-50 ${
+          className={`inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-[10px] border bg-white px-2.5 py-2 text-[11px] font-extrabold transition hover:bg-slate-50 sm:gap-1.5 sm:px-3 sm:text-[12.5px] ${
             value && value !== "Any"
               ? "border-violet-300 text-violet-700"
               : "border-slate-200 text-slate-700"
           }`}
         >
           {label}: {value}
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <ChevronDown className="h-2.5 w-2.5 opacity-60 sm:h-3 sm:w-3" />
         </button>
         {openMenu === menuKey && (
           <div className="absolute left-0 top-[calc(100%+8px)] z-50 min-w-[180px] overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-lg">
@@ -180,14 +181,27 @@ const BrowseScreen = ({
     return (
       <div className="min-h-screen bg-slate-50">
         {currentUser ? (
-          <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-7 sm:px-6 lg:px-10">
-            <section className="mb-6">
-              <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
-                Match Play
-              </h1>
-              <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
-                {allWeekMatchCount} open near you this week
-              </p>
+          <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-3 sm:px-6 sm:pt-7 lg:px-10">
+            <section className="mb-6 flex items-start justify-between gap-3">
+              <div>
+                <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
+                  Match Play
+                </h1>
+                <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
+                  {allWeekMatchCount} open near you this week
+                </p>
+              </div>
+              {/* AppNav already renders "New match" on desktop (hidden on mobile via
+                  hideMobileNewMatch), so this header Create is mobile-only to avoid a
+                  duplicate. Same create path as the empty-state button. */}
+              <button
+                type="button"
+                onClick={() => setCurrentScreen("create")}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-[11px] bg-gradient-to-br from-violet-500 to-violet-600 px-3.5 py-2.5 text-[13.5px] font-extrabold text-white shadow-md transition hover:from-violet-600 hover:to-violet-700 sm:hidden"
+              >
+                <Plus className="h-4 w-4" />
+                Create
+              </button>
             </section>
 
             {topAttentionMatches.length > 0 && (
@@ -314,12 +328,12 @@ const BrowseScreen = ({
                   })}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
+                <div className="flex flex-nowrap items-center gap-1.5 sm:flex-wrap sm:gap-2">
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => setOpenMenu(openMenu === "filters" ? null : "filters")}
-                      className="inline-flex items-center gap-1.5 rounded-[10px] bg-slate-900 px-3 py-2 text-[12.5px] font-extrabold text-white transition hover:bg-slate-800"
+                      className="inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-[10px] bg-slate-900 px-2.5 py-2 text-[11px] font-extrabold text-white transition hover:bg-slate-800 sm:gap-1.5 sm:px-3 sm:text-[12.5px]"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       Filters
