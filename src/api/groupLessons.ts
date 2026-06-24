@@ -1,6 +1,7 @@
 import moment from "moment";
 
 import { request } from "./http";
+import { isCancelledGroupLessonRecord } from "../utils/groupLessonCancellation";
 
 export type GroupLessonLevel = 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5 | 5.5 | 6;
 
@@ -273,21 +274,12 @@ export const isActiveGroupLessonPlayer = (player: {
   );
 };
 
-// A group lesson is cancelled by the coach when its status code is 2 and the
-// same account created and last-updated it (i.e. the coach cancelled their own
-// class). Mirrors the convention in LessonDetailCard / PlayerLessonDetailsPage.
+// Mirrors the backend checkout guard for coach-cancelled group lessons.
 export const isCancelledGroupLesson = (lesson: {
   status?: number | string | null;
   created_by?: number | string | null;
   updated_by?: number | string | null;
-}) => {
-  return (
-    parseStatusValue(lesson.status) === 2 &&
-    lesson.created_by != null &&
-    lesson.updated_by != null &&
-    lesson.created_by === lesson.updated_by
-  );
-};
+}) => isCancelledGroupLessonRecord(lesson);
 
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
