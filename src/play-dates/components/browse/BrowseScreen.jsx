@@ -39,7 +39,6 @@ const BrowseScreen = ({
   setSelectedFormatFilter,
   selectedGenderFilter,
   setSelectedGenderFilter,
-  setCurrentScreen,
   setShowSignInModal,
   matchesNeedingAttention,
   distanceOptions,
@@ -199,7 +198,7 @@ const BrowseScreen = ({
                   duplicate. Same create path as the empty-state button. */}
               <button
                 type="button"
-                onClick={() => setCurrentScreen("create")}
+                onClick={() => window.dispatchEvent(new CustomEvent("play-dates:new-match"))}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-[11px] bg-gradient-to-br from-violet-500 to-violet-600 px-3.5 py-2.5 text-[13.5px] font-extrabold text-white shadow-md transition hover:from-violet-600 hover:to-violet-700 sm:hidden"
               >
                 <Plus className="h-4 w-4" />
@@ -619,7 +618,7 @@ const BrowseScreen = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCurrentScreen("create")}
+                  onClick={() => window.dispatchEvent(new CustomEvent("play-dates:new-match"))}
                   className="mt-4 rounded-[10px] bg-violet-500 px-5 py-2.5 text-sm font-black text-white transition hover:bg-violet-600"
                 >
                   Create a match
