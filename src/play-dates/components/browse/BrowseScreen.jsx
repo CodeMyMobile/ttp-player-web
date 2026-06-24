@@ -527,24 +527,32 @@ const BrowseScreen = ({
               </div>
             </section>
 
+            {/* Day strip sized/styled to match the home-page strip (.ph-day-tab in
+                DashboardPage.css) — kept as its own copy, not a shared component. */}
             <section className="mb-8">
-              <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
+              <div className="scrollbar-hide flex gap-1.5 overflow-x-auto pb-1">
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedDayKey("");
                     setMatchPage(1);
                   }}
-                  className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
+                  className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors ${
                     !selectedDayKey
                       ? "border-violet-500 bg-violet-500 text-white"
-                      : "border-slate-200 bg-white text-slate-700"
+                      : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
                   }`}
                 >
-                  <span className="block text-[10px] uppercase tracking-[0.14em]">All</span>
-                  <span className="block text-[18px] leading-none">Wk</span>
                   <span
-                    className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                    className={`text-[9px] font-bold uppercase tracking-wide ${
+                      !selectedDayKey ? "text-white/80" : "text-slate-400"
+                    }`}
+                  >
+                    All
+                  </span>
+                  <span className="text-[15px] font-extrabold leading-none">Wk</span>
+                  <span
+                    className={`mt-px min-w-[16px] rounded-[6px] px-[5px] py-px text-center text-[8px] font-bold leading-none ${
                       !selectedDayKey ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
                     }`}
                   >
@@ -566,16 +574,22 @@ const BrowseScreen = ({
                         setMatchPage(1);
                       }}
                       disabled={disabled}
-                      className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
+                      className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors ${
                         isActive
                           ? "border-violet-500 bg-violet-500 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-200"
+                          : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
                       } ${count === 0 && !isActive ? "opacity-50" : ""}`}
                     >
-                      <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
-                      <span className="block text-[18px] leading-none">{day.dayNumber}</span>
                       <span
-                        className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                        className={`text-[9px] font-bold uppercase tracking-wide ${
+                          isActive ? "text-white/80" : "text-slate-400"
+                        }`}
+                      >
+                        {day.eyebrow}
+                      </span>
+                      <span className="text-[15px] font-extrabold leading-none">{day.dayNumber}</span>
+                      <span
+                        className={`mt-px min-w-[16px] rounded-[6px] px-[5px] py-px text-center text-[8px] font-bold leading-none ${
                           isActive ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
                         }`}
                       >
