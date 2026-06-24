@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { Users, AlertCircle, RefreshCw, MapPin, Search, Calendar } from "lucide-react";
 
@@ -12,7 +13,6 @@ const BrowseScreen = ({
   distanceFilter,
   setDistanceFilter,
   setMatchPage,
-  activeFilter,
   setActiveFilter,
   locationFilter,
   setLocationFilter,
@@ -48,11 +48,29 @@ const BrowseScreen = ({
   formatMatchTimeLabel,
   formatDistanceLabel,
   NTRP_LEVELS,
-  DISCOVERY_SCOPE_FILTERS,
   DISCOVERY_FORMAT_FILTERS,
   DISCOVERY_GENDER_FILTERS,
 }) => {
+    // Presentational tab state. "My Matches" and "Hosting" both fetch with
+    // activeFilter="my"; Hosting additionally client-filters to hosted matches.
+    const [scopeTab, setScopeTab] = useState("discover");
     const topAttentionMatches = matchesNeedingAttention.slice(0, 3);
+
+    const userNtrp =
+      currentUser?.skillLevel ?? currentUser?.usta_rating ?? currentUser?.skill_level ?? "";
+
+    const isHosting = scopeTab === "hosting";
+    const visibleGroups = isHosting
+      ? groupedDisplayedMatches
+          .map((group) => ({
+            ...group,
+            matches: group.matches.filter((match) => match.type === "hosted"),
+          }))
+          .filter((group) => group.matches.length > 0)
+      : groupedDisplayedMatches;
+    const visibleMatchCount = isHosting
+      ? visibleGroups.reduce((total, group) => total + group.matches.length, 0)
+      : displayedMatches.length;
 
     const renderFilterChip = ({
       key,
@@ -87,15 +105,11 @@ const BrowseScreen = ({
           <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-7 sm:px-6 lg:px-10">
             <section className="mb-6 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
-                <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-violet-500">
+                <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
                   Match Play
-                </p>
-                <h1 className="text-[28px] font-bold leading-tight tracking-[-0.01em] text-slate-950">
-                  Find a match. Host a match.
                 </h1>
-                <p className="mt-1.5 max-w-[560px] text-sm font-semibold leading-[1.5] text-slate-500">
-                  Create a private or open match, invite players, and get on court.
-                  The Tennis Plan keeps your roster, messages, and groups in one place.
+                <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
+                  {allWeekMatchCount} open near you this week
                 </p>
               </div>
 
@@ -224,24 +238,29 @@ const BrowseScreen = ({
 
             <section className="mb-8 rounded-[16px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
               <div className="mb-4 flex flex-col gap-3.5">
-                <div className="inline-flex rounded-[14px] bg-slate-100 p-1 shadow-inner">
-                  {DISCOVERY_SCOPE_FILTERS.map((filter) => {
-                    const isActive = activeFilter === filter.id;
+                <div className="flex gap-[3px] rounded-[11px] bg-slate-100 p-[3px]">
+                  {[
+                    { id: "discover", label: "Discover", filter: "discover" },
+                    { id: "my", label: "My Matches", filter: "my" },
+                    { id: "hosting", label: "Hosting", filter: "my" },
+                  ].map((tab) => {
+                    const isActive = scopeTab === tab.id;
                     return (
                       <button
-                        key={filter.id}
+                        key={tab.id}
                         type="button"
                         onClick={() => {
-                          setActiveFilter(filter.id);
+                          setScopeTab(tab.id);
+                          setActiveFilter(tab.filter);
                           setMatchPage(1);
                         }}
-                        className={`h-9 min-w-[96px] rounded-[11px] px-3.5 text-[11px] font-black transition-colors ${
+                        className={`flex-1 rounded-[9px] px-1.5 py-2 text-center text-[12.5px] transition-colors ${
                           isActive
-                            ? "bg-white text-slate-950 shadow-sm"
-                            : "text-slate-500 hover:text-slate-800"
+                            ? "bg-white font-extrabold text-slate-900 shadow-sm"
+                            : "font-bold text-slate-500 hover:text-slate-800"
                         }`}
                       >
-                        {filter.label}
+                        {tab.label}
                       </button>
                     );
                   })}
@@ -382,24 +401,21 @@ const BrowseScreen = ({
                           className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
                             isActive
                               ? "border-violet-500 bg-violet-500 text-white"
-                              : disabled
-                              ? "border-slate-100 bg-white text-slate-300"
                               : "border-slate-200 bg-white text-slate-700 hover:border-violet-200"
-                          }`}
+                          } ${count === 0 && !isActive ? "opacity-50" : ""}`}
                         >
                           <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
                           <span className="block text-[18px] leading-none">{day.dayNumber}</span>
-                          <span
-                            className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
-                              isActive
-                                ? "bg-white/25 text-white"
-                                : disabled
-                                ? "bg-slate-100 text-slate-300"
-                                : "bg-slate-200 text-slate-500"
-                            }`}
-                          >
-                            {count}
-                          </span>
+                          {count > 0 ? (
+                            <span
+                              className={`mt-1 h-[5px] w-[5px] rounded-full ${
+                                isActive ? "bg-white" : "bg-violet-500"
+                              }`}
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <span className="mt-1 h-[5px] w-[5px]" aria-hidden="true" />
+                          )}
                         </button>
                       );
                     })}
@@ -458,11 +474,13 @@ const BrowseScreen = ({
               </div>
             </section>
 
-            {displayedMatches.length === 0 ? (
+            {visibleMatchCount === 0 ? (
               <div className="rounded-[14px] border border-slate-200 bg-white px-6 py-20 text-center">
                 <Search className="mx-auto h-9 w-9 text-slate-300" />
                 <div className="mt-3 text-[15px] font-bold text-slate-700">
-                  {hasLocationFilter
+                  {isHosting
+                    ? "You're not hosting any matches yet."
+                    : hasLocationFilter
                     ? `No matches within ${distanceFilter} miles of your location yet.`
                     : "No matches found"}
                 </div>
@@ -479,7 +497,7 @@ const BrowseScreen = ({
               </div>
             ) : (
             <div className="space-y-10">
-              {groupedDisplayedMatches.map((group) => (
+              {visibleGroups.map((group) => (
                 <section key={group.key} className="space-y-4">
                   <div className="flex items-baseline gap-3">
                     <h3
@@ -505,6 +523,7 @@ const BrowseScreen = ({
                         key={match.id}
                         match={match}
                         handleViewDetails={handleViewDetails}
+                        userNtrp={userNtrp}
                         formatMatchTimeLabel={formatMatchTimeLabel}
                         formatDistanceLabel={formatDistanceLabel}
                       />
