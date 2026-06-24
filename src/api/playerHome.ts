@@ -685,6 +685,9 @@ export const fetchPlayerDetails = async ({ token, userId }: FetchPlayerDetailsPa
     },
   );
 
+export const fetchPublicPlayerProfile = async ({ userId }: { userId: number | string }) =>
+  request<Record<string, unknown>>(`/public/players/${userId}`);
+
 export interface SuggestedPlayerCheckLocationParams extends PaginationParams {
   token: string;
   search?: string;
