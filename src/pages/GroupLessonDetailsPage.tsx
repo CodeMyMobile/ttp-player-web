@@ -37,6 +37,7 @@ import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
+import { fetchPublicLessonById } from "../api/playerLessons";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -181,6 +182,21 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+const formatParticipantStatus = (status?: number | string | null, paymentStatus?: number | string | null) => {
+  if (isActiveGroupLessonBookingStatus(status, paymentStatus)) {
+    return "Booked";
+  }
+  const numericStatus = typeof status === "number" ? status : Number(status);
+  const numericPaymentStatus = typeof paymentStatus === "number" ? paymentStatus : Number(paymentStatus);
+  if (numericStatus === 2 || numericPaymentStatus === 2) {
+    return "Cancelled";
+  }
+  if (numericStatus === 0 || numericPaymentStatus === 0) {
+    return "Pending";
+  }
+  return "Pending";
+};
+
 type CancelFlowState = "closed" | "confirm" | "success";
 
 type GroupLessonsStateSnapshot = {
@@ -248,11 +264,19 @@ const GroupLessonDetailsPage = () => {
     user?.token ??
     getStoredAuthToken({ preferScheme: "Token" }) ??
     getStoredAuthToken({ preferScheme: "token" });
+  const isSignedIn = Boolean(authToken);
+  const promptSignIn = useCallback(() => {
+    navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
+  }, [location.pathname, location.search, navigate]);
   const goBackToGroupLessons = useCallback(() => {
+    if (!isSignedIn) {
+      navigate("/");
+      return;
+    }
     navigate("/group-lessons", {
       state: groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined,
     });
-  }, [groupLessonsReturnState, navigate]);
+  }, [groupLessonsReturnState, isSignedIn, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,29 +287,32 @@ const GroupLessonDetailsPage = () => {
         setIsLoading(false);
         return;
       }
-      const token = getStoredAuthToken({ preferScheme: "token" });
-      if (!token) {
-        setLoadError("Missing authentication token.");
-        setIsLoading(false);
-        return;
-      }
+      const token = authToken;
 
       setIsLoading(true);
       setLoadError(null);
 
       try {
         try {
-          const response = await fetchUpcomingGroupLessonById({
-            token,
-            lessonId: id,
-            signal: controller.signal,
-          });
+          const response = token
+            ? await fetchUpcomingGroupLessonById({
+                token,
+                lessonId: id,
+                signal: controller.signal,
+              })
+            : await fetchPublicLessonById({
+                lessonId: id,
+                signal: controller.signal,
+              });
 
           if (cancelled) return;
 
-          setLesson(mapUpcomingGroupLesson(response.lesson));
+          setLesson(response.lesson ? mapUpcomingGroupLesson(response.lesson) : null);
         } catch (error) {
           if (cancelled) return;
+          if (!token) {
+            throw error;
+          }
           const position = getStoredLocation() ?? DEFAULT_POSITION;
           const fallbackResponse = await fetchUpcomingGroupLessons({
             token,
@@ -318,7 +345,7 @@ const GroupLessonDetailsPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [id]);
+  }, [authToken, id]);
 
   useEffect(() => {
     if (!lesson) {
@@ -766,13 +793,19 @@ const GroupLessonDetailsPage = () => {
                   ? loadError
                   : "The lesson may have been filled or removed. Browse the latest sessions to pick another time."}
               </p>
-              <Link
-                to="/group-lessons"
-                state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
-                className="group-lesson-details__empty-action"
-              >
-                Explore group lessons
-              </Link>
+              {isSignedIn ? (
+                <Link
+                  to="/group-lessons"
+                  state={groupLessonsReturnState ? { groupLessonsState: groupLessonsReturnState } : undefined}
+                  className="group-lesson-details__empty-action"
+                >
+                  Explore group lessons
+                </Link>
+              ) : (
+                <button type="button" className="group-lesson-details__empty-action" onClick={promptSignIn}>
+                  Sign in
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -784,7 +817,16 @@ const GroupLessonDetailsPage = () => {
     currentUserBookingStatus?.status,
     currentUserBookingStatus?.paymentStatus,
   );
-  const confirmedCount = lesson.participants.length;
+  const sourceLesson = lesson.sourceLesson as Record<string, unknown> | undefined;
+  const bookedCountRaw = Number(sourceLesson?.booked_count ?? lesson.participants.length);
+  const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : lesson.participants.length;
+  const participantRows = (lesson.groupPlayers?.length ? lesson.groupPlayers : lesson.participants).map((participant, index) => ({
+    id: String(participant.playerId ?? participant.id ?? `${lesson.id}-${index}`),
+    name: "name" in participant && typeof participant.name === "string" ? participant.name : "Player",
+    avatarUrl: "avatarUrl" in participant && typeof participant.avatarUrl === "string" ? participant.avatarUrl : undefined,
+    paymentStatus: "paymentStatus" in participant ? participant.paymentStatus : undefined,
+    status: "status" in participant ? participant.status : undefined,
+  }));
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
   const timeRange = lesson.startDateTime && lesson.endDateTime
     ? (() => {
@@ -805,8 +847,8 @@ const GroupLessonDetailsPage = () => {
   const dateLabel = lesson.startDateTime
     ? moment.utc(lesson.startDateTime).format("dddd, MMMM D")
     : lesson.date;
-  const participantsPreview = lesson.participants.slice(0, 5);
-  const hiddenParticipantsCount = Math.max(lesson.participants.length - participantsPreview.length, 0);
+  const participantsPreview = participantRows.slice(0, 5);
+  const hiddenParticipantsCount = Math.max(participantRows.length - participantsPreview.length, 0);
   const availabilityLabel =
     spotsRemaining === 0
       ? "Full — join waitlist"
@@ -1189,7 +1231,7 @@ const GroupLessonDetailsPage = () => {
                           </div>
                         </div>
                         <ul className="group-lesson-details__participants-list">
-                          {lesson.participants.map((participant) => (
+                          {participantRows.map((participant) => (
                             <li key={participant.id} className="group-lesson-details__participant">
                               <span className="group-lesson-details__participant-avatar" aria-hidden>
                                 {participant.avatarUrl ? (
@@ -1212,6 +1254,9 @@ const GroupLessonDetailsPage = () => {
                                   </span>
                                 ) : null}
                               </div>
+                              <span className="group-lesson-details__participant-status">
+                                {formatParticipantStatus(participant.status, participant.paymentStatus)}
+                              </span>
                             </li>
                           ))}
                         </ul>
@@ -1303,14 +1348,18 @@ const GroupLessonDetailsPage = () => {
                             key={relatedLesson.id}
                             type="button"
                             className="group-lesson-details__related-card"
-                            onClick={() =>
+                            onClick={() => {
+                              if (!isSignedIn) {
+                                promptSignIn();
+                                return;
+                              }
                               navigate(`/booking/confirm?groupLesson=${relatedLesson.id}`, {
                                 state: {
                                   groupLessonId: relatedLesson.id,
                                   groupLessonsState: groupLessonsReturnState,
                                 },
-                              })
-                            }
+                              });
+                            }}
                           >
                             <div className="group-lesson-details__related-copy">
                               <strong>{relatedDateLabel.toUpperCase()}</strong>
@@ -1393,7 +1442,9 @@ const GroupLessonDetailsPage = () => {
                     </>
                   ) : (
                     <>
-                      <p className="group-lesson-details__booking-label">Confirm this session</p>
+                      <p className="group-lesson-details__booking-label">
+                        {isSignedIn ? "Confirm this session" : "Sign in to book"}
+                      </p>
                       <p className="group-lesson-details__booking-price">{formatMoney(groupTotalDue)}</p>
                       <p className="group-lesson-details__booking-price-caption">{lesson.title}</p>
 
@@ -1419,7 +1470,7 @@ const GroupLessonDetailsPage = () => {
                       </div>
 
                       <div className="group-lesson-details__booking-pill group-lesson-details__booking-pill--payment">
-                        Needs payment
+                        {isSignedIn ? "Needs payment" : "Sign in required"}
                       </div>
 
                       <div className="group-lesson-details__price-breakdown">
@@ -1430,6 +1481,7 @@ const GroupLessonDetailsPage = () => {
                         <div><span>Service fee</span><strong>${groupServiceFee.toFixed(2)}</strong></div>
                       </div>
 
+                      {isSignedIn ? (
                       <div className="group-lesson-details__payment-panel">
                         <p className="group-lesson-details__status-pending">Choose how you want to pay.</p>
 
@@ -1568,6 +1620,7 @@ const GroupLessonDetailsPage = () => {
                           </div>
                         ) : null}
                       </div>
+                      ) : null}
 
                       {creditsLoading ? <p className="group-lesson-details__checkout-caption">Checking credits...</p> : null}
                       {creditsError ? <p className="group-lesson-details__checkout-error">{creditsError}</p> : null}
@@ -1578,6 +1631,10 @@ const GroupLessonDetailsPage = () => {
                         className="group-lesson-details__checkout-action"
                         disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits}
                         onClick={() => {
+                          if (!isSignedIn) {
+                            promptSignIn();
+                            return;
+                          }
                           if (paymentChoice === "credits" && availableCredits > 0 && selectedCreditId) {
                             void handleBookWithCredits();
                             return;
@@ -1593,16 +1650,18 @@ const GroupLessonDetailsPage = () => {
                         {lesson.cancelled
                           ? "Cancelled"
                           : bookingWithCredits
-                          ? "Applying credits..."
-                          : isBooked
-                            ? "Booked"
-                            : spotsRemaining === 0
-                              ? "Join waitlist"
-                              : groupUsesCredits
-                                ? "Book with credits"
-                                : paymentChoice === "apple-pay"
-                                  ? "Continue with Apple Pay"
-                                : "Book now"}
+                            ? "Applying credits..."
+                            : isBooked
+                              ? "Booked"
+                              : spotsRemaining === 0
+                                ? "Join waitlist"
+                                : !isSignedIn
+                                  ? "Sign in to book"
+                                  : groupUsesCredits
+                                    ? "Book with credits"
+                                    : paymentChoice === "apple-pay"
+                                      ? "Continue with Apple Pay"
+                                      : "Book now"}
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">
@@ -1653,6 +1712,10 @@ const GroupLessonDetailsPage = () => {
                     className="group-lesson-details__mobile-footer-action"
                     disabled={lesson.cancelled || spotsRemaining === 0 || isBooked}
                     onClick={() => {
+                      if (!isSignedIn) {
+                        promptSignIn();
+                        return;
+                      }
                       navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
                         state: {
                           groupLessonId: lesson.id,
@@ -1667,7 +1730,9 @@ const GroupLessonDetailsPage = () => {
                         ? "Booked"
                         : spotsRemaining === 0
                           ? "Join waitlist"
-                          : "Book now"}
+                          : isSignedIn
+                            ? "Book now"
+                            : "Sign in to book"}
                   </button>
                 </>
               )}
