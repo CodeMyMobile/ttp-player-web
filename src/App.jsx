@@ -512,11 +512,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/group-lessons/:id"
-      element={(
-        <ProtectedRoute>
-          <GroupLessonDetailsPage />
-        </ProtectedRoute>
-      )}
+      element={<GroupLessonDetailsPage />}
+    />
+    <Route
+      path="/lessons/:id"
+      element={<GroupLessonDetailsPage />}
     />
     <Route
       path="/lessons/external/:externalLessonId"
@@ -536,11 +536,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/player/lesson/:id"
-      element={(
-        <ProtectedRoute>
-          <PlayerLessonDetailsPage />
-        </ProtectedRoute>
-      )}
+      element={<PlayerLessonDetailsPage />}
     />
     <Route
       path="/player/calendar"
