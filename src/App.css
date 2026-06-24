@@ -2389,17 +2389,20 @@
   font-weight: 500;
 }
 
-.auth-welcome__terms button {
+.auth-welcome__terms button,
+.auth-welcome__terms a {
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--color-primary);
   font-weight: 700;
   font: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.auth-welcome__terms button:hover {
+.auth-welcome__terms button:hover,
+.auth-welcome__terms a:hover {
   text-decoration: underline;
 }
 

@@ -115,6 +115,25 @@
   color: #0f172a;
 }
 
+.settings-legal__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 16px;
+}
+
+.settings-legal__link {
+  font-size: 15px;
+  font-weight: 600;
+  color: #8b5cf6;
+  text-decoration: none;
+}
+
+.settings-legal__link:hover {
+  color: #7c3aed;
+  text-decoration: underline;
+}
+
 .settings-card__subtitle {
   margin: 0;
   font-size: 15px;

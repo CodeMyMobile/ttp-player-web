@@ -19,6 +19,23 @@ const AccountProfilePage = () => {
 
           <section className="settings-section">
             <ProfileManager variant="page" />
+
+            <div className="settings-card">
+              <h2 className="settings-card__title">Legal</h2>
+              <p className="settings-card__subtitle">
+                Review the policies that govern your use of The Tennis Plan.
+              </p>
+              <div className="settings-legal__links">
+                {/* Full-page navigations to the statically served legal pages
+                    (outside the SPA), so use plain anchors rather than router links. */}
+                <a className="settings-legal__link" href="/privacy">
+                  Privacy Policy
+                </a>
+                <a className="settings-legal__link" href="/terms">
+                  Terms of Service
+                </a>
+              </div>
+            </div>
           </section>
         </div>
       </div>

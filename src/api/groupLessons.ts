@@ -41,11 +41,15 @@ export interface GroupLesson {
     focusArea?: string;
     joinedLabel?: string;
     avatarUrl?: string;
+    paymentStatus?: number;
+    status?: number;
   }>;
   groupPlayers?: Array<{
     id?: number | string;
     participantId?: number | string;
     playerId?: number | string;
+    name?: string;
+    avatarUrl?: string;
     email?: string;
     phone?: string;
     paymentStatus?: number;
@@ -357,6 +361,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       id: String(player.playerId ?? `${lesson.id}-${index}`),
       name: player.name,
       avatarUrl: player.avatarUrl,
+      paymentStatus: player.paymentStatus,
+      status: player.status,
     })),
     groupPlayers: normalizedGroupPlayers,
   };
