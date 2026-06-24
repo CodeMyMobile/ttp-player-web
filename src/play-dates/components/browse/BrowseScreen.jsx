@@ -1,13 +1,24 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
-import { Users, AlertCircle, RefreshCw, MapPin, Search, Calendar } from "lucide-react";
+import {
+  Users,
+  AlertCircle,
+  RefreshCw,
+  MapPin,
+  Search,
+  Calendar,
+  SlidersHorizontal,
+  ChevronDown,
+  Check,
+  X,
+} from "lucide-react";
 
 import MatchCard from "./MatchCard";
 
-// Extracted verbatim from TennisMatchApp.jsx (Step 0 — pure move, no behavior
-// or style changes). Every value the screen reads (state, setters, derived data,
-// handlers, helpers, and the module-level constants/formatters) is passed in as
-// a prop so the parent keeps owning the state and data flow.
+// Extracted from TennisMatchApp.jsx (Step 0), restyled to the v2 design. Every
+// value the screen reads (state, setters, derived data, handlers, helpers, and
+// the module-level constants/formatters) is passed in as a prop so the parent
+// keeps owning the state and data flow.
 const BrowseScreen = ({
   currentUser,
   distanceFilter,
@@ -37,7 +48,6 @@ const BrowseScreen = ({
   displayedMatches,
   hasLocationFilter,
   groupedDisplayedMatches,
-  goToGroups,
   refreshMatchesAndInvites,
   handleViewDetails,
   openInviteScreen,
@@ -54,6 +64,9 @@ const BrowseScreen = ({
     // Presentational tab state. "My Matches" and "Hosting" both fetch with
     // activeFilter="my"; Hosting additionally client-filters to hosted matches.
     const [scopeTab, setScopeTab] = useState("discover");
+    // Which collapsed control is open: "level" | "format" | "filters" | null.
+    const [openMenu, setOpenMenu] = useState(null);
+    const controlsRef = useRef(null);
     const topAttentionMatches = matchesNeedingAttention.slice(0, 3);
 
     const userNtrp =
@@ -71,6 +84,28 @@ const BrowseScreen = ({
     const visibleMatchCount = isHosting
       ? visibleGroups.reduce((total, group) => total + group.matches.length, 0)
       : displayedMatches.length;
+
+    // Close any open dropdown/sheet on outside-click or Escape. Ignore clicks on
+    // the Google Places suggestion list (.pac-container is appended to <body>, so
+    // it counts as "outside" but must not close the Filters panel mid-select).
+    useEffect(() => {
+      if (!openMenu) return undefined;
+      const onPointerDown = (event) => {
+        if (event.target.closest?.(".pac-container")) return;
+        if (controlsRef.current && !controlsRef.current.contains(event.target)) {
+          setOpenMenu(null);
+        }
+      };
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") setOpenMenu(null);
+      };
+      document.addEventListener("mousedown", onPointerDown);
+      document.addEventListener("keydown", onKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", onPointerDown);
+        document.removeEventListener("keydown", onKeyDown);
+      };
+    }, [openMenu]);
 
     const renderFilterChip = ({
       key,
@@ -99,47 +134,60 @@ const BrowseScreen = ({
       </button>
     );
 
+    // Working quick-chip dropdown (Level / Format) — same interaction pattern as
+    // the v2 reference's Level menu: toggle, select → apply + close.
+    const renderQuickFilter = ({ menuKey, label, value, options, onSelect }) => (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpenMenu(openMenu === menuKey ? null : menuKey)}
+          className={`inline-flex items-center gap-1.5 rounded-[10px] border bg-white px-3 py-2 text-[12.5px] font-extrabold transition hover:bg-slate-50 ${
+            value && value !== "Any"
+              ? "border-violet-300 text-violet-700"
+              : "border-slate-200 text-slate-700"
+          }`}
+        >
+          {label}: {value}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+        {openMenu === menuKey && (
+          <div className="absolute left-0 top-[calc(100%+8px)] z-50 min-w-[180px] overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-lg">
+            {options.map((option) => {
+              const selected = value === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => {
+                    onSelect(option);
+                    setMatchPage(1);
+                    setOpenMenu(null);
+                  }}
+                  className={`flex w-full items-center gap-2 border-b border-slate-100 px-4 py-3 text-left text-[13.5px] font-bold last:border-0 hover:bg-slate-50 ${
+                    selected ? "text-violet-700" : "text-slate-700"
+                  }`}
+                >
+                  <Check className={`h-4 w-4 ${selected ? "opacity-100" : "opacity-0"}`} />
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+
     return (
       <div className="min-h-screen bg-slate-50">
         {currentUser ? (
           <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-7 sm:px-6 lg:px-10">
-            <section className="mb-6 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
-              <div>
-                <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
-                  Match Play
-                </h1>
-                <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
-                  {allWeekMatchCount} open near you this week
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                <button
-                  type="button"
-                  onClick={goToGroups}
-                  className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:border-violet-200 hover:text-violet-700"
-                >
-                  <Users className="h-4 w-4 text-violet-500" />
-                  My groups
-                </button>
-                {distanceOptions.map((distance) => (
-                  <button
-                    key={distance}
-                    type="button"
-                    onClick={() => {
-                      setDistanceFilter(distance);
-                      setMatchPage(1);
-                    }}
-                    className={`h-8 rounded-full border px-3 text-xs font-black transition-colors ${
-                      distanceFilter === distance
-                        ? "border-violet-500 bg-violet-500 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-700"
-                    }`}
-                  >
-                    {distance} mi
-                  </button>
-                ))}
-              </div>
+            <section className="mb-6">
+              <h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.02em] text-slate-900">
+                Match Play
+              </h1>
+              <p className="mt-0.5 text-[13px] font-bold text-emerald-700">
+                {allWeekMatchCount} open near you this week
+              </p>
             </section>
 
             {topAttentionMatches.length > 0 && (
@@ -236,8 +284,8 @@ const BrowseScreen = ({
               </section>
             )}
 
-            <section className="mb-8 rounded-[16px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
-              <div className="mb-4 flex flex-col gap-3.5">
+            <section className="mb-5 rounded-[16px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+              <div ref={controlsRef} className="relative flex flex-col gap-3">
                 <div className="flex gap-[3px] rounded-[11px] bg-slate-100 p-[3px]">
                   {[
                     { id: "discover", label: "Discover", filter: "discover" },
@@ -266,208 +314,262 @@ const BrowseScreen = ({
                   })}
                 </div>
 
-                <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_380px]">
-                  <div>
-                    <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-                      Location
-                    </p>
-                    <div className="relative">
-                      <MapPin className="pointer-events-none absolute left-4 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Autocomplete
-                        apiKey={import.meta.env.VITE_GOOGLE_API_KEY}
-                        value={locationFilter?.label || ""}
-                        onChange={(e) => {
-                          setLocationFilter({
-                            label: e.target.value,
-                            lat: null,
-                            lng: null,
-                          });
-                          setMatchPage(1);
-                        }}
-                        onPlaceSelected={(place) => {
-                          const placeName =
-                            typeof place?.name === "string" ? place.name.trim() : "";
-                          const formattedAddress =
-                            typeof place?.formatted_address === "string"
-                              ? place.formatted_address.trim()
-                              : "";
-                          const locationLabel =
-                            placeName || formattedAddress || locationFilter?.label || "";
-                          const lat = place.geometry?.location?.lat?.();
-                          const lng = place.geometry?.location?.lng?.();
-                          setLocationFilter({
-                            label: locationLabel,
-                            lat: typeof lat === "number" ? lat : null,
-                            lng: typeof lng === "number" ? lng : null,
-                          });
-                          setMatchPage(1);
-                        }}
-                        options={{
-                          types: ["establishment"],
-                          fields: ["formatted_address", "geometry", "name"],
-                        }}
-                        className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
-                        placeholder="e.g., Oceanside Tennis Center"
-                      />
-                    </div>
-                    {recentLocations.length > 0 && (
-                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                        {recentLocations.slice(0, 4).map((entry) => {
-                          const isActive =
-                            (locationFilter?.label || "").trim().toLowerCase() ===
-                            entry.label.toLowerCase();
-                          return (
-                            <button
-                              key={entry.label}
-                              type="button"
-                              onClick={() => handleUseBrowseLocation(entry)}
-                              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-black transition-colors ${
-                                isActive
-                                  ? "border-violet-500 bg-violet-500 text-white"
-                                  : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700"
-                              }`}
-                            >
-                              <MapPin className="h-3.5 w-3.5" />
-                              {entry.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-                      Search
-                    </p>
-                    <div className="relative w-full">
-                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="search"
-                        placeholder="Search matches by format or notes..."
-                        value={matchSearch}
-                        onChange={(e) => {
-                          setMatchSearch(e.target.value);
-                          setMatchPage(1);
-                        }}
-                        className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">When</p>
-                  <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
                     <button
                       type="button"
+                      onClick={() => setOpenMenu(openMenu === "filters" ? null : "filters")}
+                      className="inline-flex items-center gap-1.5 rounded-[10px] bg-slate-900 px-3 py-2 text-[12.5px] font-extrabold text-white transition hover:bg-slate-800"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Filters
+                    </button>
+
+                    {openMenu === "filters" && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40 bg-slate-900/30 sm:hidden"
+                          onClick={() => setOpenMenu(null)}
+                          aria-hidden="true"
+                        />
+                        <div className="z-50 border border-slate-200 bg-white shadow-xl max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:max-h-[82vh] max-sm:overflow-y-auto max-sm:rounded-t-[20px] sm:absolute sm:left-0 sm:top-[calc(100%+8px)] sm:w-[380px] sm:rounded-[16px]">
+                          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                            <span className="text-[13px] font-extrabold text-slate-900">Filters</span>
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenu(null)}
+                              className="text-slate-400 transition hover:text-slate-700"
+                              aria-label="Close filters"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="flex flex-col gap-4 px-4 py-4">
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                Location
+                              </p>
+                              <div className="relative">
+                                <MapPin className="pointer-events-none absolute left-4 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <Autocomplete
+                                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY}
+                                  value={locationFilter?.label || ""}
+                                  onChange={(e) => {
+                                    setLocationFilter({
+                                      label: e.target.value,
+                                      lat: null,
+                                      lng: null,
+                                    });
+                                    setMatchPage(1);
+                                  }}
+                                  onPlaceSelected={(place) => {
+                                    const placeName =
+                                      typeof place?.name === "string" ? place.name.trim() : "";
+                                    const formattedAddress =
+                                      typeof place?.formatted_address === "string"
+                                        ? place.formatted_address.trim()
+                                        : "";
+                                    const locationLabel =
+                                      placeName || formattedAddress || locationFilter?.label || "";
+                                    const lat = place.geometry?.location?.lat?.();
+                                    const lng = place.geometry?.location?.lng?.();
+                                    setLocationFilter({
+                                      label: locationLabel,
+                                      lat: typeof lat === "number" ? lat : null,
+                                      lng: typeof lng === "number" ? lng : null,
+                                    });
+                                    setMatchPage(1);
+                                  }}
+                                  options={{
+                                    types: ["establishment"],
+                                    fields: ["formatted_address", "geometry", "name"],
+                                  }}
+                                  className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                                  placeholder="e.g., Oceanside Tennis Center"
+                                />
+                              </div>
+                              {recentLocations.length > 0 && (
+                                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                                  {recentLocations.slice(0, 4).map((entry) => {
+                                    const isActive =
+                                      (locationFilter?.label || "").trim().toLowerCase() ===
+                                      entry.label.toLowerCase();
+                                    return (
+                                      <button
+                                        key={entry.label}
+                                        type="button"
+                                        onClick={() => handleUseBrowseLocation(entry)}
+                                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-black transition-colors ${
+                                          isActive
+                                            ? "border-violet-500 bg-violet-500 text-white"
+                                            : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700"
+                                        }`}
+                                      >
+                                        <MapPin className="h-3.5 w-3.5" />
+                                        {entry.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                Search
+                              </p>
+                              <div className="relative w-full">
+                                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="search"
+                                  placeholder="Search matches by format or notes..."
+                                  value={matchSearch}
+                                  onChange={(e) => {
+                                    setMatchSearch(e.target.value);
+                                    setMatchPage(1);
+                                  }}
+                                  className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-11 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                Distance
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {distanceOptions.map((distance) => (
+                                  <button
+                                    key={distance}
+                                    type="button"
+                                    onClick={() => {
+                                      setDistanceFilter(distance);
+                                      setMatchPage(1);
+                                    }}
+                                    className={`h-8 rounded-full border px-3 text-xs font-black transition-colors ${
+                                      distanceFilter === distance
+                                        ? "border-violet-500 bg-violet-500 text-white shadow-sm"
+                                        : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-700"
+                                    }`}
+                                  >
+                                    {distance} mi
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                Gender
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {DISCOVERY_GENDER_FILTERS.map((gender) =>
+                                  renderFilterChip({
+                                    key: `gender-${gender}`,
+                                    active: selectedGenderFilter === gender,
+                                    onClick: () => {
+                                      setSelectedGenderFilter(gender);
+                                      setMatchPage(1);
+                                    },
+                                    children: gender,
+                                    size: "compact",
+                                  }),
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="border-t border-slate-100 px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenu(null)}
+                              className="w-full rounded-[10px] bg-violet-500 py-2.5 text-[13px] font-extrabold text-white transition hover:bg-violet-600"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {renderQuickFilter({
+                    menuKey: "level",
+                    label: "Level",
+                    value: selectedLevelFilter,
+                    options: ["Any", ...NTRP_LEVELS],
+                    onSelect: setSelectedLevelFilter,
+                  })}
+
+                  {renderQuickFilter({
+                    menuKey: "format",
+                    label: "Format",
+                    value: selectedFormatFilter,
+                    options: DISCOVERY_FORMAT_FILTERS,
+                    onSelect: setSelectedFormatFilter,
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="mb-8">
+              <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDayKey("");
+                    setMatchPage(1);
+                  }}
+                  className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
+                    !selectedDayKey
+                      ? "border-violet-500 bg-violet-500 text-white"
+                      : "border-slate-200 bg-white text-slate-700"
+                  }`}
+                >
+                  <span className="block text-[10px] uppercase tracking-[0.14em]">All</span>
+                  <span className="block text-[18px] leading-none">Wk</span>
+                  <span
+                    className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                      !selectedDayKey ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    {allWeekMatchCount}
+                  </span>
+                </button>
+                {dayStripOptions.map((day, index) => {
+                  const count =
+                    matchCountsByDay.get(day.key) ??
+                    (day.fallbackCountKey ? getMatchCount(day.fallbackCountKey) : 0);
+                  const isActive = selectedDayKey === day.key;
+                  const disabled = index > 3 && count === 0;
+                  return (
+                    <button
+                      key={day.key}
+                      type="button"
                       onClick={() => {
-                        setSelectedDayKey("");
+                        setSelectedDayKey(day.key);
                         setMatchPage(1);
                       }}
+                      disabled={disabled}
                       className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
-                        !selectedDayKey
+                        isActive
                           ? "border-violet-500 bg-violet-500 text-white"
-                          : "border-slate-200 bg-white text-slate-700"
-                      }`}
+                          : "border-slate-200 bg-white text-slate-700 hover:border-violet-200"
+                      } ${count === 0 && !isActive ? "opacity-50" : ""}`}
                     >
-                      <span className="block text-[10px] uppercase tracking-[0.14em]">All</span>
-                      <span className="block text-[18px] leading-none">Wk</span>
+                      <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
+                      <span className="block text-[18px] leading-none">{day.dayNumber}</span>
                       <span
                         className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
-                          !selectedDayKey ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
+                          isActive ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
                         }`}
                       >
-                        {allWeekMatchCount}
+                        {count}
                       </span>
                     </button>
-                    {dayStripOptions.map((day, index) => {
-                      const count =
-                        matchCountsByDay.get(day.key) ??
-                        (day.fallbackCountKey ? getMatchCount(day.fallbackCountKey) : 0);
-                      const isActive = selectedDayKey === day.key;
-                      const disabled = index > 3 && count === 0;
-                      return (
-                        <button
-                          key={day.key}
-                          type="button"
-                          onClick={() => {
-                            setSelectedDayKey(day.key);
-                            setMatchPage(1);
-                          }}
-                          disabled={disabled}
-                          className={`flex min-h-[88px] min-w-[72px] flex-col items-center justify-center gap-1 rounded-[14px] border px-3 py-3 text-center text-[12px] font-black transition-colors ${
-                            isActive
-                              ? "border-violet-500 bg-violet-500 text-white"
-                              : "border-slate-200 bg-white text-slate-700 hover:border-violet-200"
-                          } ${count === 0 && !isActive ? "opacity-50" : ""}`}
-                        >
-                          <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
-                          <span className="block text-[18px] leading-none">{day.dayNumber}</span>
-                          <span
-                            className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
-                              isActive ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
-                            }`}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="mr-2 min-w-[68px] text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Level</span>
-                    {["Any", ...NTRP_LEVELS].map((level) =>
-                      renderFilterChip({
-                        key: `level-${level}`,
-                        active: selectedLevelFilter === level,
-                        onClick: () => {
-                          setSelectedLevelFilter(level);
-                          setMatchPage(1);
-                        },
-                        children: level,
-                        size: "compact",
-                      }),
-                    )}
-                  </div>
-                  <div className="hidden h-7 w-px bg-slate-200 xl:block" />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="mr-2 min-w-[78px] text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Format</span>
-                    {DISCOVERY_FORMAT_FILTERS.map((format) =>
-                      renderFilterChip({
-                        key: `format-${format}`,
-                        active: selectedFormatFilter === format,
-                        onClick: () => {
-                          setSelectedFormatFilter(format);
-                          setMatchPage(1);
-                        },
-                        children: format,
-                        size: "compact",
-                      }),
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="mr-2 min-w-[78px] text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Gender</span>
-                  {DISCOVERY_GENDER_FILTERS.map((gender) =>
-                    renderFilterChip({
-                      key: `gender-${gender}`,
-                      active: selectedGenderFilter === gender,
-                      onClick: () => {
-                        setSelectedGenderFilter(gender);
-                        setMatchPage(1);
-                      },
-                      children: gender,
-                      size: "compact",
-                    }),
-                  )}
-                </div>
+                  );
+                })}
               </div>
             </section>
 
