@@ -1170,7 +1170,21 @@ const GroupLessonDetailsPage = () => {
                   </div>
                 </header>
 
-                {isBooked ? (
+                {lesson.cancelled ? (
+                  <section className="group-lesson-details__section group-lesson-details__section--cancelled">
+                    <div className="group-lesson-details__cancelled-banner" role="alert">
+                      <div className="group-lesson-details__cancelled-icon" aria-hidden>
+                        ⚠
+                      </div>
+                      <div className="group-lesson-details__cancelled-copy">
+                        <strong>This lesson has been cancelled</strong>
+                        <span>The coach cancelled this class, so it can no longer be booked.</span>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {isBooked && !lesson.cancelled ? (
                   <section className="group-lesson-details__section group-lesson-details__section--booked">
                     <div className="group-lesson-details__booked-banner">
                       <div className="group-lesson-details__booked-icon" aria-hidden>
@@ -1615,7 +1629,7 @@ const GroupLessonDetailsPage = () => {
                       <button
                         type="button"
                         className="group-lesson-details__checkout-action"
-                        disabled={spotsRemaining === 0 || isBooked || bookingWithCredits}
+                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits}
                         onClick={() => {
                           if (!isSignedIn) {
                             promptSignIn();
@@ -1633,19 +1647,21 @@ const GroupLessonDetailsPage = () => {
                           });
                         }}
                       >
-                        {bookingWithCredits
-                          ? "Applying credits..."
-                          : isBooked
-                            ? "Booked"
-                            : spotsRemaining === 0
-                              ? "Join waitlist"
-                              : !isSignedIn
-                                ? "Sign in to book"
-                              : groupUsesCredits
-                                ? "Book with credits"
-                                : paymentChoice === "apple-pay"
-                                  ? "Continue with Apple Pay"
-                                : "Book now"}
+                        {lesson.cancelled
+                          ? "Cancelled"
+                          : bookingWithCredits
+                            ? "Applying credits..."
+                            : isBooked
+                              ? "Booked"
+                              : spotsRemaining === 0
+                                ? "Join waitlist"
+                                : !isSignedIn
+                                  ? "Sign in to book"
+                                  : groupUsesCredits
+                                    ? "Book with credits"
+                                    : paymentChoice === "apple-pay"
+                                      ? "Continue with Apple Pay"
+                                      : "Book now"}
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">
@@ -1694,7 +1710,7 @@ const GroupLessonDetailsPage = () => {
                   <button
                     type="button"
                     className="group-lesson-details__mobile-footer-action"
-                    disabled={spotsRemaining === 0 || isBooked}
+                    disabled={lesson.cancelled || spotsRemaining === 0 || isBooked}
                     onClick={() => {
                       if (!isSignedIn) {
                         promptSignIn();
@@ -1708,7 +1724,15 @@ const GroupLessonDetailsPage = () => {
                       });
                     }}
                   >
-                    {isBooked ? "Booked" : spotsRemaining === 0 ? "Join waitlist" : isSignedIn ? "Book now" : "Sign in to book"}
+                    {lesson.cancelled
+                      ? "Cancelled"
+                      : isBooked
+                        ? "Booked"
+                        : spotsRemaining === 0
+                          ? "Join waitlist"
+                          : isSignedIn
+                            ? "Book now"
+                            : "Sign in to book"}
                   </button>
                 </>
               )}

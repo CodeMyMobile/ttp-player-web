@@ -56,6 +56,10 @@ import { bookGroupLessonWithCard, joinLesson } from "../api/playerLessons";
 import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import {
+  getGroupLessonCheckoutButtonLabel,
+  isGroupLessonCheckoutDisabled,
+} from "../utils/groupLessonCancellation";
 import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./BookingConfirmationPage.css";
@@ -1264,15 +1268,24 @@ const BookingConfirmationPage = () => {
       : "You won’t be charged until the coach confirms.";
   })();
 
-  const isConfirmDisabled =
-    isConfirmed ||
-    isConsumingCredits ||
-    isPurchasingPackage ||
-    isProcessingPayment ||
-    Boolean(pendingCreditConfirm) ||
-    isUsingNewCard ||
-    (groupLessonId ? groupLessonLoading : false) ||
-    (isUsingCredits && (!canUseCredits || creditsLoading || !authToken));
+  const groupLessonCancelled = Boolean(groupLesson?.cancelled);
+  const groupLessonCancelledMessage = groupLessonCancelled
+    ? "This lesson has been cancelled and can no longer be booked."
+    : null;
+  const isConfirmDisabled = isGroupLessonCheckoutDisabled({
+    isConfirmed,
+    isConsumingCredits,
+    isPurchasingPackage,
+    isProcessingPayment,
+    hasPendingCreditConfirm: Boolean(pendingCreditConfirm),
+    isUsingNewCard,
+    groupLessonLoading: groupLessonId ? groupLessonLoading : false,
+    isUsingCredits,
+    canUseCredits,
+    creditsLoading,
+    hasAuthToken: Boolean(authToken),
+    groupLessonCancelled,
+  });
 
   const refreshCreditState = useCallback(async () => {
     if (!authToken || !resolvedCoachId) {
@@ -1453,6 +1466,11 @@ const BookingConfirmationPage = () => {
 
   const handleConfirm = async () => {
     setConsumeError(null);
+
+    if (groupLessonCancelled) {
+      setConsumeError(groupLessonCancelledMessage);
+      return;
+    }
 
     if (isUsingApplePay) {
       if (!authToken) {
@@ -1984,13 +2002,13 @@ const BookingConfirmationPage = () => {
         .format("MMM D")
         .toUpperCase()}`
     : summaryDateBand;
-  const groupConfirmButtonLabel = isUsingCredits
-    ? isConsumingCredits
-      ? "Applying credits..."
-      : "Pay with credits"
-    : isProcessingPayment
-      ? "Processing Apple Pay..."
-      : `Pay ${totalPriceLabel}`;
+  const groupConfirmButtonLabel = getGroupLessonCheckoutButtonLabel({
+    isUsingCredits,
+    isConsumingCredits,
+    isProcessingPayment,
+    groupLessonCancelled,
+    totalPriceLabel,
+  });
   const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
 
   const handleBuySelectedPackage = async () => {
@@ -2510,7 +2528,9 @@ const BookingConfirmationPage = () => {
                   </div>
                 </div>
 
-                {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                {consumeError || groupLessonCancelledMessage ? (
+                  <span className="booking-confirmation__error">{consumeError ?? groupLessonCancelledMessage}</span>
+                ) : null}
                 {pendingCreditConfirm ? (
                   <button
                     type="button"
@@ -2658,7 +2678,9 @@ const BookingConfirmationPage = () => {
                       : confirmButtonLabel}
                   <CheckCircle2 aria-hidden className="booking-confirmation__confirm-icon" />
                 </button>
-                {consumeError ? <span className="booking-confirmation__error">{consumeError}</span> : null}
+                {consumeError || groupLessonCancelledMessage ? (
+                  <span className="booking-confirmation__error">{consumeError ?? groupLessonCancelledMessage}</span>
+                ) : null}
                 {pendingCreditConfirm ? (
                   <button
                     type="button"
