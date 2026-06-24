@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import moment from "moment";
 import Autocomplete from "react-google-autocomplete";
 import {
   Users,
@@ -539,7 +540,7 @@ const BrowseScreen = ({
                     setSelectedDayKey("");
                     setMatchPage(1);
                   }}
-                  className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors ${
+                  className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors lg:min-w-[64px] lg:px-[18px] lg:py-2.5 ${
                     !selectedDayKey
                       ? "border-violet-500 bg-violet-500 text-white"
                       : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
@@ -547,12 +548,12 @@ const BrowseScreen = ({
                 >
                   <span
                     className={`text-[9px] font-bold uppercase tracking-wide ${
-                      !selectedDayKey ? "text-white/80" : "text-slate-400"
+                      !selectedDayKey ? "text-white/80" : "text-slate-500"
                     }`}
                   >
                     All
                   </span>
-                  <span className="text-[15px] font-extrabold leading-none">Wk</span>
+                  <span className="text-[15px] font-bold leading-none lg:text-[20px]">Wk</span>
                   <span
                     className={`mt-px min-w-[16px] rounded-[6px] px-[5px] py-px text-center text-[8px] font-bold leading-none ${
                       !selectedDayKey ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
@@ -567,6 +568,15 @@ const BrowseScreen = ({
                     (day.fallbackCountKey ? getMatchCount(day.fallbackCountKey) : 0);
                   const isActive = selectedDayKey === day.key;
                   const disabled = index > 3 && count === 0;
+                  // Re-derive the label from the date key to mirror the home strip
+                  // (DashboardPage.jsx): "Today" for today, weekday abbreviation
+                  // otherwise — overrides the parent's "Tomorrow" label.
+                  const dayMoment = moment(day.key, "YYYY-MM-DD", true);
+                  const dayLabel = dayMoment.isValid()
+                    ? dayMoment.isSame(moment(), "day")
+                      ? "Today"
+                      : dayMoment.format("ddd")
+                    : day.eyebrow;
                   return (
                     <button
                       key={day.key}
@@ -576,7 +586,7 @@ const BrowseScreen = ({
                         setMatchPage(1);
                       }}
                       disabled={disabled}
-                      className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors ${
+                      className={`flex min-w-[50px] flex-none flex-col items-center gap-px rounded-[10px] border-[1.5px] px-2.5 py-1.5 text-center transition-colors lg:min-w-[64px] lg:px-[18px] lg:py-2.5 ${
                         isActive
                           ? "border-violet-500 bg-violet-500 text-white"
                           : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
@@ -584,12 +594,12 @@ const BrowseScreen = ({
                     >
                       <span
                         className={`text-[9px] font-bold uppercase tracking-wide ${
-                          isActive ? "text-white/80" : "text-slate-400"
+                          isActive ? "text-white/80" : "text-slate-500"
                         }`}
                       >
-                        {day.eyebrow}
+                        {dayLabel}
                       </span>
-                      <span className="text-[15px] font-extrabold leading-none">{day.dayNumber}</span>
+                      <span className="text-[15px] font-bold leading-none lg:text-[20px]">{day.dayNumber}</span>
                       <span
                         className={`mt-px min-w-[16px] rounded-[6px] px-[5px] py-px text-center text-[8px] font-bold leading-none ${
                           isActive ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
