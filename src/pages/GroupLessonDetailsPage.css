@@ -465,6 +465,16 @@
   color: var(--fc-color-text-muted);
 }
 
+.group-lesson-details__participant-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
 .group-lesson-details__location-list {
   display: grid;
   gap: 5px;
