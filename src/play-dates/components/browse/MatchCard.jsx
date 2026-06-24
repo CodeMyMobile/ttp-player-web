@@ -1,4 +1,4 @@
-import { User, Users, MapPin } from "lucide-react";
+import { User, Users, MapPin, Lock } from "lucide-react";
 
 import { getAvatarInitials } from "../../utils/avatar";
 import { uniqueActiveParticipants } from "../../utils/participants";
@@ -15,6 +15,7 @@ const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, f
   const isHosted = match.type === "hosted";
   const isJoined = match.type === "joined";
   const isMine = isHosted || isJoined;
+  const isPrivate = match.privacy === "private";
   const statusValue =
     typeof match.status === "string" ? match.status.toLowerCase() : match.status;
   const isArchived = statusValue === "archived";
@@ -107,6 +108,17 @@ const MatchCard = ({ match, handleViewDetails, userNtrp, formatMatchTimeLabel, f
             >
               {levelChipText}
             </span>
+            {isPrivate ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-[7px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-wide text-violet-700">
+                <Lock className="h-2.5 w-2.5" />
+                Private
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-[7px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-wide text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                Open
+              </span>
+            )}
             {isHosted ? (
               <span className="rounded-full bg-amber-100 px-[7px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-wide text-amber-700">
                 Hosting

@@ -406,16 +406,13 @@ const BrowseScreen = ({
                         >
                           <span className="block text-[10px] uppercase tracking-[0.14em]">{day.eyebrow}</span>
                           <span className="block text-[18px] leading-none">{day.dayNumber}</span>
-                          {count > 0 ? (
-                            <span
-                              className={`mt-1 h-[5px] w-[5px] rounded-full ${
-                                isActive ? "bg-white" : "bg-violet-500"
-                              }`}
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <span className="mt-1 h-[5px] w-[5px]" aria-hidden="true" />
-                          )}
+                          <span
+                            className={`mt-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-[2px] text-[9px] leading-none ${
+                              isActive ? "bg-white/25 text-white" : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            {count}
+                          </span>
                         </button>
                       );
                     })}
