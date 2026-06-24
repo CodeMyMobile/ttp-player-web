@@ -22,6 +22,7 @@ import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
+import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuthPhoneCapture";
@@ -298,6 +299,14 @@ const AppRoutes = () => (
     <Route
       path="/li/:token"
       element={<LessonInvitePage />}
+    />
+    <Route
+      path="/match-results"
+      element={<PublicMatchResultsPage />}
+    />
+    <Route
+      path="/ladder"
+      element={<PublicMatchResultsPage />}
     />
     <Route
       path="/"
