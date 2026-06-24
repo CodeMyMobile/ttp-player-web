@@ -278,6 +278,17 @@ const PlayDatesPublicPageRoute = ({ children }) => (
   </PlayDatesQueryClientProvider>
 );
 
+const LogResultProtectedPageRoute = ({ children }) => (
+  <ProtectedRoute>
+    <div className="dashboard-page">
+      <AppNav />
+      <main className="main-layout__content">
+        {children}
+      </main>
+    </div>
+  </ProtectedRoute>
+);
+
 const AppRoutes = () => (
   <Routes>
     <Route
@@ -370,9 +381,9 @@ const AppRoutes = () => (
         <Route
           path="/log-result"
           element={(
-            <ProtectedRoute>
+            <LogResultProtectedPageRoute>
               <LogResultPage />
-            </ProtectedRoute>
+            </LogResultProtectedPageRoute>
           )}
         />
         <Route
