@@ -179,7 +179,10 @@ const BrowseScreen = ({
     );
 
     return (
-      <div className="min-h-screen bg-slate-50">
+      // Absorb the parent `.dashboard-page` flex gap (32px between AppNav and
+      // content) on mobile only — desktop keeps it. Scoped here so other
+      // .dashboard-page screens are unaffected.
+      <div className="-mt-6 min-h-screen bg-slate-50 sm:mt-0">
         {currentUser ? (
           <main className="mx-auto max-w-[1280px] px-4 pb-16 pt-3 sm:px-6 sm:pt-7 lg:px-10">
             <section className="mb-6 flex items-start justify-between gap-3">
