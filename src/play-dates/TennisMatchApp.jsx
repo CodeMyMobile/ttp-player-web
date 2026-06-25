@@ -33,6 +33,10 @@ import {
 } from "./services/authToken";
 import { updatePlayerPersonalDetails } from "./services/player";
 import {
+  SMS_CONSENT_DISCLOSURE,
+  buildSmsConsentPayload,
+} from "../constants/smsConsent";
+import {
   Calendar,
   MapPin,
   Users,
@@ -983,6 +987,7 @@ const TennisMatchApp = ({
     phone: "",
     skillLevel: "",
     dateOfBirth: "",
+    smsConsent: false,
   });
   const [signupErrors, setSignupErrors] = useState({});
   // Removed OTP verification; no verification code needed
@@ -1379,6 +1384,7 @@ const TennisMatchApp = ({
       password,
       skillLevel,
       dateOfBirth,
+      smsConsent,
     }) => {
       const trimmedName = name?.trim() ?? "";
       const normalizedPhoneDigits = getPhoneDigits(phone);
@@ -1476,6 +1482,7 @@ const TennisMatchApp = ({
           password,
           name: trimmedName,
           phone: normalizedPhoneDigits,
+          smsConsent,
         });
 
         const fallbackDetails = {
@@ -6254,10 +6261,11 @@ const TennisMatchApp = ({
           password: pwd ?? "matchplay",
           skillLevel: formData.skillLevel,
           dateOfBirth: formData.dateOfBirth,
+          smsConsent: formData.smsConsent ? buildSmsConsentPayload() : null,
         });
         setShowSignInModal(false);
         setSignInStep("initial");
-        setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+        setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
         setPassword("");
         setSignupErrors({});
       } catch (error) {
@@ -6275,7 +6283,7 @@ const TennisMatchApp = ({
             <button
               onClick={() => {
                 setSignInStep("initial");
-                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
               }}
               className="absolute top-4 left-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -6285,7 +6293,7 @@ const TennisMatchApp = ({
               onClick={() => {
                 setShowSignInModal(false);
                 setSignInStep("initial");
-                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
               }}
               className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -6354,15 +6362,30 @@ const TennisMatchApp = ({
 
               {/* NTRP Skill Level removed from signup */}
 
+              <label className="flex items-start gap-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={formData.smsConsent}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, smsConsent: e.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 flex-shrink-0 accent-green-600"
+                />
+                <span className="text-xs font-semibold text-gray-600">
+                  {SMS_CONSENT_DISCLOSURE}
+                </span>
+              </label>
+
               <button
                 onClick={async () => {
-                  if (formData.phone) {
+                  if (formData.smsConsent && formData.phone) {
                     await completeSignup();
                   } else {
                     displayToast("Please fill in all required fields", "error");
                   }
                 }}
-                className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all shadow-lg"
+                disabled={!formData.smsConsent || !formData.phone?.trim()}
+                className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
               >
                 COMPLETE SIGN UP
               </button>
@@ -6384,7 +6407,7 @@ const TennisMatchApp = ({
           .then(() => {
             setShowSignInModal(false);
             setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
             setPassword("");
           })
           .catch((error) => {
@@ -6527,7 +6550,7 @@ const TennisMatchApp = ({
             <button
               onClick={() => {
                 setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
               }}
               className="absolute top-4 left-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -6537,7 +6560,7 @@ const TennisMatchApp = ({
               onClick={() => {
                 setShowSignInModal(false);
                 setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
               }}
               className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -6653,6 +6676,20 @@ const TennisMatchApp = ({
 
               {/* NTRP Skill Level removed from signup */}
 
+              <label className="flex items-start gap-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={formData.smsConsent}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, smsConsent: e.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 flex-shrink-0 accent-green-600"
+                />
+                <span className="text-xs font-semibold text-gray-600">
+                  {SMS_CONSENT_DISCLOSURE}
+                </span>
+              </label>
+
               <button
                 onClick={async () => {
                   const errors = {};
@@ -6667,9 +6704,14 @@ const TennisMatchApp = ({
                     displayToast("Please correct the errors", "error");
                     return;
                   }
+                  if (!formData.smsConsent) {
+                    displayToast("Please agree to receive text messages to continue", "error");
+                    return;
+                  }
                   await completeSignup(password);
                 }}
-                className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all shadow-lg"
+                disabled={!formData.smsConsent || !formData.phone?.trim()}
+                className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-black hover:shadow-xl hover:scale-105 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
               >
                 CONTINUE
               </button>
@@ -6693,7 +6735,7 @@ const TennisMatchApp = ({
             onClick={() => {
               setShowSignInModal(false);
               setSignInStep("initial");
-              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
             }}
             className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
           >
@@ -6783,7 +6825,7 @@ const TennisMatchApp = ({
             onClick={() => {
               setShowSignInModal(false);
               setSignInStep("initial");
-              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsent: false });
             }}
             className="w-full text-gray-500 text-sm hover:text-gray-700 transition-colors mt-3 font-bold"
           >

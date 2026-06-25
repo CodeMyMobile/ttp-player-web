@@ -2406,6 +2406,29 @@
   text-decoration: underline;
 }
 
+/* SMS (TCPA/10DLC) consent — kept visually distinct from the Terms line above. */
+.auth-welcome__consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 6px 0 2px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475467;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.auth-welcome__consent input[type="checkbox"] {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
 .auth-welcome__submit {
   width: 100%;
   height: 54px;
