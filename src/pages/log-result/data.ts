@@ -40,6 +40,57 @@ interface MatchResultResponse {
   confirm_window_ends_at?: string;
 }
 
+interface ApiLeague {
+  id?: number | string;
+  name?: string | null;
+  skill_band?: string | null;
+  gender?: string | null;
+  status?: string | null;
+  start_date?: string | null;
+  deadline?: string | null;
+}
+
+interface ApiLeagueFixture {
+  id?: number | string;
+  league_id?: number | string;
+  match_number?: number | string;
+  player1_id?: number | string;
+  player2_id?: number | string;
+  player1_name?: string | null;
+  player2_name?: string | null;
+  status?: string | null;
+  score?: string | null;
+}
+
+interface LeagueState {
+  leagues: League[];
+  fixtures: LeagueFixture[];
+  loading: boolean;
+  error: string | null;
+}
+
+export interface League {
+  id: string;
+  name: string;
+  skillBand: string;
+  gender: string;
+  status: string;
+  startDate: string;
+  deadline: string;
+}
+
+export interface LeagueFixture {
+  id: string;
+  leagueId: string;
+  matchNumber: string;
+  player1Id: string;
+  player2Id: string;
+  player1Name: string;
+  player2Name: string;
+  status: string;
+  score: string | null;
+}
+
 export interface MatchResultDetail {
   id: number | string;
   status: "pending" | "confirmed" | "disputed" | "voided" | string;
@@ -153,6 +204,28 @@ const normalizeCourt = (court: ApiCourt): Court => ({
   longitude: court.longitude === undefined || court.longitude === null ? null : Number(court.longitude),
 });
 
+const normalizeLeague = (league: ApiLeague): League => ({
+  id: String(league.id ?? ""),
+  name: league.name || "League",
+  skillBand: league.skill_band || "",
+  gender: league.gender || "",
+  status: league.status || "",
+  startDate: league.start_date || "",
+  deadline: league.deadline || "",
+});
+
+const normalizeFixture = (fixture: ApiLeagueFixture): LeagueFixture => ({
+  id: String(fixture.id ?? ""),
+  leagueId: String(fixture.league_id ?? ""),
+  matchNumber: String(fixture.match_number ?? ""),
+  player1Id: String(fixture.player1_id ?? ""),
+  player2Id: String(fixture.player2_id ?? ""),
+  player1Name: fixture.player1_name || `Player ${fixture.player1_id || ""}`,
+  player2Name: fixture.player2_name || `Player ${fixture.player2_id || ""}`,
+  status: fixture.status || "scheduled",
+  score: fixture.score || null,
+});
+
 export function useCurrentUser(authUser?: unknown): CurrentUser {
   return normalizeCurrentUser(authUser);
 }
@@ -235,9 +308,67 @@ export function useCourtsApi(): CourtsState {
   return state;
 }
 
+export function useLeagueFixtures(selectedLeagueId: string): LeagueState {
+  const [state, setState] = useState<LeagueState>({
+    leagues: [],
+    fixtures: [],
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    unwrap(api("/leagues?status=active&membership_status=active"))
+      .then(async (data: { leagues?: ApiLeague[] }) => {
+        if (!alive) return;
+        const leagues = (data.leagues || []).map(normalizeLeague).filter((league) => league.id);
+        const leagueId = selectedLeagueId || leagues[0]?.id || "";
+        if (!leagueId) {
+          setState({ leagues, fixtures: [], loading: false, error: null });
+          return;
+        }
+        const fixtureData = await unwrap(api(`/leagues/${leagueId}/fixtures?mine=true`));
+        if (!alive) return;
+        setState({
+          leagues,
+          fixtures: ((fixtureData as { fixtures?: ApiLeagueFixture[] }).fixtures || [])
+            .map(normalizeFixture)
+            .filter((fixture) => fixture.id),
+          loading: false,
+          error: null,
+        });
+      })
+      .catch((error: Error) => {
+        if (!alive) return;
+        console.error("[LogResult] failed to load league fixtures", error);
+        setState({ leagues: [], fixtures: [], loading: false, error: "Failed to load league fixtures" });
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [selectedLeagueId]);
+
+  return state;
+}
+
 export function submitMatchResult(payload: SubmitPayload): Promise<MatchResultResponse> {
   return unwrap(
     api("/match-results", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function submitLeagueMatchResult(
+  leagueId: string,
+  fixtureId: string,
+  payload: SubmitPayload,
+): Promise<{ match_result?: MatchResultResponse }> {
+  return unwrap(
+    api(`/leagues/${leagueId}/matches/${fixtureId}/result`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
