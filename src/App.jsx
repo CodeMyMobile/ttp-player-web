@@ -22,6 +22,7 @@ import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
+import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuthPhoneCapture";
@@ -43,8 +44,11 @@ import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
+import LogResultPage from "./pages/log-result";
+import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
+import { isLogResultEnabled } from "./play-dates/utils/featureFlags";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
 
@@ -274,6 +278,17 @@ const PlayDatesPublicPageRoute = ({ children }) => (
   </PlayDatesQueryClientProvider>
 );
 
+const LogResultProtectedPageRoute = ({ children }) => (
+  <ProtectedRoute>
+    <div className="dashboard-page">
+      <AppNav />
+      <main className="main-layout__content">
+        {children}
+      </main>
+    </div>
+  </ProtectedRoute>
+);
+
 const AppRoutes = () => (
   <Routes>
     <Route
@@ -295,6 +310,14 @@ const AppRoutes = () => (
     <Route
       path="/li/:token"
       element={<LessonInvitePage />}
+    />
+    <Route
+      path="/match-results"
+      element={<PublicMatchResultsPage />}
+    />
+    <Route
+      path="/ladder"
+      element={<PublicMatchResultsPage />}
     />
     <Route
       path="/"
@@ -352,6 +375,27 @@ const AppRoutes = () => (
         </ProtectedRoute>
       )}
     />
+    {/* Log a result is gated on VITE_LOG_RESULT while the score-reporting rollout stays controlled. */}
+    {isLogResultEnabled() ? (
+      <>
+        <Route
+          path="/log-result"
+          element={(
+            <LogResultProtectedPageRoute>
+              <LogResultPage />
+            </LogResultProtectedPageRoute>
+          )}
+        />
+        <Route
+          path="/log-result/confirm/:id"
+          element={(
+            <ProtectedRoute>
+              <ConfirmResultPage />
+            </ProtectedRoute>
+          )}
+        />
+      </>
+    ) : null}
     <Route
       path="/matches/:id"
       element={(

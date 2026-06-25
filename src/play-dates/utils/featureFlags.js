@@ -12,3 +12,9 @@ const truthy = (value) =>
 
 export const isMultiMatchEnabled = () =>
   truthy(import.meta.env?.VITE_MULTI_MATCH);
+
+// VITE_LOG_RESULT gates the stub-driven "Log a result" flow. Default OFF: when
+// unset/false the route is not registered, so the fixture page can't reach real
+// users. Enable it only in deploy previews.
+export const isLogResultEnabled = () =>
+  truthy(import.meta.env?.VITE_LOG_RESULT);
