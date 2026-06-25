@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Apple,
   ArrowRight,
   CalendarDays,
   Eye,
@@ -15,7 +14,6 @@ import { useAuth } from "../context/AuthContext";
 import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
 import LegalFooter from "../components/LegalFooter";
 import {
-  getApplePlayerLoginUrl,
   googlePlayerLogin,
   logout as clearAuthSession,
   signup as signupService,
@@ -137,6 +135,7 @@ const LoginPage = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(lastEmail || "");
   const [phone, setPhone] = useState("");
+  const [smsConsentGranted, setSmsConsentGranted] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -184,11 +183,17 @@ const LoginPage = () => {
     setLoading(true);
     try {
       if (isSignup) {
+        if (phone.replace(/\D/g, "") && !smsConsentGranted) {
+          setError("Please agree to receive SMS messages before creating your account.");
+          setLoading(false);
+          return;
+        }
         const response = await signupService({
           email,
           password,
           name: fullName,
           phone,
+          smsConsentGranted,
         });
         establishSession?.(response);
       } else {
@@ -209,11 +214,7 @@ const LoginPage = () => {
   const handleModeToggle = () => {
     setError("");
     setMode((current) => (current === "signup" ? "signin" : "signup"));
-  };
-
-  const handleAppleLogin = () => {
-    setError("");
-    window.location.href = getApplePlayerLoginUrl();
+    setSmsConsentGranted(false);
   };
 
   const handleGoogleLogin = async () => {
@@ -451,6 +452,24 @@ const LoginPage = () => {
                     </div>
                   ) : null}
 
+                  {isSignup ? (
+                    <label className="auth-welcome__remember" htmlFor="mobile-sms-consent">
+                      <input
+                        id="mobile-sms-consent"
+                        type="checkbox"
+                        checked={smsConsentGranted}
+                        onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                        required
+                      />
+                      <span className="auth-welcome__remember-copy">
+                        <strong>SMS consent</strong>
+                        <small>
+                          I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                        </small>
+                      </span>
+                    </label>
+                  ) : null}
+
                   <div className="auth-welcome__field">
                     <label htmlFor="mobile-password">Password</label>
                     <div className="auth-welcome__input-wrap auth-welcome__input-wrap--trailing">
@@ -541,10 +560,10 @@ const LoginPage = () => {
             <p className="auth-welcome__tagline">Find your coach. Play your match.</p>
 
             <div className="auth-welcome__features">
-              {featureItems.map(({ icon: Icon, text }) => (
+              {featureItems.map(({ icon, text }) => (
                 <div key={text} className="auth-welcome__feature">
                   <div className="auth-welcome__feature-icon">
-                    <Icon size={18} />
+                    {createElement(icon, { size: 18 })}
                   </div>
                   <span>{text}</span>
                 </div>
@@ -648,6 +667,24 @@ const LoginPage = () => {
                     />
                   </div>
                 </div>
+              ) : null}
+
+              {isSignup ? (
+                <label className="auth-welcome__remember" htmlFor="sms-consent">
+                  <input
+                    id="sms-consent"
+                    type="checkbox"
+                    checked={smsConsentGranted}
+                    onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                    required
+                  />
+                  <span className="auth-welcome__remember-copy">
+                    <strong>SMS consent</strong>
+                    <small>
+                      I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                    </small>
+                  </span>
+                </label>
               ) : null}
 
               <div className="auth-welcome__field">
