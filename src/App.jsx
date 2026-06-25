@@ -496,11 +496,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/find-coaches"
-      element={(
-        <ProtectedRoute>
-          <FindCoaches />
-        </ProtectedRoute>
-      )}
+      element={<FindCoaches />}
     />
     <Route
       path="/coach-match/recommendations"
