@@ -362,7 +362,7 @@ const LoginPage = () => {
               <div className="auth-mobile__welcome-footer">
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                  <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               </div>
             </div>
@@ -499,7 +499,7 @@ const LoginPage = () => {
                     {isSignup ? (
                       <p className="auth-welcome__terms">
                         By creating an account, you agree to our{" "}
-                        <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
+                        <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>
                       </p>
                     ) : null}
 
@@ -697,12 +697,12 @@ const LoginPage = () => {
               {isSignup ? (
                 <p className="auth-welcome__terms">
                   By creating an account, you agree to our{" "}
-                  <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
+                  <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               ) : (
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                  <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               )}
 

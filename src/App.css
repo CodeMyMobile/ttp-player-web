@@ -1938,8 +1938,9 @@
 .auth-welcome {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   background: #e2e8f0;
   color: #0f172a;
 }
@@ -1949,6 +1950,8 @@
 }
 
 .auth-welcome__desktop {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   display: flex;
   align-items: center;
