@@ -804,15 +804,6 @@ export default function InvitationPage() {
     [preview],
   );
 
-  const completeJoin = useCallback(
-    async (authData, fallback = {}) => {
-      persistSession(authData, fallback);
-      const acceptance = await acceptInvite(token);
-      return getInviteDestination(authData, acceptance);
-    },
-    [getInviteDestination, persistSession, token],
-  );
-
   const quickAcceptInvite = useCallback(async () => {
     const acceptance = await acceptInvite(token);
     return getInviteDestination({}, acceptance);
@@ -1239,8 +1230,12 @@ export default function InvitationPage() {
     setAuthSubmitting(true);
     try {
       const data = await login(trimmedEmail, signInPassword);
-      const destination = await completeJoin(data, { email: trimmedEmail });
-      await handleJoinSuccess(destination);
+      // Authenticate only — do NOT auto-join. Persist the session and return to
+      // the preview so the player reviews the match and explicitly taps
+      // "Join match" (handleJoinClick → quickAcceptInvite).
+      persistSession(data, { email: trimmedEmail });
+      setSignInPassword("");
+      setPhase("preview");
     } catch (err) {
       const statusCode = Number(err?.status ?? err?.response?.status);
       if (statusCode === 403) {
@@ -1350,8 +1345,12 @@ export default function InvitationPage() {
         );
       }
 
-      const destination = await completeJoin(authPayload, fallbackDetails);
-      await handleJoinSuccess(destination);
+      // Authenticate only — do NOT auto-join. Persist the session and return to
+      // the preview so the player reviews the match and explicitly taps
+      // "Join match" (handleJoinClick → quickAcceptInvite).
+      persistSession(authPayload, fallbackDetails);
+      setSignUpPassword("");
+      setPhase("preview");
     } catch (err) {
       if (isMatchArchivedError(err)) {
         setArchivedNotice(true);
