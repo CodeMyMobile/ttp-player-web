@@ -1,11 +1,13 @@
 import { request } from "./http";
 import type { PlayerStripePaymentMethod, PlayerStripePaymentMethodListResponse, StripeSetupIntentResponse } from "./playerStripe";
+import { withSmsConsent } from "../services/smsConsent";
 
 export interface LessonInviteClaimPayload {
   fullName?: string;
   email?: string;
   phone?: string;
   password?: string;
+  smsConsentGranted?: boolean;
 }
 
 export interface LessonInviteClaimResponse {
@@ -27,6 +29,7 @@ export interface LessonInviteQuickSignupPayload {
   phone?: string;
   password: string;
   confirmPassword: string;
+  smsConsentGranted?: boolean;
 }
 
 export interface LessonInviteQuickSignupResponse extends LessonInviteClaimResponse {
@@ -93,12 +96,16 @@ export const beginLessonInvite = (token: string) =>
 export const claimLessonInvite = (token: string, payload: LessonInviteClaimPayload = {}) =>
   request<LessonInviteClaimResponse>(`/lesson-invites/${normalizeInviteToken(token)}/claim`, {
     method: "POST",
-    body: {
-      ...(payload.fullName ? { full_name: payload.fullName, fullName: payload.fullName } : {}),
-      ...(payload.email ? { email: payload.email } : {}),
-      ...(payload.phone ? { phone: payload.phone } : {}),
-      ...(payload.password ? { password: payload.password } : {}),
-    },
+    body: withSmsConsent(
+      {
+        ...(payload.fullName ? { full_name: payload.fullName, fullName: payload.fullName } : {}),
+        ...(payload.email ? { email: payload.email } : {}),
+        ...(payload.phone ? { phone: payload.phone } : {}),
+        ...(payload.password ? { password: payload.password } : {}),
+      },
+      Boolean(payload.phone) && payload.smsConsentGranted === true,
+      "lesson_invite_claim",
+    ),
   });
 
 export const quickSignupLessonInvite = (
@@ -110,16 +117,20 @@ export const quickSignupLessonInvite = (
     normalizeInviteEndpoint(token, endpoint, "quick-signup"),
     {
       method: "POST",
-      body: {
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        fullName: `${payload.firstName} ${payload.lastName}`.trim(),
-        full_name: `${payload.firstName} ${payload.lastName}`.trim(),
-        email: payload.email,
-        ...(payload.phone ? { phone: payload.phone } : {}),
-        password: payload.password,
-        confirmPassword: payload.confirmPassword,
-      },
+      body: withSmsConsent(
+        {
+          firstName: payload.firstName,
+          lastName: payload.lastName,
+          fullName: `${payload.firstName} ${payload.lastName}`.trim(),
+          full_name: `${payload.firstName} ${payload.lastName}`.trim(),
+          email: payload.email,
+          ...(payload.phone ? { phone: payload.phone } : {}),
+          password: payload.password,
+          confirmPassword: payload.confirmPassword,
+        },
+        Boolean(payload.phone) && payload.smsConsentGranted === true,
+        "lesson_invite_quick_signup",
+      ),
     },
   );
 

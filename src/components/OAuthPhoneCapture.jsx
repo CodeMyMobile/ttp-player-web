@@ -129,6 +129,7 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
   const [firstName, setFirstName] = useState(name.firstName);
   const [lastName, setLastName] = useState(name.lastName);
   const [phone, setPhone] = useState("");
+  const [smsConsentGranted, setSmsConsentGranted] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -139,6 +140,10 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
     const digits = getPhoneDigits(phone);
     if (digits.length < 10) {
       setError("Enter a valid phone number.");
+      return;
+    }
+    if (!smsConsentGranted) {
+      setError("Please agree to receive SMS messages before continuing.");
       return;
     }
 
@@ -154,6 +159,8 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
         ...(playerId ? { id: playerId } : {}),
         fullName,
         mobile: digits,
+        smsConsentGranted,
+        smsConsentMethod: "oauth_phone_capture",
       });
       const nextSession = {
         ...session,
@@ -259,6 +266,22 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
                 required
               />
             </div>
+
+            <label className="auth-welcome__remember" htmlFor="oauth-sms-consent">
+              <input
+                id="oauth-sms-consent"
+                type="checkbox"
+                checked={smsConsentGranted}
+                onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                required
+              />
+              <span className="auth-welcome__remember-copy">
+                <strong>SMS consent</strong>
+                <small>
+                  I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                </small>
+              </span>
+            </label>
 
             <div className="oauth-complete__footer">
               <p className="auth-welcome__terms">

@@ -1,5 +1,6 @@
 import api, { unwrap } from "./api";
 import { normalizeAuthToken } from "./authToken";
+import { withSmsConsent } from "./smsConsent";
 
 export const updatePlayerPersonalDetails = async ({
   player = null,
@@ -11,6 +12,8 @@ export const updatePlayerPersonalDetails = async ({
   mobile = null,
   about_me = null,
   profile_picture,
+  smsConsentGranted = false,
+  smsConsentMethod = "player_profile",
 }) => {
   const authHeader = normalizeAuthToken(player, {
     defaultScheme: "token",
@@ -23,16 +26,22 @@ export const updatePlayerPersonalDetails = async ({
     throw new Error("Missing player id");
   }
 
-  const params = Object.entries({
-    id,
-    date_of_birth,
-    usta_rating,
-    uta_rating,
-    full_name: fullName,
-    phone: mobile,
-    about_me,
-    profile_picture,
-  }).reduce((acc, [key, value]) => {
+  const params = Object.entries(
+    withSmsConsent(
+      {
+        id,
+        date_of_birth,
+        usta_rating,
+        uta_rating,
+        full_name: fullName,
+        phone: mobile,
+        about_me,
+        profile_picture,
+      },
+      Boolean(mobile) && smsConsentGranted,
+      smsConsentMethod,
+    )
+  ).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;
     }
@@ -58,6 +67,8 @@ export const createPlayerPersonalDetails = async ({
   mobile = null,
   about_me = null,
   profile_picture,
+  smsConsentGranted = false,
+  smsConsentMethod = "player_profile",
 }) => {
   const authHeader = normalizeAuthToken(player, {
     defaultScheme: "token",
@@ -67,15 +78,21 @@ export const createPlayerPersonalDetails = async ({
     throw new Error("Missing player token");
   }
 
-  const params = Object.entries({
-    date_of_birth,
-    usta_rating,
-    uta_rating,
-    full_name: fullName,
-    phone: mobile,
-    about_me,
-    profile_picture,
-  }).reduce((acc, [key, value]) => {
+  const params = Object.entries(
+    withSmsConsent(
+      {
+        date_of_birth,
+        usta_rating,
+        uta_rating,
+        full_name: fullName,
+        phone: mobile,
+        about_me,
+        profile_picture,
+      },
+      Boolean(mobile) && smsConsentGranted,
+      smsConsentMethod,
+    )
+  ).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;
     }

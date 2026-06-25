@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  SMS_DISCLOSURE_VERSION,
+  buildSmsConsentPayload,
+  withSmsConsent,
+} from "./smsConsent.js";
+
+test("buildSmsConsentPayload returns the backend consent record shape", () => {
+  const payload = buildSmsConsentPayload("signup_checkbox");
+
+  assert.equal(payload.granted, true);
+  assert.equal(payload.disclosureVersion, SMS_DISCLOSURE_VERSION);
+  assert.match(payload.disclosureText, /SMS/i);
+  assert.equal(payload.method, "signup_checkbox");
+});
+
+test("withSmsConsent only attaches consent when explicitly granted", () => {
+  assert.deepEqual(withSmsConsent({ phone: "4155550101" }, false), {
+    phone: "4155550101",
+  });
+
+  const payload = withSmsConsent({ phone: "4155550101" }, true, "oauth_phone_capture");
+  assert.equal(payload.smsConsent.granted, true);
+  assert.equal(payload.smsConsent.method, "oauth_phone_capture");
+});

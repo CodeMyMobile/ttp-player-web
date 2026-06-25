@@ -186,7 +186,7 @@ Your use of Google services through the integration is also subject to Google's 
 
 ## 11. Privacy
 
-Our Privacy Policy describes how we collect, use, and share information about you. By using the App you agree to the practices described in the Privacy Policy.
+Our [Privacy Policy](https://thetennisplan.com/privacy) ([https://thetennisplan.com](https://thetennisplan.com)/privacy) describes how we collect, use, and share information about you. By using the App you agree to the practices described in the [Privacy Policy](https://thetennisplan.com/privacy).
 
 ## 12. Intellectual Property
 
