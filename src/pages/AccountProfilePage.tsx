@@ -28,10 +28,10 @@ const AccountProfilePage = () => {
               <div className="settings-legal__links">
                 {/* Full-page navigations to the statically served legal pages
                     (outside the SPA), so use plain anchors rather than router links. */}
-                <a className="settings-legal__link" href="/privacy">
+                <a className="settings-legal__link" href="/privacy/">
                   Privacy Policy
                 </a>
-                <a className="settings-legal__link" href="/terms">
+                <a className="settings-legal__link" href="/terms/">
                   Terms of Service
                 </a>
               </div>

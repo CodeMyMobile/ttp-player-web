@@ -6,8 +6,10 @@
 // crawlers / OAuth reviewers, with no auth guard and no runtime fetch.
 //
 // Output:
-//   dist/privacy/index.html   -> served at /privacy
-//   dist/terms/index.html     -> served at /terms
+//   public/privacy/index.html -> served by Vite dev at /privacy/
+//   public/terms/index.html   -> served by Vite dev at /terms/
+//   dist/privacy/index.html   -> served in production at /privacy/
+//   dist/terms/index.html     -> served in production at /terms/
 //
 // Runs after `vite build` (see package.json "build" script).
 
@@ -20,6 +22,7 @@ import { renderLegalPage } from "./legal-template.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const CONTENT_DIR = resolve(ROOT, "src/content");
+const PUBLIC_DIR = resolve(ROOT, "public");
 const DIST_DIR = resolve(ROOT, "dist");
 
 // Canonical origin for the deployed app (see index.html og:url).
@@ -65,7 +68,7 @@ const buildPage = async (page) => {
   }
 
   const contentHtml = wrapTables(marked.parse(markdown));
-  const canonical = `${SITE_ORIGIN}/${page.slug}`;
+  const canonical = `${SITE_ORIGIN}/${page.slug}/`;
   const document = renderLegalPage({
     title: page.title,
     description: page.description,
@@ -74,11 +77,13 @@ const buildPage = async (page) => {
     appUrl: `${SITE_ORIGIN}/`,
   });
 
-  const outDir = resolve(DIST_DIR, page.slug);
-  await mkdir(outDir, { recursive: true });
-  const outFile = resolve(outDir, "index.html");
-  await writeFile(outFile, document, "utf8");
-  console.log(`[build-legal] wrote ${outFile.replace(`${ROOT}/`, "")}  (/${page.slug})`);
+  for (const outputRoot of [PUBLIC_DIR, DIST_DIR]) {
+    const outDir = resolve(outputRoot, page.slug);
+    await mkdir(outDir, { recursive: true });
+    const outFile = resolve(outDir, "index.html");
+    await writeFile(outFile, document, "utf8");
+    console.log(`[build-legal] wrote ${outFile.replace(`${ROOT}/`, "")}  (/${page.slug}/)`);
+  }
 };
 
 const main = async () => {

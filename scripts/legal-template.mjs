@@ -163,8 +163,8 @@ ${contentHtml}
       <div class="legal-footer__inner">
         <span>&copy; The Tennis Plan</span>
         <span class="legal-footer__spacer"></span>
-        <a href="/privacy">Privacy Policy</a>
-        <a href="/terms">Terms of Service</a>
+        <a href="/privacy/">Privacy Policy</a>
+        <a href="/terms/">Terms of Service</a>
         <a href="${escapeHtml(appUrl)}">Back to app</a>
       </div>
     </footer>
