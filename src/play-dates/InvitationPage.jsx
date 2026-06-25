@@ -1876,7 +1876,7 @@ export default function InvitationPage() {
               type="submit"
               disabled={authSubmitting || isArchivedMatch}
             >
-              {authSubmitting ? "Joining match..." : "Sign in & Join"}
+              {authSubmitting ? "Signing in..." : "Sign in"}
             </PrimaryButton>
           </form>
         )
@@ -1944,7 +1944,7 @@ export default function InvitationPage() {
             type="submit"
             disabled={authSubmitting || isArchivedMatch}
           >
-            {authSubmitting ? "Creating account..." : "Sign up & Join"}
+            {authSubmitting ? "Creating account..." : "Sign up"}
           </PrimaryButton>
         </form>
       )}
