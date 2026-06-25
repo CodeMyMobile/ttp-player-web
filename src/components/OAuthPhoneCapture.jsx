@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
 import { formatPhoneNumber, getPhoneDigits } from "../services/phone";
+import { SMS_CONSENT_DISCLOSURE, buildSmsConsentPayload } from "../constants/smsConsent";
 
 const extractProfile = (session) =>
   session?.profile || session?.user || session?.player || session?.personal_details || {};
@@ -129,6 +130,7 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
   const [firstName, setFirstName] = useState(name.firstName);
   const [lastName, setLastName] = useState(name.lastName);
   const [phone, setPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -154,6 +156,7 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
         ...(playerId ? { id: playerId } : {}),
         fullName,
         mobile: digits,
+        smsConsent: buildSmsConsentPayload(),
       });
       const nextSession = {
         ...session,
@@ -261,11 +264,23 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
             </div>
 
             <div className="oauth-complete__footer">
+              <label className="auth-welcome__consent">
+                <input
+                  type="checkbox"
+                  checked={smsConsent}
+                  onChange={(event) => setSmsConsent(event.target.checked)}
+                />
+                <span>{SMS_CONSENT_DISCLOSURE}</span>
+              </label>
               <p className="auth-welcome__terms">
                 By continuing, you agree to our <a href="/terms">Terms</a> and{" "}
                 <a href="/privacy">Privacy Policy</a>
               </p>
-              <button type="submit" className="auth-welcome__submit" disabled={saving}>
+              <button
+                type="submit"
+                className="auth-welcome__submit"
+                disabled={saving || !smsConsent || !phone.trim()}
+              >
                 <span>{saving ? "Saving..." : "Finish setup"}</span>
                 {!saving ? <ArrowRight size={16} /> : null}
               </button>

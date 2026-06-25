@@ -32,7 +32,14 @@ export const login = async (email, password) => {
   return data;
 };
 
-export const signup = async ({ email, password, name, phone, user_type = 2 }) => {
+export const signup = async ({
+  email,
+  password,
+  name,
+  phone,
+  user_type = 2,
+  smsConsent = null,
+}) => {
   const normalizedPhone = getPhoneDigits(phone);
   const trimmedName = typeof name === "string" ? name.trim() : "";
 
@@ -50,6 +57,8 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
     full_name: trimmedName,
     name: trimmedName,
     ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+    // SMS (TCPA/10DLC) consent record — field names are a backend contract.
+    ...(smsConsent || {}),
   };
   const data = await unwrap(
     api(`/auth/signup`, {

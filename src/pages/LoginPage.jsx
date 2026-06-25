@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
 import LegalFooter from "../components/LegalFooter";
+import { SMS_CONSENT_DISCLOSURE, buildSmsConsentPayload } from "../constants/smsConsent";
 import {
   getApplePlayerLoginUrl,
   googlePlayerLogin,
@@ -137,6 +138,7 @@ const LoginPage = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(lastEmail || "");
   const [phone, setPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -189,6 +191,7 @@ const LoginPage = () => {
           password,
           name: fullName,
           phone,
+          smsConsent: buildSmsConsentPayload(),
         });
         establishSession?.(response);
       } else {
@@ -497,13 +500,28 @@ const LoginPage = () => {
 
                   <div className="auth-mobile__footer">
                     {isSignup ? (
+                      <label className="auth-welcome__consent">
+                        <input
+                          type="checkbox"
+                          checked={smsConsent}
+                          onChange={(event) => setSmsConsent(event.target.checked)}
+                        />
+                        <span>{SMS_CONSENT_DISCLOSURE}</span>
+                      </label>
+                    ) : null}
+
+                    {isSignup ? (
                       <p className="auth-welcome__terms">
                         By creating an account, you agree to our{" "}
                         <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
                       </p>
                     ) : null}
 
-                    <button type="submit" className="auth-welcome__submit" disabled={loading}>
+                    <button
+                      type="submit"
+                      className="auth-welcome__submit"
+                      disabled={loading || (isSignup && (!smsConsent || !phone.trim()))}
+                    >
                       <span>
                         {loading
                           ? isSignup
@@ -695,6 +713,17 @@ const LoginPage = () => {
               </button>
 
               {isSignup ? (
+                <label className="auth-welcome__consent">
+                  <input
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(event) => setSmsConsent(event.target.checked)}
+                  />
+                  <span>{SMS_CONSENT_DISCLOSURE}</span>
+                </label>
+              ) : null}
+
+              {isSignup ? (
                 <p className="auth-welcome__terms">
                   By creating an account, you agree to our{" "}
                   <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>
@@ -706,7 +735,11 @@ const LoginPage = () => {
                 </p>
               )}
 
-              <button type="submit" className="auth-welcome__submit" disabled={loading}>
+              <button
+                type="submit"
+                className="auth-welcome__submit"
+                disabled={loading || (isSignup && (!smsConsent || !phone.trim()))}
+              >
                 <span>
                   {loading
                     ? isSignup

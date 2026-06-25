@@ -11,6 +11,7 @@ export const updatePlayerPersonalDetails = async ({
   mobile = null,
   about_me = null,
   profile_picture,
+  smsConsent = null,
 }) => {
   const authHeader = normalizeAuthToken(player, {
     defaultScheme: "token",
@@ -32,6 +33,8 @@ export const updatePlayerPersonalDetails = async ({
     phone: mobile,
     about_me,
     profile_picture,
+    // SMS (TCPA/10DLC) consent record — field names are a backend contract.
+    ...(smsConsent || {}),
   }).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;
@@ -58,6 +61,7 @@ export const createPlayerPersonalDetails = async ({
   mobile = null,
   about_me = null,
   profile_picture,
+  smsConsent = null,
 }) => {
   const authHeader = normalizeAuthToken(player, {
     defaultScheme: "token",
@@ -75,6 +79,8 @@ export const createPlayerPersonalDetails = async ({
     phone: mobile,
     about_me,
     profile_picture,
+    // SMS (TCPA/10DLC) consent record — field names are a backend contract.
+    ...(smsConsent || {}),
   }).reduce((acc, [key, value]) => {
     if (value !== undefined) {
       acc[key] = value;
