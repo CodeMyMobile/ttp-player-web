@@ -105,6 +105,39 @@ const featureItems = [
   },
 ];
 
+const getAuthErrorMessage = (err, { isSignup }) => {
+  const status = err?.status ?? err?.response?.status;
+  const data = err?.response?.data;
+
+  // Network / server unreachable
+  if (err?.message === "Failed to fetch") {
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+
+  if (isSignup) {
+    // Duplicate email surfaces as a raw Postgres unique-constraint error — never show it verbatim
+    const duplicateEmail =
+      data?.err?.constraint === "users_email_unique" ||
+      data?.err?.code === "23505" ||
+      /already exists/i.test(data?.err?.detail || "");
+    if (duplicateEmail) {
+      return "An account with this email already exists. Try signing in instead.";
+    }
+    return "Unable to create your account. Please try again.";
+  }
+
+  // Sign-in: unknown email (404) or wrong password (403/401) → one message, no account enumeration
+  if (status === 401 || status === 403 || status === 404) {
+    return "The email or password you entered is incorrect. Please try again.";
+  }
+
+  // Meaningful client-side guard (e.g. the coach-account block, which has no HTTP status)
+  const guardMessage = data?.error || data?.message;
+  if (guardMessage) return guardMessage;
+
+  return "Unable to sign in. Please try again.";
+};
+
 const GoogleMark = () => (
   <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
     <path
@@ -201,11 +234,7 @@ const LoginPage = () => {
       }
       navigateAfterAuth();
     } catch (err) {
-      setError(
-        err?.response?.data?.error ||
-          err?.message ||
-          `Unable to ${isSignup ? "sign up" : "login"}. Please try again.`,
-      );
+      setError(getAuthErrorMessage(err, { isSignup }));
     } finally {
       setLoading(false);
     }
