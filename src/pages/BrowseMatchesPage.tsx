@@ -12,10 +12,17 @@ import {
   type NormalizedMatch,
   type MatchesPagination,
 } from "../api/matches";
+import { getPlayedWith } from "../api/playerHistory";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import { colors, typography } from "../lib/theme";
 import { getStoredAuthToken } from "../services/authToken";
+import { getMatchHostId } from "../play-dates/utils/matchHost";
+import {
+  buildPlayedWithHostSet,
+  hasPlayedWithHost,
+  type PlayedWithPlayer,
+} from "../utils/playedWith";
 import { deriveListingVisibility, isLinkOnlyVisibility, isPrivateMatch } from "../utils/matchVisibility";
 import {
   getStoredLocation,
@@ -282,6 +289,29 @@ const getHostDisplayName = (match: NormalizedMatch, isHost: boolean) => {
   return isHost ? "You" : undefined;
 };
 
+const readStoredUserId = (): string | number | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("authLoginResponse");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const id = parsed.user_id ?? parsed.id;
+    return typeof id === "string" || typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveCurrentUserId = (user: unknown): string | number | null => {
+  if (user && typeof user === "object") {
+    const record = user as Record<string, unknown>;
+    const session = record.session as Record<string, unknown> | undefined;
+    const id = record.user_id ?? record.userId ?? record.id ?? session?.user_id ?? session?.id;
+    if (typeof id === "string" || typeof id === "number") return id;
+  }
+  return readStoredUserId();
+};
+
 const BrowseMatchesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth() as { user?: unknown };
@@ -302,6 +332,7 @@ const BrowseMatchesPage = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [geoError, setGeoError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [playedWith, setPlayedWith] = useState<PlayedWithPlayer[]>([]);
   const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "ready" | "error">(
     storedLocation ? "ready" : "idle",
   );
@@ -309,6 +340,26 @@ const BrowseMatchesPage = () => {
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
   const currentUserIdentities = useMemo(() => identityValues(user), [user]);
+  const currentUserId = useMemo(() => resolveCurrentUserId(user), [user]);
+  const playedWithHosts = useMemo(() => buildPlayedWithHostSet(playedWith), [playedWith]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setPlayedWith([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    getPlayedWith(currentUserId, { signal: controller.signal })
+      .then((response) => setPlayedWith(response.playedWith))
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error("Failed to load played-with history", error);
+        setPlayedWith([]);
+      });
+
+    return () => controller.abort();
+  }, [currentUserId]);
 
   const locationLabel = (() => {
     if (locationFilter) {
@@ -1022,6 +1073,10 @@ const BrowseMatchesPage = () => {
                 const hostDisplayName = getHostDisplayName(match, isHost);
                 const hostingParticipant = match.participants?.some((participant) => participant.hosting) ?? false;
                 const showHostPill = Boolean(hostDisplayName) && (isHost || hostingParticipant);
+                const rawMatch = (match.raw ?? {}) as Record<string, unknown>;
+                const hostId = getMatchHostId(rawMatch);
+                const showTrustPill = !isHost && hostId !== undefined && hostId !== null;
+                const hasSharedCourt = showTrustPill ? hasPlayedWithHost(rawMatch, playedWithHosts) : false;
 
                 return (
                   <article key={match.id} className="match-card">
@@ -1035,6 +1090,15 @@ const BrowseMatchesPage = () => {
                           <span className="match-status-pill visibility">{match.visibilityLabel}</span>
                         ) : null}
                         {roleLabel ? <span className="match-status-pill subtle">{roleLabel}</span> : null}
+                        {showTrustPill ? (
+                          <span
+                            className={`match-status-pill ${
+                              hasSharedCourt ? "played-before" : "new-host"
+                            }`}
+                          >
+                            {hasSharedCourt ? "✓ you've played" : "new to you"}
+                          </span>
+                        ) : null}
                         {isHost ? <span className="match-host-pill match-host-pill--header">Host</span> : null}
                       </div>
                       {spotsAvailable > 0 && playersNeeded > 0 ? (
