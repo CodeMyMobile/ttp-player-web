@@ -2180,6 +2180,24 @@
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+.auth-welcome__google-button {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+.auth-welcome__google-button:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.auth-welcome__google-button > div,
+.auth-welcome__google-button iframe {
+  width: 100% !important;
+}
+
 .auth-welcome__divider {
   display: flex;
   align-items: center;
