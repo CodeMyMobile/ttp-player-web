@@ -1,6 +1,7 @@
 import { getMatchHostId } from "../play-dates/utils/matchHost";
 
 export interface PlayedWithPlayer {
+  userId: number;
   playerId: number;
   name: string;
   avatarUrl: string | null;
@@ -34,12 +35,13 @@ const firstString = (...values: unknown[]): string => {
 const normalizePlayer = (record: unknown): PlayedWithPlayer | null => {
   if (!record || typeof record !== "object") return null;
   const row = record as Record<string, unknown>;
-  const playerId = toNumber(row.playerId ?? row.player_id ?? row.user_id ?? row.id);
-  if (playerId === null) return null;
+  const userId = toNumber(row.userId ?? row.user_id ?? row.playerId ?? row.player_id);
+  if (userId === null) return null;
   const matchCount = toNumber(row.matchCount ?? row.match_count ?? row.totalMatches ?? row.total_matches) ?? 0;
 
   return {
-    playerId,
+    userId,
+    playerId: userId,
     name: firstString(row.name, row.full_name, row.fullName) || "Player",
     avatarUrl: firstString(row.avatarUrl, row.avatar_url, row.profile_picture, row.profilePicture) || null,
     ntrp: toNumber(row.ntrp ?? row.usta_rating ?? row.skillLevel ?? row.skill_level),
@@ -69,7 +71,7 @@ export const normalizePlayedWithResponse = (payload: unknown): PlayedWithRespons
 export const buildPlayedWithHostSet = (playedWith: PlayedWithPlayer[]) =>
   new Set(
     playedWith
-      .map((player) => player.playerId)
+      .map((player) => player.userId)
       .filter((id) => Number.isFinite(id))
       .map((id) => String(id)),
   );

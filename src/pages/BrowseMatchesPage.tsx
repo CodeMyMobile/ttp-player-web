@@ -295,7 +295,9 @@ const readStoredUserId = (): string | number | null => {
     const raw = window.localStorage.getItem("authLoginResponse");
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const id = parsed.user_id ?? parsed.id;
+    const profile = parsed.profile as Record<string, unknown> | undefined;
+    const user = parsed.user as Record<string, unknown> | undefined;
+    const id = parsed.user_id ?? parsed.userId ?? profile?.user_id ?? profile?.userId ?? user?.user_id ?? user?.userId;
     return typeof id === "string" || typeof id === "number" ? id : null;
   } catch {
     return null;
@@ -306,7 +308,8 @@ const resolveCurrentUserId = (user: unknown): string | number | null => {
   if (user && typeof user === "object") {
     const record = user as Record<string, unknown>;
     const session = record.session as Record<string, unknown> | undefined;
-    const id = record.user_id ?? record.userId ?? record.id ?? session?.user_id ?? session?.id;
+    const profile = record.profile as Record<string, unknown> | undefined;
+    const id = record.user_id ?? record.userId ?? profile?.user_id ?? profile?.userId ?? session?.user_id ?? session?.userId;
     if (typeof id === "string" || typeof id === "number") return id;
   }
   return readStoredUserId();

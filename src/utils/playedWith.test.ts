@@ -12,6 +12,7 @@ test("normalizes played-with response and keeps numeric ids", () => {
   const response = normalizePlayedWithResponse({
     playedWith: [
       {
+        userId: "42",
         playerId: "42",
         name: "Rachel L.",
         avatarUrl: "https://cdn.example.com/rachel.jpg",
@@ -25,6 +26,7 @@ test("normalizes played-with response and keeps numeric ids", () => {
   });
 
   assert.equal(response.total, 2);
+  assert.equal(response.playedWith[0].userId, 42);
   assert.equal(response.playedWith[0].playerId, 42);
   assert.equal(response.playedWith[0].ntrp, 3.5);
   assert.equal(response.playedWith[0].matchCount, 3);
@@ -34,7 +36,7 @@ test("normalizes played-with response and keeps numeric ids", () => {
 
 test("detects match hosts in played-with list", () => {
   const playedWith = buildPlayedWithHostSet([
-    { playerId: 42, name: "Rachel L.", avatarUrl: null, ntrp: 3.5, matchCount: 3, totalMatches: 3 },
+    { userId: 42, playerId: 42, name: "Rachel L.", avatarUrl: null, ntrp: 3.5, matchCount: 3, totalMatches: 3 },
   ]);
 
   assert.equal(hasPlayedWithHost({ host_id: "42" }, playedWith), true);

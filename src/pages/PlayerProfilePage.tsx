@@ -62,7 +62,9 @@ const readStoredUserId = (): string | number | null => {
       return null;
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const id = parsed.user_id ?? parsed.id;
+    const profile = parsed.profile as Record<string, unknown> | undefined;
+    const user = parsed.user as Record<string, unknown> | undefined;
+    const id = parsed.user_id ?? parsed.userId ?? profile?.user_id ?? profile?.userId ?? user?.user_id ?? user?.userId;
     return typeof id === "string" || typeof id === "number" ? id : null;
   } catch {
     return null;
@@ -602,7 +604,7 @@ const PlayerProfilePage = () => {
             ) : (
               <div className="ppv-network-grid">
                 {playedWith.map((networkPlayer) => (
-                  <article key={networkPlayer.playerId} className="ppv-network-card">
+                  <article key={networkPlayer.userId} className="ppv-network-card">
                     <div className="ppv-network-avatar">
                       {networkPlayer.avatarUrl ? (
                         <img src={networkPlayer.avatarUrl} alt={`${networkPlayer.name} profile portrait`} />
@@ -620,7 +622,7 @@ const PlayerProfilePage = () => {
                     <button
                       type="button"
                       className="ppv-network-action"
-                      onClick={() => navigate(`/players/${networkPlayer.playerId}`)}
+                      onClick={() => navigate(`/players/${networkPlayer.userId}`)}
                       aria-label={`View ${networkPlayer.name}'s profile`}
                     >
                       <Users size={16} strokeWidth={2} aria-hidden="true" />
