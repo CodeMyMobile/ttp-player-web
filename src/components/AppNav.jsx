@@ -37,7 +37,6 @@ import {
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
 import { getAuthNavState } from "../utils/authNavState";
-import { isLogResultEnabled } from "../play-dates/utils/featureFlags";
 import "./AppNav.css";
 
 const navItems = [
@@ -49,6 +48,8 @@ const navItems = [
 const userMenuItems = [
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+  { label: "Log result", to: "/log-result", icon: Trophy },
+  { label: "Match results", to: "/match-results", icon: Trophy },
   { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
   { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
 ];
@@ -91,9 +92,6 @@ const AppNav = ({
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
-  const visibleUserMenuItems = isLogResultEnabled()
-    ? [...userMenuItems, { label: "Log result", to: "/log-result", icon: Trophy }]
-    : userMenuItems;
   const skillLevel =
     user?.skillLevel ||
     user?.skill_level ||
@@ -372,7 +370,7 @@ const AppNav = ({
 
               {isUserMenuOpen ? (
                 <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
-                  {visibleUserMenuItems.map((item) => (
+                  {userMenuItems.map((item) => (
                     <Link
                       key={item.label}
                       to={item.to}

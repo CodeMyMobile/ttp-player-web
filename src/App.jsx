@@ -48,7 +48,6 @@ import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
-import { isLogResultEnabled } from "./play-dates/utils/featureFlags";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
 
@@ -375,27 +374,22 @@ const AppRoutes = () => (
         </ProtectedRoute>
       )}
     />
-    {/* Log a result is gated on VITE_LOG_RESULT while the score-reporting rollout stays controlled. */}
-    {isLogResultEnabled() ? (
-      <>
-        <Route
-          path="/log-result"
-          element={(
-            <LogResultProtectedPageRoute>
-              <LogResultPage />
-            </LogResultProtectedPageRoute>
-          )}
-        />
-        <Route
-          path="/log-result/confirm/:id"
-          element={(
-            <ProtectedRoute>
-              <ConfirmResultPage />
-            </ProtectedRoute>
-          )}
-        />
-      </>
-    ) : null}
+    <Route
+      path="/log-result"
+      element={(
+        <LogResultProtectedPageRoute>
+          <LogResultPage />
+        </LogResultProtectedPageRoute>
+      )}
+    />
+    <Route
+      path="/log-result/confirm/:id"
+      element={(
+        <ProtectedRoute>
+          <ConfirmResultPage />
+        </ProtectedRoute>
+      )}
+    />
     <Route
       path="/matches/:id"
       element={(
