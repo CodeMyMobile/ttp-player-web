@@ -36,6 +36,7 @@ import {
   storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
+import { getAuthNavState } from "../utils/authNavState";
 import { isLogResultEnabled } from "../play-dates/utils/featureFlags";
 import "./AppNav.css";
 
@@ -65,8 +66,15 @@ const AppNav = ({
   onBack,
   hideLocation = false,
 }) => {
-  const { logout, user } = useAuth();
-  const { displayName, initials, avatarUrl } = usePlayerIdentity();
+  const { isAuthenticated, logout, user } = useAuth();
+  const identity = usePlayerIdentity();
+  const authNavState = getAuthNavState({
+    isAuthenticated,
+    displayName: identity.displayName,
+    initials: identity.initials,
+    avatarUrl: identity.avatarUrl,
+  });
+  const { displayName, initials, avatarUrl } = authNavState;
   const location = useLocation();
   const navigate = useNavigate();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
@@ -280,112 +288,122 @@ const AppNav = ({
             </button>
           </div>
 
-          <button
-            className={`app-nav__new-match${hideMobileNewMatch ? " app-nav__new-match--mobile-hidden" : ""}`}
-            type="button"
-            onClick={handleNewMatch}
-          >
-            <Plus size={17} />
-            <span>New match</span>
-          </button>
-
-          <div
-            className={`app-nav__notifications${hideMobileNotifications ? " app-nav__notifications--mobile-hidden" : ""}`}
-            ref={notificationRef}
-          >
+          {authNavState.isAuthenticated ? (
             <button
+              className={`app-nav__new-match${hideMobileNewMatch ? " app-nav__new-match--mobile-hidden" : ""}`}
               type="button"
-              className="app-nav__icon-button"
-              aria-label="View notifications"
-              aria-haspopup="menu"
-              aria-expanded={isNotificationsOpen}
-              onClick={() => {
-                const nextState = !isNotificationsOpen;
-                setNotificationsOpen(nextState);
-                if (nextState) {
-                  loadNotifications();
-                }
-              }}
+              onClick={handleNewMatch}
             >
-              <Bell size={20} />
-              {unreadCount > 0 ? <span className="app-nav__dot" /> : null}
+              <Plus size={17} />
+              <span>New match</span>
             </button>
+          ) : null}
 
-            {isNotificationsOpen ? (
-              <div className="app-nav__dropdown app-nav__dropdown--notifications" role="menu">
-                <h3>Notifications</h3>
-                {isNotificationsLoading ? (
-                  <p>Loading notifications...</p>
-                ) : notifications.length === 0 ? (
-                  <p>No notifications yet.</p>
-                ) : (
-                  notifications.map((notification, index) => (
-                    <Link
-                      key={notification.id ?? index}
-                      to="/notifications"
-                      className="app-nav__notification"
-                      onClick={() => setNotificationsOpen(false)}
-                    >
-                      <strong>{notification.title ?? "Notification"}</strong>
-                      <span>{notification.message ?? notification.body ?? "New update available."}</span>
-                    </Link>
-                  ))
-                )}
-                <Link to="/notifications" onClick={() => setNotificationsOpen(false)}>
-                  See all notifications
-                </Link>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="app-nav__user" ref={userMenuRef}>
-            <button
-              type="button"
-              className="app-nav__user-trigger"
-              aria-label="Open profile menu"
-              aria-haspopup="menu"
-              aria-expanded={isUserMenuOpen}
-              onClick={() => setUserMenuOpen((open) => !open)}
+          {authNavState.isAuthenticated ? (
+            <div
+              className={`app-nav__notifications${hideMobileNotifications ? " app-nav__notifications--mobile-hidden" : ""}`}
+              ref={notificationRef}
             >
-              <span className={`app-nav__avatar${avatarUrl ? " has-image" : ""}`}>
-                {avatarUrl ? <img src={avatarUrl} alt={`${displayName} profile`} /> : initials}
-              </span>
-              <span className="app-nav__user-copy">
-                <strong>{firstName}</strong>
-                <small>NTRP {skillLevel}</small>
-              </span>
-              <ChevronDown size={16} />
-            </button>
+              <button
+                type="button"
+                className="app-nav__icon-button"
+                aria-label="View notifications"
+                aria-haspopup="menu"
+                aria-expanded={isNotificationsOpen}
+                onClick={() => {
+                  const nextState = !isNotificationsOpen;
+                  setNotificationsOpen(nextState);
+                  if (nextState) {
+                    loadNotifications();
+                  }
+                }}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 ? <span className="app-nav__dot" /> : null}
+              </button>
 
-            {isUserMenuOpen ? (
-              <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
-                {visibleUserMenuItems.map((item) => (
-                  <Link
-                    key={item.label}
-                    to={item.to}
-                    role="menuitem"
-                    className="app-nav__menu-item"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <item.icon size={16} />
-                    <span>{item.label}</span>
+              {isNotificationsOpen ? (
+                <div className="app-nav__dropdown app-nav__dropdown--notifications" role="menu">
+                  <h3>Notifications</h3>
+                  {isNotificationsLoading ? (
+                    <p>Loading notifications...</p>
+                  ) : notifications.length === 0 ? (
+                    <p>No notifications yet.</p>
+                  ) : (
+                    notifications.map((notification, index) => (
+                      <Link
+                        key={notification.id ?? index}
+                        to="/notifications"
+                        className="app-nav__notification"
+                        onClick={() => setNotificationsOpen(false)}
+                      >
+                        <strong>{notification.title ?? "Notification"}</strong>
+                        <span>{notification.message ?? notification.body ?? "New update available."}</span>
+                      </Link>
+                    ))
+                  )}
+                  <Link to="/notifications" onClick={() => setNotificationsOpen(false)}>
+                    See all notifications
                   </Link>
-                ))}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="app-nav__menu-item app-nav__menu-item--danger"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    logout();
-                  }}
-                >
-                  <LogOut size={15} />
-                  <span>Log Out</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {authNavState.isAuthenticated ? (
+            <div className="app-nav__user" ref={userMenuRef}>
+              <button
+                type="button"
+                className="app-nav__user-trigger"
+                aria-label="Open profile menu"
+                aria-haspopup="menu"
+                aria-expanded={isUserMenuOpen}
+                onClick={() => setUserMenuOpen((open) => !open)}
+              >
+                <span className={`app-nav__avatar${avatarUrl ? " has-image" : ""}`}>
+                  {avatarUrl ? <img src={avatarUrl} alt={`${displayName} profile`} /> : initials}
+                </span>
+                <span className="app-nav__user-copy">
+                  <strong>{firstName}</strong>
+                  <small>NTRP {skillLevel}</small>
+                </span>
+                <ChevronDown size={16} />
+              </button>
+
+              {isUserMenuOpen ? (
+                <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
+                  {visibleUserMenuItems.map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.to}
+                      role="menuitem"
+                      className="app-nav__menu-item"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <item.icon size={16} />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="app-nav__menu-item app-nav__menu-item--danger"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    <LogOut size={15} />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <Link className="app-nav__new-match" to="/login" state={{ from: location }}>
+              <span>Sign in</span>
+            </Link>
+          )}
         </div>
       </header>
 

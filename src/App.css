@@ -2992,6 +2992,12 @@ button.secondary-link {
   .auth-welcome__mobile {
     display: block;
     width: 100%;
+    /* Don't let the flex-shrink:0 LegalFooter compress this column. Without
+       this, the footer steals height from the mobile screen while the inner
+       .auth-mobile__screen stays min-height:100vh, so the screen overflows and
+       the opaque footer paints on top of the bottom controls (e.g. "Continue
+       with Google"), making them untappable on mobile Safari. */
+    flex-shrink: 0;
   }
 
   .auth-mobile__row {

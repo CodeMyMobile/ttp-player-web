@@ -8,6 +8,9 @@ const clearStoredSession = () => {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("authLoginResponse");
   localStorage.removeItem("playerPersonalDetails");
+  localStorage.removeItem("oauthPhoneCapturePending");
+  localStorage.removeItem("oauthPhoneCaptureProvider");
+  localStorage.removeItem("user");
 };
 
 const persistAuthSession = (data) => {
