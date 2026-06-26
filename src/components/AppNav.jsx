@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useAuthDrawer } from "../hooks/useAuthDrawer";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
 import {
@@ -65,7 +66,8 @@ const AppNav = ({
   onBack,
   hideLocation = false,
 }) => {
-  const { logout, user } = useAuth();
+  const { logout, user, isAuthenticated } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
   const location = useLocation();
   const navigate = useNavigate();
@@ -338,6 +340,7 @@ const AppNav = ({
             ) : null}
           </div>
 
+          {isAuthenticated ? (
           <div className="app-nav__user" ref={userMenuRef}>
             <button
               type="button"
@@ -386,6 +389,16 @@ const AppNav = ({
               </div>
             ) : null}
           </div>
+          ) : (
+            <button
+              type="button"
+              className="app-nav__signin"
+              onClick={() => openAuthDrawer({ mode: "signin" })}
+            >
+              <UserRound size={16} />
+              <span>Sign in</span>
+            </button>
+          )}
         </div>
       </header>
 

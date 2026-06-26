@@ -25,6 +25,7 @@
 .app-nav__location,
 .app-nav__user-trigger,
 .app-nav__new-match,
+.app-nav__signin,
 .app-nav__icon-button {
   display: inline-flex;
   align-items: center;
@@ -119,7 +120,8 @@
   background: #ede9fe;
 }
 
-.app-nav__new-match {
+.app-nav__new-match,
+.app-nav__signin {
   flex-shrink: 0;
   gap: 9px;
   min-height: 36px;
@@ -134,7 +136,8 @@
   cursor: pointer;
 }
 
-.app-nav__new-match:hover {
+.app-nav__new-match:hover,
+.app-nav__signin:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(124, 58, 237, 0.32);
 }

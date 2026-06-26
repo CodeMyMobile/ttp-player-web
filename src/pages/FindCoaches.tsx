@@ -14,6 +14,7 @@ import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
+import { useAuthDrawer } from "../hooks/useAuthDrawer";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
 import {
@@ -650,6 +651,7 @@ const FindCoaches = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
@@ -736,19 +738,25 @@ const FindCoaches = () => {
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
   const isSignedIn = Boolean(playerToken);
-  const promptSignUp = useCallback(() => {
-    navigate("/login", {
-      state: {
-        mode: "signup",
-        from: {
-          pathname: location.pathname,
-          search: location.search,
-          hash: location.hash,
-          state: { findCoachesState: findCoachesStateSnapshot },
-        },
-      },
-    });
-  }, [findCoachesStateSnapshot, location.hash, location.pathname, location.search, navigate]);
+
+  const handleBookLesson = useCallback(
+    (coach: CoachCardModel) => {
+      const proceedToBooking = () =>
+        navigate(`/coaches/${coach.id}`, { state: { findCoachesState: findCoachesStateSnapshot } });
+
+      if (isSignedIn) {
+        proceedToBooking();
+        return;
+      }
+
+      openAuthDrawer({
+        mode: "signin",
+        title: `Sign in to book with ${coach.name}`,
+        onSuccess: proceedToBooking,
+      });
+    },
+    [findCoachesStateSnapshot, isSignedIn, navigate, openAuthDrawer],
+  );
 
   const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
     if (nextLocation && typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number") {
@@ -1538,10 +1546,11 @@ const FindCoaches = () => {
                       <div className="fc-card__actions">
                         {isMatched ? (
                           <>
-                            {/* Book a lesson is not wired this PR (separate booking PR); temporarily routes to the profile. */}
+                            {/* Booking isn't wired this PR (separate booking PR); temporarily routes to the
+                                profile. Logged-out users get the contextual auth drawer first. */}
                             <button
                               type="button"
-                              onClick={isSignedIn ? () => navigate(`/coaches/${coach.id}`, { state: { findCoachesState: findCoachesStateSnapshot } }) : promptSignUp}
+                              onClick={() => handleBookLesson(coach)}
                               className="fc-card__btn fc-card__btn--book"
                             >
                               Book a lesson

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthDrawerProvider } from "./hooks/useAuthDrawer";
+import AuthDrawer from "./components/AuthDrawer/AuthDrawer";
+import useLogoutRedirect from "./hooks/useLogoutRedirect";
 import DashboardPage from "./pages/DashboardPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
@@ -668,14 +671,23 @@ const ScrollToTop = () => {
   return null;
 };
 
+const LogoutRedirect = () => {
+  useLogoutRedirect("/find-coaches");
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <HashRouter>
-        <ScrollToTop />
-        <div className="app-shell">
-          <AppRoutes />
-        </div>
+        <AuthDrawerProvider>
+          <ScrollToTop />
+          <LogoutRedirect />
+          <div className="app-shell">
+            <AppRoutes />
+          </div>
+          <AuthDrawer />
+        </AuthDrawerProvider>
       </HashRouter>
     </AuthProvider>
   );
