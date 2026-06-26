@@ -22,6 +22,7 @@ import {
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
+import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
 
 type OpenMatch = Record<string, unknown>;
 
@@ -403,21 +404,18 @@ const PlayerProfilePage = () => {
       return;
     }
 
+    const recipientPhone = getSmsRecipient(player.raw?.phone);
+    if (!recipientPhone) {
+      window.alert("This player doesn't have a valid mobile number available for SMS yet.");
+      return;
+    }
+
     const senderLevel = matchProfile.level ?? "3.0";
     const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
     const message = `Hi ${player.name}, I found you on The Tennis Plan. I'm a ${senderLevel} player looking to hit ${preferredTimes}. Let me know if you'd like to connect.`;
-    const encodedMessage = encodeURIComponent(message);
-    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    const smsUrl = isIos ? `sms:&body=${encodedMessage}` : `sms:?body=${encodedMessage}`;
 
     closeConnectModal();
-    if (typeof window.navigator.share === "function") {
-      window.navigator.share({ text: message }).catch(() => {
-        window.location.href = smsUrl;
-      });
-      return;
-    }
-    window.location.href = smsUrl;
+    window.location.assign(buildSmsUrl(recipientPhone, message));
   };
 
   const createMatchInvite = () => {
@@ -729,6 +727,12 @@ const PlayerProfilePage = () => {
         isOpen={connectModalOpen}
         player={player}
         onClose={closeConnectModal}
+        canShareIntro={Boolean(getSmsRecipient(player.raw?.phone))}
+        shareIntroDescription={
+          getSmsRecipient(player.raw?.phone)
+            ? "Open a text message with this player's number and your profile details prefilled."
+            : "This player doesn't have a valid mobile number available for SMS yet."
+        }
         onShareIntro={shareIntro}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
