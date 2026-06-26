@@ -235,6 +235,15 @@ export const getPlayerFutureGroupLessons = async ({
 };
 
 export interface PlayerExternalLesson extends LessonSummary {
+  full_name?: string;
+  lesson_type_name?: string;
+  start_date_time?: string;
+  end_date_time?: string;
+  location?: string;
+  external_url?: string;
+  profile_picture?: string;
+  metadata?: Record<string, unknown>;
+  level?: string | number | null;
   provider?: string;
   url?: string;
 }
