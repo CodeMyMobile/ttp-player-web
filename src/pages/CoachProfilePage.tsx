@@ -54,6 +54,7 @@ import {
 } from "../api/playerStripe";
 import { getPlayerCoachLessonHistory, getPlayerUpcomingLessons, updatePlayerLesson, type PlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
+import { useAuthDrawer } from "../hooks/useAuthDrawer";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
@@ -833,6 +834,7 @@ const CoachProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const { displayName } = usePlayerIdentity();
   const rawAuthToken =
     user?.session?.access_token ??
@@ -959,8 +961,6 @@ const CoachProfilePage = () => {
     [creditBalanceByType],
   );
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
-  const [authPromptOpen, setAuthPromptOpen] = useState(false);
-  const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
@@ -1096,25 +1096,6 @@ const CoachProfilePage = () => {
           search: location.search,
           hash: location.hash,
           state: { focusBookCta: true, ...returnState },
-        },
-      },
-    });
-  };
-
-  const openAuthPrompt = (returnState?: Record<string, unknown>) => {
-    setAuthPromptReturnState({ focusBookCta: true, ...returnState });
-    setAuthPromptOpen(true);
-  };
-
-  const continueToAuth = (mode: "signin" | "signup") => {
-    navigate("/login", {
-      state: {
-        mode,
-        from: {
-          pathname: location.pathname,
-          search: location.search,
-          hash: location.hash,
-          state: authPromptReturnState ?? { focusBookCta: true },
         },
       },
     });
@@ -2084,9 +2065,13 @@ const CoachProfilePage = () => {
     };
   }, [modalOpen]);
 
-  const openBookingFlow = (slot: LoadedSlot) => {
-    if (!isLoggedIn) {
-      openAuthPrompt({ resumeBookingSlotId: slot.id, resumePaymentChoice: "card" });
+  const openBookingFlow = (slot: LoadedSlot, options?: { bypassAuthGate?: boolean }) => {
+    if (!options?.bypassAuthGate && !isLoggedIn) {
+      openAuthDrawer({
+        mode: "signin",
+        title: `Sign in to book with ${coachName}`,
+        onSuccess: () => openBookingFlow(slot, { bypassAuthGate: true }),
+      });
       return;
     }
 
@@ -2118,11 +2103,17 @@ const CoachProfilePage = () => {
     setPurchasingPackage(false);
   };
 
-  const openPaymentSheet = (choice: PaymentChoice = "card", slotOverride?: LoadedSlot) => {
-    const targetSlot = slotOverride ?? selectedSlot;
-
-    if (!isLoggedIn) {
-      openAuthPrompt(targetSlot ? { resumeBookingSlotId: targetSlot.id, resumePaymentChoice: choice } : undefined);
+  const openPaymentSheet = (
+    choice: PaymentChoice = "card",
+    slotOverride?: LoadedSlot,
+    options?: { bypassAuthGate?: boolean },
+  ) => {
+    if (!options?.bypassAuthGate && !isLoggedIn) {
+      openAuthDrawer({
+        mode: "signin",
+        title: `Sign in to book with ${coachName}`,
+        onSuccess: () => openPaymentSheet(choice, slotOverride, { bypassAuthGate: true }),
+      });
       return;
     }
 
@@ -2636,14 +2627,34 @@ const CoachProfilePage = () => {
     `Hi ${coachFirstName}, I found your profile on The Tennis Plan and would like to learn more about lessons.\n\n` +
     `Thanks,\n${playerName}`;
   const smsHref = buildSmsHref(coachPhone, smsMessage);
+
+  const openMessageFlow = () => {
+    if (smsHref) {
+      window.location.href = smsHref;
+    }
+  };
+
+  const handleMessage = () => {
+    if (!isLoggedIn) {
+      openAuthDrawer({
+        mode: "signin",
+        title: `Sign in to message ${coachName}`,
+        onSuccess: () => openMessageFlow(),
+      });
+      return;
+    }
+    openMessageFlow();
+  };
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
     }
     if (!isLoggedIn) {
-      openAuthPrompt({
-        purchaseAfterAuth: true,
-        focusBookCta: true,
+      const purchasePath = `/coaches/${profile.id}/purchase`;
+      openAuthDrawer({
+        mode: "signin",
+        title: `Sign in to buy a package with ${coachName}`,
+        onSuccess: () => navigate(purchasePath),
       });
       return;
     }
@@ -3633,12 +3644,13 @@ const CoachProfilePage = () => {
                     <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Find a Coach</span>
                   </button>
                   {smsHref ? (
-                    <a
-                      href={smsHref}
+                    <button
+                      type="button"
                       className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      onClick={handleMessage}
                     >
                       <MessageCircle size={16} /> Message
-                    </a>
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -3739,9 +3751,13 @@ const CoachProfilePage = () => {
                 ) : null}
                 <div className="coach-hero-m__actions">
                   {smsHref ? (
-                    <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
+                    <button
+                      type="button"
+                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
+                      onClick={handleMessage}
+                    >
                       <MessageCircle size={17} /> Message
-                    </a>
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -3787,9 +3803,13 @@ const CoachProfilePage = () => {
                       </div>
                       <div className="coach-profile-hero-v2__actions">
                         {smsHref ? (
-                          <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
+                          <button
+                            type="button"
+                            className="coach-profile-top-action coach-profile-top-action--outline"
+                            onClick={handleMessage}
+                          >
                             <MessageCircle size={16} /> Message
-                          </a>
+                          </button>
                         ) : (
                           <button
                             type="button"
@@ -4648,62 +4668,6 @@ const CoachProfilePage = () => {
           />
         ) : null}
 
-        {authPromptOpen ? (
-          <div className="coach-auth-sheet" role="dialog" aria-modal="true" aria-label="Sign up to book">
-            <button
-              type="button"
-              className="coach-auth-sheet__backdrop"
-              aria-label="Close sign up prompt"
-              onClick={() => setAuthPromptOpen(false)}
-            />
-            <div className="coach-auth-sheet__panel">
-              <button
-                type="button"
-                className="coach-auth-sheet__close"
-                aria-label="Close sign up prompt"
-                onClick={() => setAuthPromptOpen(false)}
-              >
-                <X size={18} />
-              </button>
-              <div className="coach-auth-sheet__handle" />
-              <div className="coach-auth-sheet__coach">
-                {coachAvatar ? (
-                  <img src={coachAvatar} alt="" />
-                ) : (
-                  <span>{buildInitials(coachName)}</span>
-                )}
-                <div>
-                  <small>You&apos;re booking with</small>
-                  <strong>{coachName}</strong>
-                  <p>
-                    {privatePriceLabel}/hr
-                    {slotsThisWeek > 0 ? ` · ${slotsThisWeek} slots this week` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="coach-auth-sheet__copy">
-                <h2>Create a free account to book</h2>
-                <p>Sign up in 30 seconds to request a lesson with {coachFirstName}.</p>
-              </div>
-              <div className="coach-auth-sheet__actions">
-                <button type="button" className="coach-auth-sheet__primary" onClick={() => continueToAuth("signup")}>
-                  Create free account
-                </button>
-                <div className="coach-auth-sheet__divider">
-                  <span />
-                  <small>or</small>
-                  <span />
-                </div>
-                <button type="button" className="coach-auth-sheet__secondary" onClick={() => continueToAuth("signin")}>
-                  Sign in to existing account
-                </button>
-              </div>
-              <p className="coach-auth-sheet__legal">
-                By continuing you agree to our Terms of Service and Privacy Policy.
-              </p>
-            </div>
-          </div>
-        ) : null}
       </div>
     </MainLayout>
   );
