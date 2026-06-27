@@ -2629,7 +2629,6 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     if (!isLoggedIn) {
       openAuthPrompt({
         purchaseAfterAuth: true,
-        focusBookCta: true,
       });
       return;
     }
@@ -3796,6 +3795,33 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     </>
   );
 
+  // Compact "Book a lesson" CTA that replaces the profile's embedded booking panel (PR 3b).
+  // The dedicated /coaches/:id/book page is the single booking surface; this just routes to it.
+  const renderBookingCta = (variant: "mobile" | "desktop") => (
+    <aside className={`coach-book-cta coach-book-cta--${variant}`}>
+      <div className="coach-book-cta__price">
+        <strong>{privatePriceLabel}</strong>
+        <span className="coach-book-cta__unit">/hr</span>
+        {groupPriceLabel ? <span className="coach-book-cta__group">{groupPriceLabel}/hr group</span> : null}
+      </div>
+      <div className={`coach-book-cta__avail${slotsThisWeek > 0 ? " is-open" : ""}`}>
+        <span className="coach-book-cta__dot" aria-hidden />
+        <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
+      </div>
+      <button
+        type="button"
+        className="coach-book-cta__btn"
+        onClick={() =>
+          navigate(`/coaches/${profile?.id}/book`, {
+            state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined,
+          })
+        }
+      >
+        Book a lesson
+      </button>
+    </aside>
+  );
+
   if (loading) {
     return (
       <MainLayout
@@ -4033,10 +4059,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     type="button"
                     className="coach-hero-m__btn coach-hero-m__btn--primary"
                     onClick={() =>
-                      mobileBookingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      navigate(`/coaches/${profile?.id}/book`, {
+                        state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined,
+                      })
                     }
                   >
-                    See availability
+                    Book a lesson
                   </button>
                 </div>
               </section>
@@ -4225,7 +4253,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                 ) : null}
               </div>
 
-              {renderBookingPanel("mobile")}
+              {renderBookingCta("mobile")}
 
               <section ref={aboutRef} className="coach-profile-section coach-profile-section--split" id="about">
                 <div className="coach-profile-section__header">
@@ -4337,7 +4365,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
               </section>
             </div>
 
-            {renderBookingPanel("desktop")}
+            {renderBookingCta("desktop")}
           </div>
         </div>
 

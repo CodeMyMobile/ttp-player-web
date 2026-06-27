@@ -4236,3 +4236,86 @@
   border-left: 0;
   top: auto;
 }
+
+/* ===== Profile "Book a lesson" CTA (PR 3b — replaces the embedded booking panel) ===== */
+.coach-book-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e8e9ef;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
+  padding: 18px;
+}
+.coach-book-cta--desktop {
+  position: sticky;
+  top: 92px;
+  align-self: start;
+}
+.coach-book-cta--mobile {
+  margin: 16px 0;
+}
+.coach-book-cta__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.coach-book-cta__price strong {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #16161d;
+}
+.coach-book-cta__unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9ca0ac;
+}
+.coach-book-cta__group {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b5f6b;
+  margin-left: 6px;
+}
+.coach-book-cta__avail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #5b5f6b;
+}
+.coach-book-cta__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd2dc;
+  flex: 0 0 auto;
+}
+.coach-book-cta__avail.is-open .coach-book-cta__dot {
+  background: #059669;
+}
+.coach-book-cta__avail.is-open {
+  color: #047857;
+}
+.coach-book-cta__btn {
+  margin-top: 2px;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--color-primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.coach-book-cta__btn:hover {
+  background: var(--color-primary-dark);
+}
+.coach-book-cta__btn:active {
+  transform: scale(0.99);
+}
