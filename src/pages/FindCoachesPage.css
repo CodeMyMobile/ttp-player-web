@@ -1574,6 +1574,27 @@
   padding: 5px 10px;
 }
 
+/* "Coaches are invited" trust banner — stated once above the search results */
+.fc-invite-banner {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
+  border: 1px solid #bbf7d0;
+}
+.fc-invite-banner__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #065f46;
+}
+.fc-invite-banner__sub {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #047857;
+}
+
 /* Coach card */
 .fc-card {
   background: #fff;

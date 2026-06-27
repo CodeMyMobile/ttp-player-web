@@ -11,6 +11,7 @@ import {
 import MainLayout from "../components/MainLayout";
 import FilterMenu from "../components/FilterMenu";
 import CoachMatchCard from "../components/coaches/CoachMatchCard";
+import CoachSearchCard from "../components/coaches/CoachSearchCard";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
@@ -1429,6 +1430,14 @@ const FindCoaches = () => {
 
           {shouldShowResults ? (
             <>
+              {!isMatchedMode ? (
+                <section className="fc-invite-banner" aria-label="About our coaches">
+                  <div className="fc-invite-banner__title">Tennis Plan coaches are invited</div>
+                  <p className="fc-invite-banner__sub">
+                    Not a self-serve platform — every coach is someone we know personally.
+                  </p>
+                </section>
+              ) : null}
               <section className="fcv2-grid coach-match-page__grid">
                 {filteredCoaches.map((coach) => {
                   const isMatched = shouldShowCoachMatchSummary;
@@ -1437,12 +1446,29 @@ const FindCoaches = () => {
                     : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
                   const reasons = coach.matchReasons.slice(0, 3);
                   const privateRate = formatMoney(coach.hourlyRateValue);
-                  const groupRate = formatMoney(coach.groupRateValue);
+                  // Omit the group line unless there's a real non-zero group rate (formatMoney(0) === "$0").
+                  const groupRate =
+                    coach.groupRateValue && coach.groupRateValue > 0 ? formatMoney(coach.groupRateValue) : null;
                   const certLabel = coach.certifications[0] ?? "";
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
                   const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
-                  const rawLocation = [coach.courts?.[0], coach.cityLabel].find(isDisplayableLocation) || "";
-                  const locationLabel = toVenueLabel(rawLocation);
+                  // One clean location, de-duplicated: prefer the venue (before the comma), else the city.
+                  // Strip a city appended without a comma (e.g. "Westwood Tennis Court Culver City").
+                  const venueLocation = toVenueLabel(coach.courts?.[0] ?? "");
+                  const cityLocation = coach.cityLabel ?? "";
+                  let locationLabel = isDisplayableLocation(venueLocation)
+                    ? venueLocation
+                    : isDisplayableLocation(cityLocation)
+                      ? cityLocation
+                      : "";
+                  if (
+                    locationLabel &&
+                    cityLocation &&
+                    locationLabel !== cityLocation &&
+                    locationLabel.endsWith(cityLocation)
+                  ) {
+                    locationLabel = locationLabel.slice(0, locationLabel.length - cityLocation.length).trim();
+                  }
                   const tags = coach.specialties.slice(0, 3);
 
                   return isMatched ? (
@@ -1475,69 +1501,32 @@ const FindCoaches = () => {
                       }
                     />
                   ) : (
-                    <article key={coach.id} className="fc-card">
-                      <div className="fc-card__head">
-                        <div className="fc-card__photo">
-                          {coach.imageUrl ? (
-                            <img src={coach.imageUrl} alt={coach.name} />
-                          ) : (
-                            <span>{coach.initials}</span>
-                          )}
-                        </div>
-
-                        <div className="fc-card__mid">
-                          <div className="fc-card__name">{coach.name}</div>
-                          <div className="fc-card__signals">
-                            {certLabel ? <span className="fc-card__cert">{certLabel}</span> : null}
-                            <span className="fc-card__dist">
-                              {certLabel ? "· " : ""}
-                              {formatDistance(coach.distanceMiles)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="fc-card__head-right">
-                          <div className="fc-card__rate-right">
-                            <div className="fc-card__rate-main">
-                              <span className="fc-card__sm">$</span>
-                              {privateRate ? privateRate.replace("$", "") : "N/A"}
-                              <span className="fc-card__sm">/hour</span>
-                            </div>
-                            {groupRate ? <div className="fc-card__rate-group">group {groupRate}</div> : null}
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="fc-card__bio">{coach.bio || "Coach bio coming soon."}</p>
-
-                      {tags.length > 0 ? (
-                        <div className="fc-card__tags">
-                          {tags.map((tag) => (
-                            <span key={`${coach.id}-${tag}`} className="fc-card__tag">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      <div className="fc-card__avail">
-                        <span className="fc-card__avail-dot" />
-                        <span>
-                          {deriveAvailabilityPhrase(coach)}
-                          {locationLabel ? ` · ${locationLabel}` : ""}
-                        </span>
-                      </div>
-
-                      <div className="fc-card__actions">
-                        <Link
-                          to={`/coaches/${coach.id}`}
-                          state={{ findCoachesState: findCoachesStateSnapshot }}
-                          className="fc-card__btn fc-card__btn--profile fc-card__btn--full"
-                        >
-                          View profile
-                        </Link>
-                      </div>
-                    </article>
+                    <CoachSearchCard
+                      key={coach.id}
+                      name={coach.name}
+                      imageUrl={coach.imageUrl}
+                      initials={coach.initials}
+                      distanceLabel={formatDistance(coach.distanceMiles)}
+                      certLabel={certLabel || undefined}
+                      yearsExperience={coach.yearsExperience}
+                      studentCount={coach.studentCount}
+                      privateRate={privateRate}
+                      groupRate={groupRate}
+                      bio={coach.bio || "Coach bio coming soon."}
+                      tags={tags}
+                      availabilityPhrase={deriveAvailabilityPhrase(coach)}
+                      locationLabel={locationLabel || undefined}
+                      profileTo={`/coaches/${coach.id}`}
+                      profileState={{ findCoachesState: findCoachesStateSnapshot }}
+                      onBook={
+                        isSignedIn
+                          ? () =>
+                              navigate(`/coaches/${coach.id}/book`, {
+                                state: { findCoachesState: findCoachesStateSnapshot },
+                              })
+                          : promptSignUp
+                      }
+                    />
                   );
                 })}
               </section>
