@@ -3041,6 +3041,32 @@
   font-weight: 800;
 }
 
+.coach-payment-modal__price-note {
+  margin: 4px 16px 0;
+  padding: 10px 0 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9ca0ac;
+}
+.coach-payment-modal__price-note b {
+  font-weight: 700;
+  color: #047857;
+}
+
+.coach-payment-modal__responds {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 11px 0 0;
+  font-size: 13px;
+  color: #5b5f6b;
+}
+.coach-payment-modal__responds svg {
+  flex-shrink: 0;
+  color: #9ca0ac;
+}
+
 .coach-payment-modal__confirm {
   border: 0;
   border-radius: 14px;
@@ -4131,149 +4157,6 @@
   text-align: center;
   font-size: 14px;
   color: #7a7690;
-}
-
-/* Detail bottom sheet */
-.coach-profile-booking-rail--mobile .coach-bm-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(20, 16, 32, 0.42);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 8px 22px calc(24px + env(safe-area-inset-bottom, 0px));
-  background: #fff;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -10px 40px rgba(27, 24, 48, 0.2);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__handle {
-  width: 40px;
-  height: 4px;
-  margin: 6px auto 16px;
-  border-radius: 2px;
-  background: #e2dfee;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__time {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  color: #1b1830;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill--private {
-  background: #f3f0ff;
-  color: var(--color-primary-dark);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill--group {
-  background: #e7f0ff;
-  color: var(--ph-blue);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__day {
-  margin-top: 5px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #7a7690;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__session {
-  margin-top: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ph-blue);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__desc {
-  margin: 6px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: #3d3a52;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__rows {
-  margin: 16px 0 6px;
-  border-top: 1px solid #eceaf3;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 0;
-  border-bottom: 1px solid #eceaf3;
-  font-size: 14px;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__ic {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 10px;
-  background: #f4f3f8;
-  color: var(--color-primary-dark);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__lbl {
-  flex: 1;
-  font-weight: 500;
-  color: #7a7690;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__val {
-  font-weight: 700;
-  text-align: right;
-  color: #1b1830;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__val.is-lime {
-  color: var(--ph-lime-deep);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__book {
-  width: 100%;
-  margin-top: 18px;
-  padding: 16px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__book:active {
-  background: var(--color-primary-dark);
 }
 
 /* ===== Focused book-a-lesson page (bookMode) ===== */
