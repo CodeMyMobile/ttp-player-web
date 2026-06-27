@@ -143,8 +143,20 @@ const PlayerProfilePage = () => {
   );
   const isSignedIn = Boolean(authToken);
   const promptSignIn = useCallback(() => {
-    navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
-  }, [location.pathname, location.search, navigate]);
+    // LoginPage's post-auth redirect reads `from` as a location object
+    // ({ pathname, search, hash }). Passing a string here made `from.search`
+    // resolve to String.prototype.search (a function), which crashed
+    // react-router with "search.includes is not a function" after sign-in.
+    navigate("/login", {
+      state: {
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+        },
+      },
+    });
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
@@ -258,21 +270,37 @@ const PlayerProfilePage = () => {
     }
     setLoadError(false);
 
-    const loadProfile = authToken
-      ? fetchPlayerDetails({ token: authToken, userId: id })
-      : fetchPublicPlayerProfile({ userId: id });
+    // The authed details endpoint (`/player/.../specific_user`) only resolves
+    // players within the viewer's discovery scope, so it 404s for arbitrary
+    // profiles opened via shared/public links. Fall back to the public profile
+    // endpoint so signed-in users can view any player too.
+    const loadProfile: Promise<{ payload: Record<string, unknown>; source: "authed" | "public" }> =
+      authToken
+        ? fetchPlayerDetails({ token: authToken, userId: id })
+            .then((payload) => ({ payload, source: "authed" as const }))
+            .catch(() =>
+              fetchPublicPlayerProfile({ userId: id }).then((payload) => ({
+                payload,
+                source: "public" as const,
+              })),
+            )
+        : fetchPublicPlayerProfile({ userId: id }).then((payload) => ({
+            payload,
+            source: "public" as const,
+          }));
 
     loadProfile
-      .then((payload) => {
+      .then(({ payload, source }) => {
         if (cancelled) {
           return;
         }
-        const record = authToken
-          ? extractSuggestedPlayer(payload)
-          : mapPublicPlayerProfileRecord(payload);
+        const record =
+          source === "authed"
+            ? extractSuggestedPlayer(payload)
+            : mapPublicPlayerProfileRecord(payload);
         if (record) {
           setPlayer(mapSuggestedPlayer(record));
-          if (!authToken && payload && typeof payload === "object") {
+          if (source === "public" && payload && typeof payload === "object") {
             const publicMatches = (payload as { matches?: unknown }).matches;
             setOpenMatches(Array.isArray(publicMatches) ? (publicMatches as OpenMatch[]) : []);
             setMatchesLoading(false);
