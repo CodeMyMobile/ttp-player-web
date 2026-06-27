@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock3,
+  Heart,
   MapPin,
   MessageCircle,
   Target,
@@ -26,6 +27,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
+import BookingSlotList from "../components/coaches/BookingSlotList";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   consumePackageCredits,
@@ -339,21 +341,7 @@ const shortenLocationLabel = (value?: string | null) => {
   return words.slice(0, 3).join(" ");
 };
 
-// §4 mobile booking module — time-of-day buckets, derived client-side from slot start time.
-type MobileTimeBucket = "morning" | "afternoon" | "evening";
-
-const MOBILE_TIME_BUCKETS: Array<{ key: MobileTimeBucket; label: string }> = [
-  { key: "morning", label: "Morning" },
-  { key: "afternoon", label: "Afternoon" },
-  { key: "evening", label: "Evening" },
-];
-
-const getSlotTimeBucket = (slot: LoadedSlot): MobileTimeBucket => {
-  const hour = moment(slot.start).hour();
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-};
+// §4 booking module — time-of-day bucketing now lives in the shared BookingSlotList component.
 
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
@@ -828,7 +816,7 @@ const buildSmsHref = (phoneNumber: string, message: string) => {
   return `sms:${trimmedPhoneNumber}${separator}body=${encodedMessage}`;
 };
 
-const CoachProfilePage = () => {
+const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2882,15 +2870,16 @@ const CoachProfilePage = () => {
     const daySlots = (activeEntry?.slots ?? [])
       .slice()
       .sort((a, b) => moment(a.start).valueOf() - moment(b.start).valueOf());
-    const soonestSlotId = daySlots[0]?.id;
     const isLoading = scheduleLoading || datePickerLoading;
 
     return (
       <div className="coach-bm">
-        <p className="coach-bm__eyebrow">
-          <span className="coach-bm__edot" aria-hidden />
-          Book a lesson
-        </p>
+        {!bookMode ? (
+          <p className="coach-bm__eyebrow">
+            <span className="coach-bm__edot" aria-hidden />
+            Book a lesson
+          </p>
+        ) : null}
 
         <div className="coach-bm__segmented">
           {(["all", "private", "group"] as LessonTypeFilter[])
@@ -2935,7 +2924,7 @@ const CoachProfilePage = () => {
               })}
             </div>
 
-            {daySlots.length > 0 && activeEntry ? (
+            {!bookMode && daySlots.length > 0 && activeEntry ? (
               <div className="coach-bm__ctx">
                 <span>
                   {daySlots.length} open · {activeEntry.day.dayLabel} {activeEntry.day.dateLabel}
@@ -2947,76 +2936,24 @@ const CoachProfilePage = () => {
               </div>
             ) : null}
 
+            {bookMode ? (
+              <div className="coach-book-keeps">
+                <Heart size={16} />
+                <span>
+                  <b>No lesson commission.</b> Coaches keep their full rate — the fees cover booking and card costs.
+                </span>
+              </div>
+            ) : null}
             {daySlots.length === 0 ? (
               <div className="coach-bm__empty">
                 No {bookingType === "all" ? "" : `${bookingType} `}times on this day. Try another day above.
               </div>
             ) : (
-              MOBILE_TIME_BUCKETS.map((bucket) => {
-                const bucketSlots = daySlots.filter((slot) => getSlotTimeBucket(slot) === bucket.key);
-                if (!bucketSlots.length) return null;
-                return (
-                  <div key={bucket.key} className="coach-bm__bucket">
-                    <div className="coach-bm__bucket-head">
-                      {bucket.label} <span className="coach-bm__bucket-cnt">· {bucketSlots.length}</span>
-                    </div>
-                    {bucketSlots.map((slot) => {
-                      const isSoon = slot.id === soonestSlotId;
-                      const spotsTextValue =
-                        slot.type === "group" && slot.spotsLeft != null && slot.totalSpots != null
-                          ? slot.spotsLeft === 0
-                            ? "Full"
-                            : `${slot.spotsLeft} of ${slot.totalSpots} spots left`
-                          : null;
-                      const spotsTone =
-                        slot.spotsLeft === 0
-                          ? " is-full"
-                          : slot.spotsLeft != null && slot.spotsLeft <= 2
-                            ? " is-low"
-                            : "";
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          className={`coach-bm__row coach-bm__row--${slot.type}${isSoon ? " coach-bm__row--soon" : ""}`}
-                          onClick={() => setMobileSheetSlot(slot)}
-                        >
-                          <div className="coach-bm__row-main">
-                            <div className="coach-bm__row-top">
-                              <span className="coach-bm__row-time">{slot.timeLabel}</span>
-                              <span className={`coach-bm__row-type coach-bm__row-type--${slot.type}`}>
-                                {slot.type === "group" ? "Group" : "Private"}
-                              </span>
-                              {isSoon ? <span className="coach-bm__row-soon">Soonest</span> : null}
-                            </div>
-                            <div className="coach-bm__row-meta">
-                              <MapPin size={13} />
-                              <span>
-                                {slot.court} · {slot.durationLabel}
-                              </span>
-                            </div>
-                            {slot.type === "group" ? (
-                              <div className="coach-bm__row-grp">
-                                <span>
-                                  {slot.className}
-                                  {slot.level ? ` · ${slot.level}` : ""}
-                                </span>
-                                {spotsTextValue ? (
-                                  <span className={`coach-bm__row-spots${spotsTone}`}>· {spotsTextValue}</span>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="coach-bm__row-right">
-                            <span className="coach-bm__row-price">{slot.priceLabel}</span>
-                            <ChevronRight size={18} className="coach-bm__row-chev" />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })
+              <BookingSlotList
+                slots={daySlots}
+                showTypeBadge={bookingType === "all"}
+                onSelectSlot={setMobileSheetSlot}
+              />
             )}
           </>
         )}
@@ -3252,9 +3189,11 @@ const CoachProfilePage = () => {
           renderMobileBookingModule()
         ) : (
         <>
-        <div className="coach-profile-section__header coach-profile-section__header--compact">
-          <h2>Book a lesson</h2>
-        </div>
+        {!bookMode ? (
+          <div className="coach-profile-section__header coach-profile-section__header--compact">
+            <h2>Book a lesson</h2>
+          </div>
+        ) : null}
 
         <div className="coach-booking-toggle">
           {(["all", "private", "group"] as LessonTypeFilter[])
@@ -3310,85 +3249,31 @@ const CoachProfilePage = () => {
           </div>
         ) : null}
 
+        {bookMode ? (
+          <div className="coach-book-keeps">
+            <Heart size={16} />
+            <span>
+              <b>No lesson commission.</b> Coaches keep their full rate — the fees cover booking and card costs.
+            </span>
+          </div>
+        ) : null}
+
         {scheduleLoading || datePickerLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
         {!scheduleLoading && !datePickerLoading && visibleSlots.length > 0 ? (
           <div className="coach-slot-list coach-slot-list--aside">
-            {visibleSlots.map((slot) => {
-              const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
-              const effectiveBookingState =
-                slot.type === "group"
+            <BookingSlotList
+              slots={visibleSlots}
+              showTypeBadge={bookingType === "all"}
+              onSelectSlot={openBookingFlow}
+              resolveBookingState={(slot) => {
+                const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
+                return slot.type === "group"
                   ? slot.bookingState ??
-                    getGroupParticipantBookingState(slot.groupPlayers, user) ??
-                    (upcomingLesson ? getGroupParticipantBookingState(upcomingLesson.group_players, user) : null)
+                      getGroupParticipantBookingState(slot.groupPlayers, user) ??
+                      (upcomingLesson ? getGroupParticipantBookingState(upcomingLesson.group_players, user) : null)
                   : slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
-              const privateSlotLabel =
-                effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →";
-
-              return slot.type === "private" ? (
-                <button
-                  key={slot.id}
-                  type="button"
-                  className="coach-slot coach-slot--private"
-                  disabled={effectiveBookingState != null}
-                  onClick={() => openBookingFlow(slot)}
-                >
-                  <div className="coach-slot__main">
-                    <div className="coach-slot__time-row">
-                      <p className="coach-slot__time">
-                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                      </p>
-                      <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                    </div>
-                    <div className="coach-slot__meta coach-slot__meta--private">
-                      <span className="coach-slot__meta-location">{slot.court}</span>
-                      <span>{slot.durationLabel}</span>
-                    </div>
-                  </div>
-                  <div className="coach-slot__actions coach-slot__actions--private-rail">
-                    <strong className="coach-slot__private-price">{slot.priceLabel}</strong>
-                    <span className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}>
-                      {privateSlotLabel}
-                    </span>
-                  </div>
-                </button>
-              ) : (
-                <article key={slot.id} className="coach-slot coach-slot--group">
-                  <div className="coach-slot__card-head">
-                    <div>
-                      <h3>{slot.className}</h3>
-                      <div className="coach-slot__meta">
-                        <span className="coach-profile-pill coach-profile-pill--green">Group</span>
-                        <span className="coach-profile-pill coach-profile-pill--gold">{slot.level}</span>
-                      </div>
-                    </div>
-                    <div className="coach-slot__price-stack">
-                      <strong>{slot.priceLabel}</strong>
-                      {slot.spotsLeft != null && slot.totalSpots != null ? (
-                        <small>
-                          {slot.spotsLeft}/{slot.totalSpots} spots
-                        </small>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="coach-slot__footer">
-                    <div>
-                      <p>
-                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel} · {slot.durationLabel}
-                      </p>
-                      <small>{slot.court}</small>
-                    </div>
-                    <button
-                      type="button"
-                      className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}
-                      disabled={effectiveBookingState != null}
-                      onClick={() => openBookingFlow(slot)}
-                    >
-                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →"}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+              }}
+            />
           </div>
         ) : null}
 
@@ -3597,6 +3482,42 @@ const CoachProfilePage = () => {
             >
               <ArrowLeft size={16} /> Back to Coaches
             </Link>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Focused "book a lesson" page: slim coach header + the existing booking panel, profile chrome hidden.
+  // TODO(PR3): extract useCoachBooking + <CoachBookingPanel>; book mode reuses renderBookingPanel for now.
+  if (bookMode) {
+    return (
+      <MainLayout
+        mobileChrome="home"
+        desktopChrome="home"
+        showDesktopNav={true}
+        onMobileBack={handleBackToFindCoaches}
+        hideMobileLocation
+      >
+        <div className="coach-profile-page coach-book-page">
+          <div className="coach-profile-shell coach-profile-shell--layout">
+            <div className="coach-book-page__body">
+              <header className="coach-book-head">
+                {/* Desktop-only: the top-nav back is hidden >=1024px, so this is the only desktop back. */}
+                <button
+                  type="button"
+                  className="coach-profile-top-action coach-book-head__back"
+                  onClick={handleBackToFindCoaches}
+                >
+                  <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Back</span>
+                </button>
+                <h1 className="coach-book-head__eyebrow">
+                  <span className="coach-book-head__dot" aria-hidden /> Book a lesson with {coachName}
+                </h1>
+              </header>
+              {renderBookingPanel("mobile")}
+              {renderBookingPanel("desktop")}
+            </div>
           </div>
         </div>
       </MainLayout>

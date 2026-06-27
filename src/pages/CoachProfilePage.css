@@ -4275,3 +4275,76 @@
 .coach-profile-booking-rail--mobile .coach-bm-sheet__book:active {
   background: var(--color-primary-dark);
 }
+
+/* ===== Focused book-a-lesson page (bookMode) ===== */
+.coach-book-page__body {
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+}
+.coach-book-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 0;
+}
+/* Quiet uppercase section-eyebrow (matches the prototype), not a big headline. */
+.coach-book-head__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #9ca0ac;
+}
+.coach-book-head__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #84cc16;
+  flex: 0 0 auto;
+}
+/* The top-nav back is shown only <1024px, so this in-page back is desktop-only. */
+.coach-book-head__back {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .coach-book-head__back {
+    display: inline-flex;
+  }
+}
+
+/* No-commission reassurance line (book page only) — prototype .keeps treatment. */
+.coach-book-keeps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 16px;
+  background: #f0fbf4;
+  border: 1px solid #d6f4e0;
+  border-radius: 13px;
+  padding: 12px 15px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #047857;
+}
+.coach-book-keeps svg {
+  flex-shrink: 0;
+  color: #059669;
+}
+.coach-book-keeps b {
+  font-weight: 700;
+  color: #065f46;
+}
+
+/* In the focused page the desktop rail is the whole column, not a sticky side rail. */
+.coach-book-page .coach-profile-booking-rail--desktop {
+  position: static;
+  min-height: 0;
+  border-left: 0;
+  top: auto;
+}
