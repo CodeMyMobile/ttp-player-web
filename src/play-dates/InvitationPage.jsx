@@ -331,6 +331,7 @@ export default function InvitationPage() {
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpPhone, setSignUpPhone] = useState("");
+  const [signUpSmsConsent, setSignUpSmsConsent] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
@@ -1308,6 +1309,10 @@ export default function InvitationPage() {
       setError("Please enter your mobile number to sign up.");
       return;
     }
+    if (!signUpSmsConsent) {
+      setError("Please agree to receive SMS messages before signing up.");
+      return;
+    }
     setAuthSubmitting(true);
     try {
       const fallbackDetails = {
@@ -1333,6 +1338,7 @@ export default function InvitationPage() {
         password: signUpPassword,
         name: trimmedName,
         phone: trimmedPhone,
+        smsConsentGranted: signUpSmsConsent,
       });
 
       if (!hasSessionToken(authPayload)) {
@@ -1940,6 +1946,18 @@ export default function InvitationPage() {
             <p className="mt-1 text-xs text-slate-400">
               We'll use this for match reminders and schedule updates.
             </p>
+          </label>
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={signUpSmsConsent}
+              onChange={(event) => setSignUpSmsConsent(event.target.checked)}
+              required
+              className="mt-1"
+            />
+            <span>
+              I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+            </span>
           </label>
           <PrimaryButton
             type="submit"

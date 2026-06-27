@@ -22,6 +22,7 @@ import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
+import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuthPhoneCapture";
@@ -43,6 +44,8 @@ import MyCoachesPage from "./pages/MyCoachesPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
+import LogResultPage from "./pages/log-result";
+import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
@@ -274,6 +277,17 @@ const PlayDatesPublicPageRoute = ({ children }) => (
   </PlayDatesQueryClientProvider>
 );
 
+const LogResultProtectedPageRoute = ({ children }) => (
+  <ProtectedRoute>
+    <div className="dashboard-page">
+      <AppNav />
+      <main className="main-layout__content">
+        {children}
+      </main>
+    </div>
+  </ProtectedRoute>
+);
+
 const AppRoutes = () => (
   <Routes>
     <Route
@@ -295,6 +309,14 @@ const AppRoutes = () => (
     <Route
       path="/li/:token"
       element={<LessonInvitePage />}
+    />
+    <Route
+      path="/match-results"
+      element={<PublicMatchResultsPage />}
+    />
+    <Route
+      path="/ladder"
+      element={<PublicMatchResultsPage />}
     />
     <Route
       path="/"
@@ -349,6 +371,22 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <CreateMatchPublishConfirmationPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/log-result"
+      element={(
+        <LogResultProtectedPageRoute>
+          <LogResultPage />
+        </LogResultProtectedPageRoute>
+      )}
+    />
+    <Route
+      path="/log-result/confirm/:id"
+      element={(
+        <ProtectedRoute>
+          <ConfirmResultPage />
         </ProtectedRoute>
       )}
     />
@@ -452,11 +490,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/find-coaches"
-      element={(
-        <ProtectedRoute>
-          <FindCoaches />
-        </ProtectedRoute>
-      )}
+      element={<FindCoaches />}
     />
     <Route
       path="/coach-match/recommendations"
@@ -492,11 +526,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/players/:id"
-      element={(
-        <ProtectedRoute>
-          <PlayerProfilePage />
-        </ProtectedRoute>
-      )}
+      element={<PlayerProfilePage />}
     />
     <Route
       path="/coaches/:id"
@@ -516,11 +546,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/group-lessons/:id"
-      element={(
-        <ProtectedRoute>
-          <GroupLessonDetailsPage />
-        </ProtectedRoute>
-      )}
+      element={<GroupLessonDetailsPage />}
+    />
+    <Route
+      path="/lessons/:id"
+      element={<GroupLessonDetailsPage />}
     />
     <Route
       path="/lessons/external/:externalLessonId"
@@ -540,11 +570,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/player/lesson/:id"
-      element={(
-        <ProtectedRoute>
-          <PlayerLessonDetailsPage />
-        </ProtectedRoute>
-      )}
+      element={<PlayerLessonDetailsPage />}
     />
     <Route
       path="/player/calendar"

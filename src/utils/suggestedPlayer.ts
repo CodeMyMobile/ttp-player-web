@@ -121,3 +121,41 @@ export const extractSuggestedPlayer = (payload: unknown): SuggestedPlayerRecord 
   }
   return null;
 };
+
+export const mapPublicPlayerProfileRecord = (payload: unknown): SuggestedPlayerRecord | null => {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const container = payload as Record<string, unknown>;
+  const source = (container.player && typeof container.player === "object"
+    ? container.player
+    : container) as Record<string, unknown>;
+
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const userId = source.userId ?? source.user_id;
+  if (userId === undefined || userId === null) {
+    return null;
+  }
+
+  return {
+    ...source,
+    userId: Number(userId),
+    full_name: typeof source.full_name === "string" ? source.full_name : undefined,
+    profile_picture: typeof source.profile_picture === "string" ? source.profile_picture : undefined,
+    skillLevel:
+      typeof source.skillLevel === "string"
+        ? source.skillLevel
+        : typeof source.usta_rating === "string"
+          ? source.usta_rating
+          : undefined,
+    about_me:
+      typeof source.about_me === "string"
+        ? source.about_me
+        : typeof source.profile_about_me === "string"
+          ? source.profile_about_me
+          : undefined,
+  } as SuggestedPlayerRecord;
+};

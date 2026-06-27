@@ -27,6 +27,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
   const [error, setError] = useState("");
   const [imagePreview, setImagePreview] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [smsConsentGranted, setSmsConsentGranted] = useState(false);
   const accessToken = localStorage.getItem("authToken");
   const isPage = variant === "page";
 
@@ -39,6 +40,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         setError("");
         setImagePreview("");
         setSuccessMessage("");
+        setSmsConsentGranted(false);
       };
     }
 
@@ -50,6 +52,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       setError("");
       setImagePreview("");
       setSuccessMessage("");
+      setSmsConsentGranted(false);
     }
   }, [isOpen, isPage]);
 
@@ -125,6 +128,11 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       };
 
       const sanitizedPhone = String(details.phone || "").replace(/\D/g, "");
+      if (sanitizedPhone && !smsConsentGranted) {
+        setError("Please agree to receive SMS messages before saving your mobile number.");
+        setSaving(false);
+        return;
+      }
       const aboutMe = details.about_me?.trim();
       const payload = {
         player: accessToken,
@@ -134,6 +142,8 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         fullName: details.full_name?.trim() || null,
         mobile: sanitizedPhone ? sanitizedPhone : null,
         about_me: aboutMe || null,
+        smsConsentGranted,
+        smsConsentMethod: "player_profile",
       };
 
       const response = details.id
@@ -248,6 +258,22 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
             />
             <p className="profile-manager__helper">We&apos;ll use this number to share match reminders.</p>
           </div>
+
+          {details.phone ? (
+            <label className="profile-manager__field" htmlFor="profile-sms-consent">
+              <span className="profile-manager__label">SMS consent</span>
+              <span className="profile-manager__helper">
+                <input
+                  id="profile-sms-consent"
+                  type="checkbox"
+                  checked={smsConsentGranted}
+                  onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                  required
+                />{" "}
+                I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+              </span>
+            </label>
+          ) : null}
 
           <div className="profile-manager__field profile-manager__field--photo">
             <label className="profile-manager__label" htmlFor="profile-photo">

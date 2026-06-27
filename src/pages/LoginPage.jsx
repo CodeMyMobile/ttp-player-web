@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Apple,
   ArrowRight,
   CalendarDays,
   Eye,
@@ -13,8 +12,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
+import LegalFooter from "../components/LegalFooter";
 import {
-  getApplePlayerLoginUrl,
   googlePlayerLogin,
   logout as clearAuthSession,
   signup as signupService,
@@ -106,26 +105,15 @@ const featureItems = [
   },
 ];
 
-const GoogleMark = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-    <path
-      fill="#FFC107"
-      d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-    />
-    <path
-      fill="#FF3D00"
-      d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-    />
-    <path
-      fill="#4CAF50"
-      d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-    />
-    <path
-      fill="#1976D2"
-      d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-    />
-  </svg>
-);
+const GOOGLE_BUTTON_OPTIONS = {
+  theme: "outline",
+  size: "large",
+  type: "standard",
+  text: "continue_with",
+  shape: "rectangular",
+  logo_alignment: "left",
+  width: 320,
+};
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -136,6 +124,7 @@ const LoginPage = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(lastEmail || "");
   const [phone, setPhone] = useState("");
+  const [smsConsentGranted, setSmsConsentGranted] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -145,8 +134,9 @@ const LoginPage = () => {
   const [mobileScreen, setMobileScreen] = useState("welcome");
   const [pendingOAuthSession, setPendingOAuthSession] = useState(null);
   const [pendingOAuthProvider, setPendingOAuthProvider] = useState("google");
+  const mobileGoogleButtonRef = useRef(null);
+  const desktopGoogleButtonRef = useRef(null);
   const googleAuthInitialized = useRef(false);
-  const pendingGoogleAuth = useRef(null);
 
   const isSignup = mode === "signup";
   const fullName = useMemo(
@@ -154,14 +144,7 @@ const LoginPage = () => {
     [firstName, lastName],
   );
 
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
-    loadGoogleIdentityScript().catch(() => {
-      // Surface errors only when the user actually tries to sign in.
-    });
-  }, []);
-
-  const navigateAfterAuth = () => {
+  const navigateAfterAuth = useCallback(() => {
     const from = location.state?.from;
     if (from) {
       navigate(
@@ -175,7 +158,7 @@ const LoginPage = () => {
       return;
     }
     navigate("/", { replace: true });
-  };
+  }, [location.state?.from, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -183,11 +166,17 @@ const LoginPage = () => {
     setLoading(true);
     try {
       if (isSignup) {
+        if (phone.replace(/\D/g, "") && !smsConsentGranted) {
+          setError("Please agree to receive SMS messages before creating your account.");
+          setLoading(false);
+          return;
+        }
         const response = await signupService({
           email,
           password,
           name: fullName,
           phone,
+          smsConsentGranted,
         });
         establishSession?.(response);
       } else {
@@ -208,16 +197,17 @@ const LoginPage = () => {
   const handleModeToggle = () => {
     setError("");
     setMode((current) => (current === "signup" ? "signin" : "signup"));
+    setSmsConsentGranted(false);
   };
 
-  const handleAppleLogin = () => {
-    setError("");
-    window.location.href = getApplePlayerLoginUrl();
-  };
-
-  const handleGoogleLogin = async () => {
+  const handleGoogleCredential = useCallback(async (credentialResponse) => {
     if (!GOOGLE_CLIENT_ID) {
       setError("Google sign-in is not configured. Add VITE_GOOGLE_CLIENT_ID to enable it.");
+      return;
+    }
+
+    if (!credentialResponse?.credential) {
+      setError("Google sign-in did not return a token.");
       return;
     }
 
@@ -225,48 +215,8 @@ const LoginPage = () => {
     setGoogleLoading(true);
 
     try {
-      const google = await loadGoogleIdentityScript();
-      if (!google?.accounts?.id) {
-        throw new Error("Google sign-in is unavailable right now.");
-      }
-
-      const credential = await new Promise((resolve, reject) => {
-        pendingGoogleAuth.current = { resolve, reject };
-
-        if (!googleAuthInitialized.current) {
-          google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: (response) => {
-              if (response?.credential) {
-                pendingGoogleAuth.current?.resolve(response.credential);
-                pendingGoogleAuth.current = null;
-                return;
-              }
-              pendingGoogleAuth.current?.reject(new Error("Google sign-in did not return a token."));
-              pendingGoogleAuth.current = null;
-            },
-            error_callback: () => {
-              pendingGoogleAuth.current?.reject(new Error("Google sign-in was cancelled or failed."));
-              pendingGoogleAuth.current = null;
-            },
-          });
-          googleAuthInitialized.current = true;
-        }
-
-        google.accounts.id.prompt((notification) => {
-          const notDisplayed =
-            typeof notification?.isNotDisplayed === "function" && notification.isNotDisplayed();
-          const skipped =
-            typeof notification?.isSkippedMoment === "function" && notification.isSkippedMoment();
-          if (notDisplayed || skipped) {
-            pendingGoogleAuth.current?.reject(new Error("Google sign-in is unavailable for this browser session."));
-            pendingGoogleAuth.current = null;
-          }
-        });
-      });
-
       const response = {
-        ...(await googlePlayerLogin(credential)),
+        ...(await googlePlayerLogin(credentialResponse.credential)),
         oauth_provider: "google",
       };
       if (shouldCaptureOAuthPhone(response)) {
@@ -283,7 +233,46 @@ const LoginPage = () => {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }, [establishSession, navigateAfterAuth]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
+
+    let isCancelled = false;
+
+    const renderGoogleButtons = async () => {
+      try {
+        const google = await loadGoogleIdentityScript();
+        if (isCancelled) return;
+        if (!google?.accounts?.id) {
+          throw new Error("Google sign-in is unavailable right now.");
+        }
+
+        if (!googleAuthInitialized.current) {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential,
+          });
+          googleAuthInitialized.current = true;
+        }
+
+        [mobileGoogleButtonRef.current, desktopGoogleButtonRef.current].forEach((target) => {
+          if (!target || target.dataset.googleButtonRendered === "true") return;
+          google.accounts.id.renderButton(target, GOOGLE_BUTTON_OPTIONS);
+          target.dataset.googleButtonRendered = "true";
+        });
+      } catch {
+        // Surface errors only when Google is configured but cannot render.
+        setError("Google sign-in is unavailable right now.");
+      }
+    };
+
+    renderGoogleButtons();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [handleGoogleCredential, mobileScreen]);
 
   const openMobileForm = (nextMode = mode) => {
     setError("");
@@ -333,15 +322,11 @@ const LoginPage = () => {
                   <Apple size={18} />
                   <span>Continue with Apple</span>
                 </button> */}
-                <button
-                  type="button"
-                  className="auth-welcome__social auth-welcome__social--google"
-                  onClick={handleGoogleLogin}
-                  disabled={googleLoading || loading}
-                >
-                  <GoogleMark />
-                  <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
-                </button>
+                <div
+                  className="auth-welcome__social auth-welcome__social--google auth-welcome__google-button"
+                  ref={mobileGoogleButtonRef}
+                  aria-busy={googleLoading || loading}
+                />
                 <button
                   type="button"
                   className="auth-mobile__email-entry"
@@ -361,7 +346,7 @@ const LoginPage = () => {
               <div className="auth-mobile__welcome-footer">
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               </div>
             </div>
@@ -450,6 +435,24 @@ const LoginPage = () => {
                     </div>
                   ) : null}
 
+                  {isSignup ? (
+                    <label className="auth-welcome__remember" htmlFor="mobile-sms-consent">
+                      <input
+                        id="mobile-sms-consent"
+                        type="checkbox"
+                        checked={smsConsentGranted}
+                        onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                        required
+                      />
+                      <span className="auth-welcome__remember-copy">
+                        <strong>SMS consent</strong>
+                        <small>
+                          I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                        </small>
+                      </span>
+                    </label>
+                  ) : null}
+
                   <div className="auth-welcome__field">
                     <label htmlFor="mobile-password">Password</label>
                     <div className="auth-welcome__input-wrap auth-welcome__input-wrap--trailing">
@@ -498,7 +501,7 @@ const LoginPage = () => {
                     {isSignup ? (
                       <p className="auth-welcome__terms">
                         By creating an account, you agree to our{" "}
-                        <button type="button">Terms</button> and <button type="button">Privacy Policy</button>
+                        <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>
                       </p>
                     ) : null}
 
@@ -540,10 +543,10 @@ const LoginPage = () => {
             <p className="auth-welcome__tagline">Find your coach. Play your match.</p>
 
             <div className="auth-welcome__features">
-              {featureItems.map(({ icon: Icon, text }) => (
+              {featureItems.map(({ icon, text }) => (
                 <div key={text} className="auth-welcome__feature">
                   <div className="auth-welcome__feature-icon">
-                    <Icon size={18} />
+                    {createElement(icon, { size: 18 })}
                   </div>
                   <span>{text}</span>
                 </div>
@@ -574,15 +577,11 @@ const LoginPage = () => {
                 <Apple size={18} />
                 <span>Continue with Apple</span>
               </button> */}
-              <button
-                type="button"
-                className="auth-welcome__social auth-welcome__social--google"
-                onClick={handleGoogleLogin}
-                disabled={googleLoading || loading}
-              >
-                <GoogleMark />
-                <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
-              </button>
+              <div
+                className="auth-welcome__social auth-welcome__social--google auth-welcome__google-button"
+                ref={desktopGoogleButtonRef}
+                aria-busy={googleLoading || loading}
+              />
             </div>
 
             <div className="auth-welcome__divider">
@@ -649,6 +648,24 @@ const LoginPage = () => {
                 </div>
               ) : null}
 
+              {isSignup ? (
+                <label className="auth-welcome__remember" htmlFor="sms-consent">
+                  <input
+                    id="sms-consent"
+                    type="checkbox"
+                    checked={smsConsentGranted}
+                    onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                    required
+                  />
+                  <span className="auth-welcome__remember-copy">
+                    <strong>SMS consent</strong>
+                    <small>
+                      I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                    </small>
+                  </span>
+                </label>
+              ) : null}
+
               <div className="auth-welcome__field">
                 <label htmlFor="password">Password</label>
                 <div className="auth-welcome__input-wrap auth-welcome__input-wrap--trailing">
@@ -696,12 +713,12 @@ const LoginPage = () => {
               {isSignup ? (
                 <p className="auth-welcome__terms">
                   By creating an account, you agree to our{" "}
-                  <button type="button">Terms</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               ) : (
                 <p className="auth-welcome__terms auth-welcome__terms--signin">
                   By continuing, you agree to The Tennis Plan&apos;s{" "}
-                  <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>
+                  <a href="/terms/">Terms of Service</a> and <a href="/privacy/">Privacy Policy</a>
                 </p>
               )}
 
@@ -729,6 +746,7 @@ const LoginPage = () => {
         </section>
       </div>
       </div>
+      <LegalFooter />
     </div>
   );
 };

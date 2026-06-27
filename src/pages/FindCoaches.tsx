@@ -735,6 +735,20 @@ const FindCoaches = () => {
 
   const locationLabel = locationFilter?.label ?? (position ? "Current location" : "Select location");
   const hasLocationFilter = Boolean(locationFilter);
+  const isSignedIn = Boolean(playerToken);
+  const promptSignUp = useCallback(() => {
+    navigate("/login", {
+      state: {
+        mode: "signup",
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+          state: { findCoachesState: findCoachesStateSnapshot },
+        },
+      },
+    });
+  }, [findCoachesStateSnapshot, location.hash, location.pathname, location.search, navigate]);
 
   const applyLocationFilter = useCallback((nextLocation: SelectedLocation | null) => {
     if (nextLocation && typeof nextLocation.latitude === "number" && typeof nextLocation.longitude === "number") {
@@ -890,14 +904,6 @@ const FindCoaches = () => {
   }, [loadCoachMatchQuestions, playerToken]);
 
   const fetchCoaches = useCallback(async () => {
-    if (!playerToken) {
-      setCoaches([]);
-      setStatus("ready");
-      setMode("error");
-      setError("Please sign in to search for coaches.");
-      return;
-    }
-
     if (!position) {
       if (!hasResolvedInitialLocation) {
         setStatus("loading");
@@ -940,7 +946,8 @@ const FindCoaches = () => {
         if (locationSearchValue) params.set("locationSearch", locationSearchValue);
       }
 
-      const response = await api(`player/getchecklocation?${params.toString()}`, {
+      const endpoint = playerToken ? "player/getchecklocation" : "public/coaches/search";
+      const response = await api(`${endpoint}?${params.toString()}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
@@ -948,7 +955,7 @@ const FindCoaches = () => {
         json: {
           position: positionPayload,
         },
-        authToken: playerToken,
+        authToken: playerToken ?? null,
       });
 
       if (response.status === 404) {
@@ -1532,13 +1539,13 @@ const FindCoaches = () => {
                         {isMatched ? (
                           <>
                             {/* Book a lesson is not wired this PR (separate booking PR); temporarily routes to the profile. */}
-                            <Link
-                              to={`/coaches/${coach.id}`}
-                              state={{ findCoachesState: findCoachesStateSnapshot }}
+                            <button
+                              type="button"
+                              onClick={isSignedIn ? () => navigate(`/coaches/${coach.id}`, { state: { findCoachesState: findCoachesStateSnapshot } }) : promptSignUp}
                               className="fc-card__btn fc-card__btn--book"
                             >
                               Book a lesson
-                            </Link>
+                            </button>
                             <Link
                               to={`/coaches/${coach.id}`}
                               state={{ findCoachesState: findCoachesStateSnapshot }}

@@ -174,6 +174,16 @@ export const fetchPlayerLessonById = ({ token, lessonId, signal }: FetchPlayerLe
     signal,
   });
 
+export interface FetchPublicLessonByIdParams {
+  lessonId: number | string;
+  signal?: AbortSignal;
+}
+
+export const fetchPublicLessonById = ({ lessonId, signal }: FetchPublicLessonByIdParams) =>
+  request<{ lesson?: Lesson }>(`/public/lessons/${lessonId}`, {
+    signal,
+  });
+
 export const bookLesson = ({ token, lessonId }: BookLessonParams) =>
   request(`/player/lessons/${lessonId}/book`, {
     method: "POST",

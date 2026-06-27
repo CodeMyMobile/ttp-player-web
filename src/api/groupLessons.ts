@@ -1,6 +1,7 @@
 import moment from "moment";
 
 import { request } from "./http";
+import { isCancelledGroupLessonRecord } from "../utils/groupLessonCancellation";
 
 export type GroupLessonLevel = 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5 | 5.5 | 6;
 
@@ -26,6 +27,7 @@ export interface GroupLesson {
   distanceMiles: number;
   totalSpots: number;
   availableSpots: number;
+  cancelled: boolean;
   focus: string;
   courtSurface?: string;
   pricePerPlayer: string;
@@ -39,11 +41,15 @@ export interface GroupLesson {
     focusArea?: string;
     joinedLabel?: string;
     avatarUrl?: string;
+    paymentStatus?: number;
+    status?: number;
   }>;
   groupPlayers?: Array<{
     id?: number | string;
     participantId?: number | string;
     playerId?: number | string;
+    name?: string;
+    avatarUrl?: string;
     email?: string;
     phone?: string;
     paymentStatus?: number;
@@ -73,6 +79,9 @@ export interface UpcomingGroupLessonApi {
   lesson_id?: number | string | null;
   occurrence_id?: string | null;
   group_class_id?: number | string | null;
+  status?: number | string | null;
+  created_by?: number | string | null;
+  updated_by?: number | string | null;
   full_name?: string;
   coach_id?: number;
   profile_picture?: string;
@@ -269,6 +278,13 @@ export const isActiveGroupLessonPlayer = (player: {
   );
 };
 
+// Mirrors the backend checkout guard for coach-cancelled group lessons.
+export const isCancelledGroupLesson = (lesson: {
+  status?: number | string | null;
+  created_by?: number | string | null;
+  updated_by?: number | string | null;
+}) => isCancelledGroupLessonRecord(lesson);
+
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
   const normalizedGroupPlayers = (lesson.group_players ?? []).map((player) => {
@@ -337,6 +353,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     distanceMiles,
     totalSpots,
     availableSpots,
+    cancelled: isCancelledGroupLesson(lesson),
     focus: lesson.lesson_type_name ?? description,
     pricePerPlayer: formatPricePerPlayer(lesson.group_price_per_person),
     sourceLesson: lesson,
@@ -344,6 +361,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       id: String(player.playerId ?? `${lesson.id}-${index}`),
       name: player.name,
       avatarUrl: player.avatarUrl,
+      paymentStatus: player.paymentStatus,
+      status: player.status,
     })),
     groupPlayers: normalizedGroupPlayers,
   };

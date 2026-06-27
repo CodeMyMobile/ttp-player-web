@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, MapPin, MessageCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
-import { fetchPlayerDetails, verifyUserLevel } from "../api/playerHome";
+import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
+import { getPlayedWith } from "../api/playerHistory";
 import { joinMatch, listMatches } from "../play-dates/services/matches";
 import { getMatchHostId, idsMatch } from "../play-dates/utils/matchHost";
 import { getStoredAuthToken } from "../services/authToken";
@@ -14,11 +15,14 @@ import { useAuth } from "../context/AuthContext";
 import type { ConnectIntent } from "../types/matchPlay";
 import { getStoredMatchProfile } from "../utils/matchProfile";
 import { getStoredLocation, DEFAULT_COORDINATES } from "../utils/userLocation";
+import { formatPlayedWithCount, type PlayedWithPlayer } from "../utils/playedWith";
 import {
   extractSuggestedPlayer,
+  mapPublicPlayerProfileRecord,
   mapSuggestedPlayer,
   type DirectoryPlayer,
 } from "../utils/suggestedPlayer";
+import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
 
 type OpenMatch = Record<string, unknown>;
 
@@ -59,7 +63,9 @@ const readStoredUserId = (): string | number | null => {
       return null;
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const id = parsed.user_id ?? parsed.id;
+    const profile = parsed.profile as Record<string, unknown> | undefined;
+    const user = parsed.user as Record<string, unknown> | undefined;
+    const id = parsed.user_id ?? parsed.userId ?? profile?.user_id ?? profile?.userId ?? user?.user_id ?? user?.userId;
     return typeof id === "string" || typeof id === "number" ? id : null;
   } catch {
     return null;
@@ -78,6 +84,14 @@ const normalizeStringArray = (value: unknown): string[] => {
   }
   return [];
 };
+
+const getInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "P";
 
 const PlayerProfilePage = () => {
   const { id } = useParams();
@@ -119,13 +133,40 @@ const PlayerProfilePage = () => {
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchesError, setMatchesError] = useState(false);
+  const [playedWith, setPlayedWith] = useState<PlayedWithPlayer[]>([]);
+  const [playedWithLoading, setPlayedWithLoading] = useState(true);
+  const [playedWithError, setPlayedWithError] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const authToken = useMemo(
+    () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }),
+    [user],
+  );
+  const isSignedIn = Boolean(authToken);
+  const promptSignIn = useCallback(() => {
+    // LoginPage's post-auth redirect reads `from` as a location object
+    // ({ pathname, search, hash }). Passing a string here made `from.search`
+    // resolve to String.prototype.search (a function), which crashed
+    // react-router with "search.includes is not a function" after sign-in.
+    navigate("/login", {
+      state: {
+        from: {
+          pathname: location.pathname,
+          search: location.search,
+          hash: location.hash,
+        },
+      },
+    });
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
   const loadOpenMatches = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!id) {
+        setMatchesLoading(false);
+        return;
+      }
+      if (!authToken) {
         setMatchesLoading(false);
         return;
       }
@@ -155,16 +196,50 @@ const PlayerProfilePage = () => {
         }
       }
     },
-    [id],
+    [authToken, id],
   );
 
   useEffect(() => {
     loadOpenMatches();
   }, [loadOpenMatches]);
 
+  useEffect(() => {
+    if (!id) {
+      setPlayedWith([]);
+      setPlayedWithLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPlayedWithLoading(true);
+    setPlayedWithError(false);
+
+    getPlayedWith(id, { signal: controller.signal })
+      .then((response) => {
+        setPlayedWith(response.playedWith);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error("Failed to load played-with network", error);
+        setPlayedWith([]);
+        setPlayedWithError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setPlayedWithLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [id]);
+
   const handleJoinMatch = useCallback(
     async (matchId: string) => {
       if (!matchId || joiningId) {
+        return;
+      }
+      if (!isSignedIn) {
+        promptSignIn();
         return;
       }
       try {
@@ -179,18 +254,11 @@ const PlayerProfilePage = () => {
         setJoiningId(null);
       }
     },
-    [joiningId, loadOpenMatches],
+    [isSignedIn, joiningId, loadOpenMatches, promptSignIn],
   );
 
   useEffect(() => {
     if (!id) {
-      setLoading(false);
-      setLoadError(true);
-      return;
-    }
-
-    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
-    if (!token) {
       setLoading(false);
       setLoadError(true);
       return;
@@ -202,14 +270,42 @@ const PlayerProfilePage = () => {
     }
     setLoadError(false);
 
-    fetchPlayerDetails({ token, userId: id })
-      .then((payload) => {
+    // The authed details endpoint (`/player/.../specific_user`) only resolves
+    // players within the viewer's discovery scope, so it 404s for arbitrary
+    // profiles opened via shared/public links. Fall back to the public profile
+    // endpoint so signed-in users can view any player too.
+    const loadProfile: Promise<{ payload: Record<string, unknown>; source: "authed" | "public" }> =
+      authToken
+        ? fetchPlayerDetails({ token: authToken, userId: id })
+            .then((payload) => ({ payload, source: "authed" as const }))
+            .catch(() =>
+              fetchPublicPlayerProfile({ userId: id }).then((payload) => ({
+                payload,
+                source: "public" as const,
+              })),
+            )
+        : fetchPublicPlayerProfile({ userId: id }).then((payload) => ({
+            payload,
+            source: "public" as const,
+          }));
+
+    loadProfile
+      .then(({ payload, source }) => {
         if (cancelled) {
           return;
         }
-        const record = extractSuggestedPlayer(payload);
+        const record =
+          source === "authed"
+            ? extractSuggestedPlayer(payload)
+            : mapPublicPlayerProfileRecord(payload);
         if (record) {
           setPlayer(mapSuggestedPlayer(record));
+          if (source === "public" && payload && typeof payload === "object") {
+            const publicMatches = (payload as { matches?: unknown }).matches;
+            setOpenMatches(Array.isArray(publicMatches) ? (publicMatches as OpenMatch[]) : []);
+            setMatchesLoading(false);
+            setMatchesError(false);
+          }
         } else if (!fastPathPlayer) {
           setLoadError(true);
         }
@@ -228,7 +324,7 @@ const PlayerProfilePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [id, fastPathPlayer]);
+  }, [authToken, id, fastPathPlayer]);
 
   // Single source for the section: open/upcoming only (Change 2), hosted by THIS
   // profile owner (the feed guard — the backend currently ignores created_by, so
@@ -237,9 +333,9 @@ const PlayerProfilePage = () => {
   const visibleMatches = useMemo(
     () =>
       openMatches
-        .filter((match) => isOpenStatus(match) && idsMatch(getMatchHostId(match), id))
+        .filter((match) => isOpenStatus(match) && (!isSignedIn || idsMatch(getMatchHostId(match), id)))
         .sort((a, b) => matchStartMs(a) - matchStartMs(b)),
-    [openMatches, id],
+    [openMatches, id, isSignedIn],
   );
 
   const goBackToResults = () => {
@@ -313,6 +409,10 @@ const PlayerProfilePage = () => {
   const favoriteCourt = typeof player.favoriteCourt === "string" ? player.favoriteCourt : undefined;
 
   const openConnectModal = () => {
+    if (!isSignedIn) {
+      promptSignIn();
+      return;
+    }
     if (!matchProfile) {
       navigate("/find-players");
       return;
@@ -323,29 +423,34 @@ const PlayerProfilePage = () => {
   const closeConnectModal = () => setConnectModalOpen(false);
 
   const shareIntro = () => {
+    if (!isSignedIn) {
+      promptSignIn();
+      return;
+    }
     if (!matchProfile) {
       navigate("/find-players");
+      return;
+    }
+
+    const recipientPhone = getSmsRecipient(player.raw?.phone);
+    if (!recipientPhone) {
+      window.alert("This player doesn't have a valid mobile number available for SMS yet.");
       return;
     }
 
     const senderLevel = matchProfile.level ?? "3.0";
     const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
     const message = `Hi ${player.name}, I found you on The Tennis Plan. I'm a ${senderLevel} player looking to hit ${preferredTimes}. Let me know if you'd like to connect.`;
-    const encodedMessage = encodeURIComponent(message);
-    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    const smsUrl = isIos ? `sms:&body=${encodedMessage}` : `sms:?body=${encodedMessage}`;
 
     closeConnectModal();
-    if (typeof window.navigator.share === "function") {
-      window.navigator.share({ text: message }).catch(() => {
-        window.location.href = smsUrl;
-      });
-      return;
-    }
-    window.location.href = smsUrl;
+    window.location.assign(buildSmsUrl(recipientPhone, message));
   };
 
   const createMatchInvite = () => {
+    if (!isSignedIn) {
+      promptSignIn();
+      return;
+    }
     if (!matchProfile) {
       navigate("/find-players");
       return;
@@ -370,11 +475,15 @@ const PlayerProfilePage = () => {
   };
 
   const blockPlayer = () => {
+    if (!isSignedIn) {
+      promptSignIn();
+      return;
+    }
     window.alert(`You blocked ${player.name}.`);
   };
 
   const handleVerifyLevel = async () => {
-    const token = getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" });
+    const token = authToken;
     const userId = player.raw?.userId;
     const level = typeof playerLevel === "string" ? playerLevel.trim() : "";
 
@@ -495,9 +604,57 @@ const PlayerProfilePage = () => {
                       joining={joiningId === cardId}
                       currentUserId={currentUserId}
                       hostId={id ?? null}
+                      onViewDetails={isSignedIn ? undefined : promptSignIn}
                     />
                   );
                 })}
+              </div>
+            )}
+          </section>
+
+          <section className="ppv-section" aria-labelledby="played-with-heading">
+            <div className="ppv-sec-head">
+              <h2 id="played-with-heading" className="ppv-sec-title">
+                Played with
+              </h2>
+              {!playedWithLoading && !playedWithError && playedWith.length > 0 ? (
+                <span className="ppv-sec-count">{playedWith.length} players</span>
+              ) : null}
+            </div>
+            {playedWithLoading ? (
+              <p className="ppv-state-text">Loading tennis network…</p>
+            ) : playedWithError ? (
+              <p className="ppv-state-text">We couldn&apos;t load this network right now.</p>
+            ) : playedWith.length === 0 ? (
+              <p className="ppv-state-text">No shared match history yet.</p>
+            ) : (
+              <div className="ppv-network-grid">
+                {playedWith.map((networkPlayer) => (
+                  <article key={networkPlayer.userId} className="ppv-network-card">
+                    <div className="ppv-network-avatar">
+                      {networkPlayer.avatarUrl ? (
+                        <img src={networkPlayer.avatarUrl} alt={`${networkPlayer.name} profile portrait`} />
+                      ) : (
+                        <span aria-hidden="true">{getInitials(networkPlayer.name)}</span>
+                      )}
+                    </div>
+                    <div className="ppv-network-copy">
+                      <h3>{networkPlayer.name}</h3>
+                      <p>
+                        {formatPlayedWithCount(networkPlayer.matchCount)}
+                        {networkPlayer.ntrp !== null ? ` · ${networkPlayer.ntrp} NTRP` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="ppv-network-action"
+                      onClick={() => navigate(`/players/${networkPlayer.userId}`)}
+                      aria-label={`View ${networkPlayer.name}'s profile`}
+                    >
+                      <Users size={16} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </article>
+                ))}
               </div>
             )}
           </section>
@@ -598,6 +755,12 @@ const PlayerProfilePage = () => {
         isOpen={connectModalOpen}
         player={player}
         onClose={closeConnectModal}
+        canShareIntro={Boolean(getSmsRecipient(player.raw?.phone))}
+        shareIntroDescription={
+          getSmsRecipient(player.raw?.phone)
+            ? "Open a text message with this player's number and your profile details prefilled."
+            : "This player doesn't have a valid mobile number available for SMS yet."
+        }
         onShareIntro={shareIntro}
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}

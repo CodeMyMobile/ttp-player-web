@@ -1938,8 +1938,9 @@
 .auth-welcome {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   background: #e2e8f0;
   color: #0f172a;
 }
@@ -1949,6 +1950,8 @@
 }
 
 .auth-welcome__desktop {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2177,6 +2180,24 @@
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+.auth-welcome__google-button {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+}
+
+.auth-welcome__google-button:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.auth-welcome__google-button > div,
+.auth-welcome__google-button iframe {
+  width: 100% !important;
+}
+
 .auth-welcome__divider {
   display: flex;
   align-items: center;
@@ -2389,17 +2410,20 @@
   font-weight: 500;
 }
 
-.auth-welcome__terms button {
+.auth-welcome__terms button,
+.auth-welcome__terms a {
   border: 0;
   padding: 0;
   background: transparent;
   color: var(--color-primary);
   font-weight: 700;
   font: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.auth-welcome__terms button:hover {
+.auth-welcome__terms button:hover,
+.auth-welcome__terms a:hover {
   text-decoration: underline;
 }
 
@@ -2986,6 +3010,12 @@ button.secondary-link {
   .auth-welcome__mobile {
     display: block;
     width: 100%;
+    /* Don't let the flex-shrink:0 LegalFooter compress this column. Without
+       this, the footer steals height from the mobile screen while the inner
+       .auth-mobile__screen stays min-height:100vh, so the screen overflows and
+       the opaque footer paints on top of the bottom controls (e.g. "Continue
+       with Google"), making them untappable on mobile Safari. */
+    flex-shrink: 0;
   }
 
   .auth-mobile__row {

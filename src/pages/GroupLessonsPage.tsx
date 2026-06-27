@@ -188,6 +188,7 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     distanceMiles: 0,
     totalSpots: 0,
     availableSpots: 1,
+    cancelled: false,
     focus: typeof lesson.lesson_type_name === "string" ? lesson.lesson_type_name : "External",
     durationMinutes,
     pricePerPlayer: "External booking",
@@ -1396,7 +1397,8 @@ const GroupLessonsPage = () => {
                   const spotTone = getSpotsTone(lesson.availableSpots);
                   const isBooked = isLessonBooked(lesson);
                   const isExternal = Boolean(lesson.isExternal && lesson.externalUrl);
-                  const isSoldOut = !isExternal && lesson.availableSpots === 0;
+                  const isCancelled = !isExternal && lesson.cancelled;
+                  const isSoldOut = !isExternal && !isCancelled && lesson.availableSpots === 0;
                   const priceValue = parsePriceValue(lesson.pricePerPlayer);
                   const coachName = getResolvedCoachName(lesson);
                   const coachAvatar = getResolvedCoachAvatar(lesson);
@@ -1404,7 +1406,7 @@ const GroupLessonsPage = () => {
                   return (
                     <article
                       key={lesson.id}
-                      className={`lesson-card lesson-card--desktop${isExternal ? " lesson-card--external" : ""}`}
+                      className={`lesson-card lesson-card--desktop${isExternal ? " lesson-card--external" : ""}${isCancelled ? " lesson-card--cancelled" : ""}`}
                     >
                       <header className="lesson-card__band">
                         <div className="lesson-card__band-label">
@@ -1450,10 +1452,10 @@ const GroupLessonsPage = () => {
                             )}
                             <span
                               className={`lesson-card__spots-pill lesson-card__spots-pill--${
-                                isExternal ? "external" : spotTone.tone
+                                isExternal ? "external" : isCancelled ? "cancelled" : spotTone.tone
                               }`}
                             >
-                              {isExternal ? "External booking" : spotTone.label}
+                              {isExternal ? "External booking" : isCancelled ? "Cancelled" : spotTone.label}
                             </span>
                           </div>
                         </div>
@@ -1497,9 +1499,17 @@ const GroupLessonsPage = () => {
                                 },
                               });
                             }}
-                            disabled={isSoldOut || isBooked}
+                            disabled={isCancelled || isSoldOut || isBooked}
                           >
-                            {isExternal ? "Continue" : isBooked ? "Booked" : isSoldOut ? "Join waitlist" : "Book now"}
+                            {isExternal
+                              ? "Continue"
+                              : isCancelled
+                                ? "Cancelled"
+                                : isBooked
+                                  ? "Booked"
+                                  : isSoldOut
+                                    ? "Join waitlist"
+                                    : "Book now"}
                           </button>
                         </footer>
                       </div>

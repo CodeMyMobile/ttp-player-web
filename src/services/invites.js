@@ -1,4 +1,5 @@
 import api, { unwrap } from "./api";
+import { withSmsConsent } from "./smsConsent";
 
 const buildQuery = (params = {}) => {
   const search = new URLSearchParams();
@@ -51,7 +52,13 @@ export const claimInvite = (token, payload) =>
   unwrap(
     api(`/invites/${token}/claim`, {
       method: "POST",
-      body: JSON.stringify(payload || {}),
+      body: JSON.stringify(
+        withSmsConsent(
+          payload || {},
+          Boolean(payload?.phone) && payload?.smsConsentGranted === true,
+          "match_invite_claim",
+        ),
+      ),
     })
   );
 

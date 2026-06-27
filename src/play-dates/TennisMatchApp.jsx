@@ -984,6 +984,7 @@ const TennisMatchApp = ({
     phone: "",
     skillLevel: "",
     dateOfBirth: "",
+    smsConsentGranted: false,
   });
   const [signupErrors, setSignupErrors] = useState({});
   // Removed OTP verification; no verification code needed
@@ -1380,6 +1381,7 @@ const TennisMatchApp = ({
       password,
       skillLevel,
       dateOfBirth,
+      smsConsentGranted,
     }) => {
       const trimmedName = name?.trim() ?? "";
       const normalizedPhoneDigits = getPhoneDigits(phone);
@@ -1477,6 +1479,7 @@ const TennisMatchApp = ({
           password,
           name: trimmedName,
           phone: normalizedPhoneDigits,
+          smsConsentGranted: Boolean(smsConsentGranted),
         });
 
         const fallbackDetails = {
@@ -5601,10 +5604,11 @@ const TennisMatchApp = ({
           password: pwd ?? "matchplay",
           skillLevel: formData.skillLevel,
           dateOfBirth: formData.dateOfBirth,
+          smsConsentGranted: formData.smsConsentGranted,
         });
         setShowSignInModal(false);
         setSignInStep("initial");
-        setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+        setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
         setPassword("");
         setSignupErrors({});
       } catch (error) {
@@ -5622,7 +5626,7 @@ const TennisMatchApp = ({
             <button
               onClick={() => {
                 setSignInStep("initial");
-                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
               }}
               className="absolute top-4 left-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -5632,7 +5636,7 @@ const TennisMatchApp = ({
               onClick={() => {
                 setShowSignInModal(false);
                 setSignInStep("initial");
-                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+                setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
               }}
               className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -5701,6 +5705,27 @@ const TennisMatchApp = ({
 
               {/* NTRP Skill Level removed from signup */}
 
+              <label className="flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={formData.smsConsentGranted}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      smsConsentGranted: e.target.checked,
+                    }))
+                  }
+                  className="mt-1"
+                  required
+                />
+                <span>
+                  I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                  {signupErrors.smsConsentGranted && (
+                    <span className="mt-1 block text-xs text-red-600">{signupErrors.smsConsentGranted}</span>
+                  )}
+                </span>
+              </label>
+
               <button
                 onClick={async () => {
                   if (formData.phone) {
@@ -5731,7 +5756,7 @@ const TennisMatchApp = ({
           .then(() => {
             setShowSignInModal(false);
             setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
             setPassword("");
           })
           .catch((error) => {
@@ -5874,7 +5899,7 @@ const TennisMatchApp = ({
             <button
               onClick={() => {
                 setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
               }}
               className="absolute top-4 left-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -5884,7 +5909,7 @@ const TennisMatchApp = ({
               onClick={() => {
                 setShowSignInModal(false);
                 setSignInStep("initial");
-            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+            setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
               }}
               className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
             >
@@ -6009,6 +6034,7 @@ const TennisMatchApp = ({
                   else if (!isValidEmail(formData.email)) errors.email = "Please enter a valid email";
                   if (!formData.phone?.trim()) errors.mobile = "Please enter your mobile";
                   if (!password?.trim()) errors.password = "Please enter your password";
+                  if (!formData.smsConsentGranted) errors.smsConsentGranted = "Please agree to receive SMS messages";
                   setSignupErrors(errors);
                   if (Object.keys(errors).length > 0) {
                     displayToast("Please correct the errors", "error");
@@ -6040,7 +6066,7 @@ const TennisMatchApp = ({
             onClick={() => {
               setShowSignInModal(false);
               setSignInStep("initial");
-              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
             }}
             className="absolute top-4 right-4 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
           >
@@ -6130,7 +6156,7 @@ const TennisMatchApp = ({
             onClick={() => {
               setShowSignInModal(false);
               setSignInStep("initial");
-              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "" });
+              setFormData({ name: "", email: "", phone: "", skillLevel: "", dateOfBirth: "", smsConsentGranted: false });
             }}
             className="w-full text-gray-500 text-sm hover:text-gray-700 transition-colors mt-3 font-bold"
           >

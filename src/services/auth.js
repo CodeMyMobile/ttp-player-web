@@ -1,12 +1,16 @@
 import { buildApiUrl } from "../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
+import { withSmsConsent } from "./smsConsent";
 
 const clearStoredSession = () => {
   localStorage.removeItem("authToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("authLoginResponse");
   localStorage.removeItem("playerPersonalDetails");
+  localStorage.removeItem("oauthPhoneCapturePending");
+  localStorage.removeItem("oauthPhoneCaptureProvider");
+  localStorage.removeItem("user");
 };
 
 const persistAuthSession = (data) => {
@@ -74,17 +78,21 @@ export const login = async (email, password) => {
   return data;
 };
 
-export const signup = async ({ email, password, name, phone, user_type = 2 }) => {
+export const signup = async ({ email, password, name, phone, user_type = 2, smsConsentGranted = false }) => {
   const normalizedPhone = getPhoneDigits(phone);
 
-  const payload = {
-    email,
-    password,
-    user_type,
-    // Common backend field names; adjust if your API differs
-    full_name: name,
-    ...(normalizedPhone ? { phone: normalizedPhone } : {}),
-  };
+  const payload = withSmsConsent(
+    {
+      email,
+      password,
+      user_type,
+      // Common backend field names; adjust if your API differs
+      full_name: name,
+      ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+    },
+    Boolean(normalizedPhone) && smsConsentGranted,
+    "signup_checkbox",
+  );
   const data = await unwrap(
     api(`/auth/signup`, {
       method: "POST",

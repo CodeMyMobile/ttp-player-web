@@ -339,6 +339,16 @@
   color: #1d4ed8;
 }
 
+.match-status-pill.played-before {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+
+.match-status-pill.new-host {
+  background: rgba(148, 163, 184, 0.16);
+  color: #64748b;
+}
+
 .match-needed {
   font-size: 13px;
   font-weight: 600;

@@ -272,6 +272,52 @@
   color: #166534;
 }
 
+.group-lesson-details__section--cancelled {
+  padding-top: 18px;
+}
+
+.group-lesson-details__cancelled-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.group-lesson-details__cancelled-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.group-lesson-details__cancelled-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-lesson-details__cancelled-copy strong {
+  font-size: 14px;
+  color: #b91c1c;
+}
+
+.group-lesson-details__cancelled-copy span {
+  font-size: 12px;
+  color: #991b1b;
+}
+
 .group-lesson-details__section {
   margin-bottom: 28px;
 }
@@ -463,6 +509,16 @@
 .group-lesson-details__participant-joined {
   font-size: 12px;
   color: var(--fc-color-text-muted);
+}
+
+.group-lesson-details__participant-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 9px;
 }
 
 .group-lesson-details__location-list {

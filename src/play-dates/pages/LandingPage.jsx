@@ -23,6 +23,7 @@ const LandingPage = ({
     phone: "",
     password: "",
     skillLevel: "",
+    smsConsentGranted: false,
   });
   const [signinForm, setSigninForm] = useState({
     email: "",
@@ -110,6 +111,9 @@ const LandingPage = ({
     if (!signupForm.skillLevel) {
       errors.skillLevel = "Select your skill level";
     }
+    if (!signupForm.smsConsentGranted) {
+      errors.smsConsentGranted = "Please agree to receive SMS messages";
+    }
     return errors;
   };
 
@@ -150,7 +154,7 @@ const LandingPage = ({
     } finally {
       setSignupLoading(false);
     }
-    setSignupForm({ name: "", email: "", phone: "", password: "", skillLevel: "" });
+    setSignupForm({ name: "", email: "", phone: "", password: "", skillLevel: "", smsConsentGranted: false });
   };
 
   const handleSigninSubmit = async (event) => {
@@ -446,6 +450,26 @@ const LandingPage = ({
                       <p className="mt-2 text-sm font-medium text-red-600">{signupErrors.skillLevel}</p>
                     )}
                   </div>
+                  <label className="flex items-start gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={signupForm.smsConsentGranted}
+                      onChange={(event) =>
+                        setSignupForm((prev) => ({
+                          ...prev,
+                          smsConsentGranted: event.target.checked,
+                        }))
+                      }
+                      className="mt-1"
+                      required
+                    />
+                    <span>
+                      I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                      {signupErrors.smsConsentGranted ? (
+                        <span className="mt-2 block text-sm font-medium text-red-600">{signupErrors.smsConsentGranted}</span>
+                      ) : null}
+                    </span>
+                  </label>
                   <button
                     type="submit"
                     disabled={signupLoading}

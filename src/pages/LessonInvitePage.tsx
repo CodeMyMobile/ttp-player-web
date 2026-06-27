@@ -577,6 +577,7 @@ const LessonInvitePage = () => {
     password: "",
     confirmPassword: "",
   });
+  const [quickSignupSmsConsent, setQuickSignupSmsConsent] = useState(false);
   const [quickSignupLoading, setQuickSignupLoading] = useState(false);
   const [quickSignupError, setQuickSignupError] = useState<string | null>(null);
 
@@ -630,8 +631,9 @@ const LessonInvitePage = () => {
     if (!quickSignupForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quickSignupForm.email.trim())) return false;
     if (quickSignupForm.password.length < 8) return false;
     if (quickSignupForm.confirmPassword !== quickSignupForm.password) return false;
+    if (quickSignupForm.phone.trim() && !quickSignupSmsConsent) return false;
     return true;
-  }, [quickSignupForm]);
+  }, [quickSignupForm, quickSignupSmsConsent]);
 
   const persistClaimSession = useCallback((claimResponse: LessonInviteClaimResponse) => {
     const accessToken = claimResponse.access_token;
@@ -881,6 +883,7 @@ const LessonInvitePage = () => {
           phone: quickSignupForm.phone.trim() || undefined,
           password: quickSignupForm.password,
           confirmPassword: quickSignupForm.confirmPassword,
+          smsConsentGranted: quickSignupSmsConsent,
         },
         invitePayload?.quickSignup?.endpoint,
       );
@@ -1273,6 +1276,17 @@ const LessonInvitePage = () => {
                     value={quickSignupForm.phone}
                     onChange={(event) => setQuickSignupForm((prev) => ({ ...prev, phone: event.target.value }))}
                   />
+                  {quickSignupForm.phone.trim() ? (
+                    <label className="lesson-invite-card__status">
+                      <input
+                        type="checkbox"
+                        checked={quickSignupSmsConsent}
+                        onChange={(event) => setQuickSignupSmsConsent(event.target.checked)}
+                        required
+                      />{" "}
+                      I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+                    </label>
+                  ) : null}
                   <input
                     className="form-input"
                     type="password"

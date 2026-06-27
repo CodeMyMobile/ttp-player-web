@@ -1,6 +1,7 @@
 import { buildApiUrl } from "../../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
+import { withSmsConsent } from "../../services/smsConsent";
 import {
   clearStoredAuthToken,
   clearStoredRefreshToken,
@@ -32,7 +33,7 @@ export const login = async (email, password) => {
   return data;
 };
 
-export const signup = async ({ email, password, name, phone, user_type = 2 }) => {
+export const signup = async ({ email, password, name, phone, user_type = 2, smsConsentGranted = false }) => {
   const normalizedPhone = getPhoneDigits(phone);
   const trimmedName = typeof name === "string" ? name.trim() : "";
 
@@ -42,15 +43,19 @@ export const signup = async ({ email, password, name, phone, user_type = 2 }) =>
     throw error;
   }
 
-  const payload = {
-    email,
-    password,
-    user_type,
-    // Common backend field names; adjust if your API differs
-    full_name: trimmedName,
-    name: trimmedName,
-    ...(normalizedPhone ? { phone: normalizedPhone } : {}),
-  };
+  const payload = withSmsConsent(
+    {
+      email,
+      password,
+      user_type,
+      // Common backend field names; adjust if your API differs
+      full_name: trimmedName,
+      name: trimmedName,
+      ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+    },
+    Boolean(normalizedPhone) && smsConsentGranted,
+    "signup_checkbox",
+  );
   const data = await unwrap(
     api(`/auth/signup`, {
       method: "POST",

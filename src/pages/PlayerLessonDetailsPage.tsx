@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   AlertCircle,
@@ -26,7 +26,7 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
-import { bookGroupLessonWithCard, fetchPlayerLessonById, type Lesson } from "../api/playerLessons";
+import { bookGroupLessonWithCard, fetchPlayerLessonById, fetchPublicLessonById, type Lesson } from "../api/playerLessons";
 import {
   createPlayerStripePaymentIntent,
   getPlayerStripePaymentMethods,
@@ -408,6 +408,7 @@ const extractIntentStatus = (response: Record<string, unknown>) => {
 
 const PlayerLessonDetailsPage = () => {
   const { id } = useParams<{ id?: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
@@ -441,6 +442,10 @@ const PlayerLessonDetailsPage = () => {
   const [messageError, setMessageError] = useState<string | null>(null);
 
   const token = useMemo(() => getStoredAuthToken({ preferScheme: "token" }) ?? null, []);
+  const isSignedIn = Boolean(token);
+  const promptSignIn = useCallback(() => {
+    navigate("/login", { state: { from: `${location.pathname}${location.search}` } });
+  }, [location.pathname, location.search, navigate]);
   const lessonTotalAmountCents = useMemo(() => {
     if (!lesson) return null;
     const record = lesson as Record<string, unknown>;
@@ -486,15 +491,12 @@ const PlayerLessonDetailsPage = () => {
         setError("Missing lesson id.");
         return;
       }
-      if (!token) {
-        setLoading(false);
-        setError("Missing authentication token.");
-        return;
-      }
       setLoading(true);
       setError(null);
       try {
-        const payload = await fetchPlayerLessonById({ token, lessonId: id, signal });
+        const payload = token
+          ? await fetchPlayerLessonById({ token, lessonId: id, signal })
+          : await fetchPublicLessonById({ lessonId: id, signal });
         const normalized = normalizeLesson(payload);
         if (!normalized) {
           setLesson(null);
@@ -509,14 +511,25 @@ const PlayerLessonDetailsPage = () => {
         if (aborted) {
           return;
         }
-        const message = err instanceof Error ? err.message : "Unable to load lesson details.";
+        const errorWithData = err as Error & { status?: number; data?: { detail?: string; error?: string } };
+        const detail = errorWithData.data?.detail ?? errorWithData.data?.error;
+        if (!token && (detail === "not_public_lesson" || errorWithData.status === 401 || errorWithData.status === 403)) {
+          promptSignIn();
+          return;
+        }
+        const message =
+          detail === "lesson_not_found"
+            ? "Lesson not found."
+            : err instanceof Error
+              ? err.message
+              : "Unable to load lesson details.";
         setLesson(null);
         setError(message);
       } finally {
         setLoading(false);
       }
     },
-    [id, token],
+    [id, promptSignIn, token],
   );
 
   useEffect(() => {
@@ -531,12 +544,12 @@ const PlayerLessonDetailsPage = () => {
   }, [loadLesson]);
 
   useEffect(() => {
-    if (!lesson || !isGroupLessonType(lesson)) {
+    if (!isSignedIn || !lesson || !isGroupLessonType(lesson)) {
       return;
     }
 
     navigate(`/group-lessons/${lesson.id}`, { replace: true });
-  }, [lesson, navigate]);
+  }, [isSignedIn, lesson, navigate]);
 
   const lessonStatus = useMemo(() => parseLessonStatus(lesson), [lesson]);
   const isPaymentPending = lessonStatus === 0;
@@ -601,22 +614,28 @@ const PlayerLessonDetailsPage = () => {
     () => buildGoogleCalendarHref(lesson, lessonTitle, lessonDescription, locationTitle),
     [lesson, lessonDescription, lessonTitle, locationTitle],
   );
-  const statusVariant = isCancelled ? "cancelled" : isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
-  const statusTitle = isConfirmed
+  const statusVariant = !isSignedIn ? "payment" : isCancelled ? "cancelled" : isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
+  const statusTitle = !isSignedIn
+    ? "Sign in to book"
+    : isConfirmed
     ? "Lesson confirmed"
     : isCancelled
       ? "Lesson cancelled"
     : isAwaitingCoachConfirmation
       ? "Awaiting coach confirmation"
       : "Payment pending";
-  const statusBody = isConfirmed
+  const statusBody = !isSignedIn
+    ? "View the class details now. Sign in when you're ready to reserve a spot."
+    : isConfirmed
     ? `${coachName} has confirmed your session. You’re set for ${lessonDateLabel} at ${lessonTimeRange.split(" · ")[0]}.`
     : isCancelled
       ? "This lesson has been cancelled. Contact your coach if you need help rebooking."
     : isAwaitingCoachConfirmation
       ? `${coachName} still needs to confirm this lesson. You’ll be notified as soon as they do.`
       : "Accept and pay to lock this lesson in.";
-  const sidebarStatusLabel = isConfirmed
+  const sidebarStatusLabel = !isSignedIn
+    ? "Sign in required"
+    : isConfirmed
     ? "Booked"
     : isCancelled
       ? "Cancelled"
@@ -633,7 +652,7 @@ const PlayerLessonDetailsPage = () => {
     [credits, lesson],
   );
   const hasEligibleCredits = eligibleCredits.length > 0;
-  const shouldUseGroupCredits = Boolean(lesson && isGroupLessonType(lesson) && hasEligibleCredits);
+  const shouldUseGroupCredits = Boolean(isSignedIn && lesson && isGroupLessonType(lesson) && hasEligibleCredits);
   const creditLessonType = useMemo(() => resolveLessonTypeForCredits(lesson), [lesson]);
   const packageOptions = useMemo(() => {
     return packages
@@ -802,7 +821,7 @@ const PlayerLessonDetailsPage = () => {
     let cancelled = false;
     setIsApplePayReady(false);
     setApplePayRequest(null);
-    if (!requiresPlayerAcceptance || !stripePromise || !lessonTotalAmountCents || lessonTotalAmountCents <= 0) {
+    if (!isSignedIn || !requiresPlayerAcceptance || !stripePromise || !lessonTotalAmountCents || lessonTotalAmountCents <= 0) {
       return () => {
         cancelled = true;
       };
@@ -835,7 +854,7 @@ const PlayerLessonDetailsPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [lessonTotalAmountCents, requiresPlayerAcceptance]);
+  }, [isSignedIn, lessonTotalAmountCents, requiresPlayerAcceptance]);
 
   const handleCardAdded = useCallback(async () => {
     if (!token) return;
@@ -959,7 +978,11 @@ const PlayerLessonDetailsPage = () => {
   ]);
 
   const handleAcceptAndPay = useCallback(async () => {
-    if (!token || !lesson) return;
+    if (!token) {
+      promptSignIn();
+      return;
+    }
+    if (!lesson) return;
     setSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
@@ -1125,13 +1148,18 @@ const PlayerLessonDetailsPage = () => {
     lesson,
     loadLesson,
     paymentChoice,
+    promptSignIn,
     selectedCreditId,
     selectedPaymentMethodId,
     token,
   ]);
 
   const handleMessageCoach = useCallback(async () => {
-    if (!token || !coachId || !lesson) return;
+    if (!token) {
+      promptSignIn();
+      return;
+    }
+    if (!coachId || !lesson) return;
     setMessageLoading(true);
     setMessageError(null);
     try {
@@ -1154,7 +1182,7 @@ const PlayerLessonDetailsPage = () => {
     } finally {
       setMessageLoading(false);
     }
-  }, [coachId, coachName, coachProfile, lesson, token]);
+  }, [coachId, coachName, coachProfile, lesson, promptSignIn, token]);
 
   const handleShare = useCallback(async () => {
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -1199,14 +1227,25 @@ const PlayerLessonDetailsPage = () => {
         ) : (
           <div className="player-lesson-details__shell">
             <div className="player-lesson-details__topbar">
-              <button
-                type="button"
-                className="player-lesson-details__back-link"
-                onClick={() => navigate("/player/calendar")}
-              >
-                <ArrowLeft aria-hidden />
-                <span>Back to calendar</span>
-              </button>
+              {isSignedIn ? (
+                <button
+                  type="button"
+                  className="player-lesson-details__back-link"
+                  onClick={() => navigate("/player/calendar")}
+                >
+                  <ArrowLeft aria-hidden />
+                  <span>Back to calendar</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="player-lesson-details__back-link"
+                  onClick={promptSignIn}
+                >
+                  <ArrowLeft aria-hidden />
+                  <span>Sign in</span>
+                </button>
+              )}
               <div className="player-lesson-details__topbar-title">Lesson details</div>
               <div className="player-lesson-details__topbar-actions">
                 <button
@@ -1337,7 +1376,7 @@ const PlayerLessonDetailsPage = () => {
                       </div>
                     </div>
                     <p className="player-lesson-details__card-copy">{coachAboutCopy}</p>
-                    {coachId ? (
+                    {coachId && isSignedIn ? (
                       <Link to={`/coaches/${coachId}`} className="player-lesson-details__coach-link">
                         View full profile →
                       </Link>
@@ -1424,7 +1463,15 @@ const PlayerLessonDetailsPage = () => {
                     </div>
                   ) : null}
 
-                  {requiresPlayerAcceptance ? (
+                  {!isSignedIn ? (
+                    <button
+                      type="button"
+                      className="player-lesson-details__primary-action"
+                      onClick={promptSignIn}
+                    >
+                      Sign in to book
+                    </button>
+                  ) : requiresPlayerAcceptance ? (
                     <div className="player-lesson-details__payment-panel">
                       <p className="player-lesson-details__status-pending">
                         Choose how you want to pay.
@@ -1620,7 +1667,7 @@ const PlayerLessonDetailsPage = () => {
                       type="button"
                       className="player-lesson-details__secondary-action player-lesson-details__secondary-action--button"
                       onClick={() => void handleMessageCoach()}
-                      disabled={messageLoading || !token || !coachId || !coachPhone}
+                      disabled={messageLoading || !coachId || (isSignedIn && !coachPhone)}
                     >
                       {messageLoading ? "Opening messages…" : `Message ${coachName.split(" ")[0] ?? "coach"}`}
                     </button>
