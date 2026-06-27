@@ -4317,6 +4317,11 @@
   }
 }
 
+/* Focused booking flow: keep "home" chrome (back + focused AppNav) but drop the bottom nav. */
+.coach-book-layout .ph-bottom-nav {
+  display: none;
+}
+
 /* No-commission reassurance line (book page only) — prototype .keeps treatment. */
 .coach-book-keeps {
   display: flex;

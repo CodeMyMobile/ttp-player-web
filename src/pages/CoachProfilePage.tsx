@@ -3498,6 +3498,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         showDesktopNav={true}
         onMobileBack={handleBackToFindCoaches}
         hideMobileLocation
+        pageClassName="coach-book-layout"
       >
         <div className="coach-profile-page coach-book-page">
           <div className="coach-profile-shell coach-profile-shell--layout">
