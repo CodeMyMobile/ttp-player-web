@@ -4248,13 +4248,24 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
   padding: 18px;
 }
+/* Viewport XOR — restore the exclusivity the booking-rail panels had (regression fix).
+   <1024px: only the inline mobile CTA shows. >=1024px: only the rail desktop CTA shows. */
 .coach-book-cta--desktop {
+  display: none;
   position: sticky;
   top: 92px;
   align-self: start;
 }
 .coach-book-cta--mobile {
   margin: 16px 0;
+}
+@media (min-width: 1024px) {
+  .coach-book-cta--desktop {
+    display: flex;
+  }
+  .coach-book-cta--mobile {
+    display: none;
+  }
 }
 .coach-book-cta__price {
   display: flex;
