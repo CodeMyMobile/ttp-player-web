@@ -2878,20 +2878,24 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}${bookingFocusActive ? " coach-profile-booking-rail--focus" : ""}`}
       tabIndex={-1}
     >
-      <div className="coach-profile-price-card coach-profile-booking-block">
-        <div className="coach-profile-price-card__row">
-          <div className="coach-profile-price-card__value">
-            <h3>{privatePriceLabel}</h3>
+      {/* Book page (bookMode) is focused on slot selection — the slot rows carry price, so the
+          rail's price card is suppressed there (already hidden on mobile via CSS). */}
+      {!bookMode ? (
+        <div className="coach-profile-price-card coach-profile-booking-block">
+          <div className="coach-profile-price-card__row">
+            <div className="coach-profile-price-card__value">
+              <h3>{privatePriceLabel}</h3>
+            </div>
+          </div>
+          {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
+          <div className={`coach-profile-availability coach-profile-availability--inline${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
+            <span className="coach-profile-availability__dot" />
+            <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
           </div>
         </div>
-        {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
-        <div className={`coach-profile-availability coach-profile-availability--inline${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
-          <span className="coach-profile-availability__dot" />
-          <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
-        </div>
-      </div>
+      ) : null}
 
-      {variant !== "mobile" && isLoggedIn && !creditsLoading ? (
+      {!bookMode && variant !== "mobile" && isLoggedIn && !creditsLoading ? (
         <div className="coach-credit-strip coach-profile-booking-block">
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
