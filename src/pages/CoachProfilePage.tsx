@@ -253,6 +253,7 @@ type BookingConfirmationData = {
     amountLabel: string;
     amount: string;
     etaText?: string;
+    lessonId?: string;
     cancellationPolicyText: string;
   };
 };
@@ -2126,7 +2127,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     setCreditsPackageOpen(false);
   };
 
-  const buildBookingConfirmation = (slot: LoadedSlot, statusOverride?: BookingStatus): BookingConfirmationData => {
+  const buildBookingConfirmation = (
+    slot: LoadedSlot,
+    statusOverride?: BookingStatus,
+    lessonId?: number,
+  ): BookingConfirmationData => {
     const isGroup = slot.type === "group";
     const status = statusOverride ?? (isGroup ? "CONFIRMED" : "PENDING");
     const pricing = calculateLessonPricing({
@@ -2153,6 +2158,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         amountLabel: pricing.isOpenGroup ? "Lesson total" : isGroup ? "Amount charged" : "Lesson total",
         amount: formatCurrencyPrecise(pricing.totalFee),
         etaText: status === "PENDING" ? "~24 hrs" : undefined,
+        lessonId: lessonId != null ? String(lessonId) : undefined,
         cancellationPolicyText:
           "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
       },
@@ -2472,6 +2478,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
 
     try {
       let resolvedBookingStatus: BookingStatus = selectedSlot.type === "group" ? "CONFIRMED" : "PENDING";
+      // Lesson id for the confirmation's "View reservation" link (group: source lesson; private: created below).
+      let resolvedLessonId: number | undefined = selectedSlot.sourceLessonId;
       let walletPaymentMethodId: string | undefined;
 
       if (paymentChoice === "wallet") {
@@ -2567,6 +2575,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         if (!createdLessonId) {
           throw new Error("Unable to create this lesson.");
         }
+        resolvedLessonId = createdLessonId;
         if (paymentChoice === "wallet") {
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
@@ -2597,7 +2606,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       applePayCompletion?.("success");
       applyLessonConfirmedStatus(selectedSlot, resolvedBookingStatus);
       handleBookingComplete();
-      setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus));
+      setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus, resolvedLessonId));
       setBookingSuccess(null);
       closePaymentSheet();
       setSelectedSlot(null);
@@ -3718,8 +3727,20 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
             status={bookingConfirmation.status}
             data={bookingConfirmation.data}
             onClose={() => setBookingConfirmation(null)}
-            onPrimary={() => setBookingConfirmation(null)}
-            onSecondary={() => navigate("/")}
+            onPrimary={() => {
+              // Pending: "View my reservation" → the reservation detail (when we have its id).
+              const lessonId = bookingConfirmation.data.lessonId;
+              if (bookingConfirmation.status === "PENDING" && lessonId) {
+                setBookingConfirmation(null);
+                navigate(`/player/lesson/${lessonId}`);
+                return;
+              }
+              setBookingConfirmation(null);
+            }}
+            onSecondary={() => {
+              setBookingConfirmation(null);
+              navigate(bookingConfirmation.status === "PENDING" ? "/find-coaches" : "/");
+            }}
             onAddToCalendar={() => {
               if (selectedSlot) {
                 downloadIcs(selectedSlot, coachName);

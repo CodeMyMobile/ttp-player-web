@@ -145,11 +145,13 @@ const BookingStatusModal = ({
 
   if (!open) return null;
 
+  // TODO(capture-model): steps 2 & 3 use vaguer-but-true copy. Restore the exact charge-timing
+  // ("once accepted, your card is charged") and refund terms ("full refund up to 24h before") once the
+  // backend Stripe capture model is confirmed — do not assert a mechanism we can't back.
   const pendingSteps = [
-    "Request sent to coach",
-    "Coach confirms availability",
-    "You'll receive email confirmation",
-    "Payment processed",
+    `${data.coachName} reviews your request — usually within 24 hours.`,
+    `Once ${data.coachName} accepts, your lesson is confirmed.`,
+    "You can cancel from your reservation — see the cancellation policy.",
   ];
   const confirmedSteps = ["Your spot is reserved", "Payment processed", "Confirmation email sent"];
   const timeLabel = formatTimeLabel(data.timeLabel);
@@ -358,6 +360,114 @@ const BookingStatusModal = ({
               Done
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  ) : isPending ? (
+    // PR 4 — pending confirmation (Screen 4): amber, request-awaiting-approval, full-screen "page".
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-[180] flex items-stretch justify-center bg-slate-50 px-0 py-0 sm:items-center sm:bg-[rgba(15,23,42,0.55)] sm:px-4 sm:py-5"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === overlayRef.current) onClose();
+      }}
+    >
+      <div
+        ref={modalRef}
+        className="flex min-h-screen w-full flex-col overflow-y-auto bg-slate-50 sm:max-h-[88vh] sm:min-h-0 sm:max-w-[480px] sm:rounded-2xl sm:shadow-[0_30px_60px_rgba(0,0,0,0.3)]"
+      >
+        <div className="flex items-center justify-end border-b border-slate-200 bg-white px-5 py-4">
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 px-5 pb-6 pt-9">
+          <div className="mb-7 text-center">
+            <div className="mx-auto mb-4 flex h-[78px] w-[78px] items-center justify-center rounded-full border-[3px] border-amber-300 bg-amber-100">
+              <ClockIcon className="h-10 w-10 text-amber-600" />
+            </div>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-amber-700">
+              <DotIcon className="bg-amber-500" /> Pending · awaiting {data.coachName}
+            </div>
+            <div className="mb-1 text-[24px] font-extrabold tracking-[-0.02em] text-slate-900">
+              Request sent to {data.coachName}
+            </div>
+            <p className="mx-auto max-w-[320px] text-sm text-slate-500">
+              Your lesson isn’t booked just yet — {data.coachName} reviews every request, usually within 24 hours.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-slate-500">Type</span>
+                <span className="text-right text-sm font-semibold text-slate-900">{data.lessonTypeLabel}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-slate-500">When</span>
+                <span className="text-right text-sm font-semibold text-slate-900">{data.dateLabel} · {timeLabel}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-slate-500">Where</span>
+                <span className="text-right text-sm font-semibold text-slate-900">{data.locationName}</span>
+              </div>
+              {/* Money-truthfulness: labeled "Total" (FE-computed, pending — nothing charged yet). */}
+              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2.5">
+                <span className="text-sm text-slate-500">Total</span>
+                <span className="text-right text-sm font-bold text-slate-900">{data.amount}</span>
+              </div>
+            </div>
+            {data.lessonId ? (
+              <button
+                onClick={onPrimary}
+                className="mt-3 flex w-full items-center justify-center gap-1 text-sm font-semibold text-violet-600"
+              >
+                View lesson reservation →
+              </button>
+            ) : null}
+          </div>
+
+          <p className="mt-4 text-center text-[13px] text-slate-500">
+            {data.coachName} reviews each request to make sure the time works.
+          </p>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">What happens next</p>
+            <div className="mt-3 space-y-2.5">
+              {pendingSteps.map((text, index) => (
+                <div key={text} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-700">
+                    {index + 1}
+                  </span>
+                  <span className="text-sm text-slate-600">{text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-200 bg-white px-5 py-4">
+          {data.lessonId ? (
+            <button
+              onClick={onPrimary}
+              className="w-full rounded-xl bg-violet-500 px-4 py-3 text-sm font-bold text-white hover:bg-violet-600"
+            >
+              View my reservation
+            </button>
+          ) : null}
+          <button
+            onClick={onSecondary}
+            className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+          >
+            Back to coaches
+          </button>
         </div>
       </div>
     </div>
