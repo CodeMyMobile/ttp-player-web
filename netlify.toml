@@ -2,6 +2,14 @@
   command = "npm run build"
   publish = "dist"
 
+# Feature flags pinned for the build. Vite inlines import.meta.env.VITE_* at
+# build time, so this must live in the build environment (a redeploy is required
+# after changes). Global so deploy previews mirror production's create flow.
+# VITE_MULTI_MATCH=true renders the multi-match creation modal
+# (MultiMatchCreatorFlow) instead of the legacy single-match flow.
+[build.environment]
+  VITE_MULTI_MATCH = "true"
+
 # Permanent (301) redirects from the long-form legal URLs to the canonical
 # short URLs. These MUST come before the SPA catch-all below — Netlify applies
 # redirect rules top-to-bottom, first match wins.
