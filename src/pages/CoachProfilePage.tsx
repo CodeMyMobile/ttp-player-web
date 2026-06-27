@@ -2925,7 +2925,9 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         </div>
       ) : null}
 
-      {isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
+      {/* Suppressed on the focused book page (both viewports). Future enhancement: re-home this
+          "your upcoming lessons" context into the confirm-and-pay drawer (tracked, not built now). */}
+      {!bookMode && isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
         <div className="coach-profile-upcoming-card coach-profile-booking-block">
           <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-upcoming-card__header">
             <div>
