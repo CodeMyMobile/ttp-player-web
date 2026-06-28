@@ -54,9 +54,16 @@
 }
 .csc-dist {
   margin-top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 14px;
   font-weight: 500;
   color: #5b5f6b;
+}
+.csc-dist__pin {
+  flex: 0 0 auto;
+  color: var(--coach-meta-icon, #98a2b3);
 }
 .csc-rate {
   flex: 0 0 auto;
@@ -75,87 +82,6 @@
 .csc-rate-group {
   margin-top: 2px;
   font-size: 13px;
-  font-weight: 600;
-  color: #5b5f6b;
-}
-
-/* trust mark + tooltip */
-.csc-trust {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-}
-.csc-trust-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: #d1fae5;
-  color: #047857;
-  cursor: pointer;
-}
-.csc-trust-tip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%) translateY(-4px);
-  z-index: 20;
-  width: 230px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #16161d;
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.csc-trust-tip strong {
-  font-size: 12.5px;
-  font-weight: 700;
-}
-.csc-trust-tip span {
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.45;
-  color: #cbd2dc;
-}
-.csc-trust:hover .csc-trust-tip,
-.csc-trust:focus-within .csc-trust-tip,
-.csc-trust.is-open .csc-trust-tip {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  pointer-events: auto;
-}
-
-/* credibility line */
-.csc-cred {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.csc-cert-badge {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: #8b5cf6;
-  padding: 4px 9px;
-  border-radius: 8px;
-}
-.csc-cred-sep {
-  color: #cbd2dc;
-}
-.csc-cred-item {
-  font-size: 13.5px;
   font-weight: 600;
   color: #5b5f6b;
 }

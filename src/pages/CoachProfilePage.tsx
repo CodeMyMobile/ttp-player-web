@@ -27,6 +27,8 @@ import {
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
 import BookingSlotList from "../components/coaches/BookingSlotList";
+import CoachTrustMark from "../components/coaches/CoachTrustMark";
+import CoachCredibilityLine from "../components/coaches/CoachCredibilityLine";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   consumePackageCredits,
@@ -1028,20 +1030,11 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       : extractMetricNumber(metrics, /(\d+(?:-\d+)?\+?)\s*yrs?/i) ?? extractMetricNumber(metrics, /(\d+\+?)\s*years?/i) ?? "Experienced";
   const studentsLabel =
     typeof apiProfile?.studentCount === "number"
-      ? `${apiProfile.studentCount}+`
+      ? `${apiProfile.studentCount} students`
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
   const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
   const cityLabel = heroLocationLabel || "Location TBD";
-  // Mobile-redesign hero (v3): derived client-side from existing real fields only.
-  const heroStudents =
-    typeof apiProfile?.studentCount === "number" && Number.isFinite(apiProfile.studentCount)
-      ? `${apiProfile.studentCount}+`
-      : null;
-  const heroExperience = profile?.yearsExperience
-    ? `${profile.yearsExperience} yrs`
-    : apiProfile?.experienceYears
-      ? `${apiProfile.experienceYears} yrs`
-      : null;
+  // Mobile hero credibility now renders via <CoachCredibilityLine> (cert · years · students).
   const heroTagline = useMemo(() => {
     const sentence = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
     const lowerLevels = [...levels]
@@ -4027,13 +4020,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     )}
                   </div>
                   <div className="coach-hero-m__id">
-                    <h1>{coachName}</h1>
-                    {certifications[0] ? (
-                      <span className="coach-hero-m__cert">
-                        <span className="coach-hero-m__cert-dot" aria-hidden />
-                        {certifications[0]}
-                      </span>
-                    ) : null}
+                    <div className="coach-hero-name-row">
+                      <h1>{coachName}</h1>
+                      <CoachTrustMark />
+                    </div>
                   </div>
                   <div className="coach-hero-m__price">
                     <div className="coach-hero-m__amt">
@@ -4046,22 +4036,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   </div>
                 </div>
                 {heroTagline ? <p className="coach-hero-m__tagline">{heroTagline}</p> : null}
-                {heroStudents || heroExperience ? (
-                  <div className="coach-hero-m__stats">
-                    {heroStudents ? (
-                      <div className="coach-hero-m__stat">
-                        <div className="coach-hero-m__stat-num">{heroStudents}</div>
-                        <div className="coach-hero-m__stat-lbl">Students coached</div>
-                      </div>
-                    ) : null}
-                    {heroExperience ? (
-                      <div className="coach-hero-m__stat">
-                        <div className="coach-hero-m__stat-num">{heroExperience}</div>
-                        <div className="coach-hero-m__stat-lbl">Experience</div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                <CoachCredibilityLine
+                  certLabel={certifications[0] || undefined}
+                  yearsExperience={profile?.yearsExperience ?? apiProfile?.experienceYears}
+                  studentCount={apiProfile?.studentCount}
+                  className="coach-hero-m__cred"
+                />
                 <div className="coach-hero-m__actions">
                   {smsHref ? (
                     <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
@@ -4105,7 +4085,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   <div className="coach-profile-hero-v2__copy">
                     <div className="coach-profile-hero-v2__header">
                       <div className="coach-profile-hero-v2__header-copy">
-                        <h1>{coachName}</h1>
+                        <div className="coach-hero-name-row">
+                          <h1>{coachName}</h1>
+                          <CoachTrustMark />
+                        </div>
                         <div className="coach-profile-mobile-meta">
                           {certifications[0] ? <span>{certifications[0]}</span> : null}
                           {certifications[0] ? <span>·</span> : null}

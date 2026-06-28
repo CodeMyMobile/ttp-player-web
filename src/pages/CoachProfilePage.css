@@ -287,6 +287,11 @@
   gap: 6px;
 }
 
+/* Match the credibility-line / distance-pin glyph color (shared token). Icons only — text + bullets unchanged. */
+.coach-profile-hero-v2__stats span svg {
+  color: var(--coach-meta-icon, #98a2b3);
+}
+
 .coach-profile-hero-v2__stats span + span::before {
   content: "•";
   color: #cbd5e1;
@@ -3446,24 +3451,6 @@
     color: #1b1830;
   }
 
-  .coach-hero-m__cert {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--color-primary-dark);
-  }
-
-  .coach-hero-m__cert-dot {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 13px;
-    border-radius: 50%;
-    background: var(--ph-lime);
-  }
-
   .coach-hero-m__price {
     flex: 0 0 auto;
     text-align: right;
@@ -3498,44 +3485,8 @@
     line-height: 1.4;
   }
 
-  .coach-hero-m__stats {
-    display: flex;
-    margin-top: 16px;
-    background: #f4f3f8;
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .coach-hero-m__stat {
-    flex: 1;
-    text-align: center;
-    padding: 11px 4px;
-    position: relative;
-  }
-
-  .coach-hero-m__stat + .coach-hero-m__stat::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 22%;
-    height: 56%;
-    width: 1px;
-    background: #e2dfee;
-  }
-
-  .coach-hero-m__stat-num {
-    font-size: 17px;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    font-variant-numeric: tabular-nums;
-    color: #1b1830;
-  }
-
-  .coach-hero-m__stat-lbl {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #7a7690;
-    margin-top: 2px;
+  .coach-hero-m__cred {
+    margin-top: 14px;
   }
 
   .coach-hero-m__actions {
@@ -4329,4 +4280,12 @@
 }
 .coach-book-cta__btn:active {
   transform: scale(0.99);
+}
+
+/* Name + "Invited coach" trust mark row — used by both the mobile and desktop hero. */
+.coach-hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }

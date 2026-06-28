@@ -243,6 +243,10 @@ const normalizeDisplayArray = (values: string[]) =>
     .map((value) => normalizeDisplayLabel(value))
     .filter(Boolean);
 
+// Certifications are acronyms ("USPTA", "PTR") or phrases ("D3 NCAA champion") — preserve the source
+// case exactly. Never title-case (it mangles acronyms into "Uspta"); just trim and drop empties.
+const cleanCertifications = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
+
 const formatMoney = (value: unknown) => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? `$${numeric.toFixed(0)}` : null;
@@ -427,7 +431,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     bio: pickFirstString(profile.about, coach.bio) || coach.bio,
     summary: pickFirstString(profile.about, coach.summary) || coach.summary,
     yearsExperience: parseNumberValue(profile.experienceYears ?? profile.experience_years) ?? coach.yearsExperience,
-    certifications: normalizeDisplayArray(toStringArray(profile.certifications)),
+    certifications: cleanCertifications(toStringArray(profile.certifications)),
     specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
     courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
     levels: normalizeDisplayArray(toStringArray(profile.levels)),
@@ -472,7 +476,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   const displayName =
     pickFirstString(record.full_name, record.fullName, record.name, record.coach_name, record.coachName) ||
     `Coach ${fallbackIndex + 1}`;
-  const certifications = normalizeDisplayArray(toStringArray(record.certifications ?? record.certification ?? []));
+  const certifications = cleanCertifications(toStringArray(record.certifications ?? record.certification ?? []));
   const locations = locationRecords
     .map((location) => pickFirstString(location.label, location.name, location.title))
     .filter(Boolean);

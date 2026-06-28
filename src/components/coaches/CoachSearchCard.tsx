@@ -1,7 +1,8 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { MapPin } from "lucide-react";
 
+import CoachTrustMark from "./CoachTrustMark";
+import CoachCredibilityLine from "./CoachCredibilityLine";
 import "./CoachSearchCard.css";
 
 export interface CoachSearchCardProps {
@@ -39,11 +40,6 @@ export interface CoachSearchCardProps {
   onBook?: () => void;
 }
 
-// Exact, literal copy — every coach is invited (no open sign-ups). Do not drift into "vetted/verified".
-const TRUST_LABEL = "Invited coach";
-const TRUST_TOOLTIP =
-  "Every coach is someone we know personally and have invited to the platform. No open sign-ups.";
-
 const CoachSearchCard = ({
   name,
   imageUrl,
@@ -62,10 +58,6 @@ const CoachSearchCard = ({
   profileState,
   onBook,
 }: CoachSearchCardProps) => {
-  const [tipOpen, setTipOpen] = useState(false);
-  const hasYears = typeof yearsExperience === "number" && yearsExperience > 0;
-  const hasPlayers = typeof studentCount === "number" && studentCount > 0;
-  const showCredibility = Boolean(certLabel) || hasYears || hasPlayers;
   const specialties = (tags ?? []).filter(Boolean);
 
   return (
@@ -78,25 +70,12 @@ const CoachSearchCard = ({
         <div className="csc-head-mid">
           <div className="csc-name-row">
             <span className="csc-name">{name}</span>
-            {/* Trust mark — renders for every listed coach (all are invited by definition). */}
-            <span className={`csc-trust${tipOpen ? " is-open" : ""}`}>
-              <button
-                type="button"
-                className="csc-trust-btn"
-                aria-label={`${TRUST_LABEL}. ${TRUST_TOOLTIP}`}
-                aria-expanded={tipOpen}
-                onClick={() => setTipOpen((open) => !open)}
-                onBlur={() => setTipOpen(false)}
-              >
-                <ShieldCheck size={15} strokeWidth={2.2} />
-              </button>
-              <span role="tooltip" className="csc-trust-tip">
-                <strong>{TRUST_LABEL}</strong>
-                <span>{TRUST_TOOLTIP}</span>
-              </span>
-            </span>
+            <CoachTrustMark />
           </div>
-          <div className="csc-dist">{distanceLabel}</div>
+          <div className="csc-dist">
+            <MapPin className="csc-dist__pin" size={14} strokeWidth={2} aria-hidden />
+            {distanceLabel}
+          </div>
         </div>
 
         <div className="csc-rate">
@@ -109,25 +88,11 @@ const CoachSearchCard = ({
         </div>
       </div>
 
-      {showCredibility ? (
-        <div className="csc-cred">
-          {certLabel ? <span className="csc-cert-badge">{certLabel.toUpperCase()}</span> : null}
-          {hasYears ? (
-            <>
-              {certLabel ? <span className="csc-cred-sep">·</span> : null}
-              <span className="csc-cred-item">{yearsExperience} yrs coaching</span>
-            </>
-          ) : null}
-          {hasPlayers ? (
-            <>
-              {certLabel || hasYears ? <span className="csc-cred-sep">·</span> : null}
-              <span className="csc-cred-item">
-                {studentCount} player{studentCount === 1 ? "" : "s"} coached
-              </span>
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      <CoachCredibilityLine
+        certLabel={certLabel}
+        yearsExperience={yearsExperience}
+        studentCount={studentCount}
+      />
 
       {bio ? <p className="csc-bio">{bio}</p> : null}
 
