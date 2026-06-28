@@ -12,6 +12,7 @@ import MainLayout from "../components/MainLayout";
 import FilterMenu from "../components/FilterMenu";
 import CoachMatchCard from "../components/coaches/CoachMatchCard";
 import CoachSearchCard from "../components/coaches/CoachSearchCard";
+import { normalizeVenueLabel } from "../utils/venueLabel";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
@@ -259,9 +260,6 @@ const formatDistance = (value: unknown) => {
 
 // --- Presentational helpers for the redesigned coach card (no effect on matching/sorting) ---
 
-// Reduce a formatted address to just its venue/neighborhood name —
-// everything before the first comma — dropping city, state, ZIP, and country.
-const toVenueLabel = (value: string): string => value.split(",")[0]?.trim() ?? "";
 
 // Show a location only when it's a real place name — never a bare zip code.
 const isDisplayableLocation = (value: unknown): value is string => {
@@ -1456,23 +1454,10 @@ const FindCoaches = () => {
                   const certLabel = coach.certifications[0] ?? "";
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
                   const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
-                  // One clean location, de-duplicated: prefer the venue (before the comma), else the city.
-                  // Strip a city appended without a comma (e.g. "Westwood Tennis Court Culver City").
-                  const venueLocation = toVenueLabel(coach.courts?.[0] ?? "");
-                  const cityLocation = coach.cityLabel ?? "";
-                  let locationLabel = isDisplayableLocation(venueLocation)
-                    ? venueLocation
-                    : isDisplayableLocation(cityLocation)
-                      ? cityLocation
-                      : "";
-                  if (
-                    locationLabel &&
-                    cityLocation &&
-                    locationLabel !== cityLocation &&
-                    locationLabel.endsWith(cityLocation)
-                  ) {
-                    locationLabel = locationLabel.slice(0, locationLabel.length - cityLocation.length).trim();
-                  }
+                  // One clean, short venue name (drops street/city/"Tennis Court"). See utils/venueLabel.
+                  const rawLocation = coach.courts?.[0] ?? coach.cityLabel ?? "";
+                  const venueLabel = normalizeVenueLabel(rawLocation);
+                  const locationLabel = isDisplayableLocation(venueLabel) ? venueLabel : "";
                   const tags = coach.specialties.slice(0, 3);
 
                   return isMatched ? (

@@ -30,6 +30,7 @@ import BookingSlotList from "../components/coaches/BookingSlotList";
 import CoachTrustMark from "../components/coaches/CoachTrustMark";
 import CoachCredibilityLine from "../components/coaches/CoachCredibilityLine";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { normalizeVenueLabel } from "../utils/venueLabel";
 import {
   consumePackageCredits,
   fetchCoachPackages,
@@ -329,18 +330,11 @@ const buildEmptyDayGroup = (date: moment.Moment): DayGroup => ({
   slots: [],
 });
 
+// Literal-location surfaces (booking-slot locations, "Where you'll play") keep the facility suffix —
+// it's the place the player navigates to. See src/utils/venueLabel.ts.
 const shortenLocationLabel = (value?: string | null) => {
   if (!value) return "Court TBD";
-  const trimmed = value.trim();
-  if (!trimmed) return "Court TBD";
-
-  const [firstSegment] = trimmed.split(",");
-  const base = firstSegment?.trim() || trimmed;
-  const words = base.split(/\s+/).filter(Boolean);
-
-  if (words.length <= 3) return base;
-
-  return words.slice(0, 3).join(" ");
+  return normalizeVenueLabel(value, { keepFacility: true }) || "Court TBD";
 };
 
 // §4 booking module — time-of-day bucketing now lives in the shared BookingSlotList component.
@@ -1032,7 +1026,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     typeof apiProfile?.studentCount === "number"
       ? `${apiProfile.studentCount} students`
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
-  const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
+  // Header shows the short venue name (no street/city/facility clutter).
+  const heroLocationLabel = normalizeVenueLabel(primaryLocationLabel) || primaryLocationLabel;
   const cityLabel = heroLocationLabel || "Location TBD";
   // Mobile hero credibility now renders via <CoachCredibilityLine> (cert · years · students).
   const heroTagline = useMemo(() => {
@@ -4360,7 +4355,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         <MapPin size={18} />
                       </div>
                       <div>
-                        <strong>{location}</strong>
+                        <strong>{shortenLocationLabel(location)}</strong>
                         <span>{index === 0 ? "Primary location" : "Secondary location"}</span>
                       </div>
                     </article>
