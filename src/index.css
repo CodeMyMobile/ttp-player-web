@@ -7,6 +7,10 @@
   --color-primary: #8b5cf6;
   --color-primary-dark: #7c3aed;
 
+  /* Muted glyph color for credibility-line + distance icons (search card + profile hero).
+     EXPERIMENT: subtle desaturated purple. Revert to #98a2b3 (gray) if it reads busy. */
+  --coach-meta-icon: #9b87c9;
+
   --coach-color-page: #f5f7fb;
   --coach-color-surface: #ffffff;
   --coach-color-surface-soft: #f3f5fb;

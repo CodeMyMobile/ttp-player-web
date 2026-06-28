@@ -1,0 +1,206 @@
+/* Shared book-a-lesson slot list (Screen 2): period buckets, attribute-hoisting, time-as-hero.
+   Per-period identity is passed in via --per-tint / --per-text / --per-accent. */
+
+.bsl {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.bsl-day {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bsl-day-head {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #16161d;
+}
+
+/* section (period) */
+.bsl-bucket {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.bsl-bucket-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.bsl-bucket-title {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #16161d;
+}
+.bsl-bucket-ico {
+  display: inline-flex;
+  color: var(--per-accent, #8b5cf6);
+}
+.bsl-bucket-cnt {
+  color: #9ca0ac;
+  font-weight: 700;
+}
+.bsl-bucket-ctx {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #5b5f6b;
+  text-align: right;
+  min-width: 0;
+}
+/* On narrow phones the hoisted context drops to its own full line instead of clipping. */
+@media (max-width: 540px) {
+  .bsl-bucket-ctx {
+    flex-basis: 100%;
+    width: 100%;
+    text-align: left;
+  }
+}
+
+/* rows */
+.bsl-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.bsl-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e8e9ef;
+  border-left: 5px solid var(--per-accent, #8b5cf6);
+  border-radius: 16px;
+  padding: 14px 15px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.bsl-row:hover {
+  border-color: var(--per-accent, #8b5cf6);
+}
+.bsl-row:active {
+  transform: scale(0.99);
+}
+.bsl-row.is-booked {
+  cursor: default;
+  opacity: 0.62;
+  border-left-color: #9ca0ac;
+}
+.bsl-row.is-booked:hover {
+  border-color: #e8e9ef;
+}
+
+/* time-as-hero pill */
+.bsl-time {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--per-text, #6d28d9);
+  background: var(--per-tint, #ede9fe);
+  padding: 9px 15px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.bsl-row.is-booked .bsl-time {
+  color: #5b5f6b;
+  background: #efeff4;
+}
+
+/* sub area (badges / location / group / spots) */
+.bsl-sub {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.bsl-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+.bsl-badge--private {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+.bsl-badge--group {
+  color: #185fa5;
+  background: #e6f1fb;
+}
+.bsl-badge--status {
+  color: #b45309;
+  background: #fef3c7;
+}
+.bsl-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #5b5f6b;
+  min-width: 0;
+}
+.bsl-loc svg {
+  flex: 0 0 auto;
+  color: #9ca0ac;
+}
+.bsl-grp {
+  font-size: 14px;
+  font-weight: 600;
+  color: #185fa5;
+  line-height: 1.35;
+}
+.bsl-spots {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+/* trailing right (demoted price/duration + chevron) */
+.bsl-right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.bsl-trail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.bsl-price {
+  font-size: 15px;
+  font-weight: 600;
+  color: #16161d;
+  letter-spacing: -0.01em;
+}
+.bsl-dur {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca0ac;
+}
+.bsl-chev {
+  color: #9ca0ac;
+  flex: 0 0 auto;
+}

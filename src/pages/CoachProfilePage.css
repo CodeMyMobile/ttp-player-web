@@ -287,6 +287,11 @@
   gap: 6px;
 }
 
+/* Match the credibility-line / distance-pin glyph color (shared token). Icons only — text + bullets unchanged. */
+.coach-profile-hero-v2__stats span svg {
+  color: var(--coach-meta-icon, #98a2b3);
+}
+
 .coach-profile-hero-v2__stats span + span::before {
   content: "•";
   color: #cbd5e1;
@@ -3041,6 +3046,32 @@
   font-weight: 800;
 }
 
+.coach-payment-modal__price-note {
+  margin: 4px 16px 0;
+  padding: 10px 0 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9ca0ac;
+}
+.coach-payment-modal__price-note b {
+  font-weight: 700;
+  color: #047857;
+}
+
+.coach-payment-modal__responds {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 11px 0 0;
+  font-size: 13px;
+  color: #5b5f6b;
+}
+.coach-payment-modal__responds svg {
+  flex-shrink: 0;
+  color: #9ca0ac;
+}
+
 .coach-payment-modal__confirm {
   border: 0;
   border-radius: 14px;
@@ -3420,24 +3451,6 @@
     color: #1b1830;
   }
 
-  .coach-hero-m__cert {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--color-primary-dark);
-  }
-
-  .coach-hero-m__cert-dot {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 13px;
-    border-radius: 50%;
-    background: var(--ph-lime);
-  }
-
   .coach-hero-m__price {
     flex: 0 0 auto;
     text-align: right;
@@ -3472,44 +3485,8 @@
     line-height: 1.4;
   }
 
-  .coach-hero-m__stats {
-    display: flex;
-    margin-top: 16px;
-    background: #f4f3f8;
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .coach-hero-m__stat {
-    flex: 1;
-    text-align: center;
-    padding: 11px 4px;
-    position: relative;
-  }
-
-  .coach-hero-m__stat + .coach-hero-m__stat::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 22%;
-    height: 56%;
-    width: 1px;
-    background: #e2dfee;
-  }
-
-  .coach-hero-m__stat-num {
-    font-size: 17px;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    font-variant-numeric: tabular-nums;
-    color: #1b1830;
-  }
-
-  .coach-hero-m__stat-lbl {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #7a7690;
-    margin-top: 2px;
+  .coach-hero-m__cred {
+    margin-top: 14px;
   }
 
   .coach-hero-m__actions {
@@ -4133,145 +4110,182 @@
   color: #7a7690;
 }
 
-/* Detail bottom sheet */
-.coach-profile-booking-rail--mobile .coach-bm-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
+/* ===== Focused book-a-lesson page (bookMode) ===== */
+.coach-book-page__body {
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+}
+.coach-book-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 0;
+}
+/* Quiet uppercase section-eyebrow (matches the prototype), not a big headline. */
+.coach-book-head__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #9ca0ac;
+}
+.coach-book-head__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #84cc16;
+  flex: 0 0 auto;
+}
+/* The top-nav back is shown only <1024px, so this in-page back is desktop-only. */
+.coach-book-head__back {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .coach-book-head__back {
+    display: inline-flex;
+  }
 }
 
-.coach-profile-booking-rail--mobile .coach-bm-sheet__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(20, 16, 32, 0.42);
+/* Focused booking flow: keep "home" chrome (back + focused AppNav) but drop the bottom nav. */
+.coach-book-layout .ph-bottom-nav {
+  display: none;
 }
 
-.coach-profile-booking-rail--mobile .coach-bm-sheet__panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 8px 22px calc(24px + env(safe-area-inset-bottom, 0px));
-  background: #fff;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -10px 40px rgba(27, 24, 48, 0.2);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__handle {
-  width: 40px;
-  height: 4px;
-  margin: 6px auto 16px;
-  border-radius: 2px;
-  background: #e2dfee;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__time {
+/* No-commission reassurance line (book page only) — prototype .keeps treatment. */
+.coach-book-keeps {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  color: #1b1830;
+  margin: 6px 0 16px;
+  background: #f0fbf4;
+  border: 1px solid #d6f4e0;
+  border-radius: 13px;
+  padding: 12px 15px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #047857;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11px;
+.coach-book-keeps svg {
+  flex-shrink: 0;
+  color: #059669;
+}
+.coach-book-keeps b {
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  color: #065f46;
 }
 
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill--private {
-  background: #f3f0ff;
-  color: var(--color-primary-dark);
+/* In the focused page the desktop rail is the whole column, not a sticky side rail. */
+.coach-book-page .coach-profile-booking-rail--desktop {
+  position: static;
+  min-height: 0;
+  border-left: 0;
+  top: auto;
 }
 
-.coach-profile-booking-rail--mobile .coach-bm-sheet__pill--group {
-  background: #e7f0ff;
-  color: var(--ph-blue);
+/* ===== Profile "Book a lesson" CTA (PR 3b — replaces the embedded booking panel) ===== */
+.coach-book-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e8e9ef;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
+  padding: 18px;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__day {
-  margin-top: 5px;
+/* Viewport XOR — restore the exclusivity the booking-rail panels had (regression fix).
+   <1024px: only the inline mobile CTA shows. >=1024px: only the rail desktop CTA shows. */
+.coach-book-cta--desktop {
+  display: none;
+  position: sticky;
+  top: 92px;
+  align-self: start;
+}
+.coach-book-cta--mobile {
+  margin: 16px 0;
+}
+@media (min-width: 1024px) {
+  .coach-book-cta--desktop {
+    display: flex;
+  }
+  .coach-book-cta--mobile {
+    display: none;
+  }
+}
+.coach-book-cta__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.coach-book-cta__price strong {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #16161d;
+}
+.coach-book-cta__unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9ca0ac;
+}
+.coach-book-cta__group {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b5f6b;
+  margin-left: 6px;
+}
+.coach-book-cta__avail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13.5px;
   font-weight: 600;
-  color: #7a7690;
+  color: #5b5f6b;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__session {
-  margin-top: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ph-blue);
+.coach-book-cta__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd2dc;
+  flex: 0 0 auto;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__desc {
-  margin: 6px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: #3d3a52;
+.coach-book-cta__avail.is-open .coach-book-cta__dot {
+  background: #059669;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__rows {
-  margin: 16px 0 6px;
-  border-top: 1px solid #eceaf3;
+.coach-book-cta__avail.is-open {
+  color: #047857;
 }
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 0;
-  border-bottom: 1px solid #eceaf3;
-  font-size: 14px;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__ic {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border-radius: 10px;
-  background: #f4f3f8;
-  color: var(--color-primary-dark);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__lbl {
-  flex: 1;
-  font-weight: 500;
-  color: #7a7690;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__val {
-  font-weight: 700;
-  text-align: right;
-  color: #1b1830;
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__val.is-lime {
-  color: var(--ph-lime-deep);
-}
-
-.coach-profile-booking-rail--mobile .coach-bm-sheet__book {
-  width: 100%;
-  margin-top: 18px;
-  padding: 16px;
+.coach-book-cta__btn {
+  margin-top: 2px;
+  padding: 14px;
   border: 0;
   border-radius: 14px;
   background: var(--color-primary);
   color: #fff;
-  font-size: 16px;
+  font-family: inherit;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.coach-book-cta__btn:hover {
+  background: var(--color-primary-dark);
+}
+.coach-book-cta__btn:active {
+  transform: scale(0.99);
 }
 
-.coach-profile-booking-rail--mobile .coach-bm-sheet__book:active {
-  background: var(--color-primary-dark);
+/* Name + "Invited coach" trust mark row — used by both the mobile and desktop hero. */
+.coach-hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }

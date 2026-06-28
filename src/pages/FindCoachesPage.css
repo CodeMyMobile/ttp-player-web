@@ -1499,6 +1499,102 @@
   cursor: pointer;
 }
 
+/* Matched-mode header ("Matched from your answers" eyebrow + answer-label chips) */
+.fc-matched {
+  margin-bottom: 18px;
+}
+.fc-matched__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fc-matched__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #047857;
+}
+.fc-matched__eyebrow svg {
+  flex: 0 0 auto;
+}
+.fc-matched__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fc-matched__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #6d28d9;
+  background: #ede9fe;
+  border: 0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.fc-matched__clear {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #64748b;
+  background: none;
+  border: 0;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+.fc-matched__chips {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fc-matched__chips::-webkit-scrollbar {
+  display: none;
+}
+.fc-matched__chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b5f6b;
+  background: transparent;
+  border: 1px solid #dcdee6;
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+/* "Coaches are invited" trust banner — stated once above the search results */
+.fc-invite-banner {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
+  border: 1px solid #bbf7d0;
+}
+.fc-invite-banner__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #065f46;
+}
+.fc-invite-banner__sub {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #047857;
+}
+
 /* Coach card */
 .fc-card {
   background: #fff;

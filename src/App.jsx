@@ -20,7 +20,6 @@ import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
 import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
 import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
-import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -492,13 +491,11 @@ const AppRoutes = () => (
       path="/find-coaches"
       element={<FindCoaches />}
     />
+    {/* Deprecated: the post-questionnaire "Your matches" experience now lives in FindCoaches
+        matched-mode. Redirect any lingering links into it. */}
     <Route
       path="/coach-match/recommendations"
-      element={(
-        <ProtectedRoute>
-          <CoachMatchRecommendationsPage />
-        </ProtectedRoute>
-      )}
+      element={<Navigate to="/find-coaches" replace />}
     />
     <Route
       path="/credits"
@@ -531,6 +528,10 @@ const AppRoutes = () => (
     <Route
       path="/coaches/:id"
       element={<CoachProfilePage />}
+    />
+    <Route
+      path="/coaches/:id/book"
+      element={<CoachProfilePage bookMode />}
     />
     <Route
       path="/coaches/:id/purchase"
