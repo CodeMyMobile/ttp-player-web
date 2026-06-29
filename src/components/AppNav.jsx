@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   ShieldX,
-  Target,
   Trophy,
   X,
   UserRound,
@@ -46,8 +45,7 @@ const navItems = [
 ];
 
 const userMenuItems = [
-  { label: "Player profile", to: "/settings/profile", icon: UserRound },
-  { label: "Player match profile", to: "/settings/match-profile", icon: Target },
+  { label: "Profile", to: "/settings/profile", icon: UserRound },
   { label: "Log result", to: "/log-result", icon: Trophy },
   { label: "Match results", to: "/match-results", icon: Trophy },
   { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
