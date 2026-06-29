@@ -25,7 +25,10 @@ test("invite sign-in authenticates without accepting the invite", () => {
 
   assert.match(signInSubmit, /persistSession\(data, \{ email: trimmedEmail \}\)/);
   assert.match(signInSubmit, /setPhase\("preview"\)/);
-  assert.doesNotMatch(signInSubmit, /await\s+(acceptInvite|quickAcceptInvite|completeJoin)\b/);
+  assert.doesNotMatch(
+    signInSubmit,
+    /await\s+(acceptInvite|quickAcceptInvite|acceptInviteAfterExplicitJoin|completeJoin)\b/,
+  );
   assert.doesNotMatch(signInSubmit, /\bcompleteJoin\(/);
 });
 
@@ -34,12 +37,20 @@ test("invite sign-up authenticates without accepting the invite", () => {
 
   assert.match(signUpSubmit, /persistSession\(authPayload, fallbackDetails\)/);
   assert.match(signUpSubmit, /setPhase\("preview"\)/);
-  assert.doesNotMatch(signUpSubmit, /await\s+(acceptInvite|quickAcceptInvite|completeJoin)\b/);
+  assert.doesNotMatch(
+    signUpSubmit,
+    /await\s+(acceptInvite|quickAcceptInvite|acceptInviteAfterExplicitJoin|completeJoin)\b/,
+  );
   assert.doesNotMatch(signUpSubmit, /\bcompleteJoin\(/);
 });
 
 test("invite auth copy no longer promises to join during authentication", () => {
-  assert.doesNotMatch(source, /Sign in & Join|Sign up & Join|Joining match/);
+  assert.doesNotMatch(
+    source,
+    /Sign in & Join|Sign up & Join|Joining match|Sign in to join|secure your spot|lock in this invite/,
+  );
+  assert.match(source, /Sign in to view the full invite/);
+  assert.match(source, /review the match details/);
   assert.match(source, /Signing in\.\.\./);
   assert.match(source, /: "Sign in"/);
   assert.match(source, /: "Sign up"/);

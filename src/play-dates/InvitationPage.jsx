@@ -680,7 +680,36 @@ export default function InvitationPage() {
       storeRefreshToken(refresh_token, { maxAgeDays: 60 });
     }
 
+    try {
+      localStorage.setItem("authLoginResponse", JSON.stringify(data));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "authLoginResponse",
+          newValue: JSON.stringify(data),
+          storageArea: window.localStorage,
+        }),
+      );
+    } catch {
+      // ignore localStorage write errors
+    }
+
     let userRecord = null;
+    const personalDetails = profile || userFromApi || null;
+
+    if (personalDetails) {
+      try {
+        localStorage.setItem("playerPersonalDetails", JSON.stringify(personalDetails));
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: "playerPersonalDetails",
+            newValue: JSON.stringify(personalDetails),
+            storageArea: window.localStorage,
+          }),
+        );
+      } catch {
+        // ignore localStorage write errors
+      }
+    }
 
     if (user_id || profile) {
       const name = (profile?.full_name || fallback.name || fallback.email || "")
@@ -804,7 +833,7 @@ export default function InvitationPage() {
     [preview],
   );
 
-  const quickAcceptInvite = useCallback(async () => {
+  const acceptInviteAfterExplicitJoin = useCallback(async () => {
     const acceptance = await acceptInvite(token);
     return getInviteDestination({}, acceptance);
   }, [getInviteDestination, token]);
@@ -1034,7 +1063,7 @@ export default function InvitationPage() {
     }
     setJoining(true);
     try {
-      const destination = await quickAcceptInvite();
+      const destination = await acceptInviteAfterExplicitJoin();
       await handleJoinSuccess(destination);
     } catch (err) {
       let errorToHandle = err;
@@ -1043,7 +1072,7 @@ export default function InvitationPage() {
         const recovered = await attemptSessionRecovery();
         if (recovered) {
           try {
-            const destination = await quickAcceptInvite();
+            const destination = await acceptInviteAfterExplicitJoin();
             await handleJoinSuccess(destination);
             return;
           } catch (retryError) {
@@ -1066,7 +1095,7 @@ export default function InvitationPage() {
       } else if (isAcceptError(errorToHandle)) {
         setError(mapAcceptError(errorToHandle));
       } else {
-        setError("We couldn't secure your spot. Try again in a moment.");
+        setError("We couldn't join this match. Try again in a moment.");
       }
     } finally {
       setJoining(false);
@@ -1076,7 +1105,7 @@ export default function InvitationPage() {
     refreshingSession,
     isArchivedMatch,
     ensureSession,
-    quickAcceptInvite,
+    acceptInviteAfterExplicitJoin,
     handleJoinSuccess,
     clearStoredSession,
     attemptSessionRecovery,
@@ -1232,7 +1261,7 @@ export default function InvitationPage() {
       const data = await login(trimmedEmail, signInPassword);
       // Authenticate only — do NOT auto-join. Persist the session and return to
       // the preview so the player reviews the match and explicitly taps
-      // "Join match" (handleJoinClick → quickAcceptInvite).
+      // "Join match" (handleJoinClick → acceptInviteAfterExplicitJoin).
       persistSession(data, { email: trimmedEmail });
       setSignInPassword("");
       setPhase("preview");
@@ -1347,7 +1376,7 @@ export default function InvitationPage() {
 
       // Authenticate only — do NOT auto-join. Persist the session and return to
       // the preview so the player reviews the match and explicitly taps
-      // "Join match" (handleJoinClick → quickAcceptInvite).
+      // "Join match" (handleJoinClick → acceptInviteAfterExplicitJoin).
       persistSession(authPayload, fallbackDetails);
       setSignUpPassword("");
       setPhase("preview");
@@ -1737,13 +1766,13 @@ export default function InvitationPage() {
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-900">
               {authMode === "signIn"
-                ? "Sign in to join this match"
+                ? "Sign in to view the full invite"
                 : "Create your Matchplay account"}
             </p>
             <p className="text-sm text-slate-500">
               {authMode === "signIn"
-                ? "Enter your account details to secure your spot."
-                : "We'll set up your profile so you can lock in this invite."}
+                ? "Enter your account details to review the match details."
+                : "We'll set up your profile so you can review the full invite."}
             </p>
           </div>
         </div>
