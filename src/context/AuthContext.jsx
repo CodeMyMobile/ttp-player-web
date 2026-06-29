@@ -4,6 +4,26 @@ import { getStoredAuthToken } from "../services/authToken.js";
 
 const AuthContext = createContext({});
 
+const readStoredJson = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredUser = () => {
+  const authResponse = readStoredJson("authLoginResponse");
+  return (
+    authResponse?.profile ||
+    authResponse?.user ||
+    readStoredJson("playerPersonalDetails") ||
+    readStoredJson("user") ||
+    null
+  );
+};
+
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -14,8 +34,28 @@ export const AuthProvider = ({ children }) => {
     const token = getStoredAuthToken();
     if (token) {
       setIsAuthenticated(true);
+      setUser(getStoredUser());
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const syncStoredAuth = (event) => {
+      const isAuthStorageKey =
+        event?.key === "authToken" ||
+        event?.key === "authLoginResponse" ||
+        event?.key === "playerPersonalDetails" ||
+        event?.key === "user";
+      if (event?.key && !isAuthStorageKey) {
+        return;
+      }
+      const token = getStoredAuthToken();
+      setIsAuthenticated(Boolean(token));
+      setUser(token ? getStoredUser() : null);
+    };
+
+    window.addEventListener("storage", syncStoredAuth);
+    return () => window.removeEventListener("storage", syncStoredAuth);
   }, []);
 
   const login = useCallback(async (email, password) => {
