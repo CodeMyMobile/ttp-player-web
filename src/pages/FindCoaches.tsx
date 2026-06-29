@@ -15,7 +15,7 @@ import CoachSearchCard from "../components/coaches/CoachSearchCard";
 import { normalizeVenueLabel } from "../utils/venueLabel";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
-import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
+import { type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
@@ -313,6 +313,14 @@ const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
 
 const pickImageUrl = (record: Record<string, unknown>): string => {
   const candidates = [
+    // camelCase keys the app's own data uses (detail API + already-mapped card model).
+    // Including imageUrl preserves the card's correct search-list photo as a safety net,
+    // so the fallback chain is real-detail-photo → real-search-photo → initials.
+    record.profilePicture,
+    record.avatarUrl,
+    record.profileImage,
+    record.imageUrl,
+    // snake_case keys the raw search API returns.
     record.avatar,
     record.avatar_url,
     record.profile_image,
@@ -330,10 +338,9 @@ const pickImageUrl = (record: Record<string, unknown>): string => {
       return candidate.trim();
     }
   }
-  return (
-    mockCoaches[0]?.imageUrl ??
-    "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80"
-  );
+  // No real photo → empty string so the card/profile renders initials, never a stock
+  // stranger's face. Matches the profile page's "" → initials behavior.
+  return "";
 };
 
 const buildInitials = (name: string) =>
