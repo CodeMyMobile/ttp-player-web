@@ -29,7 +29,7 @@ import LessonInvitePage from "./pages/LessonInvitePage";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
-import AccountProfilePage from "./pages/AccountProfilePage";
+import ProfileHubPage from "./pages/ProfileHubPage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
@@ -585,17 +585,15 @@ const AppRoutes = () => (
       path="/settings/profile"
       element={(
         <ProtectedRoute>
-          <AccountProfilePage />
+          <ProfileHubPage />
         </ProtectedRoute>
       )}
     />
+    {/* Match play is now a tab in the Profile hub. Redirect the old settings
+        route to it; the ?tab=matchplay contract is permanent. */}
     <Route
       path="/settings/match-profile"
-      element={(
-        <ProtectedRoute>
-          <PlayerMatchProfilePage />
-        </ProtectedRoute>
-      )}
+      element={<Navigate to="/settings/profile?tab=matchplay" replace />}
     />
     <Route
       path="/settings/match-profile/edit"

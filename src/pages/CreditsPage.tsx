@@ -13,6 +13,7 @@ import {
 } from "../api/playerPackages";
 import MainLayout from "../components/MainLayout";
 import StateBanner from "../components/coaches/StateBanner";
+import { summarizeCredits } from "../utils/packageCredits";
 import useDebouncedValue from "../hooks/useDebouncedValue";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -117,42 +118,7 @@ const buildPerLessonLabel = (total: number | string, count?: number | null) => {
   return `${perLabel} per lesson`;
 };
 
-const formatDateLabel = (value?: string | null) => {
-  if (!value) return undefined;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
-
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-
-const summarizeCredits = (purchases: PackagePurchase[]) => {
-  const totals = purchases.reduce(
-    (acc, purchase) => {
-      const total = Number(purchase.credits_total ?? 0);
-      const used = Number(purchase.credits_used ?? 0);
-      const remaining = Number(purchase.credits_remaining ?? 0);
-      return {
-        total: acc.total + (Number.isFinite(total) ? total : 0),
-        used: acc.used + (Number.isFinite(used) ? used : 0),
-        remaining: acc.remaining + (Number.isFinite(remaining) ? remaining : 0),
-      };
-    },
-    { total: 0, used: 0, remaining: 0 },
-  );
-
-  const nextExpiry = purchases
-    .map((purchase) => purchase.expires_at)
-    .filter(Boolean)
-    .map((value) => new Date(value as string))
-    .filter((date) => !Number.isNaN(date.getTime()))
-    .sort((a, b) => a.getTime() - b.getTime())[0];
-
-  return {
-    ...totals,
-    nextExpiry: nextExpiry ? formatDateLabel(nextExpiry.toISOString()) : undefined,
-  };
-};
 
 const CreditsPage = () => {
   const { user } = useAuth();
