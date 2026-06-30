@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, Mail, Phone, Trophy, Users } from "lucide-react";
+import { CalendarDays, Mail, Phone, Trophy, Users, X } from "lucide-react";
 
 import {
   type League,
   type LeagueFixture,
+  type LeagueMatchNeed,
+  type LeagueMatchSuggestion,
   type LeaguePlayer,
   type LeagueStanding,
+  acceptLeagueMatchSuggestion,
+  createLeagueMatchNeed,
   getLeagueFixtures,
+  getLeagueMatchNeeds,
   getLeaguePlayers,
   getLeagueStandings,
 } from "../api/leagues";
@@ -44,6 +49,8 @@ const getPendingOpponent = (fixture: LeagueFixture, userId?: number | string | n
   return `${fixture.player1_name || "Player 1"} vs ${fixture.player2_name || "Player 2"}`;
 };
 
+const todayInputValue = () => new Date().toISOString().slice(0, 10);
+
 const LeagueDetailPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -64,8 +71,17 @@ const LeagueDetailPage = () => {
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
   const [results, setResults] = useState<LeagueFixture[]>([]);
   const [pending, setPending] = useState<LeagueFixture[]>([]);
+  const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
+  const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNeedDrawerOpen, setNeedDrawerOpen] = useState(false);
+  const [needDate, setNeedDate] = useState(todayInputValue);
+  const [needTime, setNeedTime] = useState("");
+  const [needLocation, setNeedLocation] = useState("Penmar Courts");
+  const [shareWithLeagueOnly, setShareWithLeagueOnly] = useState(true);
+  const [needSubmitting, setNeedSubmitting] = useState(false);
+  const [needError, setNeedError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -78,13 +94,16 @@ const LeagueDetailPage = () => {
       getLeaguePlayers({ leagueId: id, token, signal: controller.signal }),
       getLeagueFixtures({ leagueId: id, token, status: "confirmed", signal: controller.signal }),
       getLeagueFixtures({ leagueId: id, token, status: "scheduled", mine: true, signal: controller.signal }),
+      getLeagueMatchNeeds({ leagueId: id, token, signal: controller.signal }),
     ])
-      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse]) => {
+      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse]) => {
         setLeague(standingsResponse.league ?? playersResponse.league);
         setStandings(standingsResponse.standings ?? []);
         setPlayers(playersResponse.players ?? []);
         setResults(resultsResponse.fixtures ?? []);
         setPending(pendingResponse.fixtures ?? []);
+        setMatchNeeds(needsResponse.myNeeds ?? []);
+        setSuggestions(needsResponse.suggestions ?? []);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -98,6 +117,45 @@ const LeagueDetailPage = () => {
   }, [id, token]);
 
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
+  const pendingCount = pending.length + matchNeeds.length;
+
+  const handleSubmitNeed = async () => {
+    if (!id) return;
+    setNeedSubmitting(true);
+    setNeedError(null);
+    try {
+      const response = await createLeagueMatchNeed({
+        leagueId: id,
+        token,
+        body: {
+          date: needDate,
+          time: needTime,
+          location: needLocation,
+          visibility: shareWithLeagueOnly ? "league" : "open",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles",
+        },
+      });
+      setMatchNeeds((current) => [response.match, ...current]);
+      setSuggestions(response.suggestions ?? []);
+      setNeedDrawerOpen(false);
+      setActiveTab("pending");
+    } catch (err) {
+      setNeedError(err instanceof Error ? err.message : "Failed to post match need");
+    } finally {
+      setNeedSubmitting(false);
+    }
+  };
+
+  const handleAcceptSuggestion = async (suggestionId: number | string) => {
+    try {
+      await acceptLeagueMatchSuggestion({ suggestionId, token });
+      setSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId));
+      setMatchNeeds([]);
+      setActiveTab("pending");
+    } catch (err) {
+      setNeedError(err instanceof Error ? err.message : "Failed to accept suggestion");
+    }
+  };
 
   return (
     <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
@@ -110,16 +168,16 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
-            <button type="button" disabled>Need a Match</button>
+            <button type="button" onClick={() => setNeedDrawerOpen(true)}>Need a Match</button>
             <button type="button" disabled>Add Score</button>
           </div>
         </header>
 
-        {pending.length ? (
+        {pendingCount ? (
           <div className="league-detail__pending-callout">
             <div>
-              <strong>You have {pending.length} match{pending.length === 1 ? "" : "es"} to play</strong>
-              <span>{pendingSummary}</span>
+              <strong>You have {pendingCount} match{pendingCount === 1 ? "" : "es"} to play</strong>
+              <span>{pendingSummary || `${matchNeeds.length} open match need${matchNeeds.length === 1 ? "" : "s"}`}</span>
             </div>
             <button type="button" onClick={() => setActiveTab("pending")}>View</button>
           </div>
@@ -224,6 +282,32 @@ const LeagueDetailPage = () => {
 
         {!loading && !error && activeTab === "pending" ? (
           <div className="league-list">
+            {suggestions.map((suggestion) => (
+              <article className="league-list__item league-list__item--suggestion" key={suggestion.id}>
+                <Trophy size={16} />
+                <div>
+                  <h2>{suggestion.player_name || "League player"} wants to play</h2>
+                  <p>
+                    {suggestion.match_date || "Date TBD"} · {suggestion.match_time || "Time TBD"} · {suggestion.match_location || "Location TBD"}
+                    {suggestion.time_variance_minutes !== undefined ? ` · ${suggestion.time_variance_minutes} min apart` : ""}
+                  </p>
+                  <button type="button" onClick={() => handleAcceptSuggestion(suggestion.id)}>
+                    Accept match
+                  </button>
+                </div>
+              </article>
+            ))}
+            {matchNeeds.map((need) => (
+              <article className="league-list__item league-list__item--pending" key={need.id}>
+                <CalendarDays size={16} />
+                <div>
+                  <h2>Open match need</h2>
+                  <p>
+                    {formatDate(need.start_date_time)} · {need.location_text || "Location TBD"} · {need.league_visibility === "open" ? "Open visibility" : "League only"}
+                  </p>
+                </div>
+              </article>
+            ))}
             {pending.map((fixture) => (
               <article className="league-list__item league-list__item--pending" key={fixture.id}>
                 <CalendarDays size={16} />
@@ -233,12 +317,60 @@ const LeagueDetailPage = () => {
                 </div>
               </article>
             ))}
-            {!pending.length ? (
+            {!pending.length && !matchNeeds.length && !suggestions.length ? (
               <div className="league-detail__empty">
                 <Users size={20} />
                 No pending matches.
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {isNeedDrawerOpen ? (
+          <div className="league-need-drawer" role="dialog" aria-modal="true" aria-label="Need a match">
+            <div className="league-need-drawer__backdrop" onClick={() => setNeedDrawerOpen(false)} />
+            <div className="league-need-drawer__panel">
+              <div className="league-need-drawer__header">
+                <div>
+                  <h2>Need a match?</h2>
+                  <p>Post your availability and find opponents</p>
+                </div>
+                <button type="button" aria-label="Close" onClick={() => setNeedDrawerOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <label className="league-need-field">
+                <span>Date</span>
+                <input type="date" value={needDate} onChange={(event) => setNeedDate(event.target.value)} />
+              </label>
+              <label className="league-need-field">
+                <span>Time</span>
+                <input type="time" value={needTime} onChange={(event) => setNeedTime(event.target.value)} />
+              </label>
+              <label className="league-need-field">
+                <span>Location</span>
+                <input value={needLocation} onChange={(event) => setNeedLocation(event.target.value)} />
+              </label>
+              <label className="league-need-check">
+                <input
+                  type="checkbox"
+                  checked={shareWithLeagueOnly}
+                  onChange={(event) => setShareWithLeagueOnly(event.target.checked)}
+                />
+                <span>Share with league members only</span>
+              </label>
+
+              {needError ? <p className="league-need-error">{needError}</p> : null}
+              <p className="league-need-tip">We'll check for existing matches before posting.</p>
+
+              <div className="league-need-drawer__actions">
+                <button type="button" onClick={() => setNeedDrawerOpen(false)}>Cancel</button>
+                <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={handleSubmitNeed}>
+                  {needSubmitting ? "Checking..." : "Next"}
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
       </section>

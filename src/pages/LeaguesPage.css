@@ -293,6 +293,11 @@
   background: #fffbeb;
 }
 
+.league-list__item--suggestion {
+  border-color: #c4b5fd;
+  background: #faf5ff;
+}
+
 .league-list__item h2 {
   margin: 0 0 4px;
   font-size: 14px;
@@ -302,6 +307,166 @@
   margin: 0;
   color: #64748b;
   font-size: 12px;
+}
+
+.league-list__item button {
+  margin-top: 10px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.league-need-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: flex;
+  align-items: flex-end;
+}
+
+.league-need-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.league-need-drawer__panel {
+  position: relative;
+  width: 100%;
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  padding: 18px;
+  border-radius: 14px 14px 0 0;
+  background: #fff;
+  box-shadow: 0 -16px 40px rgba(15, 23, 42, 0.2);
+}
+
+.league-need-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -2px -2px 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.league-need-drawer__header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+}
+
+.league-need-drawer__header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.league-need-drawer__header button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  cursor: pointer;
+}
+
+.league-need-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.league-need-field span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.league-need-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #111827;
+  font: inherit;
+}
+
+.league-need-field input:focus {
+  outline: 3px solid rgba(124, 58, 237, 0.16);
+  border-color: #7c3aed;
+}
+
+.league-need-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.league-need-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #7c3aed;
+}
+
+.league-need-tip,
+.league-need-error {
+  margin: 10px 0 16px;
+  font-size: 13px;
+}
+
+.league-need-tip {
+  color: #94a3b8;
+}
+
+.league-need-error {
+  color: #b91c1c;
+}
+
+.league-need-drawer__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.league-need-drawer__actions button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.league-need-drawer__actions button:first-child {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.league-need-drawer__actions button:last-child {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.league-need-drawer__actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 720px) {

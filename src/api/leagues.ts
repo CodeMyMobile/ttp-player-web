@@ -54,6 +54,33 @@ export interface LeagueFixture {
   [key: string]: unknown;
 }
 
+export interface LeagueMatchSuggestion {
+  id: number | string;
+  match_id?: number | string;
+  suggested_match_id?: number | string;
+  suggested_player_id?: number | string;
+  player_name?: string | null;
+  player_skill?: string | number | null;
+  match_date?: string | null;
+  match_time?: string | null;
+  match_location?: string | null;
+  time_variance_minutes?: number;
+  distance_miles?: string | number | null;
+  has_played_before?: boolean;
+  [key: string]: unknown;
+}
+
+export interface LeagueMatchNeed {
+  id: number | string;
+  league_id?: number | string;
+  host_id?: number | string;
+  status?: string;
+  start_date_time?: string;
+  location_text?: string;
+  league_visibility?: "league" | "open" | string;
+  [key: string]: unknown;
+}
+
 export const listMyLeagues = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
   request<{ leagues: League[] }>("/leagues", { token, signal });
 
@@ -105,4 +132,68 @@ export const getLeagueFixtures = ({
       status,
       mine,
     },
+  });
+
+export const createLeagueMatchNeed = ({
+  leagueId,
+  token,
+  body,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  body: {
+    date: string;
+    time: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    visibility?: "league" | "open";
+    timezone?: string;
+  };
+  signal?: AbortSignal;
+}) =>
+  request<{ match: LeagueMatchNeed; suggestions: LeagueMatchSuggestion[] }>(`/leagues/${leagueId}/match-needs`, {
+    method: "POST",
+    token,
+    body,
+    signal,
+  });
+
+export const getLeagueMatchNeeds = ({
+  leagueId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<{ league: League; myNeeds: LeagueMatchNeed[]; suggestions: LeagueMatchSuggestion[] }>(
+    `/leagues/${leagueId}/match-needs`,
+    { token, signal },
+  );
+
+export const acceptLeagueMatchSuggestion = ({
+  suggestionId,
+  token,
+}: {
+  suggestionId: number | string;
+  token?: string;
+}) =>
+  request<{ matchId: number | string; status: string }>(`/leagues/match-suggestions/${suggestionId}/accept`, {
+    method: "POST",
+    token,
+  });
+
+export const dismissLeagueMatchSuggestion = ({
+  suggestionId,
+  token,
+}: {
+  suggestionId: number | string;
+  token?: string;
+}) =>
+  request<{ dismissed: boolean }>(`/leagues/match-suggestions/${suggestionId}/dismiss`, {
+    method: "POST",
+    token,
   });
