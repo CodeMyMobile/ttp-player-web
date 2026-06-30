@@ -127,12 +127,15 @@ const LeagueDetailPage = () => {
     setNeedSubmitting(true);
     setNeedError(null);
     try {
+      const startIso = new Date(`${needDate}T${needTime}`).toISOString();
       const response = await createLeagueMatchNeed({
         leagueId: id,
         token,
         body: {
           date: needDate,
           time: needTime,
+          start_date_time: startIso,
+          dateTime: startIso,
           location: needLocation,
           latitude: needLatitude,
           longitude: needLongitude,
