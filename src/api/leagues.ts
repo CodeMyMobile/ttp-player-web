@@ -236,6 +236,29 @@ export const acceptLeagueMatchSuggestion = ({
     token,
   });
 
+export const sendLeagueMatchNeedInvites = ({
+  leagueId,
+  matchId,
+  token,
+  body,
+}: {
+  leagueId: number | string;
+  matchId: number | string;
+  token?: string;
+  body: {
+    player_ids: Array<number | string>;
+    message: string;
+  };
+}) =>
+  request<{ message: string; invites: Array<Record<string, unknown>> }>(
+    `/leagues/${leagueId}/match-needs/${matchId}/invites`,
+    {
+      method: "POST",
+      token,
+      body,
+    },
+  );
+
 export const dismissLeagueMatchSuggestion = ({
   suggestionId,
   token,

@@ -19,6 +19,7 @@ import {
   getLeaguePlayers,
   getLeagueResultOpponents,
   getLeagueStandings,
+  sendLeagueMatchNeedInvites,
 } from "../api/leagues";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
@@ -27,6 +28,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import "./LeaguesPage.css";
 
 type TabKey = "standings" | "players" | "results" | "pending";
+type NeedFlowStep = "idle" | "precheck" | "accept" | "invite";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
@@ -47,6 +49,20 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
+const formatTime = (value?: string | null) => {
+  if (!value) return "Time TBD";
+  const date = value.includes("T") ? new Date(value) : new Date(`2000-01-01T${value}`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
+
+const formatNeedSummary = (need?: LeagueMatchNeed | null) => {
+  if (!need) return "Match need";
+  const date = formatDate(need.start_date_time);
+  const time = formatTime(need.start_date_time);
+  return `${date} · ${time} · ${need.location_text || "Location TBD"}`;
+};
+
 const getPendingOpponent = (fixture: LeagueFixture, userId?: number | string | null) => {
   if (String(fixture.player1_id) === String(userId)) return fixture.player2_name || "Opponent";
   if (String(fixture.player2_id) === String(userId)) return fixture.player1_name || "Opponent";
@@ -54,6 +70,13 @@ const getPendingOpponent = (fixture: LeagueFixture, userId?: number | string | n
 };
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
+const inviteMessageMaxLength = 160;
+
+const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: string) => {
+  const location = need?.location_text || fallbackLocation;
+  const message = `Hey, I'm looking for a match on ${formatDate(need?.start_date_time)} at ${formatTime(need?.start_date_time)} at ${location}. Let me know if you're interested!`;
+  return message.length <= inviteMessageMaxLength ? message : `${message.slice(0, inviteMessageMaxLength - 3).trim()}...`;
+};
 
 const LeagueDetailPage = () => {
   const { id } = useParams();
@@ -77,6 +100,13 @@ const LeagueDetailPage = () => {
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
+  const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
+  const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState<number | string | null>(null);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [selectedInviteIds, setSelectedInviteIds] = useState<Array<number | string>>([]);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isNeedDrawerOpen, setNeedDrawerOpen] = useState(false);
@@ -139,6 +169,14 @@ const LeagueDetailPage = () => {
 
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
   const pendingCount = pending.length + matchNeeds.length;
+  const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
+  const invitePlayers = players.filter((player) => String(player.player_id) !== String(userId)).slice(0, 8);
+  const showNeedFlow = !loading && !error && needFlowStep !== "idle";
+
+  const openNeedDrawer = () => {
+    setNeedDrawerOpen(true);
+    setNeedError(null);
+  };
 
   const handleSubmitNeed = async () => {
     if (!id) return;
@@ -161,10 +199,15 @@ const LeagueDetailPage = () => {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles",
         },
       });
+      const nextSuggestions = response.suggestions ?? [];
+      setPostedNeed(response.match);
       setMatchNeeds((current) => [response.match, ...current]);
-      setSuggestions(response.suggestions ?? []);
+      setSuggestions(nextSuggestions);
+      setSelectedSuggestionId(nextSuggestions[0]?.id ?? null);
+      setSelectedInviteIds(invitePlayers.slice(0, 1).map((player) => player.player_id));
+      setInviteMessage(buildInviteMessage(response.match, needLocation));
       setNeedDrawerOpen(false);
-      setActiveTab("pending");
+      setNeedFlowStep(nextSuggestions.length ? "precheck" : "invite");
     } catch (err) {
       setNeedError(err instanceof Error ? err.message : "Failed to post match need");
     } finally {
@@ -183,13 +226,61 @@ const LeagueDetailPage = () => {
   };
 
   const handleAcceptSuggestion = async (suggestionId: number | string) => {
+    setNeedSubmitting(true);
+    setNeedError(null);
     try {
       await acceptLeagueMatchSuggestion({ suggestionId, token });
       setSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId));
-      setMatchNeeds([]);
+      setMatchNeeds((current) => current.filter((need) => String(need.id) !== String(postedNeed?.id)));
+      setPostedNeed(null);
+      setNeedFlowStep("idle");
       setActiveTab("pending");
     } catch (err) {
       setNeedError(err instanceof Error ? err.message : "Failed to accept suggestion");
+    } finally {
+      setNeedSubmitting(false);
+    }
+  };
+
+  const handlePostAnyway = () => {
+    setInviteError(null);
+    if (!inviteMessage) {
+      setInviteMessage(buildInviteMessage(postedNeed, needLocation));
+    }
+    setNeedFlowStep("invite");
+  };
+
+  const handleSendInvites = async () => {
+    if (!id || !postedNeed) return;
+    if (inviteMessage.length > inviteMessageMaxLength) {
+      setInviteError(`Message must be ${inviteMessageMaxLength} characters or fewer.`);
+      return;
+    }
+    setInviteSubmitting(true);
+    setInviteError(null);
+    try {
+      await sendLeagueMatchNeedInvites({
+        leagueId: id,
+        matchId: postedNeed.id,
+        token,
+        body: {
+          player_ids: selectedInviteIds,
+          message: inviteMessage,
+        },
+      });
+      setNeedFlowStep("idle");
+      setActiveTab("pending");
+    } catch (err) {
+      const data = (err as { data?: { error?: string; maxLength?: number } })?.data;
+      if (data?.error === "message_too_long") {
+        setInviteError(`Message must be ${data.maxLength || inviteMessageMaxLength} characters or fewer.`);
+      } else if (data?.error === "no_invitees") {
+        setInviteError("Choose at least one league player to invite.");
+      } else {
+        setInviteError(err instanceof Error ? err.message : "Failed to send invites");
+      }
+    } finally {
+      setInviteSubmitting(false);
     }
   };
 
@@ -276,7 +367,7 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
-            <button type="button" onClick={() => setNeedDrawerOpen(true)}>Need a Match</button>
+            <button type="button" onClick={openNeedDrawer}>Need a Match</button>
             <button type="button" onClick={openScoreDrawer}>Add Score</button>
           </div>
         </header>
@@ -291,23 +382,176 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        <nav className="league-detail__tabs" aria-label="League detail tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={activeTab === tab.key ? "active" : ""}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+        {!showNeedFlow ? (
+          <nav className="league-detail__tabs" aria-label="League detail tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={activeTab === tab.key ? "active" : ""}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
 
         {loading ? <div className="leagues-page__state">Loading league...</div> : null}
         {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
 
-        {!loading && !error && activeTab === "standings" ? (
+        {showNeedFlow && needFlowStep === "precheck" ? (
+          <div className="league-need-flow">
+            <header className="league-need-flow__header">
+              <h2>Wait!</h2>
+              <p>{suggestions.length} player{suggestions.length === 1 ? "" : "s"} already looking near this time</p>
+            </header>
+
+            <section className="league-need-flow__summary">
+              <span>Your match need:</span>
+              <strong>{formatDate(postedNeed?.start_date_time)}</strong>
+              <p>{formatTime(postedNeed?.start_date_time)} · {postedNeed?.location_text || "Location TBD"}</p>
+            </section>
+
+            <section className="league-need-flow__section">
+              <h3>Suggested matches:</h3>
+              {suggestions.map((suggestion) => {
+                const isSelected = String(suggestion.id) === String(selectedSuggestion?.id);
+                return (
+                  <button
+                    className={`league-need-suggestion${isSelected ? " active" : ""}`}
+                    key={suggestion.id}
+                    type="button"
+                    onClick={() => setSelectedSuggestionId(suggestion.id)}
+                  >
+                    <strong>{suggestion.player_name || "League player"}</strong>
+                    <span>
+                      {suggestion.time_variance_minutes !== undefined ? `${suggestion.time_variance_minutes} min apart` : "Similar time"}
+                      {suggestion.distance_miles !== null && suggestion.distance_miles !== undefined ? ` · ${suggestion.distance_miles} mi` : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </section>
+
+            {needError ? <p className="league-need-error">{needError}</p> : null}
+
+            <div className="league-need-flow__actions league-need-flow__actions--stacked">
+              <div>
+                <button type="button" onClick={() => setNeedFlowStep("idle")}>Back</button>
+                <button type="button" disabled={!selectedSuggestion} onClick={() => setNeedFlowStep("accept")}>
+                  View & Connect
+                </button>
+              </div>
+              <button type="button" className="league-need-flow__outline" onClick={handlePostAnyway}>
+                Post Anyway
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {showNeedFlow && needFlowStep === "accept" && selectedSuggestion ? (
+          <div className="league-need-flow">
+            <header className="league-need-flow__header">
+              <h2>Accept Match</h2>
+              <p>Connect with {selectedSuggestion.player_name || "league player"}</p>
+            </header>
+
+            <section className="league-need-flow__summary">
+              <span>League:</span>
+              <strong>{league?.name || "League"}</strong>
+            </section>
+            <section className="league-need-flow__summary">
+              <span>Your match:</span>
+              <strong>{formatDate(postedNeed?.start_date_time)}</strong>
+              <p>{formatTime(postedNeed?.start_date_time)} · {postedNeed?.location_text || "Location TBD"}</p>
+            </section>
+            <section className="league-need-flow__summary">
+              <span>Opponent:</span>
+              <strong>{selectedSuggestion.player_name || "League player"}</strong>
+              <p>
+                {selectedSuggestion.player_skill ? `TRP ${selectedSuggestion.player_skill}` : "League player"}
+                {selectedSuggestion.has_played_before ? " · Played before" : ""}
+              </p>
+            </section>
+
+            <label className="league-need-field">
+              <span>Optional message (160 char)</span>
+              <textarea maxLength={160} placeholder={`Hey ${selectedSuggestion.player_name || "there"}, excited to play!`} />
+            </label>
+
+            {needError ? <p className="league-need-error">{needError}</p> : null}
+
+            <div className="league-need-flow__actions">
+              <button type="button" onClick={() => setNeedFlowStep("precheck")}>Back</button>
+              <button type="button" disabled={needSubmitting} onClick={() => handleAcceptSuggestion(selectedSuggestion.id)}>
+                {needSubmitting ? "Accepting..." : "Accept"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {showNeedFlow && needFlowStep === "invite" ? (
+          <div className="league-need-flow">
+            <header className="league-need-flow__header">
+              <h2>Invite Players</h2>
+              <p>Post your match need</p>
+            </header>
+
+            <div className="league-need-flow__success">
+              <strong>Match need posted</strong>
+              <span>{formatNeedSummary(postedNeed)}</span>
+            </div>
+
+            <section className="league-need-flow__section">
+              <h3>Still need to play (unplayed):</h3>
+              {invitePlayers.map((player) => {
+                const isChecked = selectedInviteIds.some((idValue) => String(idValue) === String(player.player_id));
+                return (
+                  <label className="league-need-invitee" key={player.player_id}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(event) => {
+                        setSelectedInviteIds((current) => (
+                          event.target.checked
+                            ? [...current, player.player_id]
+                            : current.filter((idValue) => String(idValue) !== String(player.player_id))
+                        ));
+                      }}
+                    />
+                    <span>{player.full_name || `Player ${player.player_id}`}</span>
+                  </label>
+                );
+              })}
+              {!invitePlayers.length ? <div className="league-detail__empty">No league players available to invite.</div> : null}
+            </section>
+
+            <label className="league-need-field">
+              <span>Message template</span>
+              <textarea
+                maxLength={inviteMessageMaxLength}
+                value={inviteMessage}
+                onChange={(event) => setInviteMessage(event.target.value)}
+              />
+            </label>
+            <p className="league-need-tip">{inviteMessage.length}/{inviteMessageMaxLength} characters</p>
+            {inviteError ? <p className="league-need-error">{inviteError}</p> : null}
+
+            <div className="league-need-flow__actions">
+              <button type="button" onClick={() => (suggestions.length ? setNeedFlowStep("precheck") : setNeedFlowStep("idle"))}>Back</button>
+              <button
+                type="button"
+                disabled={!selectedInviteIds.length || inviteSubmitting}
+                onClick={handleSendInvites}
+              >
+                {inviteSubmitting ? "Sending..." : "Send Invites"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {!showNeedFlow && !loading && !error && activeTab === "standings" ? (
           <div className="league-table-wrap">
             <table className="league-table">
               <thead>
@@ -339,7 +583,7 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        {!loading && !error && activeTab === "players" ? (
+        {!showNeedFlow && !loading && !error && activeTab === "players" ? (
           <div className="league-table-wrap">
             <table className="league-table league-table--players">
               <thead>
@@ -373,7 +617,7 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        {!loading && !error && activeTab === "results" ? (
+        {!showNeedFlow && !loading && !error && activeTab === "results" ? (
           <div className="league-list">
             {results.map((fixture) => (
               <article className="league-list__item" key={fixture.id}>
@@ -388,7 +632,7 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        {!loading && !error && activeTab === "pending" ? (
+        {!showNeedFlow && !loading && !error && activeTab === "pending" ? (
           <div className="league-list">
             {suggestions.map((suggestion) => (
               <article className="league-list__item league-list__item--suggestion" key={suggestion.id}>
