@@ -78,6 +78,8 @@ const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: stri
   return message.length <= inviteMessageMaxLength ? message : `${message.slice(0, inviteMessageMaxLength - 3).trim()}...`;
 };
 
+const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
 const LeagueDetailPage = () => {
   const { id } = useParams();
   const { user } = useAuth();
@@ -91,6 +93,14 @@ const LeagueDetailPage = () => {
     [user],
   );
   const userId = user?.id ?? user?.user_id ?? user?.player_id ?? user?.profile?.id ?? user?.profile?.user_id;
+  const currentUserIdentities = useMemo(() => new Set([
+    normalizeIdentity(userId),
+    normalizeIdentity(user?.email),
+    normalizeIdentity(user?.profile?.email),
+    normalizeIdentity(user?.full_name),
+    normalizeIdentity(user?.profile?.full_name),
+    normalizeIdentity(user?.name),
+  ].filter(Boolean)), [user, userId]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
   const [league, setLeague] = useState<League | null>(null);
@@ -170,7 +180,14 @@ const LeagueDetailPage = () => {
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
   const pendingCount = pending.length + matchNeeds.length;
   const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
-  const invitePlayers = players.filter((player) => String(player.player_id) !== String(userId)).slice(0, 8);
+  const invitePlayers = players.filter((player) => {
+    const playerIdentities = [
+      normalizeIdentity(player.player_id),
+      normalizeIdentity(player.email),
+      normalizeIdentity(player.full_name),
+    ].filter(Boolean);
+    return !playerIdentities.some((identity) => currentUserIdentities.has(identity));
+  });
   const showNeedFlow = !loading && !error && needFlowStep !== "idle";
 
   const openNeedDrawer = () => {
