@@ -40,6 +40,8 @@ import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
 import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
+import LeaguesPage from "./pages/LeaguesPage";
+import LeagueDetailPage from "./pages/LeagueDetailPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
@@ -447,6 +449,22 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <MyCoachesPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues"
+      element={(
+        <ProtectedRoute>
+          <LeaguesPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id"
+      element={(
+        <ProtectedRoute>
+          <LeagueDetailPage />
         </ProtectedRoute>
       )}
     />
