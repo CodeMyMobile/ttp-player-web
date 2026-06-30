@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Autocomplete from "react-google-autocomplete";
 import { Link, useParams } from "react-router-dom";
 import { CalendarDays, Mail, Phone, Trophy, Users, X } from "lucide-react";
 
@@ -79,6 +80,8 @@ const LeagueDetailPage = () => {
   const [needDate, setNeedDate] = useState(todayInputValue);
   const [needTime, setNeedTime] = useState("");
   const [needLocation, setNeedLocation] = useState("Penmar Courts");
+  const [needLatitude, setNeedLatitude] = useState<number | null>(null);
+  const [needLongitude, setNeedLongitude] = useState<number | null>(null);
   const [shareWithLeagueOnly, setShareWithLeagueOnly] = useState(true);
   const [needSubmitting, setNeedSubmitting] = useState(false);
   const [needError, setNeedError] = useState<string | null>(null);
@@ -131,6 +134,8 @@ const LeagueDetailPage = () => {
           date: needDate,
           time: needTime,
           location: needLocation,
+          latitude: needLatitude,
+          longitude: needLongitude,
           visibility: shareWithLeagueOnly ? "league" : "open",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles",
         },
@@ -144,6 +149,16 @@ const LeagueDetailPage = () => {
     } finally {
       setNeedSubmitting(false);
     }
+  };
+
+  const handleNeedPlaceSelected = (place: google.maps.places.PlaceResult | null) => {
+    const latitude = place?.geometry?.location?.lat?.();
+    const longitude = place?.geometry?.location?.lng?.();
+    const label = place?.formatted_address || place?.name || needLocation;
+
+    if (label) setNeedLocation(label);
+    if (typeof latitude === "number" && Number.isFinite(latitude)) setNeedLatitude(latitude);
+    if (typeof longitude === "number" && Number.isFinite(longitude)) setNeedLongitude(longitude);
   };
 
   const handleAcceptSuggestion = async (suggestionId: number | string) => {
@@ -350,7 +365,22 @@ const LeagueDetailPage = () => {
               </label>
               <label className="league-need-field">
                 <span>Location</span>
-                <input value={needLocation} onChange={(event) => setNeedLocation(event.target.value)} />
+                <Autocomplete
+                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                  placeholder="Search court or address"
+                  value={needLocation}
+                  onChange={(event) => {
+                    setNeedLocation(event.target.value);
+                    setNeedLatitude(null);
+                    setNeedLongitude(null);
+                  }}
+                  onPlaceSelected={handleNeedPlaceSelected}
+                  options={{
+                    types: ["geocode", "establishment"],
+                    fields: ["formatted_address", "geometry", "name", "address_components"],
+                    componentRestrictions: { country: "us" },
+                  }}
+                />
               </label>
               <label className="league-need-check">
                 <input
@@ -362,6 +392,9 @@ const LeagueDetailPage = () => {
               </label>
 
               {needError ? <p className="league-need-error">{needError}</p> : null}
+              {!import.meta.env.VITE_GOOGLE_API_KEY ? (
+                <p className="league-need-tip">Add `VITE_GOOGLE_API_KEY` to enable Google location suggestions.</p>
+              ) : null}
               <p className="league-need-tip">We'll check for existing matches before posting.</p>
 
               <div className="league-need-drawer__actions">
