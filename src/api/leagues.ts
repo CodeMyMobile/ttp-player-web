@@ -40,6 +40,15 @@ export interface LeaguePlayer {
   [key: string]: unknown;
 }
 
+export interface LeagueResultOpponent {
+  player_id: number | string;
+  full_name?: string | null;
+  current_rating?: number | string | null;
+  usta_rating?: number | string | null;
+  uta_rating?: number | string | null;
+  [key: string]: unknown;
+}
+
 export interface LeagueFixture {
   id: number | string;
   league_id: number | string;
@@ -175,6 +184,45 @@ export const getLeagueMatchNeeds = ({
     `/leagues/${leagueId}/match-needs`,
     { token, signal },
   );
+
+export const getLeagueResultOpponents = ({
+  leagueId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<{ league: League; opponents: LeagueResultOpponent[] }>(`/leagues/${leagueId}/result-opponents`, {
+    token,
+    signal,
+  });
+
+export const createLeagueResult = ({
+  leagueId,
+  token,
+  body,
+}: {
+  leagueId: number | string;
+  token?: string;
+  body: {
+    player_b: number | string;
+    played_at: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    format: "single" | "bo3";
+    retired: false | { winner: "you" | "opp" };
+    sets: Array<{ kind: "set" | "mtb"; you: number; opp: number }>;
+    score_string: string;
+  };
+}) =>
+  request<{ match_id: number | string; status: string }>(`/leagues/${leagueId}/results`, {
+    method: "POST",
+    token,
+    body,
+  });
 
 export const acceptLeagueMatchSuggestion = ({
   suggestionId,

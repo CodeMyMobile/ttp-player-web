@@ -395,7 +395,8 @@
   text-transform: uppercase;
 }
 
-.league-need-field input {
+.league-need-field input,
+.league-need-field select {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -405,9 +406,70 @@
   font: inherit;
 }
 
-.league-need-field input:focus {
+.league-need-field input:focus,
+.league-need-field select:focus {
   outline: 3px solid rgba(124, 58, 237, 0.16);
   border-color: #7c3aed;
+}
+
+.league-score-format {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.league-score-format button {
+  min-height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.league-score-format button.active {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  color: #fff;
+}
+
+.league-score-set {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.league-score-set h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #111827;
+  font-size: 13px;
+}
+
+.league-score-set label {
+  display: grid;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.league-score-set input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  text-align: center;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
 }
 
 .league-need-check {

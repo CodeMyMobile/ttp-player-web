@@ -9,12 +9,15 @@ import {
   type LeagueMatchNeed,
   type LeagueMatchSuggestion,
   type LeaguePlayer,
+  type LeagueResultOpponent,
   type LeagueStanding,
   acceptLeagueMatchSuggestion,
+  createLeagueResult,
   createLeagueMatchNeed,
   getLeagueFixtures,
   getLeagueMatchNeeds,
   getLeaguePlayers,
+  getLeagueResultOpponents,
   getLeagueStandings,
 } from "../api/leagues";
 import MainLayout from "../components/MainLayout";
@@ -85,6 +88,21 @@ const LeagueDetailPage = () => {
   const [shareWithLeagueOnly, setShareWithLeagueOnly] = useState(true);
   const [needSubmitting, setNeedSubmitting] = useState(false);
   const [needError, setNeedError] = useState<string | null>(null);
+  const [isScoreDrawerOpen, setScoreDrawerOpen] = useState(false);
+  const [resultOpponents, setResultOpponents] = useState<LeagueResultOpponent[]>([]);
+  const [scoreOpponentId, setScoreOpponentId] = useState("");
+  const [scoreDate, setScoreDate] = useState(todayInputValue);
+  const [scoreFormat, setScoreFormat] = useState<"single" | "bo3">("single");
+  const [scoreLocation, setScoreLocation] = useState("Penmar Courts");
+  const [scoreLatitude, setScoreLatitude] = useState<number | null>(null);
+  const [scoreLongitude, setScoreLongitude] = useState<number | null>(null);
+  const [scoreSets, setScoreSets] = useState([
+    { kind: "set" as const, you: 0, opp: 0 },
+    { kind: "set" as const, you: 0, opp: 0 },
+    { kind: "set" as const, you: 0, opp: 0 },
+  ]);
+  const [scoreSubmitting, setScoreSubmitting] = useState(false);
+  const [scoreError, setScoreError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -175,6 +193,78 @@ const LeagueDetailPage = () => {
     }
   };
 
+  const openScoreDrawer = async () => {
+    if (!id) return;
+    setScoreDrawerOpen(true);
+    setScoreError(null);
+    try {
+      const response = await getLeagueResultOpponents({ leagueId: id, token });
+      const opponents = response.opponents ?? [];
+      setResultOpponents(opponents);
+      setScoreOpponentId(opponents[0]?.player_id ? String(opponents[0].player_id) : "");
+    } catch (err) {
+      setScoreError(err instanceof Error ? err.message : "Failed to load league opponents");
+      setResultOpponents([]);
+    }
+  };
+
+  const handleScorePlaceSelected = (place: google.maps.places.PlaceResult | null) => {
+    const latitude = place?.geometry?.location?.lat?.();
+    const longitude = place?.geometry?.location?.lng?.();
+    const label = place?.formatted_address || place?.name || scoreLocation;
+
+    if (label) setScoreLocation(label);
+    if (typeof latitude === "number" && Number.isFinite(latitude)) setScoreLatitude(latitude);
+    if (typeof longitude === "number" && Number.isFinite(longitude)) setScoreLongitude(longitude);
+  };
+
+  const updateScoreSet = (index: number, side: "you" | "opp", value: string) => {
+    const nextValue = Math.max(0, Number.parseInt(value || "0", 10) || 0);
+    setScoreSets((current) => current.map((set, setIndex) => (
+      setIndex === index ? { ...set, [side]: nextValue } : set
+    )));
+  };
+
+  const buildScoreString = (sets: typeof scoreSets) => (
+    sets
+      .filter((set) => set.you !== 0 || set.opp !== 0)
+      .map((set) => `${set.you}-${set.opp}`)
+      .join(" ")
+  );
+
+  const handleSubmitScore = async () => {
+    if (!id || !scoreOpponentId) return;
+    setScoreSubmitting(true);
+    setScoreError(null);
+    try {
+      const activeSets = scoreSets
+        .slice(0, scoreFormat === "single" ? 1 : 3)
+        .filter((set) => set.you !== 0 || set.opp !== 0);
+      await createLeagueResult({
+        leagueId: id,
+        token,
+        body: {
+          player_b: scoreOpponentId,
+          played_at: scoreDate,
+          location: scoreLocation,
+          latitude: scoreLatitude,
+          longitude: scoreLongitude,
+          format: scoreFormat,
+          retired: false,
+          sets: activeSets,
+          score_string: buildScoreString(activeSets),
+        },
+      });
+      setScoreDrawerOpen(false);
+      setActiveTab("results");
+    } catch (err) {
+      const data = (err as { data?: { errors?: string[] } })?.data;
+      setScoreError(data?.errors?.join(", ") || (err instanceof Error ? err.message : "Failed to submit score"));
+    } finally {
+      setScoreSubmitting(false);
+    }
+  };
+
   return (
     <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
       <section className="league-detail">
@@ -187,7 +277,7 @@ const LeagueDetailPage = () => {
           </div>
           <div className="league-detail__actions">
             <button type="button" onClick={() => setNeedDrawerOpen(true)}>Need a Match</button>
-            <button type="button" disabled>Add Score</button>
+            <button type="button" onClick={openScoreDrawer}>Add Score</button>
           </div>
         </header>
 
@@ -404,6 +494,116 @@ const LeagueDetailPage = () => {
                 <button type="button" onClick={() => setNeedDrawerOpen(false)}>Cancel</button>
                 <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={handleSubmitNeed}>
                   {needSubmitting ? "Checking..." : "Next"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isScoreDrawerOpen ? (
+          <div className="league-need-drawer" role="dialog" aria-modal="true" aria-label="Add score">
+            <div className="league-need-drawer__backdrop" onClick={() => setScoreDrawerOpen(false)} />
+            <div className="league-need-drawer__panel">
+              <div className="league-need-drawer__header">
+                <div>
+                  <h2>Add score</h2>
+                  <p>Submit a league result for opponent confirmation</p>
+                </div>
+                <button type="button" aria-label="Close" onClick={() => setScoreDrawerOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <label className="league-need-field">
+                <span>Opponent</span>
+                <select value={scoreOpponentId} onChange={(event) => setScoreOpponentId(event.target.value)}>
+                  {resultOpponents.map((opponent) => (
+                    <option key={opponent.player_id} value={opponent.player_id}>
+                      {opponent.full_name || `Player ${opponent.player_id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="league-need-field">
+                <span>Date played</span>
+                <input type="date" value={scoreDate} onChange={(event) => setScoreDate(event.target.value)} />
+              </label>
+              <label className="league-need-field">
+                <span>Location</span>
+                <Autocomplete
+                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                  placeholder="Search court or address"
+                  value={scoreLocation}
+                  onChange={(event) => {
+                    setScoreLocation(event.target.value);
+                    setScoreLatitude(null);
+                    setScoreLongitude(null);
+                  }}
+                  onPlaceSelected={handleScorePlaceSelected}
+                  options={{
+                    types: ["geocode", "establishment"],
+                    fields: ["formatted_address", "geometry", "name", "address_components"],
+                    componentRestrictions: { country: "us" },
+                  }}
+                />
+              </label>
+
+              <div className="league-score-format">
+                <button
+                  type="button"
+                  className={scoreFormat === "single" ? "active" : ""}
+                  onClick={() => setScoreFormat("single")}
+                >
+                  1 set
+                </button>
+                <button
+                  type="button"
+                  className={scoreFormat === "bo3" ? "active" : ""}
+                  onClick={() => setScoreFormat("bo3")}
+                >
+                  Best of 3
+                </button>
+              </div>
+
+              {scoreSets.slice(0, scoreFormat === "single" ? 1 : 3).map((set, index) => (
+                <div className="league-score-set" key={index}>
+                  <h3>Set {index + 1}</h3>
+                  <label>
+                    <span>You</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={set.you}
+                      onChange={(event) => updateScoreSet(index, "you", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>Opponent</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={set.opp}
+                      onChange={(event) => updateScoreSet(index, "opp", event.target.value)}
+                    />
+                  </label>
+                </div>
+              ))}
+
+              {scoreError ? <p className="league-need-error">{scoreError}</p> : null}
+              {!resultOpponents.length ? (
+                <p className="league-need-tip">No available league opponents. Players already recorded against you are filtered out.</p>
+              ) : (
+                <p className="league-need-tip">Opponent receives a confirmation message before result counts.</p>
+              )}
+
+              <div className="league-need-drawer__actions">
+                <button type="button" onClick={() => setScoreDrawerOpen(false)}>Cancel</button>
+                <button
+                  type="button"
+                  disabled={!scoreOpponentId || !scoreDate || !scoreLocation || scoreSubmitting}
+                  onClick={handleSubmitScore}
+                >
+                  {scoreSubmitting ? "Submitting..." : "Submit score"}
                 </button>
               </div>
             </div>
