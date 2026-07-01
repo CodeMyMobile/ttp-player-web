@@ -46,6 +46,7 @@ const navItems = [
 ];
 
 const userMenuItems = [
+  { label: "My Leagues", to: "/leagues", icon: Trophy },
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },
   { label: "Log result", to: "/log-result", icon: Trophy },
