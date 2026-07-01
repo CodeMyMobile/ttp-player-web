@@ -73,6 +73,11 @@ const getPendingOpponent = (fixture: LeagueFixture, userId?: number | string | n
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 const inviteMessageMaxLength = 160;
+const defaultNeedLocation = {
+  label: "Penmar Courts",
+  latitude: 34.0066,
+  longitude: -118.4556,
+};
 
 const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: string) => {
   const location = need?.location_text || fallbackLocation;
@@ -125,9 +130,9 @@ const LeagueDetailPage = () => {
   const [isNeedDrawerOpen, setNeedDrawerOpen] = useState(false);
   const [needDate, setNeedDate] = useState(todayInputValue);
   const [needTime, setNeedTime] = useState("");
-  const [needLocation, setNeedLocation] = useState("Penmar Courts");
-  const [needLatitude, setNeedLatitude] = useState<number | null>(null);
-  const [needLongitude, setNeedLongitude] = useState<number | null>(null);
+  const [needLocation, setNeedLocation] = useState(defaultNeedLocation.label);
+  const [needLatitude, setNeedLatitude] = useState<number | null>(defaultNeedLocation.latitude);
+  const [needLongitude, setNeedLongitude] = useState<number | null>(defaultNeedLocation.longitude);
   const [shareWithLeagueOnly, setShareWithLeagueOnly] = useState(true);
   const [needSubmitting, setNeedSubmitting] = useState(false);
   const [needError, setNeedError] = useState<string | null>(null);
@@ -205,12 +210,16 @@ const LeagueDetailPage = () => {
   };
 
   const buildNeedPayload = () => {
+    const isDefaultPenmar = normalizeIdentity(needLocation) === normalizeIdentity(defaultNeedLocation.label);
+    const latitude = needLatitude ?? (isDefaultPenmar ? defaultNeedLocation.latitude : null);
+    const longitude = needLongitude ?? (isDefaultPenmar ? defaultNeedLocation.longitude : null);
+
     return {
       date: needDate,
       time: needTime,
       location: needLocation,
-      latitude: needLatitude,
-      longitude: needLongitude,
+      latitude,
+      longitude,
       visibility: shareWithLeagueOnly ? "league" as const : "open" as const,
       timezone: "America/Los_Angeles",
     };
@@ -777,9 +786,15 @@ const LeagueDetailPage = () => {
                   placeholder="Search court or address"
                   value={needLocation}
                   onChange={(event) => {
-                    setNeedLocation(event.target.value);
-                    setNeedLatitude(null);
-                    setNeedLongitude(null);
+                    const nextLocation = event.target.value;
+                    setNeedLocation(nextLocation);
+                    if (normalizeIdentity(nextLocation) === normalizeIdentity(defaultNeedLocation.label)) {
+                      setNeedLatitude(defaultNeedLocation.latitude);
+                      setNeedLongitude(defaultNeedLocation.longitude);
+                    } else {
+                      setNeedLatitude(null);
+                      setNeedLongitude(null);
+                    }
                   }}
                   onPlaceSelected={handleNeedPlaceSelected}
                   options={{
