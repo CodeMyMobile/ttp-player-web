@@ -13,6 +13,10 @@ export interface PlayedWithPlayer {
 export interface PlayedWithResponse {
   playedWith: PlayedWithPlayer[];
   total: number;
+  summary: {
+    totalPlayers: number;
+    averageNtrp: number | null;
+  } | null;
   lastUpdated: string | null;
 }
 
@@ -52,6 +56,7 @@ const normalizePlayer = (record: unknown): PlayedWithPlayer | null => {
 
 export const normalizePlayedWithResponse = (payload: unknown): PlayedWithResponse => {
   const body = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const summary = body.summary && typeof body.summary === "object" ? (body.summary as Record<string, unknown>) : {};
   const list = Array.isArray(body.playedWith)
     ? body.playedWith
     : Array.isArray(body.played_with)
@@ -60,10 +65,15 @@ export const normalizePlayedWithResponse = (payload: unknown): PlayedWithRespons
         ? body.data
         : [];
   const playedWith = list.map(normalizePlayer).filter((player): player is PlayedWithPlayer => Boolean(player));
+  const total = toNumber(body.total) ?? playedWith.length;
 
   return {
     playedWith,
-    total: toNumber(body.total) ?? playedWith.length,
+    total,
+    summary: {
+      totalPlayers: toNumber(summary.totalPlayers ?? summary.total_players) ?? total,
+      averageNtrp: toNumber(summary.averageNtrp ?? summary.average_ntrp),
+    },
     lastUpdated: firstString(body.lastUpdated, body.last_updated) || null,
   };
 };

@@ -148,6 +148,7 @@ const PlayerProfilePage = () => {
   const [matchesError, setMatchesError] = useState(false);
   const [playedWith, setPlayedWith] = useState<PlayedWithPlayer[]>([]);
   const [playedWithTotal, setPlayedWithTotal] = useState(0);
+  const [playedWithAverageNtrp, setPlayedWithAverageNtrp] = useState<number | null>(null);
   const [playedWithLoading, setPlayedWithLoading] = useState(true);
   const [playedWithError, setPlayedWithError] = useState(false);
   // The viewer's OWN played-with list, used to surface the mutual (shared) subset.
@@ -215,6 +216,7 @@ const PlayerProfilePage = () => {
   useEffect(() => {
     if (!id) {
       setPlayedWith([]);
+      setPlayedWithAverageNtrp(null);
       setPlayedWithLoading(false);
       return;
     }
@@ -224,15 +226,17 @@ const PlayerProfilePage = () => {
     setPlayedWithError(false);
     setNetworkFilter("mutual"); // reset to the default (Mutuals) on a new profile
 
-    getPlayedWith(id, { signal: controller.signal })
+    getPlayedWith(id, { signal: controller.signal, token: authToken })
       .then((response) => {
         setPlayedWith(response.playedWith);
         setPlayedWithTotal(response.total || response.playedWith.length);
+        setPlayedWithAverageNtrp(response.summary?.averageNtrp ?? null);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         console.error("Failed to load played-with network", error);
         setPlayedWith([]);
+        setPlayedWithAverageNtrp(null);
         setPlayedWithError(true);
       })
       .finally(() => {
@@ -242,7 +246,7 @@ const PlayerProfilePage = () => {
       });
 
     return () => controller.abort();
-  }, [id]);
+  }, [authToken, id]);
 
   // Fetch the viewer's OWN played-with network so we can surface the mutual
   // (shared) subset. Only when signed in and viewing someone else's profile.
@@ -289,9 +293,9 @@ const PlayerProfilePage = () => {
     const values = playedWith
       .map((entry) => entry.ntrp)
       .filter((n): n is number => typeof n === "number" && Number.isFinite(n));
-    if (!values.length) return null;
+    if (!values.length) return playedWithAverageNtrp == null ? null : playedWithAverageNtrp.toFixed(1);
     return (values.reduce((sum, n) => sum + n, 0) / values.length).toFixed(1);
-  }, [playedWith]);
+  }, [playedWith, playedWithAverageNtrp]);
 
   const handleJoinMatch = useCallback(
     async (matchId: string) => {

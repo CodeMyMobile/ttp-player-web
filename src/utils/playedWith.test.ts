@@ -22,10 +22,12 @@ test("normalizes played-with response and keeps numeric ids", () => {
       { player_id: 77, full_name: "Manveer K.", profile_picture: "", usta_rating: null, totalMatches: 1 },
     ],
     total: "2",
+    summary: { totalPlayers: "2", averageNtrp: "3.8" },
     lastUpdated: "2026-06-22T14:30:00Z",
   });
 
   assert.equal(response.total, 2);
+  assert.deepEqual(response.summary, { totalPlayers: 2, averageNtrp: 3.8 });
   assert.equal(response.playedWith[0].userId, 42);
   assert.equal(response.playedWith[0].playerId, 42);
   assert.equal(response.playedWith[0].ntrp, 3.5);
