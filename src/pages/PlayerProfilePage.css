@@ -236,6 +236,74 @@
   color: #ffffff;
 }
 
+/* Logged-out summary — network proof without exposing individual identities. */
+.ppv-network-summary {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #eaecf0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475467;
+}
+
+.ppv-network-summary strong {
+  color: #101828;
+  font-weight: 700;
+}
+
+/* Logged-out social-proof teaser — invites sign-in to reveal mutuals. */
+.ppv-network-teaser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  border: 1px solid #ddd6fe;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.15s ease;
+}
+
+.ppv-network-teaser:hover {
+  border-color: #c4b5fd;
+}
+
+.ppv-network-teaser__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ppv-network-teaser__copy strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.ppv-network-teaser__copy > span {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6d28d9;
+}
+
+.ppv-network-teaser__btn {
+  flex-shrink: 0;
+  background: #8b5cf6;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
 .ppv-network-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
