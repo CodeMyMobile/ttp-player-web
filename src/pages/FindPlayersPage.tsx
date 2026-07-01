@@ -41,6 +41,7 @@ import {
   toCanonicalAvailability,
   type StoredMatchProfile,
 } from "../utils/matchProfile";
+import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
 
 import "../components/coaches/coaches.css";
 import "../components/players/players.css";
@@ -85,32 +86,6 @@ const formatCoordinatesLabel =(coords: Coordinates | null) => {
 };
 
 const sanitizeLocationLabel = (label: string) => label.replace(/\s+/g, " ").trim().toLowerCase();
-
-const getSmsRecipient = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.includes("@")) {
-    return null;
-  }
-
-  const hasLeadingPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
-  if (digits.length < 7 || digits.length > 15) {
-    return null;
-  }
-
-  return hasLeadingPlus ? `+${digits}` : digits;
-};
-
-const buildSmsUrl = (recipient: string, message: string) => {
-  const encodedMessage = encodeURIComponent(message);
-  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-  const separator = isIos ? "&" : "?";
-  return `sms:${recipient}${separator}body=${encodedMessage}`;
-};
 
 const buildLocationSearch = (location: SelectedLocation | null): string => {
   if (!location) {

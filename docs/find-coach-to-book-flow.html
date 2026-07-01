@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Tennis Plan · Find a coach → Book</title>
+<style>
+  :root{
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","SF Pro Rounded","Segoe UI",system-ui,sans-serif;
+    --purple:#7C3AED;
+    --purple-dark:#6D28D9;
+    --purple-tint:#EDE9FE;
+    --purple-text:#6D28D9;
+    --green:#84CC16;
+    --green-deep:#65A30D;
+    --green-tint:#ECFCCB;
+    --green-text:#4D7C0F;
+    --emerald:#059669;
+    --emerald-tint:#D1FAE5;
+    --emerald-text:#047857;
+    --blue-tint:#DBEAFE;
+    --blue-text:#2563EB;
+    --amber:#D97706;
+    --amber-tint:#FEF3C7;
+    --amber-text:#B45309;
+    --page:#F5F6FA;
+    --card:#FFFFFF;
+    --ink:#16161D;
+    --ink-2:#5B5F6B;
+    --ink-3:#9CA0AC;
+    --border:#E8E9EF;
+    --border-2:#DCDEE6;
+    --radius:16px;
+    --radius-sm:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font);
+    background:#C9CCD6;color:var(--ink);
+    display:flex;justify-content:center;min-height:100vh;padding:20px 0;
+  }
+  .phone{
+    width:390px;height:844px;background:var(--page);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 30px 80px rgba(0,0,0,.3);display:flex;flex-direction:column;
+  }
+  .statusbar{
+    height:54px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 28px;font-size:15px;font-weight:600;flex-shrink:0;z-index:8;background:var(--card);
+  }
+  .statusbar .right{display:flex;gap:7px;align-items:center;}
+  .battery{border:1.5px solid var(--ink);border-radius:4px;width:25px;height:13px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;position:relative;}
+  .battery::after{content:'';position:absolute;right:-3px;width:2px;height:5px;background:var(--ink);border-radius:0 2px 2px 0;}
+  .battery .fill{position:absolute;left:1px;top:1px;bottom:1px;width:60%;background:#FBBF24;border-radius:2px;}
+  .battery span{position:relative;z-index:1;}
+
+  /* ===== screen system ===== */
+  .stage{flex:1;position:relative;overflow:hidden;}
+  .screen{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    background:var(--page);transition:transform .34s cubic-bezier(.4,0,.2,1);
+  }
+  #screenFind{transform:translateX(0);}
+  #screenBook{transform:translateX(100%);}
+  .stage.book #screenFind{transform:translateX(-26%);}
+  .stage.book #screenBook{transform:translateX(0);}
+
+  /* app bar */
+  .appbar{background:var(--card);display:flex;align-items:center;gap:11px;padding:6px 16px 12px;flex-shrink:0;border-bottom:1px solid var(--border);}
+  .backbtn{background:none;border:none;font-size:26px;color:var(--ink);cursor:pointer;width:30px;height:34px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;}
+  .logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#A3E635,#65A30D);display:flex;align-items:center;justify-content:center;font-size:23px;flex-shrink:0;box-shadow:0 2px 8px rgba(132,204,22,.35);}
+  .brand{font-size:19px;font-weight:700;letter-spacing:-.4px;}
+  .brand .p{color:var(--purple);}
+  .locchip{flex:1;display:flex;align-items:center;gap:6px;background:#F2F3F7;border:1px solid var(--border);border-radius:13px;padding:9px 12px;font-size:14px;font-weight:600;color:var(--ink-2);min-width:0;}
+  .locchip svg{flex-shrink:0;}
+  .locchip .txt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .avatar{width:44px;height:44px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,#5B6CFF,#3B2A8B);border:2px solid #fff;box-shadow:0 0 0 1.5px var(--purple);}
+
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:96px;scrollbar-width:none;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  /* ===== FIND A COACH ===== */
+  .find-head{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 18px 2px;}
+  .find-title{font-size:29px;font-weight:700;letter-spacing:-.4px;}
+  .find-sub{font-size:15px;color:var(--ink-2);margin-top:3px;font-weight:500;}
+
+  /* matched-from-answers strip */
+  .matched-eyebrow{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 0;}
+  .matched-eyebrow .lhs{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:.7px;color:var(--emerald-text);text-transform:uppercase;}
+  .matched-eyebrow .lhs svg{flex-shrink:0;}
+  .edit-link{display:flex;align-items:center;gap:5px;background:var(--purple-tint);color:var(--purple-text);border:none;font-family:inherit;font-size:13.5px;font-weight:700;padding:7px 13px;border-radius:999px;cursor:pointer;}
+  .prefchips{display:flex;align-items:center;gap:7px;padding:10px 18px 4px;overflow-x:auto;scrollbar-width:none;}
+  .prefchips::-webkit-scrollbar{display:none;}
+  .pchip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:transparent;color:var(--ink-2);font-size:13px;font-weight:600;padding:5px 10px;border:1px solid var(--border-2);border-radius:8px;}
+  .pchip svg{flex-shrink:0;color:var(--ink-3);opacity:.9;}
+
+  /* no-commission banner */
+  .commission{margin:16px 18px 4px;background:linear-gradient(100deg,#ECFDF3,#F0FDF4);border:1.5px solid #BBF7D0;border-radius:18px;padding:15px 16px;display:flex;align-items:center;gap:14px;}
+  .commission .ico{width:46px;height:46px;border-radius:13px;background:var(--emerald);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+  .commission .ch{font-size:16px;font-weight:700;color:#065F46;letter-spacing:-.2px;}
+  .commission .cb{font-size:13.5px;color:#047857;margin-top:3px;line-height:1.45;font-weight:500;}
+  .commission .cb b{font-weight:700;}
+
+  /* coach card */
+  .coach-card{margin:16px 18px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:15px;}
+  .cc-head{display:flex;gap:13px;align-items:flex-start;}
+  .cc-pic{width:64px;height:64px;border-radius:14px;flex-shrink:0;background:linear-gradient(135deg,#3a3a3a,#1a1a1a);background-size:cover;background-position:center;}
+  .cc-name{font-size:21px;font-weight:700;letter-spacing:-.4px;}
+  .cc-dist{font-size:14px;color:var(--ink-2);margin-top:3px;font-weight:500;}
+  .cc-match{text-align:center;flex-shrink:0;background:var(--emerald-tint);border-radius:14px;padding:8px 13px;}
+  .cc-match .pct{font-size:24px;font-weight:700;color:var(--emerald-text);letter-spacing:-.5px;line-height:1;}
+  .cc-match .lbl{font-size:11px;font-weight:700;color:var(--emerald-text);letter-spacing:.6px;margin-top:3px;}
+
+  .cred{display:flex;flex-wrap:wrap;align-items:center;gap:9px;background:#F4F1FE;border-radius:12px;padding:12px 14px;}
+  .cert-badge{font-size:12px;font-weight:700;color:#fff;background:var(--purple);padding:6px 11px;border-radius:8px;letter-spacing:.5px;}
+  .cred-sep{color:#C9BEF0;}
+  .cred-item{font-size:14px;color:var(--purple-text);font-weight:700;}
+
+  .meta-strip{display:flex;flex-direction:column;gap:10px;padding:2px 2px;}
+  .meta-row{display:flex;align-items:center;gap:9px;font-size:14.5px;color:var(--ink-2);font-weight:500;}
+  .meta-row svg{flex-shrink:0;color:var(--purple);}
+
+  .why{background:var(--emerald-tint);border-radius:13px;padding:14px 15px;}
+  .why-h{font-size:12px;font-weight:700;color:var(--emerald-text);letter-spacing:.6px;text-transform:uppercase;margin-bottom:11px;}
+  .why-item{display:flex;align-items:center;gap:9px;font-size:14.5px;color:var(--emerald-text);margin-bottom:9px;font-weight:500;}
+  .why-item:last-child{margin-bottom:0;}
+  .why-item b{font-weight:700;}
+  .why-item svg{flex-shrink:0;}
+
+  .budget{padding:2px 2px;}
+  .budget-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
+  .budget-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--emerald-text);background:var(--emerald-tint);padding:4px 9px;border-radius:7px;letter-spacing:.4px;}
+  .fee-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#065F46;background:#fff;border:1px solid #BBF7D0;padding:4px 9px;border-radius:7px;letter-spacing:.3px;}
+  .budget-main{font-size:16px;font-weight:700;}
+  .budget-sub{font-size:13px;color:var(--ink-2);margin-top:5px;}
+
+  .cc-bio{font-size:14.5px;color:var(--ink-2);line-height:1.55;margin:0;}
+
+  .cc-actions{display:flex;gap:11px;}
+  .btn{flex:1;padding:15px;border-radius:14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;border:none;transition:.15s;}
+  .btn-primary{background:var(--purple);color:#fff;}
+  .btn-primary:active{transform:scale(.98);background:var(--purple-dark);}
+  .btn-ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--border-2);}
+  .btn-ghost:active{transform:scale(.98);background:#F7F8FB;}
+
+  /* peek of next card */
+  .peek{margin:0 18px 14px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;display:flex;gap:13px;align-items:center;opacity:.85;}
+  .peek-pic{width:56px;height:56px;border-radius:13px;background:linear-gradient(135deg,#6366F1,#4338CA);flex-shrink:0;}
+  .peek-name{font-size:18px;font-weight:700;letter-spacing:-.3px;}
+  .peek-meta{font-size:13.5px;color:var(--ink-2);margin-top:3px;font-weight:500;}
+  .peek-match{margin-left:auto;text-align:center;flex-shrink:0;}
+  .peek-match .pct{font-size:19px;font-weight:700;color:var(--emerald-text);}
+  .peek-match .lbl{font-size:10px;font-weight:700;color:var(--emerald-text);letter-spacing:.5px;}
+
+  /* ===== BOOK A LESSON ===== */
+  .section-eyebrow{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;letter-spacing:1.1px;color:var(--ink-3);text-transform:uppercase;margin:20px 20px 13px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .loc-card{margin:0 18px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:17px;display:flex;align-items:center;gap:15px;}
+  .loc-icon{width:52px;height:52px;border-radius:14px;background:var(--purple-tint);display:flex;align-items:center;justify-content:center;color:var(--purple);flex-shrink:0;}
+  .loc-name{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:6px;}
+  .pill-primary{display:inline-block;background:var(--purple-tint);color:var(--purple-text);font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;}
+
+  .tabs{margin:0 18px;background:#EFEFF4;border-radius:15px;padding:5px;display:flex;gap:4px;}
+  .tab{flex:1;text-align:center;padding:12px 0;border-radius:11px;border:none;background:none;font-family:inherit;font-size:16px;font-weight:600;color:var(--ink-2);cursor:pointer;transition:.18s;}
+  .tab.active{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+
+  .datestrip{display:flex;gap:11px;overflow-x:auto;padding:17px 18px 4px;scrollbar-width:none;}
+  .datestrip::-webkit-scrollbar{display:none;}
+  .datechip{flex-shrink:0;width:82px;border:1.5px solid var(--border);background:var(--card);border-radius:17px;padding:15px 0;text-align:center;cursor:pointer;transition:.15s;}
+  .datechip .day{font-size:18px;font-weight:700;margin-bottom:2px;}
+  .datechip .date{font-size:13.5px;color:var(--ink-3);font-weight:500;margin-bottom:8px;}
+  .datechip .open{font-size:13.5px;font-weight:700;color:var(--purple);}
+  .datechip .open.none{color:var(--ink-3);}
+  .datechip.active{background:var(--purple);border-color:var(--purple);}
+  .datechip.active .day,.datechip.active .date,.datechip.active .open{color:#fff;}
+  .datechip.disabled{opacity:.5;}
+
+  .keeps{display:flex;align-items:center;gap:10px;margin:16px 18px 2px;background:#F0FBF4;border:1px solid #D6F4E0;border-radius:13px;padding:12px 15px;font-size:14px;color:#047857;font-weight:500;line-height:1.4;}
+  .keeps svg{flex-shrink:0;color:var(--emerald);}
+  .keeps b{font-weight:700;color:#065F46;}
+
+  .tod-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:18px 20px 11px;}
+  .tod{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.9px;color:var(--ink);text-transform:uppercase;}
+  .tod span{color:var(--ink-3);font-weight:700;}
+  .tod .tod-ico{display:flex;}
+  .tod-ctx{font-size:13px;color:var(--ink-2);font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .slots{padding:0 18px;display:flex;flex-direction:column;gap:11px;}
+  .slot{background:var(--card);border:1px solid var(--border);border-left:5px solid var(--per-accent,var(--purple));border-radius:var(--radius);padding:14px 15px;cursor:pointer;transition:.15s;display:flex;align-items:center;}
+  .slot:hover{border-color:var(--per-accent,var(--purple));}
+  .slot:active{transform:scale(.99);}
+  .slot.requested{opacity:.62;border-left-color:var(--ink-3);}
+  .slot-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .time-pill{display:inline-flex;align-items:center;font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--per-text,var(--purple-text));background:var(--per-tint,var(--purple-tint));padding:9px 15px;border-radius:12px;white-space:nowrap;}
+  .slot.requested .time-pill{color:var(--ink-2);background:#EFEFF4;}
+  .slot-sub{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .badge{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;letter-spacing:.4px;}
+  .b-private{background:var(--purple-tint);color:var(--purple-text);}
+  .b-group{background:var(--blue-tint);color:var(--blue-text);}
+  .b-requested{background:var(--amber-tint);color:var(--amber-text);}
+  .slot-loc{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-2);font-weight:500;}
+  .slot-loc svg{flex-shrink:0;}
+  .slot-class{font-size:14px;color:var(--blue-text);font-weight:600;line-height:1.35;}
+  .slot-spots{font-size:12.5px;color:var(--amber-text);font-weight:600;}
+  .slot-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;margin-left:10px;}
+  .slot-trail{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.2px;}
+  .slot-trail .dur{display:block;font-size:12px;color:var(--ink-3);font-weight:500;text-align:right;margin-top:2px;}
+  .chev{color:var(--ink-3);font-size:22px;line-height:1;}
+
+  /* bottom nav (shared, fixed in phone) */
+  .bottomnav{position:absolute;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;padding:9px 0 22px;z-index:6;}
+  .navitem{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--ink-3);cursor:pointer;}
+  .navitem.active{color:var(--purple);}
+  .navitem svg{width:25px;height:25px;}
+
+  /* ===== DRAWER ===== */
+  .overlay{position:absolute;inset:0;background:rgba(20,20,30,.45);opacity:0;pointer-events:none;transition:opacity .28s;z-index:20;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .drawer{position:absolute;left:0;right:0;bottom:0;background:var(--page);border-radius:26px 26px 0 0;transform:translateY(100%);transition:transform .32s cubic-bezier(.22,1,.36,1);z-index:21;max-height:93%;display:flex;flex-direction:column;}
+  .drawer.show{transform:translateY(0);}
+  .grabber{width:38px;height:5px;background:var(--border-2);border-radius:3px;margin:12px auto 4px;flex-shrink:0;}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 15px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .drawer-head h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.3px;}
+  .closebtn{background:#EFEFF4;border:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink-2);cursor:pointer;}
+  .drawer-body{flex:1;overflow-y:auto;padding:18px 20px;scrollbar-width:none;}
+  .drawer-body::-webkit-scrollbar{display:none;}
+  .summary{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+  .summary-coach{display:flex;align-items:center;gap:13px;padding:15px 17px;border-bottom:1px solid var(--border);}
+  .coach-pic{width:48px;height:48px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,#3a3a3a,#1a1a1a);}
+  .coach-name{font-size:16.5px;font-weight:700;}
+  .coach-cert{font-size:13px;color:var(--ink-2);font-weight:500;margin-top:2px;}
+  .summary-rows{padding:3px 17px;}
+  .srow{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+  .srow:last-child{border-bottom:none;}
+  .srow .k{font-size:15px;color:var(--ink-2);}
+  .srow .v{font-size:15px;font-weight:700;text-align:right;max-width:62%;}
+  .srow .v small{display:block;font-weight:500;color:var(--ink-2);font-size:13px;margin-top:3px;}
+  .pay-label{font-size:13px;font-weight:700;letter-spacing:.7px;color:var(--ink-3);text-transform:uppercase;margin-bottom:12px;}
+  .pay-opt{width:100%;text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:15px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;margin-bottom:11px;transition:.15s;font-family:inherit;}
+  .pay-opt.selected{border:2px solid var(--purple);background:#FAF8FF;}
+  .pay-ico{width:42px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .visa{background:#1A1A4E;color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;width:46px;}
+  .pay-txt{flex:1;}
+  .pay-title{font-size:15.5px;font-weight:700;}
+  .pay-sub{font-size:13px;color:var(--ink-2);margin-top:2px;}
+  .pay-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--border-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .pay-opt.selected .pay-check{background:var(--purple);border-color:var(--purple);}
+  .pay-opt:not(.selected) .pay-check svg{display:none;}
+  .addcard{background:none;border:none;color:var(--purple);font-size:15px;font-weight:700;cursor:pointer;padding:8px 0;font-family:inherit;}
+  .breakdown{margin-top:18px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 16px;}
+  .bline{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);font-size:14.5px;}
+  .bline:last-child{border-bottom:none;}
+  .bline .bk{color:var(--ink-2);display:flex;align-items:center;gap:6px;}
+  .bline .bv{font-weight:600;}
+  .bline.btotal .bk{color:var(--ink);font-weight:700;}
+  .bline.btotal .bv{font-weight:700;font-size:16px;}
+  .bnote{font-size:12.5px;color:var(--ink-3);padding:2px 0 10px;line-height:1.45;}
+  .bnote b{color:var(--emerald-text);font-weight:700;}
+  .drawer-foot{padding:15px 20px 24px;border-top:1px solid var(--border);background:var(--card);flex-shrink:0;}
+  .total-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;}
+  .total-row .tk{font-size:14.5px;color:var(--ink-2);}
+  .total-row .tk small{font-size:12.5px;}
+  .total-row .tv{font-size:24px;font-weight:700;letter-spacing:-.5px;}
+  .cta{width:100%;padding:16px;background:var(--purple);color:#fff;border:none;border-radius:15px;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;transition:.15s;}
+  .cta:active{transform:scale(.98);background:var(--purple-dark);}
+  .approve-note{text-align:center;font-size:13px;color:var(--ink-2);margin-top:11px;display:flex;align-items:center;justify-content:center;gap:6px;}
+
+  .success{display:none;flex-direction:column;min-height:0;flex:1;}
+  .success.show{display:flex;}
+  .success-scroll{flex:1;overflow-y:auto;padding:8px 24px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;scrollbar-width:none;}
+  .success-scroll::-webkit-scrollbar{display:none;}
+  .success-ico{width:78px;height:78px;border-radius:50%;background:var(--amber-tint);display:flex;align-items:center;justify-content:center;margin:8px 0 16px;animation:pop .4s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
+  .success-ico svg{width:40px;height:40px;color:var(--amber);}
+  .pending-pill{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.6px;color:var(--amber-text);background:var(--amber-tint);padding:6px 13px;border-radius:999px;margin-bottom:14px;}
+  .success h2{font-size:22px;font-weight:700;margin:0 0 9px;letter-spacing:-.4px;}
+  .success p{font-size:15px;color:var(--ink-2);line-height:1.55;margin:0 0 20px;max-width:300px;}
+  .success p b{color:var(--ink);font-weight:700;}
+
+  .res-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:4px 16px 8px;text-align:left;margin-bottom:16px;}
+  .res-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);font-size:14.5px;}
+  .res-row .rk{color:var(--ink-2);}
+  .res-row .rv{font-weight:700;text-align:right;}
+  .res-link{display:flex;align-items:center;justify-content:center;gap:6px;padding:13px 0 8px;color:var(--purple);font-size:15px;font-weight:700;text-decoration:none;}
+
+  .reassure{width:100%;font-size:13.5px;color:var(--ink-2);line-height:1.55;text-align:center;margin-bottom:16px;padding:0 8px;}
+
+  .nextcard{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:17px;text-align:left;margin-bottom:8px;}
+  .nextcard .nh{font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--ink-3);text-transform:uppercase;margin-bottom:14px;}
+  .nstep{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;}
+  .nstep:last-child{margin-bottom:0;}
+  .nnum{width:25px;height:25px;border-radius:50%;background:var(--purple-tint);color:var(--purple-text);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .nstep .nt{font-size:14px;color:var(--ink-2);line-height:1.5;padding-top:2px;}
+  .nstep .nt b{color:var(--ink);font-weight:600;}
+
+  .success-foot{padding:14px 24px 24px;border-top:1px solid var(--border);background:var(--card);flex-shrink:0;display:flex;flex-direction:column;gap:10px;}
+  .done-btn{width:100%;padding:16px;background:var(--purple);color:#fff;border:none;border-radius:15px;font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;}
+  .done-btn:active{transform:scale(.98);}
+  .ghost-btn{width:100%;padding:14px;background:transparent;color:var(--ink-2);border:none;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;}
+
+  .toast{position:absolute;left:18px;right:18px;bottom:96px;background:var(--ink);color:#fff;padding:14px 17px;border-radius:14px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:11px;transform:translateY(180%);transition:transform .35s cubic-bezier(.22,1,.36,1);z-index:30;}
+  .toast.show{transform:translateY(0);}
+  .toast svg{color:var(--green);flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar">
+    <span>9:18</span>
+    <div class="right">
+      <svg width="20" height="14" viewBox="0 0 20 14" fill="none"><rect x="0" y="8" width="3" height="6" rx="1" fill="#16161D"/><rect x="5" y="5" width="3" height="9" rx="1" fill="#16161D"/><rect x="10" y="2" width="3" height="12" rx="1" fill="#16161D"/><rect x="15" y="0" width="3" height="14" rx="1" fill="#16161D"/></svg>
+      <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M9 11.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM4 7.5c1.4-1.3 3.2-2 5-2s3.6.7 5 2M1 4.5C3.2 2.5 6 1.5 9 1.5s5.8 1 8 3" stroke="#16161D" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div class="battery"><div class="fill"></div><span>15</span></div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- ===================== SCREEN 1: FIND A COACH ===================== -->
+    <div class="screen" id="screenFind">
+      <div class="appbar">
+        <div class="logo">🎾</div>
+        <div class="locchip">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.3"/></svg>
+          <span class="txt">Current location</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="avatar"></div>
+      </div>
+
+      <div class="scroll">
+        <div class="find-head">
+          <div>
+            <div class="find-title">Your matches</div>
+            <div class="find-sub">12 coaches, ranked just for you</div>
+          </div>
+        </div>
+
+        <div class="matched-eyebrow">
+          <div class="lhs">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Matched from your answers
+          </div>
+          <button class="edit-link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Edit
+          </button>
+        </div>
+
+        <div class="prefchips">
+          <span class="pchip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1-6.3-4.6L5.7 21 8 14 2 9.4h7.6L12 2z"/></svg>
+            Level 3.5–4.5
+          </span>
+          <span class="pchip">Goals: doubles</span>
+          <span class="pchip">Groundstrokes</span>
+          <span class="pchip">Budget ≤ $60</span>
+          <span class="pchip">Group or private</span>
+        </div>
+
+        <!-- COACH CARD -->
+        <div class="coach-card">
+          <div class="cc-head">
+            <div class="cc-pic"></div>
+            <div style="flex:1;">
+              <div class="cc-name">Chris Louis</div>
+              <div class="cc-dist">3.2 mi away</div>
+            </div>
+            <div class="cc-match">
+              <div class="pct">90%</div>
+              <div class="lbl">MATCH</div>
+            </div>
+          </div>
+
+          <div class="cred">
+            <span class="cert-badge">USPTA ELITE</span>
+            <span class="cred-sep">·</span>
+            <span class="cred-item">22 yrs coaching</span>
+            <span class="cred-sep">·</span>
+            <span class="cred-item">500+ players</span>
+          </div>
+
+          <div class="meta-strip">
+            <div class="meta-row">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Usually replies within 24 hours
+            </div>
+            <div class="meta-row">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke-linecap="round"/></svg>
+              Teaches intermediate adults (3.5–4.5)
+            </div>
+          </div>
+
+          <div class="why">
+            <div class="why-h">Why 90% match</div>
+            <div class="why-item">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Specializes in <b>doubles strategy</b>
+            </div>
+            <div class="why-item">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Teaches <b>groundstrokes</b>
+            </div>
+            <div class="why-item">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Offers <b>group lessons</b>
+            </div>
+          </div>
+
+          <div class="budget">
+            <div class="budget-head">
+              <span class="budget-tag">IN YOUR BUDGET</span>
+              <span class="fee-chip">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                NO LESSON COMMISSION
+              </span>
+            </div>
+            <div class="budget-main">$50 / person group lesson</div>
+            <div class="budget-sub">Private: $135/hr (over budget)</div>
+          </div>
+
+          <p class="cc-bio">Former collegiate player, coaching all ages for 22 years. I focus on strong fundamentals and match-ready doubles.</p>
+
+          <div class="cc-actions">
+            <button class="btn btn-ghost" onclick="alert('Opens full coach profile')">See profile</button>
+            <button class="btn btn-primary" id="goBook">Book a lesson</button>
+          </div>
+        </div>
+
+        <!-- peek of next coach -->
+        <div class="peek">
+          <div class="peek-pic"></div>
+          <div>
+            <div class="peek-name">Austin Werner</div>
+            <div class="peek-meta">USPTA · 4.1 mi · serves &amp; singles</div>
+          </div>
+          <div class="peek-match">
+            <div class="pct">86%</div>
+            <div class="lbl">MATCH</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SCREEN 2: BOOK A LESSON ===================== -->
+    <div class="screen" id="screenBook">
+      <div class="appbar">
+        <button class="backbtn" id="backToFind" aria-label="Back">&#8249;</button>
+        <div class="logo">🎾</div>
+        <div class="brand">The Tennis <span class="p">Plan</span></div>
+        <div class="avatar"></div>
+      </div>
+
+      <div class="scroll">
+        <div class="section-eyebrow"><span class="dot"></span> Book a lesson with Chris</div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="private">Private</button>
+          <button class="tab" data-tab="group">Group</button>
+          <button class="tab" data-tab="all">All</button>
+        </div>
+
+        <div class="datestrip" id="datestrip"></div>
+
+        <!-- coach-keeps reassurance (slim) -->
+        <div class="keeps">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z" stroke-linejoin="round"/></svg>
+          <span><b>No lesson commissions.</b> Coaches keep their full rate — the fees cover booking and card costs.</span>
+        </div>
+
+        <div id="slotList"></div>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+
+  <!-- shared bottom nav -->
+  <div class="bottomnav">
+    <div class="navitem active">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 10.5L12 3l9 7.5M5 9.5V20h5v-6h4v6h5V9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Home
+    </div>
+    <div class="navitem">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M16 6a3 3 0 010 6M18 19c0-2.2-1-3.8-2.5-4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>My Coaches
+    </div>
+    <div class="navitem">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5zM9.5 19a2.5 2.5 0 005 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Alerts
+    </div>
+    <div class="navitem">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Profile
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="toastText"></span>
+  </div>
+
+  <!-- ===================== DRAWER ===================== -->
+  <div class="overlay" id="overlay"></div>
+  <div class="drawer" id="drawer">
+    <div id="bookView" style="display:flex;flex-direction:column;min-height:0;flex:1;">
+      <div class="grabber"></div>
+      <div class="drawer-head">
+        <h2>Confirm and pay</h2>
+        <button class="closebtn" id="closeDrawer" aria-label="Close">&times;</button>
+      </div>
+      <div class="drawer-body">
+        <div class="summary">
+          <div class="summary-coach">
+            <div class="coach-pic"></div>
+            <div>
+              <div class="coach-name">Chris Louis</div>
+              <div class="coach-cert">USPTA ELITE · Doubles specialist</div>
+            </div>
+          </div>
+          <div class="summary-rows" id="summaryRows"></div>
+        </div>
+
+        <div class="pay-label">Payment method</div>
+
+        <button class="pay-opt" data-pay="package">
+          <div class="pay-ico" style="background:#FEE2E2;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="1.8"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 000 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1a2 2 0 000-4V8z" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="pay-txt">
+            <div class="pay-title">Buy a lesson package</div>
+            <div class="pay-sub">Save up to 20% · pay with credits</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA0AC" stroke-width="2"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <button class="pay-opt" data-pay="apple">
+          <div class="pay-ico" style="background:#000;color:#fff;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.4 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.5 2.2 2.6 2.1 1 0 1.4-.7 2.7-.7s1.6.7 2.7.6c1.1 0 1.8-1 2.5-2 .8-1.2 1.1-2.3 1.1-2.3-.1 0-2.1-.8-2.1-3.3zM14.2 5.4c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 1.9-.5 2.5-1.2z"/></svg>
+          </div>
+          <div class="pay-txt">
+            <div class="pay-title">Apple Pay / wallet</div>
+            <div class="pay-sub">Pay with Apple Pay on this device</div>
+          </div>
+        </button>
+
+        <button class="pay-opt selected" data-pay="card1">
+          <div class="pay-ico visa">VISA</div>
+          <div class="pay-txt">
+            <div class="pay-title">•••• 0988</div>
+            <div class="pay-sub">Expires 11/29</div>
+          </div>
+          <div class="pay-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </button>
+
+        <button class="pay-opt" data-pay="card2">
+          <div class="pay-ico visa">VISA</div>
+          <div class="pay-txt">
+            <div class="pay-title">•••• 0303</div>
+            <div class="pay-sub">Expires 09/27</div>
+          </div>
+          <div class="pay-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        </button>
+
+        <button class="addcard">+ Add new card</button>
+
+        <div class="breakdown" id="breakdown"></div>
+      </div>
+      <div class="drawer-foot">
+        <div class="total-row">
+          <span class="tk">Total <small>· charged when accepted</small></span>
+          <span class="tv" id="totalPrice">$135</span>
+        </div>
+        <button class="cta" id="sendRequest">Send request</button>
+        <div class="approve-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Chris usually responds within 24 hours
+        </div>
+      </div>
+    </div>
+
+    <div class="success" id="successView">
+      <div class="grabber" style="margin-top:0;"></div>
+      <div class="success-scroll">
+        <div class="success-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 8v4l3 2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9"/></svg>
+        </div>
+        <span class="pending-pill">PENDING · awaiting Chris</span>
+        <h2>Request sent to Chris</h2>
+        <p>Your lesson isn't booked just yet — Chris reviews every request personally, usually within 24 hours.</p>
+
+        <div class="res-card" id="resCard">
+          <div class="res-row"><span class="rk">Lesson</span><span class="rv" id="resType">Private lesson</span></div>
+          <div class="res-row"><span class="rk">When</span><span class="rv" id="resWhen">Mon Jun 29 · 6:00 AM</span></div>
+          <div class="res-row"><span class="rk">Where</span><span class="rv" id="resWhere">Cheviot Hills Tennis</span></div>
+          <div class="res-row"><span class="rk">Total</span><span class="rv" id="resTotal">$140.18</span></div>
+          <a class="res-link" href="#" onclick="return false;">
+            View lesson reservation
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+
+        <div class="reassure">Chris reviews each request to check his schedule and make sure it's the right fit.</div>
+
+        <div class="nextcard">
+          <div class="nh">What happens next</div>
+          <div class="nstep"><div class="nnum">1</div><div class="nt"><b>Chris reviews</b> your request — usually within 24 hours.</div></div>
+          <div class="nstep"><div class="nnum">2</div><div class="nt"><b>Once accepted</b>, your card is charged and the lesson is confirmed.</div></div>
+          <div class="nstep"><div class="nnum">3</div><div class="nt"><b>Free to cancel</b> up to 24 hours before the lesson — full refund, no questions.</div></div>
+        </div>
+      </div>
+      <div class="success-foot">
+        <button class="done-btn" id="doneBtn">View my reservation</button>
+        <button class="ghost-btn" id="backBtn">Back to coaches</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id);};
+  var stage = $("stage");
+
+  // ---- screen nav ----
+  $("goBook").onclick = function(){ stage.classList.add("book"); };
+  $("backToFind").onclick = function(){ stage.classList.remove("book"); };
+
+  // ---- data ----
+  var dates = [
+    {day:"Mon", date:"Jun 29", open:7, active:true},
+    {day:"Tue", date:"Jun 30", open:6},
+    {day:"Wed", date:"Jul 1", open:6},
+    {day:"Thu", date:"Jul 2", open:5},
+    {day:"Fri", date:"Jul 3", open:5},
+    {day:"Sat", date:"Jul 4", open:0}
+  ];
+  var slots = {
+    private:[
+      {tod:"MORNING", items:[
+        {time:"6:00 AM", type:"private", loc:"Cheviot Hills Tennis", dur:"1 hr", price:135},
+        {time:"7:00 AM", type:"private", loc:"Cheviot Hills Tennis", dur:"1 hr", price:135},
+        {time:"8:00 AM", type:"private", loc:"Cheviot Hills Tennis", dur:"1 hr", price:135},
+        {time:"9:00 AM", type:"private", loc:"Cheviot Hills Tennis", dur:"1 hr", price:135},
+        {time:"11:00 AM", type:"private", loc:"Cheviot Hills Tennis", dur:"1 hr", price:135}
+      ]},
+      {tod:"AFTERNOON", items:[
+        {time:"12:00 PM", type:"private", loc:"Mar Vista Recreation", dur:"1 hr", price:135},
+        {time:"1:00 PM", type:"private", loc:"Mar Vista Recreation", dur:"1 hr", price:135},
+        {time:"3:00 PM", type:"private", loc:"Glen Alla Park", dur:"1 hr", price:135}
+      ]}
+    ],
+    group:[
+      {tod:"MORNING", items:[
+        {time:"9:00 AM", type:"group", loc:"Colorado Center Park", dur:"2 hrs", price:50,
+         cls:"Liveball Intensive · curated 3.5–4.0", level:"All levels", spots:"6 spots left"}
+      ]},
+      {tod:"EVENING", items:[
+        {time:"6:00 PM", type:"group", loc:"Penmar Rec Center", dur:"1.5 hrs", price:40,
+         cls:"Intermediate Doubles Clinic", level:"3.5–4.5", spots:"3 spots left"}
+      ]}
+    ]
+  };
+  slots.all = [].concat(JSON.parse(JSON.stringify(slots.private)), JSON.parse(JSON.stringify(slots.group)));
+
+  var requested = {};
+  var currentTab = "private";
+  var activeDate = dates[0];
+  var currentSlot = null;
+
+  function renderDates(){
+    var el = $("datestrip"); el.innerHTML = "";
+    dates.forEach(function(d){
+      var c = document.createElement("div");
+      c.className = "datechip" + (d.active?" active":"") + (d.open===0?" disabled":"");
+      c.innerHTML = '<div class="day">'+d.day+'</div><div class="date">'+d.date+'</div>'+
+        '<div class="open'+(d.open===0?' none':'')+'">'+(d.open===0?'—':d.open+' open')+'</div>';
+      c.onclick = function(){
+        if(d.open===0) return;
+        dates.forEach(function(x){x.active=false;}); d.active=true; activeDate=d;
+        renderDates(); renderSlots();
+      };
+      el.appendChild(c);
+    });
+  }
+
+  function pin(){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA0AC" stroke-width="1.8"><path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.3"/></svg>';}
+
+  // per-period visual identity: tint pill, accent border, icon
+  var PERIODS = {
+    MORNING:   {tint:"#FAEEDA", text:"#854F0B", accent:"#EF9F27", ico:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="13" r="4"/><path d="M12 3v2M5 8L4 7M19 8l1-1M3 17h4M17 17h4M12 17v0" stroke-linecap="round"/></svg>'},
+    AFTERNOON: {tint:"#E6F1FB", text:"#185FA5", accent:"#378ADD", ico:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M5 19l2-2" stroke-linecap="round"/></svg>'},
+    EVENING:   {tint:"#EEEDFE", text:"#3C3489", accent:"#7F77DD", ico:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 14a6 6 0 11-7.9-7.9A6.5 6.5 0 1018 14z" stroke-linejoin="round"/></svg>'}
+  };
+  function periodOf(tod){ return PERIODS[tod] || PERIODS.AFTERNOON; }
+
+  function renderSlots(){
+    var data = slots[currentTab];
+    var list = $("slotList"); list.innerHTML = "";
+    var showBadge = (currentTab === "all");
+
+    data.forEach(function(block){
+      var items = block.items;
+      var P = periodOf(block.tod);
+      var uLoc   = items.every(function(s){return s.loc===items[0].loc;});
+      var uDur   = items.every(function(s){return s.dur===items[0].dur;});
+      var uPrice = items.every(function(s){return s.price===items[0].price;});
+
+      var ctx = [];
+      if(uLoc)   ctx.push(items[0].loc);
+      if(uDur)   ctx.push(items[0].dur);
+      if(uPrice) ctx.push("$"+items[0].price);
+      var head = document.createElement("div"); head.className = "tod-head";
+      head.innerHTML =
+        '<span class="tod"><span class="tod-ico" style="color:'+P.accent+'">'+P.ico+'</span>'+
+        block.tod+' <span>· '+items.length+'</span></span>' +
+        (ctx.length ? '<span class="tod-ctx">'+ctx.join(' · ')+'</span>' : '');
+      list.appendChild(head);
+
+      var wrap = document.createElement("div"); wrap.className = "slots";
+      items.forEach(function(s){
+        var key = currentTab+"|"+s.time+"|"+s.loc;
+        var isReq = requested[key];
+        var card = document.createElement("div");
+        card.className = "slot" + (isReq?" requested":"");
+        card.style.cssText = "--per-tint:"+P.tint+";--per-text:"+P.text+";--per-accent:"+P.accent+";";
+
+        var badges = "";
+        if(showBadge) badges += '<span class="badge b-'+s.type+'">'+s.type.toUpperCase()+'</span>';
+        if(isReq)     badges += '<span class="badge b-requested">REQUESTED</span>';
+
+        var sub = "";
+        if(!uLoc)   sub += '<div class="slot-loc">'+pin()+s.loc+'</div>';
+        if(s.cls)   sub += '<div class="slot-class">'+s.cls+' · '+s.level+'</div>';
+        if(s.spots) sub += '<div class="slot-spots">'+s.spots+'</div>';
+        var subWrap = (sub||badges) ? '<div class="slot-sub">'+badges+sub+'</div>' : '';
+
+        var trail = "";
+        if(!uPrice || !uDur){
+          trail = '<span class="slot-trail">' + (!uPrice ? "$"+s.price : "") +
+                  (!uDur ? '<span class="dur">'+s.dur+'</span>' : "") + '</span>';
+        }
+
+        card.innerHTML =
+          '<div class="slot-main">'+
+            '<span class="time-pill">'+s.time+'</span>'+ subWrap +
+          '</div>'+
+          '<div class="slot-right">'+trail+(isReq?'':'<span class="chev">&#8250;</span>')+'</div>';
+
+        if(!isReq) card.onclick = function(){ openDrawer(s, key); };
+        wrap.appendChild(card);
+      });
+      list.appendChild(wrap);
+    });
+  }
+
+  document.querySelectorAll(".tab").forEach(function(t){
+    t.onclick = function(){
+      document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("active");});
+      t.classList.add("active"); currentTab = t.dataset.tab; renderSlots();
+    };
+  });
+
+  var overlay = $("overlay"), drawer = $("drawer"), bookView = $("bookView"), successView = $("successView");
+
+  function row(k,v){return '<div class="srow"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';}
+
+  function openDrawer(slot, key){
+    currentSlot = {slot:slot, key:key};
+    bookView.style.display = "flex"; successView.classList.remove("show");
+    var isGroup = slot.type === "group";
+    var rows = row("Type", isGroup?"Group class":"Private lesson") +
+      row("Date and time", activeDate.day+" "+activeDate.date+" · "+slot.time) +
+      row("Duration", slot.dur) + row("Location", slot.loc);
+    if(isGroup) rows += row("Class", slot.cls + (slot.spots?'<small>'+slot.spots+'</small>':''));
+    $("summaryRows").innerHTML = rows;
+
+    // ---- fee breakdown (rates come from backend config) ----
+    var lesson = slot.price;
+    var bookingFee = 1;                                          // $1 flat booking fee
+    var cardFee = Math.round((lesson + bookingFee) * 0.03 * 100) / 100; // 3% card fee
+    var total = Math.round((lesson + bookingFee + cardFee) * 100) / 100;
+    function money(n){ return "$" + n.toFixed(2); }
+
+    $("breakdown").innerHTML =
+      brow((isGroup?"Group lesson":"Lesson")+" with Chris", money(lesson)) +
+      brow("Booking fee", money(bookingFee)) +
+      brow("Card processing", money(cardFee)) +
+      '<div class="bline btotal"><span class="bk">Total</span><span class="bv">'+money(total)+'</span></div>' +
+      '<div class="bnote"><b>No lesson commission.</b> Coaches keep their full rate — the fees cover booking and card costs.</div>';
+
+    $("totalPrice").textContent = money(total);
+    overlay.classList.add("show"); drawer.classList.add("show"); drawer.scrollTop = 0;
+  }
+  function brow(k,v){ return '<div class="bline"><span class="bk">'+k+'</span><span class="bv">'+v+'</span></div>'; }
+  function closeDrawer(){ overlay.classList.remove("show"); drawer.classList.remove("show"); }
+  $("closeDrawer").onclick = closeDrawer; overlay.onclick = closeDrawer;
+
+  drawer.addEventListener("click", function(e){
+    var opt = e.target.closest(".pay-opt");
+    if(!opt || opt.dataset.pay === "package") return;
+    document.querySelectorAll(".pay-opt").forEach(function(x){x.classList.remove("selected");});
+    opt.classList.add("selected");
+  });
+
+  $("sendRequest").onclick = function(){
+    if(currentSlot){
+      var s = currentSlot.slot;
+      $("resType").textContent = (s.type==="group"?"Group class":"Private lesson");
+      $("resWhen").textContent = activeDate.day+" "+activeDate.date+" · "+s.time;
+      $("resWhere").textContent = s.loc;
+      $("resTotal").textContent = $("totalPrice").textContent;
+    }
+    bookView.style.display = "none"; successView.classList.add("show");
+    var ss = document.querySelector(".success-scroll"); if(ss) ss.scrollTop = 0;
+  };
+  function finishRequest(){
+    if(currentSlot) requested[currentSlot.key] = true;
+    closeDrawer(); renderSlots(); showToast("Request sent to Chris");
+  }
+  $("doneBtn").onclick = finishRequest;   // "View my reservation" — would route to reservation page
+  $("backBtn").onclick = finishRequest;   // "Back to coaches"
+
+  var toast = $("toast");
+  function showToast(m){ $("toastText").textContent=m; toast.classList.add("show"); setTimeout(function(){toast.classList.remove("show");},2600); }
+
+  renderDates(); renderSlots();
+})();
+</script>
+</body>
+</html>

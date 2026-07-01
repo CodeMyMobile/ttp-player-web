@@ -3,16 +3,19 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
+  Pencil,
   Search,
   X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import FilterMenu from "../components/FilterMenu";
+import CoachMatchCard from "../components/coaches/CoachMatchCard";
+import CoachSearchCard from "../components/coaches/CoachSearchCard";
+import { normalizeVenueLabel } from "../utils/venueLabel";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
-import { mockCoaches, type Coach, type CoachHighlight } from "../data/mockCoaches";
+import { type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { getStoredAuthToken } from "../services/authToken";
@@ -241,6 +244,10 @@ const normalizeDisplayArray = (values: string[]) =>
     .map((value) => normalizeDisplayLabel(value))
     .filter(Boolean);
 
+// Certifications are acronyms ("USPTA", "PTR") or phrases ("D3 NCAA champion") — preserve the source
+// case exactly. Never title-case (it mangles acronyms into "Uspta"); just trim and drop empties.
+const cleanCertifications = (values: string[]) => values.map((value) => value.trim()).filter(Boolean);
+
 const formatMoney = (value: unknown) => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? `$${numeric.toFixed(0)}` : null;
@@ -253,9 +260,6 @@ const formatDistance = (value: unknown) => {
 
 // --- Presentational helpers for the redesigned coach card (no effect on matching/sorting) ---
 
-// Reduce a formatted address to just its venue/neighborhood name —
-// everything before the first comma — dropping city, state, ZIP, and country.
-const toVenueLabel = (value: string): string => value.split(",")[0]?.trim() ?? "";
 
 // Show a location only when it's a real place name — never a bare zip code.
 const isDisplayableLocation = (value: unknown): value is string => {
@@ -309,6 +313,14 @@ const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
 
 const pickImageUrl = (record: Record<string, unknown>): string => {
   const candidates = [
+    // camelCase keys the app's own data uses (detail API + already-mapped card model).
+    // Including imageUrl preserves the card's correct search-list photo as a safety net,
+    // so the fallback chain is real-detail-photo → real-search-photo → initials.
+    record.profilePicture,
+    record.avatarUrl,
+    record.profileImage,
+    record.imageUrl,
+    // snake_case keys the raw search API returns.
     record.avatar,
     record.avatar_url,
     record.profile_image,
@@ -326,10 +338,9 @@ const pickImageUrl = (record: Record<string, unknown>): string => {
       return candidate.trim();
     }
   }
-  return (
-    mockCoaches[0]?.imageUrl ??
-    "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=256&q=80"
-  );
+  // No real photo → empty string so the card/profile renders initials, never a stock
+  // stranger's face. Matches the profile page's "" → initials behavior.
+  return "";
 };
 
 const buildInitials = (name: string) =>
@@ -425,7 +436,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     bio: pickFirstString(profile.about, coach.bio) || coach.bio,
     summary: pickFirstString(profile.about, coach.summary) || coach.summary,
     yearsExperience: parseNumberValue(profile.experienceYears ?? profile.experience_years) ?? coach.yearsExperience,
-    certifications: normalizeDisplayArray(toStringArray(profile.certifications)),
+    certifications: cleanCertifications(toStringArray(profile.certifications)),
     specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
     courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
     levels: normalizeDisplayArray(toStringArray(profile.levels)),
@@ -470,7 +481,7 @@ const mapCoachRecordToCard = (record: Record<string, unknown>, fallbackIndex: nu
   const displayName =
     pickFirstString(record.full_name, record.fullName, record.name, record.coach_name, record.coachName) ||
     `Coach ${fallbackIndex + 1}`;
-  const certifications = normalizeDisplayArray(toStringArray(record.certifications ?? record.certification ?? []));
+  const certifications = cleanCertifications(toStringArray(record.certifications ?? record.certification ?? []));
   const locations = locationRecords
     .map((location) => pickFirstString(location.label, location.name, location.title))
     .filter(Boolean);
@@ -1165,7 +1176,6 @@ const FindCoaches = () => {
   const hasSavedCoachMatchPreferences = coachMatchSummaryItems.length > 0;
   const shouldShowCoachMatchSummary =
     !coachMatchSummaryDismissed && !showCoachMatchSurvey && coachMatchSummaryItems.length > 0;
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const coachMatchBudgetRange = useMemo(
     () => parseBudgetRange(coachMatchSummaryItems.find((item) => item.label === "Budget")?.value),
     [coachMatchSummaryItems],
@@ -1195,45 +1205,41 @@ const FindCoaches = () => {
         : shouldShowEmpty
           ? "No coaches found"
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
+  // Post-questionnaire "Your matches" framing: hide search/filters/sort and lead with the ranked count.
+  const isMatchedMode = shouldShowCoachMatchSummary;
+  const matchedSubtitle =
+    status === "loading"
+      ? "Finding your matches..."
+      : shouldShowError
+        ? "Unable to load coaches"
+        : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"}, ranked just for you`;
   const renderCoachMatchPanel = () =>
     shouldShowCoachMatchSummary ? (
-      <section className="fc-summary" aria-label="Matched for you">
-        <div className="fc-summary__top">
-          <span className="fc-summary__ball" aria-hidden="true">🎾</span>
-          <span className="fc-summary__title">Matched for you</span>
-          <button type="button" className="fc-summary__edit" onClick={openCoachMatchSurvey}>
-            Edit
-          </button>
-          <button
-            type="button"
-            className="fc-summary__toggle"
-            aria-expanded={summaryExpanded}
-            aria-label={summaryExpanded ? "Collapse match criteria" : "Expand match criteria"}
-            onClick={() => setSummaryExpanded((value) => !value)}
-          >
-            <ChevronDown size={16} className={`fc-summary__chev${summaryExpanded ? " is-open" : ""}`} />
-          </button>
-        </div>
-        {summaryExpanded ? (
-          <div className="fc-summary__detail">
-            {coachMatchSummaryItems.map((item) => (
-              <div key={item.label} className="fc-summary__row">
-                <span className="fc-summary__row-label">{item.label}</span>
-                <span className="fc-summary__row-value">{item.value}</span>
-              </div>
-            ))}
-            <button type="button" className="fc-summary__clear" onClick={clearCoachMatchSummary}>
-              {coachMatchClearing ? "Clearing..." : "Clear preferences"}
+      <section className="fc-matched" aria-label="Matched for you">
+        <div className="fc-matched__top">
+          <span className="fc-matched__eyebrow">
+            <Check size={15} strokeWidth={2.4} />
+            Matched from your answers
+          </span>
+          <div className="fc-matched__actions">
+            <button type="button" className="fc-matched__edit" onClick={openCoachMatchSurvey}>
+              <Pencil size={13} strokeWidth={2} />
+              Edit
+            </button>
+            <button type="button" className="fc-matched__clear" onClick={clearCoachMatchSummary}>
+              {coachMatchClearing ? "Clearing…" : "Clear"}
             </button>
           </div>
-        ) : (
-          <div className="fc-summary__line">
-            {coachMatchSummaryItems
-              .filter((item) => item.label !== "Who")
-              .map((item) => item.value)
-              .join(" · ")}
-          </div>
-        )}
+        </div>
+        <div className="fc-matched__chips">
+          {coachMatchSummaryItems
+            .filter((item) => item.label !== "Who")
+            .map((item) => (
+              <span key={item.label} className="fc-matched__chip">
+                {item.value}
+              </span>
+            ))}
+        </div>
       </section>
     ) : (
       <section className="fcv2-coach-match-banner" aria-label="Find my coach">
@@ -1258,49 +1264,53 @@ const FindCoaches = () => {
         <section className="fcv2-mobile-search-block">
           <div className="fcv2-mobile-title-row">
             <div>
-              <h1>Find a Coach</h1>
-              <p>{resultsCountLabel}</p>
+              <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
+              <p>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</p>
             </div>
 
-            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="fcv2-mobile-sort">
-              <option value="match">Best Match</option>
-              <option value="distance">Nearest</option>
-              <option value="rating">Top Rated</option>
-              <option value="price_asc">Price ↑</option>
-              <option value="price_desc">Price ↓</option>
-            </select>
+            {!isMatchedMode ? (
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="fcv2-mobile-sort">
+                <option value="match">Best Match</option>
+                <option value="distance">Nearest</option>
+                <option value="rating">Top Rated</option>
+                <option value="price_asc">Price ↑</option>
+                <option value="price_desc">Price ↓</option>
+              </select>
+            ) : null}
           </div>
 
-          <div className="fcv2-mobile-search-row">
-            <div className="fcv2-mobile-search-input">
-              <Search size={16} />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") handleSearch();
-                }}
-                placeholder="Search by name, specialty, court..."
-                aria-label="Search coaches"
-              />
-            </div>
+          {!isMatchedMode ? (
+            <div className="fcv2-mobile-search-row">
+              <div className="fcv2-mobile-search-input">
+                <Search size={16} />
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleSearch();
+                  }}
+                  placeholder="Search by name, specialty, court..."
+                  aria-label="Search coaches"
+                />
+              </div>
 
-            <div className="fcv2-mobile-search-filter">
-              <FilterMenu
-                onFilterChange={handleFilterChange}
-                userPos={{
-                  latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
-                  longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
-                }}
-                showName
-                radius={selectedRadius}
-                onRadiusChange={handleRadiusChange}
-                isCoachSearch
-                token={playerToken ?? undefined}
-                compact
-              />
+              <div className="fcv2-mobile-search-filter">
+                <FilterMenu
+                  onFilterChange={handleFilterChange}
+                  userPos={{
+                    latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                    longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+                  }}
+                  showName
+                  radius={selectedRadius}
+                  onRadiusChange={handleRadiusChange}
+                  isCoachSearch
+                  token={playerToken ?? undefined}
+                  compact
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {locationPermissionPrompt ? (
             <section className="fcv2-location-permission-banner" aria-label="Location permission">
@@ -1322,46 +1332,50 @@ const FindCoaches = () => {
         <div className="fcv2-shell">
           <section className="fcv2-page-head">
             <div className="fcv2-page-head-copy">
-              <h1>Find a Coach</h1>
+              <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
               <p>
                 <span>📍 {locationShortLabel}</span>
                 <span>·</span>
-                <span>{resultsCountLabel}</span>
+                <span>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</span>
               </p>
             </div>
 
-            <div className="fcv2-page-head-actions">
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                className="fcv2-sort-select"
-                aria-label="Sort coaches"
-              >
-                <option value="match">Best match</option>
-                <option value="distance">Nearest first</option>
-                <option value="rating">Top rated</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-              </select>
-            </div>
+            {!isMatchedMode ? (
+              <div className="fcv2-page-head-actions">
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value)}
+                  className="fcv2-sort-select"
+                  aria-label="Sort coaches"
+                >
+                  <option value="match">Best match</option>
+                  <option value="distance">Nearest first</option>
+                  <option value="rating">Top rated</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+              </div>
+            ) : null}
           </section>
 
           <section className="fcv2-search-panel">
-            <div className="fcv2-search-bar">
-              <Search size={18} />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") handleSearch();
-                }}
-                placeholder="Search by coach name, court, or specialty"
-                aria-label="Search coaches"
-              />
-              <button type="button" onClick={handleSearch}>
-                Search
-              </button>
-            </div>
+            {!isMatchedMode ? (
+              <div className="fcv2-search-bar">
+                <Search size={18} />
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleSearch();
+                  }}
+                  placeholder="Search by coach name, court, or specialty"
+                  aria-label="Search coaches"
+                />
+                <button type="button" onClick={handleSearch}>
+                  Search
+                </button>
+              </div>
+            ) : null}
 
             {locationPermissionPrompt ? (
               <section className="fcv2-location-permission-banner" aria-label="Location permission">
@@ -1376,19 +1390,21 @@ const FindCoaches = () => {
             ) : null}
 
             {renderCoachMatchPanel()}
-            <FilterMenu
-              onFilterChange={handleFilterChange}
-              userPos={{
-                latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
-                longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
-              }}
-              showName
-              radius={selectedRadius}
-              onRadiusChange={handleRadiusChange}
-              isCoachSearch
-              token={playerToken ?? undefined}
-              compact
-            />
+            {!isMatchedMode ? (
+              <FilterMenu
+                onFilterChange={handleFilterChange}
+                userPos={{
+                  latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
+                  longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
+                }}
+                showName
+                radius={selectedRadius}
+                onRadiusChange={handleRadiusChange}
+                isCoachSearch
+                token={playerToken ?? undefined}
+                compact
+              />
+            ) : null}
           </section>
 
           {status === "loading" ? (
@@ -1423,6 +1439,14 @@ const FindCoaches = () => {
 
           {shouldShowResults ? (
             <>
+              {!isMatchedMode ? (
+                <section className="fc-invite-banner" aria-label="About our coaches">
+                  <div className="fc-invite-banner__title">Tennis Plan coaches are invited</div>
+                  <p className="fc-invite-banner__sub">
+                    Not a self-serve platform — every coach is someone we know personally.
+                  </p>
+                </section>
+              ) : null}
               <section className="fcv2-grid coach-match-page__grid">
                 {filteredCoaches.map((coach) => {
                   const isMatched = shouldShowCoachMatchSummary;
@@ -1431,140 +1455,74 @@ const FindCoaches = () => {
                     : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
                   const reasons = coach.matchReasons.slice(0, 3);
                   const privateRate = formatMoney(coach.hourlyRateValue);
-                  const groupRate = formatMoney(coach.groupRateValue);
+                  // Omit the group line unless there's a real non-zero group rate (formatMoney(0) === "$0").
+                  const groupRate =
+                    coach.groupRateValue && coach.groupRateValue > 0 ? formatMoney(coach.groupRateValue) : null;
                   const certLabel = coach.certifications[0] ?? "";
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
                   const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
-                  const rawLocation = [coach.courts?.[0], coach.cityLabel].find(isDisplayableLocation) || "";
-                  const locationLabel = toVenueLabel(rawLocation);
+                  // One clean, short venue name (drops street/city/"Tennis Court"). See utils/venueLabel.
+                  const rawLocation = coach.courts?.[0] ?? coach.cityLabel ?? "";
+                  const venueLabel = normalizeVenueLabel(rawLocation);
+                  const locationLabel = isDisplayableLocation(venueLabel) ? venueLabel : "";
                   const tags = coach.specialties.slice(0, 3);
 
-                  return (
-                    <article key={coach.id} className="fc-card">
-                      <div className="fc-card__head">
-                        <div className="fc-card__photo">
-                          {coach.imageUrl ? (
-                            <img src={coach.imageUrl} alt={coach.name} />
-                          ) : (
-                            <span>{coach.initials}</span>
-                          )}
-                        </div>
-
-                        <div className="fc-card__mid">
-                          <div className="fc-card__name">{coach.name}</div>
-                          <div className="fc-card__signals">
-                            {certLabel ? (
-                              <span className="fc-card__cert">{certLabel}</span>
-                            ) : (
-                              <span className="fc-card__new">New coach</span>
-                            )}
-                            <span className="fc-card__dist">· {formatDistance(coach.distanceMiles)}</span>
-                          </div>
-                        </div>
-
-                        <div className="fc-card__head-right">
-                          {isMatched && matchPercent > 0 ? (
-                            <div className="fc-card__match">
-                              <div className="fc-card__match-pct">{matchPercent}%</div>
-                              <div className="fc-card__match-lbl">Match</div>
-                            </div>
-                          ) : (
-                            <div className="fc-card__rate-right">
-                              <div className="fc-card__rate-main">
-                                <span className="fc-card__sm">$</span>
-                                {privateRate ? privateRate.replace("$", "") : "N/A"}
-                                <span className="fc-card__sm">/hour</span>
-                              </div>
-                              {groupRate ? <div className="fc-card__rate-group">group {groupRate}</div> : null}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {isMatched ? (
-                        <div className="fc-card__rate-line">
-                          <span className="fc-card__rate-main">
-                            <span className="fc-card__sm">$</span>
-                            {privateRate ? privateRate.replace("$", "") : "N/A"}
-                            <span className="fc-card__sm">/hour</span>
-                          </span>
-                          {privateFlag ? (
-                            <span className={`fc-card__flag fc-card__flag--${privateFlag}`}>
-                              {privateFlag === "over" ? "Over budget" : "In budget"}
-                            </span>
-                          ) : null}
-                          {groupRate ? <span className="fc-card__rate-group">· group {groupRate}</span> : null}
-                          {groupRate && groupFlag ? (
-                            <span className={`fc-card__flag fc-card__flag--${groupFlag}`}>
-                              {groupFlag === "over" ? "Over budget" : "In budget"}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      {isMatched && reasons.length > 0 ? (
-                        <div className="fc-card__why">
-                          {reasons.map((reason) => (
-                            <div key={`${coach.id}-${reason}`} className="fc-card__why-row">
-                              <Check size={14} strokeWidth={3} />
-                              <span>{reason}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      <p className="fc-card__bio">{coach.bio || "Coach bio coming soon."}</p>
-
-                      {tags.length > 0 ? (
-                        <div className="fc-card__tags">
-                          {tags.map((tag) => (
-                            <span key={`${coach.id}-${tag}`} className="fc-card__tag">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {!isMatched ? (
-                        <div className="fc-card__avail">
-                          <span className="fc-card__avail-dot" />
-                          <span>
-                            {deriveAvailabilityPhrase(coach)}
-                            {locationLabel ? ` · ${locationLabel}` : ""}
-                          </span>
-                        </div>
-                      ) : null}
-
-                      <div className="fc-card__actions">
-                        {isMatched ? (
-                          <>
-                            {/* Book a lesson is not wired this PR (separate booking PR); temporarily routes to the profile. */}
-                            <button
-                              type="button"
-                              onClick={isSignedIn ? () => navigate(`/coaches/${coach.id}`, { state: { findCoachesState: findCoachesStateSnapshot } }) : promptSignUp}
-                              className="fc-card__btn fc-card__btn--book"
-                            >
-                              Book a lesson
-                            </button>
-                            <Link
-                              to={`/coaches/${coach.id}`}
-                              state={{ findCoachesState: findCoachesStateSnapshot }}
-                              className="fc-card__btn fc-card__btn--profile"
-                            >
-                              Profile
-                            </Link>
-                          </>
-                        ) : (
-                          <Link
-                            to={`/coaches/${coach.id}`}
-                            state={{ findCoachesState: findCoachesStateSnapshot }}
-                            className="fc-card__btn fc-card__btn--profile fc-card__btn--full"
-                          >
-                            View profile
-                          </Link>
-                        )}
-                      </div>
-                    </article>
+                  return isMatched ? (
+                    <CoachMatchCard
+                      key={coach.id}
+                      name={coach.name}
+                      imageUrl={coach.imageUrl}
+                      initials={coach.initials}
+                      distanceLabel={formatDistance(coach.distanceMiles)}
+                      matchPercent={matchPercent}
+                      certLabel={certLabel || undefined}
+                      yearsExperience={coach.yearsExperience}
+                      studentCount={coach.studentCount}
+                      levels={coach.levels}
+                      reasons={reasons}
+                      privateRate={privateRate}
+                      groupRate={groupRate}
+                      privateFlag={privateFlag}
+                      groupFlag={groupFlag}
+                      bio={coach.bio || "Coach bio coming soon."}
+                      profileTo={`/coaches/${coach.id}`}
+                      profileState={{ findCoachesState: findCoachesStateSnapshot }}
+                      onBook={
+                        isSignedIn
+                          ? () =>
+                              navigate(`/coaches/${coach.id}/book`, {
+                                state: { findCoachesState: findCoachesStateSnapshot },
+                              })
+                          : promptSignUp
+                      }
+                    />
+                  ) : (
+                    <CoachSearchCard
+                      key={coach.id}
+                      name={coach.name}
+                      imageUrl={coach.imageUrl}
+                      initials={coach.initials}
+                      distanceLabel={formatDistance(coach.distanceMiles)}
+                      certLabel={certLabel || undefined}
+                      yearsExperience={coach.yearsExperience}
+                      studentCount={coach.studentCount}
+                      privateRate={privateRate}
+                      groupRate={groupRate}
+                      bio={coach.bio || "Coach bio coming soon."}
+                      tags={tags}
+                      availabilityPhrase={deriveAvailabilityPhrase(coach)}
+                      locationLabel={locationLabel || undefined}
+                      profileTo={`/coaches/${coach.id}`}
+                      profileState={{ findCoachesState: findCoachesStateSnapshot }}
+                      onBook={
+                        isSignedIn
+                          ? () =>
+                              navigate(`/coaches/${coach.id}/book`, {
+                                state: { findCoachesState: findCoachesStateSnapshot },
+                              })
+                          : promptSignUp
+                      }
+                    />
                   );
                 })}
               </section>
@@ -1623,20 +1581,11 @@ const FindCoaches = () => {
                   <h3>Your coach match profile is saved</h3>
                   <p>We&apos;ll use these answers to improve your coach recommendations.</p>
                   <div className="fcv2-coach-match-modal__actions">
-                    <button
-                      type="button"
-                      className="fcv2-coach-match-modal__ghost"
-                      onClick={() => setShowCoachMatchSurvey(false)}
-                    >
-                      Close
-                    </button>
+                    {/* Closing returns to FindCoaches, now in "Your matches" (matched) mode. */}
                     <button
                       type="button"
                       className="fcv2-coach-match-banner__button"
-                      onClick={() => {
-                        setShowCoachMatchSurvey(false);
-                        navigate("/coach-match/recommendations");
-                      }}
+                      onClick={() => setShowCoachMatchSurvey(false)}
                     >
                       View matches
                     </button>

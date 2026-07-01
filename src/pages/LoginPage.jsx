@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -158,6 +158,15 @@ const GoogleMark = () => (
     />
   </svg>
 );
+const GOOGLE_BUTTON_OPTIONS = {
+  theme: "outline",
+  size: "large",
+  type: "standard",
+  text: "continue_with",
+  shape: "rectangular",
+  logo_alignment: "left",
+  width: 320,
+};
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -178,8 +187,9 @@ const LoginPage = () => {
   const [mobileScreen, setMobileScreen] = useState("welcome");
   const [pendingOAuthSession, setPendingOAuthSession] = useState(null);
   const [pendingOAuthProvider, setPendingOAuthProvider] = useState("google");
+  const mobileGoogleButtonRef = useRef(null);
+  const desktopGoogleButtonRef = useRef(null);
   const googleAuthInitialized = useRef(false);
-  const pendingGoogleAuth = useRef(null);
 
   const isSignup = mode === "signup";
   const fullName = useMemo(
@@ -187,14 +197,7 @@ const LoginPage = () => {
     [firstName, lastName],
   );
 
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
-    loadGoogleIdentityScript().catch(() => {
-      // Surface errors only when the user actually tries to sign in.
-    });
-  }, []);
-
-  const navigateAfterAuth = () => {
+  const navigateAfterAuth = useCallback(() => {
     const from = location.state?.from;
     if (from) {
       navigate(
@@ -208,7 +211,7 @@ const LoginPage = () => {
       return;
     }
     navigate("/", { replace: true });
-  };
+  }, [location.state?.from, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -246,9 +249,14 @@ const LoginPage = () => {
     setSmsConsentGranted(false);
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleCredential = useCallback(async (credentialResponse) => {
     if (!GOOGLE_CLIENT_ID) {
       setError("Google sign-in is not configured. Add VITE_GOOGLE_CLIENT_ID to enable it.");
+      return;
+    }
+
+    if (!credentialResponse?.credential) {
+      setError("Google sign-in did not return a token.");
       return;
     }
 
@@ -256,48 +264,8 @@ const LoginPage = () => {
     setGoogleLoading(true);
 
     try {
-      const google = await loadGoogleIdentityScript();
-      if (!google?.accounts?.id) {
-        throw new Error("Google sign-in is unavailable right now.");
-      }
-
-      const credential = await new Promise((resolve, reject) => {
-        pendingGoogleAuth.current = { resolve, reject };
-
-        if (!googleAuthInitialized.current) {
-          google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: (response) => {
-              if (response?.credential) {
-                pendingGoogleAuth.current?.resolve(response.credential);
-                pendingGoogleAuth.current = null;
-                return;
-              }
-              pendingGoogleAuth.current?.reject(new Error("Google sign-in did not return a token."));
-              pendingGoogleAuth.current = null;
-            },
-            error_callback: () => {
-              pendingGoogleAuth.current?.reject(new Error("Google sign-in was cancelled or failed."));
-              pendingGoogleAuth.current = null;
-            },
-          });
-          googleAuthInitialized.current = true;
-        }
-
-        google.accounts.id.prompt((notification) => {
-          const notDisplayed =
-            typeof notification?.isNotDisplayed === "function" && notification.isNotDisplayed();
-          const skipped =
-            typeof notification?.isSkippedMoment === "function" && notification.isSkippedMoment();
-          if (notDisplayed || skipped) {
-            pendingGoogleAuth.current?.reject(new Error("Google sign-in is unavailable for this browser session."));
-            pendingGoogleAuth.current = null;
-          }
-        });
-      });
-
       const response = {
-        ...(await googlePlayerLogin(credential)),
+        ...(await googlePlayerLogin(credentialResponse.credential)),
         oauth_provider: "google",
       };
       if (shouldCaptureOAuthPhone(response)) {
@@ -314,7 +282,46 @@ const LoginPage = () => {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }, [establishSession, navigateAfterAuth]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
+
+    let isCancelled = false;
+
+    const renderGoogleButtons = async () => {
+      try {
+        const google = await loadGoogleIdentityScript();
+        if (isCancelled) return;
+        if (!google?.accounts?.id) {
+          throw new Error("Google sign-in is unavailable right now.");
+        }
+
+        if (!googleAuthInitialized.current) {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential,
+          });
+          googleAuthInitialized.current = true;
+        }
+
+        [mobileGoogleButtonRef.current, desktopGoogleButtonRef.current].forEach((target) => {
+          if (!target || target.dataset.googleButtonRendered === "true") return;
+          google.accounts.id.renderButton(target, GOOGLE_BUTTON_OPTIONS);
+          target.dataset.googleButtonRendered = "true";
+        });
+      } catch {
+        // Surface errors only when Google is configured but cannot render.
+        setError("Google sign-in is unavailable right now.");
+      }
+    };
+
+    renderGoogleButtons();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [handleGoogleCredential, mobileScreen]);
 
   const openMobileForm = (nextMode = mode) => {
     setError("");
@@ -364,15 +371,11 @@ const LoginPage = () => {
                   <Apple size={18} />
                   <span>Continue with Apple</span>
                 </button> */}
-                <button
-                  type="button"
-                  className="auth-welcome__social auth-welcome__social--google"
-                  onClick={handleGoogleLogin}
-                  disabled={googleLoading || loading}
-                >
-                  <GoogleMark />
-                  <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
-                </button>
+                <div
+                  className="auth-welcome__social auth-welcome__social--google auth-welcome__google-button"
+                  ref={mobileGoogleButtonRef}
+                  aria-busy={googleLoading || loading}
+                />
                 <button
                   type="button"
                   className="auth-mobile__email-entry"
@@ -623,15 +626,11 @@ const LoginPage = () => {
                 <Apple size={18} />
                 <span>Continue with Apple</span>
               </button> */}
-              <button
-                type="button"
-                className="auth-welcome__social auth-welcome__social--google"
-                onClick={handleGoogleLogin}
-                disabled={googleLoading || loading}
-              >
-                <GoogleMark />
-                <span>{googleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
-              </button>
+              <div
+                className="auth-welcome__social auth-welcome__social--google auth-welcome__google-button"
+                ref={desktopGoogleButtonRef}
+                aria-busy={googleLoading || loading}
+              />
             </div>
 
             <div className="auth-welcome__divider">

@@ -20,7 +20,6 @@ import CreateMatchReviewPage from "./pages/CreateMatchReviewPage";
 import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfirmationPage";
 import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
-import CoachMatchRecommendationsPage from "./pages/CoachMatchRecommendationsPage";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -41,6 +40,8 @@ import GroupLessonsPage from "./pages/GroupLessonsPage";
 import GroupLessonDetailsPage from "./pages/GroupLessonDetailsPage";
 import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
+import LeaguesPage from "./pages/LeaguesPage";
+import LeagueDetailPage from "./pages/LeagueDetailPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
@@ -48,7 +49,6 @@ import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
-import { isLogResultEnabled } from "./play-dates/utils/featureFlags";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
 
@@ -375,27 +375,22 @@ const AppRoutes = () => (
         </ProtectedRoute>
       )}
     />
-    {/* Log a result is gated on VITE_LOG_RESULT while the score-reporting rollout stays controlled. */}
-    {isLogResultEnabled() ? (
-      <>
-        <Route
-          path="/log-result"
-          element={(
-            <LogResultProtectedPageRoute>
-              <LogResultPage />
-            </LogResultProtectedPageRoute>
-          )}
-        />
-        <Route
-          path="/log-result/confirm/:id"
-          element={(
-            <ProtectedRoute>
-              <ConfirmResultPage />
-            </ProtectedRoute>
-          )}
-        />
-      </>
-    ) : null}
+    <Route
+      path="/log-result"
+      element={(
+        <LogResultProtectedPageRoute>
+          <LogResultPage />
+        </LogResultProtectedPageRoute>
+      )}
+    />
+    <Route
+      path="/log-result/confirm/:id"
+      element={(
+        <ProtectedRoute>
+          <ConfirmResultPage />
+        </ProtectedRoute>
+      )}
+    />
     <Route
       path="/matches/:id"
       element={(
@@ -495,16 +490,30 @@ const AppRoutes = () => (
       )}
     />
     <Route
+      path="/leagues"
+      element={(
+        <ProtectedRoute>
+          <LeaguesPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id"
+      element={(
+        <ProtectedRoute>
+          <LeagueDetailPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
       path="/find-coaches"
       element={<FindCoaches />}
     />
+    {/* Deprecated: the post-questionnaire "Your matches" experience now lives in FindCoaches
+        matched-mode. Redirect any lingering links into it. */}
     <Route
       path="/coach-match/recommendations"
-      element={(
-        <ProtectedRoute>
-          <CoachMatchRecommendationsPage />
-        </ProtectedRoute>
-      )}
+      element={<Navigate to="/find-coaches" replace />}
     />
     <Route
       path="/credits"
@@ -537,6 +546,10 @@ const AppRoutes = () => (
     <Route
       path="/coaches/:id"
       element={<CoachProfilePage />}
+    />
+    <Route
+      path="/coaches/:id/book"
+      element={<CoachProfilePage bookMode />}
     />
     <Route
       path="/coaches/:id/purchase"

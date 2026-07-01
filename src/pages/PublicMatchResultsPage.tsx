@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Trophy, BarChart3, Users, Activity, Search, RefreshCw } from "lucide-react";
 import { buildApiUrl } from "../api/config";
+import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 
 type Ranking = {
   rank: number;
@@ -14,6 +15,7 @@ type Ranking = {
   wins: number;
   losses: number;
   is_provisional: boolean;
+  is_estimate: boolean;
   usta_rating?: string | number | null;
   uta_rating?: string | number | null;
   rating_gender?: string | null;
@@ -353,7 +355,7 @@ function RankingRow({ ranking, index }: { ranking: Ranking; index: number }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p className="truncate font-black text-slate-900">{ranking.full_name}</p>
-              {ranking.is_provisional ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700">Est.</span> : null}
+              {shouldShowEstimateBadge(ranking) ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700">Est.</span> : null}
             </div>
             <p className="text-sm font-semibold text-slate-400">{displayLeague(ranking)}</p>
           </div>
@@ -378,7 +380,7 @@ function RankingCard({ ranking, index }: { ranking: Ranking; index: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-black text-slate-900">{ranking.full_name}</p>
-            {ranking.is_provisional ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700">Est.</span> : null}
+            {shouldShowEstimateBadge(ranking) ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black text-amber-700">Est.</span> : null}
           </div>
           <p className="text-sm font-semibold text-slate-400">{displayLeague(ranking)}</p>
         </div>

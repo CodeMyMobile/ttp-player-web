@@ -240,7 +240,7 @@ const MyCoachCard = ({ coach }: { coach: PlayerCoach }) => {
       <AvailabilityBlock state={availability} />
 
       {coachId && (
-        <Link className="my-coaches__book" to={`/coaches/${coachId}`} state={{ focusBookCta: true }}>
+        <Link className="my-coaches__book" to={`/coaches/${coachId}/book`} state={{ focusBookCta: true }}>
           {noSlot ? "See full calendar" : "Book a lesson"}
         </Link>
       )}

@@ -16,9 +16,9 @@ import {
   ChevronRight,
   ChevronUp,
   Clock3,
+  Heart,
   MapPin,
   MessageCircle,
-  Target,
   Users,
   Wallet,
   X,
@@ -26,7 +26,11 @@ import {
 
 import MainLayout from "../components/MainLayout";
 import JoinMyRosterBanner from "../components/coaches/JoinMyRosterBanner";
+import BookingSlotList from "../components/coaches/BookingSlotList";
+import CoachTrustMark from "../components/coaches/CoachTrustMark";
+import CoachCredibilityLine from "../components/coaches/CoachCredibilityLine";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { normalizeVenueLabel } from "../utils/venueLabel";
 import {
   consumePackageCredits,
   fetchCoachPackages,
@@ -252,6 +256,7 @@ type BookingConfirmationData = {
     amountLabel: string;
     amount: string;
     etaText?: string;
+    lessonId?: string;
     cancellationPolicyText: string;
   };
 };
@@ -325,35 +330,14 @@ const buildEmptyDayGroup = (date: moment.Moment): DayGroup => ({
   slots: [],
 });
 
+// Literal-location surfaces (booking-slot locations, "Where you'll play") keep the facility suffix —
+// it's the place the player navigates to. See src/utils/venueLabel.ts.
 const shortenLocationLabel = (value?: string | null) => {
   if (!value) return "Court TBD";
-  const trimmed = value.trim();
-  if (!trimmed) return "Court TBD";
-
-  const [firstSegment] = trimmed.split(",");
-  const base = firstSegment?.trim() || trimmed;
-  const words = base.split(/\s+/).filter(Boolean);
-
-  if (words.length <= 3) return base;
-
-  return words.slice(0, 3).join(" ");
+  return normalizeVenueLabel(value, { keepFacility: true }) || "Court TBD";
 };
 
-// §4 mobile booking module — time-of-day buckets, derived client-side from slot start time.
-type MobileTimeBucket = "morning" | "afternoon" | "evening";
-
-const MOBILE_TIME_BUCKETS: Array<{ key: MobileTimeBucket; label: string }> = [
-  { key: "morning", label: "Morning" },
-  { key: "afternoon", label: "Afternoon" },
-  { key: "evening", label: "Evening" },
-];
-
-const getSlotTimeBucket = (slot: LoadedSlot): MobileTimeBucket => {
-  const hour = moment(slot.start).hour();
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
-};
+// §4 booking module — time-of-day bucketing now lives in the shared BookingSlotList component.
 
 const useCoachProfile = (id?: string, token?: string) => {
   const [loading, setLoading] = useState(true);
@@ -828,7 +812,7 @@ const buildSmsHref = (phoneNumber: string, message: string) => {
   return `sms:${trimmedPhoneNumber}${separator}body=${encodedMessage}`;
 };
 
-const CoachProfilePage = () => {
+const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -856,7 +840,6 @@ const CoachProfilePage = () => {
 
   const [bookingType, setBookingType] = useState<LessonTypeFilter>("all");
   const [mobileSelectedDay, setMobileSelectedDay] = useState<string | null>(null);
-  const [mobileSheetSlot, setMobileSheetSlot] = useState<LoadedSlot | null>(null);
   const [packageLessonType, setPackageLessonType] = useState<PackageLessonTypeFilter>("all");
   const [selectedDate, setSelectedDate] = useState<string>("all");
   const [pendingSelectedDate, setPendingSelectedDate] = useState<string | null>(null);
@@ -961,6 +944,7 @@ const CoachProfilePage = () => {
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
+  const [authPromptIntent, setAuthPromptIntent] = useState<"book" | "message">("book");
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
@@ -1041,20 +1025,12 @@ const CoachProfilePage = () => {
       : extractMetricNumber(metrics, /(\d+(?:-\d+)?\+?)\s*yrs?/i) ?? extractMetricNumber(metrics, /(\d+\+?)\s*years?/i) ?? "Experienced";
   const studentsLabel =
     typeof apiProfile?.studentCount === "number"
-      ? `${apiProfile.studentCount}+`
+      ? `${apiProfile.studentCount} students`
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
-  const heroLocationLabel = primaryLocationLabel.split(",").slice(0, 2).join(",").trim() || primaryLocationLabel;
+  // Header shows the short venue name (no street/city/facility clutter).
+  const heroLocationLabel = normalizeVenueLabel(primaryLocationLabel) || primaryLocationLabel;
   const cityLabel = heroLocationLabel || "Location TBD";
-  // Mobile-redesign hero (v3): derived client-side from existing real fields only.
-  const heroStudents =
-    typeof apiProfile?.studentCount === "number" && Number.isFinite(apiProfile.studentCount)
-      ? `${apiProfile.studentCount}+`
-      : null;
-  const heroExperience = profile?.yearsExperience
-    ? `${profile.yearsExperience} yrs`
-    : apiProfile?.experienceYears
-      ? `${apiProfile.experienceYears} yrs`
-      : null;
+  // Mobile hero credibility now renders via <CoachCredibilityLine> (cert · years · students).
   const heroTagline = useMemo(() => {
     const sentence = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
     const lowerLevels = [...levels]
@@ -1101,7 +1077,8 @@ const CoachProfilePage = () => {
     });
   };
 
-  const openAuthPrompt = (returnState?: Record<string, unknown>) => {
+  const openAuthPrompt = (returnState?: Record<string, unknown>, intent: "book" | "message" = "book") => {
+    setAuthPromptIntent(intent);
     setAuthPromptReturnState({ focusBookCta: true, ...returnState });
     setAuthPromptOpen(true);
   };
@@ -2140,7 +2117,11 @@ const CoachProfilePage = () => {
     setCreditsPackageOpen(false);
   };
 
-  const buildBookingConfirmation = (slot: LoadedSlot, statusOverride?: BookingStatus): BookingConfirmationData => {
+  const buildBookingConfirmation = (
+    slot: LoadedSlot,
+    statusOverride?: BookingStatus,
+    lessonId?: number,
+  ): BookingConfirmationData => {
     const isGroup = slot.type === "group";
     const status = statusOverride ?? (isGroup ? "CONFIRMED" : "PENDING");
     const pricing = calculateLessonPricing({
@@ -2167,6 +2148,7 @@ const CoachProfilePage = () => {
         amountLabel: pricing.isOpenGroup ? "Lesson total" : isGroup ? "Amount charged" : "Lesson total",
         amount: formatCurrencyPrecise(pricing.totalFee),
         etaText: status === "PENDING" ? "~24 hrs" : undefined,
+        lessonId: lessonId != null ? String(lessonId) : undefined,
         cancellationPolicyText:
           "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
       },
@@ -2486,6 +2468,8 @@ const CoachProfilePage = () => {
 
     try {
       let resolvedBookingStatus: BookingStatus = selectedSlot.type === "group" ? "CONFIRMED" : "PENDING";
+      // Lesson id for the confirmation's "View reservation" link (group: source lesson; private: created below).
+      let resolvedLessonId: number | undefined = selectedSlot.sourceLessonId;
       let walletPaymentMethodId: string | undefined;
 
       if (paymentChoice === "wallet") {
@@ -2581,6 +2565,7 @@ const CoachProfilePage = () => {
         if (!createdLessonId) {
           throw new Error("Unable to create this lesson.");
         }
+        resolvedLessonId = createdLessonId;
         if (paymentChoice === "wallet") {
           const intentResponse = await createPlayerStripePaymentIntent({
             token: authToken,
@@ -2611,7 +2596,7 @@ const CoachProfilePage = () => {
       applePayCompletion?.("success");
       applyLessonConfirmedStatus(selectedSlot, resolvedBookingStatus);
       handleBookingComplete();
-      setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus));
+      setBookingConfirmation(buildBookingConfirmation(selectedSlot, resolvedBookingStatus, resolvedLessonId));
       setBookingSuccess(null);
       closePaymentSheet();
       setSelectedSlot(null);
@@ -2643,7 +2628,6 @@ const CoachProfilePage = () => {
     if (!isLoggedIn) {
       openAuthPrompt({
         purchaseAfterAuth: true,
-        focusBookCta: true,
       });
       return;
     }
@@ -2777,95 +2761,8 @@ const CoachProfilePage = () => {
     }
   };
 
-  const renderMobileBookingSheet = (slot: LoadedSlot) => {
-    const isGroup = slot.type === "group";
-    const isFull = slot.spotsLeft === 0;
-    const spotsLabel =
-      isGroup && slot.spotsLeft != null && slot.totalSpots != null
-        ? isFull
-          ? "Full"
-          : `${slot.spotsLeft} of ${slot.totalSpots} spots left`
-        : null;
-    const closeSheet = () => setMobileSheetSlot(null);
-
-    return (
-      <div className="coach-bm-sheet" role="dialog" aria-modal="true">
-        <div className="coach-bm-sheet__backdrop" onClick={closeSheet} />
-        <div className="coach-bm-sheet__panel">
-          <div className="coach-bm-sheet__handle" aria-hidden />
-          <div className="coach-bm-sheet__time">
-            {slot.timeLabel}
-            <span className={`coach-bm-sheet__pill coach-bm-sheet__pill--${slot.type}`}>
-              {isGroup ? "Group" : "Private"}
-            </span>
-          </div>
-          <div className="coach-bm-sheet__day">
-            {slot.dayLabel} {slot.dateLabel}
-          </div>
-          {isGroup && slot.className ? <div className="coach-bm-sheet__session">{slot.className}</div> : null}
-          {isGroup && slot.description ? <p className="coach-bm-sheet__desc">{slot.description}</p> : null}
-          <div className="coach-bm-sheet__rows">
-            <div className="coach-bm-sheet__row">
-              <span className="coach-bm-sheet__ic">
-                <MapPin size={18} />
-              </span>
-              <span className="coach-bm-sheet__lbl">Location</span>
-              <span className="coach-bm-sheet__val">{slot.court}</span>
-            </div>
-            <div className="coach-bm-sheet__row">
-              <span className="coach-bm-sheet__ic">
-                <Clock3 size={18} />
-              </span>
-              <span className="coach-bm-sheet__lbl">Duration</span>
-              <span className="coach-bm-sheet__val">{slot.durationLabel}</span>
-            </div>
-            <div className="coach-bm-sheet__row">
-              <span className="coach-bm-sheet__ic">
-                <Wallet size={18} />
-              </span>
-              <span className="coach-bm-sheet__lbl">Price</span>
-              <span className="coach-bm-sheet__val">
-                {slot.priceLabel}
-                {isGroup ? " / person" : ""}
-              </span>
-            </div>
-            {isGroup && slot.level ? (
-              <div className="coach-bm-sheet__row">
-                <span className="coach-bm-sheet__ic">
-                  <Target size={18} />
-                </span>
-                <span className="coach-bm-sheet__lbl">Level</span>
-                <span className="coach-bm-sheet__val">{slot.level}</span>
-              </div>
-            ) : null}
-            {isGroup && spotsLabel ? (
-              <div className="coach-bm-sheet__row">
-                <span className="coach-bm-sheet__ic">
-                  <Users size={18} />
-                </span>
-                <span className="coach-bm-sheet__lbl">Spots left</span>
-                <span
-                  className={`coach-bm-sheet__val${slot.spotsLeft != null && slot.spotsLeft <= 2 && !isFull ? " is-lime" : ""}`}
-                >
-                  {spotsLabel}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className="coach-bm-sheet__book"
-            onClick={() => {
-              closeSheet();
-              openBookingFlow(slot);
-            }}
-          >
-            {isFull ? "Join waitlist" : "Book this lesson"}
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // The mobile details pre-sheet was removed in PR 3a: tapping a slot now opens the
+  // confirm-and-pay drawer directly (openBookingFlow), matching desktop.
 
   const renderMobileBookingModule = () => {
     const filterByType = (list: LoadedSlot[]) =>
@@ -2882,15 +2779,16 @@ const CoachProfilePage = () => {
     const daySlots = (activeEntry?.slots ?? [])
       .slice()
       .sort((a, b) => moment(a.start).valueOf() - moment(b.start).valueOf());
-    const soonestSlotId = daySlots[0]?.id;
     const isLoading = scheduleLoading || datePickerLoading;
 
     return (
       <div className="coach-bm">
-        <p className="coach-bm__eyebrow">
-          <span className="coach-bm__edot" aria-hidden />
-          Book a lesson
-        </p>
+        {!bookMode ? (
+          <p className="coach-bm__eyebrow">
+            <span className="coach-bm__edot" aria-hidden />
+            Book a lesson
+          </p>
+        ) : null}
 
         <div className="coach-bm__segmented">
           {(["all", "private", "group"] as LessonTypeFilter[])
@@ -2935,7 +2833,7 @@ const CoachProfilePage = () => {
               })}
             </div>
 
-            {daySlots.length > 0 && activeEntry ? (
+            {!bookMode && daySlots.length > 0 && activeEntry ? (
               <div className="coach-bm__ctx">
                 <span>
                   {daySlots.length} open · {activeEntry.day.dayLabel} {activeEntry.day.dateLabel}
@@ -2947,81 +2845,27 @@ const CoachProfilePage = () => {
               </div>
             ) : null}
 
+            {bookMode ? (
+              <div className="coach-book-keeps">
+                <Heart size={16} />
+                <span>
+                  <b>No lesson commission.</b> Coaches keep their full rate — the fees cover booking and card costs.
+                </span>
+              </div>
+            ) : null}
             {daySlots.length === 0 ? (
               <div className="coach-bm__empty">
                 No {bookingType === "all" ? "" : `${bookingType} `}times on this day. Try another day above.
               </div>
             ) : (
-              MOBILE_TIME_BUCKETS.map((bucket) => {
-                const bucketSlots = daySlots.filter((slot) => getSlotTimeBucket(slot) === bucket.key);
-                if (!bucketSlots.length) return null;
-                return (
-                  <div key={bucket.key} className="coach-bm__bucket">
-                    <div className="coach-bm__bucket-head">
-                      {bucket.label} <span className="coach-bm__bucket-cnt">· {bucketSlots.length}</span>
-                    </div>
-                    {bucketSlots.map((slot) => {
-                      const isSoon = slot.id === soonestSlotId;
-                      const spotsTextValue =
-                        slot.type === "group" && slot.spotsLeft != null && slot.totalSpots != null
-                          ? slot.spotsLeft === 0
-                            ? "Full"
-                            : `${slot.spotsLeft} of ${slot.totalSpots} spots left`
-                          : null;
-                      const spotsTone =
-                        slot.spotsLeft === 0
-                          ? " is-full"
-                          : slot.spotsLeft != null && slot.spotsLeft <= 2
-                            ? " is-low"
-                            : "";
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          className={`coach-bm__row coach-bm__row--${slot.type}${isSoon ? " coach-bm__row--soon" : ""}`}
-                          onClick={() => setMobileSheetSlot(slot)}
-                        >
-                          <div className="coach-bm__row-main">
-                            <div className="coach-bm__row-top">
-                              <span className="coach-bm__row-time">{slot.timeLabel}</span>
-                              <span className={`coach-bm__row-type coach-bm__row-type--${slot.type}`}>
-                                {slot.type === "group" ? "Group" : "Private"}
-                              </span>
-                              {isSoon ? <span className="coach-bm__row-soon">Soonest</span> : null}
-                            </div>
-                            <div className="coach-bm__row-meta">
-                              <MapPin size={13} />
-                              <span>
-                                {slot.court} · {slot.durationLabel}
-                              </span>
-                            </div>
-                            {slot.type === "group" ? (
-                              <div className="coach-bm__row-grp">
-                                <span>
-                                  {slot.className}
-                                  {slot.level ? ` · ${slot.level}` : ""}
-                                </span>
-                                {spotsTextValue ? (
-                                  <span className={`coach-bm__row-spots${spotsTone}`}>· {spotsTextValue}</span>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="coach-bm__row-right">
-                            <span className="coach-bm__row-price">{slot.priceLabel}</span>
-                            <ChevronRight size={18} className="coach-bm__row-chev" />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })
+              <BookingSlotList
+                slots={daySlots}
+                showTypeBadge={bookingType === "all"}
+                onSelectSlot={openBookingFlow}
+              />
             )}
           </>
         )}
-
-        {mobileSheetSlot ? renderMobileBookingSheet(mobileSheetSlot) : null}
       </div>
     );
   };
@@ -3032,20 +2876,24 @@ const CoachProfilePage = () => {
       className={`coach-profile-booking-rail coach-profile-booking-rail--${variant}${bookingFocusActive ? " coach-profile-booking-rail--focus" : ""}`}
       tabIndex={-1}
     >
-      <div className="coach-profile-price-card coach-profile-booking-block">
-        <div className="coach-profile-price-card__row">
-          <div className="coach-profile-price-card__value">
-            <h3>{privatePriceLabel}</h3>
+      {/* Book page (bookMode) is focused on slot selection — the slot rows carry price, so the
+          rail's price card is suppressed there (already hidden on mobile via CSS). */}
+      {!bookMode ? (
+        <div className="coach-profile-price-card coach-profile-booking-block">
+          <div className="coach-profile-price-card__row">
+            <div className="coach-profile-price-card__value">
+              <h3>{privatePriceLabel}</h3>
+            </div>
+          </div>
+          {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
+          <div className={`coach-profile-availability coach-profile-availability--inline${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
+            <span className="coach-profile-availability__dot" />
+            <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
           </div>
         </div>
-        {groupPriceLabel ? <p className="coach-profile-price-card__sub">{groupPriceLabel}/hr group lessons</p> : null}
-        <div className={`coach-profile-availability coach-profile-availability--inline${slotsThisWeek > 0 ? " coach-profile-availability--open" : ""}`}>
-          <span className="coach-profile-availability__dot" />
-          <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
-        </div>
-      </div>
+      ) : null}
 
-      {variant !== "mobile" && isLoggedIn && !creditsLoading ? (
+      {!bookMode && variant !== "mobile" && isLoggedIn && !creditsLoading ? (
         <div className="coach-credit-strip coach-profile-booking-block">
           <div className="coach-credit-strip__copy">
             <Wallet size={16} />
@@ -3075,7 +2923,9 @@ const CoachProfilePage = () => {
         </div>
       ) : null}
 
-      {isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
+      {/* Suppressed on the focused book page (both viewports). Future enhancement: re-home this
+          "your upcoming lessons" context into the confirm-and-pay drawer (tracked, not built now). */}
+      {!bookMode && isLoggedIn && (upcomingCoachLessonsLoading || upcomingCoachLessons.length > 0) ? (
         <div className="coach-profile-upcoming-card coach-profile-booking-block">
           <div className="coach-profile-section__header coach-profile-section__header--compact coach-profile-upcoming-card__header">
             <div>
@@ -3252,9 +3102,11 @@ const CoachProfilePage = () => {
           renderMobileBookingModule()
         ) : (
         <>
-        <div className="coach-profile-section__header coach-profile-section__header--compact">
-          <h2>Book a lesson</h2>
-        </div>
+        {!bookMode ? (
+          <div className="coach-profile-section__header coach-profile-section__header--compact">
+            <h2>Book a lesson</h2>
+          </div>
+        ) : null}
 
         <div className="coach-booking-toggle">
           {(["all", "private", "group"] as LessonTypeFilter[])
@@ -3310,85 +3162,31 @@ const CoachProfilePage = () => {
           </div>
         ) : null}
 
+        {bookMode ? (
+          <div className="coach-book-keeps">
+            <Heart size={16} />
+            <span>
+              <b>No lesson commission.</b> Coaches keep their full rate — the fees cover booking and card costs.
+            </span>
+          </div>
+        ) : null}
+
         {scheduleLoading || datePickerLoading ? <div className="coach-empty-card">Loading availability…</div> : null}
         {!scheduleLoading && !datePickerLoading && visibleSlots.length > 0 ? (
           <div className="coach-slot-list coach-slot-list--aside">
-            {visibleSlots.map((slot) => {
-              const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
-              const effectiveBookingState =
-                slot.type === "group"
+            <BookingSlotList
+              slots={visibleSlots}
+              showTypeBadge={bookingType === "all"}
+              onSelectSlot={openBookingFlow}
+              resolveBookingState={(slot) => {
+                const upcomingLesson = upcomingLessonBySlotKey.get(slot.id);
+                return slot.type === "group"
                   ? slot.bookingState ??
-                    getGroupParticipantBookingState(slot.groupPlayers, user) ??
-                    (upcomingLesson ? getGroupParticipantBookingState(upcomingLesson.group_players, user) : null)
+                      getGroupParticipantBookingState(slot.groupPlayers, user) ??
+                      (upcomingLesson ? getGroupParticipantBookingState(upcomingLesson.group_players, user) : null)
                   : slot.bookingState ?? (upcomingLesson ? getUpcomingLessonBookingState(upcomingLesson) : null);
-              const privateSlotLabel =
-                effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →";
-
-              return slot.type === "private" ? (
-                <button
-                  key={slot.id}
-                  type="button"
-                  className="coach-slot coach-slot--private"
-                  disabled={effectiveBookingState != null}
-                  onClick={() => openBookingFlow(slot)}
-                >
-                  <div className="coach-slot__main">
-                    <div className="coach-slot__time-row">
-                      <p className="coach-slot__time">
-                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel}
-                      </p>
-                      <span className="coach-profile-pill coach-profile-pill--purple">Private</span>
-                    </div>
-                    <div className="coach-slot__meta coach-slot__meta--private">
-                      <span className="coach-slot__meta-location">{slot.court}</span>
-                      <span>{slot.durationLabel}</span>
-                    </div>
-                  </div>
-                  <div className="coach-slot__actions coach-slot__actions--private-rail">
-                    <strong className="coach-slot__private-price">{slot.priceLabel}</strong>
-                    <span className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}>
-                      {privateSlotLabel}
-                    </span>
-                  </div>
-                </button>
-              ) : (
-                <article key={slot.id} className="coach-slot coach-slot--group">
-                  <div className="coach-slot__card-head">
-                    <div>
-                      <h3>{slot.className}</h3>
-                      <div className="coach-slot__meta">
-                        <span className="coach-profile-pill coach-profile-pill--green">Group</span>
-                        <span className="coach-profile-pill coach-profile-pill--gold">{slot.level}</span>
-                      </div>
-                    </div>
-                    <div className="coach-slot__price-stack">
-                      <strong>{slot.priceLabel}</strong>
-                      {slot.spotsLeft != null && slot.totalSpots != null ? (
-                        <small>
-                          {slot.spotsLeft}/{slot.totalSpots} spots
-                        </small>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="coach-slot__footer">
-                    <div>
-                      <p>
-                        {slot.dayLabel} {slot.dateLabel} · {slot.timeLabel} · {slot.durationLabel}
-                      </p>
-                      <small>{slot.court}</small>
-                    </div>
-                    <button
-                      type="button"
-                      className={`coach-slot__button coach-slot__button--private${effectiveBookingState ? " coach-slot__button--status" : ""}`}
-                      disabled={effectiveBookingState != null}
-                      onClick={() => openBookingFlow(slot)}
-                    >
-                      {effectiveBookingState === "pending" ? "Requested" : effectiveBookingState === "confirmed" ? "Booked" : "Book →"}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+              }}
+            />
           </div>
         ) : null}
 
@@ -3412,6 +3210,14 @@ const CoachProfilePage = () => {
                   <a href={smsHref} className="is-secondary coach-empty-card__link">
                     Message coach
                   </a>
+                ) : !isLoggedIn ? (
+                  <button
+                    type="button"
+                    className="is-secondary coach-empty-card__link"
+                    onClick={() => openAuthPrompt(undefined, "message")}
+                  >
+                    Message coach
+                  </button>
                 ) : (
                   <button type="button" className="is-secondary" disabled>
                     Message coach
@@ -3556,730 +3362,11 @@ const CoachProfilePage = () => {
     </aside>
   );
 
-  if (loading) {
-    return (
-      <MainLayout
-      mobileChrome="home"
-      desktopChrome="home"
-      showDesktopNav={true}
-      onMobileBack={handleBackToFindCoaches}
-      hideMobileLocation
-    >
-        <div className="coach-profile-page coach-profile-page--loading">
-          <div className="coach-profile-loading-card" />
-        </div>
-      </MainLayout>
-    );
-  }
-
-  if (profileError || !profile) {
-    return (
-      <MainLayout
-      mobileChrome="home"
-      desktopChrome="home"
-      showDesktopNav={true}
-      onMobileBack={handleBackToFindCoaches}
-      hideMobileLocation
-    >
-        <div className="coach-profile-page">
-          <div className="coach-profile-empty">
-            <div className="coach-profile-empty__icon">
-              <MessageCircle strokeWidth={2.2} />
-            </div>
-            <h1 className="coach-profile-empty__title">{profileError ? "We couldn’t load this coach" : "Coach not found"}</h1>
-            <p className="coach-profile-empty__copy">
-              {profileError ?? "That profile isn’t available right now. Return to the coach list and try another profile."}
-            </p>
-            <Link
-              to="/find-coaches"
-              state={findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined}
-              className="coach-profile-empty__action"
-            >
-              <ArrowLeft size={16} /> Back to Coaches
-            </Link>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  return (
-    <MainLayout
-      mobileChrome="home"
-      desktopChrome="home"
-      showDesktopNav={true}
-      onMobileBack={handleBackToFindCoaches}
-      hideMobileLocation
-    >
-      <div className="coach-profile-page">
-        <div className="coach-profile-shell coach-profile-shell--layout">
-          {/* <JoinMyRosterBanner
-            coachName={coachName}
-            rosterStatus={rosterStatus}
-            canRequest={Boolean(authToken)}
-            onRequestJoin={requestJoin}
-            requestingJoin={requestingJoin}
-            joinError={requestJoinError ?? undefined}
-            joinSuccess={requestJoinSuccess}
-            rosterError={rosterError ?? undefined}
-            rosterLoading={rosterLoading}
-          /> */}
-
-          <div className="coach-profile-layout-v2">
-            <div className="coach-profile-main-v2">
-              <div className="coach-profile-fixed-chrome">
-                <div className="coach-profile-chrome-header">
-                  <button type="button" className="coach-profile-top-action" onClick={handleBackToFindCoaches}>
-                    <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Find a Coach</span>
-                  </button>
-                  {smsHref ? (
-                    <a
-                      href={smsHref}
-                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                    >
-                      <MessageCircle size={16} /> Message
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
-                      disabled
-                    >
-                      <MessageCircle size={16} /> Message
-                    </button>
-                  )}
-                </div>
-
-                <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
-                  {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
-                      onClick={() => scrollToSection(tab)}
-                    >
-                      {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="coach-profile-compact-bar">
-                  <div className="coach-profile-compact-bar__identity">
-                    <div className="coach-profile-compact-bar__avatar-wrap">
-                      {coachAvatar ? (
-                        <img src={coachAvatar} alt={coachName} className="coach-profile-compact-bar__avatar" />
-                      ) : (
-                        <div className="coach-profile-compact-bar__avatar coach-profile-compact-bar__avatar--fallback">
-                          {buildInitials(coachName)}
-                        </div>
-                      )}
-                      <span className="coach-profile-compact-bar__verified-badge" aria-label="Verified coach">
-                        <CheckCircle2 size={8} />
-                      </span>
-                    </div>
-                    <div className="coach-profile-compact-bar__copy">
-                      <strong>{coachName}</strong>
-                      <div className="coach-profile-compact-bar__meta">
-                        {certifications[0] ? <span>{certifications[0]}</span> : null}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="coach-profile-compact-bar__price">
-                    <span className="coach-profile-compact-bar__price-currency">$</span>
-                    <span className="coach-profile-compact-bar__price-value">{privatePriceLabel.replace(/[^0-9.]/g, "")}</span>
-                    <span className="coach-profile-compact-bar__price-unit">/hr</span>
-                  </div>
-                </div>
-              </div>
-
-              <section className="coach-hero-m" aria-label="Coach overview">
-                <div className="coach-hero-m__row">
-                  <div className="coach-hero-m__avatar">
-                    {coachAvatar ? (
-                      <img src={coachAvatar} alt={coachName} />
-                    ) : (
-                      <span className="coach-hero-m__avatar-fallback">{buildInitials(coachName)}</span>
-                    )}
-                  </div>
-                  <div className="coach-hero-m__id">
-                    <h1>{coachName}</h1>
-                    {certifications[0] ? (
-                      <span className="coach-hero-m__cert">
-                        <span className="coach-hero-m__cert-dot" aria-hidden />
-                        {certifications[0]}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="coach-hero-m__price">
-                    <div className="coach-hero-m__amt">
-                      {privatePriceLabel}
-                      <small>/hr</small>
-                    </div>
-                    {groupPriceLabel ? (
-                      <span className="coach-hero-m__grp">Group {groupPriceLabel}/hr</span>
-                    ) : null}
-                  </div>
-                </div>
-                {heroTagline ? <p className="coach-hero-m__tagline">{heroTagline}</p> : null}
-                {heroStudents || heroExperience ? (
-                  <div className="coach-hero-m__stats">
-                    {heroStudents ? (
-                      <div className="coach-hero-m__stat">
-                        <div className="coach-hero-m__stat-num">{heroStudents}</div>
-                        <div className="coach-hero-m__stat-lbl">Students coached</div>
-                      </div>
-                    ) : null}
-                    {heroExperience ? (
-                      <div className="coach-hero-m__stat">
-                        <div className="coach-hero-m__stat-num">{heroExperience}</div>
-                        <div className="coach-hero-m__stat-lbl">Experience</div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div className="coach-hero-m__actions">
-                  {smsHref ? (
-                    <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
-                      <MessageCircle size={17} /> Message
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
-                      disabled
-                    >
-                      <MessageCircle size={17} /> Message
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="coach-hero-m__btn coach-hero-m__btn--primary"
-                    onClick={() =>
-                      mobileBookingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                    }
-                  >
-                    See availability
-                  </button>
-                </div>
-              </section>
-
-              <section className="coach-profile-hero-v2">
-                <div className="coach-profile-hero-v2__identity">
-                  <div className="coach-profile-hero-v2__avatar-wrap">
-                    {coachAvatar ? (
-                      <img src={coachAvatar} alt={coachName} className="coach-profile-hero-v2__avatar" />
-                    ) : (
-                      <div className="coach-profile-hero-v2__avatar coach-profile-hero-v2__avatar--fallback">{buildInitials(coachName)}</div>
-                    )}
-                    <span className="coach-profile-verified-badge" aria-label="Verified coach">
-                      <CheckCircle2 size={18} />
-                    </span>
-                  </div>
-                  <div className="coach-profile-hero-v2__copy">
-                    <div className="coach-profile-hero-v2__header">
-                      <div className="coach-profile-hero-v2__header-copy">
-                        <h1>{coachName}</h1>
-                        <div className="coach-profile-mobile-meta">
-                          {certifications[0] ? <span>{certifications[0]}</span> : null}
-                          {certifications[0] ? <span>·</span> : null}
-                          <span>{privatePriceLabel}/hr</span>
-                        </div>
-                      </div>
-                      <div className="coach-profile-hero-v2__actions">
-                        {smsHref ? (
-                          <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
-                            <MessageCircle size={16} /> Message
-                          </a>
-                        ) : (
-                          <button
-                            type="button"
-                            className="coach-profile-top-action coach-profile-top-action--outline"
-                            disabled
-                          >
-                            <MessageCircle size={16} /> Message
-                          </button>
-                        )}
-                        <span className="coach-profile-hero-v2__location-note">{cityLabel}</span>
-                      </div>
-                    </div>
-                    <div className="coach-profile-hero-v2__chips">
-                      {certifications.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="coach-profile-hero-v2__stats">
-                      <span>
-                        <MapPin size={14} /> {distanceLabel ? `${distanceLabel} away` : heroLocationLabel}
-                      </span>
-                      <span>
-                        <Clock3 size={14} /> {experienceLabel} exp
-                      </span>
-                      <span>
-                        <Users size={14} /> {studentsLabel}
-                      </span>
-                    </div>
-                    <p ref={bioRef} className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
-                    {bioCanExpand || bioExpanded ? (
-                      <button type="button" className="coach-profile-inline-link" onClick={() => setBioExpanded((value) => !value)}>
-                        {bioExpanded ? "See less" : "See more"}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
-
-              <div className="coach-sections-m">
-                {aboutCopy ? (
-                  <section className="coach-sec-m" aria-label="About">
-                    <p className="coach-sec-m__eyebrow">
-                      <span className="coach-sec-m__edot" aria-hidden />
-                      About
-                    </p>
-                    <p className={`coach-sec-m__bio${bioExpanded ? "" : " coach-sec-m__bio--clamped"}`}>{aboutCopy}</p>
-                    {aboutCopy.length > 160 ? (
-                      <button
-                        type="button"
-                        className="coach-sec-m__seemore"
-                        onClick={() => setBioExpanded((value) => !value)}
-                      >
-                        {bioExpanded ? "See less" : "See more"}
-                      </button>
-                    ) : null}
-                  </section>
-                ) : null}
-
-                {levels.length || specialties.length || hasLessonFormats || availabilityLabels.length ? (
-                  <section className="coach-sec-m" aria-label={`What ${coachFirstName} teaches`}>
-                    <p className="coach-sec-m__eyebrow">
-                      <span className="coach-sec-m__edot" aria-hidden />
-                      What {coachFirstName} teaches
-                    </p>
-                    {levels.length ? (
-                      <div className="coach-sec-m__chip-group">
-                        <p className="coach-sec-m__chip-label">Player levels</p>
-                        <div className="coach-sec-m__chips">
-                          {levels.map((level) => (
-                            <span key={level} className="coach-sec-m__chip">{level}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {specialties.length ? (
-                      <div className="coach-sec-m__chip-group">
-                        <p className="coach-sec-m__chip-label">Focus areas</p>
-                        <div className="coach-sec-m__chips">
-                          {specialties.map((item) => (
-                            <span key={item} className="coach-sec-m__chip">{item}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {hasLessonFormats ? (
-                      <div className="coach-sec-m__chip-group">
-                        <p className="coach-sec-m__chip-label">Lesson formats</p>
-                        <div className="coach-sec-m__chips">
-                          {lessonFormatLabels.map((format) => (
-                            <span key={format} className="coach-sec-m__chip">{format}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {availabilityLabels.length ? (
-                      <div className="coach-sec-m__chip-group">
-                        <p className="coach-sec-m__chip-label">Typically available</p>
-                        <div className="coach-sec-m__chips">
-                          {availabilityLabels.map((label) => (
-                            <span key={label} className="coach-sec-m__chip coach-sec-m__chip--avail">
-                              <span className="coach-sec-m__pulse" aria-hidden />
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </section>
-                ) : null}
-
-                {coachingLocations.length ? (
-                  <section className="coach-sec-m" aria-label="Where you'll play">
-                    <p className="coach-sec-m__eyebrow">
-                      <span className="coach-sec-m__edot" aria-hidden />
-                      Where you'll play
-                    </p>
-                    {coachingLocations.map((court, index) => (
-                      <div
-                        key={`${court}-${index}`}
-                        className={`coach-sec-m__court${index === 0 ? "" : " coach-sec-m__court--secondary"}`}
-                      >
-                        <span className="coach-sec-m__court-pin" aria-hidden>
-                          <MapPin size={18} />
-                        </span>
-                        <div className="coach-sec-m__court-body">
-                          <div className="coach-sec-m__court-name">{shortenLocationLabel(court)}</div>
-                          <div className="coach-sec-m__court-meta">
-                            <span className="coach-sec-m__court-tag">{index === 0 ? "Primary" : "Secondary"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </section>
-                ) : null}
-
-                {packages.length ? (
-                  <section className="coach-sec-m" aria-label="Lesson packages">
-                    <button
-                      type="button"
-                      className="coach-sec-m__pkg"
-                      onClick={() =>
-                        mobilePackagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                      }
-                    >
-                      <span className="coach-sec-m__pkg-txt">
-                        <b>Lesson packages</b> — book in bulk and lock in today's rate.
-                      </span>
-                      <span className="coach-sec-m__pkg-cta">
-                        View <ChevronRight size={13} />
-                      </span>
-                    </button>
-                  </section>
-                ) : null}
-              </div>
-
-              {renderBookingPanel("mobile")}
-
-              <section ref={aboutRef} className="coach-profile-section coach-profile-section--split" id="about">
-                <div className="coach-profile-section__header">
-                  <h2>About</h2>
-                </div>
-                <div className="coach-profile-stat-grid">
-                  <article className="coach-profile-stat-card">
-                    <div className="coach-profile-stat-card__icon">
-                      <CalendarDays size={20} />
-                    </div>
-                    <span>Experience</span>
-                    <strong>{experienceLabel}</strong>
-                  </article>
-                  <article className="coach-profile-stat-card">
-                    <div className="coach-profile-stat-card__icon">
-                      <Users size={20} />
-                    </div>
-                    <span>Students</span>
-                    <strong>{studentsLabel}</strong>
-                  </article>
-                  <article className="coach-profile-stat-card">
-                    <div className="coach-profile-stat-card__icon">
-                      <MessageCircle size={20} />
-                    </div>
-                    <span>Languages</span>
-                    <strong>{languages.join(", ") || "English"}</strong>
-                  </article>
-                </div>
-
-                <div className="coach-detail-stack">
-                  <div>
-                    <h3>Certifications</h3>
-                    <div className="coach-chip-row">
-                      {certifications.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section ref={specialtiesRef} className="coach-profile-section coach-profile-section--split" id="specialties">
-                <div className="coach-profile-section__header">
-                  <h2>Specialties</h2>
-                </div>
-                <div className="coach-detail-stack">
-                  <div>
-                    <h3>Focus areas</h3>
-                    <div className="coach-chip-row">
-                      {specialties.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--soft">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3>Player levels</h3>
-                    <div className="coach-chip-row">
-                      {levels.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3>Lesson formats</h3>
-                    <div className="coach-chip-row">
-                      {lessonFormatLabels.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--blue">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h3>Availability</h3>
-                    <div className="coach-chip-row">
-                      {(availabilityLabels.length ? availabilityLabels : [profile?.availability || "Schedule shared after booking"]).map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--green">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section ref={courtsRef} className="coach-profile-section coach-profile-section--split" id="courts">
-                <div className="coach-profile-section__header">
-                  <h2>Courts</h2>
-                </div>
-                <div className="coach-court-grid">
-                  {coachingLocations.map((location, index) => (
-                    <article key={location} className="coach-court-card">
-                      <div className={`coach-court-card__icon${index === 0 ? " coach-court-card__icon--primary" : ""}`}>
-                        <MapPin size={18} />
-                      </div>
-                      <div>
-                        <strong>{location}</strong>
-                        <span>{index === 0 ? "Primary location" : "Secondary location"}</span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            {renderBookingPanel("desktop")}
-          </div>
-        </div>
-
-        {bookingOpen && selectedSlot ? (
-          <div className="coach-booking-flow" role="dialog" aria-modal="true">
-            <div className="coach-booking-flow__backdrop" onClick={closeBookingFlow} />
-            <div className="coach-booking-flow__panel">
-              <div className="coach-booking-flow__topbar">
-                <button
-                  type="button"
-                  className="coach-booking-flow__back"
-                  onClick={() => {
-                    if (bookingStep === "about") {
-                      closeBookingFlow();
-                      return;
-                    }
-                    if (bookingStep === "confirm") {
-                      setBookingStep(isFirstBooking ? "about" : "confirm");
-                      if (!isFirstBooking) closeBookingFlow();
-                      return;
-                    }
-                    closeBookingFlow();
-                  }}
-                >
-                  <ChevronLeft size={18} /> Back
-                </button>
-                <button type="button" className="coach-booking-flow__close" onClick={closeBookingFlow}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              {bookingStep === "about" ? (
-                <div className="coach-booking-step">
-                  <div className="coach-booking-step__coach-card">
-                    {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
-                    <div>
-                      <p>Your first lesson with {coachName}</p>
-                      <strong>Help {coachFirstName} prepare for your session</strong>
-                    </div>
-                  </div>
-
-                  {hasPrefill ? <div className="coach-prefill-banner">Pre-filled from your preferences — just check and confirm.</div> : null}
-
-                  <div className="coach-form-group">
-                    <label>Who is this lesson for?</label>
-                    <div className="coach-chip-row">
-                      {(["Myself", "My child"] as IntroWho[]).map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={`coach-choice-chip${introForm.who === value ? " is-active" : ""}`}
-                          onClick={() => setIntroForm((current) => ({ ...current, who: value }))}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="coach-form-group">
-                    <label>Your current level</label>
-                    <div className="coach-chip-row">
-                      {LEVEL_OPTIONS.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={`coach-choice-chip${introForm.level === value ? " is-active" : ""}`}
-                          onClick={() => setIntroForm((current) => ({ ...current, level: value }))}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="coach-form-group">
-                    <label>What do you want to work on?</label>
-                    <div className="coach-chip-row">
-                      {INTRO_GOALS.map((goal) => {
-                        const active = introForm.goals.includes(goal);
-                        return (
-                          <button
-                            key={goal}
-                            type="button"
-                            className={`coach-choice-chip${active ? " is-active" : ""}`}
-                            onClick={() =>
-                              setIntroForm((current) => ({
-                                ...current,
-                                goals: active ? current.goals.filter((item) => item !== goal) : [...current.goals, goal],
-                              }))
-                            }
-                          >
-                            {goal}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="coach-form-group">
-                    <label>Anything else?</label>
-                    <textarea
-                      value={introForm.note}
-                      onChange={(event) => setIntroForm((current) => ({ ...current, note: event.target.value }))}
-                      placeholder="Injuries, upcoming tournaments, doubles goals, match prep..."
-                    />
-                  </div>
-
-                  <div className="coach-booking-step__footer">
-                    <button
-                      type="button"
-                      className="coach-secondary-button"
-                      onClick={() => openPaymentSheet("card")}
-                    >
-                      Skip to payment
-                    </button>
-                    <button
-                      type="button"
-                      className="coach-primary-button"
-                      disabled={!canContinueIntro}
-                      onClick={() => openPaymentSheet("card")}
-                    >
-                      Continue to payment
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {bookingStep === "confirm" ? (
-                <div className="coach-booking-step">
-                  {(() => {
-                    const upsellTotal = upsellPackage ? parseCurrency(upsellPackage.total_price) : undefined;
-                    const upsellTotalLabel = upsellPackage ? formatCurrency(upsellPackage.total_price) ?? `${upsellPackage.total_price}` : "";
-                    const upsellPerSession =
-                      upsellPackage && upsellTotal != null
-                        ? formatCurrency(upsellTotal / Math.max(upsellPackage.lesson_count, 1))
-                        : undefined;
-                    const privateLessonRate = parseCurrency(privatePriceLabel);
-                    const upsellSavingsAmount =
-                      upsellPackage && upsellTotal != null && privateLessonRate
-                        ? Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1) - upsellTotal, 0)
-                        : 0;
-                    const upsellSavingsPercent =
-                      upsellPackage && upsellTotal != null && privateLessonRate
-                        ? Math.round((upsellSavingsAmount / Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1), 1)) * 100)
-                        : 0;
-                    const upsellTitle =
-                      upsellPackage?.name?.trim() || `${upsellPackage?.lesson_count ?? 0}-session package`;
-                    const upsellCopy =
-                      upsellPackage?.description?.trim() ||
-                      (upsellPerSession && upsellSavingsAmount > 0
-                        ? `${upsellPerSession}/session · save ${formatCurrency(upsellSavingsAmount) ?? `$${Math.round(upsellSavingsAmount)}`}${upsellSavingsPercent > 0 ? ` (${upsellSavingsPercent}%)` : ""}`
-                        : upsellPackage
-                          ? `${upsellPackage.lesson_count} lessons with ${coachFirstName}`
-                          : "");
-
-                    return (
-                      <>
-                  <div className="coach-booking-step__coach-card">
-                    {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
-                    <div>
-                      <strong>{coachName}</strong>
-                      <p>{certifications[0] ?? coachTitle}</p>
-                    </div>
-                  </div>
-
-                  <div className="coach-summary-table">
-                    <div><span>Type</span><strong>{selectedSlot.type === "private" ? "Private lesson" : selectedSlot.className ?? "Group lesson"}</strong></div>
-                    <div><span>Date & time</span><strong>{selectedSlot.dayLabel} {selectedSlot.dateLabel} · {selectedSlot.timeLabel}</strong></div>
-                    <div><span>Duration</span><strong>{selectedSlot.durationLabel}</strong></div>
-                    <div><span>Location</span><strong>{selectedSlot.court}</strong></div>
-                  </div>
-
-                  {selectedSlotPricing ? (
-                    <LessonPaymentSummary
-                      pricing={{
-                        hourly_rate: selectedSlot.hourlyRate,
-                        group_price_per_person: selectedSlot.groupPricePerPerson,
-                        discount_percentage: selectedSlot.discountPercentage,
-                        lesson_type_name: selectedSlot.lessonTypeName,
-                        lessontype_id: selectedSlot.lessonTypeId,
-                      }}
-                      formatMoney={formatCurrencyPrecise}
-                    />
-                  ) : (
-                    <div className="coach-total-box">
-                      <span>Total price</span>
-                      <strong>{selectedSlot.priceLabel}</strong>
-                    </div>
-                  )}
-
-                  {privateCredits === 0 && selectedSlot.type === "private" && upsellPackage && !upsellDismissed ? (
-                    <div className="coach-upsell-card">
-                      <button type="button" className="coach-upsell-card__close" onClick={() => setUpsellDismissed(true)}>
-                        <X size={14} />
-                      </button>
-                      <p>Save on repeat sessions</p>
-                      <strong>{upsellTitle}</strong>
-                      <span>{upsellCopy}</span>
-                      <div className="coach-upsell-card__actions">
-                        <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>
-                          Buy package{upsellTotalLabel ? ` · ${upsellTotalLabel}` : ""}
-                        </button>
-                        <button type="button" className="coach-secondary-button coach-secondary-button--small" onClick={() => setUpsellDismissed(true)}>Just this lesson</button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <button type="button" className="coach-primary-button" onClick={() => openPaymentSheet("card")}>
-                    Continue to payment
-                  </button>
-                      </>
-                    );
-                  })()}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
+  // Booking overlays (confirm-and-pay drawer + status modal + auth prompt). Rendered from BOTH the
+  // bookMode return and the main return so the drawer mounts on the dedicated book page too.
+  // Mount/placement only — no payment-logic change.
+  const renderBookingOverlays = () => (
+    <>
         {paymentSheetOpen && selectedSlot ? (
           <div className="coach-payment-modal" role="dialog" aria-modal="true">
             <div className="coach-payment-modal__backdrop" onClick={closePaymentSheet} />
@@ -4619,6 +3706,14 @@ const CoachProfilePage = () => {
                           ? "Send request"
                           : "Pay now"}
                 </button>
+                {/* TODO(capture-model): charge-timing copy ("charged when accepted" / refund terms)
+                    depends on the unconfirmed Stripe capture model — left out until backend confirms.
+                    This line is the responsiveness reassurance only (a static placeholder per PR 1). */}
+                {selectedSlot?.type === "private" ? (
+                  <p className="coach-payment-modal__responds">
+                    <Clock3 size={14} /> {coachFirstName} usually responds within 24 hours
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -4630,8 +3725,20 @@ const CoachProfilePage = () => {
             status={bookingConfirmation.status}
             data={bookingConfirmation.data}
             onClose={() => setBookingConfirmation(null)}
-            onPrimary={() => setBookingConfirmation(null)}
-            onSecondary={() => navigate("/")}
+            onPrimary={() => {
+              // Pending: "View my reservation" → the reservation detail (when we have its id).
+              const lessonId = bookingConfirmation.data.lessonId;
+              if (bookingConfirmation.status === "PENDING" && lessonId) {
+                setBookingConfirmation(null);
+                navigate(`/player/lesson/${lessonId}`);
+                return;
+              }
+              setBookingConfirmation(null);
+            }}
+            onSecondary={() => {
+              setBookingConfirmation(null);
+              navigate(bookingConfirmation.status === "PENDING" ? "/find-coaches" : "/");
+            }}
             onAddToCalendar={() => {
               if (selectedSlot) {
                 downloadIcs(selectedSlot, coachName);
@@ -4673,7 +3780,7 @@ const CoachProfilePage = () => {
                   <span>{buildInitials(coachName)}</span>
                 )}
                 <div>
-                  <small>You&apos;re booking with</small>
+                  <small>{authPromptIntent === "message" ? "You’re messaging" : "You’re booking with"}</small>
                   <strong>{coachName}</strong>
                   <p>
                     {privatePriceLabel}/hr
@@ -4682,8 +3789,12 @@ const CoachProfilePage = () => {
                 </div>
               </div>
               <div className="coach-auth-sheet__copy">
-                <h2>Create a free account to book</h2>
-                <p>Sign up in 30 seconds to request a lesson with {coachFirstName}.</p>
+                <h2>{authPromptIntent === "message" ? "Create a free account to message" : "Create a free account to book"}</h2>
+                <p>
+                  {authPromptIntent === "message"
+                    ? `Sign up in 30 seconds to message ${coachFirstName}.`
+                    : `Sign up in 30 seconds to request a lesson with ${coachFirstName}.`}
+                </p>
               </div>
               <div className="coach-auth-sheet__actions">
                 <button type="button" className="coach-auth-sheet__primary" onClick={() => continueToAuth("signup")}>
@@ -4704,6 +3815,815 @@ const CoachProfilePage = () => {
             </div>
           </div>
         ) : null}
+    </>
+  );
+
+  // Compact "Book a lesson" CTA that replaces the profile's embedded booking panel (PR 3b).
+  // The dedicated /coaches/:id/book page is the single booking surface; this just routes to it.
+  const renderBookingCta = (variant: "mobile" | "desktop") => (
+    <aside className={`coach-book-cta coach-book-cta--${variant}`}>
+      <div className="coach-book-cta__price">
+        <strong>{privatePriceLabel}</strong>
+        <span className="coach-book-cta__unit">/hr</span>
+        {groupPriceLabel ? <span className="coach-book-cta__group">{groupPriceLabel}/hr group</span> : null}
+      </div>
+      <div className={`coach-book-cta__avail${slotsThisWeek > 0 ? " is-open" : ""}`}>
+        <span className="coach-book-cta__dot" aria-hidden />
+        <span>{slotsThisWeek > 0 ? `${slotsThisWeek} slots available this week` : "No slots this week"}</span>
+      </div>
+      <button
+        type="button"
+        className="coach-book-cta__btn"
+        onClick={() =>
+          navigate(`/coaches/${profile?.id}/book`, {
+            state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined,
+          })
+        }
+      >
+        Book a lesson
+      </button>
+    </aside>
+  );
+
+  if (loading) {
+    return (
+      <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
+        <div className="coach-profile-page coach-profile-page--loading">
+          <div className="coach-profile-loading-card" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (profileError || !profile) {
+    return (
+      <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
+        <div className="coach-profile-page">
+          <div className="coach-profile-empty">
+            <div className="coach-profile-empty__icon">
+              <MessageCircle strokeWidth={2.2} />
+            </div>
+            <h1 className="coach-profile-empty__title">{profileError ? "We couldn’t load this coach" : "Coach not found"}</h1>
+            <p className="coach-profile-empty__copy">
+              {profileError ?? "That profile isn’t available right now. Return to the coach list and try another profile."}
+            </p>
+            <Link
+              to="/find-coaches"
+              state={findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined}
+              className="coach-profile-empty__action"
+            >
+              <ArrowLeft size={16} /> Back to Coaches
+            </Link>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Focused "book a lesson" page: slim coach header + the existing booking panel, profile chrome hidden.
+  // TODO(PR3): extract useCoachBooking + <CoachBookingPanel>; book mode reuses renderBookingPanel for now.
+  if (bookMode) {
+    return (
+      <MainLayout
+        mobileChrome="home"
+        desktopChrome="home"
+        showDesktopNav={true}
+        onMobileBack={handleBackToFindCoaches}
+        hideMobileLocation
+        pageClassName="coach-book-layout"
+      >
+        <div className="coach-profile-page coach-book-page">
+          <div className="coach-profile-shell coach-profile-shell--layout">
+            <div className="coach-book-page__body">
+              <header className="coach-book-head">
+                {/* Desktop-only: the top-nav back is hidden >=1024px, so this is the only desktop back. */}
+                <button
+                  type="button"
+                  className="coach-profile-top-action coach-book-head__back"
+                  onClick={handleBackToFindCoaches}
+                >
+                  <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Back</span>
+                </button>
+                <h1 className="coach-book-head__eyebrow">
+                  <span className="coach-book-head__dot" aria-hidden /> Book a lesson with {coachName}
+                </h1>
+              </header>
+              {renderBookingPanel("mobile")}
+              {renderBookingPanel("desktop")}
+            </div>
+          </div>
+          {renderBookingOverlays()}
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout
+      mobileChrome="home"
+      desktopChrome="home"
+      showDesktopNav={true}
+      onMobileBack={handleBackToFindCoaches}
+      hideMobileLocation
+    >
+      <div className="coach-profile-page">
+        <div className="coach-profile-shell coach-profile-shell--layout">
+          {/* <JoinMyRosterBanner
+            coachName={coachName}
+            rosterStatus={rosterStatus}
+            canRequest={Boolean(authToken)}
+            onRequestJoin={requestJoin}
+            requestingJoin={requestingJoin}
+            joinError={requestJoinError ?? undefined}
+            joinSuccess={requestJoinSuccess}
+            rosterError={rosterError ?? undefined}
+            rosterLoading={rosterLoading}
+          /> */}
+
+          <div className="coach-profile-layout-v2">
+            <div className="coach-profile-main-v2">
+              <div className="coach-profile-fixed-chrome">
+                <div className="coach-profile-chrome-header">
+                  <button type="button" className="coach-profile-top-action" onClick={handleBackToFindCoaches}>
+                    <ArrowLeft size={16} /> <span className="coach-profile-top-action__label">Find a Coach</span>
+                  </button>
+                  {smsHref ? (
+                    <a
+                      href={smsHref}
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                    >
+                      <MessageCircle size={16} /> Message
+                    </a>
+                  ) : !isLoggedIn ? (
+                    <button
+                      type="button"
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      onClick={() => openAuthPrompt(undefined, "message")}
+                    >
+                      <MessageCircle size={16} /> Message
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      disabled
+                    >
+                      <MessageCircle size={16} /> Message
+                    </button>
+                  )}
+                </div>
+
+                <div className="coach-profile-sticky-chrome coach-profile-sticky-chrome--inline">
+                  {(["about", "specialties", "courts"] as AnchorTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      className={`coach-profile-tab${activeTab === tab ? " coach-profile-tab--active" : ""}`}
+                      onClick={() => scrollToSection(tab)}
+                    >
+                      {tab === "about" ? "About" : tab === "specialties" ? "Specialties" : "Courts"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="coach-profile-compact-bar">
+                  <div className="coach-profile-compact-bar__identity">
+                    <div className="coach-profile-compact-bar__avatar-wrap">
+                      {coachAvatar ? (
+                        <img src={coachAvatar} alt={coachName} className="coach-profile-compact-bar__avatar" />
+                      ) : (
+                        <div className="coach-profile-compact-bar__avatar coach-profile-compact-bar__avatar--fallback">
+                          {buildInitials(coachName)}
+                        </div>
+                      )}
+                      <span className="coach-profile-compact-bar__verified-badge" aria-label="Verified coach">
+                        <CheckCircle2 size={8} />
+                      </span>
+                    </div>
+                    <div className="coach-profile-compact-bar__copy">
+                      <strong>{coachName}</strong>
+                      <div className="coach-profile-compact-bar__meta">
+                        {certifications[0] ? <span>{certifications[0]}</span> : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="coach-profile-compact-bar__price">
+                    <span className="coach-profile-compact-bar__price-currency">$</span>
+                    <span className="coach-profile-compact-bar__price-value">{privatePriceLabel.replace(/[^0-9.]/g, "")}</span>
+                    <span className="coach-profile-compact-bar__price-unit">/hr</span>
+                  </div>
+                </div>
+              </div>
+
+              <section className="coach-hero-m" aria-label="Coach overview">
+                <div className="coach-hero-m__row">
+                  <div className="coach-hero-m__avatar">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt={coachName} />
+                    ) : (
+                      <span className="coach-hero-m__avatar-fallback">{buildInitials(coachName)}</span>
+                    )}
+                  </div>
+                  <div className="coach-hero-m__id">
+                    <div className="coach-hero-name-row">
+                      <h1>{coachName}</h1>
+                      <CoachTrustMark />
+                    </div>
+                  </div>
+                  <div className="coach-hero-m__price">
+                    <div className="coach-hero-m__amt">
+                      {privatePriceLabel}
+                      <small>/hr</small>
+                    </div>
+                    {groupPriceLabel ? (
+                      <span className="coach-hero-m__grp">Group {groupPriceLabel}/hr</span>
+                    ) : null}
+                  </div>
+                </div>
+                {heroTagline ? <p className="coach-hero-m__tagline">{heroTagline}</p> : null}
+                <CoachCredibilityLine
+                  certLabel={certifications[0] || undefined}
+                  yearsExperience={profile?.yearsExperience ?? apiProfile?.experienceYears}
+                  studentCount={apiProfile?.studentCount}
+                  className="coach-hero-m__cred"
+                />
+                <div className="coach-hero-m__actions">
+                  {smsHref ? (
+                    <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
+                      <MessageCircle size={17} /> Message
+                    </a>
+                  ) : !isLoggedIn ? (
+                    <button
+                      type="button"
+                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
+                      onClick={() => openAuthPrompt(undefined, "message")}
+                    >
+                      <MessageCircle size={17} /> Message
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
+                      disabled
+                    >
+                      <MessageCircle size={17} /> Message
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="coach-hero-m__btn coach-hero-m__btn--primary"
+                    onClick={() =>
+                      navigate(`/coaches/${profile?.id}/book`, {
+                        state: findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : undefined,
+                      })
+                    }
+                  >
+                    Book a lesson
+                  </button>
+                </div>
+              </section>
+
+              <section className="coach-profile-hero-v2">
+                <div className="coach-profile-hero-v2__identity">
+                  <div className="coach-profile-hero-v2__avatar-wrap">
+                    {coachAvatar ? (
+                      <img src={coachAvatar} alt={coachName} className="coach-profile-hero-v2__avatar" />
+                    ) : (
+                      <div className="coach-profile-hero-v2__avatar coach-profile-hero-v2__avatar--fallback">{buildInitials(coachName)}</div>
+                    )}
+                    <span className="coach-profile-verified-badge" aria-label="Verified coach">
+                      <CheckCircle2 size={18} />
+                    </span>
+                  </div>
+                  <div className="coach-profile-hero-v2__copy">
+                    <div className="coach-profile-hero-v2__header">
+                      <div className="coach-profile-hero-v2__header-copy">
+                        <div className="coach-hero-name-row">
+                          <h1>{coachName}</h1>
+                          <CoachTrustMark />
+                        </div>
+                        <div className="coach-profile-mobile-meta">
+                          {certifications[0] ? <span>{certifications[0]}</span> : null}
+                          {certifications[0] ? <span>·</span> : null}
+                          <span>{privatePriceLabel}/hr</span>
+                        </div>
+                      </div>
+                      <div className="coach-profile-hero-v2__actions">
+                        {smsHref ? (
+                          <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
+                            <MessageCircle size={16} /> Message
+                          </a>
+                        ) : !isLoggedIn ? (
+                          <button
+                            type="button"
+                            className="coach-profile-top-action coach-profile-top-action--outline"
+                            onClick={() => openAuthPrompt(undefined, "message")}
+                          >
+                            <MessageCircle size={16} /> Message
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="coach-profile-top-action coach-profile-top-action--outline"
+                            disabled
+                          >
+                            <MessageCircle size={16} /> Message
+                          </button>
+                        )}
+                        <span className="coach-profile-hero-v2__location-note">{cityLabel}</span>
+                      </div>
+                    </div>
+                    <div className="coach-profile-hero-v2__chips">
+                      {certifications.map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="coach-profile-hero-v2__stats">
+                      <span>
+                        <MapPin size={14} /> {distanceLabel ? `${distanceLabel} away` : heroLocationLabel}
+                      </span>
+                      <span>
+                        <Clock3 size={14} /> {experienceLabel} exp
+                      </span>
+                      <span>
+                        <Users size={14} /> {studentsLabel}
+                      </span>
+                    </div>
+                    <p ref={bioRef} className={`coach-profile-bio${bioExpanded ? " coach-profile-bio--expanded" : ""}`}>{aboutCopy}</p>
+                    {bioCanExpand || bioExpanded ? (
+                      <button type="button" className="coach-profile-inline-link" onClick={() => setBioExpanded((value) => !value)}>
+                        {bioExpanded ? "See less" : "See more"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+
+              <div className="coach-sections-m">
+                {aboutCopy ? (
+                  <section className="coach-sec-m" aria-label="About">
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      About
+                    </p>
+                    <p className={`coach-sec-m__bio${bioExpanded ? "" : " coach-sec-m__bio--clamped"}`}>{aboutCopy}</p>
+                    {aboutCopy.length > 160 ? (
+                      <button
+                        type="button"
+                        className="coach-sec-m__seemore"
+                        onClick={() => setBioExpanded((value) => !value)}
+                      >
+                        {bioExpanded ? "See less" : "See more"}
+                      </button>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {levels.length || specialties.length || hasLessonFormats || availabilityLabels.length ? (
+                  <section className="coach-sec-m" aria-label={`What ${coachFirstName} teaches`}>
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      What {coachFirstName} teaches
+                    </p>
+                    {levels.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Player levels</p>
+                        <div className="coach-sec-m__chips">
+                          {levels.map((level) => (
+                            <span key={level} className="coach-sec-m__chip">{level}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {specialties.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Focus areas</p>
+                        <div className="coach-sec-m__chips">
+                          {specialties.map((item) => (
+                            <span key={item} className="coach-sec-m__chip">{item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {hasLessonFormats ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Lesson formats</p>
+                        <div className="coach-sec-m__chips">
+                          {lessonFormatLabels.map((format) => (
+                            <span key={format} className="coach-sec-m__chip">{format}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {availabilityLabels.length ? (
+                      <div className="coach-sec-m__chip-group">
+                        <p className="coach-sec-m__chip-label">Typically available</p>
+                        <div className="coach-sec-m__chips">
+                          {availabilityLabels.map((label) => (
+                            <span key={label} className="coach-sec-m__chip coach-sec-m__chip--avail">
+                              <span className="coach-sec-m__pulse" aria-hidden />
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {coachingLocations.length ? (
+                  <section className="coach-sec-m" aria-label="Where you'll play">
+                    <p className="coach-sec-m__eyebrow">
+                      <span className="coach-sec-m__edot" aria-hidden />
+                      Where you'll play
+                    </p>
+                    {coachingLocations.map((court, index) => (
+                      <div
+                        key={`${court}-${index}`}
+                        className={`coach-sec-m__court${index === 0 ? "" : " coach-sec-m__court--secondary"}`}
+                      >
+                        <span className="coach-sec-m__court-pin" aria-hidden>
+                          <MapPin size={18} />
+                        </span>
+                        <div className="coach-sec-m__court-body">
+                          <div className="coach-sec-m__court-name">{shortenLocationLabel(court)}</div>
+                          <div className="coach-sec-m__court-meta">
+                            <span className="coach-sec-m__court-tag">{index === 0 ? "Primary" : "Secondary"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </section>
+                ) : null}
+
+                {packages.length ? (
+                  <section className="coach-sec-m" aria-label="Lesson packages">
+                    <button
+                      type="button"
+                      className="coach-sec-m__pkg"
+                      onClick={() =>
+                        mobilePackagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }
+                    >
+                      <span className="coach-sec-m__pkg-txt">
+                        <b>Lesson packages</b> — book in bulk and lock in today's rate.
+                      </span>
+                      <span className="coach-sec-m__pkg-cta">
+                        View <ChevronRight size={13} />
+                      </span>
+                    </button>
+                  </section>
+                ) : null}
+              </div>
+
+              {renderBookingCta("mobile")}
+
+              <section ref={aboutRef} className="coach-profile-section coach-profile-section--split" id="about">
+                <div className="coach-profile-section__header">
+                  <h2>About</h2>
+                </div>
+                <div className="coach-profile-stat-grid">
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <CalendarDays size={20} />
+                    </div>
+                    <span>Experience</span>
+                    <strong>{experienceLabel}</strong>
+                  </article>
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <Users size={20} />
+                    </div>
+                    <span>Students</span>
+                    <strong>{studentsLabel}</strong>
+                  </article>
+                  <article className="coach-profile-stat-card">
+                    <div className="coach-profile-stat-card__icon">
+                      <MessageCircle size={20} />
+                    </div>
+                    <span>Languages</span>
+                    <strong>{languages.join(", ") || "English"}</strong>
+                  </article>
+                </div>
+
+                <div className="coach-detail-stack">
+                  <div>
+                    <h3>Certifications</h3>
+                    <div className="coach-chip-row">
+                      {certifications.map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section ref={specialtiesRef} className="coach-profile-section coach-profile-section--split" id="specialties">
+                <div className="coach-profile-section__header">
+                  <h2>Specialties</h2>
+                </div>
+                <div className="coach-detail-stack">
+                  <div>
+                    <h3>Focus areas</h3>
+                    <div className="coach-chip-row">
+                      {specialties.map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--soft">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3>Player levels</h3>
+                    <div className="coach-chip-row">
+                      {levels.map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3>Lesson formats</h3>
+                    <div className="coach-chip-row">
+                      {lessonFormatLabels.map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--blue">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3>Availability</h3>
+                    <div className="coach-chip-row">
+                      {(availabilityLabels.length ? availabilityLabels : [profile?.availability || "Schedule shared after booking"]).map((item) => (
+                        <span key={item} className="coach-profile-pill coach-profile-pill--green">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section ref={courtsRef} className="coach-profile-section coach-profile-section--split" id="courts">
+                <div className="coach-profile-section__header">
+                  <h2>Courts</h2>
+                </div>
+                <div className="coach-court-grid">
+                  {coachingLocations.map((location, index) => (
+                    <article key={location} className="coach-court-card">
+                      <div className={`coach-court-card__icon${index === 0 ? " coach-court-card__icon--primary" : ""}`}>
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <strong>{shortenLocationLabel(location)}</strong>
+                        <span>{index === 0 ? "Primary location" : "Secondary location"}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {renderBookingCta("desktop")}
+          </div>
+        </div>
+
+        {bookingOpen && selectedSlot ? (
+          <div className="coach-booking-flow" role="dialog" aria-modal="true">
+            <div className="coach-booking-flow__backdrop" onClick={closeBookingFlow} />
+            <div className="coach-booking-flow__panel">
+              <div className="coach-booking-flow__topbar">
+                <button
+                  type="button"
+                  className="coach-booking-flow__back"
+                  onClick={() => {
+                    if (bookingStep === "about") {
+                      closeBookingFlow();
+                      return;
+                    }
+                    if (bookingStep === "confirm") {
+                      setBookingStep(isFirstBooking ? "about" : "confirm");
+                      if (!isFirstBooking) closeBookingFlow();
+                      return;
+                    }
+                    closeBookingFlow();
+                  }}
+                >
+                  <ChevronLeft size={18} /> Back
+                </button>
+                <button type="button" className="coach-booking-flow__close" onClick={closeBookingFlow}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {bookingStep === "about" ? (
+                <div className="coach-booking-step">
+                  <div className="coach-booking-step__coach-card">
+                    {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
+                    <div>
+                      <p>Your first lesson with {coachName}</p>
+                      <strong>Help {coachFirstName} prepare for your session</strong>
+                    </div>
+                  </div>
+
+                  {hasPrefill ? <div className="coach-prefill-banner">Pre-filled from your preferences — just check and confirm.</div> : null}
+
+                  <div className="coach-form-group">
+                    <label>Who is this lesson for?</label>
+                    <div className="coach-chip-row">
+                      {(["Myself", "My child"] as IntroWho[]).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`coach-choice-chip${introForm.who === value ? " is-active" : ""}`}
+                          onClick={() => setIntroForm((current) => ({ ...current, who: value }))}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>Your current level</label>
+                    <div className="coach-chip-row">
+                      {LEVEL_OPTIONS.map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`coach-choice-chip${introForm.level === value ? " is-active" : ""}`}
+                          onClick={() => setIntroForm((current) => ({ ...current, level: value }))}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>What do you want to work on?</label>
+                    <div className="coach-chip-row">
+                      {INTRO_GOALS.map((goal) => {
+                        const active = introForm.goals.includes(goal);
+                        return (
+                          <button
+                            key={goal}
+                            type="button"
+                            className={`coach-choice-chip${active ? " is-active" : ""}`}
+                            onClick={() =>
+                              setIntroForm((current) => ({
+                                ...current,
+                                goals: active ? current.goals.filter((item) => item !== goal) : [...current.goals, goal],
+                              }))
+                            }
+                          >
+                            {goal}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="coach-form-group">
+                    <label>Anything else?</label>
+                    <textarea
+                      value={introForm.note}
+                      onChange={(event) => setIntroForm((current) => ({ ...current, note: event.target.value }))}
+                      placeholder="Injuries, upcoming tournaments, doubles goals, match prep..."
+                    />
+                  </div>
+
+                  <div className="coach-booking-step__footer">
+                    <button
+                      type="button"
+                      className="coach-secondary-button"
+                      onClick={() => openPaymentSheet("card")}
+                    >
+                      Skip to payment
+                    </button>
+                    <button
+                      type="button"
+                      className="coach-primary-button"
+                      disabled={!canContinueIntro}
+                      onClick={() => openPaymentSheet("card")}
+                    >
+                      Continue to payment
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {bookingStep === "confirm" ? (
+                <div className="coach-booking-step">
+                  {(() => {
+                    const upsellTotal = upsellPackage ? parseCurrency(upsellPackage.total_price) : undefined;
+                    const upsellTotalLabel = upsellPackage ? formatCurrency(upsellPackage.total_price) ?? `${upsellPackage.total_price}` : "";
+                    const upsellPerSession =
+                      upsellPackage && upsellTotal != null
+                        ? formatCurrency(upsellTotal / Math.max(upsellPackage.lesson_count, 1))
+                        : undefined;
+                    const privateLessonRate = parseCurrency(privatePriceLabel);
+                    const upsellSavingsAmount =
+                      upsellPackage && upsellTotal != null && privateLessonRate
+                        ? Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1) - upsellTotal, 0)
+                        : 0;
+                    const upsellSavingsPercent =
+                      upsellPackage && upsellTotal != null && privateLessonRate
+                        ? Math.round((upsellSavingsAmount / Math.max(privateLessonRate * Math.max(upsellPackage.lesson_count, 1), 1)) * 100)
+                        : 0;
+                    const upsellTitle =
+                      upsellPackage?.name?.trim() || `${upsellPackage?.lesson_count ?? 0}-session package`;
+                    const upsellCopy =
+                      upsellPackage?.description?.trim() ||
+                      (upsellPerSession && upsellSavingsAmount > 0
+                        ? `${upsellPerSession}/session · save ${formatCurrency(upsellSavingsAmount) ?? `$${Math.round(upsellSavingsAmount)}`}${upsellSavingsPercent > 0 ? ` (${upsellSavingsPercent}%)` : ""}`
+                        : upsellPackage
+                          ? `${upsellPackage.lesson_count} lessons with ${coachFirstName}`
+                          : "");
+
+                    return (
+                      <>
+                  <div className="coach-booking-step__coach-card">
+                    {coachAvatar ? <img src={coachAvatar} alt="" /> : <span>{buildInitials(coachName)}</span>}
+                    <div>
+                      <strong>{coachName}</strong>
+                      <p>{certifications[0] ?? coachTitle}</p>
+                    </div>
+                  </div>
+
+                  <div className="coach-summary-table">
+                    <div><span>Type</span><strong>{selectedSlot.type === "private" ? "Private lesson" : selectedSlot.className ?? "Group lesson"}</strong></div>
+                    <div><span>Date & time</span><strong>{selectedSlot.dayLabel} {selectedSlot.dateLabel} · {selectedSlot.timeLabel}</strong></div>
+                    <div><span>Duration</span><strong>{selectedSlot.durationLabel}</strong></div>
+                    <div><span>Location</span><strong>{selectedSlot.court}</strong></div>
+                  </div>
+
+                  {selectedSlotPricing ? (
+                    <LessonPaymentSummary
+                      pricing={{
+                        hourly_rate: selectedSlot.hourlyRate,
+                        group_price_per_person: selectedSlot.groupPricePerPerson,
+                        discount_percentage: selectedSlot.discountPercentage,
+                        lesson_type_name: selectedSlot.lessonTypeName,
+                        lessontype_id: selectedSlot.lessonTypeId,
+                      }}
+                      formatMoney={formatCurrencyPrecise}
+                    />
+                  ) : (
+                    <div className="coach-total-box">
+                      <span>Total price</span>
+                      <strong>{selectedSlot.priceLabel}</strong>
+                    </div>
+                  )}
+
+                  {privateCredits === 0 && selectedSlot.type === "private" && upsellPackage && !upsellDismissed ? (
+                    <div className="coach-upsell-card">
+                      <button type="button" className="coach-upsell-card__close" onClick={() => setUpsellDismissed(true)}>
+                        <X size={14} />
+                      </button>
+                      <p>Save on repeat sessions</p>
+                      <strong>{upsellTitle}</strong>
+                      <span>{upsellCopy}</span>
+                      <div className="coach-upsell-card__actions">
+                        <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>
+                          Buy package{upsellTotalLabel ? ` · ${upsellTotalLabel}` : ""}
+                        </button>
+                        <button type="button" className="coach-secondary-button coach-secondary-button--small" onClick={() => setUpsellDismissed(true)}>Just this lesson</button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <button type="button" className="coach-primary-button" onClick={() => openPaymentSheet("card")}>
+                    Continue to payment
+                  </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {renderBookingOverlays()}
       </div>
     </MainLayout>
   );
