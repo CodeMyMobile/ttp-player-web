@@ -171,6 +171,37 @@ export const createLeagueMatchNeed = ({
     signal,
   });
 
+export const previewLeagueMatchNeed = ({
+  leagueId,
+  token,
+  body,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  body: {
+    date: string;
+    time: string;
+    start_date_time?: string;
+    dateTime?: string;
+    location: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    visibility?: "league" | "open";
+    timezone?: string;
+  };
+  signal?: AbortSignal;
+}) =>
+  request<{ draft: LeagueMatchNeed; suggestions: LeagueMatchSuggestion[] }>(
+    `/leagues/${leagueId}/match-needs/preview`,
+    {
+      method: "POST",
+      token,
+      body,
+      signal,
+    },
+  );
+
 export const getLeagueMatchNeeds = ({
   leagueId,
   token,
@@ -234,6 +265,26 @@ export const acceptLeagueMatchSuggestion = ({
   request<{ matchId: number | string; status: string }>(`/leagues/match-suggestions/${suggestionId}/accept`, {
     method: "POST",
     token,
+  });
+
+export const acceptLeagueMatchNeedPreview = ({
+  leagueId,
+  suggestedMatchId,
+  token,
+  message,
+}: {
+  leagueId: number | string;
+  suggestedMatchId: number | string;
+  token?: string;
+  message?: string;
+}) =>
+  request<{ matchId: number | string; status: string }>(`/leagues/${leagueId}/match-needs/preview/accept`, {
+    method: "POST",
+    token,
+    body: {
+      suggested_match_id: suggestedMatchId,
+      message,
+    },
   });
 
 export const sendLeagueMatchNeedInvites = ({

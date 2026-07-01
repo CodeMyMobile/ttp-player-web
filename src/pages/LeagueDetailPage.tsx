@@ -12,6 +12,7 @@ import {
   type LeagueResultOpponent,
   type LeagueStanding,
   acceptLeagueMatchSuggestion,
+  acceptLeagueMatchNeedPreview,
   createLeagueResult,
   createLeagueMatchNeed,
   getLeagueFixtures,
@@ -19,6 +20,7 @@ import {
   getLeaguePlayers,
   getLeagueResultOpponents,
   getLeagueStandings,
+  previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
 import MainLayout from "../components/MainLayout";
@@ -113,6 +115,7 @@ const LeagueDetailPage = () => {
   const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
   const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
   const [selectedSuggestionId, setSelectedSuggestionId] = useState<number | string | null>(null);
+  const [acceptMessage, setAcceptMessage] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<Array<number | string>>([]);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
@@ -195,38 +198,44 @@ const LeagueDetailPage = () => {
     setNeedError(null);
   };
 
-  const handleSubmitNeed = async () => {
+  const returnToNeedForm = () => {
+    setNeedFlowStep("idle");
+    setNeedDrawerOpen(true);
+    setNeedError(null);
+  };
+
+  const buildNeedPayload = () => {
+    return {
+      date: needDate,
+      time: needTime,
+      location: needLocation,
+      latitude: needLatitude,
+      longitude: needLongitude,
+      visibility: shareWithLeagueOnly ? "league" as const : "open" as const,
+      timezone: "America/Los_Angeles",
+    };
+  };
+
+  const handlePreviewNeed = async () => {
     if (!id) return;
     setNeedSubmitting(true);
     setNeedError(null);
+    setPostedNeed(null);
     try {
-      const startIso = new Date(`${needDate}T${needTime}`).toISOString();
-      const response = await createLeagueMatchNeed({
+      const response = await previewLeagueMatchNeed({
         leagueId: id,
         token,
-        body: {
-          date: needDate,
-          time: needTime,
-          start_date_time: startIso,
-          dateTime: startIso,
-          location: needLocation,
-          latitude: needLatitude,
-          longitude: needLongitude,
-          visibility: shareWithLeagueOnly ? "league" : "open",
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles",
-        },
+        body: buildNeedPayload(),
       });
       const nextSuggestions = response.suggestions ?? [];
-      setPostedNeed(response.match);
-      setMatchNeeds((current) => [response.match, ...current]);
+      setPostedNeed(response.draft);
       setSuggestions(nextSuggestions);
       setSelectedSuggestionId(nextSuggestions[0]?.id ?? null);
-      setSelectedInviteIds(invitePlayers.slice(0, 1).map((player) => player.player_id));
-      setInviteMessage(buildInviteMessage(response.match, needLocation));
+      setAcceptMessage("");
       setNeedDrawerOpen(false);
-      setNeedFlowStep(nextSuggestions.length ? "precheck" : "invite");
+      setNeedFlowStep("precheck");
     } catch (err) {
-      setNeedError(err instanceof Error ? err.message : "Failed to post match need");
+      setNeedError(err instanceof Error ? err.message : "Failed to check existing matches");
     } finally {
       setNeedSubmitting(false);
     }
@@ -246,9 +255,23 @@ const LeagueDetailPage = () => {
     setNeedSubmitting(true);
     setNeedError(null);
     try {
-      await acceptLeagueMatchSuggestion({ suggestionId, token });
-      setSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId));
-      setMatchNeeds((current) => current.filter((need) => String(need.id) !== String(postedNeed?.id)));
+      const suggestion = suggestions.find((item) => String(item.id) === String(suggestionId));
+      if (postedNeed?.id && !String(suggestionId).startsWith("preview-")) {
+        await acceptLeagueMatchSuggestion({ suggestionId, token });
+      } else if (id && suggestion?.suggested_match_id) {
+        await acceptLeagueMatchNeedPreview({
+          leagueId: id,
+          suggestedMatchId: suggestion.suggested_match_id,
+          token,
+          message: acceptMessage,
+        });
+      } else {
+        throw new Error("Missing match suggestion");
+      }
+      setSuggestions((current) => current.filter((item) => item.id !== suggestionId));
+      if (postedNeed?.id) {
+        setMatchNeeds((current) => current.filter((need) => String(need.id) !== String(postedNeed.id)));
+      }
       setPostedNeed(null);
       setNeedFlowStep("idle");
       setActiveTab("pending");
@@ -259,12 +282,27 @@ const LeagueDetailPage = () => {
     }
   };
 
-  const handlePostAnyway = () => {
+  const handlePostAnyway = async () => {
+    if (!id) return;
+    setNeedSubmitting(true);
     setInviteError(null);
-    if (!inviteMessage) {
-      setInviteMessage(buildInviteMessage(postedNeed, needLocation));
+    setNeedError(null);
+    try {
+      const response = await createLeagueMatchNeed({
+        leagueId: id,
+        token,
+        body: buildNeedPayload(),
+      });
+      setPostedNeed(response.match);
+      setMatchNeeds((current) => [response.match, ...current]);
+      setSelectedInviteIds(invitePlayers.slice(0, 1).map((player) => player.player_id));
+      setInviteMessage(buildInviteMessage(response.match, needLocation));
+      setNeedFlowStep("invite");
+    } catch (err) {
+      setNeedError(err instanceof Error ? err.message : "Failed to post match need");
+    } finally {
+      setNeedSubmitting(false);
     }
-    setNeedFlowStep("invite");
   };
 
   const handleSendInvites = async () => {
@@ -420,8 +458,12 @@ const LeagueDetailPage = () => {
         {showNeedFlow && needFlowStep === "precheck" ? (
           <div className="league-need-flow">
             <header className="league-need-flow__header">
-              <h2>Wait!</h2>
-              <p>{suggestions.length} player{suggestions.length === 1 ? "" : "s"} already looking near this time</p>
+              <h2>{suggestions.length ? "Wait!" : "Review match need"}</h2>
+              <p>
+                {suggestions.length
+                  ? `${suggestions.length} player${suggestions.length === 1 ? "" : "s"} already looking near this time`
+                  : "No close matches found. Review before posting."}
+              </p>
             </header>
 
             <section className="league-need-flow__summary">
@@ -449,19 +491,25 @@ const LeagueDetailPage = () => {
                   </button>
                 );
               })}
+              {!suggestions.length ? <div className="league-detail__empty">No matching open needs within 4 hours and 5 miles.</div> : null}
             </section>
 
             {needError ? <p className="league-need-error">{needError}</p> : null}
 
             <div className="league-need-flow__actions league-need-flow__actions--stacked">
               <div>
-                <button type="button" onClick={() => setNeedFlowStep("idle")}>Back</button>
+                <button type="button" onClick={returnToNeedForm}>Back</button>
                 <button type="button" disabled={!selectedSuggestion} onClick={() => setNeedFlowStep("accept")}>
                   View & Connect
                 </button>
               </div>
-              <button type="button" className="league-need-flow__outline" onClick={handlePostAnyway}>
-                Post Anyway
+              <button
+                type="button"
+                className="league-need-flow__outline"
+                disabled={needSubmitting}
+                onClick={handlePostAnyway}
+              >
+                {needSubmitting ? "Posting..." : suggestions.length ? "Post Anyway" : "Post Match Need"}
               </button>
             </div>
           </div>
@@ -494,7 +542,12 @@ const LeagueDetailPage = () => {
 
             <label className="league-need-field">
               <span>Optional message (160 char)</span>
-              <textarea maxLength={160} placeholder={`Hey ${selectedSuggestion.player_name || "there"}, excited to play!`} />
+              <textarea
+                maxLength={160}
+                value={acceptMessage}
+                placeholder={`Hey ${selectedSuggestion.player_name || "there"}, excited to play!`}
+                onChange={(event) => setAcceptMessage(event.target.value)}
+              />
             </label>
 
             {needError ? <p className="league-need-error">{needError}</p> : null}
@@ -753,7 +806,7 @@ const LeagueDetailPage = () => {
 
               <div className="league-need-drawer__actions">
                 <button type="button" onClick={() => setNeedDrawerOpen(false)}>Cancel</button>
-                <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={handleSubmitNeed}>
+                <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={handlePreviewNeed}>
                   {needSubmitting ? "Checking..." : "Next"}
                 </button>
               </div>
