@@ -944,6 +944,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   const [introForm, setIntroForm] = useState<IntroFormState>({ who: "", level: "", goals: [], note: "" });
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [authPromptReturnState, setAuthPromptReturnState] = useState<Record<string, unknown> | undefined>();
+  const [authPromptIntent, setAuthPromptIntent] = useState<"book" | "message">("book");
   const [bookingFocusActive, setBookingFocusActive] = useState(false);
   const [upsellDismissed, setUpsellDismissed] = useState(false);
   const [coachHistoryLoaded, setCoachHistoryLoaded] = useState(false);
@@ -1076,7 +1077,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     });
   };
 
-  const openAuthPrompt = (returnState?: Record<string, unknown>) => {
+  const openAuthPrompt = (returnState?: Record<string, unknown>, intent: "book" | "message" = "book") => {
+    setAuthPromptIntent(intent);
     setAuthPromptReturnState({ focusBookCta: true, ...returnState });
     setAuthPromptOpen(true);
   };
@@ -3208,6 +3210,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   <a href={smsHref} className="is-secondary coach-empty-card__link">
                     Message coach
                   </a>
+                ) : !isLoggedIn ? (
+                  <button
+                    type="button"
+                    className="is-secondary coach-empty-card__link"
+                    onClick={() => openAuthPrompt(undefined, "message")}
+                  >
+                    Message coach
+                  </button>
                 ) : (
                   <button type="button" className="is-secondary" disabled>
                     Message coach
@@ -3770,7 +3780,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   <span>{buildInitials(coachName)}</span>
                 )}
                 <div>
-                  <small>You&apos;re booking with</small>
+                  <small>{authPromptIntent === "message" ? "You’re messaging" : "You’re booking with"}</small>
                   <strong>{coachName}</strong>
                   <p>
                     {privatePriceLabel}/hr
@@ -3779,8 +3789,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                 </div>
               </div>
               <div className="coach-auth-sheet__copy">
-                <h2>Create a free account to book</h2>
-                <p>Sign up in 30 seconds to request a lesson with {coachFirstName}.</p>
+                <h2>{authPromptIntent === "message" ? "Create a free account to message" : "Create a free account to book"}</h2>
+                <p>
+                  {authPromptIntent === "message"
+                    ? `Sign up in 30 seconds to message ${coachFirstName}.`
+                    : `Sign up in 30 seconds to request a lesson with ${coachFirstName}.`}
+                </p>
               </div>
               <div className="coach-auth-sheet__actions">
                 <button type="button" className="coach-auth-sheet__primary" onClick={() => continueToAuth("signup")}>
@@ -3952,6 +3966,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     >
                       <MessageCircle size={16} /> Message
                     </a>
+                  ) : !isLoggedIn ? (
+                    <button
+                      type="button"
+                      className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
+                      onClick={() => openAuthPrompt(undefined, "message")}
+                    >
+                      <MessageCircle size={16} /> Message
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -4042,6 +4064,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
                       <MessageCircle size={17} /> Message
                     </a>
+                  ) : !isLoggedIn ? (
+                    <button
+                      type="button"
+                      className="coach-hero-m__btn coach-hero-m__btn--secondary"
+                      onClick={() => openAuthPrompt(undefined, "message")}
+                    >
+                      <MessageCircle size={17} /> Message
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -4095,6 +4125,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
                             <MessageCircle size={16} /> Message
                           </a>
+                        ) : !isLoggedIn ? (
+                          <button
+                            type="button"
+                            className="coach-profile-top-action coach-profile-top-action--outline"
+                            onClick={() => openAuthPrompt(undefined, "message")}
+                          >
+                            <MessageCircle size={16} /> Message
+                          </button>
                         ) : (
                           <button
                             type="button"
