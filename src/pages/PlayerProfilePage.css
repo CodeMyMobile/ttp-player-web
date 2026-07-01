@@ -204,6 +204,38 @@
   gap: 12px;
 }
 
+.ppv-network-filter {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 14px;
+  background: #f5f7fb;
+  border: 1px solid #eaecf0;
+  border-radius: 9999px;
+}
+
+.ppv-network-filter__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #667085;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ppv-network-filter__btn:hover {
+  color: #101828;
+}
+
+.ppv-network-filter__btn--active {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+
 .ppv-network-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
