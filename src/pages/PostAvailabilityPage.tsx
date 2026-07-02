@@ -53,6 +53,7 @@ const PostAvailabilityPage = () => {
   const [longitude, setLongitude] = useState<number | null>(null);
   // Bumped to remount the (uncontrolled) location input when we set it in code.
   const [locationKey, setLocationKey] = useState(0);
+  const [shareWithLeagueOnly, setShareWithLeagueOnly] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +148,7 @@ const PostAvailabilityPage = () => {
             latitude: slot.latitude,
             longitude: slot.longitude,
             timezone: "America/Los_Angeles",
+            visibility: shareWithLeagueOnly ? "league" : "open",
           },
         });
         if (res.suggestions) allSuggestions.push(...res.suggestions);
@@ -289,6 +291,18 @@ const PostAvailabilityPage = () => {
         </form>
 
         {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
+
+        <label className="availability-visibility">
+          <input
+            type="checkbox"
+            checked={shareWithLeagueOnly}
+            onChange={(event) => setShareWithLeagueOnly(event.target.checked)}
+          />
+          <span>
+            <strong>Only available to league players</strong>
+            <small>Uncheck to also match open, level-verified players in other leagues.</small>
+          </span>
+        </label>
 
         <div className="availability-actions">
           <button type="button" className="availability-actions__cancel" onClick={() => navigate(`/leagues/${leagueId}`)}>
