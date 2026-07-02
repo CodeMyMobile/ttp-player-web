@@ -26,6 +26,11 @@ import {
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import {
+  DEFAULT_LEAGUE_TIMEZONE,
+  formatLeagueDate as formatDate,
+  formatLeagueTime as formatTime,
+} from "./leagueDetailTime";
 
 import "./LeaguesPage.css";
 
@@ -44,24 +49,11 @@ const displayValue = (value: unknown) => {
   return String(value);
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "Date TBD";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
-
-const formatTime = (value?: string | null) => {
-  if (!value) return "Time TBD";
-  const date = value.includes("T") ? new Date(value) : new Date(`2000-01-01T${value}`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-};
-
 const formatNeedSummary = (need?: LeagueMatchNeed | null) => {
   if (!need) return "Match need";
-  const date = formatDate(need.start_date_time);
-  const time = formatTime(need.start_date_time);
+  const timezone = need.timezone || DEFAULT_LEAGUE_TIMEZONE;
+  const date = formatDate(need.start_date_time, timezone);
+  const time = formatTime(need.start_date_time, timezone);
   return `${date} · ${time} · ${need.location_text || "Location TBD"}`;
 };
 
@@ -81,7 +73,8 @@ const defaultNeedLocation = {
 
 const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: string) => {
   const location = need?.location_text || fallbackLocation;
-  const message = `Hey, I'm looking for a match on ${formatDate(need?.start_date_time)} at ${formatTime(need?.start_date_time)} at ${location}. Let me know if you're interested!`;
+  const timezone = need?.timezone || DEFAULT_LEAGUE_TIMEZONE;
+  const message = `Hey, I'm looking for a match on ${formatDate(need?.start_date_time, timezone)} at ${formatTime(need?.start_date_time, timezone)} at ${location}. Let me know if you're interested!`;
   return message.length <= inviteMessageMaxLength ? message : `${message.slice(0, inviteMessageMaxLength - 3).trim()}...`;
 };
 
@@ -471,7 +464,7 @@ const LeagueDetailPage = () => {
                     </h4>
                     <div className="players-looking__meta">
                       <strong>
-                        {formatDate(suggestion.match_date)} · {formatTime(suggestion.match_time)}
+                        {formatDate(suggestion.match_date, suggestion.timezone)} · {formatTime(suggestion.match_time, suggestion.timezone)}
                       </strong>
                       <span>
                         {suggestion.match_location || "Location TBD"}
@@ -529,8 +522,8 @@ const LeagueDetailPage = () => {
 
             <section className="league-need-flow__summary">
               <span>Your match need:</span>
-              <strong>{formatDate(postedNeed?.start_date_time)}</strong>
-              <p>{formatTime(postedNeed?.start_date_time)} · {postedNeed?.location_text || "Location TBD"}</p>
+              <strong>{formatDate(postedNeed?.start_date_time, postedNeed?.timezone)}</strong>
+              <p>{formatTime(postedNeed?.start_date_time, postedNeed?.timezone)} · {postedNeed?.location_text || "Location TBD"}</p>
             </section>
 
             <section className="league-need-flow__section">
@@ -589,8 +582,8 @@ const LeagueDetailPage = () => {
             </section>
             <section className="league-need-flow__summary">
               <span>Your match:</span>
-              <strong>{formatDate(postedNeed?.start_date_time)}</strong>
-              <p>{formatTime(postedNeed?.start_date_time)} · {postedNeed?.location_text || "Location TBD"}</p>
+              <strong>{formatDate(postedNeed?.start_date_time, postedNeed?.timezone)}</strong>
+              <p>{formatTime(postedNeed?.start_date_time, postedNeed?.timezone)} · {postedNeed?.location_text || "Location TBD"}</p>
             </section>
             <section className="league-need-flow__summary">
               <span>Opponent:</span>
@@ -786,7 +779,7 @@ const LeagueDetailPage = () => {
                 <div>
                   <h2>Open match need</h2>
                   <p>
-                    {formatDate(need.start_date_time)} · {need.location_text || "Location TBD"} · {need.league_visibility === "open" ? "Open visibility" : "League only"}
+                    {formatDate(need.start_date_time, need.timezone)} · {need.location_text || "Location TBD"} · {need.league_visibility === "open" ? "Open visibility" : "League only"}
                   </p>
                 </div>
               </article>

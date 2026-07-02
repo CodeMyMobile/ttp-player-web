@@ -73,6 +73,7 @@ export interface LeagueMatchSuggestion {
   match_date?: string | null;
   match_time?: string | null;
   match_location?: string | null;
+  timezone?: string | null;
   time_variance_minutes?: number;
   distance_miles?: string | number | null;
   has_played_before?: boolean;
@@ -85,6 +86,7 @@ export interface LeagueMatchNeed {
   host_id?: number | string;
   status?: string;
   start_date_time?: string;
+  timezone?: string | null;
   location_text?: string;
   league_visibility?: "league" | "open" | string;
   [key: string]: unknown;
