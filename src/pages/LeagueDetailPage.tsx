@@ -437,9 +437,8 @@ const LeagueDetailPage = () => {
           </div>
           <div className="league-detail__actions">
             <Link className="league-detail__action-link" to={`/leagues/${id}/post-availability`}>
-              Post availability
+              Need a Match
             </Link>
-            <button type="button" onClick={openNeedDrawer}>Need a Match</button>
             <button type="button" onClick={openScoreDrawer}>Add Score</button>
           </div>
         </header>

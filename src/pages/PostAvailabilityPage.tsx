@@ -7,13 +7,7 @@ import { createLeagueMatchNeed, getLeagueMatchNeeds, type LeagueMatchSuggestion 
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
-import {
-  addDaysYmd,
-  formatDateForDisplay,
-  formatTimeForDisplay,
-  getNextDateWithDayOfWeek,
-  todayYmd,
-} from "../utils/dateTime";
+import { addDaysYmd, formatDateForDisplay, formatTimeForDisplay, todayYmd } from "../utils/dateTime";
 
 import "./LeaguesPage.css";
 
@@ -57,24 +51,26 @@ const PostAvailabilityPage = () => {
   const [location, setLocation] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  // Bumped to remount the (uncontrolled) location input when we set it in code.
+  const [locationKey, setLocationKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const datePicks = useMemo(
-    () => [
+  // Today, Tomorrow, then the next 5 days in chronological order (labelled by
+  // weekday) — so the sequence flows naturally instead of jumping to Monday.
+  const datePicks = useMemo(() => {
+    const picks = [
       { label: "Today", value: todayYmd() },
       { label: "Tomorrow", value: addDaysYmd(1) },
-      { label: "Mon", value: getNextDateWithDayOfWeek(1) },
-      { label: "Tue", value: getNextDateWithDayOfWeek(2) },
-      { label: "Wed", value: getNextDateWithDayOfWeek(3) },
-      { label: "Thu", value: getNextDateWithDayOfWeek(4) },
-      { label: "Fri", value: getNextDateWithDayOfWeek(5) },
-      { label: "Sat", value: getNextDateWithDayOfWeek(6) },
-      { label: "Sun", value: getNextDateWithDayOfWeek(0) },
-    ],
-    [],
-  );
+    ];
+    for (let i = 2; i <= 6; i += 1) {
+      const value = addDaysYmd(i);
+      const label = new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+      picks.push({ label, value });
+    }
+    return picks;
+  }, []);
 
   // Previous courts = locations from the user's own past match-needs in this league.
   useEffect(() => {
@@ -105,6 +101,7 @@ const PostAvailabilityPage = () => {
     setLocation("");
     setLatitude(null);
     setLongitude(null);
+    setLocationKey((k) => k + 1);
   };
 
   const addSlot = (event: React.FormEvent) => {
@@ -236,9 +233,10 @@ const PostAvailabilityPage = () => {
           <div className="league-need-field">
             <span>Location</span>
             <Autocomplete
+              key={`loc-${locationKey}`}
               apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
               placeholder="Search court or address"
-              value={location}
+              defaultValue={location}
               onChange={(event) => {
                 setLocation((event.target as HTMLInputElement).value);
                 setLatitude(null);
@@ -246,14 +244,16 @@ const PostAvailabilityPage = () => {
               }}
               onPlaceSelected={(place) => {
                 setLocation(placeLabel(place, location));
+                setLocationKey((k) => k + 1);
                 const lat = place?.geometry?.location?.lat?.();
                 const lng = place?.geometry?.location?.lng?.();
                 setLatitude(typeof lat === "number" && Number.isFinite(lat) ? lat : null);
                 setLongitude(typeof lng === "number" && Number.isFinite(lng) ? lng : null);
               }}
               options={{
+                types: ["geocode", "establishment"],
                 fields: ["formatted_address", "geometry", "name", "address_components"],
-                types: ["establishment", "geocode"],
+                componentRestrictions: { country: "us" },
               }}
             />
             {previousCourts.length > 0 ? (
@@ -267,6 +267,7 @@ const PostAvailabilityPage = () => {
                       setLocation(court);
                       setLatitude(null);
                       setLongitude(null);
+                      setLocationKey((k) => k + 1);
                     }}
                   >
                     {court}
