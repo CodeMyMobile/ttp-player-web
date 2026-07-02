@@ -4,6 +4,7 @@ import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Users } from "lucide-reac
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
+import AuthDrawer from "../components/auth/AuthDrawer";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
@@ -106,6 +107,17 @@ const PlayerProfilePage = () => {
     }
     return readStoredUserId();
   }, [user]);
+  // The current user's PLAYER id (the /players/... id space). Prefers user_id —
+  // user.id is an internal account id (e.g. 1) that has no played-with history,
+  // whereas user_id (e.g. 6) is the player id used across the players system.
+  const myPlayerId = useMemo<string | number | null>(() => {
+    const session = user?.session as Record<string, unknown> | undefined;
+    const fromUser = user?.user_id ?? user?.userId ?? session?.user_id ?? user?.id;
+    if (typeof fromUser === "string" || typeof fromUser === "number") {
+      return fromUser;
+    }
+    return readStoredUserId();
+  }, [user]);
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
 
   // The router-state player (set when navigating in-app) is only a fast-path so
@@ -129,34 +141,32 @@ const PlayerProfilePage = () => {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
   const [matchProfile] = useState(() => getStoredMatchProfile());
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchesError, setMatchesError] = useState(false);
   const [playedWith, setPlayedWith] = useState<PlayedWithPlayer[]>([]);
+  const [playedWithTotal, setPlayedWithTotal] = useState(0);
+  const [playedWithAverageNtrp, setPlayedWithAverageNtrp] = useState<number | null>(null);
   const [playedWithLoading, setPlayedWithLoading] = useState(true);
   const [playedWithError, setPlayedWithError] = useState(false);
+  // The viewer's OWN played-with list, used to surface the mutual (shared) subset.
+  const [myPlayedWith, setMyPlayedWith] = useState<PlayedWithPlayer[]>([]);
+  const [myPlayedWithLoading, setMyPlayedWithLoading] = useState(false);
+  const [networkFilter, setNetworkFilter] = useState<"all" | "mutual">("mutual");
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const authToken = useMemo(
     () => getStoredAuthToken({ defaultScheme: "token", preferScheme: "token" }),
     [user],
   );
   const isSignedIn = Boolean(authToken);
+  // Open the in-page auth drawer instead of navigating to /login — the user
+  // stays on the profile and, on success, AuthContext updates `user` so this
+  // page re-renders authenticated (revealing the Mutuals view, etc.).
   const promptSignIn = useCallback(() => {
-    // LoginPage's post-auth redirect reads `from` as a location object
-    // ({ pathname, search, hash }). Passing a string here made `from.search`
-    // resolve to String.prototype.search (a function), which crashed
-    // react-router with "search.includes is not a function" after sign-in.
-    navigate("/login", {
-      state: {
-        from: {
-          pathname: location.pathname,
-          search: location.search,
-          hash: location.hash,
-        },
-      },
-    });
-  }, [location.hash, location.pathname, location.search, navigate]);
+    setAuthDrawerOpen(true);
+  }, []);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
@@ -206,6 +216,7 @@ const PlayerProfilePage = () => {
   useEffect(() => {
     if (!id) {
       setPlayedWith([]);
+      setPlayedWithAverageNtrp(null);
       setPlayedWithLoading(false);
       return;
     }
@@ -213,15 +224,19 @@ const PlayerProfilePage = () => {
     const controller = new AbortController();
     setPlayedWithLoading(true);
     setPlayedWithError(false);
+    setNetworkFilter("mutual"); // reset to the default (Mutuals) on a new profile
 
-    getPlayedWith(id, { signal: controller.signal })
+    getPlayedWith(id, { signal: controller.signal, token: authToken })
       .then((response) => {
         setPlayedWith(response.playedWith);
+        setPlayedWithTotal(response.total || response.playedWith.length);
+        setPlayedWithAverageNtrp(response.summary?.averageNtrp ?? null);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         console.error("Failed to load played-with network", error);
         setPlayedWith([]);
+        setPlayedWithAverageNtrp(null);
         setPlayedWithError(true);
       })
       .finally(() => {
@@ -231,7 +246,56 @@ const PlayerProfilePage = () => {
       });
 
     return () => controller.abort();
-  }, [id]);
+  }, [authToken, id]);
+
+  // Fetch the viewer's OWN played-with network so we can surface the mutual
+  // (shared) subset. Only when signed in and viewing someone else's profile.
+  useEffect(() => {
+    if (!myPlayerId || !id || String(myPlayerId) === String(id)) {
+      setMyPlayedWith([]);
+      setMyPlayedWithLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setMyPlayedWithLoading(true);
+    getPlayedWith(myPlayerId, { signal: controller.signal, token: authToken })
+      .then((response) => {
+        if (!controller.signal.aborted) setMyPlayedWith(response.playedWith);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error("Failed to load your played-with network", error);
+        setMyPlayedWith([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setMyPlayedWithLoading(false);
+      });
+    return () => controller.abort();
+  }, [myPlayerId, id, authToken]);
+
+  const myPlayedWithIds = useMemo(
+    () => new Set(myPlayedWith.map((entry) => entry.userId)),
+    [myPlayedWith],
+  );
+  // Players the viewed player has played who the viewer has ALSO played.
+  const mutualPlayedWith = useMemo(
+    () => playedWith.filter((entry) => myPlayedWithIds.has(entry.userId)),
+    [playedWith, myPlayedWithIds],
+  );
+  // The mutual filter only makes sense when signed in and viewing someone else.
+  const canShowMutual = isSignedIn && myPlayerId != null && String(myPlayerId) !== String(id);
+  const visiblePlayedWith =
+    canShowMutual && networkFilter === "mutual" ? mutualPlayedWith : playedWith;
+
+  // Guest summary — proof without exposing individual identities.
+  const networkCount = playedWithTotal || playedWith.length;
+  const networkAvgNtrp = useMemo(() => {
+    const values = playedWith
+      .map((entry) => entry.ntrp)
+      .filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+    if (!values.length) return playedWithAverageNtrp == null ? null : playedWithAverageNtrp.toFixed(1);
+    return (values.reduce((sum, n) => sum + n, 0) / values.length).toFixed(1);
+  }, [playedWith, playedWithAverageNtrp]);
 
   const handleJoinMatch = useCallback(
     async (matchId: string) => {
@@ -617,19 +681,64 @@ const PlayerProfilePage = () => {
               <h2 id="played-with-heading" className="ppv-sec-title">
                 Played with
               </h2>
-              {!playedWithLoading && !playedWithError && playedWith.length > 0 ? (
-                <span className="ppv-sec-count">{playedWith.length} players</span>
+              {isSignedIn && !playedWithLoading && !playedWithError && playedWith.length > 0 ? (
+                <span className="ppv-sec-count">{visiblePlayedWith.length} players</span>
               ) : null}
             </div>
+            {canShowMutual && !playedWithLoading && !playedWithError && playedWith.length > 0 ? (
+              <div className="ppv-network-filter" role="tablist" aria-label="Filter network">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={networkFilter === "mutual"}
+                  className={`ppv-network-filter__btn${networkFilter === "mutual" ? " ppv-network-filter__btn--active" : ""}`}
+                  onClick={() => setNetworkFilter("mutual")}
+                >
+                  Mutuals ({mutualPlayedWith.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={networkFilter === "all"}
+                  className={`ppv-network-filter__btn${networkFilter === "all" ? " ppv-network-filter__btn--active" : ""}`}
+                  onClick={() => setNetworkFilter("all")}
+                >
+                  Everyone ({playedWith.length})
+                </button>
+              </div>
+            ) : null}
             {playedWithLoading ? (
               <p className="ppv-state-text">Loading tennis network…</p>
             ) : playedWithError ? (
               <p className="ppv-state-text">We couldn&apos;t load this network right now.</p>
             ) : playedWith.length === 0 ? (
               <p className="ppv-state-text">No shared match history yet.</p>
+            ) : !isSignedIn ? (
+              <>
+                <div className="ppv-network-summary">
+                  Played with <strong>{networkCount}</strong> Tennis Plan{" "}
+                  {networkCount === 1 ? "player" : "players"}
+                  {networkAvgNtrp ? (
+                    <>
+                      {" · "}avg <strong>{networkAvgNtrp}</strong> NTRP
+                    </>
+                  ) : null}
+                </div>
+                <button type="button" className="ppv-network-teaser" onClick={promptSignIn}>
+                  <span className="ppv-network-teaser__copy">
+                    <strong>See who you both know</strong>
+                    <span>Sign in to reveal your mutual connections with {firstName}.</span>
+                  </span>
+                  <span className="ppv-network-teaser__btn">Sign in</span>
+                </button>
+              </>
+            ) : canShowMutual && networkFilter === "mutual" && myPlayedWithLoading ? (
+              <p className="ppv-state-text">Finding players you&apos;ve both played…</p>
+            ) : visiblePlayedWith.length === 0 ? (
+              <p className="ppv-state-text">No players you&apos;ve both played yet.</p>
             ) : (
               <div className="ppv-network-grid">
-                {playedWith.map((networkPlayer) => (
+                {visiblePlayedWith.map((networkPlayer) => (
                   <article key={networkPlayer.userId} className="ppv-network-card">
                     <div className="ppv-network-avatar">
                       {networkPlayer.avatarUrl ? (
@@ -765,6 +874,14 @@ const PlayerProfilePage = () => {
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
         senderCourts={matchProfile?.localCourts ?? ""}
+      />
+
+      <AuthDrawer
+        open={authDrawerOpen}
+        onClose={() => setAuthDrawerOpen(false)}
+        initialMode="signup"
+        title={`See who you both know`}
+        subtitle={`Sign up or sign in to reveal your mutual connections with ${firstName}.`}
       />
     </MainLayout>
   );
