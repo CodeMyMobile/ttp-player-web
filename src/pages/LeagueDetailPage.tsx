@@ -109,6 +109,7 @@ const LeagueDetailPage = () => {
   const [results, setResults] = useState<LeagueFixture[]>([]);
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
+  const [allMatchNeeds, setAllMatchNeeds] = useState<LeagueMatchNeed[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
   const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
@@ -157,8 +158,9 @@ const LeagueDetailPage = () => {
       getLeagueFixtures({ leagueId: id, token, status: "confirmed", signal: controller.signal }),
       getLeagueFixtures({ leagueId: id, token, status: "scheduled", mine: true, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId: id, token, signal: controller.signal }),
+      getLeagueMatchNeeds({ leagueId: id, token, scope: "all", signal: controller.signal }),
     ])
-      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse]) => {
+      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse, allNeedsResponse]) => {
         setLeague(standingsResponse.league ?? playersResponse.league);
         setStandings(standingsResponse.standings ?? []);
         setPlayers(playersResponse.players ?? []);
@@ -166,6 +168,7 @@ const LeagueDetailPage = () => {
         setPending(pendingResponse.fixtures ?? []);
         setMatchNeeds(needsResponse.myNeeds ?? []);
         setSuggestions(needsResponse.suggestions ?? []);
+        setAllMatchNeeds(allNeedsResponse.needs ?? []);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -181,6 +184,17 @@ const LeagueDetailPage = () => {
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
   const pendingCount = pending.length + matchNeeds.length;
   const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
+  const visibleMatchNeeds = useMemo(() => [...allMatchNeeds].sort((a, b) => {
+    if (a.has_played_before !== b.has_played_before) return a.has_played_before ? 1 : -1;
+    const aVariance = typeof a.time_variance_minutes === "number" ? a.time_variance_minutes : Number.POSITIVE_INFINITY;
+    const bVariance = typeof b.time_variance_minutes === "number" ? b.time_variance_minutes : Number.POSITIVE_INFINITY;
+    if (aVariance !== bVariance) return aVariance - bVariance;
+    const aDistance = Number(a.distance_miles);
+    const bDistance = Number(b.distance_miles);
+    const aDistanceValue = Number.isFinite(aDistance) ? aDistance : Number.POSITIVE_INFINITY;
+    const bDistanceValue = Number.isFinite(bDistance) ? bDistance : Number.POSITIVE_INFINITY;
+    return aDistanceValue - bDistanceValue;
+  }), [allMatchNeeds]);
   const invitePlayers = players.filter((player) => {
     const playerIdentities = [
       normalizeIdentity(player.player_id),
@@ -279,6 +293,28 @@ const LeagueDetailPage = () => {
       setActiveTab("pending");
     } catch (err) {
       setNeedError(err instanceof Error ? err.message : "Failed to accept suggestion");
+    } finally {
+      setNeedSubmitting(false);
+    }
+  };
+
+  const handleAcceptOpenNeed = async (needId: number | string) => {
+    if (!id) return;
+    setNeedSubmitting(true);
+    setNeedError(null);
+    try {
+      await acceptLeagueMatchNeedPreview({
+        leagueId: id,
+        suggestedMatchId: needId,
+        token,
+        message: acceptMessage,
+      });
+      setAllMatchNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
+      setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
+      setNeedFlowStep("idle");
+      setActiveTab("pending");
+    } catch (err) {
+      setNeedError(err instanceof Error ? err.message : "Failed to accept match need");
     } finally {
       setNeedSubmitting(false);
     }
@@ -439,37 +475,41 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        {!showNeedFlow && suggestions.length > 0 ? (
+        {!showNeedFlow && visibleMatchNeeds.length > 0 ? (
           <div className="players-looking">
             <div className="players-looking__head">
               <span aria-hidden="true">🎾</span>
               <h3>Players looking for matches</h3>
             </div>
             <p className="players-looking__sub">
-              {suggestions.length} player{suggestions.length === 1 ? "" : "s"} in this league{" "}
-              {suggestions.length === 1 ? "is" : "are"} looking for a match near your availability
+              {visibleMatchNeeds.length} player{visibleMatchNeeds.length === 1 ? "" : "s"} in this league{" "}
+              {visibleMatchNeeds.length === 1 ? "is" : "are"} looking for a match
             </p>
             <div className="players-looking__list">
-              {suggestions.map((suggestion) => (
-                <div key={suggestion.id} className="players-looking__item">
+              {visibleMatchNeeds.map((need) => {
+                const location = need.match_location || need.location || need.location_text || "Location TBD";
+                const hasTimeMatch = typeof need.time_variance_minutes === "number";
+                return (
+                <div key={need.id} className="players-looking__item">
                   <div className="players-looking__info">
                     <h4>
-                      {suggestion.player_name || "League player"}
-                      {suggestion.player_skill ? (
-                        <span className="players-looking__skill">{suggestion.player_skill} NTRP</span>
+                      {need.player_name || "League player"}
+                      {need.player_skill ? (
+                        <span className="players-looking__skill">TRP: {need.player_skill}</span>
                       ) : null}
-                      {suggestion.has_played_before === false ? (
+                      {need.has_played_before === false ? (
                         <span className="players-looking__new">New opponent</span>
                       ) : null}
+                      {hasTimeMatch ? <span className="players-looking__new">Matches your time</span> : null}
                     </h4>
                     <div className="players-looking__meta">
                       <strong>
-                        {formatDate(suggestion.match_date, suggestion.timezone)} · {formatTime(suggestion.match_time, suggestion.timezone)}
+                        {formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}
                       </strong>
                       <span>
-                        {suggestion.match_location || "Location TBD"}
-                        {suggestion.distance_miles !== null && suggestion.distance_miles !== undefined
-                          ? ` · ${suggestion.distance_miles} mi`
+                        {location}
+                        {need.distance_miles !== null && need.distance_miles !== undefined
+                          ? ` · ${need.distance_miles} mi`
                           : ""}
                       </span>
                     </div>
@@ -478,12 +518,13 @@ const LeagueDetailPage = () => {
                     type="button"
                     className="players-looking__cta"
                     disabled={needSubmitting}
-                    onClick={() => handleAcceptSuggestion(suggestion.id)}
+                    onClick={() => handleAcceptOpenNeed(need.id)}
                   >
                     Connect
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <button type="button" className="players-looking__post" onClick={openNeedDrawer}>
               Post your availability
