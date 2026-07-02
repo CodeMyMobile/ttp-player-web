@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronRight, Trophy, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { type League, listMyLeagues } from "../api/leagues";
+import { getLeagueMatchNeeds, type League, listMyLeagues } from "../api/leagues";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -37,6 +37,9 @@ const LeaguesPage = () => {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Per-league "players looking" counts (open match-need suggestions). listMyLeagues
+  // doesn't carry a count, so we fetch needs per league — best-effort, badge only.
+  const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,6 +59,24 @@ const LeaguesPage = () => {
 
     return () => controller.abort();
   }, [token]);
+
+  useEffect(() => {
+    if (!leagues.length) {
+      setLookingCounts({});
+      return;
+    }
+    const controller = new AbortController();
+    Promise.all(
+      leagues.map((league) =>
+        getLeagueMatchNeeds({ leagueId: league.id, token, signal: controller.signal })
+          .then((r) => [String(league.id), (r.suggestions ?? []).length] as const)
+          .catch(() => [String(league.id), 0] as const),
+      ),
+    ).then((entries) => {
+      if (!controller.signal.aborted) setLookingCounts(Object.fromEntries(entries));
+    });
+    return () => controller.abort();
+  }, [leagues, token]);
 
   return (
     <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
@@ -91,6 +112,11 @@ const LeaguesPage = () => {
                   <p>
                     {[league.skill_band, league.gender, league.status].filter(Boolean).join(" · ") || "Flex league"}
                   </p>
+                  {lookingCounts[String(league.id)] > 0 ? (
+                    <span className="league-card__looking">
+                      🎾 {lookingCounts[String(league.id)]} looking
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <div className="league-card__meta">

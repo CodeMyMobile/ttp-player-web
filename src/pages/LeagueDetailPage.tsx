@@ -446,6 +446,58 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
+        {!showNeedFlow && suggestions.length > 0 ? (
+          <div className="players-looking">
+            <div className="players-looking__head">
+              <span aria-hidden="true">🎾</span>
+              <h3>Players looking for matches</h3>
+            </div>
+            <p className="players-looking__sub">
+              {suggestions.length} player{suggestions.length === 1 ? "" : "s"} in this league{" "}
+              {suggestions.length === 1 ? "is" : "are"} looking for a match near your availability
+            </p>
+            <div className="players-looking__list">
+              {suggestions.map((suggestion) => (
+                <div key={suggestion.id} className="players-looking__item">
+                  <div className="players-looking__info">
+                    <h4>
+                      {suggestion.player_name || "League player"}
+                      {suggestion.player_skill ? (
+                        <span className="players-looking__skill">{suggestion.player_skill} NTRP</span>
+                      ) : null}
+                      {suggestion.has_played_before === false ? (
+                        <span className="players-looking__new">New opponent</span>
+                      ) : null}
+                    </h4>
+                    <div className="players-looking__meta">
+                      <strong>
+                        {formatDate(suggestion.match_date)} · {formatTime(suggestion.match_time)}
+                      </strong>
+                      <span>
+                        {suggestion.match_location || "Location TBD"}
+                        {suggestion.distance_miles !== null && suggestion.distance_miles !== undefined
+                          ? ` · ${suggestion.distance_miles} mi`
+                          : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="players-looking__cta"
+                    disabled={needSubmitting}
+                    onClick={() => handleAcceptSuggestion(suggestion.id)}
+                  >
+                    Connect
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="players-looking__post" onClick={openNeedDrawer}>
+              Post your availability
+            </button>
+          </div>
+        ) : null}
+
         {!showNeedFlow ? (
           <nav className="league-detail__tabs" aria-label="League detail tabs">
             {tabs.map((tab) => (
