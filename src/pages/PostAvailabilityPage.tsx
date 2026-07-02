@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Trash2, X } from "lucide-react";
 
 import { createLeagueMatchNeed, getLeagueMatchNeeds, type LeagueMatchSuggestion } from "../api/leagues";
@@ -171,16 +171,18 @@ const PostAvailabilityPage = () => {
   };
 
   return (
-    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+    <MainLayout
+      pageClassName="leagues-shell"
+      hideMobileNewMatch
+      hideMobileLocation
+      hideMobileNotifications
+      onMobileBack={() => navigate(`/leagues/${leagueId}`)}
+    >
       <section className="leagues-page">
-        <Link className="league-detail__back" to={`/leagues/${leagueId}`}>
-          Back to league
-        </Link>
         <header className="leagues-page__header">
           <div>
-            <p className="leagues-page__eyebrow">Match play</p>
             <h1>Post your availability</h1>
-            <p>Add every time you&apos;re free — we&apos;ll match you with players looking at the same time nearby.</p>
+            <p>Add the times you&apos;re free to play.</p>
           </div>
         </header>
 

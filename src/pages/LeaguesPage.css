@@ -217,17 +217,19 @@
 }
 
 .quick-pick-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
 
 .quick-pick {
+  flex: 0 0 auto;
+  white-space: nowrap;
   background: #fff;
   border: 1px solid #d1d5db;
   color: #374151;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 700;

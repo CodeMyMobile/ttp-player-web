@@ -61,15 +61,19 @@ const AvailabilityReviewPage = () => {
   }
 
   return (
-    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+    <MainLayout
+      pageClassName="leagues-shell"
+      hideMobileNewMatch
+      hideMobileLocation
+      hideMobileNotifications
+      onMobileBack={() => navigate(`/leagues/${leagueId}`)}
+    >
       <section className="leagues-page">
         <header className="leagues-page__header">
           <div>
-            <p className="leagues-page__eyebrow">Match play</p>
             <h1>You&apos;re on the board 🎾</h1>
             <p>
-              {postedSlots.length} availability slot{postedSlots.length === 1 ? "" : "s"} posted. Here&apos;s who
-              it can reach.
+              {postedSlots.length} slot{postedSlots.length === 1 ? "" : "s"} posted — here&apos;s who it can reach.
             </p>
           </div>
         </header>
