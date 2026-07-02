@@ -253,7 +253,10 @@ const LeagueDetailPage = () => {
   const handleNeedPlaceSelected = (place: google.maps.places.PlaceResult | null) => {
     const latitude = place?.geometry?.location?.lat?.();
     const longitude = place?.geometry?.location?.lng?.();
-    const label = place?.formatted_address || place?.name || needLocation;
+    const name = place?.name?.trim();
+    const address = place?.formatted_address?.trim();
+    // Venue name first, address for context (was showing the address for named courts).
+    const label = name && address && !address.startsWith(name) ? `${name}, ${address}` : name || address || needLocation;
 
     if (label) setNeedLocation(label);
     if (typeof latitude === "number" && Number.isFinite(latitude)) setNeedLatitude(latitude);
@@ -366,7 +369,9 @@ const LeagueDetailPage = () => {
   const handleScorePlaceSelected = (place: google.maps.places.PlaceResult | null) => {
     const latitude = place?.geometry?.location?.lat?.();
     const longitude = place?.geometry?.location?.lng?.();
-    const label = place?.formatted_address || place?.name || scoreLocation;
+    const name = place?.name?.trim();
+    const address = place?.formatted_address?.trim();
+    const label = name && address && !address.startsWith(name) ? `${name}, ${address}` : name || address || scoreLocation;
 
     if (label) setScoreLocation(label);
     if (typeof latitude === "number" && Number.isFinite(latitude)) setScoreLatitude(latitude);
@@ -431,6 +436,9 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
+            <Link className="league-detail__action-link" to={`/leagues/${id}/post-availability`}>
+              Post availability
+            </Link>
             <button type="button" onClick={openNeedDrawer}>Need a Match</button>
             <button type="button" onClick={openScoreDrawer}>Add Score</button>
           </div>
