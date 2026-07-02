@@ -218,9 +218,23 @@
 
 .quick-pick-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+/* Tighter top spacing on mobile for the availability flow (nav shows the back). */
+@media (max-width: 640px) {
+  .leagues-page--flow {
+    padding-top: 12px;
+  }
+  .leagues-page--flow .leagues-page__header {
+    margin-bottom: 14px;
+  }
 }
 
 .quick-pick {

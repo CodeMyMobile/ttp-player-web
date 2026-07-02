@@ -68,7 +68,7 @@ const AvailabilityReviewPage = () => {
       hideMobileNotifications
       onMobileBack={() => navigate(`/leagues/${leagueId}`)}
     >
-      <section className="leagues-page">
+      <section className="leagues-page leagues-page--flow">
         <header className="leagues-page__header">
           <div>
             <h1>You&apos;re on the board 🎾</h1>

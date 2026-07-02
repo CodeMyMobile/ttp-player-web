@@ -178,7 +178,7 @@ const PostAvailabilityPage = () => {
       hideMobileNotifications
       onMobileBack={() => navigate(`/leagues/${leagueId}`)}
     >
-      <section className="leagues-page">
+      <section className="leagues-page leagues-page--flow">
         <header className="leagues-page__header">
           <div>
             <h1>Post your availability</h1>
