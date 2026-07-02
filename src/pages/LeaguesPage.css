@@ -198,6 +198,144 @@
   font-size: 12px;
 }
 
+/* League Detail — "Players looking for matches" (with smart highlighting) */
+.players-looking {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #0ea5e9;
+  border-radius: 12px;
+  background: #e0f2fe;
+}
+
+.players-looking__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.players-looking__head span {
+  font-size: 22px;
+}
+
+.players-looking__head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0c4a6e;
+}
+
+.players-looking__sub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #0c4a6e;
+}
+
+.players-looking__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.players-looking__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.players-looking__item--matching {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  border-left: 4px solid #10b981;
+}
+
+.players-looking__info {
+  min-width: 0;
+}
+
+.players-looking__badge {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.players-looking__info h4 {
+  margin: 0 0 5px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.players-looking__skill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #ede9fe;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.players-looking__meta {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.players-looking__meta strong {
+  display: block;
+  color: #111827;
+}
+
+.players-looking__cta {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 16px;
+  background: #0ea5e9;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.players-looking__cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.players-looking__post {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 2px solid #0ea5e9;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0284c7;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.players-looking__post:hover {
+  background: #f0f9ff;
+}
+
 .league-detail__tabs {
   display: flex;
   overflow-x: auto;

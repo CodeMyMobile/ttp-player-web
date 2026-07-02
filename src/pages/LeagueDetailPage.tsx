@@ -187,6 +187,35 @@ const LeagueDetailPage = () => {
 
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
   const pendingCount = pending.length + matchNeeds.length;
+
+  // "Players looking" list: exclude opponents already played (has_played_before),
+  // highlight suggestions that overlap the user's availability. Overlap is already
+  // computed by the backend — time_variance_minutes (within ±4h) and distance_miles
+  // (within ±5mi) — so we just read those rather than re-deriving from user needs.
+  const TIME_MATCH_TOLERANCE_MIN = 240;
+  const DISTANCE_MATCH_TOLERANCE_MI = 5;
+  const toNumber = (value: unknown): number => {
+    const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const suggestionMatchesAvailability = (suggestion: LeagueMatchSuggestion): boolean => {
+    const variance = toNumber(suggestion.time_variance_minutes);
+    if (!Number.isFinite(variance) || variance > TIME_MATCH_TOLERANCE_MIN) return false;
+    const distance = toNumber(suggestion.distance_miles);
+    return !Number.isFinite(distance) || distance <= DISTANCE_MATCH_TOLERANCE_MI;
+  };
+  const rankedSuggestions = suggestions
+    .filter((suggestion) => suggestion.has_played_before !== true)
+    .map((suggestion) => ({ suggestion, matching: suggestionMatchesAvailability(suggestion) }))
+    .sort((a, b) => {
+      if (a.matching !== b.matching) return a.matching ? -1 : 1;
+      const da = toNumber(a.suggestion.distance_miles);
+      const db = toNumber(b.suggestion.distance_miles);
+      return (Number.isFinite(da) ? da : Infinity) - (Number.isFinite(db) ? db : Infinity);
+    });
+  const matchingCount = rankedSuggestions.filter((entry) => entry.matching).length;
+  const availableCount = rankedSuggestions.length - matchingCount;
+
   const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
   const invitePlayers = players.filter((player) => {
     const playerIdentities = [
@@ -443,6 +472,59 @@ const LeagueDetailPage = () => {
               <span>{pendingSummary || `${matchNeeds.length} open match need${matchNeeds.length === 1 ? "" : "s"}`}</span>
             </div>
             <button type="button" onClick={() => setActiveTab("pending")}>View</button>
+          </div>
+        ) : null}
+
+        {!showNeedFlow && rankedSuggestions.length > 0 ? (
+          <div className="players-looking">
+            <div className="players-looking__head">
+              <span aria-hidden="true">🎾</span>
+              <h3>Players looking for matches</h3>
+            </div>
+            <p className="players-looking__sub">
+              {availableCount} player{availableCount === 1 ? "" : "s"} available
+              {matchingCount > 0 ? ` · ${matchingCount} match your time` : ""}
+            </p>
+            <div className="players-looking__list">
+              {rankedSuggestions.map(({ suggestion, matching }) => (
+                <div
+                  key={suggestion.id}
+                  className={`players-looking__item${matching ? " players-looking__item--matching" : ""}`}
+                >
+                  <div className="players-looking__info">
+                    {matching ? <span className="players-looking__badge">✓ Matches your time</span> : null}
+                    <h4>
+                      {suggestion.player_name || "League player"}
+                      {suggestion.player_skill ? (
+                        <span className="players-looking__skill">{suggestion.player_skill}</span>
+                      ) : null}
+                    </h4>
+                    <div className="players-looking__meta">
+                      <strong>
+                        {formatDate(suggestion.match_date)} · {formatTime(suggestion.match_time)}
+                      </strong>
+                      <span>
+                        {suggestion.match_location || "Location TBD"}
+                        {Number.isFinite(toNumber(suggestion.distance_miles))
+                          ? ` · ${toNumber(suggestion.distance_miles).toFixed(1)} mi`
+                          : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="players-looking__cta"
+                    disabled={needSubmitting}
+                    onClick={() => handleAcceptSuggestion(suggestion.id)}
+                  >
+                    Connect
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="players-looking__post" onClick={openNeedDrawer}>
+              Post your availability
+            </button>
           </div>
         ) : null}
 
