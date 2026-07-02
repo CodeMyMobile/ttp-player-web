@@ -62,7 +62,7 @@ const AvailabilityReviewPage = () => {
 
   return (
     <MainLayout
-      pageClassName="leagues-shell"
+      pageClassName="leagues-shell leagues-shell--flow"
       hideMobileNewMatch
       hideMobileLocation
       hideMobileNotifications
