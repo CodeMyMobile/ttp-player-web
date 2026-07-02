@@ -231,7 +231,9 @@
    The real gap is .dashboard-page's 32px flex gap between the nav and content —
    drop it (like the "home" chrome does) and keep a small padding above the H1. */
 @media (max-width: 640px) {
-  .leagues-shell--flow {
+  /* Compound selector so it beats .dashboard-page { gap: 32px } from App.css
+     (equal specificity would otherwise lose the source-order tiebreak). */
+  .dashboard-page.leagues-shell--flow {
     gap: 0;
   }
   .leagues-page--flow {
