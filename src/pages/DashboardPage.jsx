@@ -1,9 +1,10 @@
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronRight, MapPin, Plus, Star } from "lucide-react";
+import { Bell, CalendarDays, ChevronRight, MapPin, Plus, Star, UserPlus } from "lucide-react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useNavigate } from "react-router-dom";
 import { listMatches, normalizeMatchRecord } from "../api/matches";
+import { alertUrgency, deriveMatchNeedsAlerts, inviteToAlert, sortAlerts, summarizeWhen } from "../utils/homeAlerts";
 import { useAuth } from "../context/AuthContext";
 import {
   getPlayerDiscoverNearby,
@@ -348,10 +349,15 @@ const buildPlayerInviteItems = (records = []) =>
           ? `${match.skill_level_min}-${match.skill_level_max}`
           : match?.skill_level_min,
       );
-      const description = `Invited you to a ${pickString(match?.match_format, record.match_format)?.toLowerCase() || "match"}`;
+      const formatWord = pickString(match?.match_format, record.match_format)?.toLowerCase();
+      const description = formatWord ? `Invited you to a ${formatWord} match` : "Invited you to a match";
+      // Render the event time in the viewer's LOCAL zone (parseZone keeps the source
+      // UTC offset, which showed e.g. 10pm-UTC instead of 3pm-PDT).
+      const startLocal = startMoment?.isValid() ? startMoment.clone().local() : null;
+      const whenLabel = startLocal ? startLocal.format("ddd MMM D, h:mm A") : null;
       const chips = [
-        startMoment?.isValid() ? `📅 ${startMoment.format("ddd MMM D")}` : null,
-        startMoment?.isValid() ? `⏰ ${startMoment.format("h:mm A")}` : null,
+        startLocal ? `📅 ${startLocal.format("ddd MMM D")}` : null,
+        startLocal ? `⏰ ${startLocal.format("h:mm A")}` : null,
         location ? `📍 ${location}` : null,
         matchLevel ? `⭐ ${matchLevel}` : null,
       ].filter(Boolean);
@@ -368,7 +374,12 @@ const buildPlayerInviteItems = (records = []) =>
         typeLabel: "Player",
         description,
         chips,
+        whenLabel,
+        locationLabel: location || null,
+        isLeague: Boolean(match?.is_league_match ?? record.is_league_match),
+        leagueId: match?.league_id ?? record.league_id ?? null,
         expiresLabel: formatInviteExpiry(record.expires_at ?? record.expiresAt),
+        deadlineAt: record.expires_at ?? record.expiresAt ?? null,
         ctaHint: "Tap for details →",
         accentClassName: "player",
         destination,
@@ -907,6 +918,8 @@ const DashboardPage = () => {
   const [scheduleState, setScheduleState] = useState({ status: "idle", items: [], error: null });
   const [activityState, setActivityState] = useState({ status: "idle", items: [], error: null });
   const [inviteState, setInviteState] = useState({ status: "idle", items: [], error: null });
+  const [matchNeedsAlerts, setMatchNeedsAlerts] = useState([]);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDay, setSelectedDay] = useState(moment().format("YYYY-MM-DD"));
   const [activityWindowStart, setActivityWindowStart] = useState(moment().format("YYYY-MM-DD"));
@@ -994,6 +1007,7 @@ const DashboardPage = () => {
       if (futureLessonsResult.status === "fulfilled" || scheduleMatchesResult.status === "fulfilled") {
         const lessons = futureLessonsResult.status === "fulfilled" ? extractLessons(futureLessonsResult.value) : [];
         const matches = scheduleMatchesResult.status === "fulfilled" ? scheduleMatchesResult.value.matches : [];
+        setMatchNeedsAlerts(deriveMatchNeedsAlerts(matches, user));
         const scheduleItems = [
           ...buildScheduleItems(lessons),
           ...buildScheduleMatchItems(matches, user),
@@ -1161,7 +1175,16 @@ const DashboardPage = () => {
   const scheduleItems = scheduleState.items;
   const hasSchedule = scheduleState.status === "ready" && scheduleItems.length > 0;
   const inviteItems = inviteState.items;
-  const hasInvites = inviteState.status === "ready" && inviteItems.length > 0;
+  // Combined, prioritized Alerts feed: invitations + hosted-match-needs, sorted by
+  // deadline (most urgent first) across types.
+  const alerts = useMemo(
+    () => sortAlerts([...inviteItems.map(inviteToAlert).filter(Boolean), ...matchNeedsAlerts]),
+    [inviteItems, matchNeedsAlerts],
+  );
+  const alertCount = alerts.length;
+  const hasAlerts = inviteState.status === "ready" && alertCount > 0;
+  // Hero only for a lone invitation; any other single alert or 2+ uses the collapsed section.
+  const heroAlert = alertCount === 1 && alerts[0].type === "invitation" ? alerts[0] : null;
   const welcomeHeadline = `Hi ${firstName} 👋`;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
@@ -1481,77 +1504,138 @@ const DashboardPage = () => {
           <p>{welcomeSubtitle}</p>
         </section>
 
-        {hasInvites ? (
-          <section className="ph-invite-banner" aria-labelledby="ph-invite-banner-title">
-            <div className="ph-invite-banner-head">
-              <span className="ph-invite-banner-dot" aria-hidden="true" />
-              <h2 id="ph-invite-banner-title">You've Been Invited — Action Required</h2>
+        {hasAlerts && heroAlert ? (
+          <section className="ph-alert-hero" aria-labelledby="ph-alert-hero-title">
+            <div className={`ph-alert-hero-band ${heroAlert.inviteKind === "coach" ? "coach" : "player"}`}>
+              <span aria-hidden="true">{heroAlert.inviteKind === "coach" ? "👤" : "🎾"}</span>
+              <span id="ph-alert-hero-title">{heroAlert.inviteKind === "coach" ? "Lesson invitation" : "Match invitation"}</span>
             </div>
-
-            {inviteItems.map((invite) => (
-              <article key={invite.id} className="ph-invite-item">
-                <button
-                  type="button"
-                  className="ph-invite-body"
-                  onClick={() => navigate(invite.destination)}
-                >
-                  <span className={`ph-invite-avatar ${invite.accentClassName}`}>
-                    {invite.avatarUrl ? (
-                      <img src={invite.avatarUrl} alt={invite.senderName} />
-                    ) : (
-                      <span>{invite.initials}</span>
-                    )}
-                    <span className="ph-invite-avatar-badge">{invite.type === "coach" ? "👤" : "🎾"}</span>
-                  </span>
-
-                  <span className="ph-invite-copy">
-                    <strong>{invite.senderName}</strong>
-                    <span className={`ph-invite-tag ${invite.accentClassName}`}>{invite.typeLabel}</span>
-                    <span className="ph-invite-description">{invite.description}</span>
-                    <span className="ph-invite-chips">
-                      {invite.chips.map((chip) => (
-                        <span key={chip} className="ph-invite-chip">
-                          {chip}
-                        </span>
-                      ))}
-                    </span>
-                    <span className={`ph-invite-hint ${invite.accentClassName}`}>{invite.ctaHint}</span>
-                    {invite.expiresLabel ? (
-                      <span className="ph-invite-expiry">
-                        Invitation expires <span>{invite.expiresLabel}</span>
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-
-                <span className="ph-invite-actions">
-                  <button
-                    type="button"
-                    className={`ph-invite-accept ${invite.accentClassName}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleInviteAction(invite, "accept");
-                    }}
-                    disabled={Boolean(invite.pendingAction)}
-                  >
-                    {invite.pendingAction === "accept" ? "Saving…" : "✓ Accept"}
-                  </button>
-                  <button
-                    type="button"
-                    className="ph-invite-decline"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleInviteAction(invite, "decline");
-                    }}
-                    disabled={Boolean(invite.pendingAction)}
-                  >
-                    {invite.pendingAction === "decline" ? "Saving…" : "✕ Decline"}
-                  </button>
+            <button
+              type="button"
+              className="ph-alert-hero-body"
+              onClick={() => heroAlert.destination && navigate(heroAlert.destination)}
+            >
+              <span className={`ph-invite-avatar ${heroAlert.leadingVisual.accent}`}>
+                {heroAlert.leadingVisual.url ? (
+                  <img src={heroAlert.leadingVisual.url} alt={heroAlert.title} />
+                ) : (
+                  <span>{heroAlert.leadingVisual.initials}</span>
+                )}
+              </span>
+              <span className="ph-alert-hero-copy">
+                <span className="ph-alert-row-title">
+                  <strong>{heroAlert.title}</strong>
+                  {heroAlert.isLeague ? <span className="ph-alert-league">League</span> : null}
                 </span>
-              </article>
-            ))}
+                {heroAlert.subtitle ? <span className="ph-alert-hero-sub">{heroAlert.subtitle}</span> : null}
+                <span className="ph-invite-chips">
+                  {heroAlert.metaLines.map((chip) => (
+                    <span key={chip} className="ph-invite-chip">
+                      {chip}
+                    </span>
+                  ))}
+                </span>
+                {heroAlert.deadlineAt && heroAlert.expiresLabel ? (
+                  <span className="ph-invite-expiry">
+                    Invitation expires <span>{heroAlert.expiresLabel}</span>
+                  </span>
+                ) : null}
+              </span>
+            </button>
+            <div className="ph-alert-hero-actions">
+              <button
+                type="button"
+                className="ph-alert-accept"
+                disabled={Boolean(heroAlert.raw.pendingAction)}
+                onClick={() => void handleInviteAction(heroAlert.raw, "accept")}
+              >
+                {heroAlert.raw.pendingAction === "accept" ? "Saving…" : "Accept"}
+              </button>
+              <button
+                type="button"
+                className="ph-alert-decline"
+                disabled={Boolean(heroAlert.raw.pendingAction)}
+                onClick={() => void handleInviteAction(heroAlert.raw, "decline")}
+              >
+                {heroAlert.raw.pendingAction === "decline" ? "Saving…" : "Decline"}
+              </button>
+            </div>
+            {heroAlert.destination ? (
+              <button type="button" className="ph-alert-hero-details" onClick={() => navigate(heroAlert.destination)}>
+                View details
+              </button>
+            ) : null}
+          </section>
+        ) : hasAlerts ? (
+          <section className="ph-alerts" aria-labelledby="ph-alerts-title">
+            <div className="ph-alerts-head">
+              <Bell size={16} aria-hidden="true" />
+              <h2 id="ph-alerts-title">Alerts</h2>
+              <span className="ph-alerts-count">{alertCount}</span>
+              <span className="ph-alerts-flag">Action needed</span>
+            </div>
+            {(showAllAlerts ? alerts : alerts.slice(0, 3)).map((alert) => {
+              const urgency = alertUrgency(alert.deadlineAt);
+              const whenSummary = summarizeWhen(alert);
+              const baseMeta = alert.rowMeta && alert.rowMeta.length ? alert.rowMeta : alert.metaLines;
+              const metaLines = (whenSummary ? [whenSummary, ...baseMeta] : baseMeta).slice(0, 2);
+              const rowContent = (
+                <>
+                  {alert.type === "invitation" ? (
+                    <span className={`ph-invite-avatar ${alert.leadingVisual.accent}`}>
+                      {alert.leadingVisual.url ? (
+                        <img src={alert.leadingVisual.url} alt={alert.title} />
+                      ) : (
+                        <span>{alert.leadingVisual.initials}</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="ph-alert-tile" aria-hidden="true">
+                      <UserPlus size={18} />
+                    </span>
+                  )}
+                  <span className="ph-alert-row-copy">
+                    <span className="ph-alert-row-title">
+                      <strong>{alert.title}</strong>
+                      {alert.isLeague ? <span className="ph-alert-league">League</span> : null}
+                    </span>
+                    {metaLines.map((line) => (
+                      <span key={line} className="ph-alert-row-meta">
+                        {line}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="ph-alert-row-side">
+                    {urgency ? <span className={`ph-alert-chip ${urgency.tone}`}>{urgency.label}</span> : null}
+                    {alert.destination ? <ChevronRight size={18} className="ph-schedule-arrow" /> : null}
+                  </span>
+                </>
+              );
+              return alert.destination ? (
+                <button key={alert.id} type="button" className="ph-alert-row" onClick={() => navigate(alert.destination)}>
+                  {rowContent}
+                </button>
+              ) : (
+                <div key={alert.id} className="ph-alert-row ph-alert-row--static">
+                  {rowContent}
+                </div>
+              );
+            })}
+            {alertCount > 3 ? (
+              <button
+                type="button"
+                className="ph-alerts-viewall"
+                onClick={() => setShowAllAlerts((value) => !value)}
+              >
+                {showAllAlerts ? "Show fewer" : `View all ${alertCount} alerts →`}
+              </button>
+            ) : null}
           </section>
         ) : null}
+
+        {/* Recommended for you — gated: no home-ready recommendations source exists yet,
+            so this renders nothing (never fabricated). Wire when a real feed lands. */}
+        {false ? <section className="ph-recs" aria-label="Recommended for you" /> : null}
 
         {inviteState.status === "error" ? <p className="ph-invite-error">{inviteState.error}</p> : null}
 
@@ -1740,7 +1824,7 @@ const DashboardPage = () => {
         </section>
       </main>
 
-      <MobileHomeBottomNav />
+      <MobileHomeBottomNav alertCount={alertCount} />
 
       {isLocationOpen ? (
         <div className="ph-location-overlay" onClick={() => setIsLocationOpen(false)}>
