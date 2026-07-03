@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, Mail, Phone, Trophy, Users, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Mail, MapPin, Phone, Pin, Star, Trophy, Users, X } from "lucide-react";
 
 import {
   type League,
@@ -36,6 +36,8 @@ import "./LeaguesPage.css";
 
 type TabKey = "standings" | "players" | "results" | "pending";
 type NeedFlowStep = "idle" | "precheck" | "accept" | "invite";
+type NeedSortKey = "recommended" | "distance" | "soonest" | "rating";
+type NeedTimeFilter = "any" | "this_week" | "next_week";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
@@ -65,6 +67,8 @@ const getPendingOpponent = (fixture: LeagueFixture, userId?: number | string | n
 
 const todayInputValue = () => new Date().toISOString().slice(0, 10);
 const inviteMessageMaxLength = 160;
+const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+const matchNeedsPageSize = 6;
 const defaultNeedLocation = {
   label: "Penmar Courts",
   latitude: 34.0066,
@@ -109,6 +113,7 @@ const LeagueDetailPage = () => {
   const [results, setResults] = useState<LeagueFixture[]>([]);
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
+  const [allMatchNeeds, setAllMatchNeeds] = useState<LeagueMatchNeed[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
   const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
@@ -116,6 +121,9 @@ const LeagueDetailPage = () => {
   const [acceptMessage, setAcceptMessage] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<Array<number | string>>([]);
+  const [needSort, setNeedSort] = useState<NeedSortKey>("recommended");
+  const [needTimeFilter, setNeedTimeFilter] = useState<NeedTimeFilter>("any");
+  const [needPage, setNeedPage] = useState(1);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,8 +165,9 @@ const LeagueDetailPage = () => {
       getLeagueFixtures({ leagueId: id, token, status: "confirmed", signal: controller.signal }),
       getLeagueFixtures({ leagueId: id, token, status: "scheduled", mine: true, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId: id, token, signal: controller.signal }),
+      getLeagueMatchNeeds({ leagueId: id, token, scope: "all", signal: controller.signal }),
     ])
-      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse]) => {
+      .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse, allNeedsResponse]) => {
         setLeague(standingsResponse.league ?? playersResponse.league);
         setStandings(standingsResponse.standings ?? []);
         setPlayers(playersResponse.players ?? []);
@@ -166,6 +175,7 @@ const LeagueDetailPage = () => {
         setPending(pendingResponse.fixtures ?? []);
         setMatchNeeds(needsResponse.myNeeds ?? []);
         setSuggestions(needsResponse.suggestions ?? []);
+        setAllMatchNeeds(allNeedsResponse.needs ?? []);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -181,6 +191,60 @@ const LeagueDetailPage = () => {
   const pendingSummary = pending.slice(0, 2).map((fixture) => getPendingOpponent(fixture, userId)).join(" · ");
   const pendingCount = pending.length + matchNeeds.length;
   const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
+  const visibleMatchNeeds = useMemo(() => [...allMatchNeeds].sort((a, b) => {
+    if (a.has_played_before !== b.has_played_before) return a.has_played_before ? 1 : -1;
+    const aVariance = typeof a.time_variance_minutes === "number" ? a.time_variance_minutes : Number.POSITIVE_INFINITY;
+    const bVariance = typeof b.time_variance_minutes === "number" ? b.time_variance_minutes : Number.POSITIVE_INFINITY;
+    if (aVariance !== bVariance) return aVariance - bVariance;
+    const aDistance = Number(a.distance_miles);
+    const bDistance = Number(b.distance_miles);
+    const aDistanceValue = Number.isFinite(aDistance) ? aDistance : Number.POSITIVE_INFINITY;
+    const bDistanceValue = Number.isFinite(bDistance) ? bDistance : Number.POSITIVE_INFINITY;
+    return aDistanceValue - bDistanceValue;
+  }), [allMatchNeeds]);
+  const filteredMatchNeeds = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const thisWeekEnd = startOfToday + oneWeekMs;
+    const nextWeekEnd = startOfToday + (oneWeekMs * 2);
+    const filtered = visibleMatchNeeds.filter((need) => {
+      if (needTimeFilter === "any") return true;
+      const start = need.start_date_time ? new Date(need.start_date_time).getTime() : NaN;
+      if (!Number.isFinite(start)) return false;
+      if (needTimeFilter === "this_week") return start >= startOfToday && start < thisWeekEnd;
+      return start >= thisWeekEnd && start < nextWeekEnd;
+    });
+
+    return filtered.sort((a, b) => {
+      if (needSort === "soonest") {
+        return new Date(a.start_date_time || 0).getTime() - new Date(b.start_date_time || 0).getTime();
+      }
+      if (needSort === "rating") {
+        return Number(b.player_skill || 0) - Number(a.player_skill || 0);
+      }
+      if (needSort === "distance") {
+        const aDistance = Number(a.distance_miles);
+        const bDistance = Number(b.distance_miles);
+        return (Number.isFinite(aDistance) ? aDistance : Number.POSITIVE_INFINITY) -
+          (Number.isFinite(bDistance) ? bDistance : Number.POSITIVE_INFINITY);
+      }
+      if (a.has_played_before !== b.has_played_before) return a.has_played_before ? 1 : -1;
+      const aVariance = typeof a.time_variance_minutes === "number" ? a.time_variance_minutes : Number.POSITIVE_INFINITY;
+      const bVariance = typeof b.time_variance_minutes === "number" ? b.time_variance_minutes : Number.POSITIVE_INFINITY;
+      if (aVariance !== bVariance) return aVariance - bVariance;
+      return Number(a.distance_miles || Number.POSITIVE_INFINITY) - Number(b.distance_miles || Number.POSITIVE_INFINITY);
+    });
+  }, [needSort, needTimeFilter, visibleMatchNeeds]);
+  const totalNeedPages = Math.max(1, Math.ceil(filteredMatchNeeds.length / matchNeedsPageSize));
+  const pagedMatchNeeds = filteredMatchNeeds.slice((needPage - 1) * matchNeedsPageSize, needPage * matchNeedsPageSize);
+
+  useEffect(() => {
+    setNeedPage(1);
+  }, [needSort, needTimeFilter, visibleMatchNeeds.length]);
+
+  useEffect(() => {
+    if (needPage > totalNeedPages) setNeedPage(totalNeedPages);
+  }, [needPage, totalNeedPages]);
   const invitePlayers = players.filter((player) => {
     const playerIdentities = [
       normalizeIdentity(player.player_id),
@@ -279,6 +343,28 @@ const LeagueDetailPage = () => {
       setActiveTab("pending");
     } catch (err) {
       setNeedError(err instanceof Error ? err.message : "Failed to accept suggestion");
+    } finally {
+      setNeedSubmitting(false);
+    }
+  };
+
+  const handleAcceptOpenNeed = async (needId: number | string) => {
+    if (!id) return;
+    setNeedSubmitting(true);
+    setNeedError(null);
+    try {
+      await acceptLeagueMatchNeedPreview({
+        leagueId: id,
+        suggestedMatchId: needId,
+        token,
+        message: acceptMessage,
+      });
+      setAllMatchNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
+      setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
+      setNeedFlowStep("idle");
+      setActiveTab("pending");
+    } catch (err) {
+      setNeedError(err instanceof Error ? err.message : "Failed to accept match need");
     } finally {
       setNeedSubmitting(false);
     }
@@ -439,56 +525,165 @@ const LeagueDetailPage = () => {
           </div>
         ) : null}
 
-        {!showNeedFlow && suggestions.length > 0 ? (
-          <div className="players-looking">
-            <div className="players-looking__head">
-              <span aria-hidden="true">🎾</span>
-              <h3>Players looking for matches</h3>
+        {!showNeedFlow ? (
+          <section className="match-needs-browser" aria-label="Match needs browser">
+            <div className="match-browser-header">
+              <div>
+                <h2>Match Browser</h2>
+                <p>{league?.name || "Flex League"}</p>
+              </div>
+              <button type="button" onClick={openNeedDrawer}>+ Post yours</button>
             </div>
-            <p className="players-looking__sub">
-              {suggestions.length} player{suggestions.length === 1 ? "" : "s"} in this league{" "}
-              {suggestions.length === 1 ? "is" : "are"} looking for a match near your availability
-            </p>
-            <div className="players-looking__list">
-              {suggestions.map((suggestion) => (
-                <div key={suggestion.id} className="players-looking__item">
-                  <div className="players-looking__info">
-                    <h4>
-                      {suggestion.player_name || "League player"}
-                      {suggestion.player_skill ? (
-                        <span className="players-looking__skill">{suggestion.player_skill} NTRP</span>
-                      ) : null}
-                      {suggestion.has_played_before === false ? (
-                        <span className="players-looking__new">New opponent</span>
-                      ) : null}
-                    </h4>
-                    <div className="players-looking__meta">
-                      <strong>
+
+            <div className="match-needs-section">
+              <div className="match-needs-section__head">
+                <Pin size={19} />
+                <h2>My posted availability</h2>
+                <span>{matchNeeds.length} active</span>
+              </div>
+              {matchNeeds.length ? (
+                <div className="my-availability-list">
+                  {matchNeeds.slice(0, 3).map((need) => (
+                    <article className="my-availability-card" key={need.id}>
+                      <strong>{formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}</strong>
+                      <p>{need.location_text || need.match_location || need.location || "Location TBD"}</p>
+                      <span>Live • 0 interested</span>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="match-needs-empty">
+                  <CalendarDays size={24} />
+                  <p>You have not posted availability yet.</p>
+                  <button type="button" onClick={openNeedDrawer}>Post yours</button>
+                </div>
+              )}
+            </div>
+
+            <div className="match-needs-section">
+              <div className="match-needs-section__head match-needs-section__head--recommended">
+                <Star size={19} />
+                <h2>Recommended matches</h2>
+                <span>{suggestions.length} perfect fit{suggestions.length === 1 ? "" : "s"}</span>
+              </div>
+              <p className="match-needs-section__sub">These players are looking at times that match your availability.</p>
+              {suggestions.length ? (
+                <div className="recommended-grid">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      type="button"
+                      className="recommended-match-card"
+                      key={suggestion.id}
+                      disabled={needSubmitting}
+                      onClick={() => handleAcceptSuggestion(suggestion.id)}
+                    >
+                      <span className="recommended-match-card__badge">Matches your time</span>
+                      <strong>{suggestion.player_name || "League player"}</strong>
+                      {suggestion.player_skill ? <span className="recommended-match-card__rating">TRP {suggestion.player_skill}</span> : null}
+                      <span className="recommended-match-card__time">
                         {formatDate(suggestion.match_date, suggestion.timezone)} · {formatTime(suggestion.match_time, suggestion.timezone)}
-                      </strong>
-                      <span>
-                        {suggestion.match_location || "Location TBD"}
-                        {suggestion.distance_miles !== null && suggestion.distance_miles !== undefined
-                          ? ` · ${suggestion.distance_miles} mi`
-                          : ""}
                       </span>
-                    </div>
-                  </div>
+                      <span className="recommended-match-card__location">
+                        {suggestion.match_location || "Location TBD"}
+                      </span>
+                      <span className="recommended-match-card__meta">
+                        {suggestion.distance_miles !== null && suggestion.distance_miles !== undefined ? `${suggestion.distance_miles} mi` : "Distance TBD"}
+                        {suggestion.has_played_before === false ? " · New opponent" : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="match-needs-empty match-needs-empty--compact">
+                  <p>No close matches near your posted availability yet.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="match-needs-section">
+              <div className="match-needs-section__head">
+                <Users size={19} />
+                <h2>All players looking for matches</h2>
+                <span>{visibleMatchNeeds.length} total</span>
+              </div>
+              <div className="match-needs-controls">
+                <label>
+                  <span>Sort</span>
+                  <select value={needSort} onChange={(event) => setNeedSort(event.target.value as NeedSortKey)}>
+                    <option value="recommended">Recommended</option>
+                    <option value="distance">Closest distance</option>
+                    <option value="soonest">Soonest</option>
+                    <option value="rating">Highest rated</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Time</span>
+                  <select value={needTimeFilter} onChange={(event) => setNeedTimeFilter(event.target.value as NeedTimeFilter)}>
+                    <option value="any">Any time</option>
+                    <option value="this_week">This week</option>
+                    <option value="next_week">Next week</option>
+                  </select>
+                </label>
+              </div>
+              <p className="match-needs-results">Showing <strong>{filteredMatchNeeds.length}</strong> player{filteredMatchNeeds.length === 1 ? "" : "s"}</p>
+              {filteredMatchNeeds.length ? (
+                <div className="all-players-list">
+                  {pagedMatchNeeds.map((need) => {
+                    const location = need.match_location || need.location || need.location_text || "Location TBD";
+                    return (
+                      <button
+                        type="button"
+                        className="player-list-item"
+                        key={need.id}
+                        disabled={needSubmitting}
+                        onClick={() => handleAcceptOpenNeed(need.id)}
+                      >
+                        <span className="player-list-info">
+                          <strong>{need.player_name || "League player"}</strong>
+                          {need.player_skill ? <span>TRP {need.player_skill}</span> : null}
+                          <small>
+                            {formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}
+                            {" · "}{location}
+                            {need.distance_miles !== null && need.distance_miles !== undefined ? ` · ${need.distance_miles} mi` : ""}
+                          </small>
+                        </span>
+                        <ArrowRight size={18} />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="match-needs-empty match-needs-empty--compact">
+                  <MapPin size={22} />
+                  <p>No other players have active match requests in this league.</p>
+                </div>
+              )}
+              {totalNeedPages > 1 ? (
+                <div className="match-needs-pagination" aria-label="Match needs pagination">
+                  {Array.from({ length: totalNeedPages }, (_, index) => index + 1).map((page) => (
+                    <button
+                      type="button"
+                      className={page === needPage ? "active" : ""}
+                      key={page}
+                      onClick={() => setNeedPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
                   <button
                     type="button"
-                    className="players-looking__cta"
-                    disabled={needSubmitting}
-                    onClick={() => handleAcceptSuggestion(suggestion.id)}
+                    disabled={needPage >= totalNeedPages}
+                    onClick={() => setNeedPage((page) => Math.min(page + 1, totalNeedPages))}
                   >
-                    Connect
+                    Next →
                   </button>
                 </div>
-              ))}
+              ) : null}
+              <button type="button" className="players-looking__post" onClick={openNeedDrawer}>
+                Post your availability
+              </button>
             </div>
-            <button type="button" className="players-looking__post" onClick={openNeedDrawer}>
-              Post your availability
-            </button>
-          </div>
+          </section>
         ) : null}
 
         {!showNeedFlow ? (

@@ -84,10 +84,20 @@ export interface LeagueMatchNeed {
   id: number | string;
   league_id?: number | string;
   host_id?: number | string;
+  player_id?: number | string;
+  player_name?: string | null;
+  player_skill?: string | number | null;
   status?: string;
   start_date_time?: string;
   timezone?: string | null;
+  location?: string | null;
+  match_location?: string | null;
   location_text?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  distance_miles?: string | number | null;
+  has_played_before?: boolean;
+  time_variance_minutes?: number | null;
   league_visibility?: "league" | "open" | string;
   [key: string]: unknown;
 }
@@ -207,15 +217,22 @@ export const previewLeagueMatchNeed = ({
 export const getLeagueMatchNeeds = ({
   leagueId,
   token,
+  scope,
   signal,
 }: {
   leagueId: number | string;
   token?: string;
+  scope?: "all";
   signal?: AbortSignal;
 }) =>
-  request<{ league: League; myNeeds: LeagueMatchNeed[]; suggestions: LeagueMatchSuggestion[] }>(
+  request<{
+    league: League;
+    myNeeds?: LeagueMatchNeed[];
+    suggestions?: LeagueMatchSuggestion[];
+    needs?: LeagueMatchNeed[];
+  }>(
     `/leagues/${leagueId}/match-needs`,
-    { token, signal },
+    { token, signal, query: { scope } },
   );
 
 export const getLeagueResultOpponents = ({

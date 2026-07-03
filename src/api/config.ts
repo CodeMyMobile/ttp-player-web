@@ -5,9 +5,11 @@ const normalizeBaseUrl = (base?: string) => {
   return base.replace(/\/+$/, "");
 };
 
+const viteEnv = import.meta.env ?? {};
+
 const rawBaseUrl =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
-  (import.meta.env.VITE_API_URL as string | undefined) ||
+  (viteEnv.VITE_API_BASE_URL as string | undefined) ||
+  (viteEnv.VITE_API_URL as string | undefined) ||
   DEFAULT_API_BASE_URL;
 
 export const API_BASE_URL = normalizeBaseUrl(rawBaseUrl) || DEFAULT_API_BASE_URL;
