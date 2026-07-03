@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
+import { createPlayerPersonalDetails } from "../services/player";
 import { formatPhoneNumber, getPhoneDigits } from "../services/phone";
 
 const extractProfile = (session) =>
@@ -153,10 +153,13 @@ const OAuthPhoneCapture = ({ session, provider = "google", onBack, onComplete })
 
     setSaving(true);
     try {
-      const savePersonalDetails = playerId ? updatePlayerPersonalDetails : createPlayerPersonalDetails;
-      const updatedProfile = await savePersonalDetails({
+      // Always upsert via POST /player/personal_details. The backend keys off the
+      // authenticated user (req.user.id) and create-or-updates the profile, so no
+      // client-supplied id is needed. Branching to PATCH /personal_details/:id sent
+      // the *user* id where the route expects the *player_profile* id, which 500'd
+      // for new Google signups (the two ids are different domains).
+      const updatedProfile = await createPlayerPersonalDetails({
         player: session?.access_token || session?.token || localStorage.getItem("authToken"),
-        ...(playerId ? { id: playerId } : {}),
         fullName,
         mobile: digits,
         smsConsentGranted,
