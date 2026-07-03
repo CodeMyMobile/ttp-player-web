@@ -2,7 +2,7 @@ import { Bell, Home, UserRound, Users } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import "../pages/DashboardPage.css";
 
-const MobileHomeBottomNav = () => {
+const MobileHomeBottomNav = ({ alertCount = 0 }: { alertCount?: number } = {}) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -13,10 +13,10 @@ const MobileHomeBottomNav = () => {
   );
 
   const items = [
-    { icon: Home, label: "Home", to: "/" },
-    { icon: Users, label: "My Coaches", to: "/my-coaches" },
-    { icon: Bell, label: "Alerts", to: "/notifications" },
-    { icon: UserRound, label: "Profile", to: "/settings/profile" },
+    { icon: Home, label: "Home", to: "/", badge: 0 },
+    { icon: Users, label: "My Coaches", to: "/my-coaches", badge: 0 },
+    { icon: Bell, label: "Alerts", to: "/notifications", badge: alertCount },
+    { icon: UserRound, label: "Profile", to: "/settings/profile", badge: 0 },
   ];
 
   return (
@@ -38,6 +38,9 @@ const MobileHomeBottomNav = () => {
           >
             <span className="ph-bottom-nav-icon">
               <item.icon size={24} />
+              {item.badge > 0 ? (
+                <span className="ph-bottom-nav-badge">{item.badge > 9 ? "9+" : item.badge}</span>
+              ) : null}
             </span>
             <span className="ph-bottom-nav-label">{item.label}</span>
           </NavLink>
