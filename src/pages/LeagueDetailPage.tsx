@@ -55,6 +55,42 @@ const formatTrp = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed.toFixed(3) : null;
 };
 
+// Backend returns 409 { error: "suggested_match_unavailable" } when a need has
+// already been filled/confirmed by someone else.
+const isMatchUnavailable = (err: unknown) => {
+  const e = err as { status?: number; data?: { error?: string }; message?: string };
+  return e?.status === 409
+    || e?.data?.error === "suggested_match_unavailable"
+    || e?.message === "suggested_match_unavailable";
+};
+
+// The stored `score` string is in the REPORTER's orientation, but games_1/games_2
+// are player1-oriented. When the string's game totals match player2's (games_2),
+// it's backwards vs "P1 vs P2" — flip each set so player1's games come first.
+const orientScore = (fixture: LeagueFixture): string => {
+  const raw = String(fixture.score ?? "").trim();
+  if (!raw) return "";
+  const f = fixture as Record<string, unknown>;
+  const g1 = Number(f.games_1);
+  const g2 = Number(f.games_2);
+  if (!Number.isFinite(g1) || !Number.isFinite(g2) || g1 === g2) return raw;
+  const sets = raw.split(/\s+/).map((set) => set.split("-"));
+  if (!sets.every((set) => set.length === 2 && set[0] !== "" && set[1] !== "")) return raw;
+  const sumFirst = sets.reduce((total, set) => total + (Number(set[0]) || 0), 0);
+  const sumSecond = sets.reduce((total, set) => total + (Number(set[1]) || 0), 0);
+  if (sumFirst === g2 && sumSecond === g1) {
+    return sets.map((set) => `${set[1]}-${set[0]}`).join(" ");
+  }
+  return raw;
+};
+
+const describeJoinError = (err: unknown) => {
+  if (isMatchUnavailable(err)) return "This match is already full — it's no longer available.";
+  const code = (err as { data?: { error?: string }; message?: string })?.data?.error;
+  if (code === "cannot_accept_own_match_need") return "You can't join your own match need.";
+  return err instanceof Error ? err.message : "Failed to join match.";
+};
+
 const formatNeedSummary = (need?: LeagueMatchNeed | null) => {
   if (!need) return "Match need";
   const timezone = need.timezone || DEFAULT_LEAGUE_TIMEZONE;
@@ -352,8 +388,14 @@ const LeagueDetailPage = () => {
       setPostedNeed(null);
       setNeedFlowStep("idle");
       setActiveTab("pending");
+      return true;
     } catch (err) {
-      setNeedError(err instanceof Error ? err.message : "Failed to accept suggestion");
+      setNeedError(describeJoinError(err));
+      // If it's already taken, drop the stale suggestion so it disappears.
+      if (isMatchUnavailable(err)) {
+        setSuggestions((current) => current.filter((item) => String(item.id) !== String(suggestionId)));
+      }
+      return false;
     } finally {
       setNeedSubmitting(false);
     }
@@ -374,8 +416,14 @@ const LeagueDetailPage = () => {
       setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
       setNeedFlowStep("idle");
       setActiveTab("pending");
+      return true;
     } catch (err) {
-      setNeedError(err instanceof Error ? err.message : "Failed to accept match need");
+      setNeedError(describeJoinError(err));
+      if (isMatchUnavailable(err)) {
+        setAllMatchNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
+        setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
+      }
+      return false;
     } finally {
       setNeedSubmitting(false);
     }
@@ -405,12 +453,13 @@ const LeagueDetailPage = () => {
   };
 
   // Explicit join — only fires from the confirm dialog's "Request match" button.
-  const requestMatch = () => {
+  const requestMatch = async () => {
     if (!confirmAccept) return;
     const { type, id: acceptId } = confirmAccept;
-    setConfirmAccept(null);
-    if (type === "suggestion") void handleAcceptSuggestion(acceptId);
-    else void handleAcceptOpenNeed(acceptId);
+    const ok = type === "suggestion"
+      ? await handleAcceptSuggestion(acceptId)
+      : await handleAcceptOpenNeed(acceptId);
+    if (ok) setConfirmAccept(null); // on failure keep the dialog open so the error shows
   };
 
   // MatchBrowserPage hands off posting/connecting via router state. Posting opens the
@@ -910,15 +959,27 @@ const LeagueDetailPage = () => {
               </div>
             </div>
             <div className="league-list">
-              {filteredResults.map((fixture) => (
-                <article className="league-list__item" key={fixture.id}>
-                  <Trophy size={16} />
-                  <div>
-                    <h2>{fixture.player1_name || "Player 1"} vs {fixture.player2_name || "Player 2"}</h2>
-                    <p>{displayValue(fixture.score)} · {formatDate(fixture.played_date)}</p>
-                  </div>
-                </article>
-              ))}
+              {filteredResults.map((fixture) => {
+                const winnerId = String((fixture as Record<string, unknown>).winner_id ?? "");
+                const score = orientScore(fixture);
+                return (
+                  <article className="league-list__item" key={fixture.id}>
+                    <Trophy size={16} />
+                    <div>
+                      <h2>
+                        <span className={winnerId && winnerId === String(fixture.player1_id) ? "league-result-winner" : undefined}>
+                          {fixture.player1_name || "Player 1"}
+                        </span>
+                        {" vs "}
+                        <span className={winnerId && winnerId === String(fixture.player2_id) ? "league-result-winner" : undefined}>
+                          {fixture.player2_name || "Player 2"}
+                        </span>
+                      </h2>
+                      <p>{score || "Score TBD"} · {formatDate(fixture.played_date)}</p>
+                    </div>
+                  </article>
+                );
+              })}
               {!filteredResults.length ? (
                 <div className="league-detail__empty">
                   {resultFilter === "mine" ? "No results for you yet." : "No results posted yet."}
@@ -1154,19 +1215,21 @@ const LeagueDetailPage = () => {
           <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Confirm match request">
             <div className="league-confirm__backdrop" onClick={() => setConfirmAccept(null)} />
             <div className="league-confirm__panel">
-              <h2>Request a match?</h2>
+              <h2>Join this match?</h2>
               <p className="league-confirm__player">{confirmAccept.name}</p>
               {confirmAccept.when || confirmAccept.location ? (
                 <p className="league-confirm__meta">
                   {[confirmAccept.when, confirmAccept.location].filter(Boolean).join(" · ")}
                 </p>
               ) : null}
-              <p className="league-confirm__note">They'll get a notification to confirm before the match is set.</p>
+              <p className="league-confirm__note">
+                You'll be matched with {confirmAccept.name} and it moves to your pending matches to play.
+              </p>
               {needError ? <p className="league-need-error">{needError}</p> : null}
               <div className="league-confirm__actions">
                 <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
                 <button type="button" disabled={needSubmitting} onClick={requestMatch}>
-                  {needSubmitting ? "Sending..." : "Request match"}
+                  {needSubmitting ? "Joining..." : "Join match"}
                 </button>
               </div>
             </div>

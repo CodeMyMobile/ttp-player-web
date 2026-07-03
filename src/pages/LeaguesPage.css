@@ -607,6 +607,12 @@
   text-decoration: underline;
 }
 
+/* Results: highlight the winner */
+.league-result-winner {
+  font-weight: 800;
+  color: #111827;
+}
+
 /* Confirm-before-join modal (no accidental auto-join on click) */
 .league-confirm {
   position: fixed;
