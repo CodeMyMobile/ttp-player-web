@@ -11,7 +11,7 @@ import {
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
-import { formatLeagueDate as formatDate, formatLeagueTime as formatTime } from "./leagueDetailTime";
+import { formatLeagueDate as formatDate, formatLeagueTime as formatTime, isFutureLeagueItem as isFutureItem } from "./leagueDetailTime";
 
 import "./LeaguesPage.css";
 
@@ -20,24 +20,6 @@ type NeedTimeFilter = "any" | "this_week" | "next_week";
 
 const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
 const matchNeedsPageSize = 6;
-
-// Show only matches whose start is in the future. Needs carry `start_date_time`
-// (ISO/UTC); suggestions carry `match_date` + `match_time` — handle both shapes.
-const isFutureItem = (item: {
-  start_date_time?: string | null;
-  match_date?: string | null;
-  match_time?: string | null;
-}): boolean => {
-  let dt: Date | null = null;
-  if (item.start_date_time) {
-    dt = new Date(item.start_date_time);
-  } else if (item.match_date) {
-    dt = item.match_date.includes("T")
-      ? new Date(item.match_date)
-      : new Date(`${item.match_date}T${item.match_time || "00:00"}`);
-  }
-  return dt != null && !Number.isNaN(dt.getTime()) && dt.getTime() > Date.now();
-};
 
 const MatchBrowserPage = () => {
   const { id } = useParams();
@@ -77,8 +59,6 @@ const MatchBrowserPage = () => {
     ])
       .then(([personal, all]) => {
         if (controller.signal.aborted) return;
-        // eslint-disable-next-line no-console
-        console.log("[match-browser] default response:", personal, "\n[match-browser] scope=all response:", all);
         setLeague(personal.league ?? all.league ?? null);
         setMyNeeds(personal.myNeeds ?? []);
         setSuggestions(personal.suggestions ?? []);

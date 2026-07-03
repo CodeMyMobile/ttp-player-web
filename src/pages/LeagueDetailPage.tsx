@@ -30,6 +30,7 @@ import {
   DEFAULT_LEAGUE_TIMEZONE,
   formatLeagueDate as formatDate,
   formatLeagueTime as formatTime,
+  isFutureLeagueItem,
 } from "./leagueDetailTime";
 
 import "./LeaguesPage.css";
@@ -113,13 +114,21 @@ const LeagueDetailPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
   const [resultFilter, setResultFilter] = useState<"all" | "mine">("all");
   const [resultSort, setResultSort] = useState<"newest" | "oldest">("newest");
+  // Clicking a match need previews it here; joining is an explicit confirm (no auto-join).
+  const [confirmAccept, setConfirmAccept] = useState<{
+    type: "suggestion" | "need";
+    id: number | string;
+    name: string;
+    when?: string;
+    location?: string | null;
+  } | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<LeagueStanding[]>([]);
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
   const [results, setResults] = useState<LeagueFixture[]>([]);
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
-  const [allNeedsCount, setAllNeedsCount] = useState(0);
+  const [allNeeds, setAllNeeds] = useState<LeagueMatchNeed[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
   const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
@@ -179,7 +188,7 @@ const LeagueDetailPage = () => {
         setMatchNeeds(needsResponse.myNeeds ?? []);
         setSuggestions(needsResponse.suggestions ?? []);
         // Full open-need count for the "See all (N)" preview link (browse lives on MatchBrowserPage).
-        setAllNeedsCount((allNeedsResponse.needs ?? []).length);
+        setAllNeeds(allNeedsResponse.needs ?? []);
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -192,7 +201,7 @@ const LeagueDetailPage = () => {
     return () => controller.abort();
   }, [id, token]);
 
-  const pendingCount = pending.length + matchNeeds.length;
+  const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
     const list = results.filter((fixture) => {
       if (resultFilter !== "mine") return true;
@@ -204,12 +213,40 @@ const LeagueDetailPage = () => {
       return resultSort === "newest" ? bDate - aDate : aDate - bDate;
     });
   }, [results, resultFilter, resultSort, userId]);
-  // W-L record lookup for suggested players (suggestions don't carry win/loss).
+  // W-L record lookup (from standings) + TRP lookup (from players) by player id —
+  // fixtures/suggestions don't carry win/loss or rating.
   const standingsByPlayer = useMemo(() => {
     const map = new Map<string, { wins: number; losses: number }>();
     standings.forEach((row) => map.set(String(row.player_id), { wins: row.wins, losses: row.losses }));
     return map;
   }, [standings]);
+  const futureSuggestions = useMemo(() => suggestions.filter(isFutureLeagueItem), [suggestions]);
+  const futureNeeds = useMemo(() => allNeeds.filter(isFutureLeagueItem), [allNeeds]);
+  const allNeedsCount = futureNeeds.length;
+  // Compact "Players looking" preview: prefer personalized suggestions, else the
+  // open needs (who's actually looking) — future-only, matching the "N looking" badge.
+  const lookingPreview = useMemo(() => {
+    const items = futureSuggestions.length
+      ? futureSuggestions.map((s) => ({
+          key: `s-${s.id}`, id: s.id, type: "suggestion" as const,
+          name: s.player_name || "League player",
+          trp: formatTrp(s.player_skill),
+          when: `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}`,
+          location: s.match_location || null,
+          playerId: s.suggested_player_id,
+          playedBefore: s.has_played_before,
+        }))
+      : futureNeeds.map((n) => ({
+          key: `n-${n.id}`, id: n.id, type: "need" as const,
+          name: n.player_name || "League player",
+          trp: formatTrp(n.player_skill),
+          when: `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}`,
+          location: n.match_location || n.location || n.location_text || null,
+          playerId: n.player_id ?? n.host_id,
+          playedBefore: n.has_played_before,
+        }));
+    return items.slice(0, 3);
+  }, [futureSuggestions, futureNeeds]);
   const selectedSuggestion = suggestions.find((suggestion) => suggestion.id === selectedSuggestionId) ?? suggestions[0];
   const invitePlayers = players.filter((player) => {
     const playerIdentities = [
@@ -224,6 +261,14 @@ const LeagueDetailPage = () => {
   const openNeedDrawer = () => {
     setNeedDrawerOpen(true);
     setNeedError(null);
+  };
+
+  // Pending-fixture "Quick Invite": open the Need-a-Match drawer and pre-select the
+  // opponent so they're already checked when the flow reaches the invite step.
+  const quickInvite = (fixture: LeagueFixture) => {
+    const opponentId = String(fixture.player1_id) === String(userId) ? fixture.player2_id : fixture.player1_id;
+    setSelectedInviteIds(opponentId != null ? [opponentId] : []);
+    openNeedDrawer();
   };
 
   const returnToNeedForm = () => {
@@ -336,8 +381,40 @@ const LeagueDetailPage = () => {
     }
   };
 
-  // MatchBrowserPage hands off posting/connecting via router state (the drawer +
-  // accept flow live here, not duplicated). Run once after data loads, then clear it.
+  // Open the confirm preview for a clicked need/suggestion (no auto-join).
+  const previewAccept = (type: "suggestion" | "need", itemId: number | string) => {
+    if (type === "suggestion") {
+      const s = suggestions.find((x) => String(x.id) === String(itemId));
+      setConfirmAccept({
+        type,
+        id: itemId,
+        name: s?.player_name || "League player",
+        when: s ? `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}` : undefined,
+        location: s?.match_location ?? null,
+      });
+    } else {
+      const n = allNeeds.find((x) => String(x.id) === String(itemId));
+      setConfirmAccept({
+        type,
+        id: itemId,
+        name: n?.player_name || "League player",
+        when: n ? `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}` : undefined,
+        location: n?.match_location ?? n?.location ?? n?.location_text ?? null,
+      });
+    }
+  };
+
+  // Explicit join — only fires from the confirm dialog's "Request match" button.
+  const requestMatch = () => {
+    if (!confirmAccept) return;
+    const { type, id: acceptId } = confirmAccept;
+    setConfirmAccept(null);
+    if (type === "suggestion") void handleAcceptSuggestion(acceptId);
+    else void handleAcceptOpenNeed(acceptId);
+  };
+
+  // MatchBrowserPage hands off posting/connecting via router state. Posting opens the
+  // drawer; a clicked need/suggestion opens the confirm preview — never auto-joins.
   useEffect(() => {
     if (loading || navStateHandledRef.current) return;
     const navState = routerLocation.state as
@@ -348,9 +425,9 @@ const LeagueDetailPage = () => {
     if (navState.openPost) {
       openNeedDrawer();
     } else if (navState.acceptSuggestionId != null) {
-      void handleAcceptSuggestion(navState.acceptSuggestionId);
+      previewAccept("suggestion", navState.acceptSuggestionId);
     } else if (navState.acceptNeedId != null) {
-      void handleAcceptOpenNeed(navState.acceptNeedId);
+      previewAccept("need", navState.acceptNeedId);
     }
     navigate(`/leagues/${id}`, { replace: true, state: null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -515,34 +592,32 @@ const LeagueDetailPage = () => {
                 <h2>🎾 Players looking for matches</h2>
                 <p>These players are looking at times similar to yours.</p>
               </div>
-              {suggestions.length ? (
-                <span className="league-browser-preview__badge">{suggestions.length} nearby</span>
+              {allNeedsCount || futureSuggestions.length ? (
+                <span className="league-browser-preview__badge">{allNeedsCount || futureSuggestions.length} looking</span>
               ) : null}
             </div>
-            {suggestions.length ? (
+            {lookingPreview.length ? (
               <div className="league-browser-preview__list">
-                {suggestions.slice(0, 3).map((suggestion) => {
-                  const trp = formatTrp(suggestion.player_skill);
-                  const record = standingsByPlayer.get(String(suggestion.suggested_player_id));
+                {lookingPreview.map((item) => {
+                  const record = standingsByPlayer.get(String(item.playerId));
                   return (
                     <button
                       type="button"
                       className="league-browser-preview__item"
-                      key={suggestion.id}
+                      key={item.key}
                       disabled={needSubmitting}
-                      onClick={() => handleAcceptSuggestion(suggestion.id)}
+                      onClick={() => setConfirmAccept({ type: item.type, id: item.id, name: item.name, when: item.when, location: item.location })}
                     >
                       <span className="league-browser-preview__player">
-                        <strong>{suggestion.player_name || "League player"}</strong>
-                        {trp ? <em className="league-browser-preview__rating">TRP {trp}</em> : null}
+                        <strong>{item.name}</strong>
+                        {item.trp ? <em className="league-browser-preview__rating">TRP {item.trp}</em> : null}
                         {record ? <em className="league-browser-preview__record">W-L {record.wins}-{record.losses}</em> : null}
-                        {suggestion.has_played_before === false ? (
+                        {item.playedBefore === false ? (
                           <em className="league-browser-preview__new">✓ Still need to play</em>
                         ) : null}
                       </span>
                       <span className="league-browser-preview__when">
-                        {formatDate(suggestion.match_date, suggestion.timezone)} · {formatTime(suggestion.match_time, suggestion.timezone)}
-                        {suggestion.match_location ? ` · ${suggestion.match_location}` : ""}
+                        {item.when}{item.location ? ` · ${item.location}` : ""}
                       </span>
                     </button>
                   );
@@ -550,7 +625,7 @@ const LeagueDetailPage = () => {
               </div>
             ) : (
               <div className="match-needs-empty match-needs-empty--compact">
-                <p>No close matches near your posted availability yet.</p>
+                <p>No players looking for matches yet.</p>
               </div>
             )}
             <button type="button" className="cta-need-match" onClick={openNeedDrawer}>+ Need a Match</button>
@@ -791,8 +866,14 @@ const LeagueDetailPage = () => {
               <tbody>
                 {players.map((player) => (
                   <tr key={player.player_id}>
-                    <td>{displayValue(player.full_name)}</td>
-                    <td className="league-table__rating">{displayValue(player.current_rating)}</td>
+                    <td>
+                      {player.phone ? (
+                        <a className="league-player-link" href={`sms:${player.phone}`}>{displayValue(player.full_name)}</a>
+                      ) : (
+                        displayValue(player.full_name)
+                      )}
+                    </td>
+                    <td className="league-table__rating">{formatTrp(player.current_rating) ?? "-"}</td>
                     <td>{displayValue(player.usta_rating)}</td>
                     <td>{displayValue(player.uta_rating)}</td>
                     <td>
@@ -864,27 +945,21 @@ const LeagueDetailPage = () => {
                 </div>
               </article>
             ))}
-            {matchNeeds.map((need) => (
-              <article className="league-list__item league-list__item--pending" key={need.id}>
-                <CalendarDays size={16} />
-                <div>
-                  <h2>Open match need</h2>
-                  <p>
-                    {formatDate(need.start_date_time, need.timezone)} · {need.location_text || "Location TBD"} · {need.league_visibility === "open" ? "Open visibility" : "League only"}
-                  </p>
-                </div>
-              </article>
-            ))}
             {pending.map((fixture) => (
               <article className="league-list__item league-list__item--pending" key={fixture.id}>
                 <CalendarDays size={16} />
-                <div>
-                  <h2>{getPendingOpponent(fixture, userId)}</h2>
-                  <p>Match #{fixture.match_number ?? fixture.id} · pending score</p>
+                <div className="league-list__item-body">
+                  <div>
+                    <h2>{getPendingOpponent(fixture, userId)}</h2>
+                    <p>Match #{fixture.match_number ?? fixture.id} · pending score</p>
+                  </div>
+                  <button type="button" className="btn-quick-invite" onClick={() => quickInvite(fixture)}>
+                    Quick Invite
+                  </button>
                 </div>
               </article>
             ))}
-            {!pending.length && !matchNeeds.length && !suggestions.length ? (
+            {!pending.length && !suggestions.length ? (
               <div className="league-detail__empty">
                 <Users size={20} />
                 No pending matches.
@@ -1069,6 +1144,29 @@ const LeagueDetailPage = () => {
                   onClick={handleSubmitScore}
                 >
                   {scoreSubmitting ? "Submitting..." : "Submit score"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {confirmAccept ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Confirm match request">
+            <div className="league-confirm__backdrop" onClick={() => setConfirmAccept(null)} />
+            <div className="league-confirm__panel">
+              <h2>Request a match?</h2>
+              <p className="league-confirm__player">{confirmAccept.name}</p>
+              {confirmAccept.when || confirmAccept.location ? (
+                <p className="league-confirm__meta">
+                  {[confirmAccept.when, confirmAccept.location].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+              <p className="league-confirm__note">They'll get a notification to confirm before the match is set.</p>
+              {needError ? <p className="league-need-error">{needError}</p> : null}
+              <div className="league-confirm__actions">
+                <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
+                <button type="button" disabled={needSubmitting} onClick={requestMatch}>
+                  {needSubmitting ? "Sending..." : "Request match"}
                 </button>
               </div>
             </div>

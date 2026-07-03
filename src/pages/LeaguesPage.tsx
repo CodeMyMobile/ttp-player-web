@@ -3,6 +3,7 @@ import { CalendarDays, ChevronRight, Trophy, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { getLeagueMatchNeeds, type League, listMyLeagues } from "../api/leagues";
+import { isFutureLeagueItem } from "./leagueDetailTime";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -69,8 +70,16 @@ const LeaguesPage = () => {
     Promise.all(
       leagues.map(async (league) => {
         try {
-          const all = await getLeagueMatchNeeds({ leagueId: league.id, token, scope: "all", signal: controller.signal });
-          return [String(league.id), (all.needs ?? []).length] as const;
+          // "needs" (all open) can be empty even when players are looking, so fall
+          // back to the recommended "suggestions" count.
+          const [personal, all] = await Promise.all([
+            getLeagueMatchNeeds({ leagueId: league.id, token, signal: controller.signal }),
+            getLeagueMatchNeeds({ leagueId: league.id, token, scope: "all", signal: controller.signal }),
+          ]);
+          const count =
+            (all.needs ?? []).filter(isFutureLeagueItem).length ||
+            (personal.suggestions ?? []).filter(isFutureLeagueItem).length;
+          return [String(league.id), count] as const;
         } catch {
           return [String(league.id), 0] as const;
         }

@@ -48,3 +48,28 @@ export const formatLeagueTime = (value?: string | null, timezone?: unknown) => {
 
   return date.toLocaleTimeString("en-US", options);
 };
+
+// True when a match is today or later. Needs carry `start_date_time` (ISO/UTC);
+// suggestions carry `match_date` + `match_time`; some rows use start_at/date. We:
+//  - compare against the START OF TODAY (local) so same-day matches still show, and
+//  - FAIL OPEN (return true) when no date can be parsed, so an unexpected field
+//    shape never silently hides real rows.
+export const isFutureLeagueItem = (item: {
+  start_date_time?: string | null;
+  start_at?: string | null;
+  match_date?: string | null;
+  match_time?: string | null;
+  date?: string | null;
+  time?: string | null;
+}): boolean => {
+  const raw = item.start_date_time || item.start_at || item.match_date || item.date;
+  if (!raw) return true; // no date to judge → show it
+  const value = String(raw);
+  const dt = value.includes("T")
+    ? new Date(value)
+    : new Date(`${value}T${item.match_time || item.time || "23:59"}`);
+  if (Number.isNaN(dt.getTime())) return true; // unparseable → show it
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return dt.getTime() >= startOfToday;
+};
