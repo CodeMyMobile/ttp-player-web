@@ -368,7 +368,8 @@
   font-size: 14px;
 }
 
-.match-browser-header button {
+.match-browser-header button,
+.match-browser-header a {
   flex-shrink: 0;
   border: 0;
   border-radius: 7px;
@@ -378,9 +379,11 @@
   font-size: 14px;
   font-weight: 750;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.match-browser-header button:hover {
+.match-browser-header button:hover,
+.match-browser-header a:hover {
   background: #6d28d9;
 }
 
@@ -440,10 +443,12 @@
 
 .my-availability-card {
   position: relative;
+  display: block;
   padding: 14px 38px 14px 14px;
   border: 2px solid #7c3aed;
   border-radius: 8px;
   background: #ffffff;
+  text-decoration: none;
 }
 
 .my-availability-card::after {
@@ -533,6 +538,7 @@
   background: #fef08a;
   color: #1f2937;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
@@ -646,6 +652,7 @@
   background: #ffffff;
   color: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
