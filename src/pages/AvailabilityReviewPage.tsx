@@ -1,9 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarCheck, MessageSquare, Search } from "lucide-react";
+import { CalendarCheck, MessageSquare, Search, Send } from "lucide-react";
 
-import type { LeagueMatchSuggestion } from "../api/leagues";
+import {
+  getLeaguePlayers,
+  sendLeagueMatchNeedInvites,
+  type LeagueMatchSuggestion,
+  type LeaguePlayer,
+} from "../api/leagues";
 import MainLayout from "../components/MainLayout";
+import { useAuth } from "../context/AuthContext";
+import { getStoredAuthToken } from "../services/authToken";
 import { formatDateForDisplay, formatTimeForDisplay } from "../utils/dateTime";
 import type { AvailabilitySlot } from "./PostAvailabilityPage";
 
@@ -14,16 +21,51 @@ const toNumber = (value: unknown): number => {
   return Number.isFinite(n) ? n : NaN;
 };
 
+const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+const INVITE_MESSAGE_MAX = 160;
+const DEFAULT_INVITE_MESSAGE =
+  "Hey! I just posted my availability in our league — want to lock in a match?";
+
 const AvailabilityReviewPage = () => {
   const { id: leagueId = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const token = useMemo(
+    () =>
+      user?.session?.access_token ??
+      user?.access_token ??
+      user?.token ??
+      getStoredAuthToken({ preferScheme: "token" }) ??
+      undefined,
+    [user],
+  );
   const state = (location.state ?? {}) as {
     postedSlots?: AvailabilitySlot[];
     suggestions?: LeagueMatchSuggestion[];
+    matchId?: number | string | null;
   };
 
   const postedSlots = state.postedSlots ?? [];
+  const matchId = state.matchId ?? null;
+
+  const currentUserIdentities = useMemo(
+    () =>
+      new Set(
+        [
+          normalizeIdentity(user?.id),
+          normalizeIdentity(user?.user_id),
+          normalizeIdentity(user?.player_id),
+          normalizeIdentity(user?.email),
+          normalizeIdentity(user?.profile?.email),
+          normalizeIdentity(user?.full_name),
+          normalizeIdentity(user?.profile?.full_name),
+          normalizeIdentity(user?.name),
+        ].filter(Boolean),
+      ),
+    [user],
+  );
 
   // Combine + de-dupe suggestions from all the POSTs (same player can match many slots).
   const suggestions = useMemo(() => {
@@ -41,6 +83,67 @@ const AvailabilityReviewPage = () => {
       return (Number.isFinite(da) ? da : Infinity) - (Number.isFinite(db) ? db : Infinity);
     });
   }, [state.suggestions]);
+
+  // Invite step: league players you still need to play (roster minus yourself).
+  const [players, setPlayers] = useState<LeaguePlayer[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Array<number | string>>([]);
+  const [inviteMessage, setInviteMessage] = useState(DEFAULT_INVITE_MESSAGE);
+  const [sending, setSending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [sentCount, setSentCount] = useState(0);
+
+  useEffect(() => {
+    if (!leagueId || !matchId) return;
+    const controller = new AbortController();
+    getLeaguePlayers({ leagueId, token, signal: controller.signal })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        const others = (res.players ?? []).filter((player) => {
+          const ids = [
+            normalizeIdentity(player.player_id),
+            normalizeIdentity(player.email),
+            normalizeIdentity(player.full_name),
+          ].filter(Boolean);
+          return !ids.some((identity) => currentUserIdentities.has(identity));
+        });
+        setPlayers(others);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPlayers([]);
+      });
+    return () => controller.abort();
+  }, [leagueId, matchId, token, currentUserIdentities]);
+
+  const togglePlayer = (playerId: number | string) =>
+    setSelectedIds((current) =>
+      current.some((x) => String(x) === String(playerId))
+        ? current.filter((x) => String(x) !== String(playerId))
+        : [...current, playerId],
+    );
+
+  const sendInvites = async () => {
+    if (!matchId || !selectedIds.length) return;
+    if (inviteMessage.length > INVITE_MESSAGE_MAX) {
+      setInviteError(`Message must be ${INVITE_MESSAGE_MAX} characters or fewer.`);
+      return;
+    }
+    setSending(true);
+    setInviteError(null);
+    try {
+      await sendLeagueMatchNeedInvites({
+        leagueId,
+        matchId,
+        token,
+        body: { player_ids: selectedIds, message: inviteMessage },
+      });
+      setSentCount(selectedIds.length);
+      setSelectedIds([]);
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Couldn't send invites. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Direct visit (no navigation state) — nothing to show.
   if (postedSlots.length === 0) {
@@ -127,6 +230,52 @@ const AvailabilityReviewPage = () => {
             </div>
           )}
         </div>
+
+        {matchId && players.length > 0 ? (
+          <div className="availability-review__section availability-invite">
+            <h2>Invite players you still need to play</h2>
+            <p className="availability-invite__sub">Pick opponents in your league and send them an SMS invite to book a match.</p>
+            {sentCount > 0 ? (
+              <p className="availability-invite__sent">✓ Sent {sentCount} invite{sentCount === 1 ? "" : "s"}.</p>
+            ) : null}
+            <div className="availability-invite__list">
+              {players.map((player) => {
+                const checked = selectedIds.some((x) => String(x) === String(player.player_id));
+                const trp = toNumber(player.current_rating);
+                return (
+                  <label className="league-need-invitee" key={player.player_id}>
+                    <input type="checkbox" checked={checked} onChange={() => togglePlayer(player.player_id)} />
+                    <span>
+                      {player.full_name || `Player ${player.player_id}`}
+                      {Number.isFinite(trp) ? ` · TRP ${trp.toFixed(3)}` : ""}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <label className="league-need-field">
+              <span>Message</span>
+              <textarea
+                maxLength={INVITE_MESSAGE_MAX}
+                value={inviteMessage}
+                onChange={(event) => setInviteMessage(event.target.value)}
+              />
+            </label>
+            <p className="league-need-tip">{inviteMessage.length}/{INVITE_MESSAGE_MAX} characters</p>
+            {inviteError ? <p className="league-need-error">{inviteError}</p> : null}
+            <button
+              type="button"
+              className="availability-invite__send"
+              disabled={!selectedIds.length || sending}
+              onClick={sendInvites}
+            >
+              <Send size={16} />
+              {sending
+                ? "Sending…"
+                : `Send SMS invite${selectedIds.length === 1 ? "" : "s"}${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
+            </button>
+          </div>
+        ) : null}
 
         <div className="availability-review__next">
           <h2>What happens next</h2>

@@ -131,6 +131,7 @@ const PostAvailabilityPage = () => {
     setSubmitting(true);
     setError(null);
     const allSuggestions: LeagueMatchSuggestion[] = [];
+    const createdNeedIds: Array<number | string> = [];
     const failed: AvailabilitySlot[] = [];
 
     for (let i = 0; i < slots.length; i += 1) {
@@ -152,6 +153,7 @@ const PostAvailabilityPage = () => {
           },
         });
         if (res.suggestions) allSuggestions.push(...res.suggestions);
+        if (res.match?.id != null) createdNeedIds.push(res.match.id);
       } catch (err) {
         console.error(`Failed to post availability slot ${i + 1}`, err);
         failed.push(slot);
@@ -168,7 +170,8 @@ const PostAvailabilityPage = () => {
     }
 
     navigate(`/leagues/${leagueId}/availability-review`, {
-      state: { postedSlots: slots, suggestions: allSuggestions },
+      // matchId (first posted need) anchors the "invite players" SMS step on review.
+      state: { postedSlots: slots, suggestions: allSuggestions, matchId: createdNeedIds[0] ?? null },
     });
   };
 
