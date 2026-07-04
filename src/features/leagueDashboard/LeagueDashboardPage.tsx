@@ -1,9 +1,10 @@
 // League Dashboard — top-level page.
 //
-// Self-contained and mock-driven (NOT wired to the real API). It reads ONLY from
-// the hooks (useLeague / usePlayer / useNextMove); there are no hardcoded league
-// values in this JSX. Switching leagues is a route change (/leagues/:id/dashboard)
-// so the whole page repopulates from the new dataset.
+// Wired to the REAL leagues API through useLeagueDashboard (token + viewer
+// identity resolved, endpoints fetched in parallel, mapped to the dashboard's
+// domain shapes). Components read the mapped data via their existing prop
+// contracts. Switching leagues is a route change (/leagues/:id/dashboard) so the
+// whole page repopulates from the new dataset.
 
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -20,7 +21,7 @@ import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
 import ThisWeekCard from "./ThisWeekCard";
 import { challengeService } from "./challengeService";
-import { useLeague, useNextMove, usePlayer } from "./hooks";
+import { useLeagueDashboard } from "./useLeagueDashboard";
 import type { NextMoveTarget, TabKey } from "./types";
 
 import "./LeagueDashboard.css";
@@ -28,15 +29,13 @@ import "./LeagueDashboard.css";
 const LeagueDashboardPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data, leagues } = useLeague(id);
-  const { hero } = usePlayer(id);
-  const nextMove = useNextMove(id);
+  const { data, hero, nextMove, leagues, loading, error } = useLeagueDashboard(id);
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
 
   // Reset to the default tab whenever the active league changes.
   useEffect(() => {
     setActiveTab("standings");
-  }, [data.summary.id]);
+  }, [data?.summary.id]);
 
   // Next-move CTA routing. Most targets are stub flows for this rung; the
   // direct-challenge path goes through the typed challengeService seam.
@@ -47,7 +46,7 @@ const LeagueDashboardPage = () => {
         setActiveTab("pending");
         break;
       case "direct-challenge": {
-        const opponent = data.nextMoveContext.unplayed_opponents[0];
+        const opponent = data?.nextMoveContext.unplayed_opponents[0];
         if (opponent) void challengeService.challenge(String(opponent.playerId));
         break;
       }
@@ -69,41 +68,58 @@ const LeagueDashboardPage = () => {
           Back to leagues
         </a>
 
-        <div className="page-head">
-          <LeagueSwitcher active={data.summary} leagues={leagues} />
-          <div className="head-actions">
-            <button type="button" className="btn ghost">
-              Need a match
-            </button>
-            <button type="button" className="btn" onClick={() => setActiveTab("pending")}>
-              <Icon name="plus" />
-              Add score
-            </button>
-          </div>
-        </div>
+        {loading || !data || !hero || !nextMove ? (
+          error ? (
+            <section className="card" style={{ padding: 24 }}>
+              <div className="t" style={{ fontWeight: 600, marginBottom: 6 }}>
+                Couldn't load this league
+              </div>
+              <div className="b" style={{ color: "var(--ink-3)" }}>{error}</div>
+            </section>
+          ) : (
+            <section className="card" style={{ padding: 24 }} aria-busy="true">
+              Loading league…
+            </section>
+          )
+        ) : (
+          <>
+            <div className="page-head">
+              <LeagueSwitcher active={data.summary} leagues={leagues} />
+              <div className="head-actions">
+                <button type="button" className="btn ghost">
+                  Need a match
+                </button>
+                <button type="button" className="btn" onClick={() => setActiveTab("pending")}>
+                  <Icon name="plus" />
+                  Add score
+                </button>
+              </div>
+            </div>
 
-        <PendingBanner count={data.pendingScoreCount} onView={() => setActiveTab("pending")} />
+            <PendingBanner count={data.pendingScoreCount} onView={() => setActiveTab("pending")} />
 
-        <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
+            <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
 
-        <ResultsTicker items={data.ticker} />
+            <ResultsTicker items={data.ticker} />
 
-        <section className="grid-two">
-          <NextMoveCard move={nextMove} onCta={handleNextMove} />
-          <ThisWeekCard week={data.week} />
-        </section>
+            <section className="grid-two">
+              <NextMoveCard move={nextMove} onCta={handleNextMove} />
+              <ThisWeekCard week={data.week} />
+            </section>
 
-        <SeasonProgress season={data.season} />
+            <SeasonProgress season={data.season} />
 
-        <PlayersLooking looking={data.looking} onNeedMatch={() => setActiveTab("pending")} />
+            <PlayersLooking looking={data.looking} onNeedMatch={() => setActiveTab("pending")} />
 
-        <LeagueTabs
-          data={data}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onContact={() => setActiveTab("players")}
-          onSchedule={() => setActiveTab("pending")}
-        />
+            <LeagueTabs
+              data={data}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onContact={() => setActiveTab("players")}
+              onSchedule={() => setActiveTab("pending")}
+            />
+          </>
+        )}
       </main>
     </div>
   );

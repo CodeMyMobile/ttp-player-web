@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Tennis Plan - Flex Leagues</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f9fafb; color: #1f2937; }
+    
+    .navbar-top { background: white; border-bottom: 1px solid #e5e7eb; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .navbar-logo { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .navbar-logo-icon { width: 24px; height: 24px; background: linear-gradient(135deg, #7c3aed 0%, #22c55e 100%); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; }
+    .menu-btn { background: none; border: none; cursor: pointer; font-size: 20px; }
+    .navbar-icon { font-size: 18px; cursor: pointer; }
+    
+    .dropdown { position: relative; }
+    .dropdown-content { position: absolute; right: 0; top: 30px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 180px; display: none; z-index: 200; }
+    .dropdown-content.active { display: block; }
+    .dropdown-item { padding: 12px 16px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item.active { background: #ede9fe; color: #7c3aed; font-weight: 500; }
+
+    .container { padding: 16px; padding-bottom: 100px; max-width: 100%; }
+    .header { margin-bottom: 20px; }
+    .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 4px; }
+    .header-sub { font-size: 13px; color: #6b7280; }
+
+    .btn { padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: #7c3aed; color: white; }
+    .btn-primary:active { background: #6d28d9; }
+    .btn-secondary { background: #f3f4f6; color: #1f2937; border: 1px solid #e5e7eb; }
+    .btn-secondary:active { background: #e5e7eb; }
+
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    
+    .card { background: white; border: 1px solid #e5e7eb; border-left: 4px solid #7c3aed; padding: 16px; margin-bottom: 8px; cursor: pointer; }
+    .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card-meta { font-size: 12px; color: #6b7280; display: flex; gap: 12px; }
+
+    .tabs { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 16px; background: white; }
+    .tab { padding: 12px 16px; border-bottom: 3px solid transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: #6b7280; white-space: nowrap; }
+    .tab.active { color: #7c3aed; border-bottom-color: #7c3aed; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .list-item { background: white; border: 1px solid #e5e7eb; border-left: 4px solid #e5e7eb; padding: 16px; margin-bottom: 8px; }
+    .list-item h4 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .list-item p { font-size: 12px; color: #9ca3af; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; color: #6b7280; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: inherit; }
+    .form-group input:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+
+    .set-box { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .set-box h4 { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+    .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .score-input { text-align: center; }
+    .score-input label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; margin-bottom: 8px; }
+    .score-buttons { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .score-buttons button { width: 32px; height: 32px; border: 1px solid #e5e7eb; background: white; cursor: pointer; font-size: 18px; border-radius: 4px; }
+    .score-buttons button.plus { background: #7c3aed; color: white; border: none; }
+    .score-input input { font-size: 28px; font-weight: 700; text-align: center; width: 60px; border: none; padding: 8px; }
+
+    .action-buttons { display: flex; gap: 8px; margin-top: 20px; }
+    .action-buttons .btn { flex: 1; }
+
+    .navbar-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding: 8px 0; z-index: 99; }
+    .navbar-bottom-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; color: #6b7280; font-weight: 500; padding: 8px 0; flex: 1; }
+    .navbar-bottom-item.active { color: #7c3aed; }
+    .navbar-bottom-icon { font-size: 20px; }
+
+    @media (min-width: 769px) {
+      .navbar-bottom { display: none; }
+      .container { padding: 32px 24px; }
+      .header h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<div class="navbar-top">
+  <div class="navbar-logo">
+    <div class="navbar-logo-icon">🎾</div>
+    <span>The Tennis <span style="color: #7c3aed;">Plan</span></span>
+  </div>
+  <div>
+    <div class="navbar-icon">🔔</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Page: Flex Leagues -->
+  <div class="page active" id="page-leagues">
+    <div class="header">
+      <h1>Flex Leagues</h1>
+      <div class="header-sub">Manage your flex league match play</div>
+    </div>
+    <div class="section">
+      <div class="section-title">Your leagues</div>
+      <div class="card" onclick="goToPage('league')">
+        <h3>Penmar 3.5 Flex</h3>
+        <div class="card-meta">
+          <span>West LA</span>
+          <span>24 players</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>West LA 4.0 Flex</h3>
+        <div class="card-meta">
+          <span>West LA</span>
+          <span>18 players</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: League Detail -->
+  <div class="page" id="page-league">
+    <div class="header">
+      <h1>Penmar 3.5 Flex</h1>
+      <div class="header-sub">24 active players</div>
+    </div>
+    
+    <!-- Pending Matches Banner -->
+    <div style="background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-weight: 600; color: #92400e;">You have 2 matches to play</div>
+        <div style="font-size: 12px; color: #b45309; margin-top: 2px;">Sarah Chen (Jun 28) • Mike Johnson (Jun 29)</div>
+      </div>
+      <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="goToPage('pending')">View</button>
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+      <button class="btn btn-primary" style="flex: 1;" onclick="openMatchNeedDrawer()">+ Need a Match</button>
+      <button class="btn btn-secondary" style="flex: 1;" onclick="goToPage('score')">Add Score</button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab(event, 'standings')">Standings</div>
+      <div class="tab" onclick="switchTab(event, 'players')">Players</div>
+      <div class="tab" onclick="switchTab(event, 'results')">Results</div>
+      <div class="tab" onclick="switchTab(event, 'pending')">Pending</div>
+    </div>
+    <div id="tab-standings" style="display: block;">
+      <div style="overflow-x: auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e5e7eb;">
+              <th style="text-align: left; padding: 8px 4px; font-weight: 600; color: #6b7280;">Rank</th>
+              <th style="text-align: left; padding: 8px 4px; font-weight: 600; color: #6b7280;">Player</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">MP</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">W-L</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">GD</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">GW</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">GL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px; font-weight: 600;">1</td>
+              <td style="padding: 10px 4px;">Sarah Chen <span style="font-size: 11px; color: #9ca3af; font-weight: 400;">(TRP 8.5)</span></td>
+              <td style="text-align: center; padding: 10px 4px;">14</td>
+              <td style="text-align: center; padding: 10px 4px; color: #22c55e; font-weight: 600;">12-2</td>
+              <td style="text-align: center; padding: 10px 4px;">+18</td>
+              <td style="text-align: center; padding: 10px 4px;">72</td>
+              <td style="text-align: center; padding: 10px 4px;">54</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px; font-weight: 600;">2</td>
+              <td style="padding: 10px 4px;">You (PC) <span style="font-size: 11px; color: #9ca3af; font-weight: 400;">(TRP 7.8)</span></td>
+              <td style="text-align: center; padding: 10px 4px;">14</td>
+              <td style="text-align: center; padding: 10px 4px; color: #22c55e; font-weight: 600;">9-5</td>
+              <td style="text-align: center; padding: 10px 4px;">+6</td>
+              <td style="text-align: center; padding: 10px 4px;">62</td>
+              <td style="text-align: center; padding: 10px 4px;">56</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px; font-weight: 600;">3</td>
+              <td style="padding: 10px 4px;">Mike Johnson <span style="font-size: 11px; color: #9ca3af; font-weight: 400;">(TRP 7.2)</span></td>
+              <td style="text-align: center; padding: 10px 4px;">12</td>
+              <td style="text-align: center; padding: 10px 4px; color: #22c55e; font-weight: 600;">8-4</td>
+              <td style="text-align: center; padding: 10px 4px;">+2</td>
+              <td style="text-align: center; padding: 10px 4px;">48</td>
+              <td style="text-align: center; padding: 10px 4px;">46</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px; font-weight: 600;">4</td>
+              <td style="padding: 10px 4px;">Jessica Lee <span style="font-size: 11px; color: #9ca3af; font-weight: 400;">(TRP 6.9)</span></td>
+              <td style="text-align: center; padding: 10px 4px;">13</td>
+              <td style="text-align: center; padding: 10px 4px; color: #f97316; font-weight: 600;">7-6</td>
+              <td style="text-align: center; padding: 10px 4px;">-4</td>
+              <td style="text-align: center; padding: 10px 4px;">56</td>
+              <td style="text-align: center; padding: 10px 4px;">60</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 4px; font-weight: 600;">5</td>
+              <td style="padding: 10px 4px;">David Park <span style="font-size: 11px; color: #9ca3af; font-weight: 400;">(TRP 6.4)</span></td>
+              <td style="text-align: center; padding: 10px 4px;">11</td>
+              <td style="text-align: center; padding: 10px 4px; color: #f97316; font-weight: 600;">6-5</td>
+              <td style="text-align: center; padding: 10px 4px;">-8</td>
+              <td style="text-align: center; padding: 10px 4px;">42</td>
+              <td style="text-align: center; padding: 10px 4px;">50</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size: 12px; color: #6b7280; margin-top: 12px; padding: 8px;">
+        <strong>Legend:</strong> MP = Matches Played | W-L = Wins-Losses | GD = Game Differential | GW = Games Won | GL = Games Lost
+      </div>
+    </div>
+    <div id="tab-players" style="display: none;">
+      <div style="overflow-x: auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e5e7eb;">
+              <th style="text-align: left; padding: 8px 4px; font-weight: 600; color: #6b7280;">Player</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280;">TRP</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280; font-size: 12px;">NTRP</th>
+              <th style="text-align: center; padding: 8px 4px; font-weight: 600; color: #6b7280; font-size: 12px;">UTR</th>
+              <th style="text-align: left; padding: 8px 4px; font-weight: 600; color: #6b7280;">Contact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px;">Sarah Chen</td>
+              <td style="text-align: center; padding: 10px 4px; font-weight: 600; color: #7c3aed;">8.5</td>
+              <td style="text-align: center; padding: 10px 4px;">4.5</td>
+              <td style="text-align: center; padding: 10px 4px;">11.5</td>
+              <td style="padding: 10px 4px;">📱 (555) 234-5678</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px;">Mike Johnson</td>
+              <td style="text-align: center; padding: 10px 4px; font-weight: 600; color: #7c3aed;">7.2</td>
+              <td style="text-align: center; padding: 10px 4px;">3.5</td>
+              <td style="text-align: center; padding: 10px 4px;">10.0</td>
+              <td style="padding: 10px 4px;">📱 (555) 345-6789</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+              <td style="padding: 10px 4px;">Jessica Lee</td>
+              <td style="text-align: center; padding: 10px 4px; font-weight: 600; color: #7c3aed;">6.9</td>
+              <td style="text-align: center; padding: 10px 4px;">3.5</td>
+              <td style="text-align: center; padding: 10px 4px;">9.5</td>
+              <td style="padding: 10px 4px;">📱 (555) 456-7890</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 4px;">David Park</td>
+              <td style="text-align: center; padding: 10px 4px; font-weight: 600; color: #7c3aed;">6.4</td>
+              <td style="text-align: center; padding: 10px 4px;">3.0</td>
+              <td style="text-align: center; padding: 10px 4px;">9.0</td>
+              <td style="padding: 10px 4px;">📱 (555) 567-8901</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="tab-pending" style="display: none;">
+      <div class="list-item" style="background: #fef3c7; border-left-color: #fcd34d;">
+        <h4>Sarah Chen</h4>
+        <p style="font-size: 12px; color: #b45309;">Jun 28, 2026 • Penmar Courts • 3:00 PM</p>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Message</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Reschedule</button>
+        </div>
+      </div>
+      <div class="list-item" style="background: #fef3c7; border-left-color: #fcd34d;">
+        <h4>Mike Johnson</h4>
+        <p style="font-size: 12px; color: #b45309;">Jun 29, 2026 • Penmar Courts • 4:00 PM</p>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Message</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Reschedule</button>
+        </div>
+      </div>
+    </div>
+    <div id="tab-results" style="display: none;">
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button class="btn btn-primary" onclick="filterResults('all')">All Results</button>
+        <button class="btn btn-secondary" onclick="filterResults('mine')">My Results</button>
+      </div>
+      <div id="results-container">
+        <div class="list-item">
+          <h4>Sarah Chen vs Mike Johnson</h4>
+          <p>6-4 • Jun 28, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>You vs Jessica Lee</h4>
+          <p>6-3 • Jun 28, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>David Park vs You</h4>
+          <p>3-6 • Jun 27, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>Sarah Chen vs David Park</h4>
+          <p>6-1 • Jun 27, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>Mike Johnson vs Jessica Lee</h4>
+          <p>5-7 • Jun 26, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>You vs Sarah Chen</h4>
+          <p>4-6 • Jun 25, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>Jessica Lee vs David Park</h4>
+          <p>6-4 • Jun 25, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>Mike Johnson vs David Park</h4>
+          <p>6-2 • Jun 24, 2026 • Penmar Courts</p>
+        </div>
+        <div class="list-item">
+          <h4>Sarah Chen vs Jessica Lee</h4>
+          <p>6-3 • Jun 22, 2026 • Penmar Courts</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Add Score -->
+  <div class="page" id="page-score">
+    <div class="header">
+      <h1>Add score</h1>
+      <div class="header-sub">Enter the score, then send to opponent to confirm.</div>
+    </div>
+
+    <div class="section">
+      <div class="form-group">
+        <label>Match Type</label>
+        <div style="display: flex; gap: 8px;" id="matchTypeButtons">
+          <button class="btn btn-primary" style="flex: 1;" onclick="selectMatchType(1)">1 set</button>
+          <button class="btn btn-secondary" style="flex: 1;" onclick="selectMatchType(3)">Best of 3</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Opponent</label>
+        <input type="text" placeholder="Choose opponent" />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" value="2026-06-28" />
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" placeholder="Penmar Courts" />
+        </div>
+      </div>
+
+      <div class="set-box">
+        <h4>Set 1</h4>
+        <div class="score-grid">
+          <div class="score-input">
+            <label>You</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(0, 0)">−</button>
+              <input type="number" value="0" id="score-0-0" />
+              <button class="plus" onclick="incrementScore(0, 0)">+</button>
+            </div>
+          </div>
+          <div class="score-input">
+            <label>Opponent</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(0, 1)">−</button>
+              <input type="number" value="0" id="score-0-1" />
+              <button class="plus" onclick="incrementScore(0, 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-box" id="set-2" style="display: none;">
+        <h4>Set 2</h4>
+        <div class="score-grid">
+          <div class="score-input">
+            <label>You</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(1, 0)">−</button>
+              <input type="number" value="0" id="score-1-0" />
+              <button class="plus" onclick="incrementScore(1, 0)">+</button>
+            </div>
+          </div>
+          <div class="score-input">
+            <label>Opponent</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(1, 1)">−</button>
+              <input type="number" value="0" id="score-1-1" />
+              <button class="plus" onclick="incrementScore(1, 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-box" id="set-3" style="display: none;">
+        <h4>Set 3</h4>
+        <div class="score-grid">
+          <div class="score-input">
+            <label>You</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(2, 0)">−</button>
+              <input type="number" value="0" id="score-2-0" />
+              <button class="plus" onclick="incrementScore(2, 0)">+</button>
+            </div>
+          </div>
+          <div class="score-input">
+            <label>Opponent</label>
+            <div class="score-buttons">
+              <button onclick="decrementScore(2, 1)">−</button>
+              <input type="number" value="0" id="score-2-1" />
+              <button class="plus" onclick="incrementScore(2, 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-secondary" onclick="goToPage('league')">Cancel</button>
+        <button class="btn btn-primary" onclick="alert('Score submitted!')">Review result</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Pending Matches -->
+  <div class="page" id="page-pending">
+    <div class="header">
+      <h1>Pending Matches</h1>
+      <div class="header-sub">Matches you need to play</div>
+    </div>
+    
+    <div class="section">
+      <div class="list-item" style="background: #fef3c7; border-left-color: #fcd34d;">
+        <h4>Sarah Chen</h4>
+        <p style="font-size: 12px; color: #b45309;">Jun 28, 2026 • Penmar Courts • 3:00 PM</p>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Message</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Reschedule</button>
+        </div>
+      </div>
+      <div class="list-item" style="background: #fef3c7; border-left-color: #fcd34d;">
+        <h4>Mike Johnson</h4>
+        <p style="font-size: 12px; color: #b45309;">Jun 29, 2026 • Penmar Courts • 4:00 PM</p>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Message</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; flex: 1;">Reschedule</button>
+        </div>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-top: 20px;">
+      <button class="btn btn-secondary" style="flex: 1;" onclick="goToPage('league')">Back to League</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Overlay for drawer -->
+<div id="overlay" onclick="closeMatchNeedDrawer()" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; z-index: 98;"></div>
+
+<!-- Match Need Drawer -->
+<div id="matchNeedDrawer" style="position: fixed; bottom: -100%; left: 0; right: 0; background: white; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 99; transition: bottom 0.3s; max-height: 80vh; overflow-y: auto;">
+  <div style="padding: 16px; border-bottom: 1px solid #e5e7eb;">
+    <div style="font-size: 16px; font-weight: 600;">Need a match?</div>
+    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Post your availability and find opponents</div>
+    <button onclick="closeMatchNeedDrawer()" style="position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+  </div>
+  <div style="padding: 16px;">
+    <div class="form-group">
+      <label>Date</label>
+      <input type="date" />
+    </div>
+    <div class="form-group">
+      <label>Time</label>
+      <input type="time" />
+    </div>
+    <div class="form-group">
+      <label>Location</label>
+      <input type="text" placeholder="Penmar Courts" />
+    </div>
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; text-transform: none;">
+        <input type="checkbox" checked />
+        <span>Share with league members only</span>
+      </label>
+    </div>
+    <div style="font-size: 12px; color: #9ca3af; margin-bottom: 16px;">💡 We'll check for existing matches</div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-secondary" style="flex: 1;" onclick="closeMatchNeedDrawer()">Cancel</button>
+      <button class="btn btn-primary" style="flex: 1;" onclick="checkForMatches()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Navigation -->
+<div class="navbar-bottom">
+  <div class="navbar-bottom-item active">
+    <div class="navbar-bottom-icon">🏠</div>
+    <div>Home</div>
+  </div>
+  <div class="navbar-bottom-item">
+    <div class="navbar-bottom-icon">👨‍🏫</div>
+    <div>Coaches</div>
+  </div>
+  <div class="navbar-bottom-item">
+    <div class="navbar-bottom-icon">📅</div>
+    <div>Schedule</div>
+  </div>
+  <div class="navbar-bottom-item">
+    <div class="navbar-bottom-icon">🎯</div>
+    <div>Match Play</div>
+  </div>
+  <div class="navbar-bottom-item">
+    <div class="navbar-bottom-icon">🔍</div>
+    <div>Find Players</div>
+  </div>
+</div>
+
+<script>
+function goToPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function switchTab(e, id) {
+  const tabs = e.target.parentElement.querySelectorAll('.tab');
+  const content = e.target.parentElement.parentElement;
+  const tabContents = content.querySelectorAll('[id^="tab-"]');
+  
+  tabs.forEach(t => t.classList.remove('active'));
+  tabContents.forEach(t => t.style.display = 'none');
+  
+  e.target.classList.add('active');
+  document.getElementById('tab-' + id).style.display = 'block';
+}
+
+function selectMatchType(numSets) {
+  const buttons = document.getElementById('matchTypeButtons').querySelectorAll('button');
+  
+  // Update button styles
+  buttons.forEach(b => {
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-secondary');
+  });
+  
+  if (numSets === 1) {
+    buttons[0].classList.add('btn-primary');
+    buttons[0].classList.remove('btn-secondary');
+    document.getElementById('set-2').style.display = 'none';
+    document.getElementById('set-3').style.display = 'none';
+  } else {
+    buttons[1].classList.add('btn-primary');
+    buttons[1].classList.remove('btn-secondary');
+    document.getElementById('set-2').style.display = 'block';
+    document.getElementById('set-3').style.display = 'block';
+  }
+}
+
+function incrementScore(setIndex, playerIndex) {
+  const inputId = 'score-' + setIndex + '-' + playerIndex;
+  const input = document.getElementById(inputId);
+  input.value = parseInt(input.value || 0) + 1;
+}
+
+function decrementScore(setIndex, playerIndex) {
+  const inputId = 'score-' + setIndex + '-' + playerIndex;
+  const input = document.getElementById(inputId);
+  const current = parseInt(input.value || 0);
+  input.value = Math.max(0, current - 1);
+}
+
+function filterResults(type) {
+  const buttons = document.querySelectorAll('#tab-results .btn');
+  buttons.forEach(b => {
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-secondary');
+  });
+  
+  if (type === 'all') {
+    buttons[0].classList.add('btn-primary');
+    buttons[0].classList.remove('btn-secondary');
+    // Show all results
+    document.querySelectorAll('#results-container .list-item').forEach(item => {
+      item.style.display = 'block';
+    });
+  } else {
+    buttons[1].classList.add('btn-primary');
+    buttons[1].classList.remove('btn-secondary');
+    // Show only "You" results
+    document.querySelectorAll('#results-container .list-item').forEach(item => {
+      const text = item.querySelector('h4').textContent;
+      if (text.includes('You')) {
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+}
+
+function openMatchNeedDrawer() {
+  document.getElementById('overlay').style.display = 'block';
+  document.getElementById('matchNeedDrawer').style.bottom = '0';
+}
+
+function closeMatchNeedDrawer() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('matchNeedDrawer').style.bottom = '-100%';
+}
+
+function checkForMatches() {
+  closeMatchNeedDrawer();
+  alert('✓ Checking for existing matches...\n\n2 players already looking at this time!\nSwitch to view matches or post anyway.');
+}
+</script>
+
+</body>
+</html>
