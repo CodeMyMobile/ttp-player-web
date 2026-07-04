@@ -37,23 +37,39 @@ const LeagueDashboardPage = () => {
     setActiveTab("standings");
   }, [data?.summary.id]);
 
-  // Next-move CTA routing. Most targets are stub flows for this rung; the
-  // direct-challenge path goes through the typed challengeService seam.
+  // Hand off to the existing LeagueDetailPage flows via router state (the same
+  // channel MatchBrowserPage uses): openPost → Need-a-Match drawer, openScore →
+  // Add-Score drawer, acceptSuggestionId → the confirm-and-join accept flow.
+  const goLeague = (state?: Record<string, unknown>) =>
+    navigate(`/leagues/${id}`, state ? { state } : undefined);
+
   const handleNextMove = (target: NextMoveTarget) => {
     switch (target) {
       case "add-score":
-      case "respond-challenge":
-        setActiveTab("pending");
+        goLeague({ openScore: true });
+        break;
+      case "add-availability":
+        goLeague({ openPost: true });
+        break;
+      case "schedule-candidate": {
+        const sid = data?.nextMoveContext.matchmake_candidate?.suggestionId;
+        goLeague(sid != null ? { acceptSuggestionId: sid } : { openPost: true });
+        break;
+      }
+      case "all-matches":
+        navigate(`/leagues/${id}/match-browser`);
         break;
       case "direct-challenge": {
+        // FLAG: no real direct-challenge backend yet — stubbed via challengeService.
         const opponent = data?.nextMoveContext.unplayed_opponents[0];
         if (opponent) void challengeService.challenge(String(opponent.playerId));
         break;
       }
-      case "all-matches":
-        navigate("/leagues");
+      case "respond-challenge":
+        // No challenges endpoint yet (Rung 0 "respond" is dormant) — show pending.
+        setActiveTab("pending");
         break;
-      // schedule-candidate, add-availability, notify-me: stubbed no-ops for now.
+      case "notify-me":
       default:
         break;
     }
@@ -86,10 +102,10 @@ const LeagueDashboardPage = () => {
             <div className="page-head">
               <LeagueSwitcher active={data.summary} leagues={leagues} />
               <div className="head-actions">
-                <button type="button" className="btn ghost">
+                <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
                   Need a match
                 </button>
-                <button type="button" className="btn" onClick={() => setActiveTab("pending")}>
+                <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
                   <Icon name="plus" />
                   Add score
                 </button>
@@ -109,14 +125,17 @@ const LeagueDashboardPage = () => {
 
             <SeasonProgress season={data.season} />
 
-            <PlayersLooking looking={data.looking} onNeedMatch={() => setActiveTab("pending")} />
+            <PlayersLooking
+              looking={data.looking}
+              onNeedMatch={() => goLeague({ openPost: true })}
+              onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
+            />
 
             <LeagueTabs
               data={data}
               activeTab={activeTab}
               onTabChange={setActiveTab}
-              onContact={() => setActiveTab("players")}
-              onSchedule={() => setActiveTab("pending")}
+              onSchedule={() => goLeague({ openPost: true })}
             />
           </>
         )}

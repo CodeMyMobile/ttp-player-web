@@ -47,6 +47,8 @@ export interface PendingChallenge {
 export interface MatchmakeCandidate {
   playerId: string | number;
   name: string;
+  /** The suggestion id to hand off to the accept flow (scheduling). */
+  suggestionId?: string | number;
   /** Display string for when/where, e.g. "Sat Jul 12 · 3 PM". */
   when?: string;
   distanceMiles?: number | null;

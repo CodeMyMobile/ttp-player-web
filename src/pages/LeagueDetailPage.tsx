@@ -448,12 +448,14 @@ const LeagueDetailPage = () => {
   useEffect(() => {
     if (loading || navStateHandledRef.current) return;
     const navState = routerLocation.state as
-      | { openPost?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string }
+      | { openPost?: boolean; openScore?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string }
       | null;
     if (!navState) return;
     navStateHandledRef.current = true;
     if (navState.openPost) {
       openNeedDrawer();
+    } else if (navState.openScore) {
+      openScoreDrawer();
     } else if (navState.acceptSuggestionId != null) {
       previewAccept("suggestion", navState.acceptSuggestionId);
     } else if (navState.acceptNeedId != null) {

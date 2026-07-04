@@ -8,9 +8,10 @@ import type { LookingPlayer } from "./types";
 interface PlayersLookingProps {
   looking: LookingPlayer[];
   onNeedMatch: () => void;
+  onSeeAll: () => void;
 }
 
-const PlayersLooking = ({ looking, onNeedMatch }: PlayersLookingProps) => (
+const PlayersLooking = ({ looking, onNeedMatch, onSeeAll }: PlayersLookingProps) => (
   <section className="card looking">
     <div className="lh">
       <h3>
@@ -52,9 +53,9 @@ const PlayersLooking = ({ looking, onNeedMatch }: PlayersLookingProps) => (
       <Icon name="plus" />
       Need a match
     </button>
-    <a className="see-all" href="#/leagues">
+    <button type="button" className="see-all" onClick={onSeeAll}>
       See all <Icon name="arrow-right" style={{ fontSize: 13, verticalAlign: "-1px" }} />
-    </a>
+    </button>
   </section>
 );
 

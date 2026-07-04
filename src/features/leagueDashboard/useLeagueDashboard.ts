@@ -428,6 +428,7 @@ const buildDashboard = (
     myNeeds.length > 0 && topSuggestion
       ? {
           playerId: String(topSuggestion.suggested_player_id ?? topSuggestion.id),
+          suggestionId: topSuggestion.id,
           name: topSuggestion.player_name || "League player",
           when: `${formatLeagueDate(topSuggestion.match_date, topSuggestion.timezone)} · ${formatLeagueTime(topSuggestion.match_time, topSuggestion.timezone)}`,
           distanceMiles: toNumber(topSuggestion.distance_miles),

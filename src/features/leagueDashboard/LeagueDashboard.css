@@ -295,3 +295,7 @@
   .lgd .panel{animation:none}
   .lgd .league-menu{animation:none}
 }
+
+/* button variants for wired actions (see-all link-button, disabled contact) */
+.lgd button.see-all { width: 100%; border: 0; background: transparent; cursor: pointer; font-family: inherit; }
+.lgd .contact:disabled { opacity: .5; cursor: default; }

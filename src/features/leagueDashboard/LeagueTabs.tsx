@@ -48,11 +48,14 @@ interface LeagueTabsProps {
   data: LeagueData;
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
-  onContact: (playerId: string) => void;
   onSchedule: (pendingId: string) => void;
 }
 
-const LeagueTabs = ({ data, activeTab, onTabChange, onContact, onSchedule }: LeagueTabsProps) => (
+// A roster player's contact string is a phone or email — link out accordingly.
+const contactHref = (contact: string) =>
+  contact.includes("@") ? `mailto:${contact}` : `sms:${contact.replace(/[^\d+]/g, "")}`;
+
+const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule }: LeagueTabsProps) => (
   <>
     <div className="tabs" role="tablist" aria-label="League detail">
       {TABS.map((tab) => (
@@ -140,14 +143,19 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onContact, onSchedule }: Lea
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                className="contact"
-                aria-label={`Contact ${player.name}`}
-                onClick={() => onContact(player.playerId)}
-              >
-                <Icon name="message-circle" />
-              </button>
+              {player.contact ? (
+                <a
+                  className="contact"
+                  aria-label={`Contact ${player.name}`}
+                  href={contactHref(player.contact)}
+                >
+                  <Icon name="message-circle" />
+                </a>
+              ) : (
+                <button type="button" className="contact" aria-label={`Contact ${player.name}`} disabled>
+                  <Icon name="message-circle" />
+                </button>
+              )}
             </div>
           ))}
         </div>
