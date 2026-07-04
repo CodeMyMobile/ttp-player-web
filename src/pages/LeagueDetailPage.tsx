@@ -622,7 +622,7 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
-            <button type="button" onClick={openNeedDrawer}>Need a Match</button>
+            <button type="button" onClick={() => navigate(`/leagues/${id}/post-availability`)}>Need a Match</button>
             <button type="button" onClick={openScoreDrawer}>Add Score</button>
           </div>
         </header>
@@ -677,7 +677,7 @@ const LeagueDetailPage = () => {
                 <p>No players looking for matches yet.</p>
               </div>
             )}
-            <button type="button" className="cta-need-match" onClick={openNeedDrawer}>+ Need a Match</button>
+            <button type="button" className="cta-need-match" onClick={() => navigate(`/leagues/${id}/post-availability`)}>+ Need a Match</button>
             <Link className="league-browser-preview__seeall" to={`/leagues/${id}/match-browser`}>
               See all{allNeedsCount ? ` (${allNeedsCount})` : ""} →
             </Link>
