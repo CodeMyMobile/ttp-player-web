@@ -12,6 +12,7 @@ import {
   type LeagueResultOpponent,
   type LeagueStanding,
   acceptLeagueMatchSuggestion,
+  isLeagueSlotAvailable,
   acceptLeagueMatchNeedPreview,
   createLeagueResult,
   createLeagueMatchNeed,
@@ -271,6 +272,7 @@ const LeagueDetailPage = () => {
           location: s.match_location || null,
           playerId: s.suggested_player_id,
           playedBefore: s.has_played_before,
+          available: isLeagueSlotAvailable(s),
         }))
       : futureNeeds.map((n) => ({
           key: `n-${n.id}`, id: n.id, type: "need" as const,
@@ -280,6 +282,7 @@ const LeagueDetailPage = () => {
           location: n.match_location || n.location || n.location_text || null,
           playerId: n.player_id ?? n.host_id,
           playedBefore: n.has_played_before,
+          available: isLeagueSlotAvailable(n),
         }));
     return items.slice(0, 3);
   }, [futureSuggestions, futureNeeds]);
@@ -654,14 +657,16 @@ const LeagueDetailPage = () => {
                       type="button"
                       className="league-browser-preview__item"
                       key={item.key}
-                      disabled={needSubmitting}
-                      onClick={() => setConfirmAccept({ type: item.type, id: item.id, name: item.name, when: item.when, location: item.location })}
+                      disabled={needSubmitting || !item.available}
+                      onClick={() => item.available && setConfirmAccept({ type: item.type, id: item.id, name: item.name, when: item.when, location: item.location })}
                     >
                       <span className="league-browser-preview__player">
                         <strong>{item.name}</strong>
                         {item.trp ? <em className="league-browser-preview__rating">TRP {item.trp}</em> : null}
                         {record ? <em className="league-browser-preview__record">W-L {record.wins}-{record.losses}</em> : null}
-                        {item.playedBefore === false ? (
+                        {!item.available ? (
+                          <em className="league-full-badge">Full</em>
+                        ) : item.playedBefore === false ? (
                           <em className="league-browser-preview__new">✓ Still need to play</em>
                         ) : null}
                       </span>

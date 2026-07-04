@@ -4,6 +4,7 @@ import { CalendarCheck, MessageSquare, Search, Send } from "lucide-react";
 
 import {
   getLeaguePlayers,
+  isLeagueSlotAvailable,
   sendLeagueMatchNeedInvites,
   type LeagueMatchSuggestion,
   type LeaguePlayer,
@@ -212,7 +213,10 @@ const AvailabilityReviewPage = () => {
                 return (
                   <div key={s.id} className="players-looking__item">
                     <div className="players-looking__info">
-                      <h4>{s.player_name || "League player"}</h4>
+                      <h4>
+                        {s.player_name || "League player"}
+                        {!isLeagueSlotAvailable(s) ? <em className="league-full-badge">Full</em> : null}
+                      </h4>
                       {Number.isFinite(trp) ? <div className="players-looking__rating">TRP: {trp.toFixed(3)}</div> : null}
                       <div className="players-looking__meta">
                         <strong>

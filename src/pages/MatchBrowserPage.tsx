@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, MapPin, Pin, Star, Users } from "lucide-react
 
 import {
   getLeagueMatchNeeds,
+  isLeagueSlotAvailable,
   type League,
   type LeagueMatchNeed,
   type LeagueMatchSuggestion,
@@ -195,14 +196,17 @@ const MatchBrowserPage = () => {
               <p className="match-needs-section__sub">These players are looking at times that match your availability.</p>
               {futureSuggestions.length ? (
                 <div className="recommended-grid">
-                  {futureSuggestions.map((suggestion) => (
+                  {futureSuggestions.map((suggestion) => {
+                    const available = isLeagueSlotAvailable(suggestion);
+                    return (
                     <button
                       type="button"
                       className="recommended-match-card"
                       key={suggestion.id}
-                      onClick={() => goConnectSuggestion(suggestion.id)}
+                      disabled={!available}
+                      onClick={() => available && goConnectSuggestion(suggestion.id)}
                     >
-                      <span className="recommended-match-card__badge">Matches your time</span>
+                      <span className="recommended-match-card__badge">{available ? "Matches your time" : "Full"}</span>
                       <strong>{suggestion.player_name || "League player"}</strong>
                       {suggestion.player_skill ? <span className="recommended-match-card__rating">TRP {suggestion.player_skill}</span> : null}
                       <span className="recommended-match-card__time">
@@ -214,7 +218,8 @@ const MatchBrowserPage = () => {
                         {suggestion.has_played_before === false ? " · New opponent" : ""}
                       </span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="match-needs-empty match-needs-empty--compact">
@@ -253,15 +258,20 @@ const MatchBrowserPage = () => {
                 <div className="all-players-list">
                   {pagedMatchNeeds.map((need) => {
                     const location = need.match_location || need.location || need.location_text || "Location TBD";
+                    const available = isLeagueSlotAvailable(need);
                     return (
                       <button
                         type="button"
                         className="player-list-item"
                         key={need.id}
-                        onClick={() => goConnectNeed(need.id)}
+                        disabled={!available}
+                        onClick={() => available && goConnectNeed(need.id)}
                       >
                         <span className="player-list-info">
-                          <strong>{need.player_name || "League player"}</strong>
+                          <strong>
+                            {need.player_name || "League player"}
+                            {!available ? <em className="league-full-badge">Full</em> : null}
+                          </strong>
                           {need.player_skill ? <span>TRP {need.player_skill}</span> : null}
                           <small>
                             {formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}
