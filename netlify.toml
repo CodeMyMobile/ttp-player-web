@@ -10,6 +10,14 @@
 [build.environment]
   VITE_MULTI_MATCH = "true"
 
+# Deploy-preview / branch-deploy builds hit the PRODUCTION API so previews
+# test against real data. Context-scoped, so the production deploy is unaffected.
+[context.deploy-preview.environment]
+  VITE_API_URL = "https://api.thetennisplan.com/api/"
+
+[context.branch-deploy.environment]
+  VITE_API_URL = "https://api.thetennisplan.com/api/"
+
 # Permanent (301) redirects from the long-form legal URLs to the canonical
 # short URLs. These MUST come before the SPA catch-all below — Netlify applies
 # redirect rules top-to-bottom, first match wins.
