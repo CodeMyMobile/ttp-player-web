@@ -134,9 +134,10 @@ const MatchBrowserPage = () => {
     if (needPage > totalNeedPages) setNeedPage(totalNeedPages);
   }, [needPage, totalNeedPages]);
 
-  // Posting + connecting live on LeagueDetailPage (one drawer / accept flow).
-  // The browser hands off via router state instead of duplicating them.
-  const goPost = () => navigate(`/leagues/${id}`, { state: { openPost: true } });
+  // "Post yours" opens the multi-slot availability flow; the quick single-slot
+  // drawer still lives on LeagueDetailPage's "Need a Match". Connecting hands off
+  // to LeagueDetailPage via router state.
+  const goPost = () => navigate(`/leagues/${id}/post-availability`);
   const goConnectSuggestion = (suggestionId: number | string) =>
     navigate(`/leagues/${id}`, { state: { acceptSuggestionId: suggestionId } });
   const goConnectNeed = (needId: number | string) =>
