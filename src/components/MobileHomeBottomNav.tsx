@@ -154,32 +154,20 @@ const MobileHomeBottomNav = () => {
     else navigate("/leagues");
   }, [navigate, resolveLeagues]);
 
-  // "+" sheet → Log a Score. Single league → the league detail score drawer
-  // (openScore router state, same channel the dashboard uses). FLAG: multi-league
-  // routes to /leagues first because the score flow is per-league.
-  const goLogScore = useCallback(async () => {
+  // "+" sheet actions use the GENERAL (non-league) flows as the default — they
+  // work whether or not you're in a league, and you can reach leagues from them.
+  // Log a Score → the standalone log-result flow (handles league selection itself).
+  const goLogScore = useCallback(() => {
     setSheetOpen(false);
-    const leagues = await resolveLeagues();
-    if (leagues.length === 1) {
-      const id = leagues[0].id;
-      navigate(`/leagues/${id}`, { state: { openScore: true, returnTo: `/leagues/${id}/dashboard` } });
-    } else {
-      navigate("/leagues");
-    }
-  }, [navigate, resolveLeagues]);
+    navigate("/log-result");
+  }, [navigate]);
 
-  // "+" sheet → Find a Match. Single league → Post Availability. FLAG:
-  // multi-league routes to /leagues first to establish context.
-  const goFindMatch = useCallback(async () => {
+  // Find a Match → the casual matches app (find/create a match; leagues reachable
+  // from there too).
+  const goFindMatch = useCallback(() => {
     setSheetOpen(false);
-    const leagues = await resolveLeagues();
-    if (leagues.length === 1) {
-      const id = leagues[0].id;
-      navigate(`/leagues/${id}/post-availability`, { state: { returnTo: `/leagues/${id}/dashboard` } });
-    } else {
-      navigate("/leagues");
-    }
-  }, [navigate, resolveLeagues]);
+    navigate("/matches");
+  }, [navigate]);
 
   const isActive = (prefixes: string[]) =>
     prefixes.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
