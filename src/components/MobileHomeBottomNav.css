@@ -105,7 +105,9 @@
 .mbn-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* Above the sticky top nav (z-index 80) so the dim covers the whole page,
+     including the header — not just the content below it. */
+  z-index: 100;
   display: flex;
   align-items: flex-end;
   justify-content: center;
