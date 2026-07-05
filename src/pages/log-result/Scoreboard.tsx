@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Trophy, X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Minus, Plus, Trophy, X } from "lucide-react";
 import { Avatar, PointField } from "./ui";
 import { cellState, isTiebreakSet, setStatus, colLabel, visibleSetCount } from "./scoring";
 import type { CurrentUser, Player, Format, MatchSet, Result, Side, SetKind, CellState } from "./scoring";
@@ -36,27 +36,10 @@ interface GamesBoxProps {
   ariaLabel: string;
 }
 
-// Tap-to-pick from the legal 0–7 values only (no free keyboard → no "88").
-// A match tiebreak (max 20) falls back to a capped numeric input.
+// Score entry: a clear −/＋ stepper, capped to 0–max so there's no junk (e.g.
+// "88") and no free keyboard. A match tiebreak (max 20) uses a numeric field.
 function GamesBox({ value, max, onChange, tone, state, placeholder, ariaLabel }: GamesBoxProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const ring = tone === "you" ? "focus-visible:ring-violet-500/40" : "focus-visible:ring-slate-400/40";
-  const boxCls = `h-11 w-11 grid place-items-center rounded-xl border text-xl tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${gamesBoxTone(state)}`;
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   if (max > 7) {
     // Match-tiebreak deciding set: constrained numeric field (0–max).
@@ -70,45 +53,23 @@ function GamesBox({ value, max, onChange, tone, state, placeholder, ariaLabel }:
           const d = e.target.value.replace(/\D/g, "").slice(0, 2);
           onChange(d === "" ? 0 : Math.min(max, Number(d)));
         }}
-        className={`${boxCls} text-center placeholder:text-slate-300`}
+        className={`h-11 w-12 rounded-xl border text-center text-xl tabular-nums placeholder:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${gamesBoxTone(state)}`}
       />
     );
   }
 
+  const step = `h-9 w-9 grid place-items-center rounded-lg text-slate-500 hover:bg-white active:scale-90 disabled:opacity-25 disabled:hover:bg-transparent transition-all focus-visible:outline-none focus-visible:ring-2 ${ring}`;
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); onChange(Math.min(max, value + 1)); }
-          else if (e.key === "ArrowDown" || e.key === "ArrowLeft") { e.preventDefault(); onChange(Math.max(0, value - 1)); }
-        }}
-        className={boxCls}
-      >
-        {placeholder ? <span className="text-slate-300">–</span> : value}
+    <div className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 px-0.5">
+      <button type="button" className={step} onClick={() => onChange(Math.max(0, value - 1))} disabled={value <= 0} aria-label={`Fewer games — ${ariaLabel}`}>
+        <Minus className="h-4 w-4" />
       </button>
-      {open && (
-        <div role="listbox" aria-label={ariaLabel} className="absolute left-1/2 top-[calc(100%+6px)] z-30 -translate-x-1/2 grid grid-cols-4 gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-300/50">
-          {Array.from({ length: max + 1 }, (_, n) => (
-            <button
-              key={n}
-              type="button"
-              role="option"
-              aria-selected={value === n}
-              onClick={() => { onChange(n); setOpen(false); }}
-              className={`h-9 w-9 grid place-items-center rounded-lg text-base font-bold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 ${
-                value === n ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-violet-50"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      )}
+      <span className={`w-6 text-center text-xl tabular-nums ${gamesBoxTone(state)}`} aria-label={`${ariaLabel}: ${value}`} aria-live="polite">
+        {placeholder ? <span className="text-slate-300">–</span> : value}
+      </span>
+      <button type="button" className={step} onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More games — ${ariaLabel}`}>
+        <Plus className="h-4 w-4" />
+      </button>
     </div>
   );
 }
