@@ -84,6 +84,12 @@ function StaticGames({ value, state }: { value: number; state: CellState }) {
 
 // ---- Set row (one stacked row per set) -------------------------------------
 
+// Deciding-set format choice — shown just above the deciding-set row (in context).
+const DECIDERS: { k: SetKind; label: string }[] = [
+  { k: "set", label: "Full set" },
+  { k: "mtb", label: "Match TB" },
+];
+
 interface SetRowProps {
   index: number;
   set: MatchSet;
@@ -110,6 +116,22 @@ function SetRow({ index, set, format, me, opponent, controls, decider }: SetRowP
       {prompt && (
         <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-violet-600">
           <Trophy className="h-3.5 w-3.5 text-violet-500" />It’s 1–1 — enter the deciding set
+        </div>
+      )}
+      {decider && editable && (
+        <div className="mb-1.5 inline-flex rounded-full bg-slate-100 p-0.5" role="group" aria-label="Deciding set format">
+          {DECIDERS.map((t) => (
+            <button
+              key={t.k}
+              type="button"
+              onClick={() => controls!.setKind(index, t.k)}
+              className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${
+                set.kind === t.k ? "bg-violet-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
       <div
@@ -258,9 +280,7 @@ interface ScoreSectionProps {
 // deciding-set kind (revealed at 1–1), and the live result line
 export function ScoreSection({ me, opponent, format, sets, dnf, dnfWinner, result, controls }: ScoreSectionProps) {
   const formats: { k: Format; label: string }[] = [{ k: "single", label: "1 set" }, { k: "bo3", label: "Best of 3" }];
-  const deciders: { k: SetKind; label: string }[] = [{ k: "set", label: "Full set" }, { k: "mtb", label: "Match TB" }];
   const dnfChoices: { k: Side; name: string }[] = [{ k: "you", name: me.name }, { k: "opp", name: opponent?.name || "Opponent" }];
-  const showDecider = !dnf && format === "bo3" && visibleSetCount(sets, format) === 3;
 
   return (
     <div>
@@ -289,15 +309,6 @@ export function ScoreSection({ me, opponent, format, sets, dnf, dnfWinner, resul
         </div>
       ) : (
         <>
-          {showDecider && (
-            <div className="flex items-center gap-1 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mr-1">Deciding set</span>
-              {deciders.map((t) => (
-                <button key={t.k} onClick={() => controls.setKind(2, t.k)} className={`rounded-full px-3 py-1 text-[11px] font-bold transition-colors ${sets[2].kind === t.k ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30" : "text-slate-400 hover:text-slate-600"}`}>{t.label}</button>
-              ))}
-            </div>
-          )}
-
           <StackedBoard me={me} opponent={opponent} sets={sets} format={format} result={result} controls={controls} />
 
           {sets.some((s) => s.kind === "mtb") && <p className="mt-2 text-[11px] text-slate-400">Match tiebreak — first to 10, win by 2 · counts as a set won, no margin bonus.</p>}
