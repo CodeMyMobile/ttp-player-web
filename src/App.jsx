@@ -51,9 +51,7 @@ import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
-import HomeScreen from "./pages/mobileNav/HomeScreen";
-import CoachesScreen from "./pages/mobileNav/CoachesScreen";
-import ScheduleScreen from "./pages/mobileNav/ScheduleScreen";
+import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
@@ -479,32 +477,11 @@ const AppRoutes = () => (
         )}
       />
     ) : null}
-    {/* Mobile bottom-nav tabs. Stubs for now:
-        Home → player landing dashboard later; Coaches → coach list / rebook
-        later (supersedes the orphaned bare /coaches PlayerCoachListPage route,
-        which nothing links to — nav uses /my-coaches); Schedule → upcoming
-        matches + lessons later. */}
-    <Route
-      path="/home"
-      element={(
-        <ProtectedRoute>
-          <HomeScreen />
-        </ProtectedRoute>
-      )}
-    />
     <Route
       path="/coaches"
       element={(
         <ProtectedRoute>
-          <CoachesScreen />
-        </ProtectedRoute>
-      )}
-    />
-    <Route
-      path="/schedule"
-      element={(
-        <ProtectedRoute>
-          <ScheduleScreen />
+          <PlayerCoachListPage />
         </ProtectedRoute>
       )}
     />

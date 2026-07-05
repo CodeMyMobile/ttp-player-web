@@ -173,13 +173,10 @@ const MobileHomeBottomNav = () => {
     prefixes.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
 
   const tabs: TabDef[] = [
-    // Home → landing dashboard later; stub for now.
-    { key: "home", label: "Home", icon: Home, to: "/home", match: ["/home"] },
-    // Coaches → coach list / rebook later; stub for now.
-    { key: "coaches", label: "Coaches", icon: Users, to: "/coaches", match: ["/coaches"] },
+    { key: "home", label: "Home", icon: Home, to: "/", match: ["/"] },
+    { key: "coaches", label: "Coaches", icon: Users, to: "/my-coaches", match: ["/my-coaches"] },
     { key: "leagues", label: "Leagues", icon: Trophy, match: ["/leagues"], onClick: goLeagues },
-    // Schedule → upcoming matches + lessons later; stub for now.
-    { key: "schedule", label: "Schedule", icon: CalendarDays, to: "/schedule", match: ["/schedule"] },
+    { key: "schedule", label: "Schedule", icon: CalendarDays, to: "/player/calendar", match: ["/player/calendar"] },
   ];
 
   const renderTab = (tab: TabDef) => {
