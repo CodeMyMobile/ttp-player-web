@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Trash2, X } from "lucide-react";
+import { Calendar, ChevronDown, Clock, MapPin, Trash2, X } from "lucide-react";
 
 import { createLeagueMatchNeed, getLeagueMatchNeeds, type LeagueMatchSuggestion } from "../api/leagues";
 import MainLayout from "../components/MainLayout";
@@ -233,11 +233,19 @@ const PostAvailabilityPage = () => {
           <div className="availability-form__row">
             <label className="league-need-field">
               <span>Date</span>
-              <input type="date" value={matchDate} min={todayYmd()} onChange={(e) => setMatchDate(e.target.value)} />
+              <div className="avail-input">
+                <Calendar size={16} className="avail-input__icon" aria-hidden="true" />
+                <input type="date" value={matchDate} min={todayYmd()} onChange={(e) => setMatchDate(e.target.value)} />
+                <ChevronDown size={16} className="avail-input__chevron" aria-hidden="true" />
+              </div>
             </label>
             <label className="league-need-field">
               <span>Time</span>
-              <input type="time" value={matchTime} onChange={(e) => setMatchTime(e.target.value)} />
+              <div className="avail-input">
+                <Clock size={16} className="avail-input__icon" aria-hidden="true" />
+                <input type="time" value={matchTime} onChange={(e) => setMatchTime(e.target.value)} />
+                <ChevronDown size={16} className="avail-input__chevron" aria-hidden="true" />
+              </div>
             </label>
           </div>
 
@@ -268,23 +276,27 @@ const PostAvailabilityPage = () => {
               }}
             />
             {previousCourts.length > 0 ? (
-              <div className="previous-courts">
+              <ul className="court-results">
                 {previousCourts.map((court) => (
-                  <button
-                    key={court}
-                    type="button"
-                    className="court-quick-pick"
-                    onClick={() => {
-                      setLocation(court);
-                      setLatitude(null);
-                      setLongitude(null);
-                      setLocationKey((k) => k + 1);
-                    }}
-                  >
-                    {court}
-                  </button>
+                  <li key={court}>
+                    <button
+                      type="button"
+                      className="court-result"
+                      onClick={() => {
+                        setLocation(court);
+                        setLatitude(null);
+                        setLongitude(null);
+                        setLocationKey((k) => k + 1);
+                      }}
+                    >
+                      <MapPin size={16} className="court-result__pin" aria-hidden="true" />
+                      <span className="court-result__text">
+                        <span className="court-result__primary">{court}</span>
+                      </span>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : null}
           </div>
 
