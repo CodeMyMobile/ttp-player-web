@@ -92,7 +92,7 @@ const LeaguesPage = () => {
   }, [leagues, token]);
 
   return (
-    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+    <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
       <section className="leagues-page">
         <header className="leagues-page__header">
           <div>

@@ -1824,7 +1824,7 @@ const DashboardPage = () => {
         </section>
       </main>
 
-      <MobileHomeBottomNav alertCount={alertCount} />
+      <MobileHomeBottomNav />
 
       {isLocationOpen ? (
         <div className="ph-location-overlay" onClick={() => setIsLocationOpen(false)}>
