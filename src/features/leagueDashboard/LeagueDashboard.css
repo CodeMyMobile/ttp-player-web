@@ -206,7 +206,7 @@
 .lgd .ticker .live{width:8px;height:8px;border-radius:50%;background:#2fb457}
 .lgd .ticker .view{overflow:hidden;flex:1}
 .lgd .tick-track{display:flex;gap:28px;width:max-content;animation:tick 34s linear infinite}
-.lgd .ticker:hover .tick-track{animation-play-state:paused}
+.lgd .ticker:hover .tick-track,.lgd .ticker:active .tick-track{animation-play-state:paused}
 .lgd .tick-track span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);white-space:nowrap}
 .lgd .tick-track .svic{color:#8fd14f;font-size:14px}
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -381,9 +381,18 @@
      projected-rank chip stays as the sole cta-row item. */
   .lgd .hero .cta{display:none}
 
-  /* ticker: single static line instead of the marquee */
-  .lgd .ticker .view{display:none}
-  .lgd .tick-static{display:flex}
+  /* Fix 1: kill the 32px flex gap between the sticky app-nav and the content so
+     the section-nav hugs the nav (scoped to the dashboard via .lgd-shell). */
+  .dashboard-page.lgd-shell{gap:0}
+
+  /* Fix 2: ticker keeps SCROLLING on mobile — show the marquee, keep the static
+     line hidden (it only appears under prefers-reduced-motion, below).
+     min-width:0 lets the flex view shrink so the track can actually translate. */
+  .lgd .ticker .view{min-width:0}
+
+  /* Fix 3: ThisWeekCard is a .card div (not a <section>), so the section-gap rule
+     skips it — give it the same ~12px top gap when standalone in the overview. */
+  .lgd .week{margin-top:12px}
 
   /* next move: hide in-body card; the sticky bottom bar takes over */
   .lgd .move{display:none}
@@ -412,6 +421,9 @@
   .lgd .mobile-foot{margin-top:20px;color:var(--ink-3);font-size:12px;line-height:1.45}
 }
 @media (prefers-reduced-motion:reduce){
+  /* No marquee — swap it for the static most-recent line. */
+  .lgd .ticker .view{display:none}
+  .lgd .tick-static{display:flex}
   .lgd .tick-track{animation:none}
   .lgd .panel{animation:none}
   .lgd .league-menu{animation:none}

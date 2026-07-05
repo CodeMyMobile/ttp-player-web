@@ -96,7 +96,7 @@ const LeagueDashboardPage = () => {
 
   return (
     <MainLayout
-      pageClassName="leagues-shell"
+      pageClassName="leagues-shell lgd-shell"
       hideMobileNewMatch
       hideMobileNotifications
       hideMobileLocation
