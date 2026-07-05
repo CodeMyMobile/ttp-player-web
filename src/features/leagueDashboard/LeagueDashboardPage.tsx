@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import DashboardHeader from "./DashboardHeader";
+import MainLayout from "../../components/MainLayout";
 import Hero from "./Hero";
 import Icon from "./Icon";
 import LeagueSwitcher from "./LeagueSwitcher";
@@ -76,13 +76,13 @@ const LeagueDashboardPage = () => {
   };
 
   return (
-    <div className="lgd">
-      <DashboardHeader />
-      <main className="wrap">
-        <a className="back" href="#/leagues">
-          <Icon name="chevron-left" />
-          Back to leagues
-        </a>
+    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch onMobileBack={() => navigate("/leagues")}>
+      <div className="lgd">
+        <div className="wrap">
+          <a className="back" href="#/leagues">
+            <Icon name="chevron-left" />
+            Back to leagues
+          </a>
 
         {loading || !data || !hero || !nextMove ? (
           error ? (
@@ -139,8 +139,9 @@ const LeagueDashboardPage = () => {
             />
           </>
         )}
-      </main>
-    </div>
+        </div>
+      </div>
+    </MainLayout>
   );
 };
 
