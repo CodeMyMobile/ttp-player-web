@@ -44,6 +44,8 @@ import LeaguesPage from "./pages/LeaguesPage";
 import LeagueDetailPage from "./pages/LeagueDetailPage";
 import LeagueDashboardPage from "./features/leagueDashboard/LeagueDashboardPage";
 import MatchBrowserPage from "./pages/MatchBrowserPage";
+import PostAvailabilityPage from "./pages/PostAvailabilityPage";
+import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
@@ -520,6 +522,22 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <MatchBrowserPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/post-availability"
+      element={(
+        <ProtectedRoute>
+          <PostAvailabilityPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/availability-review"
+      element={(
+        <ProtectedRoute>
+          <AvailabilityReviewPage />
         </ProtectedRoute>
       )}
     />
