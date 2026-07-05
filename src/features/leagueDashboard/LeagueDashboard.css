@@ -467,3 +467,16 @@
 /* button variants for wired actions (see-all link-button, disabled contact) */
 .lgd button.see-all { width: 100%; border: 0; background: transparent; cursor: pointer; font-family: inherit; }
 .lgd .contact:disabled { opacity: .5; cursor: default; }
+
+/* Unified contextual action slot (mobile Overview only — rendered solely in the
+   mobile branch, so these rules never reach desktop). amber = needs your action,
+   violet = neutral opportunity. */
+.lgd .action-slot{display:flex;align-items:center;gap:11px;border-radius:12px;padding:12px 14px;margin-top:12px}
+.lgd .action-slot .svic{flex-shrink:0;width:18px;height:18px}
+.lgd .action-slot__txt{flex:1;min-width:0;font-size:13.5px;font-weight:500;line-height:1.35}
+.lgd .action-slot__cta{flex-shrink:0;border:0;border-radius:8px;padding:8px 14px;font-size:13px;
+  font-weight:600;cursor:pointer;white-space:nowrap}
+.lgd .action-slot--amber{background:var(--amber-bg);border:1px solid var(--amber-line);color:var(--amber-ink)}
+.lgd .action-slot--amber .action-slot__cta{background:var(--amber-ink);color:#fff}
+.lgd .action-slot--violet{background:var(--violet-soft);border:1px solid transparent;color:var(--violet-2)}
+.lgd .action-slot--violet .action-slot__cta{background:var(--violet);color:#fff}

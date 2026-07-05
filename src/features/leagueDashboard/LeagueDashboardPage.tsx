@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import MainLayout from "../../components/MainLayout";
+import ActionSlot from "./ActionSlot";
 import Hero from "./Hero";
 import Icon from "./Icon";
 import LeagueSwitcher from "./LeagueSwitcher";
@@ -154,7 +155,17 @@ const LeagueDashboardPage = () => {
                 <div className="wrap">
                   {section === "overview" ? (
                     <>
-                      <PendingBanner count={data.pendingScoreCount} onView={showPending} />
+                      {/* Unified contextual slot (replaces the league-wide pending
+                          banner + the next-move card on mobile). Shows ONE specific
+                          named prompt the sticky bar can't express, or nothing. */}
+                      <ActionSlot
+                        reportOpponent={data.nextMoveContext.unscored_results[0]?.opponentName}
+                        challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
+                        lookingName={data.looking[0]?.name}
+                        onReport={() => goLeague({ openScore: true })}
+                        onRespond={showPending}
+                        onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
+                      />
                       <Hero
                         hero={hero}
                         onCta={() => handleNextMove(nextMove.cta.target)}
