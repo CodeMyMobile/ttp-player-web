@@ -101,6 +101,7 @@ const springLeague: LeagueData = {
       when: "Jul 7, 2026 · 3:00 PM",
       location: "2601 Motor Ave #3411, Los Angeles, CA 90064",
       stillNeedsToPlay: true,
+      isMatch: true,
     },
   ],
   ticker: [

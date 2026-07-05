@@ -40,8 +40,9 @@ const MatchBrowserPage = () => {
   const [myNeeds, setMyNeeds] = useState<LeagueMatchNeed[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [allMatchNeeds, setAllMatchNeeds] = useState<LeagueMatchNeed[]>([]);
-  const [needSort, setNeedSort] = useState<NeedSortKey>("recommended");
-  const [needTimeFilter, setNeedTimeFilter] = useState<NeedTimeFilter>("any");
+  // Filters removed from the UI — the list keeps the default "recommended" order, all times.
+  const [needSort] = useState<NeedSortKey>("recommended");
+  const [needTimeFilter] = useState<NeedTimeFilter>("any");
   const [needPage, setNeedPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,9 +146,17 @@ const MatchBrowserPage = () => {
     navigate(`/leagues/${id}`, { state: { acceptNeedId: needId } });
 
   return (
-    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+    <MainLayout
+      pageClassName="leagues-shell"
+      hideMobileNewMatch
+      hideMobileLocation
+      hideMobileNotifications
+      onMobileBack={() => navigate(`/leagues/${id}/dashboard`)}
+    >
       <section className="league-detail">
-        <Link className="league-detail__back" to={`/leagues/${id}`}>← Back to league</Link>
+        <Link className="league-detail__back match-browser__back" to={`/leagues/${id}/dashboard`}>
+          ← Back to dashboard
+        </Link>
 
         {loading ? <div className="leagues-page__state">Loading match browser...</div> : null}
         {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
@@ -234,26 +243,6 @@ const MatchBrowserPage = () => {
                 <h2>All players looking for matches</h2>
                 <span>{visibleMatchNeeds.length} total</span>
               </div>
-              <div className="match-needs-controls">
-                <label>
-                  <span>Sort</span>
-                  <select value={needSort} onChange={(event) => setNeedSort(event.target.value as NeedSortKey)}>
-                    <option value="recommended">Recommended</option>
-                    <option value="distance">Closest distance</option>
-                    <option value="soonest">Soonest</option>
-                    <option value="rating">Highest rated</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Time</span>
-                  <select value={needTimeFilter} onChange={(event) => setNeedTimeFilter(event.target.value as NeedTimeFilter)}>
-                    <option value="any">Any time</option>
-                    <option value="this_week">This week</option>
-                    <option value="next_week">Next week</option>
-                  </select>
-                </label>
-              </div>
-              <p className="match-needs-results">Showing <strong>{filteredMatchNeeds.length}</strong> player{filteredMatchNeeds.length === 1 ? "" : "s"}</p>
               {filteredMatchNeeds.length ? (
                 <div className="all-players-list">
                   {pagedMatchNeeds.map((need) => {

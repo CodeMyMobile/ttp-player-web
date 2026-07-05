@@ -101,7 +101,7 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, hideTabBar }: Le
                   <td>
                     <div className="pl">
                       <span className="av">{rowData.initials}</span>
-                      {rowData.name}
+                      <span className="pl-nm">{rowData.name}</span>
                       {rowData.isYou ? <span className="you-tag">you</span> : null}{" "}
                       <TrendCell row={rowData} />
                     </div>

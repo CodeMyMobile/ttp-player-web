@@ -110,6 +110,8 @@ export interface LookingPlayer {
   location: string;
   /** Viewer hasn't played them yet ("Still needs to play" chip). */
   stillNeedsToPlay: boolean;
+  /** Also a personalized suggestion for the viewer ("Matches you" flag). */
+  isMatch: boolean;
 }
 
 export interface TickerItem {
