@@ -294,7 +294,7 @@ const MyCoachesPage = () => {
   const showEmpty = !loading && !error && coaches.length === 0;
 
   return (
-    <MainLayout>
+    <MainLayout mobileChrome="home">
       <div className="my-coaches">
         <header className="my-coaches__header">
           <div>
