@@ -3,15 +3,16 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Check,
+  MapPin,
   Pencil,
   Search,
   X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import FilterMenu from "../components/FilterMenu";
 import CoachMatchCard from "../components/coaches/CoachMatchCard";
 import CoachSearchCard from "../components/coaches/CoachSearchCard";
+import TrustCard from "../components/coaches/TrustCard";
 import { normalizeVenueLabel } from "../utils/venueLabel";
 import { fetchCoachProfile } from "../api/coachProfile";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
@@ -25,7 +26,6 @@ import {
   submitCoachMatchSurveyAnswers,
 } from "../api/playerHome";
 import {
-  DEFAULT_POSITION,
   getStoredLocation,
   getStoredLocationLabel,
   storeLocation,
@@ -59,7 +59,6 @@ type FindCoachesStateSnapshot = {
   appliedSearchTerm: string;
   selectedRadius: number;
   appliedRadius: number;
-  sortBy: string;
   page: number;
   locationFilter: SelectedLocation | null;
   locationSearchTerm: string;
@@ -87,6 +86,35 @@ type CoachCardModel = Coach & {
 };
 
 const DEFAULT_RADIUS = 10;
+
+// Radius is the one real server-side attribute filter (see COACH_SEARCH_API_FINDINGS.md).
+// Presented as a compact "Within N mi" selector; changing it refetches via handleRadiusChange.
+const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
+
+function RadiusSelect({ value, onChange }: { value: number; onChange: (radius: number) => void }) {
+  // Keep the current value selectable even if it isn't one of the presets.
+  const options = RADIUS_OPTIONS.includes(value)
+    ? RADIUS_OPTIONS
+    : [...RADIUS_OPTIONS, value].sort((a, b) => a - b);
+  return (
+    <label className="fcv2-radius">
+      <MapPin size={14} aria-hidden="true" />
+      <span className="fcv2-radius__prefix">Within</span>
+      <select
+        className="fcv2-radius__select"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label="Search radius in miles"
+      >
+        {options.map((radius) => (
+          <option key={radius} value={radius}>
+            {radius} mi
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 type CoachMatchSummaryItem = {
   label: string;
@@ -665,7 +693,6 @@ const FindCoaches = () => {
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
   const [appliedRadius, setAppliedRadius] = useState<number>(DEFAULT_RADIUS);
-  const [sortBy, setSortBy] = useState("distance");
   const [page, setPage] = useState(1);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
@@ -727,7 +754,6 @@ const FindCoaches = () => {
       appliedSearchTerm,
       selectedRadius,
       appliedRadius,
-      sortBy,
       page,
       locationFilter,
       locationSearchTerm,
@@ -740,7 +766,6 @@ const FindCoaches = () => {
       page,
       searchTerm,
       selectedRadius,
-      sortBy,
     ],
   );
 
@@ -876,7 +901,6 @@ const FindCoaches = () => {
       setAppliedSearchTerm(restoredState.appliedSearchTerm);
       setSelectedRadius(restoredState.selectedRadius);
       setAppliedRadius(restoredState.appliedRadius);
-      setSortBy(restoredState.sortBy);
       setPage(restoredState.page || 1);
       setLocationSearchTerm(restoredState.locationSearchTerm);
       applyLocationFilter(restoredState.locationFilter);
@@ -1104,57 +1128,10 @@ const FindCoaches = () => {
     applyLocationFilter(null);
   };
 
-  const handleFilterChange = useCallback(
-    ({ type, value }: { type: string; value?: unknown }) => {
-      if (type === "location") {
-        const locationValue = value as
-          | { formatted_address?: string; short_label?: string; lat?: number; lng?: number }
-          | undefined;
-        const latitude = locationValue?.lat;
-        const longitude = locationValue?.lng;
-        if (typeof latitude === "number" && typeof longitude === "number") {
-          applyLocationFilter({
-            label: locationValue?.short_label || locationValue?.formatted_address || "Selected location",
-            latitude,
-            longitude,
-          });
-        }
-        return;
-      }
-
-      if (type === "name") {
-        const nextName = typeof value === "string" ? value : "";
-        setSearchTerm(nextName);
-        setAppliedSearchTerm(nextName.trim());
-        setMode("normal");
-        setPage(1);
-        return;
-      }
-
-      if (type === "clear") {
-        resetFilters();
-      }
-    },
-    [applyLocationFilter],
-  );
-
-  const filteredCoaches = useMemo(() => {
-    if (mode !== "normal") return [];
-
-    return [...coaches].sort((a, b) => {
-      if (sortBy === "match") {
-        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
-        if ((a.distanceMiles ?? Number.MAX_SAFE_INTEGER) !== (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)) {
-          return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
-        }
-        return b.rating - a.rating;
-      }
-      if (sortBy === "rating") return b.rating - a.rating;
-      if (sortBy === "price_asc") return (a.hourlyRateValue ?? Number.MAX_SAFE_INTEGER) - (b.hourlyRateValue ?? Number.MAX_SAFE_INTEGER);
-      if (sortBy === "price_desc") return (b.hourlyRateValue ?? 0) - (a.hourlyRateValue ?? 0);
-      return (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER);
-    });
-  }, [coaches, mode, sortBy]);
+  // Render in server-returned order. No client-side sort: it only reordered the
+  // current page of ~12, which misrepresents the full result set (see
+  // COACH_SEARCH_API_FINDINGS.md). The recommender's ranking is applied server-side.
+  const filteredCoaches = useMemo(() => (mode !== "normal" ? [] : coaches), [coaches, mode]);
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
@@ -1181,17 +1158,6 @@ const FindCoaches = () => {
     [coachMatchSummaryItems],
   );
 
-  useEffect(() => {
-    if (hasSavedCoachMatchPreferences && sortBy === "distance") {
-      setSortBy("match");
-      return;
-    }
-
-    if (!hasSavedCoachMatchPreferences && sortBy === "match") {
-      setSortBy("distance");
-    }
-  }, [hasSavedCoachMatchPreferences, sortBy]);
-
   const coachMatchMaxScore = useMemo(
     () => Math.max(...filteredCoaches.map((coach) => coach.matchScore), 1),
     [filteredCoaches],
@@ -1205,7 +1171,7 @@ const FindCoaches = () => {
         : shouldShowEmpty
           ? "No coaches found"
           : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
-  // Post-questionnaire "Your matches" framing: hide search/filters/sort and lead with the ranked count.
+  // Post-questionnaire "Your matches" framing: hide search/filters and lead with the ranked count.
   const isMatchedMode = shouldShowCoachMatchSummary;
   const matchedSubtitle =
     status === "loading"
@@ -1247,7 +1213,7 @@ const FindCoaches = () => {
         <div className="fcv2-coach-match-banner__content">
           <div className="fcv2-coach-match-banner__title">Not sure where to start?</div>
           <div className="fcv2-coach-match-banner__copy">
-            Answer 5 quick questions and we&apos;ll find your best match.
+            Get matched in 5 questions
           </div>
           <div className="fcv2-coach-match-banner__actions">
             <button type="button" className="fcv2-coach-match-banner__button" onClick={openCoachMatchSurvey}>
@@ -1262,21 +1228,12 @@ const FindCoaches = () => {
     <MainLayout mobileChrome="home" desktopChrome="home">
       <div className="fcv2-page">
         <section className="fcv2-mobile-search-block">
+          {!isMatchedMode ? <TrustCard /> : null}
           <div className="fcv2-mobile-title-row">
             <div>
               <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
               <p>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</p>
             </div>
-
-            {!isMatchedMode ? (
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="fcv2-mobile-sort">
-                <option value="match">Best Match</option>
-                <option value="distance">Nearest</option>
-                <option value="rating">Top Rated</option>
-                <option value="price_asc">Price ↑</option>
-                <option value="price_desc">Price ↓</option>
-              </select>
-            ) : null}
           </div>
 
           {!isMatchedMode ? (
@@ -1294,21 +1251,7 @@ const FindCoaches = () => {
                 />
               </div>
 
-              <div className="fcv2-mobile-search-filter">
-                <FilterMenu
-                  onFilterChange={handleFilterChange}
-                  userPos={{
-                    latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
-                    longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
-                  }}
-                  showName
-                  radius={selectedRadius}
-                  onRadiusChange={handleRadiusChange}
-                  isCoachSearch
-                  token={playerToken ?? undefined}
-                  compact
-                />
-              </div>
+              <RadiusSelect value={selectedRadius} onChange={handleRadiusChange} />
             </div>
           ) : null}
 
@@ -1339,24 +1282,9 @@ const FindCoaches = () => {
                 <span>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</span>
               </p>
             </div>
-
-            {!isMatchedMode ? (
-              <div className="fcv2-page-head-actions">
-                <select
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value)}
-                  className="fcv2-sort-select"
-                  aria-label="Sort coaches"
-                >
-                  <option value="match">Best match</option>
-                  <option value="distance">Nearest first</option>
-                  <option value="rating">Top rated</option>
-                  <option value="price_asc">Price: Low to High</option>
-                  <option value="price_desc">Price: High to Low</option>
-                </select>
-              </div>
-            ) : null}
           </section>
+
+          {!isMatchedMode ? <TrustCard className="trust-card--desktop" /> : null}
 
           <section className="fcv2-search-panel">
             {!isMatchedMode ? (
@@ -1377,6 +1305,12 @@ const FindCoaches = () => {
               </div>
             ) : null}
 
+            {!isMatchedMode ? (
+              <div className="fcv2-search-controls">
+                <RadiusSelect value={selectedRadius} onChange={handleRadiusChange} />
+              </div>
+            ) : null}
+
             {locationPermissionPrompt ? (
               <section className="fcv2-location-permission-banner" aria-label="Location permission">
                 <div>
@@ -1390,21 +1324,6 @@ const FindCoaches = () => {
             ) : null}
 
             {renderCoachMatchPanel()}
-            {!isMatchedMode ? (
-              <FilterMenu
-                onFilterChange={handleFilterChange}
-                userPos={{
-                  latitude: position?.latitude ?? DEFAULT_POSITION.latitude,
-                  longitude: position?.longitude ?? DEFAULT_POSITION.longitude,
-                }}
-                showName
-                radius={selectedRadius}
-                onRadiusChange={handleRadiusChange}
-                isCoachSearch
-                token={playerToken ?? undefined}
-                compact
-              />
-            ) : null}
           </section>
 
           {status === "loading" ? (
@@ -1439,14 +1358,6 @@ const FindCoaches = () => {
 
           {shouldShowResults ? (
             <>
-              {!isMatchedMode ? (
-                <section className="fc-invite-banner" aria-label="About our coaches">
-                  <div className="fc-invite-banner__title">Tennis Plan coaches are invited</div>
-                  <p className="fc-invite-banner__sub">
-                    Not a self-serve platform — every coach is someone we know personally.
-                  </p>
-                </section>
-              ) : null}
               <section className="fcv2-grid coach-match-page__grid">
                 {filteredCoaches.map((coach) => {
                   const isMatched = shouldShowCoachMatchSummary;

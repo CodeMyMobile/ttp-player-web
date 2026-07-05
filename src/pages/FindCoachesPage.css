@@ -46,14 +46,7 @@
   font-weight: 600;
 }
 
-.fcv2-page-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .fcv2-results-pill,
-.fcv2-sort-select,
 .fcv2-location-button,
 .fcv2-filter-summary {
   border: 1px solid #e2e8f0;
@@ -70,15 +63,6 @@
   font-size: 13px;
   font-weight: 700;
   color: #475569;
-}
-
-.fcv2-sort-select {
-  min-width: 190px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .fcv2-search-panel {
@@ -471,6 +455,42 @@
 
 .fcv2-search-bar button {
   padding: 10px 16px;
+}
+
+/* Compact radius control — the one real server-side attribute filter. */
+.fcv2-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.fcv2-radius {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fcv2-radius svg {
+  color: #94a3b8;
+}
+
+.fcv2-radius__select {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #1e293b;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .fcv2-toolbar {
@@ -1051,21 +1071,16 @@
     font-size: 12px;
   }
 
-  .fcv2-mobile-sort {
-    padding: 6px 10px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    background: #fff;
-    color: #475569;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
   .fcv2-mobile-search-row {
     display: flex;
+    flex-direction: column;
     align-items: stretch;
     gap: 8px;
+  }
+
+  /* Search bar full width, then the compact radius control sits below it, left-aligned. */
+  .fcv2-mobile-search-row .fcv2-radius {
+    align-self: flex-start;
   }
 
   .fcv2-mobile-search-block .fcv2-location-permission-banner {
@@ -1136,41 +1151,6 @@
     font-size: 13.5px;
   }
 
-  .fcv2-mobile-search-filter {
-    flex: 0 0 auto;
-    min-width: 0;
-  }
-
-  .fcv2-mobile-search-filter .filter-menu {
-    height: 100%;
-  }
-
-  .fcv2-mobile-search-filter .filter-menu__trigger {
-    width: auto;
-    min-width: fit-content;
-    height: 100%;
-    padding: 9px 12px;
-    gap: 8px;
-    border-radius: 10px;
-  }
-
-  .fcv2-mobile-search-filter .filter-menu__trigger-icon {
-    width: 24px;
-    height: 24px;
-    padding: 0 5px;
-    border-radius: 8px;
-    gap: 3px;
-  }
-
-  .fcv2-mobile-search-filter .filter-menu__trigger-copy small {
-    display: none;
-  }
-
-  .fcv2-mobile-search-filter .filter-menu__trigger-copy strong {
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
   .fcv2-mobile-filter-button {
     display: inline-flex;
     align-items: center;
@@ -1216,11 +1196,6 @@
 
   .fcv2-location-button,
   .fcv2-filter-summary,
-  .fcv2-sort-select {
-    width: 100%;
-    max-width: none;
-  }
-
   .fcv2-radius-group {
     width: 100%;
   }
@@ -1574,26 +1549,6 @@
   padding: 5px 10px;
 }
 
-/* "Coaches are invited" trust banner — stated once above the search results */
-.fc-invite-banner {
-  margin-bottom: 16px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
-  border: 1px solid #bbf7d0;
-}
-.fc-invite-banner__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #065f46;
-}
-.fc-invite-banner__sub {
-  margin: 4px 0 0;
-  font-size: 13.5px;
-  font-weight: 500;
-  line-height: 1.45;
-  color: #047857;
-}
 
 /* Coach card */
 .fc-card {
