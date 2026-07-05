@@ -376,6 +376,9 @@
 }
 @media (max-width:560px){
   .lgd .nav,.lgd .wrap{padding-left:16px;padding-right:16px}
+  /* Tighten the gap under the sticky section-nav (~22px wrap pad + 12px first-
+     item margin) to roughly half. */
+  .lgd .wrap{padding-top:6px}
   .lgd .col-opt{display:none}
   .lgd .me .who{display:none}
 
