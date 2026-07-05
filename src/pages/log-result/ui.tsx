@@ -29,7 +29,7 @@ interface SectionLabelProps {
 
 export function SectionLabel({ icon: Icon, children }: SectionLabelProps) {
   return (
-    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
+    <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">
       <Icon className="h-3.5 w-3.5 text-violet-500" />
       {children}
     </label>
