@@ -392,6 +392,24 @@
     padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
   /* keep the last section clear of the fixed bar */
   .lgd.has-nextmove-bar .wrap{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+
+  /* ── Persistent segmented section-nav (mobile only) ──
+     Pinned flush under the app nav — top = AppNav mobile min-height (64px). It's
+     the ONLY tab bar on mobile (LeagueTabs renders with hideTabBar), so it reuses
+     the existing violet `.tab`/`.tab.on` styling. Row scrolls horizontally and
+     never wraps to two lines; scrollbar hidden. Rendered outside `.wrap`, so no
+     wrap top-padding sits above it — it hugs the nav with no empty gap. */
+  .lgd .section-nav{position:sticky;top:64px;z-index:30;background:#fff;
+    border-bottom:1px solid var(--line);
+    padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  .lgd .section-nav__row{display:flex;flex-wrap:nowrap;gap:2px;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 16px}
+  .lgd .section-nav__row::-webkit-scrollbar{display:none}
+  .lgd .section-nav .tab{flex:0 0 auto;padding:13px 12px}
+
+  /* Demoted meta line: quiet muted footer at the very end of the mobile scroll.
+     The wrap's bottom padding (above) keeps it clear of the sticky action bar. */
+  .lgd .mobile-foot{margin-top:20px;color:var(--ink-3);font-size:12px;line-height:1.45}
 }
 @media (prefers-reduced-motion:reduce){
   .lgd .tick-track{animation:none}

@@ -19,8 +19,10 @@ import PendingBanner from "./PendingBanner";
 import PlayersLooking from "./PlayersLooking";
 import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
+import SectionNav, { type SectionKey } from "./SectionNav";
 import ThisWeekCard from "./ThisWeekCard";
 import { challengeService } from "./challengeService";
+import { useIsMobile } from "./useIsMobile";
 import { useLeagueDashboard } from "./useLeagueDashboard";
 import type { NextMoveTarget, TabKey } from "./types";
 
@@ -29,13 +31,26 @@ import "./LeagueDashboard.css";
 const LeagueDashboardPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { data, hero, nextMove, leagues, loading, error } = useLeagueDashboard(id);
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
+  // Mobile section state (Overview + the four data tabs). Kept separate from the
+  // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
+  const [section, setSection] = useState<SectionKey>("overview");
 
-  // Reset to the default tab whenever the active league changes.
+  // Reset to the default tab/section whenever the active league changes.
   useEffect(() => {
     setActiveTab("standings");
+    setSection("overview");
   }, [data?.summary.id]);
+
+  // Jump to the Pending list from either branch's affordances (banner "View",
+  // respond-to-challenge next move). Sets both states so it works whichever
+  // branch is mounted.
+  const showPending = () => {
+    setActiveTab("pending");
+    setSection("pending");
+  };
 
   // Hand off to the existing LeagueDetailPage flows via router state (the same
   // channel MatchBrowserPage uses): openPost → Need-a-Match drawer, openScore →
@@ -67,7 +82,7 @@ const LeagueDashboardPage = () => {
       }
       case "respond-challenge":
         // No challenges endpoint yet (Rung 0 "respond" is dormant) — show pending.
-        setActiveTab("pending");
+        showPending();
         break;
       case "notify-me":
       default:
@@ -90,15 +105,10 @@ const LeagueDashboardPage = () => {
         data ? <LeagueSwitcher variant="nav" active={data.summary} leagues={leagues} /> : undefined
       }
     >
-      <div className={`lgd${showNextMoveBar ? " has-nextmove-bar" : ""}`}>
-        <div className="wrap">
-          <a className="back" href="#/leagues">
-            <Icon name="chevron-left" />
-            Back to leagues
-          </a>
-
-        {loading || !data || !hero || !nextMove ? (
-          error ? (
+      <div className={`lgd${showNextMoveBar ? " has-nextmove-bar" : ""}${isMobile ? " lgd--mobile" : ""}`}>
+        {(() => {
+          const notReady = loading || !data || !hero || !nextMove;
+          const loadingOrError = error ? (
             <section className="card" style={{ padding: 24 }}>
               <div className="t" style={{ fontWeight: 600, marginBottom: 6 }}>
                 Couldn't load this league
@@ -109,50 +119,103 @@ const LeagueDashboardPage = () => {
             <section className="card" style={{ padding: 24 }} aria-busy="true">
               Loading league…
             </section>
-          )
-        ) : (
-          <>
-            <div className="page-head">
-              <LeagueSwitcher variant="page" active={data.summary} leagues={leagues} />
-              <div className="head-actions">
-                <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
-                  Need a match
-                </button>
-                <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
-                  <Icon name="plus" />
-                  Add score
-                </button>
-              </div>
+          );
+
+          // ── Mobile branch: persistent segmented section-nav + section content.
+          // No page-head / back link (nav carries the switcher + back arrow), so
+          // the sticky section-nav sits flush under the top nav — no empty gap.
+          if (isMobile) {
+            if (notReady || !data || !hero || !nextMove) {
+              return <div className="wrap">{loadingOrError}</div>;
+            }
+            return (
+              <>
+                <SectionNav section={section} onChange={setSection} />
+                <div className="wrap">
+                  {section === "overview" ? (
+                    <>
+                      <PendingBanner count={data.pendingScoreCount} onView={showPending} />
+                      <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
+                      <ResultsTicker items={data.ticker} />
+                      <ThisWeekCard week={data.week} />
+                      <SeasonProgress season={data.season} />
+                      <PlayersLooking
+                        looking={data.looking}
+                        onNeedMatch={() => goLeague({ openPost: true })}
+                        onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
+                      />
+                    </>
+                  ) : (
+                    <LeagueTabs
+                      data={data}
+                      // Not "overview" in this branch — the four data tabs are TabKeys.
+                      activeTab={section as TabKey}
+                      onTabChange={setSection}
+                      onSchedule={() => goLeague({ openPost: true })}
+                      hideTabBar
+                    />
+                  )}
+                  <div className="mobile-foot">{data.summary.sub}</div>
+                </div>
+              </>
+            );
+          }
+
+          // ── Desktop branch: the current layout, verbatim (pixel-identical).
+          return (
+            <div className="wrap">
+              <a className="back" href="#/leagues">
+                <Icon name="chevron-left" />
+                Back to leagues
+              </a>
+
+              {notReady || !data || !hero || !nextMove ? (
+                loadingOrError
+              ) : (
+                <>
+                  <div className="page-head">
+                    <LeagueSwitcher variant="page" active={data.summary} leagues={leagues} />
+                    <div className="head-actions">
+                      <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
+                        Need a match
+                      </button>
+                      <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
+                        <Icon name="plus" />
+                        Add score
+                      </button>
+                    </div>
+                  </div>
+
+                  <PendingBanner count={data.pendingScoreCount} onView={() => setActiveTab("pending")} />
+
+                  <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
+
+                  <ResultsTicker items={data.ticker} />
+
+                  <section className="grid-two">
+                    <NextMoveCard move={nextMove} onCta={handleNextMove} />
+                    <ThisWeekCard week={data.week} />
+                  </section>
+
+                  <SeasonProgress season={data.season} />
+
+                  <PlayersLooking
+                    looking={data.looking}
+                    onNeedMatch={() => goLeague({ openPost: true })}
+                    onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
+                  />
+
+                  <LeagueTabs
+                    data={data}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    onSchedule={() => goLeague({ openPost: true })}
+                  />
+                </>
+              )}
             </div>
-
-            <PendingBanner count={data.pendingScoreCount} onView={() => setActiveTab("pending")} />
-
-            <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
-
-            <ResultsTicker items={data.ticker} />
-
-            <section className="grid-two">
-              <NextMoveCard move={nextMove} onCta={handleNextMove} />
-              <ThisWeekCard week={data.week} />
-            </section>
-
-            <SeasonProgress season={data.season} />
-
-            <PlayersLooking
-              looking={data.looking}
-              onNeedMatch={() => goLeague({ openPost: true })}
-              onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
-            />
-
-            <LeagueTabs
-              data={data}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              onSchedule={() => goLeague({ openPost: true })}
-            />
-          </>
-        )}
-        </div>
+          );
+        })()}
 
         {showNextMoveBar && nextMove ? (
           <div className="nextmove-bar">

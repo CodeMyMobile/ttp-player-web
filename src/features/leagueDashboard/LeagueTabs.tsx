@@ -49,28 +49,33 @@ interface LeagueTabsProps {
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
   onSchedule: (pendingId: string) => void;
+  // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
+  // render only the active panel (avoids showing two tab strips).
+  hideTabBar?: boolean;
 }
 
 // A roster player's contact string is a phone or email — link out accordingly.
 const contactHref = (contact: string) =>
   contact.includes("@") ? `mailto:${contact}` : `sms:${contact.replace(/[^\d+]/g, "")}`;
 
-const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule }: LeagueTabsProps) => (
+const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, hideTabBar }: LeagueTabsProps) => (
   <>
-    <div className="tabs" role="tablist" aria-label="League detail">
-      {TABS.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === tab.key}
-          className={`tab${activeTab === tab.key ? " on" : ""}`}
-          onClick={() => onTabChange(tab.key)}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
+    {hideTabBar ? null : (
+      <div className="tabs" role="tablist" aria-label="League detail">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            className={`tab${activeTab === tab.key ? " on" : ""}`}
+            onClick={() => onTabChange(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+    )}
 
     {activeTab === "standings" ? (
       <section className="panel card">
