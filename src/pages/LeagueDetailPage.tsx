@@ -109,6 +109,10 @@ const LeagueDetailPage = () => {
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const navStateHandledRef = useRef(false);
+  // When another page (e.g. the dashboard) hands off here to open a drawer, it can
+  // pass a `returnTo` path so closing the drawer routes back there instead of
+  // stranding the user on this page.
+  const returnToRef = useRef<string | null>(null);
   const { user } = useAuth();
   const token = useMemo(
     () =>
@@ -451,10 +455,11 @@ const LeagueDetailPage = () => {
   useEffect(() => {
     if (loading || navStateHandledRef.current) return;
     const navState = routerLocation.state as
-      | { openPost?: boolean; openScore?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string }
+      | { openPost?: boolean; openScore?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string; returnTo?: string }
       | null;
     if (!navState) return;
     navStateHandledRef.current = true;
+    returnToRef.current = navState.returnTo ?? null;
     if (navState.openPost) {
       openNeedDrawer();
     } else if (navState.openScore) {
@@ -525,6 +530,17 @@ const LeagueDetailPage = () => {
     }
   };
 
+  // Close the score drawer, returning to the launching page (e.g. the dashboard)
+  // when one was provided via nav-state — otherwise just close in place.
+  const closeScoreDrawer = () => {
+    setScoreDrawerOpen(false);
+    const to = returnToRef.current;
+    if (to) {
+      returnToRef.current = null;
+      navigate(to);
+    }
+  };
+
   const openScoreDrawer = async () => {
     if (!id) return;
     setScoreDrawerOpen(true);
@@ -587,8 +603,16 @@ const LeagueDetailPage = () => {
           score_string: buildScoreString(activeSets),
         },
       });
-      setScoreDrawerOpen(false);
-      setActiveTab("results");
+      // Submitted from the dashboard → go back there; otherwise show results here.
+      if (returnToRef.current) {
+        const to = returnToRef.current;
+        returnToRef.current = null;
+        setScoreDrawerOpen(false);
+        navigate(to);
+      } else {
+        setScoreDrawerOpen(false);
+        setActiveTab("results");
+      }
     } catch (err) {
       const data = (err as { data?: { errors?: string[] } })?.data;
       setScoreError(data?.errors?.join(", ") || (err instanceof Error ? err.message : "Failed to submit score"));
@@ -1091,14 +1115,14 @@ const LeagueDetailPage = () => {
 
         {isScoreDrawerOpen ? (
           <div className="league-need-drawer" role="dialog" aria-modal="true" aria-label="Add score">
-            <div className="league-need-drawer__backdrop" onClick={() => setScoreDrawerOpen(false)} />
+            <div className="league-need-drawer__backdrop" onClick={closeScoreDrawer} />
             <div className="league-need-drawer__panel">
               <div className="league-need-drawer__header">
                 <div>
                   <h2>Add score</h2>
                   <p>Submit a league result for opponent confirmation</p>
                 </div>
-                <button type="button" aria-label="Close" onClick={() => setScoreDrawerOpen(false)}>
+                <button type="button" aria-label="Close" onClick={closeScoreDrawer}>
                   <X size={20} />
                 </button>
               </div>
@@ -1186,7 +1210,7 @@ const LeagueDetailPage = () => {
               )}
 
               <div className="league-need-drawer__actions">
-                <button type="button" onClick={() => setScoreDrawerOpen(false)}>Cancel</button>
+                <button type="button" onClick={closeScoreDrawer}>Cancel</button>
                 <button
                   type="button"
                   disabled={!scoreOpponentId || !scoreDate || !scoreLocation || scoreSubmitting}

@@ -80,12 +80,13 @@ const LeagueDashboardPage = () => {
   // "Need a Match" / "Post availability" now goes to the multi-slot Post
   // Availability page (merged from main via #250) — not the old single-slot
   // drawer. "Log a Score" still uses the LeagueDetailPage score drawer (openScore).
-  const goPostAvailability = () => navigate(`/leagues/${id}/post-availability`);
+  const goPostAvailability = () =>
+    navigate(`/leagues/${id}/post-availability`, { state: { returnTo: `/leagues/${id}/dashboard` } });
 
   const handleNextMove = (target: NextMoveTarget) => {
     switch (target) {
       case "add-score":
-        goLeague({ openScore: true });
+        goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` });
         break;
       case "add-availability":
         goPostAvailability();
@@ -163,7 +164,7 @@ const LeagueDashboardPage = () => {
                         challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
                         lookingName={data.looking[0]?.name}
                         playersLookingCount={data.playersLookingCount}
-                        onReport={() => goLeague({ openScore: true })}
+                        onReport={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}
                         onRespond={showPending}
                         onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
                         onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
@@ -221,7 +222,7 @@ const LeagueDashboardPage = () => {
                       <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
                         Need a match
                       </button>
-                      <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
+                      <button type="button" className="btn" onClick={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}>
                         <Icon name="plus" />
                         Add score
                       </button>
@@ -261,7 +262,7 @@ const LeagueDashboardPage = () => {
 
         {isMobile && data ? (
           <div className="nextmove-bar">
-            <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
+            <button type="button" className="btn" onClick={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}>
               Log a Score
             </button>
             <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
