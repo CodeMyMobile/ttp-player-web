@@ -13,9 +13,12 @@ import type { LeagueSummary } from "./types";
 interface LeagueSwitcherProps {
   active: LeagueSummary;
   leagues: LeagueSummary[];
+  // "page" = full h1 trigger + meta (desktop/in-body). "nav" = compact trigger
+  // folded into the mobile app nav (truncated name + chevron, same dropdown).
+  variant?: "page" | "nav";
 }
 
-const LeagueSwitcher = ({ active, leagues }: LeagueSwitcherProps) => {
+const LeagueSwitcher = ({ active, leagues, variant = "page" }: LeagueSwitcherProps) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -113,25 +116,45 @@ const LeagueSwitcher = ({ active, leagues }: LeagueSwitcherProps) => {
     );
   };
 
+  const isNav = variant === "nav";
+
   return (
-    <div className="league-switch" ref={rootRef}>
-      <h1 className="league-h1">
+    <div className={`league-switch${isNav ? " league-switch--nav" : ""}`} ref={rootRef}>
+      {isNav ? (
         <button
           type="button"
           ref={triggerRef}
-          className="league-trigger"
+          className="league-trigger league-trigger--nav"
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-label={active.name}
+          title={active.name}
           onClick={() => setOpen((value) => !value)}
         >
-          <span>{active.name}</span>
-          <span className="switch-badge">
-            <Icon name="chevron-down" className="chev" />
-            Switch league
-          </span>
+          <span className="lt-name">{active.name}</span>
+          <Icon name="chevron-down" className="chev" size={16} />
         </button>
-      </h1>
-      <div className="sub">{active.sub}</div>
+      ) : (
+        <>
+          <h1 className="league-h1">
+            <button
+              type="button"
+              ref={triggerRef}
+              className="league-trigger"
+              aria-haspopup="menu"
+              aria-expanded={open}
+              onClick={() => setOpen((value) => !value)}
+            >
+              <span>{active.name}</span>
+              <span className="switch-badge">
+                <Icon name="chevron-down" className="chev" />
+                Switch league
+              </span>
+            </button>
+          </h1>
+          <div className="sub">{active.sub}</div>
+        </>
+      )}
 
       {open ? (
         <div className="league-menu" role="menu" aria-label="Switch league">

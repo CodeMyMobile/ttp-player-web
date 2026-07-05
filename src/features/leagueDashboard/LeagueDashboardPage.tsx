@@ -86,6 +86,9 @@ const LeagueDashboardPage = () => {
       hideMobileNotifications
       hideMobileLocation
       onMobileBack={() => navigate("/leagues")}
+      mobileCenter={
+        data ? <LeagueSwitcher variant="nav" active={data.summary} leagues={leagues} /> : undefined
+      }
     >
       <div className={`lgd${showNextMoveBar ? " has-nextmove-bar" : ""}`}>
         <div className="wrap">
@@ -110,7 +113,7 @@ const LeagueDashboardPage = () => {
         ) : (
           <>
             <div className="page-head">
-              <LeagueSwitcher active={data.summary} leagues={leagues} />
+              <LeagueSwitcher variant="page" active={data.summary} leagues={leagues} />
               <div className="head-actions">
                 <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
                   Need a match

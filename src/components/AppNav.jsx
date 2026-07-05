@@ -67,6 +67,7 @@ const AppNav = ({
   showBack = false,
   onBack,
   hideLocation = false,
+  mobileCenter = null,
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
   const identity = usePlayerIdentity();
@@ -246,7 +247,7 @@ const AppNav = ({
 
   return (
     <>
-      <header className="app-nav">
+      <header className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}`}>
         <div className="app-nav__left">
           {showBack ? (
             <button
@@ -264,6 +265,8 @@ const AppNav = ({
               The Tennis <em>Plan</em>
             </strong>
           </Link>
+
+          {mobileCenter ? <div className="app-nav__mobile-center">{mobileCenter}</div> : null}
 
           <nav className="app-nav__links" aria-label="Primary">
             {navItems.map((item) => (
