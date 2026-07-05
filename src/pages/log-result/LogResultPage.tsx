@@ -20,7 +20,7 @@ import {
   useCourtsApi,
 } from "./data";
 import type { League, LeagueFixture } from "./data";
-import { TODAY, newSet, computeResult, buildSubmitPayload, visibleSetCount, setStatus } from "./scoring";
+import { TODAY, newSet, computeResult, buildSubmitPayload, setStatus, setWinnerSide } from "./scoring";
 import type { Player, Court, Format, MatchSet, Side } from "./scoring";
 
 type Step = "form" | "review" | "sent";
@@ -163,12 +163,19 @@ export default function LogResultPage() {
     setDnfWinner: (w) => setDnfWinner(w),
   }), []);
 
-  // Progressive reveal hides Set 3 unless the match is 1–1. If an earlier set is
-  // edited so the deciding set is no longer shown, clear any stale data in it so
-  // it can't be silently submitted.
+  // Clear a stale deciding set ONLY when the match is genuinely decided in two
+  // sets (both valid + same winner). NOT while an earlier set is transiently
+  // invalid mid-edit (e.g. 6–6 as you change a score) — doing so would silently
+  // wipe an already-entered Set 3 and make later sets vanish as you type.
   useEffect(() => {
     if (format !== "bo3") return;
-    if (visibleSetCount(sets, format) < 3 && sets[2] && setStatus(sets[2]) !== "empty") {
+    const s0 = sets[0];
+    const s1 = sets[1];
+    const decidedInTwo =
+      !!s0 && !!s1 &&
+      setStatus(s0) === "ok" && setStatus(s1) === "ok" &&
+      setWinnerSide(s0) === setWinnerSide(s1);
+    if (decidedInTwo && sets[2] && setStatus(sets[2]) !== "empty") {
       setSets((s) => s.map((row, i) => (i === 2 ? newSet() : row)));
     }
   }, [sets, format]);
