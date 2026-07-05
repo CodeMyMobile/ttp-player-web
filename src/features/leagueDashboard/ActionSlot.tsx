@@ -18,18 +18,24 @@ interface ActionSlotProps {
   challengeFrom?: string | null;
   /** Rung c — a specific player looking for a match near you, if any. */
   lookingName?: string | null;
+  /** Rung d — distinct OTHER players with an open need, when you have NO
+   *  personalized match (lookingName absent). General activity nudge. */
+  playersLookingCount?: number;
   onReport: () => void;
   onRespond: () => void;
   onSeeLooking: () => void;
+  onViewAll: () => void;
 }
 
 const ActionSlot = ({
   reportOpponent,
   challengeFrom,
   lookingName,
+  playersLookingCount,
   onReport,
   onRespond,
   onSeeLooking,
+  onViewAll,
 }: ActionSlotProps) => {
   // role="status" so assistive tech announces the prompt when it appears.
   if (reportOpponent) {
@@ -65,7 +71,23 @@ const ActionSlot = ({
       </section>
     );
   }
-  // Nothing specific pending → hide entirely (no generic fallback).
+  // Rung d — no personalized match, but other players are open. General activity
+  // nudge (amber): surface the count and send them to browse everyone open.
+  if (playersLookingCount && playersLookingCount > 0) {
+    return (
+      <section className="action-slot action-slot--amber" role="status">
+        <Icon name="ball-tennis" />
+        <span className="action-slot__txt">
+          {playersLookingCount} player{playersLookingCount === 1 ? " is" : "s are"} looking for{" "}
+          {playersLookingCount === 1 ? "a match" : "matches"}
+        </span>
+        <button type="button" className="action-slot__cta" onClick={onViewAll}>
+          View all
+        </button>
+      </section>
+    );
+  }
+  // Nothing specific pending and nobody open → hide entirely.
   return null;
 };
 

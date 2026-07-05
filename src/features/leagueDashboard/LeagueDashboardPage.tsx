@@ -162,9 +162,11 @@ const LeagueDashboardPage = () => {
                         reportOpponent={data.nextMoveContext.unscored_results[0]?.opponentName}
                         challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
                         lookingName={data.looking[0]?.name}
+                        playersLookingCount={data.playersLookingCount}
                         onReport={() => goLeague({ openScore: true })}
                         onRespond={showPending}
                         onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
+                        onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
                       />
                       <Hero
                         hero={hero}

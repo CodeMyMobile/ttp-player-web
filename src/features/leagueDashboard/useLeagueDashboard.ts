@@ -423,6 +423,12 @@ const buildDashboard = (
     .filter(isFutureLeagueItem)
     .filter((need) => !matchesViewer(viewer, need.host_id, need.player_id, need.player_name));
 
+  // Distinct OTHER players looking (not need count) — one player posting several
+  // slots counts once. Feeds the action-slot's "N players are looking" fallback.
+  const playersLookingCount = new Set(
+    futureOpenNeeds.map((need) => String(need.host_id ?? need.player_id ?? need.player_name ?? "")),
+  ).size;
+
   const topSuggestion = suggestions.filter(isFutureLeagueItem)[0];
   const matchmakeCandidate =
     myNeeds.length > 0 && topSuggestion
@@ -551,6 +557,7 @@ const buildDashboard = (
     hero,
     nextMoveContext,
     pendingScoreCount: pending.length,
+    playersLookingCount,
   };
 
   return { data, hero, nextMove };

@@ -161,4 +161,8 @@ export interface LeagueData {
   nextMoveContext: NextMoveContext;
   /** Count for the amber "N pending matches need a score" banner. */
   pendingScoreCount: number;
+  /** Distinct OTHER players with an open future need (for the action-slot's
+   *  "N players are looking — view all" fallback). Distinct hosts, not needs,
+   *  so a player posting multiple slots counts once. */
+  playersLookingCount: number;
 }

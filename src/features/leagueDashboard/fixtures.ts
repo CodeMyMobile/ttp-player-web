@@ -144,6 +144,7 @@ const springLeague: LeagueData = {
     unplayed_opponents: [],
   },
   pendingScoreCount: 5,
+  playersLookingCount: 1,
 };
 
 // ── Archived leagues (compact but complete datasets) ───────────────────────────
@@ -213,6 +214,7 @@ const winterLeague: LeagueData = {
     unplayed_opponents: [],
   },
   pendingScoreCount: 0,
+  playersLookingCount: 0,
 };
 
 const fallStandings: StandingRow[] = [
@@ -279,6 +281,7 @@ const fallLeague: LeagueData = {
     unplayed_opponents: [],
   },
   pendingScoreCount: 0,
+  playersLookingCount: 0,
 };
 
 const summerStandings: StandingRow[] = [
@@ -346,6 +349,7 @@ const summerLeague: LeagueData = {
     unplayed_opponents: [],
   },
   pendingScoreCount: 0,
+  playersLookingCount: 0,
 };
 
 // ── Registry ───────────────────────────────────────────────────────────────────
