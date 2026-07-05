@@ -1717,6 +1717,22 @@
 }
 
 /* Post availability flow */
+
+/* Tighter top rhythm so the title sits just below the nav and the form moves up. */
+.leagues-page--flow {
+  padding-top: 12px;
+}
+
+.leagues-page--flow .leagues-page__header {
+  margin-bottom: 14px;
+}
+
+@media (max-width: 720px) {
+  .leagues-page--flow {
+    padding-top: 8px;
+  }
+}
+
 .availability-form {
   margin-top: 16px;
   padding: 18px;
@@ -1780,24 +1796,129 @@
 
 .availability-form__row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
 }
 
-.court-quick-pick {
-  background: #fff;
-  border: 1px solid #0ea5e9;
-  color: #0284c7;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
+/* Let the fields shrink within their tracks so the Time field doesn't overflow
+   to the card edge (grid items default to min-width:auto). */
+.availability-form__row > .league-need-field {
+  min-width: 0;
 }
 
-.court-quick-pick:hover {
-  background: #e0f2fe;
+/* Tappable Date / Time fields — bordered surface like the Location input, with a
+   leading icon and a trailing chevron. The whole field opens the native picker
+   (the transparent calendar-picker-indicator is stretched over it). */
+.avail-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.avail-input__icon,
+.avail-input__chevron {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.league-need-field .avail-input input {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  text-align: left;
+}
+
+.avail-input input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Previous-court results — a clean vertical list (was ragged pills). */
+.court-results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.court-results li + li .court-result {
+  border-top: 1px solid #eef2f6;
+}
+
+.court-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.court-result:hover {
+  background: #f8fafc;
+}
+
+.court-result__pin {
+  flex: 0 0 auto;
+  color: #94a3b8;
+}
+
+.court-result__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scoped above `.league-need-field span` (the uppercase label rule) so results
+   render in normal casing, not ALL CAPS. */
+.court-results .court-result__primary {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: #111827;
+}
+
+.court-results .court-result__secondary {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: #64748b;
 }
 
 .availability-form__add {
