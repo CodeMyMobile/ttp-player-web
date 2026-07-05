@@ -68,8 +68,6 @@
 .lgd .wrap{max-width:1180px;margin:0 auto;padding:22px 24px 60px}
 .lgd .back{display:inline-flex;align-items:center;gap:5px;color:var(--violet);font-size:13px;
   font-weight:500;margin-bottom:14px}
-.lgd .eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--violet);
-  font-weight:600;margin-bottom:4px}
 .lgd .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .lgd h1{font-size:30px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
 .lgd .sub{color:var(--ink-3);font-size:14px}
@@ -158,6 +156,13 @@
 .lgd .tick-track span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);white-space:nowrap}
 .lgd .tick-track .svic{color:#8fd14f;font-size:14px}
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* Mobile-only static ticker line (desktop keeps the marquee above). */
+.lgd .tick-static{display:none;align-items:center;gap:7px;flex:1;min-width:0;font-size:13px;
+  color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lgd .tick-static .svic{color:#8fd14f;font-size:14px;flex-shrink:0}
+
+/* Sticky mobile "next move" action bar (desktop keeps the in-body card). */
+.lgd .nextmove-bar{display:none}
 
 /* two-up */
 .lgd .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -196,7 +201,7 @@
 .lgd .looking .lh{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .lgd .looking .lh h3{margin:0;font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
 .lgd .looking .lh .cnt{background:var(--violet-soft);color:var(--violet);font-size:12px;font-weight:500;
-  padding:4px 11px;border-radius:999px}
+  padding:4px 11px;border-radius:999px;white-space:nowrap;flex-shrink:0}
 .lgd .looking .desc{font-size:13px;color:var(--ink-3);margin:6px 0 14px}
 .lgd .look-row{background:var(--page);border-radius:10px;padding:13px 15px;margin-bottom:10px}
 .lgd .look-row:last-of-type{margin-bottom:0}
@@ -286,9 +291,37 @@
   .lgd .banner{flex-wrap:wrap}
   .lgd .banner .btn{margin-left:0;width:100%;justify-content:center}
   .lgd .col-opt{display:none}
-  .lgd .hero{padding:18px}
-  .lgd .hero h2{font-size:20px}
   .lgd .me .who{display:none}
+
+  /* density: tighter section gaps + card padding */
+  .lgd section{margin-top:12px}
+  .lgd .grid-two{gap:12px}
+  .lgd .week,.lgd .looking{padding:14px}
+  .lgd .season{padding:12px 14px}
+
+  /* hero: less padding + type knocked down a notch so the first useful block
+     isn't a full swipe away */
+  .lgd .hero{padding:16px}
+  .lgd .hero h2{font-size:19px}
+  .lgd .hero p{font-size:13.5px;margin-top:6px}
+  .lgd .hero .badge{margin-bottom:8px}
+  .lgd .hero .cta-row{margin-top:12px}
+
+  /* ticker: single static line instead of the marquee */
+  .lgd .ticker .view{display:none}
+  .lgd .tick-static{display:flex}
+
+  /* next move: hide in-body card; the sticky bottom bar takes over */
+  .lgd .move{display:none}
+  .lgd .nextmove-bar{display:block;position:fixed;bottom:0;left:0;right:0;z-index:90;
+    background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(23,22,44,.08);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+  /* keep the last section clear of the fixed bar */
+  .lgd.has-nextmove-bar .wrap{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+
+  /* "Switch league" chip drops onto its own line beneath the title */
+  .lgd .league-trigger{flex-wrap:wrap}
+  .lgd .league-trigger>span:first-child{flex:1 1 100%}
 }
 @media (prefers-reduced-motion:reduce){
   .lgd .tick-track{animation:none}

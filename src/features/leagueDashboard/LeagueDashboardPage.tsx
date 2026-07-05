@@ -75,9 +75,19 @@ const LeagueDashboardPage = () => {
     }
   };
 
+  // Sticky mobile action bar mirrors the "Your next move" card. Hidden on the
+  // Rung-4 "all caught up" state (no action to take) so there's no dead bar.
+  const showNextMoveBar = Boolean(!loading && data && nextMove && nextMove.kind !== "all_caught_up");
+
   return (
-    <MainLayout pageClassName="leagues-shell" hideMobileNewMatch onMobileBack={() => navigate("/leagues")}>
-      <div className="lgd">
+    <MainLayout
+      pageClassName="leagues-shell"
+      hideMobileNewMatch
+      hideMobileNotifications
+      hideMobileLocation
+      onMobileBack={() => navigate("/leagues")}
+    >
+      <div className={`lgd${showNextMoveBar ? " has-nextmove-bar" : ""}`}>
         <div className="wrap">
           <a className="back" href="#/leagues">
             <Icon name="chevron-left" />
@@ -140,6 +150,18 @@ const LeagueDashboardPage = () => {
           </>
         )}
         </div>
+
+        {showNextMoveBar && nextMove ? (
+          <div className="nextmove-bar">
+            <button
+              type="button"
+              className="btn wide"
+              onClick={() => handleNextMove(nextMove.cta.target)}
+            >
+              {nextMove.cta.label}
+            </button>
+          </div>
+        ) : null}
       </div>
     </MainLayout>
   );

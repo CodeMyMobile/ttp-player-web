@@ -116,6 +116,16 @@ const AppNav = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Esc closes the profile menu (keyboard support for the folded-in nav links).
+  useEffect(() => {
+    if (!isUserMenuOpen) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isUserMenuOpen]);
+
   useEffect(() => {
     const token = getStoredAuthToken({ preferScheme: "token" });
     if (!token) return;
@@ -371,6 +381,21 @@ const AppNav = ({
 
               {isUserMenuOpen ? (
                 <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
+                  {/* Primary nav links have no home on mobile (app-nav__links is
+                      hidden with no hamburger), so fold them into this menu —
+                      shown only on mobile via app-nav__menu-item--mobile. */}
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.to}
+                      role="menuitem"
+                      className="app-nav__menu-item app-nav__menu-item--mobile"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <item.icon size={16} />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
                   {userMenuItems.map((item) => (
                     <Link
                       key={item.label}

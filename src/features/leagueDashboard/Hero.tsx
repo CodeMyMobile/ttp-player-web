@@ -10,27 +10,35 @@ interface HeroProps {
   onCta: () => void;
 }
 
-const Hero = ({ hero, onCta }: HeroProps) => (
-  <section className={`hero tone-${hero.tone}`} aria-live="polite">
-    <div className="body">
-      <span className="badge">{hero.badge}</span>
-      <h2>{hero.headline}</h2>
-      <p>{hero.sub}</p>
-      <div className="cta-row">
-        <button type="button" className="cta" onClick={onCta}>
-          {hero.ctaLabel}
-        </button>
-        <span className="chip">
-          <Icon name="trending-up" />
-          {hero.projectedChip}
-        </span>
+const Hero = ({ hero, onCta }: HeroProps) => {
+  // Unranked / never-played viewers: the rank stat is a placeholder "—", which
+  // renders as an empty white bar, and the "New player" badge just echoes the
+  // headline. Drop both for that state and keep the single headline signal.
+  const isUnranked = hero.rankStat === "—";
+  return (
+    <section className={`hero tone-${hero.tone}`} aria-live="polite">
+      <div className="body">
+        {isUnranked ? null : <span className="badge">{hero.badge}</span>}
+        <h2>{hero.headline}</h2>
+        <p>{hero.sub}</p>
+        <div className="cta-row">
+          <button type="button" className="cta" onClick={onCta}>
+            {hero.ctaLabel}
+          </button>
+          <span className="chip">
+            <Icon name="trending-up" />
+            {hero.projectedChip}
+          </span>
+        </div>
       </div>
-    </div>
-    <div className="stat">
-      <div className="n">{hero.rankStat}</div>
-      <div className="l">{hero.rankLabel}</div>
-    </div>
-  </section>
-);
+      {isUnranked ? null : (
+        <div className="stat">
+          <div className="n">{hero.rankStat}</div>
+          <div className="l">{hero.rankLabel}</div>
+        </div>
+      )}
+    </section>
+  );
+};
 
 export default Hero;

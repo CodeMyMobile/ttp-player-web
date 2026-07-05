@@ -478,17 +478,25 @@ const buildDashboard = (
     has_posted_availability: myNeeds.length > 0,
     open_match_count: futureOpenNeeds.length,
     matchmake_candidate: matchmakeCandidate,
-    unscored_results: pending.map((fixture) => {
-      const opponent = matchesViewer(viewer, fixture.player1_id, fixture.player1_name)
-        ? fixture.player2_name
-        : fixture.player1_name;
-      return {
-        matchId: fixture.id,
-        opponentName: opponent || "your opponent",
-        // NOTE: pending fixtures may lack a date; fall back to undefined.
-        completedAt: shortDate(fixture.played_date) ?? undefined,
-      };
-    }),
+    // NOTE: pending fixtures are scheduled-but-unscored, not necessarily PLAYED.
+    // A viewer who has never played (viewerMatchesPlayed === 0) has nothing to
+    // report, so gate on it — otherwise a never-played player wrongly resolves to
+    // Rung 0 "Add score" for a match that hasn't happened. The API can't cleanly
+    // flag played-but-unreported, so this gate is the best available proxy.
+    unscored_results:
+      viewerMatchesPlayed > 0
+        ? pending.map((fixture) => {
+            const opponent = matchesViewer(viewer, fixture.player1_id, fixture.player1_name)
+              ? fixture.player2_name
+              : fixture.player1_name;
+            return {
+              matchId: fixture.id,
+              opponentName: opponent || "your opponent",
+              // NOTE: pending fixtures may lack a date; fall back to undefined.
+              completedAt: shortDate(fixture.played_date) ?? undefined,
+            };
+          })
+        : [],
     // NOTE: DEGRADE — no challenges endpoint exists, so this is always empty.
     pending_challenges_for_me: [],
     unplayed_opponents: unplayedOpponents,

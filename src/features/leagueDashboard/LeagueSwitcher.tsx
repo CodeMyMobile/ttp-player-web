@@ -115,7 +115,6 @@ const LeagueSwitcher = ({ active, leagues }: LeagueSwitcherProps) => {
 
   return (
     <div className="league-switch" ref={rootRef}>
-      <div className="eyebrow">{active.eyebrow}</div>
       <h1 className="league-h1">
         <button
           type="button"

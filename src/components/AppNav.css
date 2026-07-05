@@ -515,6 +515,18 @@
   color: #b91c1c !important;
 }
 
+/* Primary nav links folded into the profile menu — mobile only.
+   Hidden on desktop so the dropdown stays account-actions-only. */
+.app-nav__menu-item--mobile {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .app-nav__menu-item--mobile {
+    display: flex;
+  }
+}
+
 .app-nav__dropdown a:hover,
 .app-nav__dropdown button:hover {
   background: #f8fafc;
