@@ -76,17 +76,23 @@ const LeagueDashboardPage = () => {
   const goLeague = (state?: Record<string, unknown>) =>
     navigate(`/leagues/${id}`, state ? { state } : undefined);
 
+  // "Need a Match" / "Post availability" now goes to the multi-slot Post
+  // Availability page (merged from main via #250) — not the old single-slot
+  // drawer. "Log a Score" still uses the LeagueDetailPage score drawer (openScore).
+  const goPostAvailability = () => navigate(`/leagues/${id}/post-availability`);
+
   const handleNextMove = (target: NextMoveTarget) => {
     switch (target) {
       case "add-score":
         goLeague({ openScore: true });
         break;
       case "add-availability":
-        goLeague({ openPost: true });
+        goPostAvailability();
         break;
       case "schedule-candidate": {
         const sid = data?.nextMoveContext.matchmake_candidate?.suggestionId;
-        goLeague(sid != null ? { acceptSuggestionId: sid } : { openPost: true });
+        if (sid != null) goLeague({ acceptSuggestionId: sid });
+        else goPostAvailability();
         break;
       }
       case "all-matches":
@@ -152,7 +158,7 @@ const LeagueDashboardPage = () => {
                       <Hero
                         hero={hero}
                         onCta={() => handleNextMove(nextMove.cta.target)}
-                        onPostAvailability={() => goLeague({ openPost: true })}
+                        onPostAvailability={() => goPostAvailability()}
                       />
                       <StandingsPreview standings={data.standings} onSeeFull={goStandings} />
                       <ResultsTicker items={data.ticker} />
@@ -160,7 +166,7 @@ const LeagueDashboardPage = () => {
                       <SeasonProgress season={data.season} />
                       <PlayersLooking
                         looking={data.looking}
-                        onNeedMatch={() => goLeague({ openPost: true })}
+                        onNeedMatch={() => goPostAvailability()}
                         onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
                       />
                     </>
@@ -173,7 +179,7 @@ const LeagueDashboardPage = () => {
                         // Not "overview" in this branch — the four data tabs are TabKeys.
                         activeTab={section as TabKey}
                         onTabChange={setSection}
-                        onSchedule={() => goLeague({ openPost: true })}
+                        onSchedule={() => goPostAvailability()}
                         hideTabBar
                       />
                     </div>
@@ -199,7 +205,7 @@ const LeagueDashboardPage = () => {
                   <div className="page-head">
                     <LeagueSwitcher variant="page" active={data.summary} leagues={leagues} />
                     <div className="head-actions">
-                      <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
+                      <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
                         Need a match
                       </button>
                       <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
@@ -224,7 +230,7 @@ const LeagueDashboardPage = () => {
 
                   <PlayersLooking
                     looking={data.looking}
-                    onNeedMatch={() => goLeague({ openPost: true })}
+                    onNeedMatch={() => goPostAvailability()}
                     onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
                   />
 
@@ -232,7 +238,7 @@ const LeagueDashboardPage = () => {
                     data={data}
                     activeTab={activeTab}
                     onTabChange={setActiveTab}
-                    onSchedule={() => goLeague({ openPost: true })}
+                    onSchedule={() => goPostAvailability()}
                   />
                 </>
               )}
@@ -245,7 +251,7 @@ const LeagueDashboardPage = () => {
             <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
               Log a Score
             </button>
-            <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
+            <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
               Need a Match
             </button>
           </div>
