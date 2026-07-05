@@ -4,7 +4,8 @@ import { SectionLabel } from "./ui";
 export type MatchType = "recreational" | "league";
 
 interface MatchTypeToggleProps {
-  value: MatchType;
+  // null = not yet chosen; the user must pick before anything else appears.
+  value: MatchType | null;
   onChange: (value: MatchType) => void;
 }
 

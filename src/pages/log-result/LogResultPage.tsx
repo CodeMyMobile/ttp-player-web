@@ -20,7 +20,7 @@ import {
   useCourtsApi,
 } from "./data";
 import type { League, LeagueFixture } from "./data";
-import { TODAY, newSet, computeResult, buildSubmitPayload } from "./scoring";
+import { TODAY, newSet, computeResult, buildSubmitPayload, visibleSetCount, setStatus } from "./scoring";
 import type { Player, Court, Format, MatchSet, Side } from "./scoring";
 
 type Step = "form" | "review" | "sent";
@@ -113,7 +113,10 @@ export default function LogResultPage() {
   const { courts, loading: courtsLoading, error: courtsError } = useCourtsApi();
 
   const [step, setStep] = useState<Step>("form");
-  const [matchType, setMatchType] = useState<MatchType>("recreational");
+  // No default — the user must pick Casual or League on this global entry point.
+  // (Logging a score from *inside* a league is a separate route — the
+  // LeagueDetailPage score drawer, which pre-fills the league — out of scope here.)
+  const [matchType, setMatchType] = useState<MatchType | null>(null);
   const [opponent, setOpponent] = useState<Player | null>(null);
   const [playerSearch, setPlayerSearch] = useState("");
   const { players, loading: playersLoading, error: playersError } = usePlayers(playerSearch);
@@ -128,7 +131,8 @@ export default function LogResultPage() {
   const [date, setDate] = useState<string>(TODAY);
   const [court, setCourt] = useState<Court | null>(null);
   const [format, setFormat] = useState<Format>("bo3");
-  const [sets, setSets] = useState<MatchSet[]>([newSet(), newSet()]);
+  // bo3 keeps a full 3-slot array; progressive reveal decides how many rows show.
+  const [sets, setSets] = useState<MatchSet[]>([newSet(), newSet(), newSet()]);
   const [dnf, setDnf] = useState(false);
   const [dnfWinner, setDnfWinner] = useState<Side | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -145,7 +149,7 @@ export default function LogResultPage() {
       setSets((prev) => {
         if (f === "single") return [{ ...prev[0], kind: "set" }];
         const arr = prev.slice(0, 3).map((s) => ({ ...s }));
-        while (arr.length < 2) arr.push(newSet());
+        while (arr.length < 3) arr.push(newSet());
         return arr;
       });
     },
@@ -158,6 +162,16 @@ export default function LogResultPage() {
     toggleDnf: () => { setDnf((d) => !d); setDnfWinner(null); },
     setDnfWinner: (w) => setDnfWinner(w),
   }), []);
+
+  // Progressive reveal hides Set 3 unless the match is 1–1. If an earlier set is
+  // edited so the deciding set is no longer shown, clear any stale data in it so
+  // it can't be silently submitted.
+  useEffect(() => {
+    if (format !== "bo3") return;
+    if (visibleSetCount(sets, format) < 3 && sets[2] && setStatus(sets[2]) !== "empty") {
+      setSets((s) => s.map((row, i) => (i === 2 ? newSet() : row)));
+    }
+  }, [sets, format]);
 
   useEffect(() => {
     if (!selectedLeagueId && leagues[0]) setSelectedLeagueId(leagues[0].id);
@@ -186,11 +200,12 @@ export default function LogResultPage() {
     };
   }, [me.id, selectedFixture]);
 
-  const effectiveOpponent = matchType === "league" ? leagueOpponent : opponent;
+  const effectiveOpponent = matchType === "league" ? leagueOpponent : matchType === "recreational" ? opponent : null;
 
   const result = useMemo(() => computeResult({ sets, dnf, dnfWinner, format }), [sets, dnf, dnfWinner, format]);
-  const valid = !!(effectiveOpponent && court && result.complete && me.id && (matchType === "recreational" || selectedFixture));
-  const missing = matchType === "league" && leaguesLoading ? "Loading league fixtures."
+  const valid = !!(matchType && effectiveOpponent && court && result.complete && me.id && (matchType === "recreational" || selectedFixture));
+  const missing = !matchType ? "Choose Casual or League to start."
+    : matchType === "league" && leaguesLoading ? "Loading league fixtures."
     : matchType === "league" && leaguesError ? "League fixtures are unavailable right now."
     : matchType === "league" && !selectedLeagueId ? "No active league found."
     : matchType === "league" && !selectedFixture ? "Choose a league fixture to continue."
@@ -203,7 +218,7 @@ export default function LogResultPage() {
 
   const reset = () => {
     setStep("form"); setOpponent(null); setSelectedFixtureId(""); setDate(TODAY); setCourt(null);
-    setFormat("bo3"); setSets([newSet(), newSet()]); setDnf(false); setDnfWinner(null);
+    setFormat("bo3"); setSets([newSet(), newSet(), newSet()]); setDnf(false); setDnfWinner(null);
     setSubmitting(false); setSubmitError(null);
     setSentMatch({ id: null, status: null });
   };
@@ -288,11 +303,8 @@ export default function LogResultPage() {
         </>
       }
     >
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60 overflow-hidden">
-        <div className="px-4 sm:px-6 pt-4 pb-3.5 border-b border-slate-100">
-          <p className="text-sm text-slate-500">Enter the score, then send it to your opponent to confirm.</p>
-        </div>
-        <div className="px-4 sm:px-6 py-5 sm:py-6 space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
           <MatchTypeToggle
             value={matchType}
             onChange={(nextType) => {
@@ -313,7 +325,7 @@ export default function LogResultPage() {
               onLeagueChange={setSelectedLeagueId}
               onFixtureChange={setSelectedFixtureId}
             />
-          ) : (
+          ) : matchType === "recreational" ? (
             <PlayerPicker
               me={me}
               players={players}
@@ -324,7 +336,7 @@ export default function LogResultPage() {
               value={opponent}
               onChange={setOpponent}
             />
-          )}
+          ) : null}
           <WhenWhere date={date} onDateChange={setDate} court={court} onCourtChange={setCourt} courts={courts} />
           <ScoreSection me={me} opponent={opponent} format={format} sets={sets} dnf={dnf} dnfWinner={dnfWinner} result={result} controls={controls} />
         </div>
