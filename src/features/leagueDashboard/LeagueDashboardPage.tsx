@@ -15,8 +15,6 @@ import Hero from "./Hero";
 import Icon from "./Icon";
 import LeagueSwitcher from "./LeagueSwitcher";
 import LeagueTabs from "./LeagueTabs";
-import NextMoveCard from "./NextMoveCard";
-import PendingBanner from "./PendingBanner";
 import PlayersLooking from "./PlayersLooking";
 import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
@@ -229,24 +227,42 @@ const LeagueDashboardPage = () => {
                     </div>
                   </div>
 
-                  <PendingBanner count={data.pendingScoreCount} onView={() => setActiveTab("pending")} />
+                  {/* Unified contextual slot (replaces the league-wide pending
+                      banner + the next-move card on desktop, mirroring mobile).
+                      Full-width, top of content: ONE specific named prompt, or
+                      nothing. Generic Need-a-match / Add-score live in head-actions. */}
+                  <ActionSlot
+                    reportOpponent={data.nextMoveContext.unscored_results[0]?.opponentName}
+                    challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
+                    lookingName={data.looking[0]?.name}
+                    playersLookingCount={data.playersLookingCount}
+                    onReport={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}
+                    onRespond={() => setActiveTab("pending")}
+                    onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
+                    onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
+                  />
 
                   <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
 
                   <ResultsTicker items={data.ticker} />
 
-                  <section className="grid-two">
-                    <NextMoveCard move={nextMove} onCta={handleNextMove} />
-                    <ThisWeekCard week={data.week} />
+                  {/* Desktop card area: two columns, each pairing a tall list card
+                      with a compact one so the tops align and the width is used.
+                      Collapses to one column ≤860px (see .lgd-cols in CSS). */}
+                  <section className="lgd-cols">
+                    <div className="lgd-col">
+                      <StandingsPreview standings={data.standings} onSeeFull={() => setActiveTab("standings")} />
+                      <SeasonProgress season={data.season} />
+                    </div>
+                    <div className="lgd-col">
+                      <PlayersLooking
+                        looking={data.looking}
+                        onNeedMatch={() => goPostAvailability()}
+                        onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
+                      />
+                      <ThisWeekCard week={data.week} />
+                    </div>
                   </section>
-
-                  <SeasonProgress season={data.season} />
-
-                  <PlayersLooking
-                    looking={data.looking}
-                    onNeedMatch={() => goPostAvailability()}
-                    onSeeAll={() => navigate(`/leagues/${id}/match-browser`)}
-                  />
 
                   <LeagueTabs
                     data={data}

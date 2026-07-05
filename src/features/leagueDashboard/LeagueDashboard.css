@@ -225,6 +225,17 @@
 
 /* two-up */
 .lgd .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── Desktop dashboard card columns (only rendered in the desktop branch; these
+   classes never appear in the mobile branch, so base scope is safe for mobile).
+   Two columns, each a flex stack pairing a tall list card (StandingsPreview /
+   PlayersLooking) with a compact one (SeasonProgress / ThisWeek). align-items:
+   start keeps the shorter column from stretching. Collapses to a single column
+   at ≤860px (in the existing 860 media block below). */
+.lgd .lgd-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.lgd .lgd-col{display:flex;flex-direction:column;gap:16px}
+/* neutralize the generic `section{margin-top:16px}` so the flex gap governs spacing */
+.lgd .lgd-col>section,.lgd .lgd-col>.card{margin-top:0}
 .lgd .mini-head{display:flex;align-items:center;gap:7px;font-size:11.5px;letter-spacing:.05em;
   text-transform:uppercase;font-weight:600;margin-bottom:12px}
 .lgd .mini-head.v{color:var(--violet)} .lgd .mini-head.m{color:var(--ink-3)}
@@ -360,6 +371,7 @@
   .lgd .hamburger{display:flex}
   .lgd h1,.lgd .league-trigger{font-size:24px}
   .lgd .grid-two{grid-template-columns:1fr}
+  .lgd .lgd-cols{grid-template-columns:1fr}
   .lgd .head-actions{width:100%}
   .lgd .head-actions .btn{flex:1;justify-content:center}
   .lgd .hero .stat{order:-1}
@@ -493,3 +505,10 @@
 .lgd .standings-preview .sp-head{margin-bottom:10px}
 .lgd .standings-preview .sp-sep{height:1px;background:var(--line);margin:6px 0}
 .lgd .standings-preview .sp-row.you-row{background:var(--violet-softer);border-radius:8px}
+
+/* Desktop-only: the ActionSlot is now full-width top-of-content (it replaced the
+   pending banner), so give it the same 16px section rhythm. Mobile keeps 12px
+   (the base rule) — this override is gated to ≥561px so the ≤560 block is untouched. */
+@media (min-width:561px){
+  .lgd .action-slot{margin-top:16px}
+}
