@@ -130,12 +130,15 @@ interface SetRowProps {
   me: CurrentUser;
   opponent: Player | null;
   controls?: ScoreControls | null;
+  decider?: boolean; // the deciding set revealed at 1–1 — make it obvious
 }
 
-function SetRow({ index, set, format, me, opponent, controls }: SetRowProps) {
+function SetRow({ index, set, format, me, opponent, controls, decider }: SetRowProps) {
   const editable = !!controls;
   const max = set.kind === "mtb" ? 20 : 7;
   const empty = setStatus(set) === "empty";
+  // Deciding set awaiting entry — highlight it so users know where to score it.
+  const prompt = !!decider && editable && empty;
   const youState = cellState(set, "you");
   const oppState = cellState(set, "opp");
   const label = colLabel(set, index, format);
@@ -143,8 +146,19 @@ function SetRow({ index, set, format, me, opponent, controls }: SetRowProps) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2" role="group" aria-label={`${label} score`}>
-        <span className="w-10 shrink-0 text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
+      {prompt && (
+        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-violet-600">
+          <Trophy className="h-3.5 w-3.5 text-violet-500" />It’s 1–1 — enter the deciding set
+        </div>
+      )}
+      <div
+        className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 ${
+          decider ? "border-violet-300 bg-violet-50/60" : "border-slate-200 bg-white"
+        } ${prompt ? "ring-2 ring-violet-500/30" : ""}`}
+        role="group"
+        aria-label={`${label} score${decider ? " (deciding set)" : ""}`}
+      >
+        <span className={`w-10 shrink-0 text-[11px] font-bold uppercase tracking-wide ${decider ? "text-violet-500" : "text-slate-400"}`}>{label}</span>
         <div className="flex flex-1 items-center justify-center gap-1.5">
           <div className="relative shrink-0">
             <Avatar name={me.name} size="h-7 w-7" text="text-[10px]" />
@@ -210,11 +224,35 @@ function StackedBoard({ me, opponent, sets, format, controls }: BoardProps) {
       editable ? index < visible : setStatus(set) !== "empty" || (format === "single" && index === 0),
     );
 
+  // Bring a newly-revealed set (especially the deciding set at 1–1) into view so
+  // it isn't missed below the fold — the core discoverability fix.
+  const lastRowRef = useRef<HTMLDivElement>(null);
+  const prevVisible = useRef(visible);
+  useEffect(() => {
+    if (editable && visible > prevVisible.current && lastRowRef.current) {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      lastRowRef.current.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    }
+    prevVisible.current = visible;
+  }, [visible, editable]);
+
   return (
     <div className="space-y-1.5" aria-live={editable ? "polite" : undefined}>
-      {rows.map(({ set, index }) => (
-        <div key={index} className={editable && index > 0 ? "motion-safe:animate-set-reveal" : undefined}>
-          <SetRow index={index} set={set} format={format} me={me} opponent={opponent} controls={controls} />
+      {rows.map(({ set, index }, rowIdx) => (
+        <div
+          key={index}
+          ref={rowIdx === rows.length - 1 ? lastRowRef : undefined}
+          className={editable && index > 0 ? "motion-safe:animate-set-reveal" : undefined}
+        >
+          <SetRow
+            index={index}
+            set={set}
+            format={format}
+            me={me}
+            opponent={opponent}
+            controls={controls}
+            decider={editable && format === "bo3" && index === 2}
+          />
         </div>
       ))}
     </div>
