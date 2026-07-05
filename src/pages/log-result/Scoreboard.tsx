@@ -37,37 +37,21 @@ interface GamesBoxProps {
 }
 
 // Score entry: a clear −/＋ stepper, capped to 0–max so there's no junk (e.g.
-// "88") and no free keyboard. A match tiebreak (max 20) uses a numeric field.
+// "88") and no free keyboard — used for full-set games (0–7) AND the match
+// tiebreak (0–20). Same control everywhere for consistency.
 function GamesBox({ value, max, onChange, tone, state, placeholder, ariaLabel }: GamesBoxProps) {
   const ring = tone === "you" ? "focus-visible:ring-violet-500/40" : "focus-visible:ring-slate-400/40";
-
-  if (max > 7) {
-    // Match-tiebreak deciding set: constrained numeric field (0–max).
-    return (
-      <input
-        inputMode="numeric"
-        aria-label={ariaLabel}
-        value={placeholder && value === 0 ? "" : String(value)}
-        placeholder="0"
-        onChange={(e) => {
-          const d = e.target.value.replace(/\D/g, "").slice(0, 2);
-          onChange(d === "" ? 0 : Math.min(max, Number(d)));
-        }}
-        className={`h-11 w-12 rounded-xl border text-center text-xl tabular-nums placeholder:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${gamesBoxTone(state)}`}
-      />
-    );
-  }
 
   const step = `h-9 w-9 grid place-items-center rounded-lg text-slate-500 hover:bg-white active:scale-90 disabled:opacity-25 disabled:hover:bg-transparent transition-all focus-visible:outline-none focus-visible:ring-2 ${ring}`;
   return (
     <div className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 px-0.5">
-      <button type="button" className={step} onClick={() => onChange(Math.max(0, value - 1))} disabled={value <= 0} aria-label={`Fewer games — ${ariaLabel}`}>
+      <button type="button" className={step} onClick={() => onChange(Math.max(0, value - 1))} disabled={value <= 0} aria-label={`Fewer — ${ariaLabel}`}>
         <Minus className="h-4 w-4" />
       </button>
-      <span className={`w-6 text-center text-xl tabular-nums ${gamesBoxTone(state)}`} aria-label={`${ariaLabel}: ${value}`} aria-live="polite">
+      <span className={`w-7 text-center text-xl tabular-nums ${gamesBoxTone(state)}`} aria-label={`${ariaLabel}: ${value}`} aria-live="polite">
         {placeholder ? <span className="text-slate-300">–</span> : value}
       </span>
-      <button type="button" className={step} onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More games — ${ariaLabel}`}>
+      <button type="button" className={step} onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More — ${ariaLabel}`}>
         <Plus className="h-4 w-4" />
       </button>
     </div>
