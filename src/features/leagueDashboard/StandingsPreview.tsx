@@ -1,27 +1,20 @@
-// Compact standings preview — mobile Overview only, rendered directly below the
-// hero. NEVER the full table (3–5 rows max). Reuses the standings row visuals
-// (rank, .pl name + .av initials, trend ▲▼ / streak flame, W–L via the shared
-// recordClass rule) so it stays visually consistent with the Standings tab.
+// Compact standings preview — mobile Overview only, below the hero. NEVER the
+// full table (3–5 rows). Reuses the standings row visuals (rank, .pl name + .av
+// initials, streak flame / real ▲▼ movement, W–L via the shared recordClass).
 //
-// Two states, both from the already-rank-sorted `standings`:
-//  • Ranked (viewer has an isYou row) → neighbour + gap context. Shows up to 2
-//    rows above + the viewer + up to 2 below (contiguous, ≤5 rows) with a muted
-//    gap caption. It does NOT restate the rank number (the hero already does).
-//  • Unranked (no isYou row) → the top 3–5 leaders + a muted "you'll appear here"
-//    line, no gap caption.
+// Two states:
+//  • Ranked (viewer has played ≥1 match) → neighbour + gap context: viewer's row
+//    ±2 rows with a gameDiff gap caption. Does NOT restate the rank number.
+//  • Unranked (never played — note a 0–0 player still HAS a bottom row, so this
+//    keys on matchesPlayed===0, not row presence) → the LEADERS (top 4) + a muted
+//    "you'll appear here" line, and the viewer's own row pinned at the bottom.
 
 import Icon from "./Icon";
 import { recordClass } from "./LeagueTabs";
 import type { StandingRow } from "./types";
 
-interface StandingsPreviewProps {
-  standings: StandingRow[];
-  /** Switches the mobile section to Standings and moves focus into the panel. */
-  onSeeFull: () => void;
-}
-
-// Rank-movement / streak cell — same logic as LeagueTabs' TrendCell. Reimplemented
-// inline (visual component, not extracted) rather than shared.
+// Movement/streak cell. Only rendered when there's something real to show —
+// a streak or an actual ▲▼ move. No bare "–" placeholder (noise, esp. unranked).
 const renderTrend = (row: StandingRow) => {
   if (row.streak) {
     return (
@@ -37,37 +30,48 @@ const renderTrend = (row: StandingRow) => {
   if (row.trend.dir === "down") {
     return <span className="trend down">▼{row.trend.value}</span>;
   }
-  if (row.trend.value !== undefined) {
-    return <span className="trend flat">{row.trend.value}</span>;
-  }
-  return <span className="trend flat">–</span>;
+  return null;
 };
 
 const games = (n: number) => `${n} game${n === 1 ? "" : "s"}`;
 
-const StandingRowLine = ({ row }: { row: StandingRow }) => (
-  <div className={`sp-row${row.isYou ? " you-row" : ""}`}>
-    <span className="rk">{row.rank}</span>
-    <div className="pl">
-      <span className="av">{row.initials}</span>
-      <span className="sp-nm">{row.name}</span>
-      {row.isYou ? <span className="you-tag">you</span> : null} {renderTrend(row)}
+const StandingRowLine = ({ row }: { row: StandingRow }) => {
+  const trend = renderTrend(row);
+  return (
+    <div className={`sp-row${row.isYou ? " you-row" : ""}`}>
+      <span className="rk">{row.rank}</span>
+      <div className="pl">
+        <span className="av">{row.initials}</span>
+        <span className="sp-nm">{row.name}</span>
+        {row.isYou ? <span className="you-tag">you</span> : null}
+        {trend ? <> {trend}</> : null}
+      </div>
+      <span className={`sp-rec ${recordClass(row.wins, row.losses)}`}>
+        {row.wins}–{row.losses}
+      </span>
     </div>
-    <span className={`sp-rec ${recordClass(row.wins, row.losses)}`}>
-      {row.wins}–{row.losses}
-    </span>
-  </div>
-);
+  );
+};
+
+interface StandingsPreviewProps {
+  standings: StandingRow[];
+  /** Switches the mobile section to Standings and moves focus into the panel. */
+  onSeeFull: () => void;
+}
 
 const StandingsPreview = ({ standings, onSeeFull }: StandingsPreviewProps) => {
-  const youIndex = standings.findIndex((row) => row.isYou);
-  const viewer = youIndex >= 0 ? standings[youIndex] : undefined;
+  const viewer = standings.find((row) => row.isYou);
+  // A never-played player still appears at the bottom of the table (0–0), so
+  // "unranked" must key on having actually played, not on row presence.
+  const isRanked = !!viewer && viewer.matchesPlayed > 0;
 
-  // ── Gap caption (ranked only). Neighbours are the immediately-adjacent rows in
-  // the rank-sorted list. Behind/back derive from gameDiff; clamp non-positive
-  // gaps (equal or better) so we never print a nonsensical negative.
   let caption: string | null = null;
-  if (viewer) {
+  let rows: StandingRow[];
+  let pinnedYou: StandingRow | null = null;
+
+  if (isRanked && viewer) {
+    // ── Ranked: gap caption from adjacent rows + a ±2 neighbour window.
+    const youIndex = standings.indexOf(viewer);
     const above = youIndex > 0 ? standings[youIndex - 1] : undefined;
     const below = youIndex < standings.length - 1 ? standings[youIndex + 1] : undefined;
     const clauses: string[] = [];
@@ -75,34 +79,44 @@ const StandingsPreview = ({ standings, onSeeFull }: StandingsPreviewProps) => {
       const behind = above.gameDiff - viewer.gameDiff;
       if (behind > 0) clauses.push(`${games(behind)} behind #${above.rank}`);
       else if (behind === 0) clauses.push(`tied with #${above.rank}`);
-      // behind < 0 (viewer ahead of the row above by gameDiff) → drop the clause.
     }
     if (below) {
       const back = viewer.gameDiff - below.gameDiff;
       if (back > 0) clauses.push(`#${below.rank} is ${games(back)} back`);
-      // back ≤ 0 → drop the clause.
     }
     caption = clauses.length ? clauses.join(" · ") : null;
+    rows = standings.slice(Math.max(0, youIndex - 2), youIndex + 3);
+  } else {
+    // ── Unranked: show the LEADERS (top of table), not the viewer's neighbours.
+    rows = standings.slice(0, 4);
+    // Pin the viewer's own row at the bottom (with the "you" tag) when it isn't
+    // already among the leaders shown.
+    if (viewer && !rows.includes(viewer)) pinnedYou = viewer;
   }
-
-  // Row window. Ranked: up to 2 above + viewer + up to 2 below (≤5, contiguous).
-  // Unranked: the top 3–5 leaders.
-  const rows = viewer
-    ? standings.slice(Math.max(0, youIndex - 2), youIndex + 3)
-    : standings.slice(0, 5);
 
   return (
     <section className="card standings-preview">
-      {viewer ? (
+      <div className="mini-head m sp-head">
+        <Icon name="trending-up" />
+        Standings
+      </div>
+
+      {isRanked ? (
         caption ? <div className="sp-cap">{caption}</div> : null
       ) : (
-        <div className="sp-cap">You'll appear here after your first match.</div>
+        <div className="sp-cap">You&apos;ll appear here after your first match.</div>
       )}
 
       <div className="sp-rows">
         {rows.map((row) => (
           <StandingRowLine key={row.playerId} row={row} />
         ))}
+        {pinnedYou ? (
+          <>
+            <div className="sp-sep" aria-hidden="true" />
+            <StandingRowLine row={pinnedYou} />
+          </>
+        ) : null}
       </div>
 
       <button type="button" className="sp-see" onClick={onSeeFull}>

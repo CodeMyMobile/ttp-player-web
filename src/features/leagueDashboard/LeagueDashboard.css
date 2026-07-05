@@ -480,3 +480,13 @@
 .lgd .action-slot--amber .action-slot__cta{background:var(--amber-ink);color:#fff}
 .lgd .action-slot--violet{background:var(--violet-soft);border:1px solid transparent;color:var(--violet-2)}
 .lgd .action-slot--violet .action-slot__cta{background:var(--violet);color:#fff}
+
+/* Action-slot green variant (rung c: a named player is looking = active
+   opportunity). Matches the st-green / "Still needs to play" treatment. */
+.lgd .action-slot--green{background:var(--green-bg);border:1px solid transparent;color:var(--green)}
+.lgd .action-slot--green .action-slot__cta{background:var(--green);color:#fff}
+
+/* Standings preview: header spacing + the pinned viewer-row separator (unranked). */
+.lgd .standings-preview .sp-head{margin-bottom:10px}
+.lgd .standings-preview .sp-sep{height:1px;background:var(--line);margin:6px 0}
+.lgd .standings-preview .sp-row.you-row{background:var(--violet-softer);border-radius:8px}

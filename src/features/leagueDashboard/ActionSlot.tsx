@@ -6,7 +6,8 @@
 // Ladder (status-colour convention: amber = needs your action, violet = neutral):
 //   a. Your own unscored/completed match → report your result   (amber)
 //   b. A challenge awaits your response  → respond               (amber)
-//   c. A named player is looking near you → view players-looking (violet)
+//   c. A named player is looking near you → view players-looking (green = active
+//      opportunity / waiting on others, per the status-colour convention)
 
 import Icon from "./Icon";
 
@@ -55,7 +56,7 @@ const ActionSlot = ({
   }
   if (lookingName) {
     return (
-      <section className="action-slot action-slot--violet" role="status">
+      <section className="action-slot action-slot--green" role="status">
         <Icon name="ball-tennis" />
         <span className="action-slot__txt">{lookingName} is looking for a match near you</span>
         <button type="button" className="action-slot__cta" onClick={onSeeLooking}>
