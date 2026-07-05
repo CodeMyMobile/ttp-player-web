@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Trash2, X } from "lucide-react";
 
 import { createLeagueMatchNeed, getLeagueMatchNeeds, type LeagueMatchSuggestion } from "../api/leagues";
@@ -33,6 +33,10 @@ const placeLabel = (place: google.maps.places.PlaceResult | null, fallback: stri
 const PostAvailabilityPage = () => {
   const { id: leagueId = "" } = useParams();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  // Where to return on Cancel/Back — the launching page (e.g. the dashboard) when
+  // provided, otherwise the league detail page.
+  const returnTo = (routerLocation.state as { returnTo?: string } | null)?.returnTo ?? `/leagues/${leagueId}`;
   const { user } = useAuth();
   const token = useMemo(
     () =>
@@ -171,7 +175,7 @@ const PostAvailabilityPage = () => {
 
     navigate(`/leagues/${leagueId}/availability-review`, {
       // matchId (first posted need) anchors the "invite players" SMS step on review.
-      state: { postedSlots: slots, suggestions: allSuggestions, matchId: createdNeedIds[0] ?? null },
+      state: { postedSlots: slots, suggestions: allSuggestions, matchId: createdNeedIds[0] ?? null, returnTo },
     });
   };
 
@@ -181,7 +185,7 @@ const PostAvailabilityPage = () => {
       hideMobileNewMatch
       hideMobileLocation
       hideMobileNotifications
-      onMobileBack={() => navigate(`/leagues/${leagueId}`)}
+      onMobileBack={() => navigate(returnTo)}
     >
       <section className="leagues-page leagues-page--flow">
         <header className="leagues-page__header">
@@ -308,7 +312,7 @@ const PostAvailabilityPage = () => {
         </label>
 
         <div className="availability-actions">
-          <button type="button" className="availability-actions__cancel" onClick={() => navigate(`/leagues/${leagueId}`)}>
+          <button type="button" className="availability-actions__cancel" onClick={() => navigate(returnTo)}>
             <X size={16} /> Cancel
           </button>
           <button

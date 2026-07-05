@@ -42,6 +42,7 @@ import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import LeaguesPage from "./pages/LeaguesPage";
 import LeagueDetailPage from "./pages/LeagueDetailPage";
+import LeagueDashboardPage from "./features/leagueDashboard/LeagueDashboardPage";
 import MatchBrowserPage from "./pages/MatchBrowserPage";
 import PostAvailabilityPage from "./pages/PostAvailabilityPage";
 import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
@@ -505,6 +506,14 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <LeagueDetailPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/dashboard"
+      element={(
+        <ProtectedRoute>
+          <LeagueDashboardPage />
         </ProtectedRoute>
       )}
     />

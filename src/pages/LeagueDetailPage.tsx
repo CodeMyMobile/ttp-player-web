@@ -33,6 +33,7 @@ import {
   formatLeagueTime as formatTime,
   isFutureLeagueItem,
 } from "./leagueDetailTime";
+import { orientScore } from "./leagueScore";
 
 import "./LeaguesPage.css";
 
@@ -63,26 +64,6 @@ const isMatchUnavailable = (err: unknown) => {
   return e?.status === 409
     || e?.data?.error === "suggested_match_unavailable"
     || e?.message === "suggested_match_unavailable";
-};
-
-// The stored `score` string is in the REPORTER's orientation, but games_1/games_2
-// are player1-oriented. When the string's game totals match player2's (games_2),
-// it's backwards vs "P1 vs P2" — flip each set so player1's games come first.
-const orientScore = (fixture: LeagueFixture): string => {
-  const raw = String(fixture.score ?? "").trim();
-  if (!raw) return "";
-  const f = fixture as Record<string, unknown>;
-  const g1 = Number(f.games_1);
-  const g2 = Number(f.games_2);
-  if (!Number.isFinite(g1) || !Number.isFinite(g2) || g1 === g2) return raw;
-  const sets = raw.split(/\s+/).map((set) => set.split("-"));
-  if (!sets.every((set) => set.length === 2 && set[0] !== "" && set[1] !== "")) return raw;
-  const sumFirst = sets.reduce((total, set) => total + (Number(set[0]) || 0), 0);
-  const sumSecond = sets.reduce((total, set) => total + (Number(set[1]) || 0), 0);
-  if (sumFirst === g2 && sumSecond === g1) {
-    return sets.map((set) => `${set[1]}-${set[0]}`).join(" ");
-  }
-  return raw;
 };
 
 const describeJoinError = (err: unknown) => {
@@ -128,6 +109,10 @@ const LeagueDetailPage = () => {
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const navStateHandledRef = useRef(false);
+  // When another page (e.g. the dashboard) hands off here to open a drawer, it can
+  // pass a `returnTo` path so closing the drawer routes back there instead of
+  // stranding the user on this page.
+  const returnToRef = useRef<string | null>(null);
   const { user } = useAuth();
   const token = useMemo(
     () =>
@@ -470,12 +455,15 @@ const LeagueDetailPage = () => {
   useEffect(() => {
     if (loading || navStateHandledRef.current) return;
     const navState = routerLocation.state as
-      | { openPost?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string }
+      | { openPost?: boolean; openScore?: boolean; acceptSuggestionId?: number | string; acceptNeedId?: number | string; returnTo?: string }
       | null;
     if (!navState) return;
     navStateHandledRef.current = true;
+    returnToRef.current = navState.returnTo ?? null;
     if (navState.openPost) {
       openNeedDrawer();
+    } else if (navState.openScore) {
+      openScoreDrawer();
     } else if (navState.acceptSuggestionId != null) {
       previewAccept("suggestion", navState.acceptSuggestionId);
     } else if (navState.acceptNeedId != null) {
@@ -542,6 +530,17 @@ const LeagueDetailPage = () => {
     }
   };
 
+  // Close the score drawer, returning to the launching page (e.g. the dashboard)
+  // when one was provided via nav-state — otherwise just close in place.
+  const closeScoreDrawer = () => {
+    setScoreDrawerOpen(false);
+    const to = returnToRef.current;
+    if (to) {
+      returnToRef.current = null;
+      navigate(to);
+    }
+  };
+
   const openScoreDrawer = async () => {
     if (!id) return;
     setScoreDrawerOpen(true);
@@ -604,8 +603,16 @@ const LeagueDetailPage = () => {
           score_string: buildScoreString(activeSets),
         },
       });
-      setScoreDrawerOpen(false);
-      setActiveTab("results");
+      // Submitted from the dashboard → go back there; otherwise show results here.
+      if (returnToRef.current) {
+        const to = returnToRef.current;
+        returnToRef.current = null;
+        setScoreDrawerOpen(false);
+        navigate(to);
+      } else {
+        setScoreDrawerOpen(false);
+        setActiveTab("results");
+      }
     } catch (err) {
       const data = (err as { data?: { errors?: string[] } })?.data;
       setScoreError(data?.errors?.join(", ") || (err instanceof Error ? err.message : "Failed to submit score"));
@@ -1108,14 +1115,14 @@ const LeagueDetailPage = () => {
 
         {isScoreDrawerOpen ? (
           <div className="league-need-drawer" role="dialog" aria-modal="true" aria-label="Add score">
-            <div className="league-need-drawer__backdrop" onClick={() => setScoreDrawerOpen(false)} />
+            <div className="league-need-drawer__backdrop" onClick={closeScoreDrawer} />
             <div className="league-need-drawer__panel">
               <div className="league-need-drawer__header">
                 <div>
                   <h2>Add score</h2>
                   <p>Submit a league result for opponent confirmation</p>
                 </div>
-                <button type="button" aria-label="Close" onClick={() => setScoreDrawerOpen(false)}>
+                <button type="button" aria-label="Close" onClick={closeScoreDrawer}>
                   <X size={20} />
                 </button>
               </div>
@@ -1203,7 +1210,7 @@ const LeagueDetailPage = () => {
               )}
 
               <div className="league-need-drawer__actions">
-                <button type="button" onClick={() => setScoreDrawerOpen(false)}>Cancel</button>
+                <button type="button" onClick={closeScoreDrawer}>Cancel</button>
                 <button
                   type="button"
                   disabled={!scoreOpponentId || !scoreDate || !scoreLocation || scoreSubmitting}

@@ -115,7 +115,7 @@ const LeaguesPage = () => {
 
         <div className="leagues-page__grid">
           {leagues.map((league) => (
-            <Link className="league-card" to={`/leagues/${league.id}`} key={league.id}>
+            <Link className="league-card" to={`/leagues/${league.id}/dashboard`} key={league.id}>
               <div className="league-card__main">
                 <span className="league-card__icon">
                   <Trophy size={18} />

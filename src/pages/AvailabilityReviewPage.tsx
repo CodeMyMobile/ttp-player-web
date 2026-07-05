@@ -46,10 +46,13 @@ const AvailabilityReviewPage = () => {
     postedSlots?: AvailabilitySlot[];
     suggestions?: LeagueMatchSuggestion[];
     matchId?: number | string | null;
+    returnTo?: string;
   };
 
   const postedSlots = state.postedSlots ?? [];
   const matchId = state.matchId ?? null;
+  // Return to the launching page (e.g. the dashboard) when provided.
+  const returnTo = state.returnTo ?? `/leagues/${leagueId}`;
 
   const currentUserIdentities = useMemo(
     () =>
@@ -155,7 +158,7 @@ const AvailabilityReviewPage = () => {
             <CalendarCheck size={30} />
             <h2>Nothing to review</h2>
             <p>Post your availability first, then you&apos;ll see who it reaches here.</p>
-            <Link className="league-detail__back" to={`/leagues/${leagueId}`}>
+            <Link className="league-detail__back" to={returnTo}>
               Back to league
             </Link>
           </div>
@@ -170,7 +173,7 @@ const AvailabilityReviewPage = () => {
       hideMobileNewMatch
       hideMobileLocation
       hideMobileNotifications
-      onMobileBack={() => navigate(`/leagues/${leagueId}`)}
+      onMobileBack={() => navigate(returnTo)}
     >
       <section className="leagues-page leagues-page--flow">
         <header className="leagues-page__header">
@@ -295,10 +298,10 @@ const AvailabilityReviewPage = () => {
         </div>
 
         <div className="availability-actions">
-          <button type="button" className="availability-actions__cancel" onClick={() => navigate(`/leagues/${leagueId}`)}>
+          <button type="button" className="availability-actions__cancel" onClick={() => navigate(returnTo)}>
             <Search size={16} /> Browse league
           </button>
-          <button type="button" className="availability-actions__submit" onClick={() => navigate(`/leagues/${leagueId}`)}>
+          <button type="button" className="availability-actions__submit" onClick={() => navigate(returnTo)}>
             Back to league
           </button>
         </div>
