@@ -19,7 +19,9 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "pending", label: "Pending" },
 ];
 
-const recordClass = (wins: number, losses: number): string =>
+// W–L colour rule — GREEN when wins>losses, RED when losses>wins, else neutral.
+// Exported so the mobile StandingsPreview reuses the exact same correctness rule.
+export const recordClass = (wins: number, losses: number): string =>
   wins > losses ? "rec-w" : losses > wins ? "rec-l" : "rec-0";
 
 // Rank-movement / streak cell for a standings row.

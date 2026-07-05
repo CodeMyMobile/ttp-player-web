@@ -6,7 +6,7 @@
 // contracts. Switching leagues is a route change (/leagues/:id/dashboard) so the
 // whole page repopulates from the new dataset.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import MainLayout from "../../components/MainLayout";
@@ -20,6 +20,7 @@ import PlayersLooking from "./PlayersLooking";
 import ResultsTicker from "./ResultsTicker";
 import SeasonProgress from "./SeasonProgress";
 import SectionNav, { type SectionKey } from "./SectionNav";
+import StandingsPreview from "./StandingsPreview";
 import ThisWeekCard from "./ThisWeekCard";
 import { challengeService } from "./challengeService";
 import { useIsMobile } from "./useIsMobile";
@@ -37,6 +38,23 @@ const LeagueDashboardPage = () => {
   // Mobile section state (Overview + the four data tabs). Kept separate from the
   // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
   const [section, setSection] = useState<SectionKey>("overview");
+
+  // "See full standings" (mobile Overview preview) switches to the Standings
+  // section AND moves focus into the panel for keyboard/AT users. The panel only
+  // mounts once `section !== "overview"`, so we flip a pending-focus flag and let
+  // an effect focus the wrapper after it commits (robust vs. same-tick refs).
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pendingPanelFocus, setPendingPanelFocus] = useState(false);
+  const goStandings = () => {
+    setSection("standings");
+    setPendingPanelFocus(true);
+  };
+  useEffect(() => {
+    if (pendingPanelFocus && section === "standings") {
+      panelRef.current?.focus();
+      setPendingPanelFocus(false);
+    }
+  }, [pendingPanelFocus, section]);
 
   // Reset to the default tab/section whenever the active league changes.
   useEffect(() => {
@@ -90,10 +108,6 @@ const LeagueDashboardPage = () => {
     }
   };
 
-  // Sticky mobile action bar mirrors the "Your next move" card. Hidden on the
-  // Rung-4 "all caught up" state (no action to take) so there's no dead bar.
-  const showNextMoveBar = Boolean(!loading && data && nextMove && nextMove.kind !== "all_caught_up");
-
   return (
     <MainLayout
       pageClassName="leagues-shell lgd-shell"
@@ -105,7 +119,7 @@ const LeagueDashboardPage = () => {
         data ? <LeagueSwitcher variant="nav" active={data.summary} leagues={leagues} /> : undefined
       }
     >
-      <div className={`lgd${showNextMoveBar ? " has-nextmove-bar" : ""}${isMobile ? " lgd--mobile" : ""}`}>
+      <div className={`lgd${isMobile ? " has-nextmove-bar lgd--mobile" : ""}`}>
         {(() => {
           const notReady = loading || !data || !hero || !nextMove;
           const loadingOrError = error ? (
@@ -135,7 +149,12 @@ const LeagueDashboardPage = () => {
                   {section === "overview" ? (
                     <>
                       <PendingBanner count={data.pendingScoreCount} onView={showPending} />
-                      <Hero hero={hero} onCta={() => handleNextMove(nextMove.cta.target)} />
+                      <Hero
+                        hero={hero}
+                        onCta={() => handleNextMove(nextMove.cta.target)}
+                        onPostAvailability={() => goLeague({ openPost: true })}
+                      />
+                      <StandingsPreview standings={data.standings} onSeeFull={goStandings} />
                       <ResultsTicker items={data.ticker} />
                       <ThisWeekCard week={data.week} />
                       <SeasonProgress season={data.season} />
@@ -146,14 +165,18 @@ const LeagueDashboardPage = () => {
                       />
                     </>
                   ) : (
-                    <LeagueTabs
-                      data={data}
-                      // Not "overview" in this branch — the four data tabs are TabKeys.
-                      activeTab={section as TabKey}
-                      onTabChange={setSection}
-                      onSchedule={() => goLeague({ openPost: true })}
-                      hideTabBar
-                    />
+                    // Focus target for "See full standings" — tabIndex=-1 so it's
+                    // programmatically focusable but not a keyboard tab stop.
+                    <div ref={panelRef} tabIndex={-1} className="section-panel-wrap">
+                      <LeagueTabs
+                        data={data}
+                        // Not "overview" in this branch — the four data tabs are TabKeys.
+                        activeTab={section as TabKey}
+                        onTabChange={setSection}
+                        onSchedule={() => goLeague({ openPost: true })}
+                        hideTabBar
+                      />
+                    </div>
                   )}
                   <div className="mobile-foot">{data.summary.sub}</div>
                 </div>
@@ -217,14 +240,13 @@ const LeagueDashboardPage = () => {
           );
         })()}
 
-        {showNextMoveBar && nextMove ? (
+        {isMobile && data ? (
           <div className="nextmove-bar">
-            <button
-              type="button"
-              className="btn wide"
-              onClick={() => handleNextMove(nextMove.cta.target)}
-            >
-              {nextMove.cta.label}
+            <button type="button" className="btn" onClick={() => goLeague({ openScore: true })}>
+              Log a Score
+            </button>
+            <button type="button" className="btn ghost" onClick={() => goLeague({ openPost: true })}>
+              Need a Match
             </button>
           </div>
         ) : null}

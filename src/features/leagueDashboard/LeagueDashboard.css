@@ -193,6 +193,11 @@
   padding:11px 18px;border-radius:9px}
 .lgd .hero.tone-gray .cta{color:#4f5361}
 .lgd .hero .cta:hover{background:#f2f0ff}
+/* never-played mobile CTA — same look as .cta but shown only ≤560px (default off). */
+.lgd .hero .hero__np-cta{display:none;align-items:center;background:#fff;color:var(--violet-2);border:0;
+  font-weight:600;font-size:14px;padding:11px 18px;border-radius:9px;white-space:nowrap}
+.lgd .hero.tone-gray .hero__np-cta{color:#4f5361}
+.lgd .hero .hero__np-cta:hover{background:#f2f0ff}
 .lgd .hero .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
   color:#fff;font-size:12.5px;padding:8px 13px;border-radius:999px}
 .lgd .hero .stat{text-align:center;padding:0 8px}
@@ -268,6 +273,25 @@
 .lgd .look-row .meta{font-size:12.5px;color:var(--ink-2);margin-top:7px}
 .lgd .see-all{display:block;text-align:center;color:var(--violet);font-size:13px;font-weight:500;margin-top:14px}
 .lgd .looking-empty{font-size:13px;color:var(--ink-3);background:var(--page);border-radius:10px;padding:16px;text-align:center}
+
+/* standings preview (mobile Overview only) — compact neighbour/leaders snippet.
+   Reuses the global .pl/.av/.trend/.you-tag/.rec-* visuals; only spacing differs. */
+.lgd .standings-preview{padding:14px 16px}
+.lgd .standings-preview .sp-cap{font-size:12.5px;color:var(--ink-3);line-height:1.4;margin-bottom:10px}
+.lgd .standings-preview .sp-rows{display:flex;flex-direction:column}
+.lgd .sp-row{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line)}
+.lgd .standings-preview .sp-rows .sp-row:last-child{border-bottom:0}
+.lgd .sp-row.you-row{background:var(--violet-softer);border-radius:9px;border-bottom-color:transparent}
+.lgd .sp-row .rk{width:20px;flex-shrink:0;color:var(--ink-3);font-weight:500;font-size:13px;
+  font-variant-numeric:tabular-nums;text-align:center}
+.lgd .sp-row.you-row .rk{color:var(--violet);font-weight:600}
+.lgd .standings-preview .pl{min-width:0;flex:1;font-size:13.5px;overflow:hidden}
+.lgd .standings-preview .pl .av{width:26px;height:26px}
+.lgd .standings-preview .sp-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lgd .sp-row .sp-rec{flex-shrink:0;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.lgd .sp-see{display:block;width:100%;text-align:center;color:var(--violet);font-size:13px;font-weight:500;
+  margin-top:12px;padding:6px;border:0;background:transparent;cursor:pointer;font-family:inherit}
+.lgd .sp-see:hover{color:var(--violet-2)}
 
 /* tabs */
 .lgd .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:24px;overflow-x:auto}
@@ -394,13 +418,24 @@
      skips it — give it the same ~12px top gap when standalone in the overview. */
   .lgd .week{margin-top:12px}
 
-  /* next move: hide in-body card; the sticky bottom bar takes over */
+  /* next move: hide the in-body card; the sticky bottom bar takes over with two
+     always-present actions (Log a Score / Need a Match) split 50/50. */
   .lgd .move{display:none}
-  .lgd .nextmove-bar{display:block;position:fixed;bottom:0;left:0;right:0;z-index:90;
+  .lgd .nextmove-bar{display:flex;gap:10px;position:fixed;bottom:0;left:0;right:0;z-index:90;
     background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(23,22,44,.08);
     padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
-  /* keep the last section clear of the fixed bar */
+  .lgd .nextmove-bar .btn{flex:1;justify-content:center;padding:12px}
+  /* keep the last section clear of the fixed bar (always present on mobile) */
   .lgd.has-nextmove-bar .wrap{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+
+  /* Need-a-Match is permanent in the sticky bar now — drop the in-card dup. */
+  .lgd .looking__need-btn{display:none}
+
+  /* never-played hero: the projected-rank line is a status caption, not an action
+     — strip the pill chrome so it doesn't read as tappable (keep icon + text). */
+  .lgd .hero .chip{background:transparent;border:0;padding:0;color:rgba(255,255,255,.82)}
+  /* mobile action for new players (desktop keeps its own .cta button). */
+  .lgd .hero .hero__np-cta{display:inline-flex}
 
   /* ── Persistent segmented section-nav (mobile only) ──
      Pinned flush under the app nav — top = AppNav mobile min-height (64px). It's

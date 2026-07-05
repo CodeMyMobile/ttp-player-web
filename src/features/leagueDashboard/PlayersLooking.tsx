@@ -49,7 +49,7 @@ const PlayersLooking = ({ looking, onNeedMatch, onSeeAll }: PlayersLookingProps)
       <div className="looking-empty">No players are looking for a match right now.</div>
     )}
 
-    <button type="button" className="btn wide" style={{ marginTop: 14 }} onClick={onNeedMatch}>
+    <button type="button" className="btn wide looking__need-btn" style={{ marginTop: 14 }} onClick={onNeedMatch}>
       <Icon name="plus" />
       Need a match
     </button>
