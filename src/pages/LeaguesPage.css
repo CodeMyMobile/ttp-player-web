@@ -1679,6 +1679,11 @@
     padding: 18px 14px 44px;
   }
 
+  /* The mobile nav back button covers this, so hide the in-content link on mobile. */
+  .match-browser__back {
+    display: none;
+  }
+
   .leagues-page__header,
   .league-detail__header {
     display: block;

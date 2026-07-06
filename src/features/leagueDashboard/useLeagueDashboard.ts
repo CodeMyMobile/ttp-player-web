@@ -343,11 +343,54 @@ const buildDashboard = (
       || matchesViewer(viewer, fixture.player2_id, fixture.player2_name),
   }));
 
-  // Players looking (personalized suggestions, future only).
-  const looking: LookingPlayer[] = suggestions.filter(isFutureLeagueItem).map((s) => {
+  // Players looking — the UNION of every other player's future open need AND the
+  // viewer's personalized suggestions. Suggestions and needs are different entities
+  // (a suggested player may have no row in the "all needs" list), so we merge both
+  // to avoid dropping suggested matches. One row per player; matches flagged and
+  // surfaced first.
+  const futureOpenNeeds = allNeeds
+    .filter(isFutureLeagueItem)
+    .filter((need) => !matchesViewer(viewer, need.host_id, need.player_id, need.player_name));
+  const futureSuggestions = suggestions.filter(isFutureLeagueItem);
+
+  const suggestedPlayerIds = new Set(
+    futureSuggestions.map((s) => String(s.suggested_player_id ?? "")).filter(Boolean),
+  );
+  const suggestedMatchIds = new Set(
+    futureSuggestions
+      .flatMap((s) => [s.suggested_match_id, s.match_id])
+      .filter((v) => v != null)
+      .map((v) => String(v)),
+  );
+
+  const byPlayer = new Map<string, LookingPlayer>();
+
+  // Needs first (actual posted slots), soonest kept per player.
+  [...futureOpenNeeds]
+    .sort((a, b) => new Date(a.start_date_time || 0).getTime() - new Date(b.start_date_time || 0).getTime())
+    .forEach((need) => {
+      const pid = String(need.host_id ?? need.player_id ?? need.id);
+      if (byPlayer.has(pid)) return;
+      const record = recordByPlayer.get(pid) ?? { wins: 0, losses: 0 };
+      byPlayer.set(pid, {
+        playerId: pid,
+        name: need.player_name || "League player",
+        rating: toNumber(need.player_skill) ?? 0,
+        wins: record.wins,
+        losses: record.losses,
+        when: `${formatLeagueDate(need.start_date_time, need.timezone)} · ${formatLeagueTime(need.start_date_time, need.timezone)}`,
+        location: need.match_location || need.location || need.location_text || "Location TBD",
+        stillNeedsToPlay: need.has_played_before === false,
+        isMatch: suggestedPlayerIds.has(pid) || suggestedMatchIds.has(String(need.id)),
+      });
+    });
+
+  // Then any suggested player not already represented by a need (never dropped).
+  futureSuggestions.forEach((s) => {
     const pid = String(s.suggested_player_id ?? s.id);
+    if (byPlayer.has(pid)) return;
     const record = recordByPlayer.get(pid) ?? { wins: 0, losses: 0 };
-    return {
+    byPlayer.set(pid, {
       playerId: pid,
       name: s.player_name || "League player",
       rating: toNumber(s.player_skill) ?? 0,
@@ -356,8 +399,13 @@ const buildDashboard = (
       when: `${formatLeagueDate(s.match_date, s.timezone)} · ${formatLeagueTime(s.match_time, s.timezone)}`,
       location: s.match_location || "Location TBD",
       stillNeedsToPlay: s.has_played_before === false,
-    };
+      isMatch: true,
+    });
   });
+
+  const looking: LookingPlayer[] = [...byPlayer.values()].sort(
+    (a, b) => Number(b.isMatch) - Number(a.isMatch),
+  );
 
   // Ticker — most recent completed results, newest first.
   const ticker = [...resolved]
@@ -419,10 +467,6 @@ const buildDashboard = (
   };
 
   // ── NextMoveContext ──────────────────────────────────────────────────────────
-  const futureOpenNeeds = allNeeds
-    .filter(isFutureLeagueItem)
-    .filter((need) => !matchesViewer(viewer, need.host_id, need.player_id, need.player_name));
-
   // Distinct OTHER players looking (not need count) — one player posting several
   // slots counts once. Feeds the action-slot's "N players are looking" fallback.
   const playersLookingCount = new Set(

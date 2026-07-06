@@ -22,13 +22,19 @@ const PlayersLooking = ({ looking, onNeedMatch, onSeeAll }: PlayersLookingProps)
         {looking.length} looking
       </span>
     </div>
-    <div className="desc">These players want times similar to yours.</div>
+    <div className="desc">Players in your league looking for a match.</div>
 
     {looking.length ? (
       looking.map((player) => (
         <div className="look-row" key={player.playerId}>
           <div className="top">
             <span className="nm">{player.name}</span>
+            {player.isMatch ? (
+              <span className="tag-match">
+                <Icon name="check" />
+                Matches you
+              </span>
+            ) : null}
             <span className="tag-trp">TRP {player.rating.toFixed(3)}</span>
             <span className="tag-wl">
               W–L {player.wins}–{player.losses}
