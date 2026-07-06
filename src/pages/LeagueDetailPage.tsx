@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Mail, Phone, Trophy, Users, X } from "lucide-react";
+import { CalendarDays, Check, Info, Mail, Phone, Trophy, Users, X } from "lucide-react";
 
 import {
   type League,
@@ -134,6 +134,7 @@ const LeagueDetailPage = () => {
   ].filter(Boolean)), [user, userId]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("standings");
+  const [reloadKey, setReloadKey] = useState(0);
   const [resultFilter, setResultFilter] = useState<"all" | "mine">("all");
   const [resultSort, setResultSort] = useState<"newest" | "oldest">("newest");
   // Clicking a match need previews it here; joining is an explicit confirm (no auto-join).
@@ -186,6 +187,12 @@ const LeagueDetailPage = () => {
   ]);
   const [scoreSubmitting, setScoreSubmitting] = useState(false);
   const [scoreError, setScoreError] = useState<string | null>(null);
+  const [scoreSubmitted, setScoreSubmitted] = useState<{
+    matchId: number | string | null;
+    status: string;
+    opponentName: string;
+    scoreString: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -221,7 +228,7 @@ const LeagueDetailPage = () => {
       });
 
     return () => controller.abort();
-  }, [id, token]);
+  }, [id, token, reloadKey]);
 
   const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
@@ -400,7 +407,7 @@ const LeagueDetailPage = () => {
         token,
         message: acceptMessage,
       });
-      setAllMatchNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
+      setAllNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
       setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
       setNeedFlowStep("idle");
       setActiveTab("pending");
@@ -408,7 +415,7 @@ const LeagueDetailPage = () => {
     } catch (err) {
       setNeedError(describeJoinError(err));
       if (isMatchUnavailable(err)) {
-        setAllMatchNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
+        setAllNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
         setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
       }
       return false;
@@ -534,6 +541,7 @@ const LeagueDetailPage = () => {
   // when one was provided via nav-state — otherwise just close in place.
   const closeScoreDrawer = () => {
     setScoreDrawerOpen(false);
+    setScoreSubmitted(null);
     const to = returnToRef.current;
     if (to) {
       returnToRef.current = null;
@@ -545,6 +553,7 @@ const LeagueDetailPage = () => {
     if (!id) return;
     setScoreDrawerOpen(true);
     setScoreError(null);
+    setScoreSubmitted(null);
     try {
       const response = await getLeagueResultOpponents({ leagueId: id, token });
       const opponents = response.opponents ?? [];
@@ -588,7 +597,7 @@ const LeagueDetailPage = () => {
       const activeSets = scoreSets
         .slice(0, scoreFormat === "single" ? 1 : 3)
         .filter((set) => set.you !== 0 || set.opp !== 0);
-      await createLeagueResult({
+      const response = await createLeagueResult({
         leagueId: id,
         token,
         body: {
@@ -603,16 +612,17 @@ const LeagueDetailPage = () => {
           score_string: buildScoreString(activeSets),
         },
       });
-      // Submitted from the dashboard → go back there; otherwise show results here.
-      if (returnToRef.current) {
-        const to = returnToRef.current;
-        returnToRef.current = null;
-        setScoreDrawerOpen(false);
-        navigate(to);
-      } else {
-        setScoreDrawerOpen(false);
-        setActiveTab("results");
-      }
+      const opponent = resultOpponents.find(
+        (item) => String(item.player_id) === String(scoreOpponentId),
+      );
+      // Show the pending-confirmation screen instead of silently closing.
+      setScoreSubmitted({
+        matchId: response?.match_id ?? null,
+        status: response?.status || "pending",
+        opponentName: opponent?.full_name || "Your opponent",
+        scoreString: buildScoreString(activeSets),
+      });
+      setReloadKey((key) => key + 1); // refresh results/pending so the new result shows
     } catch (err) {
       const data = (err as { data?: { errors?: string[] } })?.data;
       setScoreError(data?.errors?.join(", ") || (err instanceof Error ? err.message : "Failed to submit score"));
@@ -1117,6 +1127,45 @@ const LeagueDetailPage = () => {
           <div className="league-need-drawer" role="dialog" aria-modal="true" aria-label="Add score">
             <div className="league-need-drawer__backdrop" onClick={closeScoreDrawer} />
             <div className="league-need-drawer__panel">
+              {scoreSubmitted ? (
+                <div className="league-score-confirm">
+                  <div className="league-score-confirm__icon"><Check size={26} /></div>
+                  <h2>Score submitted</h2>
+                  <p>Pending {scoreSubmitted.opponentName}'s confirmation.</p>
+                  <div className="league-score-confirm__card">
+                    <span className="league-score-confirm__status">
+                      {scoreSubmitted.status === "pending" ? "Awaiting confirmation" : scoreSubmitted.status}
+                    </span>
+                    <div className="league-score-confirm__score">
+                      <strong>vs {scoreSubmitted.opponentName}</strong>
+                      {scoreSubmitted.scoreString ? <span>{scoreSubmitted.scoreString}</span> : null}
+                    </div>
+                    <p className="league-score-confirm__next">
+                      <Info size={14} />
+                      <span>
+                        {scoreSubmitted.opponentName} gets a text to confirm or dispute the score. Once
+                        they confirm, ratings and standings update.
+                      </span>
+                    </p>
+                    {scoreSubmitted.matchId != null ? (
+                      <p className="league-score-confirm__id">Result #{scoreSubmitted.matchId}</p>
+                    ) : null}
+                  </div>
+                  <div className="league-need-drawer__actions">
+                    <button type="button" onClick={closeScoreDrawer}>Done</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeScoreDrawer();
+                        setActiveTab("pending");
+                      }}
+                    >
+                      View pending
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="league-need-drawer__header">
                 <div>
                   <h2>Add score</h2>
@@ -1219,6 +1268,8 @@ const LeagueDetailPage = () => {
                   {scoreSubmitting ? "Submitting..." : "Submit score"}
                 </button>
               </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}
