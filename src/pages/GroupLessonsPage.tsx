@@ -13,6 +13,7 @@ import {
   fetchUpcomingGroupLessons,
   isActiveGroupLessonBookingStatus,
   mapUpcomingGroupLessonsResponse,
+  normalizeLevel,
   type GroupLesson,
 } from "../api/groupLessons";
 import {
@@ -148,6 +149,9 @@ const getExternalLessonMetadata = (lesson: PlayerExternalLesson) => {
 
 const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLesson => {
   const metadata = getExternalLessonMetadata(lesson);
+  // The CMS stores the external lesson's level on the top-level `level` field
+  // (e.g. "4.5"), NOT in metadata.level (which is undefined for external lessons).
+  const rawLevel = (lesson as Record<string, unknown>).level ?? metadata.level;
   const start = lesson.start_date_time ? new Date(String(lesson.start_date_time)) : null;
   const end = lesson.end_date_time ? new Date(String(lesson.end_date_time)) : null;
   const durationMinutes =
@@ -175,8 +179,8 @@ const mapExternalLessonToGroupLesson = (lesson: PlayerExternalLesson): GroupLess
     coachId: 0,
     coachName: fullName,
     coachAvatarUrl: typeof lesson.profile_picture === "string" ? lesson.profile_picture : "",
-    level: null,
-    skillLabel: metadata.level || "All levels",
+    level: normalizeLevel(rawLevel),
+    skillLabel: rawLevel != null && String(rawLevel).trim() !== "" ? String(rawLevel) : "All levels",
     description: metadata.description || "Booking is completed through the provider.",
     day: dateLabels.day,
     date: dateLabels.date,
@@ -1413,7 +1417,13 @@ const GroupLessonsPage = () => {
                           {lesson.day.toUpperCase()} · {lesson.date.toUpperCase()}
                         </div>
                         <span className="lesson-card__level">
-                          {isExternal ? "External" : levelRange ? `${levelRange} NTRP` : "All levels"}
+                          {levelRange
+                            ? `${levelRange} NTRP`
+                            : lesson.skillLabel && lesson.skillLabel !== "All levels"
+                              ? lesson.skillLabel
+                              : isExternal
+                                ? "External"
+                                : "All levels"}
                         </span>
                       </header>
 
