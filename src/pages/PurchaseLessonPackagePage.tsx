@@ -124,7 +124,7 @@ const PurchaseLessonPackagePage = () => {
             <h2>Coach not found</h2>
             <p>
               {error ||
-                "We couldn't locate that coaching profile. Choose another coach to purchase lesson packages."}
+                "We couldn't locate that coaching profile. Choose another coach to reserve lesson packages."}
             </p>
             <Link to="/find-coaches" className="purchase-package-page__status-link">
               Browse coaches

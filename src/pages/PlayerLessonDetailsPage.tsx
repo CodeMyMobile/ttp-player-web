@@ -37,6 +37,7 @@ import {
   consumePackageCredits,
   fetchCoachPackages,
   fetchPackageCredits,
+  getPackageCreditsRemaining,
   purchaseCoachPackage,
   type CoachPackage,
   type PackagePurchase,
@@ -387,8 +388,8 @@ const extractPaymentMethods = (payload: PlayerStripePaymentMethod[] | Record<str
 };
 
 const isCreditEligibleForLesson = (purchase: PackagePurchase, lesson: Lesson | null) => {
-  const remaining = Number(purchase.credits_remaining ?? 0);
-  if (!Number.isFinite(remaining) || remaining <= 0) {
+  const remaining = getPackageCreditsRemaining(purchase);
+  if (remaining <= 0) {
     return false;
   }
 
@@ -929,7 +930,7 @@ const PlayerLessonDetailsPage = () => {
       }
 
       if (!paymentMethodId) {
-        throw new Error("Select Apple Pay or a saved card to buy credits.");
+        throw new Error("Select Apple Pay or a saved card to reserve credits.");
       }
 
       const purchaseResponse = await purchaseCoachPackage({
@@ -959,7 +960,7 @@ const PlayerLessonDetailsPage = () => {
       await Promise.all([refreshCredits(boughtPurchaseId), loadLesson()]);
       setActionSuccess("Lesson accepted successfully.");
     } catch (err) {
-      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to buy and apply credits.");
+      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to reserve and apply credits.");
     } finally {
       setPurchasingPackage(false);
       setSubmitting(false);
@@ -1488,7 +1489,7 @@ const PlayerLessonDetailsPage = () => {
                               disabled={!selectedCreditId}
                             />
                             <span>🎟️</span>
-                            <span>{eligibleCredits.reduce((sum, credit) => sum + Number(credit.credits_remaining ?? 0), 0)} {creditLessonType} credits available</span>
+                            <span>{eligibleCredits.reduce((sum, credit) => sum + getPackageCreditsRemaining(credit), 0)} {creditLessonType} credits available</span>
                           </label>
                         ) : (
                           <div className={`player-lesson-details__credits-package${creditsPackageOpen ? " is-open" : ""}`}>
@@ -1499,14 +1500,14 @@ const PlayerLessonDetailsPage = () => {
                             >
                               <span>🎟️</span>
                               <span>
-                                <strong>Buy a lesson package</strong>
-                                <small>Save up to 20% · pay with credits</small>
+                                <strong>Reserve a lesson package</strong>
+                                <small>No charge until first confirmed lesson</small>
                               </span>
                               <ChevronDown aria-hidden size={18} />
                             </button>
                             {creditsPackageOpen ? (
                               <div className="player-lesson-details__credits-package-panel">
-                                <p>Buy sessions now — one credit covers this lesson, the rest are yours to use any time.</p>
+                                <p>Reserve sessions now. Your card is charged only when this lesson is confirmed.</p>
                                 {packagesLoading ? <p>Loading packages…</p> : null}
                                 {packagesError ? <p className="player-lesson-details__status-error">{packagesError}</p> : null}
                                 {!packagesLoading && !packagesError && !packageOptions.length ? <p>No lesson packages are available right now.</p> : null}
@@ -1556,7 +1557,7 @@ const PlayerLessonDetailsPage = () => {
                                   disabled={!selectedPackage || submitting || purchasingPackage}
                                   aria-busy={purchasingPackage}
                                 >
-                                  {purchasingPackage ? "Buying package..." : "Buy with credit card"}
+                                  {purchasingPackage ? "Reserving package..." : "Reserve with saved card"}
                                 </button>
                                 {packagePurchaseError ? <p className="player-lesson-details__status-error">{packagePurchaseError}</p> : null}
                               </div>

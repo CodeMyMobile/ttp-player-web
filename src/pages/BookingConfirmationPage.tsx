@@ -39,6 +39,7 @@ import {
   fetchCoachPackages,
   fetchPackageCredits,
   fetchPackageCreditsBalance,
+  getPackageCreditsRemaining,
   purchaseCoachPackage,
   type CoachPackage,
   consumePackageCredits,
@@ -164,6 +165,16 @@ const formatMoney = (value?: number | string | null) => {
     currency: "USD",
     maximumFractionDigits: Number.isInteger(numeric) ? 0 : 2,
   }).format(numeric);
+};
+
+const getPackageChargeFailureMessage = (err: unknown) => {
+  const data = (err as Error & { data?: { code?: string; error?: string; requires_action?: boolean; message?: string } })?.data;
+  const code = data?.code ?? data?.error;
+  if (code !== "package_charge_failed") return null;
+  if (data?.requires_action) {
+    return "We reserved your package, but your card needs verification before the lesson can be confirmed. Update or re-authenticate your card, then retry.";
+  }
+  return data?.message || "We reserved your package, but the card charge failed. Update your payment method, then retry.";
 };
 
 const formatPackageLessonTypes = (types?: string[]) => {
@@ -1143,16 +1154,13 @@ const BookingConfirmationPage = () => {
     const allowedForLesson = (purchase: PackagePurchase) => {
       return packageAllowsLessonCreditType(purchase.lesson_types_allowed, creditLessonType);
     };
-    return credits.filter(
-      (purchase) => (purchase.credits_remaining ?? 0) > 0 && allowedForLesson(purchase),
-    );
+    return credits.filter((purchase) => getPackageCreditsRemaining(purchase) > 0 && allowedForLesson(purchase));
   }, [creditLessonType, credits]);
 
   const creditSummary = useMemo(() => {
     const totals = eligibleCredits.reduce(
       (acc, purchase) => {
-        const remaining = Number(purchase.credits_remaining ?? 0);
-        return { ...acc, remaining: acc.remaining + (Number.isFinite(remaining) ? remaining : 0) };
+        return { ...acc, remaining: acc.remaining + getPackageCreditsRemaining(purchase) };
       },
       { remaining: 0 },
     );
@@ -1445,9 +1453,11 @@ const BookingConfirmationPage = () => {
 
       try {
         await confirmReservedCreditLesson(numericLessonId);
-      } catch {
+      } catch (err) {
         setPendingCreditConfirm({ lessonId: numericLessonId });
-        throw new Error("Credit reserved, but lesson confirmation failed. Please retry.");
+        throw new Error(
+          getPackageChargeFailureMessage(err) || "Credit reserved, but lesson confirmation failed. Please retry.",
+        );
       }
     },
     [
@@ -1617,7 +1627,7 @@ const BookingConfirmationPage = () => {
         await consumeCreditsForLesson(bestPurchase?.id);
       } catch (err) {
         if (pendingCreditConfirm || (err instanceof Error && err.message.includes("Credit reserved"))) {
-          setConsumeError("Credit reserved, but lesson confirmation failed. Please retry.");
+          setConsumeError(getPackageChargeFailureMessage(err) || "Credit reserved, but lesson confirmation failed. Please retry.");
           return;
         }
         const code = (err as Error & { data?: { code?: string; error?: string } })?.data?.code;
@@ -1903,10 +1913,10 @@ const BookingConfirmationPage = () => {
     null;
   const selectedPackagePrice = selectedPackage ? parseCurrencyValue(selectedPackage.total_price) : null;
   const selectedPackageBuyLabel = isPurchasingPackage
-    ? "Buying package..."
+    ? "Reserving package..."
     : isUsingApplePay
-      ? "Buy with Apple Pay"
-      : "Buy with credit card";
+      ? "Reserve with Apple Pay"
+      : "Reserve with saved card";
 
   useEffect(() => {
     if (selectedPackageId || packageOptions.length === 0) {
@@ -2017,7 +2027,7 @@ const BookingConfirmationPage = () => {
     setIsPurchasingPackage(true);
 
     if (!authToken) {
-      setPackagePurchaseError("Sign in to buy credits.");
+      setPackagePurchaseError("Sign in to reserve credits.");
       setIsPurchasingPackage(false);
       return;
     }
@@ -2085,7 +2095,7 @@ const BookingConfirmationPage = () => {
       }
 
       if (!paymentMethodId) {
-        throw new Error("Choose Apple Pay or a saved card to buy credits.");
+        throw new Error("Choose Apple Pay or a saved card to reserve credits.");
       }
 
       const purchaseResponse = await purchaseCoachPackage({
@@ -2120,7 +2130,7 @@ const BookingConfirmationPage = () => {
           (purchase) =>
             purchase.id != null &&
             String(purchase.id) === String(purchaseResponse.purchase?.id) &&
-            (purchase.credits_remaining ?? 0) > 0,
+            getPackageCreditsRemaining(purchase) > 0,
         );
         if (boughtCredit) {
           setPaymentMethod("credits");
@@ -2134,17 +2144,18 @@ const BookingConfirmationPage = () => {
       if (!applePayCompleted) {
         applePayEvent?.complete("fail");
       }
+      const chargeFailureMessage = getPackageChargeFailureMessage(err);
       const isReservedConfirmFailure = err instanceof Error && err.message.includes("Credit reserved");
       if (isReservedConfirmFailure) {
-        setConsumeError("Credit reserved, but lesson confirmation failed. Please retry.");
+        setConsumeError(chargeFailureMessage || err.message);
         setIsCreditsPackageOpen(true);
       }
       setPackagePurchaseError(
-        isReservedConfirmFailure
-          ? "Credit reserved, but lesson confirmation failed. Please retry."
+        chargeFailureMessage || isReservedConfirmFailure
+          ? chargeFailureMessage || "Credit reserved, but lesson confirmation failed. Please retry."
           : err instanceof Error
             ? err.message
-            : "Unable to buy credits.",
+            : "Unable to reserve credits.",
       );
     } finally {
       setIsPurchasingPackage(false);
@@ -2183,15 +2194,15 @@ const BookingConfirmationPage = () => {
       >
         <span className="payment-method-card__icon payment-method-card__icon--ticket">🎟️</span>
         <span className="payment-method-card__body">
-          <span className="payment-method-card__title">Buy a lesson package</span>
-          <span className="payment-method-card__subtitle">Save up to 20% · pay with credits</span>
+          <span className="payment-method-card__title">Reserve a lesson package</span>
+          <span className="payment-method-card__subtitle">No charge until first confirmed lesson</span>
         </span>
         <ChevronDown className="payment-method-card__chevron" aria-hidden size={18} />
       </button>
       {isCreditsPackageOpen ? (
         <div className="payment-method-card__package-panel">
           <p className="payment-method-card__package-intro">
-            Buy sessions now — one credit covers this lesson, the rest are yours to use any time.
+            Reserve sessions now. Your card is charged only when the first lesson is confirmed.
           </p>
           {packagesLoading ? <p className="payment-methods__notice">Loading packages...</p> : null}
           {packagesError ? <p className="payment-methods__notice payment-methods__notice--error">{packagesError}</p> : null}

@@ -7,6 +7,9 @@ import {
   fetchCoachPackages,
   fetchPackageCreditsBalance,
   fetchPackageCredits,
+  getPackageCreditsRemaining,
+  isActivePackagePurchase,
+  isReservedPackagePurchase,
   type CoachPackage,
   type PackageCreditsBalanceResponse,
   type PackagePurchase,
@@ -131,11 +134,11 @@ const summarizeCredits = (purchases: PackagePurchase[]) => {
     (acc, purchase) => {
       const total = Number(purchase.credits_total ?? 0);
       const used = Number(purchase.credits_used ?? 0);
-      const remaining = Number(purchase.credits_remaining ?? 0);
+      const remaining = getPackageCreditsRemaining(purchase);
       return {
         total: acc.total + (Number.isFinite(total) ? total : 0),
         used: acc.used + (Number.isFinite(used) ? used : 0),
-        remaining: acc.remaining + (Number.isFinite(remaining) ? remaining : 0),
+        remaining: acc.remaining + remaining,
       };
     },
     { total: 0, used: 0, remaining: 0 },
@@ -342,9 +345,13 @@ const CreditsPage = () => {
     [coaches, selectedCoachId],
   );
 
+  const activeCredits = credits.filter(isActivePackagePurchase);
+  const reservedCredits = credits.filter(isReservedPackagePurchase);
   const hasCredits =
-    credits.length > 0 || (isFiniteNumber(creditsBalance?.total) ? creditsBalance.total > 0 : false);
-  const creditSummary = summarizeCredits(credits);
+    activeCredits.length > 0 ||
+    reservedCredits.length > 0 ||
+    (isFiniteNumber(creditsBalance?.total) ? creditsBalance.total > 0 : false);
+  const creditSummary = summarizeCredits(activeCredits);
   const availableCredits = isFiniteNumber(creditsBalance?.available)
     ? creditsBalance.available
     : creditSummary.remaining;
@@ -433,7 +440,12 @@ const CreditsPage = () => {
           const perLesson = buildPerLessonLabel(pkg.total_price, pkg.lesson_count);
           const validity = buildValidityLabel(pkg.validity_months);
           const allowedLessonTypes = (pkg.lesson_types_allowed ?? []).filter(Boolean);
-          const packagePurchased = hasCredits;
+          const packagePurchased = activeCredits.some(
+            (purchase) => String(purchase.coach_package_id) === String(pkg.id),
+          );
+          const packageReserved = reservedCredits.some(
+            (purchase) => String(purchase.coach_package_id) === String(pkg.id),
+          );
 
           return (
             <article key={pkg.id ?? pkg.name} className="credits-page__package-card">
@@ -445,6 +457,11 @@ const CreditsPage = () => {
                 {packagePurchased && (
                   <span className="credits-page__pill">
                     <CheckCircle2 size={16} /> Credits active
+                  </span>
+                )}
+                {!packagePurchased && packageReserved && (
+                  <span className="credits-page__pill">
+                    <CheckCircle2 size={16} /> Reserved
                   </span>
                 )}
               </div>
@@ -471,7 +488,7 @@ const CreditsPage = () => {
                   to={`/coaches/${selectedCoachId}/purchase${pkg.id ? `?packageId=${pkg.id}` : ""}`}
                   className="credits-page__action"
                 >
-                  Purchase package
+                  Reserve package
                 </Link>
               </div>
               {allowedLessonTypes.length > 0 && (
@@ -514,8 +531,25 @@ const CreditsPage = () => {
           <p className="credits-page__eyebrow">Credits</p>
           <p className="credits-page__wallet-title">No active packages yet</p>
           <p className="credits-page__wallet-subtitle">
-            Purchase a package to start using credits with {selectedCoach ? resolveName(selectedCoach) : "this coach"}.
+            Reserve a package to start using credits with {selectedCoach ? resolveName(selectedCoach) : "this coach"}.
           </p>
+        </div>
+      );
+    }
+
+    if (!activeCredits.length && reservedCredits.length > 0) {
+      return (
+        <div className="credits-page__wallet credits-page__wallet--active">
+          <div>
+            <p className="credits-page__eyebrow">Reserved</p>
+            <p className="credits-page__wallet-title">Package reserved</p>
+            <p className="credits-page__wallet-subtitle">
+              You will not be charged until your first lesson with {selectedCoach ? resolveName(selectedCoach) : "this coach"} is confirmed.
+            </p>
+          </div>
+          <span className="credits-page__pill credits-page__pill--glow">
+            <CheckCircle2 size={16} /> Reserved
+          </span>
         </div>
       );
     }

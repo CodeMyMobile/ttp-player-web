@@ -18,6 +18,8 @@ import type { CoachProfileRecord } from "../../api/coachProfile";
 import {
   fetchCoachPackages,
   fetchPackageCredits,
+  getPackageCreditsRemaining,
+  isReservedPackagePurchase,
   purchaseCoachPackage,
   type CoachPackage,
   type PackagePurchase,
@@ -185,9 +187,10 @@ const buildPurchaseErrorMessage = (code?: string, fallback?: string) => {
     case "StripeCardError":
       return fallback || "Your card was declined. Try another payment method.";
     case "failed_to_purchase_package":
-      return fallback || "We could not complete the purchase. Please try again.";
+    case "failed_to_reserve_package":
+      return fallback || "We could not reserve this package. Please try again.";
     default:
-      return fallback || "Unable to complete this purchase. Please try again.";
+      return fallback || "Unable to reserve this package. Please try again.";
   }
 };
 
@@ -394,7 +397,8 @@ const PurchaseLessonPackageExperience = ({
     const now = new Date();
     return credits.map((purchase) => {
       const displayLessonType = formatLessonTypeList(purchase.lesson_types_allowed);
-      const remaining = purchase.credits_remaining ?? 0;
+      const reserved = isReservedPackagePurchase(purchase);
+      const remaining = getPackageCreditsRemaining(purchase);
       const total =
         purchase.credits_total ?? remaining + (purchase.credits_used ?? 0);
       const expiresLabel = formatDateLabel(purchase.expires_at);
@@ -410,6 +414,7 @@ const PurchaseLessonPackageExperience = ({
         total,
         expiresLabel,
         expired,
+        reserved,
         status: purchase.status,
         purchasedLabel,
       };
@@ -446,7 +451,7 @@ const PurchaseLessonPackageExperience = ({
 
   const handlePurchase = async () => {
     if (!authToken) {
-      setPurchaseError("Sign in to purchase this package.");
+      setPurchaseError("Sign in to reserve this package.");
       return;
     }
     if (!selectedPackage) {
@@ -494,11 +499,11 @@ const PurchaseLessonPackageExperience = ({
         <div className="purchase-package-experience__intro">
           <span className="purchase-package-experience__eyebrow">Coach packages</span>
           <h2 className="purchase-package-experience__title" id={modalTitleId}>
-            Purchase lesson credits
+            Reserve lesson credits
           </h2>
           {selectedPackage ? (
             <p className="purchase-package-experience__subtitle">
-              Secure {selectedPackage.lesson_count} credits with {coachFirstName} and book faster.
+              Reserve {selectedPackage.lesson_count} credits with {coachFirstName}. You are charged when your first lesson is confirmed.
             </p>
           ) : (
             <p className="purchase-package-experience__subtitle">
@@ -523,9 +528,9 @@ const PurchaseLessonPackageExperience = ({
         {purchaseState === "success" ? (
           <div className="purchase-package-experience__success" role="status" aria-live="polite">
             <CheckCircle2 className="purchase-package-experience__success-icon" aria-hidden />
-            <h3 className="purchase-package-experience__success-title">Package added</h3>
+            <h3 className="purchase-package-experience__success-title">Package reserved</h3>
             <p className="purchase-package-experience__success-copy">
-              Your credits are ready to use with {coachFirstName}. We&apos;ll email a confirmation receipt.
+              You will not be charged until your first lesson with {coachFirstName} is confirmed.
             </p>
             <button type="button" className="purchase-package-experience__primary" onClick={handleDismiss}>
               Close
@@ -627,17 +632,19 @@ const PurchaseLessonPackageExperience = ({
                         <li
                           key={credit.id}
                           className={`coach-profile-packages__status-item${
-                            credit.expired ? "" : " coach-profile-packages__status-item--active"
+                            credit.expired || credit.reserved ? "" : " coach-profile-packages__status-item--active"
                           }`}
                         >
                           <div className="coach-profile-packages__status-item-main">
                             <span className="coach-profile-packages__status-type">{credit.lessonTypeLabel}</span>
                             <span className="coach-profile-packages__status-remaining">
-                              {credit.remaining} of {credit.total} left
+                              {credit.reserved ? "Reserved" : `${credit.remaining} of ${credit.total} left`}
                             </span>
                           </div>
                           <span className="coach-profile-packages__status-meta">
-                            {credit.expiresLabel
+                            {credit.reserved
+                              ? "Charges on first confirmed lesson"
+                              : credit.expiresLabel
                               ? credit.expired
                                 ? `Expired ${credit.expiresLabel}`
                                 : `Expires ${credit.expiresLabel}`
@@ -646,7 +653,7 @@ const PurchaseLessonPackageExperience = ({
                           {credit.status ? (
                             <span className="coach-profile-packages__status-meta">{credit.status}</span>
                           ) : null}
-                          {credit.purchasedLabel ? (
+                          {credit.purchasedLabel && !credit.reserved ? (
                             <span className="coach-profile-packages__status-meta">
                               Purchased {credit.purchasedLabel}
                             </span>
@@ -681,8 +688,8 @@ const PurchaseLessonPackageExperience = ({
                     <span>{buildValidityLabel(selectedPackage.validity_months)}</span>
                   </div>
                   <p className="purchase-package-experience__order-copy">
-                    Includes {selectedPackage.lesson_count} credits with {coachFirstName}. Credits apply to{" "}
-                    {formatLessonTypeList(selectedPackage.lesson_types_allowed)} lessons.
+                    Includes {selectedPackage.lesson_count} credits with {coachFirstName}. You will not be charged until the first confirmed{" "}
+                    {formatLessonTypeList(selectedPackage.lesson_types_allowed)} lesson.
                   </p>
                   <div className="purchase-package-experience__summary-highlight">
                     <Package aria-hidden />
@@ -695,7 +702,7 @@ const PurchaseLessonPackageExperience = ({
                 <div className="purchase-package-experience__payment-header">
                   <div>
                     <h3>Payment method</h3>
-                    <p>Choose how you&apos;d like to take care of this package.</p>
+                    <p>Choose the card to keep on file for the first confirmed lesson.</p>
                   </div>
                   <span className="purchase-package-experience__payment-secure">
                     <ShieldCheck aria-hidden size={16} /> Secure checkout
@@ -717,7 +724,7 @@ const PurchaseLessonPackageExperience = ({
                   <div className="payment-methods__group">
                     <span className="payment-methods__group-label">Saved cards</span>
                     {!authToken ? (
-                      <p className="payment-methods__notice">Sign in to save a card and purchase credits.</p>
+                      <p className="payment-methods__notice">Sign in to save a card and reserve credits.</p>
                     ) : null}
                     {!paymentMethodsLoading && paymentMethods.length === 0 ? (
                       <p className="payment-methods__notice">No saved cards yet.</p>
@@ -896,7 +903,7 @@ const PurchaseLessonPackageExperience = ({
                         <Loader2 className="purchase-package-page__spinner" aria-hidden /> Processing…
                       </>
                     ) : (
-                      <>Complete purchase · {formatCurrency(selectedPackage.total_price) ?? selectedPackage.total_price}</>
+                      <>Reserve package · no charge today</>
                     )}
                   </button>
                 ) : (
