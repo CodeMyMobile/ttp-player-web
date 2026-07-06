@@ -26,6 +26,7 @@ import {
   consumePackageCredits,
   fetchCoachPackages,
   fetchPackageCredits,
+  getPackageCreditsRemaining,
   purchaseCoachPackage,
   type CoachPackage,
   type PackagePurchase,
@@ -476,8 +477,8 @@ const GroupLessonDetailsPage = () => {
       .then((response) => {
         if (controller.signal.aborted) return;
         const groupCredits = (response.purchases ?? []).filter((purchase) => {
-          const remaining = Number(purchase.credits_remaining ?? 0);
-          if (!Number.isFinite(remaining) || remaining <= 0) return false;
+          const remaining = getPackageCreditsRemaining(purchase);
+          if (remaining <= 0) return false;
           return packageAllowsLessonCreditType(purchase.lesson_types_allowed, "group");
         });
         setCredits(groupCredits);
@@ -631,7 +632,7 @@ const GroupLessonDetailsPage = () => {
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
   const availableCredits = useMemo(
-    () => credits.reduce((sum, credit) => sum + Math.max(Number(credit.credits_remaining ?? 0), 0), 0),
+    () => credits.reduce((sum, credit) => sum + getPackageCreditsRemaining(credit), 0),
     [credits],
   );
 
@@ -744,16 +745,16 @@ const GroupLessonDetailsPage = () => {
         includeExpired: false,
       });
       const groupCredits = (refreshed.purchases ?? []).filter((purchase) => {
-        const remaining = Number(purchase.credits_remaining ?? 0);
-        if (!Number.isFinite(remaining) || remaining <= 0) return false;
-        return packageAllowsLessonCreditType(purchase.lesson_types_allowed, "group");
-      });
+          const remaining = getPackageCreditsRemaining(purchase);
+          if (remaining <= 0) return false;
+          return packageAllowsLessonCreditType(purchase.lesson_types_allowed, "group");
+        });
       setCredits(groupCredits);
       const boughtCredit = groupCredits.find((credit) => String(credit.id) === String(purchaseResponse.purchase?.id));
       setSelectedCreditId(boughtCredit?.id != null ? String(boughtCredit.id) : groupCredits[0]?.id != null ? String(groupCredits[0].id) : null);
       await refreshLesson();
     } catch (error) {
-      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to buy and apply credits.");
+      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to reserve and apply credits.");
     } finally {
       setPurchasingPackage(false);
     }
@@ -1562,14 +1563,14 @@ const GroupLessonDetailsPage = () => {
                             >
                               <span aria-hidden>🎟️</span>
                               <span>
-                                <strong>Buy a lesson package</strong>
-                                <small>Save up to 20% · pay with credits</small>
+                                <strong>Reserve a lesson package</strong>
+                                <small>No charge until first confirmed lesson</small>
                               </span>
                               <ChevronDown aria-hidden />
                             </button>
                             {creditsPackageOpen ? (
                               <div className="group-lesson-details__credits-package-panel">
-                                <p>Buy sessions now — one credit covers this lesson, the rest are yours to use any time.</p>
+                                <p>Reserve sessions now. Your card is charged only when this lesson is confirmed.</p>
                                 {packagesLoading ? <p>Loading packages...</p> : null}
                                 {packagesError ? <p className="group-lesson-details__checkout-error">{packagesError}</p> : null}
                                 {!packagesLoading && !packagesError && packageOptions.length === 0 ? <p>No group packages are available right now.</p> : null}
@@ -1613,7 +1614,7 @@ const GroupLessonDetailsPage = () => {
                                   disabled={!selectedPackage || purchasingPackage || paymentMethodsLoading}
                                   aria-busy={purchasingPackage}
                                 >
-                                  {purchasingPackage ? "Buying package..." : "Buy with credit card"}
+                                  {purchasingPackage ? "Reserving package..." : "Reserve with saved card"}
                                 </button>
                               </div>
                             ) : null}

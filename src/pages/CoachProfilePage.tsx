@@ -36,6 +36,7 @@ import {
   fetchCoachPackages,
   fetchPackageCredits,
   fetchPackageCreditsBalance,
+  getPackageCreditsRemaining,
   purchaseCoachPackage,
   type CoachPackage,
   type PackageCreditsBalanceResponse,
@@ -910,7 +911,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     };
 
     packageCredits.forEach((purchase) => {
-      const remaining = Math.max(Number(purchase.credits_remaining ?? 0), 0);
+      const remaining = getPackageCreditsRemaining(purchase);
       if (!remaining) return;
 
       const types = purchase.lesson_types_allowed ?? [];
@@ -1576,12 +1577,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         if (!types.length) return true;
         return types.some((type) => resolveLessonCreditType({ lesson_type_name: type }) === effectiveCreditType);
       })
-      .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
+      .reduce((sum, purchase) => sum + getPackageCreditsRemaining(purchase), 0);
   }, [creditsBalance?.available, effectiveCreditType, packageCredits]);
 
   const eligiblePackageCredits = useMemo(() => {
     return packageCredits.filter((purchase) => {
-      if ((purchase.credits_remaining ?? 0) <= 0) return false;
+      if (getPackageCreditsRemaining(purchase) <= 0) return false;
       if (!selectedSlotCreditType) return true;
       const types = purchase.lesson_types_allowed ?? [];
       if (!types.length) return true;
@@ -1596,7 +1597,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           const types = purchase.lesson_types_allowed ?? [];
           return !types.length || types.some((type) => type.toLowerCase().includes("private"));
         })
-        .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0),
+        .reduce((sum, purchase) => sum + getPackageCreditsRemaining(purchase), 0),
     [packageCredits],
   );
 
@@ -1893,7 +1894,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           return packageLessonType === "private" ? normalized.includes("private") : normalized.includes("group");
         });
       })
-      .reduce((sum, purchase) => sum + Math.max(Number(purchase.credits_remaining ?? 0), 0), 0);
+      .reduce((sum, purchase) => sum + getPackageCreditsRemaining(purchase), 0);
   }, [packageCredits, packageLessonType]);
 
   const featuredPackageId = useMemo(() => {
@@ -2380,7 +2381,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
 
   const handleBuyCheckoutPackage = async () => {
     if (!authToken || !profile?.id) {
-      setPackagePurchaseError("Sign in to buy credits.");
+      setPackagePurchaseError("Sign in to reserve credits.");
       return;
     }
     if (!selectedCheckoutPackage) {
@@ -2404,7 +2405,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       }
 
       if (!paymentMethodId) {
-        throw new Error("Choose Apple Pay or a saved card to buy credits.");
+        throw new Error("Choose Apple Pay or a saved card to reserve credits.");
       }
 
       await purchaseCoachPackage({
@@ -2436,7 +2437,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       if (handlePrivateAuthError(err)) {
         return;
       }
-      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to buy credits.");
+      setPackagePurchaseError(err instanceof Error ? err.message : "Unable to reserve credits.");
     } finally {
       setPurchasingPackage(false);
       setApplePayLoading(false);
@@ -2902,7 +2903,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
               <small>
                 {creditBalanceSummary
                   ? `Eligible now: ${availableCredits} ${effectiveCreditTypeLabel === "total" ? "" : `${effectiveCreditTypeLabel} `}credit${availableCredits === 1 ? "" : "s"}`
-                  : "Buy a package to apply credits at booking"}
+                  : "Reserve a package to apply credits at booking"}
               </small>
             </div>
           </div>
@@ -3258,8 +3259,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       {selectedPackageCredits > 0
                         ? "Select a slot above and your credit will be applied automatically - no payment needed."
                         : packageLessonType === "all"
-                          ? "Buy a package to apply credits automatically at booking."
-                          : `Buy a ${packageLessonType} package to apply credits automatically at booking.`}
+                          ? "Reserve a package to apply credits automatically at booking."
+                          : `Reserve a ${packageLessonType} package to apply credits automatically at booking.`}
                     </p>
                   </div>
                 </div>
@@ -3449,16 +3450,16 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           <div className="coach-payment-choice__icon" aria-hidden="true">🎟️</div>
                           <div className="coach-payment-choice__body">
                             <div className="coach-payment-choice__title-row">
-                              <span className="coach-payment-choice__title">Buy a lesson package</span>
+                              <span className="coach-payment-choice__title">Reserve a lesson package</span>
                             </div>
-                            <p className="coach-payment-choice__subtitle">Save up to 20% · pay with credits</p>
+                            <p className="coach-payment-choice__subtitle">No charge until first confirmed lesson</p>
                           </div>
                           <ChevronDown className="coach-payment-choice__chevron" aria-hidden size={18} />
                         </button>
                         {creditsPackageOpen ? (
                           <div className="coach-payment-choice__package-panel">
                             <p className="coach-payment-choice__package-intro">
-                              Buy sessions now — one credit covers this lesson, the rest are yours to use any time.
+                              Reserve sessions now. Your card is charged only when the first lesson is confirmed.
                             </p>
                             {packagesLoading ? <p className="coach-payment-modal__hint">Loading packages...</p> : null}
                             {packagesError ? <p className="coach-payment-modal__error">{packagesError}</p> : null}
@@ -3513,7 +3514,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                               onClick={handleOpenPackageCheckoutFromPayment}
                               disabled={!selectedCheckoutPackage}
                             >
-                              Buy with credit card
+                              Reserve with saved card
                             </button>
                           </div>
                         ) : null}
@@ -4604,7 +4605,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       <span>{upsellCopy}</span>
                       <div className="coach-upsell-card__actions">
                         <button type="button" className="coach-primary-button coach-primary-button--small" onClick={handleOpenPurchaseModal}>
-                          Buy package{upsellTotalLabel ? ` · ${upsellTotalLabel}` : ""}
+                          Reserve package{upsellTotalLabel ? ` · ${upsellTotalLabel}` : ""}
                         </button>
                         <button type="button" className="coach-secondary-button coach-secondary-button--small" onClick={() => setUpsellDismissed(true)}>Just this lesson</button>
                       </div>

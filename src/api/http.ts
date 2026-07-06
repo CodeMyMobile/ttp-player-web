@@ -117,9 +117,15 @@ export async function request<TResponse = unknown, TBody = unknown>(
     } catch {
       // ignore
     }
-    const error = new Error(
-      (errorPayload as Record<string, unknown>)?.error as string ?? response.statusText ?? "Request failed",
-    );
+    const payloadRecord = errorPayload as Record<string, unknown> | undefined;
+    const errorMessage =
+      (typeof payloadRecord?.message === "string" && payloadRecord.message) ||
+      (typeof payloadRecord?.detail === "string" && payloadRecord.detail) ||
+      (typeof payloadRecord?.error === "string" && payloadRecord.error) ||
+      (typeof payloadRecord?.code === "string" && payloadRecord.code) ||
+      response.statusText ||
+      "Request failed";
+    const error = new Error(errorMessage);
     (error as Error & { status?: number; data?: unknown }).status = response.status;
     (error as Error & { status?: number; data?: unknown }).data = errorPayload;
     throw error;

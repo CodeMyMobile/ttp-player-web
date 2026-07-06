@@ -25,7 +25,12 @@ export interface PackagePurchase {
   credits_remaining?: number;
   expires_at?: string | null;
   purchased_at?: string | null;
+  reserved_at?: string | null;
   status?: string;
+  paid?: boolean;
+  reserved_payment_method_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  charged_payment_intent_id?: string | null;
   lesson_types_allowed?: string[];
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
@@ -77,6 +82,20 @@ export interface PurchaseCoachPackageParams {
   packageId: number | string;
   paymentMethodId: string;
 }
+
+export const isReservedPackagePurchase = (purchase?: PackagePurchase | null) =>
+  purchase?.status === "reserved" || purchase?.paid === false;
+
+export const isActivePackagePurchase = (purchase?: PackagePurchase | null) =>
+  Boolean(purchase) &&
+  !isReservedPackagePurchase(purchase) &&
+  ["succeeded", "partially_used", "exhausted"].includes(String(purchase?.status ?? ""));
+
+export const getPackageCreditsRemaining = (purchase?: PackagePurchase | null) => {
+  if (!purchase || isReservedPackagePurchase(purchase)) return 0;
+  const remaining = Number(purchase.credits_remaining ?? 0);
+  return Number.isFinite(remaining) ? Math.max(remaining, 0) : 0;
+};
 
 export interface ConsumePackageCreditsParams {
   token: string;
@@ -133,7 +152,7 @@ export const fetchPackageCreditsBalance = ({ token, coachId, lessonType, signal 
   });
 
 export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: PurchaseCoachPackageParams) =>
-  request<PurchasePackageResponse>(`/player/packages/${packageId}/purchase`, {
+  request<PurchasePackageResponse>(`/player/packages/${packageId}/reserve`, {
     method: "POST",
     token,
     authScheme: "Token",
@@ -141,6 +160,8 @@ export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: Purc
       payment_method_id: paymentMethodId,
     },
   });
+
+export const reserveCoachPackage = purchaseCoachPackage;
 
 export const consumePackageCredits = ({
   token,
