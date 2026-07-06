@@ -77,6 +77,14 @@ export interface RosterPlayer {
   initials: string;
   /** The Tennis Plan rating (TRP). */
   rating: number;
+  /** NTRP conversion display value (backend-calculated/entered, or estimated from TRP); null when none. */
+  ntrp?: string | null;
+  /** True when `ntrp` was estimated from the TRP rather than a real rating. */
+  ntrpEstimated?: boolean;
+  /** UTR conversion display value; null when none. */
+  utr?: string | null;
+  /** True when `utr` was estimated from the TRP rather than a real rating. */
+  utrEstimated?: boolean;
   wins: number;
   losses: number;
   /** Optional contact handle for the quick-action (sms/mailto). Message button

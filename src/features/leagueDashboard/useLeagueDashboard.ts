@@ -33,6 +33,7 @@ import {
   isFutureLeagueItem,
 } from "../../pages/leagueDetailTime";
 import { orientScore } from "../../pages/leagueScore";
+import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
 import { computeNextMove } from "./nextMove";
 import type {
   LeagueData,
@@ -313,12 +314,20 @@ const buildDashboard = (
   const roster: RosterPlayer[] = players.map((player) => {
     const pid = String(player.player_id);
     const record = recordByPlayer.get(pid) ?? { wins: 0, losses: 0 };
+    // Prefer a real value (backend-calculated, then player-entered); estimate from
+    // TRP only as a fallback — same logic as the public match-results page.
+    const ntrpConv = deriveNtrp(player.calculated_ntrp ?? player.usta_rating, player.current_rating, player.rating_gender);
+    const utrConv = deriveUtr(player.calculated_utr ?? player.uta_rating, player.current_rating);
     return {
       playerId: pid,
       name: player.full_name || `Player ${pid}`,
       initials: initials(player.full_name),
       // NOTE: rating defaults to 0 when the player has no current_rating (rare).
       rating: toNumber(player.current_rating) ?? 0,
+      ntrp: ntrpConv.value,
+      ntrpEstimated: ntrpConv.estimated,
+      utr: utrConv.value,
+      utrEstimated: utrConv.estimated,
       wins: record.wins,
       losses: record.losses,
       contact: (player.phone || player.email || undefined) as string | undefined,
