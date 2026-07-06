@@ -1583,10 +1583,12 @@
     font-size: 14px;
   }
 
-  /* Focused booking state: hide the global bottom tab bar on this page only.
-     Scoped by the page class (set via MainLayout pageClassName), so no other
-     page is affected — MainLayout/MobileHomeBottomNav are untouched. */
-  .dashboard-page.group-lesson-details-page .ph-bottom-nav {
+  /* Focused booking state: hide the global mobile bottom tab bar on this page only
+     so it doesn't cover the fixed checkout footer. The bottom nav's class is `.mbn`
+     (MobileHomeBottomNav); the previous `.ph-bottom-nav` selector was stale and
+     never matched, so the nav stayed on top of the checkout CTA. Scoped by the page
+     class (set via MainLayout pageClassName) — no other page or the nav is affected. */
+  .dashboard-page.group-lesson-details-page .mbn {
     display: none;
   }
 

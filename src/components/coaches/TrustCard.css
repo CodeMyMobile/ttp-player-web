@@ -1,0 +1,142 @@
+/* Find a Coach trust card — promotes the "coaches are invited" USP.
+   Reuses the green palette already used by the old .fc-invite-banner callout and
+   the CoachTrustMark badge (no new colour values). Responsive: an editorial card
+   at >= 640px (the page's mobile breakpoint), a single-line strip below it. */
+.trust-card {
+  margin-bottom: 16px;
+}
+
+/* ---- Editorial card (desktop, >= 640px) ---- */
+.trust-card__editorial {
+  padding: 22px 24px;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
+  border: 0.5px solid #bbf7d0;
+}
+
+.trust-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.trust-card__icon {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #d1fae5; /* slightly deeper green than the card fill */
+  color: #065f46; /* dark green */
+}
+
+.trust-card__copy {
+  min-width: 0;
+}
+
+.trust-card__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #065f46; /* darkest green */
+}
+
+.trust-card__body {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #047857; /* mid-dark green */
+}
+
+.trust-card__proof {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 0.5px solid #bbf7d0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.trust-card__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.trust-card__tag svg {
+  color: #047857;
+}
+
+/* ---- Compact strip (mobile) — hidden by default (desktop shows the editorial) ---- */
+.trust-card__strip {
+  display: none;
+}
+
+/* ---- Responsive switch at the page's 640px breakpoint ---- */
+@media (max-width: 640px) {
+  /* The in-shell instance is desktop-only; the mobile-search-block instance renders
+     the strip. */
+  .trust-card--desktop {
+    display: none;
+  }
+
+  .trust-card__editorial {
+    display: none;
+  }
+
+  .trust-card__strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
+    border: 0.5px solid #bbf7d0;
+  }
+
+  .trust-card__strip-icon {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #d1fae5; /* deeper green */
+    color: #065f46; /* dark green */
+  }
+
+  .trust-card__strip-title {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #065f46; /* darkest green */
+    white-space: nowrap;
+  }
+
+  .trust-card__strip-pill {
+    margin-left: auto;
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #d1fae5; /* mid/deeper green fill */
+    color: #047857; /* deeper green text */
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+/* Priority rule: on the very smallest screens, hide the "Invite-only" pill before
+   the headline (the priority element) would be squeezed. */
+@media (max-width: 330px) {
+  .trust-card__strip-pill {
+    display: none;
+  }
+}

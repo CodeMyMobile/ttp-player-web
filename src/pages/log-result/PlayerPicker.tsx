@@ -39,21 +39,20 @@ export function PlayerPicker({
   return (
     <div>
       <SectionLabel icon={Users}>Players</SectionLabel>
-      <div className="flex items-stretch gap-2.5">
-        <div className="flex-1 rounded-xl border border-violet-200 bg-violet-50 p-3 flex items-center gap-2.5 min-w-0">
-          <Avatar name={me.name} size="h-9 w-9" />
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-slate-900 truncate">{me.name}</div>
-            <div className="text-[11px] font-semibold text-violet-600">You</div>
-          </div>
+      <div className="flex items-stretch gap-2">
+        {/* Compact "you" chip — doesn't need equal weight to the opponent picker */}
+        <div className="flex shrink-0 items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-2.5 py-2">
+          <Avatar name={me.name} size="h-8 w-8" />
+          <span className="text-[11px] font-bold uppercase tracking-wide text-violet-600">You</span>
         </div>
 
         <div className="grid place-items-center text-xs font-bold text-slate-400 px-0.5">vs</div>
 
+        {/* Opponent picker is the primary next action (the main blocker) */}
         <div className="flex-1 min-w-0">
           {value ? (
-            <button onClick={() => setOpen((o) => !o)} className="w-full h-full rounded-xl border border-slate-200 bg-white p-3 flex items-center gap-2.5 text-left hover:border-violet-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 min-w-0">
-              <Avatar name={value.name} color={value.color} size="h-9 w-9" />
+            <button onClick={() => setOpen((o) => !o)} className="w-full h-full rounded-xl border border-slate-200 bg-white p-2.5 flex items-center gap-2.5 text-left hover:border-violet-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 min-w-0">
+              <Avatar name={value.name} color={value.color} size="h-8 w-8" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-bold text-slate-900 truncate">{value.name}</div>
                 <div className="text-[11px] text-slate-500">NTRP {value.ntrp}</div>
@@ -61,7 +60,7 @@ export function PlayerPicker({
               <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
             </button>
           ) : (
-            <button onClick={() => setOpen((o) => !o)} className="w-full h-full min-h-[60px] rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 px-3 flex items-center gap-1.5 text-sm font-semibold text-violet-600 hover:border-violet-400 hover:bg-violet-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40">
+            <button onClick={() => setOpen((o) => !o)} className="w-full h-full min-h-[52px] rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 px-3 flex items-center justify-center gap-1.5 text-sm font-bold text-white shadow-sm shadow-violet-600/30 hover:from-violet-600 hover:to-violet-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50">
               <Plus className="h-4 w-4 shrink-0" /> Choose player
             </button>
           )}

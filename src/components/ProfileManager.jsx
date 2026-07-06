@@ -4,6 +4,7 @@ import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
+import { formatCalculatedRating, normalizeProfileRating } from "../utils/profileRatings";
 
 import "./ProfileManager.css";
 
@@ -16,6 +17,8 @@ const emptyDetails = {
   date_of_birth: "",
   usta_rating: "",
   uta_rating: "",
+  calculated_ntrp: "",
+  calculated_utr: "",
   about_me: "",
 };
 
@@ -71,14 +74,10 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         date_of_birth: data?.date_of_birth
           ? data.date_of_birth.split("T")[0]
           : "",
-        usta_rating:
-          typeof data?.usta_rating === "number" && !Number.isNaN(data.usta_rating)
-            ? String(data.usta_rating)
-            : data?.usta_rating || "",
-        uta_rating:
-          typeof data?.uta_rating === "number" && !Number.isNaN(data.uta_rating)
-            ? String(data.uta_rating)
-            : data?.uta_rating || "",
+        usta_rating: normalizeProfileRating(data?.usta_rating),
+        uta_rating: normalizeProfileRating(data?.uta_rating),
+        calculated_ntrp: normalizeProfileRating(data?.calculated_ntrp),
+        calculated_utr: normalizeProfileRating(data?.calculated_utr),
         about_me: data?.about_me || "",
       };
       setDetails(normalizedDetails);
@@ -363,6 +362,35 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
                   }))
                 }
               />
+            </div>
+          </div>
+
+          <div className="profile-manager__rating-grid">
+            <div className="profile-manager__field">
+              <label className="profile-manager__label" htmlFor="profile-calculated-ntrp">
+                Calculated NTRP
+              </label>
+              <input
+                id="profile-calculated-ntrp"
+                className="profile-manager__input profile-manager__input--readonly"
+                type="text"
+                value={formatCalculatedRating(details.calculated_ntrp)}
+                readOnly
+              />
+              <p className="profile-manager__helper">Calculated from your TRP rating after match results.</p>
+            </div>
+            <div className="profile-manager__field">
+              <label className="profile-manager__label" htmlFor="profile-calculated-utr">
+                Calculated UTR
+              </label>
+              <input
+                id="profile-calculated-utr"
+                className="profile-manager__input profile-manager__input--readonly"
+                type="text"
+                value={formatCalculatedRating(details.calculated_utr)}
+                readOnly
+              />
+              <p className="profile-manager__helper">Calculated from your TRP rating after match results.</p>
             </div>
           </div>
 

@@ -147,7 +147,26 @@ export function scoreString(sets: MatchSet[], dnf: boolean): string {
 export const boardTemplate = (sets: MatchSet[]): string =>
   `minmax(84px,1fr) ${sets.map(() => "auto").join(" ")}`;
 export const colLabel = (s: MatchSet, i: number, format: Format): string =>
-  s.kind === "mtb" ? "TB" : format === "single" ? "Set" : `Set ${i + 1}`;
+  format === "single" ? "Set" : `Set ${i + 1}`;
+
+// which side won a completed set (null while empty/invalid)
+export const setWinnerSide = (s: MatchSet): Side | null =>
+  setStatus(s) === "ok" ? (s.you > s.opp ? "you" : "opp") : null;
+
+// Progressive reveal: how many set rows should be visible right now.
+//  - single    → always 1
+//  - best of 3 → Set 1 always; Set 2 once Set 1 is a completed set; Set 3
+//                only when the match is 1–1 after two completed sets.
+// The underlying `sets` array stays intact (length 3 for bo3) for
+// computeResult / submit — this only trims what the UI renders.
+export function visibleSetCount(sets: MatchSet[], format: Format): number {
+  if (format === "single") return 1;
+  const w0 = sets[0] ? setWinnerSide(sets[0]) : null;
+  if (!w0) return 1;
+  const w1 = sets[1] ? setWinnerSide(sets[1]) : null;
+  if (!w1) return 2;
+  return w0 !== w1 ? 3 : 2; // deciding set only when each player won one
+}
 
 // derive winner / completeness from the entered sets
 export function computeResult(

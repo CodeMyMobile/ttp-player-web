@@ -67,6 +67,7 @@ const AppNav = ({
   showBack = false,
   onBack,
   hideLocation = false,
+  mobileCenter = null,
 }) => {
   const { isAuthenticated, logout, user } = useAuth();
   const identity = usePlayerIdentity();
@@ -115,6 +116,16 @@ const AppNav = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Esc closes the profile menu (keyboard support for the folded-in nav links).
+  useEffect(() => {
+    if (!isUserMenuOpen) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isUserMenuOpen]);
 
   useEffect(() => {
     const token = getStoredAuthToken({ preferScheme: "token" });
@@ -236,7 +247,7 @@ const AppNav = ({
 
   return (
     <>
-      <header className="app-nav">
+      <header className={`app-nav${mobileCenter ? " app-nav--has-mobile-center" : ""}`}>
         <div className="app-nav__left">
           {showBack ? (
             <button
@@ -254,6 +265,8 @@ const AppNav = ({
               The Tennis <em>Plan</em>
             </strong>
           </Link>
+
+          {mobileCenter ? <div className="app-nav__mobile-center">{mobileCenter}</div> : null}
 
           <nav className="app-nav__links" aria-label="Primary">
             {navItems.map((item) => (
@@ -371,6 +384,21 @@ const AppNav = ({
 
               {isUserMenuOpen ? (
                 <div className="app-nav__dropdown app-nav__dropdown--user" role="menu">
+                  {/* Primary nav links have no home on mobile (app-nav__links is
+                      hidden with no hamburger), so fold them into this menu —
+                      shown only on mobile via app-nav__menu-item--mobile. */}
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.label}
+                      to={item.to}
+                      role="menuitem"
+                      className="app-nav__menu-item app-nav__menu-item--mobile"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <item.icon size={16} />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
                   {userMenuItems.map((item) => (
                     <Link
                       key={item.label}

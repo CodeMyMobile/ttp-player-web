@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Tennis Plan - Auth Drawer Preview</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: #f8f8f8;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 20px;
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: #999;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .context-area {
+      flex: 1;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+
+    .coach-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid #e5e5e5;
+      margin-bottom: 20px;
+      max-width: 400px;
+      opacity: 0.35;
+      filter: blur(1.5px);
+    }
+
+    .coach-avatar {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: white;
+    }
+
+    .coach-card h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+    }
+
+    .coach-card .meta {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .coach-card .description {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    /* Drawer Overlay */
+    .drawer-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(2px);
+      height: 55%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .drawer {
+      background: white;
+      border-radius: 28px 28px 0 0;
+      padding: 28px 24px 32px;
+      max-height: 100%;
+      overflow-y: auto;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .drawer-handle {
+      width: 40px;
+      height: 4px;
+      background: #ddd;
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    .drawer-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 20px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #e5e5e5;
+      position: relative;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      background: none;
+      color: #999;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.2s;
+    }
+
+    .tab:hover {
+      color: #666;
+    }
+
+    .tab.active {
+      color: #1a1a1a;
+      border-bottom-color: #8b5cf6;
+    }
+
+    /* Error Banner */
+    .error-banner {
+      background: #fee;
+      border: 1px solid #fcc;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #c33;
+      display: none;
+      line-height: 1.4;
+    }
+
+    .error-banner.show {
+      display: block;
+    }
+
+    .error-banner.success {
+      background: #e8f5e9;
+      border-color: #a5d6a7;
+      color: #2e7d32;
+    }
+
+    /* Form Groups */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #1a1a1a;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      background: white;
+      color: #1a1a1a;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+    }
+
+    .form-group input::placeholder {
+      color: #bbb;
+    }
+
+    .form-group input.error {
+      border-color: #e74c3c;
+      background: #faf5f5;
+    }
+
+    .form-group input.error:focus {
+      box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+    }
+
+    .form-error-text {
+      font-size: 12px;
+      color: #e74c3c;
+      margin-top: 4px;
+      display: none;
+    }
+
+    .form-error-text.show {
+      display: block;
+    }
+
+    /* Checkbox */
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      margin-top: 3px;
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #8b5cf6;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      color: #666;
+      line-height: 1.4;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* SMS Consent Box */
+    .sms-consent-box {
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .sms-consent-box .checkbox-group {
+      margin-bottom: 0;
+    }
+
+    .sms-consent-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .sms-consent-text {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* Password Group */
+    .password-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .password-group input {
+      width: 100%;
+      padding-right: 40px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+    }
+
+    .toggle-password:hover {
+      color: #666;
+    }
+
+    /* Phone Group */
+    .phone-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .phone-icon {
+      position: absolute;
+      left: 12px;
+      color: #999;
+      pointer-events: none;
+    }
+
+    .phone-group input {
+      width: 100%;
+      padding-left: 40px;
+    }
+
+    /* Keep Signed In */
+    .keep-signed-in {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #fafafa;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+    }
+
+    .keep-signed-in label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .keep-signed-in input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      accent-color: #8b5cf6;
+      cursor: pointer;
+    }
+
+    .keep-signed-in-hint {
+      font-size: 12px;
+      color: #999;
+      margin-left: 26px;
+    }
+
+    /* Terms */
+    .terms-links {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .terms-links a {
+      color: #8b5cf6;
+      text-decoration: none;
+    }
+
+    .terms-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* CTA Section */
+    .cta-section {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: white;
+      color: #1a1a1a;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: #f8f8f8;
+      border-color: #ccc;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: #8b5cf6;
+      color: white;
+      border-color: #8b5cf6;
+    }
+
+    .btn-primary:hover {
+      background: #7c3aed;
+      border-color: #7c3aed;
+    }
+
+    .btn-primary:disabled {
+      background: #d8c1f5;
+      border-color: #d8c1f5;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* Additional Links */
+    .additional-link {
+      text-align: center;
+      margin-top: 12px;
+    }
+
+    .additional-link a {
+      font-size: 13px;
+      color: #8b5cf6;
+      text-decoration: none;
+    }
+
+    .additional-link a:hover {
+      text-decoration: underline;
+    }
+
+    /* Form visibility */
+    .form-section {
+      display: none;
+    }
+
+    .form-section.active {
+      display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .drawer-overlay {
+        height: 65%;
+      }
+
+      .context-area {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>The Tennis Plan Auth Drawer</h1>
+      <p>Interactive preview • Try entering invalid data to see validation</p>
+    </div>
+
+    <div class="main">
+      <div class="context-area">
+        <div class="coach-card">
+          <div class="coach-avatar">🎾</div>
+          <h2>Richard Rockett</h2>
+          <div class="meta">$100/hr · Advanced specialist</div>
+          <div class="description">
+            Mastering tennis is a journey, and I'm thrilled to be your guide. With 11 years of experience, including competing at the collegiate level, I bring a unique perspective to coaching...
+          </div>
+        </div>
+
+        <div class="coach-card">
+          <div class="coach-avatar" style="background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);">👩</div>
+          <h2>Sarah Chen</h2>
+          <div class="meta">$85/hr · Beginner-friendly</div>
+          <div class="description">
+            I specialize in building confidence and fundamentals for beginners. Patient, encouraging, and focused on making tennis fun for everyone...
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-overlay">
+        <div class="drawer">
+          <div class="drawer-handle"></div>
+
+          <div class="drawer-title">Sign in to book</div>
+
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('signin', this)">Sign in</button>
+            <button class="tab" onclick="switchTab('signup', this)">New account</button>
+          </div>
+
+          <div id="error-banner" class="error-banner"></div>
+
+          <!-- SIGNIN FORM -->
+          <div id="signin-form" class="form-section active">
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" placeholder="you@example.com" />
+              <div class="form-error-text" id="email-error"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <div class="phone-group">
+                <svg class="phone-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <input type="tel" id="phone" placeholder="(310) 555-0142" />
+              </div>
+              <div class="form-error-text" id="phone-error"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <div class="password-group">
+                <input type="password" id="password" placeholder="••••••••" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password')">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-error-text" id="password-error"></div>
+            </div>
+
+            <div class="keep-signed-in">
+              <label for="keep-signed-in">
+                <input type="checkbox" id="keep-signed-in" checked />
+                <span>Keep me signed in</span>
+              </label>
+              <div class="keep-signed-in-hint">Stay logged in on this device for 30 days</div>
+            </div>
+
+            <div class="sms-consent-box">
+              <div class="checkbox-group">
+                <input type="checkbox" id="sms-opt" checked />
+                <div>
+                  <div class="sms-consent-title">SMS consent</div>
+                  <div class="sms-consent-text">I agree to receive SMS messages from The Tennis Plan. Msg & data rates may apply. Reply STOP to opt out.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="terms-links">
+              By signing in, you agree to our <a href="#">privacy policy</a> and <a href="#">terms of service</a>.
+            </div>
+
+            <div class="cta-section">
+              <button class="btn" onclick="closeDrawer()">Cancel</button>
+              <button class="btn btn-primary" onclick="handleSignIn()">Sign in</button>
+            </div>
+
+            <div class="additional-link">
+              <a href="#">Forgot password?</a>
+            </div>
+          </div>
+
+          <!-- SIGNUP FORM -->
+          <div id="signup-form" class="form-section">
+            <div style="display: flex; gap: 12px;">
+              <div class="form-group" style="flex: 1;">
+                <label for="signup-first">First name</label>
+                <input type="text" id="signup-first" placeholder="Alex" />
+                <div class="form-error-text" id="first-error"></div>
+              </div>
+
+              <div class="form-group" style="flex: 1;">
+                <label for="signup-last">Last name</label>
+                <input type="text" id="signup-last" placeholder="Johnson" />
+                <div class="form-error-text" id="last-error"></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="signup-email">Email</label>
+              <input type="email" id="signup-email" placeholder="you@example.com" />
+              <div class="form-error-text" id="signup-email-error"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="signup-phone">Phone</label>
+              <div class="phone-group">
+                <svg class="phone-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <input type="tel" id="signup-phone" placeholder="(310) 555-0142" />
+              </div>
+              <div class="form-error-text" id="signup-phone-error"></div>
+            </div>
+
+            <div class="sms-consent-box">
+              <div class="checkbox-group">
+                <input type="checkbox" id="signup-sms-opt" checked />
+                <div>
+                  <div class="sms-consent-title">SMS consent</div>
+                  <div class="sms-consent-text">I agree to receive SMS messages from The Tennis Plan. Msg & data rates may apply. Reply STOP to opt out.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="signup-password">Password</label>
+              <div class="password-group">
+                <input type="password" id="signup-password" placeholder="Create a password" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signup-password')">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-error-text" id="signup-password-error"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="signup-confirm">Confirm password</label>
+              <div class="password-group">
+                <input type="password" id="signup-confirm" placeholder="••••••••" />
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility('signup-confirm')">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+              <div class="form-error-text" id="confirm-error"></div>
+            </div>
+
+            <div class="keep-signed-in">
+              <label for="signup-keep-signed-in">
+                <input type="checkbox" id="signup-keep-signed-in" checked />
+                <span>Keep me signed in</span>
+              </label>
+              <div class="keep-signed-in-hint">Stay logged in on this device for 30 days</div>
+            </div>
+
+            <div class="terms-links">
+              By creating an account, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.
+            </div>
+
+            <div class="cta-section">
+              <button class="btn" onclick="closeDrawer()">Cancel</button>
+              <button class="btn btn-primary" onclick="handleSignUp()">Create account</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Validators
+    function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+    }
+
+    function validatePhone(phone) {
+      const digits = phone.replace(/\D/g, '');
+      return digits.length >= 10 && digits.length <= 15;
+    }
+
+    function validatePassword(pwd) {
+      return pwd.length >= 8;
+    }
+
+    function formatPhone(phone) {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length === 10) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+      }
+      return phone;
+    }
+
+    function togglePasswordVisibility(fieldId) {
+      const field = document.getElementById(fieldId);
+      if (field.type === 'password') {
+        field.type = 'text';
+      } else {
+        field.type = 'password';
+      }
+    }
+
+    // Utilities
+    function switchTab(mode, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+
+      document.querySelectorAll('.form-section').forEach(f => f.classList.remove('active'));
+
+      if (mode === 'signin') {
+        document.getElementById('signin-form').classList.add('active');
+      } else {
+        document.getElementById('signup-form').classList.add('active');
+      }
+
+      clearErrors();
+    }
+
+    function clearErrors() {
+      document.getElementById('error-banner').classList.remove('show', 'success');
+      document.querySelectorAll('.form-error-text').forEach(el => {
+        el.classList.remove('show');
+        el.textContent = '';
+      });
+      document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
+    }
+
+    function showError(fieldId, msg) {
+      const field = document.getElementById(fieldId);
+      const errorEl = document.getElementById(fieldId + '-error');
+      if (field && errorEl) {
+        field.classList.add('error');
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+      }
+    }
+
+    function showBanner(msg, isSuccess = false) {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = msg;
+      banner.classList.add('show');
+      if (isSuccess) {
+        banner.classList.add('success');
+      } else {
+        banner.classList.remove('success');
+      }
+    }
+
+    function clearBanner() {
+      document.getElementById('error-banner').classList.remove('show');
+    }
+
+    function closeDrawer() {
+      alert('In the real app, this would close the drawer and return to the browse page.');
+      clearErrors();
+    }
+
+    // Sign In Handler
+    function handleSignIn() {
+      clearErrors();
+      clearBanner();
+      let isValid = true;
+
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const password = document.getElementById('password').value;
+
+      // Validation
+      if (!email) {
+        showError('email', 'Email is required');
+        isValid = false;
+      } else if (!validateEmail(email)) {
+        showError('email', 'Enter a valid email');
+        isValid = false;
+      }
+
+      if (!phone) {
+        showError('phone', 'Phone is required');
+        isValid = false;
+      } else if (!validatePhone(phone)) {
+        showError('phone', 'Enter a valid phone number');
+        isValid = false;
+      }
+
+      if (!password) {
+        showError('password', 'Password is required');
+        isValid = false;
+      } else if (!validatePassword(password)) {
+        showError('password', 'Password must be at least 8 characters');
+        isValid = false;
+      }
+
+      if (isValid) {
+        // Simulate API call
+        showBanner('Signing in...');
+        setTimeout(() => {
+          showBanner('Welcome back! Redirecting to booking...', true);
+          setTimeout(() => {
+            closeDrawer();
+          }, 1200);
+        }, 800);
+      }
+    }
+
+    // Sign Up Handler
+    function handleSignUp() {
+      clearErrors();
+      clearBanner();
+      let isValid = true;
+
+      const firstName = document.getElementById('signup-first').value.trim();
+      const lastName = document.getElementById('signup-last').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const phone = document.getElementById('signup-phone').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const confirm = document.getElementById('signup-confirm').value;
+
+      // Validation
+      if (!firstName) {
+        showError('signup-first', 'First name is required');
+        isValid = false;
+      } else if (firstName.length < 2) {
+        showError('signup-first', 'First name must be at least 2 characters');
+        isValid = false;
+      }
+
+      if (!lastName) {
+        showError('signup-last', 'Last name is required');
+        isValid = false;
+      } else if (lastName.length < 2) {
+        showError('signup-last', 'Last name must be at least 2 characters');
+        isValid = false;
+      }
+
+      if (!email) {
+        showError('signup-email', 'Email is required');
+        isValid = false;
+      } else if (!validateEmail(email)) {
+        showError('signup-email', 'Enter a valid email');
+        isValid = false;
+      }
+
+      if (!phone) {
+        showError('signup-phone', 'Phone is required');
+        isValid = false;
+      } else if (!validatePhone(phone)) {
+        showError('signup-phone', 'Enter a valid phone number');
+        isValid = false;
+      }
+
+      if (!password) {
+        showError('signup-password', 'Password is required');
+        isValid = false;
+      } else if (!validatePassword(password)) {
+        showError('signup-password', 'Password must be at least 8 characters');
+        isValid = false;
+      }
+
+      if (password !== confirm) {
+        showError('signup-confirm', 'Passwords don\'t match');
+        isValid = false;
+      }
+
+      if (isValid) {
+        // Simulate API call
+        showBanner('Creating account...');
+        setTimeout(() => {
+          showBanner('Account created! Signing you in...', true);
+          setTimeout(() => {
+            closeDrawer();
+          }, 1200);
+        }, 800);
+      }
+    }
+
+    // Format phone on blur
+    document.addEventListener('blur', (e) => {
+      if (e.target.type === 'tel') {
+        const formatted = formatPhone(e.target.value);
+        if (formatted !== e.target.value) {
+          e.target.value = formatted;
+        }
+      }
+    }, true);
+
+    // Clear error on input
+    document.addEventListener('input', (e) => {
+      if (e.target.classList.contains('error')) {
+        e.target.classList.remove('error');
+        const errorId = e.target.id + '-error';
+        const errorEl = document.getElementById(errorId);
+        if (errorEl) {
+          errorEl.classList.remove('show');
+        }
+      }
+    });
+  </script>
+</body>
+</html>

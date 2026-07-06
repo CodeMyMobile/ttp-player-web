@@ -179,7 +179,7 @@ const normalizeGroupLessonFilters = (filters?: GroupLessonsFilters) => {
 // (which reads as NaN). Returns null only when there's truly no digit — "All",
 // empty, or lesson-type fallbacks like "Open Group" — so the UI can show
 // "All levels" instead of inventing a range.
-const normalizeLevel = (level?: string | number): GroupLessonLevel | null => {
+export const normalizeLevel = (level?: string | number): GroupLessonLevel | null => {
   if (level !== undefined && level !== null) {
     const match = String(level).match(/\d+(?:\.\d+)?/);
     if (match) {

@@ -150,6 +150,17 @@
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.16);
 }
 
+.profile-manager__input--readonly {
+  background: #f8fafc;
+  color: #475569;
+  cursor: default;
+}
+
+.profile-manager__input--readonly:focus {
+  border-color: rgba(148, 163, 184, 0.6);
+  box-shadow: none;
+}
+
 .profile-manager__textarea {
   min-height: 120px;
   resize: vertical;

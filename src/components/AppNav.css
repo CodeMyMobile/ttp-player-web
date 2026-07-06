@@ -75,6 +75,26 @@
   font-style: normal;
 }
 
+/* Mobile-only center slot (e.g. league switcher folded into the nav). Desktop
+   hidden; only pages that pass `mobileCenter` render this element at all. */
+.app-nav__mobile-center {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .app-nav__mobile-center {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* Reclaim the wordmark's space for the switcher — dashboard-only, since the
+     modifier class is present only when a page passes `mobileCenter`. */
+  .app-nav--has-mobile-center .app-nav__brand {
+    display: none;
+  }
+}
+
 .app-nav__links {
   flex: 1 1 auto;
   gap: 8px;
@@ -513,6 +533,18 @@
 
 .app-nav__menu-item--danger {
   color: #b91c1c !important;
+}
+
+/* Primary nav links folded into the profile menu — mobile only.
+   Hidden on desktop so the dropdown stays account-actions-only. */
+.app-nav__menu-item--mobile {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .app-nav__menu-item--mobile {
+    display: flex;
+  }
 }
 
 .app-nav__dropdown a:hover,

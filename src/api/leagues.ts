@@ -77,6 +77,10 @@ export interface LeagueMatchSuggestion {
   time_variance_minutes?: number;
   distance_miles?: string | number | null;
   has_played_before?: boolean;
+  // Availability of the underlying match (backend may send either). Absent = treat
+  // as available (fail open) — see isLeagueSlotAvailable.
+  status?: string | null;
+  is_available?: boolean | null;
   [key: string]: unknown;
 }
 
@@ -84,13 +88,36 @@ export interface LeagueMatchNeed {
   id: number | string;
   league_id?: number | string;
   host_id?: number | string;
+  player_id?: number | string;
+  player_name?: string | null;
+  player_skill?: string | number | null;
   status?: string;
   start_date_time?: string;
   timezone?: string | null;
+  location?: string | null;
+  match_location?: string | null;
   location_text?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  distance_miles?: string | number | null;
+  has_played_before?: boolean;
+  time_variance_minutes?: number | null;
+  is_available?: boolean | null;
   league_visibility?: "league" | "open" | string;
   [key: string]: unknown;
 }
+
+// Is the underlying match still joinable? Backend may send is_available (bool) or
+// status ("open"/"confirmed"/…). Fail OPEN: if neither is present, treat as
+// available so nothing is wrongly hidden/disabled before the backend adds the flag.
+export const isLeagueSlotAvailable = (
+  item?: { status?: string | null; is_available?: boolean | null } | null,
+): boolean => {
+  if (!item) return true;
+  if (item.is_available === false) return false;
+  if (typeof item.status === "string" && item.status && item.status !== "open") return false;
+  return true;
+};
 
 export const listMyLeagues = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
   request<{ leagues: League[] }>("/leagues", { token, signal });
@@ -207,15 +234,22 @@ export const previewLeagueMatchNeed = ({
 export const getLeagueMatchNeeds = ({
   leagueId,
   token,
+  scope,
   signal,
 }: {
   leagueId: number | string;
   token?: string;
+  scope?: "all";
   signal?: AbortSignal;
 }) =>
-  request<{ league: League; myNeeds: LeagueMatchNeed[]; suggestions: LeagueMatchSuggestion[] }>(
+  request<{
+    league: League;
+    myNeeds?: LeagueMatchNeed[];
+    suggestions?: LeagueMatchSuggestion[];
+    needs?: LeagueMatchNeed[];
+  }>(
     `/leagues/${leagueId}/match-needs`,
-    { token, signal },
+    { token, signal, query: { scope } },
   );
 
 export const getLeagueResultOpponents = ({

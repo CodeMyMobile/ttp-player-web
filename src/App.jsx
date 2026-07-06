@@ -26,7 +26,6 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import OAuthPhoneCapture, { shouldCaptureProfilePhone } from "./components/OAuthPhoneCapture";
 import LessonInvitePage from "./pages/LessonInvitePage";
-import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import CoachProfilePage from "./pages/CoachProfilePage";
 import PlayerProfilePage from "./pages/PlayerProfilePage";
 import AccountProfilePage from "./pages/AccountProfilePage";
@@ -42,12 +41,17 @@ import PlayerLessonDetailsPage from "./pages/PlayerLessonDetailsPage";
 import MyCoachesPage from "./pages/MyCoachesPage";
 import LeaguesPage from "./pages/LeaguesPage";
 import LeagueDetailPage from "./pages/LeagueDetailPage";
+import LeagueDashboardPage from "./features/leagueDashboard/LeagueDashboardPage";
+import MatchBrowserPage from "./pages/MatchBrowserPage";
+import PostAvailabilityPage from "./pages/PostAvailabilityPage";
+import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
+import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
@@ -502,6 +506,38 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <LeagueDetailPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/dashboard"
+      element={(
+        <ProtectedRoute>
+          <LeagueDashboardPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/match-browser"
+      element={(
+        <ProtectedRoute>
+          <MatchBrowserPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/post-availability"
+      element={(
+        <ProtectedRoute>
+          <PostAvailabilityPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/leagues/:id/availability-review"
+      element={(
+        <ProtectedRoute>
+          <AvailabilityReviewPage />
         </ProtectedRoute>
       )}
     />

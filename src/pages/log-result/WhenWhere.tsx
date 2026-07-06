@@ -77,23 +77,23 @@ export function WhenWhere({ date, onDateChange, court, onCourtChange, courts }: 
       <div className="flex items-center gap-2 flex-wrap">
         <Chip active={date === TODAY} onClick={() => onDateChange(TODAY)}>Today</Chip>
         <Chip active={date === YESTERDAY} onClick={() => onDateChange(YESTERDAY)}>Yesterday</Chip>
-        <input type="date" max={TODAY} value={date} onChange={(e) => onDateChange(e.target.value || TODAY)} className="ml-auto rounded-lg border border-slate-200 px-2.5 py-2 text-base sm:text-sm font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40" />
+        <input type="date" max={TODAY} value={date} onChange={(e) => onDateChange(e.target.value || TODAY)} className="ml-auto rounded-lg border border-slate-200 px-2.5 py-1.5 text-base sm:text-sm font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40" />
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-2">
         {court ? (
-          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 grid place-items-center shrink-0 shadow-sm shadow-violet-600/30">
+          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 grid place-items-center shrink-0 shadow-sm shadow-violet-600/30">
               <MapPin className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-slate-900 truncate">{court.name}</div>
-              <div className="text-xs text-slate-500">{court.area}</div>
+              <div className="text-xs text-slate-500 truncate">{court.area}</div>
             </div>
             <button onClick={() => onCourtChange(null)} className="grid h-8 w-8 place-items-center text-slate-300 hover:text-rose-500 transition-colors" aria-label="Change court"><X className="h-4 w-4" /></button>
           </div>
         ) : (
-          <button onClick={() => setOpen((o) => !o)} className="w-full rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 p-3 flex items-center gap-2 text-sm font-semibold text-violet-600 hover:border-violet-400 hover:bg-violet-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40">
+          <button onClick={() => setOpen((o) => !o)} className="w-full rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/40 px-3 py-2.5 flex items-center gap-2 text-sm font-semibold text-violet-600 hover:border-violet-400 hover:bg-violet-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40">
             <MapPin className="h-4 w-4 shrink-0" /> Choose a court
           </button>
         )}

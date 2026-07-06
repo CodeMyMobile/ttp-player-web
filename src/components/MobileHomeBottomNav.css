@@ -1,0 +1,208 @@
+/* Global mobile bottom navigation — 5 slots with a raised center FAB.
+   Mobile-only: shown by default, hidden at >=768px (see the min-width query
+   at the bottom). Reuses the app violet (--color-primary) and the muted ink
+   tone for inactive tabs. Kept self-contained in this colocated file. */
+
+.mbn {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  /* Safe-area padded so the labels clear the home indicator on notched phones. */
+  padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.985);
+  border-top: 1px solid #dbe3ef;
+  backdrop-filter: blur(14px);
+  /* Let the raised FAB poke above the bar's top edge. */
+  overflow: visible;
+}
+
+.mbn__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3, #8a8f9b);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mbn__tab.is-active {
+  color: var(--color-primary, #8b5cf6);
+}
+
+.mbn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+}
+
+.mbn__icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.1;
+}
+
+.mbn__label {
+  /* One word, never wraps. */
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* Center slot is a spacer; the FAB is centered inside it and raised. */
+.mbn__fab-slot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.mbn__fab {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-14px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 3px solid var(--ph-surface, #fff);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-primary, #8b5cf6), var(--color-primary-dark, #7c3aed));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(124, 58, 237, 0.38);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mbn__fab svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.4;
+}
+
+.mbn__fab:active {
+  transform: translateX(-50%) translateY(-12px) scale(0.96);
+}
+
+/* ===== Quick-action bottom sheet ===== */
+.mbn-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the sticky top nav (z-index 80) so the dim covers the whole page,
+     including the header — not just the content below it. */
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(16, 24, 40, 0.45);
+  animation: mbn-fade-in 160ms ease;
+}
+
+.mbn-sheet {
+  width: 100%;
+  max-width: 520px;
+  background: var(--ph-surface, #fff);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -14px 40px rgba(15, 23, 42, 0.18);
+  animation: mbn-slide-up 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  touch-action: none;
+}
+
+.mbn-sheet__handle {
+  width: 40px;
+  height: 4px;
+  margin: 8px auto 14px;
+  border-radius: 999px;
+  background: #d0d5dd;
+}
+
+.mbn-sheet__title {
+  margin: 0 0 12px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-3, #8a8f9b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mbn-sheet__action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 14px;
+  margin-bottom: 10px;
+  border: 1px solid #eaecf0;
+  border-radius: 14px;
+  background: #fff;
+  color: #101828;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mbn-sheet__action:last-child {
+  margin-bottom: 0;
+}
+
+.mbn-sheet__action:active {
+  background: #f5f7fb;
+}
+
+.mbn-sheet__action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-primary, #8b5cf6), var(--color-primary-dark, #7c3aed));
+  color: #fff;
+  flex: none;
+}
+
+@keyframes mbn-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mbn-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Honor reduced-motion: no slide/fade animation. */
+@media (prefers-reduced-motion: reduce) {
+  .mbn-sheet-backdrop,
+  .mbn-sheet {
+    animation: none;
+  }
+}
+
+/* Desktop: this is a mobile-only nav. */
+@media (min-width: 768px) {
+  .mbn,
+  .mbn-sheet-backdrop {
+    display: none;
+  }
+}

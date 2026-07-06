@@ -12,6 +12,7 @@ interface MainLayoutProps {
   onMobileBack?: () => void;
   hideMobileLocation?: boolean;
   pageClassName?: string;
+  mobileCenter?: ReactNode;
 }
 
 const MainLayout = ({
@@ -23,6 +24,7 @@ const MainLayout = ({
   onMobileBack,
   hideMobileLocation = false,
   pageClassName = "",
+  mobileCenter,
 }: MainLayoutProps) => {
   const isHomeMobileChrome = mobileChrome === "home";
   const isImmersiveMobileChrome = mobileChrome === "immersive";
@@ -38,6 +40,7 @@ const MainLayout = ({
           showBack={Boolean(onMobileBack)}
           onBack={onMobileBack}
           hideLocation={hideMobileLocation}
+          mobileCenter={mobileCenter}
         />
       ) : null}
       <main className="main-layout__content">{children}</main>
