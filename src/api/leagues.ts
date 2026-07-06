@@ -34,6 +34,12 @@ export interface LeaguePlayer {
   current_rating?: number | string | null;
   usta_rating?: number | string | null;
   uta_rating?: number | string | null;
+  // Backend-computed conversions from the TRP (current_rating), distinct from the
+  // player-entered usta_rating / uta_rating above.
+  calculated_ntrp?: number | string | null;
+  calculated_utr?: number | string | null;
+  // Used only as the base for an estimated NTRP when no real value exists.
+  rating_gender?: string | null;
   phone?: string | null;
   email?: string | null;
   membership_status?: string;

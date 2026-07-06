@@ -144,7 +144,10 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, hideTabBar }: Le
               <div className="pinfo">
                 <div className="nm">{player.name}</div>
                 <div className="rt">
-                  TRP {player.rating.toFixed(1)} ·{" "}
+                  TRP {player.rating.toFixed(1)}
+                  {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
+                  {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : ""}
+                  {" · "}
                   <span className={recordClass(player.wins, player.losses)}>
                     {player.wins}–{player.losses}
                   </span>

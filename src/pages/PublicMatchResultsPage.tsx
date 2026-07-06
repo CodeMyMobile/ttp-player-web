@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Trophy, BarChart3, Users, Activity, Search, RefreshCw } from "lucide-react";
 import { buildApiUrl } from "../api/config";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
+import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
 
 type Ranking = {
   rank: number;
@@ -18,6 +19,10 @@ type Ranking = {
   is_estimate: boolean;
   usta_rating?: string | number | null;
   uta_rating?: string | number | null;
+  // Backend-computed conversions from the TRP — preferred over the entered ratings
+  // so this page and the league dashboard show the same values.
+  calculated_ntrp?: string | number | null;
+  calculated_utr?: string | number | null;
   rating_gender?: string | null;
   rating_leagues?: string | null;
 };
@@ -58,22 +63,11 @@ const formatRating = (value: unknown, fallback = "-") => {
   return parsed === null ? fallback : parsed.toFixed(3);
 };
 
-const estimateNtrp = (ranking: Ranking) => {
-  const direct = toNumber(ranking.usta_rating);
-  if (direct !== null && direct > 0 && direct <= 7) return direct.toFixed(2);
-  const rating = toNumber(ranking.current_rating);
-  if (rating === null) return "-";
-  const base = ranking.rating_gender === "F" ? 4.5 : 5.0;
-  const ntrp = Math.max(2.5, Math.min(6.0, Math.round((3.5 + (rating - base) * 0.5) * 4) / 4));
-  return ntrp.toFixed(2);
-};
+const estimateNtrp = (ranking: Ranking) =>
+  deriveNtrp(ranking.calculated_ntrp ?? ranking.usta_rating, ranking.current_rating, ranking.rating_gender).value ?? "-";
 
-const estimateUtr = (ranking: Ranking) => {
-  const direct = toNumber(ranking.uta_rating);
-  if (direct !== null && direct > 0) return direct.toFixed(1);
-  const rating = toNumber(ranking.current_rating);
-  return rating === null ? "-" : (Math.round((rating * 2 - 5) * 10) / 10).toFixed(1);
-};
+const estimateUtr = (ranking: Ranking) =>
+  deriveUtr(ranking.calculated_utr ?? ranking.uta_rating, ranking.current_rating).value ?? "-";
 
 const displayLeague = (ranking: Ranking) => {
   const tags = String(ranking.rating_leagues || "").split(/\s+/).filter(Boolean);
