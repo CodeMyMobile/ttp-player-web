@@ -4,7 +4,7 @@ import { getPersonalDetails } from "../services/auth";
 import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
-import { formatCalculatedRating, normalizeProfileRating } from "../utils/profileRatings";
+import { normalizeProfileRating } from "../utils/profileRatings";
 
 import "./ProfileManager.css";
 
@@ -207,73 +207,6 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         </div>
       ) : (
         <>
-          <div className="profile-manager__field">
-            <label className="profile-manager__label" htmlFor="profile-full-name">
-              Full name
-            </label>
-            <input
-              id="profile-full-name"
-              className="profile-manager__input"
-              type="text"
-              placeholder="Jane Doe"
-              value={details.full_name}
-              onChange={(e) =>
-                setDetails((prev) => ({
-                  ...prev,
-                  full_name: e.target.value,
-                }))
-              }
-              autoFocus
-            />
-          </div>
-
-          <div className="profile-manager__field">
-            <label className="profile-manager__label" htmlFor="profile-email">
-              Email
-            </label>
-            <input
-              id="profile-email"
-              className="profile-manager__input"
-              type="email"
-              value={details.email}
-              readOnly
-            />
-            <p className="profile-manager__helper">Email is managed by your account sign-in settings.</p>
-          </div>
-
-          <div className="profile-manager__field">
-            <label className="profile-manager__label" htmlFor="profile-mobile">
-              Mobile number
-            </label>
-            <input
-              id="profile-mobile"
-              className="profile-manager__input"
-              type="tel"
-              placeholder="(555) 123-4567"
-              value={phoneInput}
-              onChange={(e) => handlePhoneChange(e.target.value)}
-              maxLength={14}
-              inputMode="tel"
-            />
-            <p className="profile-manager__helper">We&apos;ll use this number to share match reminders.</p>
-          </div>
-
-          {details.phone ? (
-            <label className="profile-manager__field" htmlFor="profile-sms-consent">
-              <span className="profile-manager__label">SMS consent</span>
-              <span className="profile-manager__helper">
-                <input
-                  id="profile-sms-consent"
-                  type="checkbox"
-                  checked={smsConsentGranted}
-                  onChange={(event) => setSmsConsentGranted(event.target.checked)}
-                  required
-                />{" "}
-                I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
-              </span>
-            </label>
-          ) : null}
-
           <div className="profile-manager__field profile-manager__field--photo">
             <label className="profile-manager__label" htmlFor="profile-photo">
               Profile photo
@@ -302,6 +235,63 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
             </div>
           </div>
 
+          <h3 className="profile-manager__subhead">Contact and identity</h3>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-full-name">
+              Full name
+            </label>
+            <input
+              id="profile-full-name"
+              className="profile-manager__input"
+              type="text"
+              placeholder="Jane Doe"
+              value={details.full_name}
+              onChange={(e) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  full_name: e.target.value,
+                }))
+              }
+              autoFocus
+            />
+          </div>
+
+          <div className="profile-manager__field">
+            <div className="profile-manager__label-row">
+              <label className="profile-manager__label" htmlFor="profile-email">
+                Email
+              </label>
+              <span className="profile-manager__tag">Managed</span>
+            </div>
+            <input
+              id="profile-email"
+              className="profile-manager__input profile-manager__input--readonly"
+              type="email"
+              value={details.email}
+              readOnly
+              disabled
+            />
+            <p className="profile-manager__helper">Email is managed by your account sign-in settings.</p>
+          </div>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-mobile">
+              Mobile number
+            </label>
+            <input
+              id="profile-mobile"
+              className="profile-manager__input"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phoneInput}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              maxLength={14}
+              inputMode="tel"
+            />
+            <p className="profile-manager__helper">We&apos;ll use this number to share match reminders.</p>
+          </div>
+
           <div className="profile-manager__field">
             <label className="profile-manager__label" htmlFor="profile-dob">
               Date of birth
@@ -320,98 +310,21 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
             />
           </div>
 
-          <div className="profile-manager__rating-grid">
-            <div className="profile-manager__field">
-              <label className="profile-manager__label" htmlFor="profile-usta">
-                USTA rating
-              </label>
-              <input
-                id="profile-usta"
-                className="profile-manager__input"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="0"
-                placeholder="e.g. 3.5"
-                value={details.usta_rating}
-                onChange={(e) =>
-                  setDetails((prev) => ({
-                    ...prev,
-                    usta_rating: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="profile-manager__field">
-              <label className="profile-manager__label" htmlFor="profile-uta">
-                UTA rating
-              </label>
-              <input
-                id="profile-uta"
-                className="profile-manager__input"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                min="0"
-                placeholder="e.g. 7.0"
-                value={details.uta_rating}
-                onChange={(e) =>
-                  setDetails((prev) => ({
-                    ...prev,
-                    uta_rating: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="profile-manager__rating-grid">
-            <div className="profile-manager__field">
-              <label className="profile-manager__label" htmlFor="profile-calculated-ntrp">
-                Calculated NTRP
-              </label>
-              <input
-                id="profile-calculated-ntrp"
-                className="profile-manager__input profile-manager__input--readonly"
-                type="text"
-                value={formatCalculatedRating(details.calculated_ntrp)}
-                readOnly
-              />
-              <p className="profile-manager__helper">Calculated from your TRP rating after match results.</p>
-            </div>
-            <div className="profile-manager__field">
-              <label className="profile-manager__label" htmlFor="profile-calculated-utr">
-                Calculated UTR
-              </label>
-              <input
-                id="profile-calculated-utr"
-                className="profile-manager__input profile-manager__input--readonly"
-                type="text"
-                value={formatCalculatedRating(details.calculated_utr)}
-                readOnly
-              />
-              <p className="profile-manager__helper">Calculated from your TRP rating after match results.</p>
-            </div>
-          </div>
-
-          <div className="profile-manager__field">
-            <label className="profile-manager__label" htmlFor="profile-about">
-              About me
+          {details.phone ? (
+            <label className="profile-manager__field" htmlFor="profile-sms-consent">
+              <span className="profile-manager__label">SMS consent</span>
+              <span className="profile-manager__helper">
+                <input
+                  id="profile-sms-consent"
+                  type="checkbox"
+                  checked={smsConsentGranted}
+                  onChange={(event) => setSmsConsentGranted(event.target.checked)}
+                  required
+                />{" "}
+                I agree to receive SMS messages from The Tennis Plan. Msg &amp; data rates may apply. Reply STOP to opt out.
+              </span>
             </label>
-            <textarea
-              id="profile-about"
-              className="profile-manager__textarea"
-              rows={4}
-              placeholder="Share a quick introduction for other players"
-              value={details.about_me}
-              onChange={(e) =>
-                setDetails((prev) => ({
-                  ...prev,
-                  about_me: e.target.value,
-                }))
-              }
-            />
-          </div>
+          ) : null}
         </>
       )}
 

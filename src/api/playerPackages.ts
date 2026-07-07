@@ -16,6 +16,23 @@ export interface CoachPackageListResponse {
   packages?: CoachPackage[];
 }
 
+// Snapshot of the purchased package captured at purchase time (lives on
+// metadata.package_snapshot in the raw payload). Present in the response but
+// previously untyped.
+export interface PackageSnapshot {
+  name?: string;
+  description?: string;
+  lesson_count?: number;
+  total_price?: string | number;
+  validity_months?: number;
+}
+
+export interface PackagePurchaseMetadata {
+  package_snapshot?: PackageSnapshot;
+  charged_at?: string;
+  [key: string]: unknown;
+}
+
 export interface PackagePurchase {
   id?: number | string;
   coach_id?: number | string;
@@ -23,16 +40,20 @@ export interface PackagePurchase {
   credits_total?: number;
   credits_used?: number;
   credits_remaining?: number;
+  // Present in the raw payload but previously dropped from this type.
+  amount_paid?: string;
+  currency?: string;
   expires_at?: string | null;
   purchased_at?: string | null;
   reserved_at?: string | null;
+  created_at?: string | null;
   status?: string;
   paid?: boolean;
   reserved_payment_method_id?: string | null;
   stripe_payment_intent_id?: string | null;
   charged_payment_intent_id?: string | null;
   lesson_types_allowed?: string[];
-  metadata?: Record<string, unknown>;
+  metadata?: PackagePurchaseMetadata;
   [key: string]: unknown;
 }
 
@@ -65,7 +86,9 @@ export interface FetchCoachPackagesParams {
 
 export interface FetchPackageCreditsParams {
   token: string;
-  coachId: number | string;
+  // Omit to request all of the player's credits across coaches (the endpoint drops
+  // the coachId filter when it's absent). Per-coach callers still pass it.
+  coachId?: number | string;
   includeExpired?: boolean;
   signal?: AbortSignal;
 }
