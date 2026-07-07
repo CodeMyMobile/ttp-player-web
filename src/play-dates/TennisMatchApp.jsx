@@ -933,6 +933,7 @@ const resolveAuthSession = (data = {}, fallback = {}) => {
 
 const TennisMatchApp = ({
   externalUser = null,
+  allowStoredUser = true,
   onExternalLogout,
   hideAppHeader = false,
   openCreateOnReady = false,
@@ -1246,6 +1247,7 @@ const TennisMatchApp = ({
   }, []);
 
   useEffect(() => {
+    if (!allowStoredUser) return;
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
@@ -1260,7 +1262,7 @@ const TennisMatchApp = ({
         console.warn("Failed to parse stored user", error);
       }
     }
-  }, []);
+  }, [allowStoredUser]);
 
   useEffect(() => {
     if (!externalUser || typeof externalUser !== "object") return;
