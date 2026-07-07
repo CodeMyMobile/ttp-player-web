@@ -1,6 +1,7 @@
 import moment from "moment";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { buildGroupLessonShareUrl } from "../../utils/shareLinks";
 
 export type BookingStatus = "PENDING" | "CONFIRMED";
 
@@ -157,7 +158,7 @@ const BookingStatusModal = ({
   const timeLabel = formatTimeLabel(data.timeLabel);
   const isConfirmedGroup = !isPending && Boolean(data.isGroup);
   const shareUrl = data.lessonId
-    ? `https://thetennisplan.com/classes/${data.lessonId}`
+    ? buildGroupLessonShareUrl(data.lessonId)
     : window.location.href;
   const spotsRemaining = Math.max(data.spotsRemainingAfterBooking ?? 0, 0);
   const shareMessage =

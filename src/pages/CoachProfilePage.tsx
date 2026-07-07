@@ -79,6 +79,7 @@ import {
   filterCoachPackagesByLessonType,
   getCoachPackageLessonTypeOptions,
 } from "../utils/coachPackageFilters.js";
+import { buildCoachShareUrl } from "../utils/shareLinks.js";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -3746,10 +3747,12 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
               }
             }}
             onShareWithFriends={() => {
+              const shareUrl = buildCoachShareUrl(profile?.id);
               if (navigator.share) {
                 void navigator.share({
                   title: bookingConfirmation.data.lessonTypeLabel,
                   text: `Join me for ${bookingConfirmation.data.lessonTypeLabel} with ${bookingConfirmation.data.coachName}.`,
+                  url: shareUrl || undefined,
                 });
               }
             }}
