@@ -217,7 +217,7 @@ const buildMatchesUser = (authUser) => {
 };
 
 const PlayDatesAppRoute = () => {
-  const { user, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const matchesUser = useMemo(() => buildMatchesUser(user), [user]);
@@ -226,40 +226,40 @@ const PlayDatesAppRoute = () => {
   const isCreatingMatch = playDatesScreen === "create";
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     try {
       localStorage.setItem("user", JSON.stringify(matchesUser));
     } catch {
       // ignore storage errors
     }
-  }, [matchesUser]);
+  }, [isAuthenticated, matchesUser]);
 
   const openNewMatch = useCallback(() => {
     window.dispatchEvent(new CustomEvent("play-dates:new-match"));
   }, []);
 
   return (
-    <ProtectedRoute>
-      <div className={`dashboard-page${isCreatingMatch ? " dashboard-page--playdates-create" : ""}`}>
-        <AppNav
-          onNewMatch={openNewMatch}
-          hideMobileNewMatch
-          hideMobileNotifications
-        />
-        <main className="main-layout__content">
-          <PlayDatesQueryClientProvider client={playDatesQueryClient}>
-            <PlayDatesMatchesApp
-              externalUser={matchesUser}
-              onExternalLogout={logout}
-              hideAppHeader
-              openCreateOnReady={shouldOpenCreateOnReady}
-              onCreateReadyHandled={() => navigate("/matches", { replace: true })}
-              onScreenChange={setPlayDatesScreen}
-            />
-          </PlayDatesQueryClientProvider>
-        </main>
-        {!isCreatingMatch ? <MobileHomeBottomNav /> : null}
-      </div>
-    </ProtectedRoute>
+    <div className={`dashboard-page${isCreatingMatch ? " dashboard-page--playdates-create" : ""}`}>
+      <AppNav
+        onNewMatch={openNewMatch}
+        hideMobileNewMatch
+        hideMobileNotifications
+      />
+      <main className="main-layout__content">
+        <PlayDatesQueryClientProvider client={playDatesQueryClient}>
+          <PlayDatesMatchesApp
+            externalUser={isAuthenticated ? matchesUser : null}
+            allowStoredUser={isAuthenticated}
+            onExternalLogout={logout}
+            hideAppHeader
+            openCreateOnReady={shouldOpenCreateOnReady}
+            onCreateReadyHandled={() => navigate("/matches", { replace: true })}
+            onScreenChange={setPlayDatesScreen}
+          />
+        </PlayDatesQueryClientProvider>
+      </main>
+      {!isCreatingMatch ? <MobileHomeBottomNav /> : null}
+    </div>
   );
 };
 
@@ -569,11 +569,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/find-players"
-      element={(
-        <ProtectedRoute>
-          <FindPlayersPage />
-        </ProtectedRoute>
-      )}
+      element={<FindPlayersPage />}
     />
     <Route
       path="/players/:id"
@@ -593,11 +589,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/group-lessons"
-      element={(
-        <ProtectedRoute>
-          <GroupLessonsPage />
-        </ProtectedRoute>
-      )}
+      element={<GroupLessonsPage />}
     />
     <Route
       path="/group-lessons/:id"

@@ -240,7 +240,7 @@ export interface PlayerExternalLesson extends LessonSummary {
 }
 
 export interface PlayerExternalLessonsParams extends PaginationParams {
-  token: string;
+  token?: string;
   search?: string;
   position?: PositionPayload;
   filters?: FiltersPayload;
@@ -272,7 +272,7 @@ export const getPlayerExternalLessons = async ({
   });
 
 export interface PlayerExternalLessonByIdParams {
-  token: string;
+  token?: string;
   lessonId: number | string;
   signal?: AbortSignal;
 }
@@ -712,6 +712,35 @@ export const getSuggestedPlayerCheckLocation = async ({
   return request<Record<string, unknown>>("/player/surveys/suggested/player/getchecklocation", {
     method: "POST",
     token,
+    query: buildBody({
+      perPage,
+      page,
+      search,
+      locationSearch: location,
+      radius,
+    }),
+    body: buildBody({
+      position,
+      filters: hasFilters ? filters : undefined,
+    }),
+  });
+};
+
+export type PublicSuggestedPlayerCheckLocationParams = Omit<SuggestedPlayerCheckLocationParams, "token">;
+
+export const getPublicSuggestedPlayerCheckLocation = async ({
+  perPage = 5,
+  page = 1,
+  search = "",
+  location = "",
+  position,
+  radius,
+  filters = {},
+}: PublicSuggestedPlayerCheckLocationParams) => {
+  const hasFilters = Boolean(filters && Object.keys(filters).length);
+
+  return request<Record<string, unknown>>("/player/surveys/suggested/player/public-getchecklocation", {
+    method: "POST",
     query: buildBody({
       perPage,
       page,

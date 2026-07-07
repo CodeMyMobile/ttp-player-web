@@ -2,7 +2,7 @@
 
 import Autocomplete from "react-google-autocomplete";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -13,7 +13,11 @@ import MatchProfileModal from "../components/players/MatchProfileModal";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography } from "../lib/theme";
-import { getAllSurveyQuestionAnswered, getSuggestedPlayerCheckLocation } from "../api/playerHome";
+import {
+  getAllSurveyQuestionAnswered,
+  getPublicSuggestedPlayerCheckLocation,
+  getSuggestedPlayerCheckLocation,
+} from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import {
@@ -781,6 +785,7 @@ const BestMatchCard = ({ player, onConnect, onViewProfile, isMobile }: BestMatch
 
 const FindPlayersPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
@@ -820,6 +825,10 @@ const FindPlayersPage = () => {
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string>(() =>
     storedLocation ? formatCoordinatesLabel(storedLocation) : "",
   );
+
+  const requireSignIn = useCallback(() => {
+    navigate("/login", { state: { from: location } });
+  }, [location, navigate]);
 
   useEffect(() => {
     const syncStoredLocation = () => {
@@ -1075,15 +1084,7 @@ const FindPlayersPage = () => {
   useEffect(() => {
     let isCancelled = false;
 
-    if (!playerToken) {
-      setPlayers([]);
-      setStatus("ready");
-      setMode("error");
-      setError("Please sign in to search for players.");
-      return undefined;
-    }
-
-    if (!matchProfileCheckLoaded) {
+    if (playerToken && !matchProfileCheckLoaded) {
       setPlayers([]);
       setStatus("loading");
       setMode("normal");
@@ -1104,8 +1105,7 @@ const FindPlayersPage = () => {
       setError(null);
       try {
         const radiusValue = parseRadius(appliedRadius);
-        const response = await getSuggestedPlayerCheckLocation({
-          token: playerToken,
+        const requestParams = {
           perPage: 20,
           page: 1,
           search: appliedSearchTerm,
@@ -1114,7 +1114,13 @@ const FindPlayersPage = () => {
           position: position
             ? { latitude: position.latitude, longitude: position.longitude }
             : undefined,
-        });
+        };
+        const response = playerToken
+          ? await getSuggestedPlayerCheckLocation({
+              token: playerToken,
+              ...requestParams,
+            })
+          : await getPublicSuggestedPlayerCheckLocation(requestParams);
         if (isCancelled) {
           return;
         }
@@ -1227,18 +1233,26 @@ const FindPlayersPage = () => {
   const openConnectModalForPlayer = useCallback(
     (player: DirectoryPlayer) => {
       if (!hasCompletedMatchProfile) {
+        if (!playerToken) {
+          requireSignIn();
+          return;
+        }
         setProfileModalOpen(true);
         return;
       }
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasCompletedMatchProfile],
+    [hasCompletedMatchProfile, playerToken, requireSignIn],
   );
 
   const handleShareIntro = useCallback(
     (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
+        if (!playerToken) {
+          requireSignIn();
+          return;
+        }
         window.alert("Create your match profile to connect.");
         return;
       }
@@ -1260,12 +1274,16 @@ const FindPlayersPage = () => {
 
       window.location.assign(buildSmsUrl(recipientPhone, message));
     },
-    [displayName, matchProfile, profileShareUrl],
+    [displayName, matchProfile, playerToken, profileShareUrl, requireSignIn],
   );
 
   const handleCreateMatchPlayIntent = useCallback(
     (nextPlayer: DirectoryPlayer) => {
       if (!matchProfile) {
+        if (!playerToken) {
+          requireSignIn();
+          return;
+        }
         window.alert("Create your match profile to start building MatchPlay invites.");
         return;
       }
@@ -1287,7 +1305,7 @@ const FindPlayersPage = () => {
       navigate("/matches/create", { state: { connectIntent } });
       closeConnectModal();
     },
-    [closeConnectModal, displayName, matchProfile, navigate],
+    [closeConnectModal, displayName, matchProfile, navigate, playerToken, requireSignIn],
   );
 
   const handleSearch = () => {

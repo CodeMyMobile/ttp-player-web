@@ -287,6 +287,9 @@ const GroupLessonsPage = () => {
     [user],
   );
   const routeExternalLessonId = externalLessonId ?? externallessonid;
+  const requireSignIn = useCallback(() => {
+    navigate("/login", { state: { from: location } });
+  }, [location, navigate]);
 
   useEffect(() => {
     const syncStoredLocation = () => {
@@ -765,10 +768,6 @@ const GroupLessonsPage = () => {
 
     const loadLessons = async () => {
       const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
-      if (!token) {
-        setLoadError("Missing authentication token.");
-        return;
-      }
 
       setIsLoading(true);
       setLoadError(null);
@@ -787,7 +786,7 @@ const GroupLessonsPage = () => {
 
         const [groupResponse, externalResponse] = await Promise.all([
           fetchUpcomingGroupLessons({
-            token,
+            ...(token ? { token } : {}),
             perPage: 50,
             page: 1,
             ...(resolvedPosition ? { position: resolvedPosition } : {}),
@@ -795,7 +794,7 @@ const GroupLessonsPage = () => {
             signal: controller.signal,
           }),
           getPlayerExternalLessons({
-            token,
+            ...(token ? { token } : {}),
             perPage: 50,
             page: 1,
             ...(resolvedPosition ? { position: resolvedPosition } : {}),
@@ -847,16 +846,12 @@ const GroupLessonsPage = () => {
 
     const loadExternalLesson = async () => {
       const token = authToken ?? getStoredAuthToken({ preferScheme: "token" });
-      if (!token) {
-        setLoadError("Missing authentication token.");
-        return;
-      }
 
       setExternalClickError(null);
 
       try {
         const response = await getPlayerExternalLessonById({
-          token,
+          ...(token ? { token } : {}),
           lessonId: routeExternalLessonId,
           signal: controller.signal,
         });
@@ -1499,6 +1494,10 @@ const GroupLessonsPage = () => {
                             type="button"
                             className="primary-button"
                             onClick={() => {
+                              if (!authToken) {
+                                requireSignIn();
+                                return;
+                              }
                               if (isExternal) {
                                 openExternalLessonDialog(lesson);
                                 return;
