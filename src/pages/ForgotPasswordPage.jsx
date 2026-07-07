@@ -16,7 +16,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
     try {
       await forgotPassword(email);
-      setSuccess("Password reset instructions have been sent to your inbox.");
+      setSuccess("Password reset instructions have been sent by email or text message if we have a phone number on file.");
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Unable to process the request. Please try again.");
     } finally {
@@ -29,7 +29,7 @@ const ForgotPasswordPage = () => {
       <div className="auth-card">
         <div>
           <h1>Forgot password</h1>
-          <p>Enter the email address associated with your account and we will send you a reset link.</p>
+          <p>Enter the email address associated with your account and we will send a reset link by email or text message when possible.</p>
         </div>
         {error ? <div className="error-message">{error}</div> : null}
         {success ? <div className="success-message">{success}</div> : null}
