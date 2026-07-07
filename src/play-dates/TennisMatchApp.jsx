@@ -934,6 +934,7 @@ const resolveAuthSession = (data = {}, fallback = {}) => {
 const TennisMatchApp = ({
   externalUser = null,
   allowStoredUser = true,
+  allowAnonymousBrowse = false,
   onExternalLogout,
   hideAppHeader = false,
   openCreateOnReady = false,
@@ -6749,7 +6750,7 @@ const TennisMatchApp = ({
     pendingInvites.length,
   ]);
 
-  const shouldShowLanding = !currentUser && currentScreen === "browse";
+  const shouldShowLanding = !currentUser && currentScreen === "browse" && !allowAnonymousBrowse;
 
   return (
     <div className="min-h-screen bg-gray-50">

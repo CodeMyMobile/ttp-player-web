@@ -250,6 +250,7 @@ const PlayDatesAppRoute = () => {
           <PlayDatesMatchesApp
             externalUser={isAuthenticated ? matchesUser : null}
             allowStoredUser={isAuthenticated}
+            allowAnonymousBrowse
             onExternalLogout={logout}
             hideAppHeader
             openCreateOnReady={shouldOpenCreateOnReady}
