@@ -1,4 +1,5 @@
 import api, { unwrap } from "./api";
+import { buildMatchShareUrl } from "../../utils/shareLinks.js";
 import { countUniqueMatchOccupants } from "../utils/participants";
 
 const qs = (params) => {
@@ -44,7 +45,9 @@ export const createMatch = async (match) => {
     createdMatch?.id ?? createdMatch?.match_id ?? createdMatch?.matchId ?? null;
 
   let shareUrl =
-    (response && typeof response === "object" && response.shareUrl) || null;
+    (matchId && buildMatchShareUrl(matchId)) ||
+    (response && typeof response === "object" && response.shareUrl) ||
+    null;
 
   if (matchId && !shareUrl) {
     try {
@@ -412,8 +415,9 @@ export const sendInvites = (matchId, { playerIds = [], phoneNumbers = [] } = {})
     })
   );
 
-export const getShareLink = (matchId) =>
-  unwrap(api(`/matches/${matchId}/share-link`));
+export const getShareLink = async (matchId) => ({
+  shareUrl: buildMatchShareUrl(matchId),
+});
 
 export const notifyMatchPlayers = (matchId, payload = {}) =>
   unwrap(

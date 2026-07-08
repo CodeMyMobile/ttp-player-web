@@ -38,6 +38,7 @@ import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
+import { buildGroupLessonShareUrl } from "../utils/shareLinks";
 import { fetchPublicLessonById } from "../api/playerLessons";
 
 import "./GroupLessonDetailsPage.css";
@@ -885,7 +886,7 @@ const GroupLessonDetailsPage = () => {
     ? groupCoachFee + groupServiceFee
     : groupCoachFee + groupCreditFee + groupServiceFee;
   const handleShare = async () => {
-    const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    const shareUrl = buildGroupLessonShareUrl(lesson.id);
     if (!shareUrl) return;
 
     if (navigator.share) {
