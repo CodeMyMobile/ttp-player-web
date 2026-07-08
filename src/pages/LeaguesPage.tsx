@@ -25,7 +25,7 @@ const formatRange = (league: League) => {
 };
 
 const LeaguesPage = () => {
-  const { user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -97,8 +97,8 @@ const LeaguesPage = () => {
         <header className="leagues-page__header">
           <div>
             <p className="leagues-page__eyebrow">Match play</p>
-            <h1>My Leagues</h1>
-            <p>Manage flex league standings, opponents, results, and matches.</p>
+            <h1>{isAuthenticated ? "My Leagues" : "Leagues"}</h1>
+            <p>{isAuthenticated ? "Manage flex league standings, opponents, results, and matches." : "Browse flex league standings, players, results, and open matches."}</p>
           </div>
         </header>
 
@@ -109,13 +109,13 @@ const LeaguesPage = () => {
           <div className="leagues-page__empty">
             <Trophy size={30} />
             <h2>No leagues yet</h2>
-            <p>Your active flex leagues will appear here after a coach or admin adds you.</p>
+            <p>{isAuthenticated ? "Your active flex leagues will appear here after a coach or admin adds you." : "Active public flex leagues will appear here when they are available."}</p>
           </div>
         ) : null}
 
         <div className="leagues-page__grid">
           {leagues.map((league) => (
-            <Link className="league-card" to={`/leagues/${league.id}/dashboard`} key={league.id}>
+            <Link className="league-card" to={`/leagues/${league.id}`} key={league.id}>
               <div className="league-card__main">
                 <span className="league-card__icon">
                   <Trophy size={18} />
