@@ -95,6 +95,35 @@ const defaultNeedLocation = {
   longitude: -118.4556,
 };
 
+// Resolve a location string to coordinates via Google Geocoding. Used as a safety net so
+// a match need is never posted with null lat/lng — which the backend treats as (0,0),
+// producing the ~7,800-mile distances. Resolves null if geocoding is unavailable/fails.
+const geocodeAddress = (
+  address: string,
+): Promise<{ latitude: number; longitude: number } | null> =>
+  new Promise((resolve) => {
+    if (!address || typeof google === "undefined" || !google?.maps?.Geocoder) {
+      resolve(null);
+      return;
+    }
+    try {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode(
+        { address, componentRestrictions: { country: "us" } },
+        (results, status) => {
+          const location = results?.[0]?.geometry?.location;
+          if (status === "OK" && location) {
+            resolve({ latitude: location.lat(), longitude: location.lng() });
+          } else {
+            resolve(null);
+          }
+        },
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+
 const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: string) => {
   const location = need?.location_text || fallbackLocation;
   const timezone = need?.timezone || DEFAULT_LEAGUE_TIMEZONE;
@@ -308,18 +337,33 @@ const LeagueDetailPage = () => {
     setNeedError(null);
   };
 
-  const buildNeedPayload = () => {
-    const isDefaultPenmar = normalizeIdentity(needLocation) === normalizeIdentity(defaultNeedLocation.label);
-    const latitude = needLatitude ?? (isDefaultPenmar ? defaultNeedLocation.latitude : null);
-    const longitude = needLongitude ?? (isDefaultPenmar ? defaultNeedLocation.longitude : null);
+  // Coordinates for the need: prefer coords captured from a selected place, then the
+  // default court, then a geocode of the current location text. onChange nulls the coords
+  // whenever the text changes (so stale coords never survive an edit), and this recovers
+  // them at submit — closing the race where onChange clobbered onPlaceSelected's coords.
+  const resolveNeedCoords = async (): Promise<{
+    latitude: number | null;
+    longitude: number | null;
+  }> => {
+    if (needLatitude != null && needLongitude != null) {
+      return { latitude: needLatitude, longitude: needLongitude };
+    }
+    if (normalizeIdentity(needLocation) === normalizeIdentity(defaultNeedLocation.label)) {
+      return { latitude: defaultNeedLocation.latitude, longitude: defaultNeedLocation.longitude };
+    }
+    const geo = await geocodeAddress(needLocation);
+    return { latitude: geo?.latitude ?? null, longitude: geo?.longitude ?? null };
+  };
 
+  const buildNeedPayload = async () => {
+    const { latitude, longitude } = await resolveNeedCoords();
     return {
       date: needDate,
       time: needTime,
       location: needLocation,
       latitude,
       longitude,
-      visibility: shareWithLeagueOnly ? "league" as const : "open" as const,
+      visibility: shareWithLeagueOnly ? ("league" as const) : ("open" as const),
       timezone: "America/Los_Angeles",
     };
   };
@@ -330,10 +374,15 @@ const LeagueDetailPage = () => {
     setNeedError(null);
     setPostedNeed(null);
     try {
+      const body = await buildNeedPayload();
+      if (body.latitude == null || body.longitude == null) {
+        setNeedError("We couldn't pin that location. Please pick a suggestion from the dropdown.");
+        return;
+      }
       const response = await previewLeagueMatchNeed({
         leagueId: id,
         token,
-        body: buildNeedPayload(),
+        body,
       });
       const nextSuggestions = response.suggestions ?? [];
       setPostedNeed(response.draft);
@@ -486,10 +535,15 @@ const LeagueDetailPage = () => {
     setInviteError(null);
     setNeedError(null);
     try {
+      const body = await buildNeedPayload();
+      if (body.latitude == null || body.longitude == null) {
+        setNeedError("We couldn't pin that location. Please pick a suggestion from the dropdown.");
+        return;
+      }
       const response = await createLeagueMatchNeed({
         leagueId: id,
         token,
-        body: buildNeedPayload(),
+        body,
       });
       setPostedNeed(response.match);
       setMatchNeeds((current) => [response.match, ...current]);
