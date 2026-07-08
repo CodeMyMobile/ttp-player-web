@@ -22,6 +22,11 @@ import NotificationsFeed, {
   buildInviteNotification,
 } from "./components/NotificationsFeed";
 import {
+  formatMatchDateTimeForDisplay,
+  formatMatchTimeForDisplay,
+  getMatchWallDate,
+} from "../utils/matchDateTime.js";
+import {
   getInviteByToken,
   listInvites,
 } from "./services/invites";
@@ -314,12 +319,7 @@ const parseDateValue = (value) => {
 };
 
 const getMatchStartDate = (match = {}) => {
-  const value =
-    match.dateTime ??
-    match.start_date_time ??
-    match.startDateTime ??
-    match.startsAt;
-  return parseDateValue(value);
+  return getMatchWallDate(match);
 };
 
 const buildDayStripOptions = () => {
@@ -354,12 +354,7 @@ const buildDayStripOptions = () => {
 };
 
 const formatMatchTimeLabel = (match = {}) => {
-  const date = getMatchStartDate(match);
-  if (!date) return "";
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatMatchTimeForDisplay(match);
 };
 
 const formatMatchDayHeading = (match = {}) => {
@@ -3175,6 +3170,7 @@ const TennisMatchApp = ({
       minute: "2-digit",
     });
   };
+  const formatMatchDateTime = (match) => formatMatchDateTimeForDisplay(match);
 
   const formatHoursUntilStart = useCallback((hours) => {
     if (hours === null || hours === undefined) return null;
@@ -6924,6 +6920,7 @@ const TennisMatchApp = ({
         onUpdateMatch={setViewMatch}
         onToast={displayToast}
         formatDateTime={formatDateTime}
+        formatMatchDateTime={formatMatchDateTime}
         onManageInvites={handleManageInvitesFromDetails}
       />
       {Toast()}

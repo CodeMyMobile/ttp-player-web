@@ -84,6 +84,7 @@ import {
   getAvatarInitials,
   getProfileImageFromSource,
 } from "../utils/avatar";
+import { formatMatchDateTimeForDisplay } from "../../utils/matchDateTime.js";
 import {
   formatPhoneDisplay,
   getPhoneDigits,
@@ -851,6 +852,7 @@ const MatchDetailsModal = ({
   onUpdateMatch,
   onToast,
   formatDateTime,
+  formatMatchDateTime,
   onManageInvites,
   initialStatus,
   onViewPlayerProfile,
@@ -1531,10 +1533,23 @@ const MatchDetailsModal = ({
 
   const shareDateTimeLabel = useMemo(() => {
     if (!startDate) return null;
-    return formatDateTime
-      ? formatDateTime(startDate)
-      : startDate.toLocaleString();
-  }, [formatDateTime, startDate]);
+    const formatter = formatMatchDateTime || formatMatchDateTimeForDisplay;
+    return formatter
+      ? formatter(match)
+      : formatDateTime
+        ? formatDateTime(startDate)
+        : startDate.toLocaleString();
+  }, [formatDateTime, formatMatchDateTime, match, startDate]);
+
+  const headerDateTimeLabel = useMemo(() => {
+    if (!startDate) return "";
+    const formatter = formatMatchDateTime || formatMatchDateTimeForDisplay;
+    return formatter
+      ? formatter(match)
+      : formatDateTime
+        ? formatDateTime(startDate)
+        : startDate.toLocaleString();
+  }, [formatDateTime, formatMatchDateTime, match, startDate]);
 
   const shareMatchLabel = useMemo(
     () => match?.match_format || match?.format || "Tennis match",
@@ -2665,7 +2680,7 @@ const MatchDetailsModal = ({
       {startDate && (
         <span className="inline-flex items-center gap-2 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-black text-purple-700">
           <Calendar className="h-3.5 w-3.5" />
-          {formatDateTime ? formatDateTime(startDate) : startDate.toLocaleString()}
+          {headerDateTimeLabel}
         </span>
       )}
       {matchDistanceLabel && (
