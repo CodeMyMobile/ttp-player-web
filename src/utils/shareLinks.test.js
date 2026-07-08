@@ -6,6 +6,7 @@ import {
   buildCoachShareUrl,
   buildGroupLessonShareUrl,
   buildMatchShareUrl,
+  buildSocialShareTargets,
   parseSharePath,
 } from "./shareLinks.js";
 
@@ -51,4 +52,25 @@ test("parses valid share paths and rejects malformed ones", () => {
   assert.equal(parseSharePath("/matches/42"), null);
   assert.equal(parseSharePath("/s/team/42"), null);
   assert.equal(parseSharePath("/s/match/not-valid"), null);
+});
+
+test("builds channel URLs for social share buttons", () => {
+  const targets = buildSocialShareTargets({
+    title: "Adv. Beginner Liveball",
+    text: "Join this class",
+    url: "https://thetennisplan.com/s/group-lessons/2551",
+  });
+
+  assert.equal(
+    targets.sms,
+    "sms:?&body=Join%20this%20class%20https%3A%2F%2Fthetennisplan.com%2Fs%2Fgroup-lessons%2F2551",
+  );
+  assert.equal(
+    targets.whatsapp,
+    "https://wa.me/?text=Join%20this%20class%20https%3A%2F%2Fthetennisplan.com%2Fs%2Fgroup-lessons%2F2551",
+  );
+  assert.equal(
+    targets.email,
+    "mailto:?subject=Adv.%20Beginner%20Liveball&body=Join%20this%20class%20https%3A%2F%2Fthetennisplan.com%2Fs%2Fgroup-lessons%2F2551",
+  );
 });

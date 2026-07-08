@@ -118,6 +118,10 @@
   margin-bottom: 28px;
 }
 
+.group-lesson-details__share-row {
+  margin-top: 18px;
+}
+
 .group-lesson-details__hero-body {
   display: flex;
   flex-direction: column;

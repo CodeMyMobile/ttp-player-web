@@ -65,6 +65,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import BookingStatusModal, { type BookingStatus } from "../components/booking/BookingStatusModal";
 import LessonDetailCard from "../components/LessonDetailCard";
 import LessonPaymentSummary from "../components/payments/LessonPaymentSummary";
+import SocialShareButtons from "../components/SocialShareButtons";
 import {
   calculateLessonPricing,
   packageAllowsLessonCreditType,
@@ -2623,6 +2624,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     `Hi ${coachFirstName}, I found your profile on The Tennis Plan and would like to learn more about lessons.\n\n` +
     `Thanks,\n${playerName}`;
   const smsHref = buildSmsHref(coachPhone, smsMessage);
+  const coachShareUrl = buildCoachShareUrl(profile?.id);
+  const coachShareText = `Check out Coach ${coachName} on The Tennis Plan`;
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
@@ -4097,6 +4100,13 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     Book a lesson
                   </button>
                 </div>
+                <SocialShareButtons
+                  compact
+                  className="coach-hero-m__share"
+                  title={`Coach ${coachName}`}
+                  text={coachShareText}
+                  url={coachShareUrl}
+                />
               </section>
 
               <section className="coach-profile-hero-v2">
