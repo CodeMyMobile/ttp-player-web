@@ -55,7 +55,10 @@ const AVAILABLE_FILTERS: Array<{
   label: string;
 }> = [
   { value: "for-you", label: "For you" },
-  { value: "all", label: "All leagues" },
+  { value: "all-levels", label: "All levels" },
+  { value: "men", label: "Men's" },
+  { value: "women", label: "Women's" },
+  { value: "mixed", label: "Mixed" },
 ];
 
 const formatDate = (value?: string) => {
@@ -104,15 +107,17 @@ const getEmptyCopy = ({
 }) => {
   switch (filter) {
     case "available":
-      return availableFilter === "for-you"
-        ? {
-            title: "Nothing matches your profile yet",
-            body: "Try All leagues to see every public league, including ones that need more profile details before we can narrow them down.",
-          }
-        : {
-            title: "No public leagues available",
-            body: "Check back soon for the next flex league opening.",
-          };
+      if (availableFilter === "for-you") {
+        return {
+          title: "Nothing matches your profile yet",
+          body: "Try All levels to see every public league, including ones that need more profile details before we can narrow them down.",
+        };
+      }
+
+      return {
+        title: "No public leagues available",
+        body: "Check back soon for the next flex league opening.",
+      };
     case "mine":
       return isAuthenticated
         ? {
@@ -513,7 +518,7 @@ const LeaguesPage = () => {
                     }
                     body={
                       availableFilter === "for-you"
-                        ? "Switch to All leagues to browse every public season while you finish your profile."
+                        ? "Switch to All levels to browse every public season while you finish your profile."
                         : "Check back soon for the next league launch."
                     }
                   />

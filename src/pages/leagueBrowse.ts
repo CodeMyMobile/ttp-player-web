@@ -1,8 +1,12 @@
-import type { League } from "../api/leagues";
+import type { League, LeagueGender } from "../api/leagues";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { evaluateLeagueEligibility } from "../features/leagueJoin/eligibility";
 
-export type LeagueBrowseAvailableFilter = "for-you" | "all";
+export type LeagueBrowseAvailableFilter =
+  | "for-you"
+  | "all"
+  | "all-levels"
+  | LeagueGender;
 export type LeagueCardVariant = "available" | "enrolled" | "full";
 
 const hasValue = (value: unknown) =>
@@ -51,8 +55,12 @@ export const filterAvailableLeagues = (
   filter: LeagueBrowseAvailableFilter,
   profile?: PlayerPersonalDetails | null,
 ): League[] => {
-  if (filter === "all") {
+  if (filter === "all" || filter === "all-levels") {
     return leagues;
+  }
+
+  if (filter === "men" || filter === "women" || filter === "mixed") {
+    return leagues.filter((league) => league.gender === filter);
   }
 
   return leagues.filter((league) => {
