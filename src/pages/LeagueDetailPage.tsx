@@ -261,6 +261,7 @@ const LeagueDetailPage = () => {
 
     if (!token) {
       setJoinReviewProfile(null);
+      setJoinReviewError("Please sign in again to continue.");
       setJoinReviewLoading(false);
       return;
     }
