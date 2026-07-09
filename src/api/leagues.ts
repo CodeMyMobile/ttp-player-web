@@ -1,16 +1,24 @@
 import { request } from "./http";
 
+export type LeagueListSegment = "available" | "mine" | "archived";
+export type LeagueGender = "male" | "female" | "mixed" | "open" | (string & {});
+
 export interface League {
   id: number | string;
   name: string;
   skill_band?: string;
-  gender?: string;
+  gender?: LeagueGender | null;
   format?: string;
   status?: string;
   start_date?: string;
   deadline?: string;
   membership_status?: string;
+  joined_via?: string | null;
   paid?: boolean;
+  current_rules_version?: string | null;
+  spots_filled?: number | string | null;
+  spots_remaining?: number | string | null;
+  is_full?: boolean | null;
   [key: string]: unknown;
 }
 
@@ -113,6 +121,49 @@ export interface LeagueMatchNeed {
   [key: string]: unknown;
 }
 
+export interface LeagueCapacity {
+  spots_filled: number | null;
+  spots_remaining: number | null;
+  is_full: boolean;
+}
+
+export interface LeagueSections {
+  mine: League[];
+  available: League[];
+  archived: League[];
+}
+
+export interface LeagueMembershipState {
+  status?: string | null;
+  joined_via?: string | null;
+  paid?: boolean | null;
+}
+
+export interface LeagueListResponse {
+  leagues: League[];
+  sections: LeagueSections;
+}
+
+export interface LeagueDetailResponse {
+  league: League;
+  metadata: LeagueCapacity;
+  membership_state: LeagueMembershipState | null;
+}
+
+export interface LeagueRuleVersion {
+  id: number | string;
+  league_id: number | string;
+  version: string;
+  content?: string | null;
+  published_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface LeagueRules {
+  league: League;
+  rule: LeagueRuleVersion | null;
+}
+
 // Is the underlying match still joinable? Backend may send is_available (bool) or
 // status ("open"/"confirmed"/…). Fail OPEN: if neither is present, treat as
 // available so nothing is wrongly hidden/disabled before the backend adds the flag.
@@ -125,8 +176,55 @@ export const isLeagueSlotAvailable = (
   return true;
 };
 
+export const buildLeagueListPath = (segment?: LeagueListSegment) =>
+  segment ? `/leagues?segment=${encodeURIComponent(segment)}` : "/leagues";
+
+export const buildLeagueDetailPath = (leagueId: number | string) => `/leagues/${leagueId}`;
+
+export const buildLeagueRulesPath = (leagueId: number | string) =>
+  `${buildLeagueDetailPath(leagueId)}/rules`;
+
+export const listLeagues = ({
+  segment,
+  token,
+  signal,
+}: {
+  segment?: LeagueListSegment;
+  token?: string;
+  signal?: AbortSignal;
+} = {}) =>
+  request<LeagueListResponse>(buildLeagueListPath(segment), { token, signal });
+
 export const listMyLeagues = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
-  request<{ leagues: League[] }>("/leagues", { token, signal });
+  listLeagues({ segment: "mine", token, signal });
+
+export const getLeagueDetail = ({
+  leagueId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<LeagueDetailResponse>(buildLeagueDetailPath(leagueId), {
+    token,
+    signal,
+  });
+
+export const getLeagueRules = ({
+  leagueId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<LeagueRules>(buildLeagueRulesPath(leagueId), {
+    token,
+    signal,
+  });
 
 export const getLeagueStandings = ({
   leagueId,
