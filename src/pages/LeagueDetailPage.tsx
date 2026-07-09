@@ -24,9 +24,12 @@ import {
   previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
+import type { PlayerPersonalDetails } from "../api/playerProfile";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
 import AuthDrawer from "../components/auth/AuthDrawer";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
+import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import {
   DEFAULT_LEAGUE_TIMEZONE,
@@ -34,6 +37,7 @@ import {
   formatLeagueTime as formatTime,
   isFutureLeagueItem,
 } from "./leagueDetailTime";
+import { getLeagueCardVariant } from "./leagueBrowse";
 import { requiresLeagueAuthPrompt } from "./leagueAuthGate";
 import { orientScore } from "./leagueScore";
 
@@ -226,6 +230,51 @@ const LeagueDetailPage = () => {
     scoreString: string;
   } | null>(null);
   const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
+  const [joinReviewOpen, setJoinReviewOpen] = useState(false);
+  const [joinReviewProfile, setJoinReviewProfile] = useState<PlayerPersonalDetails | null>(null);
+  const [joinReviewLoading, setJoinReviewLoading] = useState(false);
+
+  const openJoinReview = (leagueId: League["id"]) => {
+    if (!leagueId) {
+      return;
+    }
+
+    setJoinReviewOpen(true);
+  };
+
+  useEffect(() => {
+    if (!joinReviewOpen) {
+      return;
+    }
+
+    if (!token) {
+      setJoinReviewProfile(null);
+      setJoinReviewLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setJoinReviewLoading(true);
+
+    getPlayerPersonalDetails({ token, signal: controller.signal })
+      .then((response) => {
+        if (!controller.signal.aborted) {
+          setJoinReviewProfile(response);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setJoinReviewProfile(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setJoinReviewLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [joinReviewOpen, token]);
 
   const requireLeagueAuth = (action?: () => void) => {
     if (!requiresLeagueAuthPrompt(isAuthenticated)) {
@@ -726,6 +775,14 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
+            {league && getLeagueCardVariant(league) === "available" ? (
+              <button
+                type="button"
+                onClick={() => requireLeagueAuth(() => void openJoinReview(league.id))}
+              >
+                Join League
+              </button>
+            ) : null}
             <button type="button" onClick={() => navigateWithLeagueAuth(`/leagues/${id}/post-availability`)}>Need a Match</button>
             <button type="button" onClick={() => requireLeagueAuth(() => void openScoreDrawer())}>Add Score</button>
           </div>
@@ -1401,6 +1458,15 @@ const LeagueDetailPage = () => {
           title="Join the league"
           subtitle="Sign in or create an account to post availability, join matches, and submit scores."
         />
+        {joinReviewOpen && league ? (
+          <LeagueJoinReviewSheet
+            league={league}
+            profile={joinReviewProfile}
+            loading={joinReviewLoading}
+            onClose={() => setJoinReviewOpen(false)}
+            onContinue={() => setJoinReviewOpen(false)}
+          />
+        ) : null}
       </section>
     </MainLayout>
   );

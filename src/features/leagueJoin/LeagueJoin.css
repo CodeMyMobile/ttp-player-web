@@ -1,0 +1,207 @@
+.league-join-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.league-join-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.league-join-sheet__panel {
+  position: relative;
+  width: min(100%, 36rem);
+  max-height: min(88vh, 48rem);
+  overflow: auto;
+  padding: 1.5rem;
+  border-radius: 8px 8px 0 0;
+  background: #ffffff;
+  box-shadow: 0 -24px 64px rgba(15, 23, 42, 0.18);
+}
+
+.league-join-sheet__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.league-join-sheet__header {
+  padding-right: 2.5rem;
+}
+
+.league-join-sheet__eyebrow {
+  margin: 0 0 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.league-join-sheet__header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.league-join-sheet__header p {
+  margin: 0.5rem 0 0;
+  color: #475569;
+}
+
+.league-join-sheet__loading,
+.league-join-sheet__section,
+.league-join-sheet__status {
+  margin-top: 1rem;
+}
+
+.league-join-sheet__section {
+  padding: 1rem 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.league-join-sheet__field-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.league-join-sheet__field-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.league-join-sheet__field-head p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.league-join-sheet__fieldset,
+.league-join-sheet__select-field,
+.league-join-sheet__date-field {
+  margin: 0.9rem 0 0;
+}
+
+.league-join-sheet__legend,
+.league-join-sheet__select-field > span,
+.league-join-sheet__date-field > span {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.league-join-sheet__segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.league-join-sheet__segmented label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.league-join-sheet__segmented label.is-selected {
+  border-color: #0f766e;
+  background: #ccfbf1;
+}
+
+.league-join-sheet__segmented input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.league-join-sheet__select-field select,
+.league-join-sheet__date-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.league-join-sheet__locked-value {
+  margin-top: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.league-join-sheet__status {
+  color: #475569;
+}
+
+.league-join-sheet__status--ready {
+  color: #0f766e;
+}
+
+.league-join-sheet__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.league-join-sheet__secondary,
+.league-join-sheet__primary {
+  min-width: 7.5rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+}
+
+.league-join-sheet__secondary {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.league-join-sheet__primary {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.league-join-sheet__primary:disabled {
+  border-color: #cbd5e1;
+  background: #cbd5e1;
+  color: #475569;
+}
+
+@media (max-width: 640px) {
+  .league-join-sheet__panel {
+    padding: 1.25rem;
+  }
+}

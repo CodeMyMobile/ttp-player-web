@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronRight,
@@ -18,10 +18,17 @@ import {
 } from "../api/leagues";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
+import AuthDrawer from "../components/auth/AuthDrawer";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
+import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import { isFutureLeagueItem } from "./leagueDetailTime";
+import {
+  requestLeagueJoin,
+  resumePendingLeagueJoin,
+  type PendingLeagueJoinRequest,
+} from "./leagueAuthGate";
 import {
   filterAvailableLeagues,
   getLeagueCapacity,
@@ -289,8 +296,46 @@ const LeaguesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
+  const [pendingJoinRequest, setPendingJoinRequest] = useState<PendingLeagueJoinRequest | null>(null);
+  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
+  const [reviewLeagueId, setReviewLeagueId] = useState<string | number | null>(null);
+  const [reviewProfile, setReviewProfile] = useState<PlayerPersonalDetails | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [joinFlowMessage, setJoinFlowMessage] = useState<string | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
   const [archivedLoaded, setArchivedLoaded] = useState(false);
+
+  const leagueById = useMemo(() => {
+    const entries = [...sections.mine, ...sections.available, ...sections.archived].map((league) => [
+      String(league.id),
+      league,
+    ] as const);
+    return new Map(entries);
+  }, [sections.archived, sections.available, sections.mine]);
+
+  const loadReviewProfile = useCallback(async () => {
+    if (!token) {
+      setReviewProfile(null);
+      return;
+    }
+
+    const response = await getPlayerPersonalDetails({ token });
+    setReviewProfile(response);
+  }, [token]);
+
+  const openJoinReview = useCallback(async (leagueId: string | number) => {
+    setJoinIntentLeagueId(leagueId);
+    setReviewLeagueId(leagueId);
+    setReviewLoading(true);
+
+    try {
+      await loadReviewProfile();
+    } catch {
+      setReviewProfile(null);
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [loadReviewProfile]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -386,6 +431,25 @@ const LeaguesPage = () => {
   }, [isAuthenticated, token]);
 
   useEffect(() => {
+    if (!pendingJoinRequest || !isAuthenticated || !token) {
+      return;
+    }
+
+    const resumed = resumePendingLeagueJoin({
+      isAuthenticated,
+      pending: pendingJoinRequest,
+    });
+
+    if (resumed.action !== "open_review") {
+      return;
+    }
+
+    setPendingJoinRequest(resumed.pending);
+    setAuthDrawerOpen(false);
+    void openJoinReview(resumed.leagueId);
+  }, [isAuthenticated, openJoinReview, pendingJoinRequest, token]);
+
+  useEffect(() => {
     if (!token || sections.mine.length === 0) {
       setLookingCounts({});
       return;
@@ -453,6 +517,27 @@ const LeaguesPage = () => {
 
   const showAvailableSubfilters = topFilter === "all" || topFilter === "available";
   const hasVisibleCards = visibleCards.length > 0;
+  const reviewLeague = reviewLeagueId != null ? leagueById.get(String(reviewLeagueId)) ?? null : null;
+
+  const handleJoinRequest = (leagueId: League["id"]) => {
+    setJoinFlowMessage(null);
+
+    const result = requestLeagueJoin({
+      isAuthenticated,
+      leagueId,
+    });
+
+    if (result.action === "open_auth") {
+      setPendingJoinRequest(result.pending);
+      setJoinIntentLeagueId(leagueId);
+      setAuthDrawerOpen(true);
+      return;
+    }
+
+    if (result.action === "open_review") {
+      void openJoinReview(result.leagueId);
+    }
+  };
 
   return (
     <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
@@ -496,10 +581,10 @@ const LeaguesPage = () => {
           ) : null}
         </div>
 
-        {joinIntentLeagueId != null ? (
+        {joinFlowMessage ? (
           <div className="leagues-page__notice">
             <CircleAlert size={16} />
-            Join flow placeholder selected for league {joinIntentLeagueId}. Task 4 will attach the auth and review flow here.
+            {joinFlowMessage}
           </div>
         ) : null}
 
@@ -523,7 +608,7 @@ const LeaguesPage = () => {
                         variant={getLeagueCardVariant(league)}
                         lookingCount={lookingCounts[String(league.id)] ?? 0}
                         joinPending={joinIntentLeagueId === league.id}
-                        onJoin={setJoinIntentLeagueId}
+                        onJoin={handleJoinRequest}
                       />
                     ))}
                   </div>
@@ -553,7 +638,7 @@ const LeaguesPage = () => {
                         variant={getLeagueCardVariant(league)}
                         lookingCount={0}
                         joinPending={joinIntentLeagueId === league.id}
-                        onJoin={setJoinIntentLeagueId}
+                        onJoin={handleJoinRequest}
                       />
                     ))}
                   </div>
@@ -582,7 +667,7 @@ const LeaguesPage = () => {
                   variant={getLeagueCardVariant(league)}
                   lookingCount={topFilter === "mine" ? lookingCounts[String(league.id)] ?? 0 : 0}
                   joinPending={joinIntentLeagueId === league.id}
-                  onJoin={setJoinIntentLeagueId}
+                  onJoin={handleJoinRequest}
                   archived={topFilter === "archived"}
                 />
               ))}
@@ -594,6 +679,38 @@ const LeaguesPage = () => {
               <p>{emptyCopy.body}</p>
             </div>
           )
+        ) : null}
+
+        <AuthDrawer
+          open={authDrawerOpen}
+          onClose={() => {
+            setPendingJoinRequest(null);
+            setJoinIntentLeagueId(null);
+            setAuthDrawerOpen(false);
+          }}
+          onAuthenticated={() => {
+            setAuthDrawerOpen(false);
+          }}
+          initialMode="signup"
+          title="Join the league"
+          subtitle="Sign in or create an account to review league eligibility and continue."
+        />
+
+        {reviewLeague ? (
+          <LeagueJoinReviewSheet
+            league={reviewLeague}
+            profile={reviewProfile}
+            loading={reviewLoading}
+            onClose={() => {
+              setReviewLeagueId(null);
+              setJoinIntentLeagueId(null);
+            }}
+            onContinue={({ leagueId }) => {
+              setJoinFlowMessage(`Eligibility review complete for league ${leagueId}. Task 5 will save profile updates and continue the join flow.`);
+              setReviewLeagueId(null);
+              setJoinIntentLeagueId(null);
+            }}
+          />
         ) : null}
       </section>
     </MainLayout>
