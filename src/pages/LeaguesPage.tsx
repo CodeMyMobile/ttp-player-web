@@ -1,14 +1,62 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronRight, Trophy, Users } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronRight,
+  CircleAlert,
+  CircleDot,
+  Search,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { getLeagueMatchNeeds, type League, listMyLeagues } from "../api/leagues";
-import { isFutureLeagueItem } from "./leagueDetailTime";
+import {
+  getLeagueMatchNeeds,
+  listLeagues,
+  type League,
+  type LeagueSections,
+} from "../api/leagues";
+import type { PlayerPersonalDetails } from "../api/playerProfile";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
+import { isFutureLeagueItem } from "./leagueDetailTime";
+import {
+  filterAvailableLeagues,
+  getLeagueCapacity,
+  getLeagueCardVariant,
+  type LeagueBrowseAvailableFilter,
+  type LeagueCardVariant,
+} from "./leagueBrowse";
 
 import "./LeaguesPage.css";
+
+type BrowseTopFilter = "all" | "available" | "mine" | "archived";
+
+const EMPTY_SECTIONS: LeagueSections = {
+  mine: [],
+  available: [],
+  archived: [],
+};
+
+const TOP_FILTERS: Array<{
+  value: BrowseTopFilter;
+  label: string;
+}> = [
+  { value: "all", label: "All" },
+  { value: "available", label: "Available" },
+  { value: "mine", label: "My leagues" },
+  { value: "archived", label: "Archived" },
+];
+
+const AVAILABLE_FILTERS: Array<{
+  value: LeagueBrowseAvailableFilter;
+  label: string;
+}> = [
+  { value: "for-you", label: "For you" },
+  { value: "all", label: "All leagues" },
+];
 
 const formatDate = (value?: string) => {
   if (!value) return "Dates TBD";
@@ -24,6 +72,199 @@ const formatRange = (league: League) => {
   return `${start} - ${end}`;
 };
 
+const formatMoney = (value: unknown) => {
+  const costCents = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(costCents)) {
+    return "$0";
+  }
+  return `$${(costCents / 100).toFixed(0)}`;
+};
+
+const getSectionTitle = (filter: BrowseTopFilter) => {
+  switch (filter) {
+    case "available":
+      return "Available leagues";
+    case "mine":
+      return "My leagues";
+    case "archived":
+      return "Archived leagues";
+    default:
+      return "Browse leagues";
+  }
+};
+
+const getEmptyCopy = ({
+  filter,
+  availableFilter,
+  isAuthenticated,
+}: {
+  filter: BrowseTopFilter;
+  availableFilter: LeagueBrowseAvailableFilter;
+  isAuthenticated: boolean;
+}) => {
+  switch (filter) {
+    case "available":
+      return availableFilter === "for-you"
+        ? {
+            title: "Nothing matches your profile yet",
+            body: "Try All leagues to see every public league, including ones that need more profile details before we can narrow them down.",
+          }
+        : {
+            title: "No public leagues available",
+            body: "Check back soon for the next flex league opening.",
+          };
+    case "mine":
+      return isAuthenticated
+        ? {
+            title: "You have not joined a league yet",
+            body: "Leagues you join will show up here with standings, players, and match activity.",
+          }
+        : {
+            title: "No joined leagues to show",
+            body: "Sign in to track leagues you join and keep your place on the schedule.",
+          };
+    case "archived":
+      return {
+        title: "No archived leagues yet",
+        body: "Completed seasons will appear here once they are wrapped up.",
+      };
+    default:
+      return {
+        title: "No leagues to browse",
+        body: "When leagues open up, they will appear here with public season details.",
+      };
+  }
+};
+
+const normalizeSections = (sections?: LeagueSections | null): LeagueSections => ({
+  mine: sections?.mine ?? [],
+  available: sections?.available ?? [],
+  archived: sections?.archived ?? [],
+});
+
+const SectionEmptyState = ({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) => (
+  <div className="leagues-page__empty leagues-page__empty--section">
+    <Search size={24} />
+    <h3>{title}</h3>
+    <p>{body}</p>
+  </div>
+);
+
+const LeagueCard = ({
+  league,
+  variant,
+  lookingCount,
+  joinPending,
+  onJoin,
+  archived = false,
+}: {
+  league: League;
+  variant: LeagueCardVariant;
+  lookingCount: number;
+  joinPending: boolean;
+  onJoin: (leagueId: League["id"]) => void;
+  archived?: boolean;
+}) => {
+  const capacity = getLeagueCapacity(league);
+  const metaText =
+    [league.skill_band, league.gender, league.status].filter(Boolean).join(" · ") ||
+    "Flex league";
+
+  return (
+    <article className={`browse-league-card browse-league-card--${variant}`}>
+      <div className="browse-league-card__header">
+        <div className="browse-league-card__title-group">
+          <span className="browse-league-card__icon">
+            <Trophy size={18} />
+          </span>
+          <div>
+            <div className="browse-league-card__headline">
+              <h2>{league.name}</h2>
+              <span className={`browse-league-card__badge browse-league-card__badge--${archived ? "archived" : variant}`}>
+                {archived ? "Archived" : variant === "enrolled" ? "Enrolled" : variant === "full" ? "Full" : "Open"}
+              </span>
+            </div>
+            <p>{metaText}</p>
+          </div>
+        </div>
+        {variant === "enrolled" && lookingCount > 0 ? (
+          <span className="browse-league-card__looking">
+            <Users size={14} />
+            {lookingCount} looking
+          </span>
+        ) : null}
+      </div>
+
+      <div className="browse-league-card__meta">
+        <span>
+          <CalendarDays size={14} />
+          {formatRange(league)}
+        </span>
+        <span>
+          <CircleDot size={14} />
+          {formatMoney(league.cost_cents)}
+        </span>
+        <span>
+          <Users size={14} />
+          {league.membership_status ?? "Public league"}
+        </span>
+      </div>
+
+      <div className="browse-league-card__capacity">
+        <div className="browse-league-card__capacity-head">
+          <strong>Capacity</strong>
+          <span>
+            {capacity.total != null && capacity.filled != null
+              ? `${capacity.filled}/${capacity.total} spots filled`
+              : capacity.isFull
+                ? "League is full"
+                : "Capacity TBD"}
+          </span>
+        </div>
+        <div className="browse-league-card__capacity-bar" aria-hidden="true">
+          <span style={{ width: `${capacity.progressPercent}%` }} />
+        </div>
+      </div>
+
+      <div className="browse-league-card__actions">
+        {archived ? null : variant === "available" ? (
+          <button type="button" className="browse-league-card__join" onClick={() => onJoin(league.id)}>
+            {joinPending ? "Selected" : "Join"}
+          </button>
+        ) : variant === "full" ? (
+          <button type="button" className="browse-league-card__join browse-league-card__join--disabled" disabled>
+            Full
+          </button>
+        ) : null}
+        <Link className="browse-league-card__view" to={`/leagues/${league.id}`}>
+          View league
+          <ChevronRight size={16} />
+        </Link>
+      </div>
+    </article>
+  );
+};
+
+const LoadingSkeleton = () => (
+  <div className="leagues-page__grid" aria-hidden="true">
+    {Array.from({ length: 4 }).map((_, index) => (
+      <article key={index} className="browse-league-card browse-league-card--skeleton">
+        <div className="browse-league-card__skeleton browse-league-card__skeleton--title" />
+        <div className="browse-league-card__skeleton browse-league-card__skeleton--meta" />
+        <div className="browse-league-card__skeleton browse-league-card__skeleton--meta" />
+        <div className="browse-league-card__skeleton browse-league-card__skeleton--bar" />
+        <div className="browse-league-card__skeleton browse-league-card__skeleton--actions" />
+      </article>
+    ))}
+  </div>
+);
+
 const LeaguesPage = () => {
   const { isAuthenticated, user } = useAuth();
   const token = useMemo(
@@ -35,11 +276,14 @@ const LeaguesPage = () => {
       undefined,
     [user],
   );
-  const [leagues, setLeagues] = useState<League[]>([]);
+  const [topFilter, setTopFilter] = useState<BrowseTopFilter>("all");
+  const [availableFilter, setAvailableFilter] =
+    useState<LeagueBrowseAvailableFilter>("for-you");
+  const [sections, setSections] = useState<LeagueSections>(EMPTY_SECTIONS);
+  const [profile, setProfile] = useState<PlayerPersonalDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Per-league "players looking" counts (open match needs) for the card badge.
-  // listMyLeagues doesn't carry a count, so fetch needs per league — best-effort.
+  const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -47,34 +291,65 @@ const LeaguesPage = () => {
     setLoading(true);
     setError(null);
 
-    listMyLeagues({ token, signal: controller.signal })
-      .then((response) => setLeagues(response.leagues ?? []))
+    listLeagues({ token, signal: controller.signal })
+      .then((response) => {
+        setSections(normalizeSections(response.sections));
+      })
       .catch((err) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) {
+          return;
+        }
+
         setError(err instanceof Error ? err.message : "Failed to load leagues");
-        setLeagues([]);
+        setSections(EMPTY_SECTIONS);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       });
 
     return () => controller.abort();
   }, [token]);
 
   useEffect(() => {
-    if (!leagues.length) {
+    if (!token || !isAuthenticated) {
+      setProfile(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    getPlayerPersonalDetails({ token, signal: controller.signal })
+      .then((response) => {
+        setProfile(response);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setProfile(null);
+        }
+      });
+
+    return () => controller.abort();
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!token || sections.mine.length === 0) {
       setLookingCounts({});
       return;
     }
+
     const controller = new AbortController();
     Promise.all(
-      leagues.map(async (league) => {
+      sections.mine.map(async (league) => {
         try {
-          // "needs" (all open) can be empty even when players are looking, so fall
-          // back to the recommended "suggestions" count.
           const [personal, all] = await Promise.all([
             getLeagueMatchNeeds({ leagueId: league.id, token, signal: controller.signal }),
-            getLeagueMatchNeeds({ leagueId: league.id, token, scope: "all", signal: controller.signal }),
+            getLeagueMatchNeeds({
+              leagueId: league.id,
+              token,
+              scope: "all",
+              signal: controller.signal,
+            }),
           ]);
           const count =
             (all.needs ?? []).filter(isFutureLeagueItem).length ||
@@ -85,67 +360,188 @@ const LeaguesPage = () => {
         }
       }),
     ).then((entries) => {
-      if (controller.signal.aborted) return;
-      setLookingCounts(Object.fromEntries(entries));
+      if (!controller.signal.aborted) {
+        setLookingCounts(Object.fromEntries(entries));
+      }
     });
+
     return () => controller.abort();
-  }, [leagues, token]);
+  }, [sections.mine, token]);
+
+  const filteredAvailableLeagues = useMemo(
+    () => filterAvailableLeagues(sections.available, availableFilter, profile),
+    [availableFilter, profile, sections.available],
+  );
+
+  const visibleCards = useMemo(() => {
+    switch (topFilter) {
+      case "available":
+        return filteredAvailableLeagues;
+      case "mine":
+        return sections.mine;
+      case "archived":
+        return sections.archived;
+      default:
+        return [...sections.mine, ...filteredAvailableLeagues];
+    }
+  }, [filteredAvailableLeagues, sections.archived, sections.mine, topFilter]);
+
+  const topFilterCounts = useMemo(
+    () => ({
+      all: sections.mine.length + filteredAvailableLeagues.length,
+      available: filteredAvailableLeagues.length,
+      mine: sections.mine.length,
+      archived: sections.archived.length,
+    }),
+    [filteredAvailableLeagues.length, sections.archived.length, sections.mine.length],
+  );
+
+  const emptyCopy = getEmptyCopy({ filter: topFilter, availableFilter, isAuthenticated });
+
+  const showAvailableSubfilters = topFilter === "all" || topFilter === "available";
+  const hasVisibleCards = visibleCards.length > 0;
 
   return (
     <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
       <section className="leagues-page">
-        <header className="leagues-page__header">
+        <header className="leagues-page__header leagues-page__header--stacked">
           <div>
-            <p className="leagues-page__eyebrow">Match play</p>
-            <h1>{isAuthenticated ? "My Leagues" : "Leagues"}</h1>
-            <p>{isAuthenticated ? "Manage flex league standings, opponents, results, and matches." : "Browse flex league standings, players, results, and open matches."}</p>
+            <p className="leagues-page__eyebrow">League browse</p>
+            <h1>{getSectionTitle(topFilter)}</h1>
+            <p>Browse public flex leagues, track the ones you have joined, and see where the next season still has room.</p>
           </div>
         </header>
 
-        {loading ? <div className="leagues-page__state">Loading leagues...</div> : null}
-        {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
+        <div className="leagues-page__controls">
+          <div className="leagues-page__segmented" role="tablist" aria-label="League browse sections">
+            {TOP_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                className={topFilter === filter.value ? "is-active" : undefined}
+                onClick={() => setTopFilter(filter.value)}
+              >
+                <span>{filter.label}</span>
+                <strong>{topFilterCounts[filter.value]}</strong>
+              </button>
+            ))}
+          </div>
 
-        {!loading && !error && leagues.length === 0 ? (
-          <div className="leagues-page__empty">
-            <Trophy size={30} />
-            <h2>No leagues yet</h2>
-            <p>{isAuthenticated ? "Your active flex leagues will appear here after a coach or admin adds you." : "Active public flex leagues will appear here when they are available."}</p>
+          {showAvailableSubfilters ? (
+            <div className="leagues-page__subfilters" role="tablist" aria-label="Available league filters">
+              {AVAILABLE_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  className={availableFilter === filter.value ? "is-active" : undefined}
+                  onClick={() => setAvailableFilter(filter.value)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {joinIntentLeagueId != null ? (
+          <div className="leagues-page__notice">
+            <CircleAlert size={16} />
+            Join flow placeholder selected for league {joinIntentLeagueId}. Task 4 will attach the auth and review flow here.
           </div>
         ) : null}
 
-        <div className="leagues-page__grid">
-          {leagues.map((league) => (
-            <Link className="league-card" to={`/leagues/${league.id}`} key={league.id}>
-              <div className="league-card__main">
-                <span className="league-card__icon">
-                  <Trophy size={18} />
-                </span>
-                <div>
-                  <h2>{league.name}</h2>
-                  <p>
-                    {[league.skill_band, league.gender, league.status].filter(Boolean).join(" · ") || "Flex league"}
-                  </p>
-                  {lookingCounts[String(league.id)] > 0 ? (
-                    <span className="league-card__looking">
-                      🎾 {lookingCounts[String(league.id)]} looking
-                    </span>
-                  ) : null}
+        {loading ? <LoadingSkeleton /> : null}
+        {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
+
+        {!loading && !error ? (
+          topFilter === "all" ? (
+            <div className="leagues-page__sections">
+              <section className="leagues-page__section">
+                <div className="leagues-page__section-head">
+                  <h2>My leagues</h2>
+                  <span>{sections.mine.length}</span>
                 </div>
-              </div>
-              <div className="league-card__meta">
-                <span>
-                  <CalendarDays size={14} />
-                  {formatRange(league)}
-                </span>
-                <span>
-                  <Users size={14} />
-                  {league.membership_status ?? "active"}
-                </span>
-              </div>
-              <ChevronRight className="league-card__arrow" size={18} />
-            </Link>
-          ))}
-        </div>
+                {sections.mine.length > 0 ? (
+                  <div className="leagues-page__grid">
+                    {sections.mine.map((league) => (
+                      <LeagueCard
+                        key={`mine-${league.id}`}
+                        league={league}
+                        variant={getLeagueCardVariant(league)}
+                        lookingCount={lookingCounts[String(league.id)] ?? 0}
+                        joinPending={joinIntentLeagueId === league.id}
+                        onJoin={setJoinIntentLeagueId}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <SectionEmptyState
+                    title={isAuthenticated ? "You have not joined any leagues" : "No joined leagues yet"}
+                    body={
+                      isAuthenticated
+                        ? "Joined leagues will move to this section as soon as you are added."
+                        : "When you sign in and join a league, it will be grouped here."
+                    }
+                  />
+                )}
+              </section>
+
+              <section className="leagues-page__section">
+                <div className="leagues-page__section-head">
+                  <h2>{availableFilter === "for-you" ? "Available for you" : "Available leagues"}</h2>
+                  <span>{filteredAvailableLeagues.length}</span>
+                </div>
+                {filteredAvailableLeagues.length > 0 ? (
+                  <div className="leagues-page__grid">
+                    {filteredAvailableLeagues.map((league) => (
+                      <LeagueCard
+                        key={`available-${league.id}`}
+                        league={league}
+                        variant={getLeagueCardVariant(league)}
+                        lookingCount={0}
+                        joinPending={joinIntentLeagueId === league.id}
+                        onJoin={setJoinIntentLeagueId}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <SectionEmptyState
+                    title={
+                      availableFilter === "for-you"
+                        ? "No leagues match your current profile"
+                        : "No public leagues available right now"
+                    }
+                    body={
+                      availableFilter === "for-you"
+                        ? "Switch to All leagues to browse every public season while you finish your profile."
+                        : "Check back soon for the next league launch."
+                    }
+                  />
+                )}
+              </section>
+            </div>
+          ) : hasVisibleCards ? (
+            <div className="leagues-page__grid">
+              {visibleCards.map((league) => (
+                <LeagueCard
+                  key={`${topFilter}-${league.id}`}
+                  league={league}
+                  variant={getLeagueCardVariant(league)}
+                  lookingCount={topFilter === "mine" ? lookingCounts[String(league.id)] ?? 0 : 0}
+                  joinPending={joinIntentLeagueId === league.id}
+                  onJoin={setJoinIntentLeagueId}
+                  archived={topFilter === "archived"}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="leagues-page__empty">
+              <Search size={28} />
+              <h2>{emptyCopy.title}</h2>
+              <p>{emptyCopy.body}</p>
+            </div>
+          )
+        ) : null}
       </section>
     </MainLayout>
   );
