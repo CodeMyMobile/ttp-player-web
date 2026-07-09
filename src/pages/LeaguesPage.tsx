@@ -290,15 +290,22 @@ const LeaguesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
+  const [archivedLoaded, setArchivedLoaded] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    setArchivedLoaded(false);
 
     listLeagues({ token, signal: controller.signal })
       .then((response) => {
-        setSections(normalizeSections(response.sections));
+        const nextSections = normalizeSections(response.sections);
+        setSections({
+          mine: nextSections.mine,
+          available: nextSections.available,
+          archived: [],
+        });
       })
       .catch((err) => {
         if (controller.signal.aborted) {
@@ -316,6 +323,47 @@ const LeaguesPage = () => {
 
     return () => controller.abort();
   }, [token]);
+
+  useEffect(() => {
+    if (topFilter !== "archived" || archivedLoaded) {
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    listLeagues({ segment: "archived", token, signal: controller.signal })
+      .then((response) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const nextSections = normalizeSections(response.sections);
+        setSections((current) => ({
+          ...current,
+          archived:
+            nextSections.archived.length > 0
+              ? nextSections.archived
+              : response.leagues ?? [],
+        }));
+        setArchivedLoaded(true);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setError(err instanceof Error ? err.message : "Failed to load archived leagues");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [archivedLoaded, token, topFilter]);
 
   useEffect(() => {
     if (!token || !isAuthenticated) {

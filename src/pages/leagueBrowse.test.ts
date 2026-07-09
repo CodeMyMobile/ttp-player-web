@@ -86,6 +86,23 @@ test("filterAvailableLeagues excludes leagues with present eligibility mismatche
   );
 });
 
+test("filterAvailableLeagues excludes leagues with an age mismatch from the for-you filter", () => {
+  const leagues = [
+    league({ id: 1, name: "Adult flex", gender: "men", band_low: 3, band_high: 4 }),
+  ];
+
+  assert.deepEqual(
+    filterAvailableLeagues(
+      leagues,
+      "for-you",
+      profile({
+        date_of_birth: "2010-07-10",
+      }),
+    ),
+    [],
+  );
+});
+
 test("filterAvailableLeagues keeps leagues when required profile data is missing", () => {
   const leagues = [
     league({ id: 1, gender: "women", band_low: 4, band_high: 4.5 }),
