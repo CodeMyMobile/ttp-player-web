@@ -164,6 +164,35 @@ export interface LeagueRules {
   rule: LeagueRuleVersion | null;
 }
 
+export interface LeaguePaymentIntentResponse {
+  attempt_id: string;
+  client_secret: string;
+  expires_at: string;
+}
+
+export interface LeagueEnrollmentResponse {
+  membership?: {
+    id?: number | string;
+    league_id?: number | string;
+    player_id?: number | string;
+    status?: string;
+    [key: string]: unknown;
+  };
+  agreement?: {
+    id?: number | string;
+    rules_version?: string;
+    signed_at?: string;
+    [key: string]: unknown;
+  };
+  seeding?: {
+    seeded?: boolean;
+    starting_rating?: number | string | null;
+    seeded_at?: string | null;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 // Is the underlying match still joinable? Backend may send is_available (bool) or
 // status ("open"/"confirmed"/…). Fail OPEN: if neither is present, treat as
 // available so nothing is wrongly hidden/disabled before the backend adds the flag.
@@ -223,6 +252,68 @@ export const getLeagueRules = ({
 }) =>
   request<LeagueRules>(buildLeagueRulesPath(leagueId), {
     token,
+    signal,
+  });
+
+export const createLeaguePaymentIntent = ({
+  leagueId,
+  idempotencyKey,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  idempotencyKey: string;
+  token: string;
+  signal?: AbortSignal;
+}) =>
+  request<LeaguePaymentIntentResponse, { league_id: number | string; idempotency_key: string }>(
+    "/player/stripe/league-paymentintent",
+    {
+      method: "POST",
+      token,
+      body: {
+        league_id: leagueId,
+        idempotency_key: idempotencyKey,
+      },
+      signal,
+    },
+  );
+
+export const completeLeagueEnrollment = ({
+  leagueId,
+  attemptId,
+  paymentIntentId,
+  paymentIntentStatus,
+  signedName,
+  rulesVersion,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  attemptId: string;
+  paymentIntentId: string;
+  paymentIntentStatus: string;
+  signedName: string;
+  rulesVersion: string;
+  token: string;
+  signal?: AbortSignal;
+}) =>
+  request<LeagueEnrollmentResponse, {
+    attempt_id: string;
+    payment_intent_id: string;
+    payment_intent_status: string;
+    signed_name: string;
+    rules_version: string;
+  }>(`${buildLeagueDetailPath(leagueId)}/enroll`, {
+    method: "POST",
+    token,
+    body: {
+      attempt_id: attemptId,
+      payment_intent_id: paymentIntentId,
+      payment_intent_status: paymentIntentStatus,
+      signed_name: signedName,
+      rules_version: rulesVersion,
+    },
     signal,
   });
 
