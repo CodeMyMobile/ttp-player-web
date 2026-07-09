@@ -213,6 +213,78 @@ test("existing mismatches are reported from stored profile values", () => {
   assert.equal(age.age.status, "existing_mismatch");
 });
 
+test("pending gender overrides stored gender in both directions", () => {
+  const corrected = evaluateLeagueEligibility({
+    league: baseLeague({ gender: "women" }),
+    profile: baseProfile({ gender: "male" }),
+    pending: basePending({ gender: "female" }),
+    now,
+  });
+  const newlyInvalid = evaluateLeagueEligibility({
+    league: baseLeague({ gender: "men" }),
+    profile: baseProfile({ gender: "male" }),
+    pending: basePending({ gender: "female" }),
+    now,
+  });
+
+  assertEligibility(corrected, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+  assert.equal(newlyInvalid.gender.status, "entered_mismatch");
+  assert.equal(newlyInvalid.canContinue, false);
+});
+
+test("pending level overrides stored level in both directions", () => {
+  const corrected = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: 4.5 }),
+    pending: basePending({ level: 3.5 }),
+    now,
+  });
+  const newlyInvalid = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: 3.5 }),
+    pending: basePending({ level: 4.5 }),
+    now,
+  });
+
+  assertEligibility(corrected, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+  assert.equal(newlyInvalid.level.status, "entered_mismatch");
+  assert.equal(newlyInvalid.canContinue, false);
+});
+
+test("pending date of birth overrides stored date of birth in both directions", () => {
+  const corrected = evaluateLeagueEligibility({
+    league: baseLeague(),
+    profile: baseProfile({ dateOfBirth: "2008-07-10" }),
+    pending: basePending({ dateOfBirth: "2008-07-09" }),
+    now,
+  });
+  const newlyInvalid = evaluateLeagueEligibility({
+    league: baseLeague(),
+    profile: baseProfile({ dateOfBirth: "2008-07-09" }),
+    pending: basePending({ dateOfBirth: "2008-07-10" }),
+    now,
+  });
+
+  assertEligibility(corrected, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+  assert.equal(newlyInvalid.age.status, "entered_mismatch");
+  assert.equal(newlyInvalid.canContinue, false);
+});
+
 test("exactly 18 years old passes while under 18 fails", () => {
   const exact = evaluateLeagueEligibility({
     league: baseLeague(),

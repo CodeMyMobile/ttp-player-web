@@ -95,15 +95,15 @@ const evaluateDimension = <T>(
   pendingValue: T | null | undefined,
   matches: (value: T | null | undefined) => boolean,
 ): LeagueJoinEligibilityField => {
-  if (isPresent(existingValue)) {
-    return {
-      status: matches(existingValue) ? "pass" : "existing_mismatch",
-    };
-  }
-
   if (isPresent(pendingValue)) {
     return {
       status: matches(pendingValue) ? "pass" : "entered_mismatch",
+    };
+  }
+
+  if (isPresent(existingValue)) {
+    return {
+      status: matches(existingValue) ? "pass" : "existing_mismatch",
     };
   }
 
