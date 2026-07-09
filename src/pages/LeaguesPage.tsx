@@ -11,16 +11,26 @@ import {
 import { Link } from "react-router-dom";
 
 import {
+  getLeagueRules,
   getLeagueMatchNeeds,
   listLeagues,
   type League,
+  type LeagueEnrollmentResponse,
+  type LeagueRuleVersion,
   type LeagueSections,
 } from "../api/leagues";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
+import {
+  getPlayerStripePaymentMethods,
+  type PlayerStripePaymentMethod,
+} from "../api/playerStripe";
 import AuthDrawer from "../components/auth/AuthDrawer";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
+import LeagueAgreementStep from "../features/leagueJoin/LeagueAgreementStep";
+import LeagueJoinSuccess from "../features/leagueJoin/LeagueJoinSuccess";
+import LeaguePaymentStep from "../features/leagueJoin/LeaguePaymentStep";
 import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import { isFutureLeagueItem } from "./leagueDetailTime";
@@ -40,6 +50,7 @@ import {
 import "./LeaguesPage.css";
 
 type BrowseTopFilter = "all" | "available" | "mine" | "archived";
+type JoinStep = "agreement" | "payment" | "success";
 
 const EMPTY_SECTIONS: LeagueSections = {
   mine: [],
@@ -313,6 +324,14 @@ const LeaguesPage = () => {
   const [reviewProfile, setReviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [joinStep, setJoinStep] = useState<JoinStep | null>(null);
+  const [joinRule, setJoinRule] = useState<LeagueRuleVersion | null>(null);
+  const [joinAgreement, setJoinAgreement] = useState<{
+    signedName: string;
+    rulesVersion: string;
+  } | null>(null);
+  const [joinResult, setJoinResult] = useState<LeagueEnrollmentResponse | null>(null);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
   const [joinFlowMessage, setJoinFlowMessage] = useState<string | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
   const [archivedLoaded, setArchivedLoaded] = useState(false);
@@ -340,6 +359,9 @@ const LeaguesPage = () => {
   const openJoinReview = useCallback(async (leagueId: string | number) => {
     setJoinIntentLeagueId(leagueId);
     setReviewLeagueId(leagueId);
+    setJoinStep(null);
+    setJoinAgreement(null);
+    setJoinResult(null);
     setReviewLoading(true);
     setReviewError(null);
 
@@ -352,6 +374,40 @@ const LeaguesPage = () => {
       setReviewLoading(false);
     }
   }, [loadReviewProfile]);
+
+  const closeJoinFlow = () => {
+    setReviewLeagueId(null);
+    setJoinIntentLeagueId(null);
+    setJoinStep(null);
+    setJoinAgreement(null);
+    setJoinResult(null);
+  };
+
+  const startAgreementStep = async (league: League, nextProfile: PlayerPersonalDetails) => {
+    setReviewProfile(nextProfile);
+    setReviewLoading(true);
+    setReviewError(null);
+
+    try {
+      const [rulesResponse, paymentMethodsResponse] = await Promise.all([
+        getLeagueRules({ leagueId: league.id, token }),
+        token
+          ? getPlayerStripePaymentMethods(token)
+          : Promise.resolve([]),
+      ]);
+      const methods = Array.isArray(paymentMethodsResponse)
+        ? paymentMethodsResponse
+        : paymentMethodsResponse.payment_methods ?? paymentMethodsResponse.data ?? [];
+
+      setJoinRule(rulesResponse.rule);
+      setSavedPaymentMethods(methods);
+      setJoinStep("agreement");
+    } catch (error) {
+      setReviewError(getApiErrorMessage(error));
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -712,23 +768,69 @@ const LeaguesPage = () => {
           subtitle="Sign in or create an account to review league eligibility and continue."
         />
 
-        {reviewLeague ? (
+        {reviewLeague && !joinStep ? (
           <LeagueJoinReviewSheet
             league={reviewLeague}
             profile={reviewProfile}
             token={token}
             loading={reviewLoading}
             profileError={reviewError}
-            onClose={() => {
-              setReviewLeagueId(null);
-              setJoinIntentLeagueId(null);
-            }}
-            onEligible={() => {
-              setJoinFlowMessage(`Profile saved for ${reviewLeague.name}. Agreement, payment, and enrollment stay out of scope for Task 5.`);
-              setReviewLeagueId(null);
-              setJoinIntentLeagueId(null);
+            onClose={closeJoinFlow}
+            onEligible={(nextProfile) => {
+              void startAgreementStep(reviewLeague, nextProfile);
             }}
           />
+        ) : null}
+        {reviewLeague && joinStep ? (
+          <div className="league-join-sheet" role="dialog" aria-modal="true" aria-label="League join">
+            <button
+              type="button"
+              className="league-join-sheet__backdrop"
+              aria-label="Close league join"
+              onClick={closeJoinFlow}
+            />
+            <div className="league-join-sheet__panel">
+              {joinStep === "agreement" ? (
+                <LeagueAgreementStep
+                  league={reviewLeague}
+                  rule={joinRule}
+                  defaultName={reviewProfile?.full_name ?? ""}
+                  onBack={() => setJoinStep(null)}
+                  onContinue={(agreement) => {
+                    setJoinAgreement({
+                      signedName: agreement.signedName,
+                      rulesVersion: agreement.rulesVersion,
+                    });
+                    setJoinStep("payment");
+                  }}
+                />
+              ) : null}
+              {joinStep === "payment" && joinAgreement && token ? (
+                <LeaguePaymentStep
+                  league={reviewLeague}
+                  token={token}
+                  agreement={joinAgreement}
+                  savedMethods={savedPaymentMethods}
+                  onBack={() => setJoinStep("agreement")}
+                  onSuccess={(result) => {
+                    setJoinResult(result);
+                    setJoinStep("success");
+                  }}
+                  onLeagueFull={() => {
+                    setJoinFlowMessage("This league just filled - you were not charged.");
+                    closeJoinFlow();
+                  }}
+                />
+              ) : null}
+              {joinStep === "success" && joinResult ? (
+                <LeagueJoinSuccess
+                  league={reviewLeague}
+                  result={joinResult}
+                  onViewLeague={closeJoinFlow}
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
       </section>
     </MainLayout>
