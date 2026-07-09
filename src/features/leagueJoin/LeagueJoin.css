@@ -158,12 +158,22 @@
   font-weight: 600;
 }
 
+.league-join-sheet__field-error {
+  margin: 0.75rem 0 0;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
 .league-join-sheet__status {
   color: #475569;
 }
 
 .league-join-sheet__status--ready {
   color: #0f766e;
+}
+
+.league-join-sheet__status--error {
+  color: #b91c1c;
 }
 
 .league-join-sheet__actions {

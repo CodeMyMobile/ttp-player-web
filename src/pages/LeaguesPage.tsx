@@ -90,6 +90,17 @@ const formatMoney = (value: unknown) => {
   return `$${(costCents / 100).toFixed(0)}`;
 };
 
+const getApiErrorMessage = (error: unknown) => {
+  const apiError = error as {
+    data?: { detail?: string; error?: string; errors?: string[] };
+    message?: string;
+  };
+
+  if (apiError.data?.detail) return apiError.data.detail;
+  if (apiError.data?.errors?.length) return apiError.data.errors.join(", ");
+  return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
+};
+
 const getSectionTitle = (filter: BrowseTopFilter) => {
   switch (filter) {
     case "available":
@@ -301,6 +312,7 @@ const LeaguesPage = () => {
   const [reviewLeagueId, setReviewLeagueId] = useState<string | number | null>(null);
   const [reviewProfile, setReviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [joinFlowMessage, setJoinFlowMessage] = useState<string | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
   const [archivedLoaded, setArchivedLoaded] = useState(false);
@@ -316,22 +328,26 @@ const LeaguesPage = () => {
   const loadReviewProfile = useCallback(async () => {
     if (!token) {
       setReviewProfile(null);
+      setReviewError("Please sign in again to continue.");
       return;
     }
 
     const response = await getPlayerPersonalDetails({ token });
     setReviewProfile(response);
+    setReviewError(null);
   }, [token]);
 
   const openJoinReview = useCallback(async (leagueId: string | number) => {
     setJoinIntentLeagueId(leagueId);
     setReviewLeagueId(leagueId);
     setReviewLoading(true);
+    setReviewError(null);
 
     try {
       await loadReviewProfile();
-    } catch {
+    } catch (error) {
       setReviewProfile(null);
+      setReviewError(getApiErrorMessage(error));
     } finally {
       setReviewLoading(false);
     }
@@ -700,13 +716,15 @@ const LeaguesPage = () => {
           <LeagueJoinReviewSheet
             league={reviewLeague}
             profile={reviewProfile}
+            token={token}
             loading={reviewLoading}
+            profileError={reviewError}
             onClose={() => {
               setReviewLeagueId(null);
               setJoinIntentLeagueId(null);
             }}
-            onContinue={({ leagueId }) => {
-              setJoinFlowMessage(`Eligibility review complete for league ${leagueId}. Task 5 will save profile updates and continue the join flow.`);
+            onEligible={() => {
+              setJoinFlowMessage(`Profile saved for ${reviewLeague.name}. Agreement, payment, and enrollment stay out of scope for Task 5.`);
               setReviewLeagueId(null);
               setJoinIntentLeagueId(null);
             }}

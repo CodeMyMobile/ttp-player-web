@@ -139,6 +139,17 @@ const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: stri
 
 const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
+const getApiErrorMessage = (error: unknown) => {
+  const apiError = error as {
+    data?: { detail?: string; error?: string; errors?: string[] };
+    message?: string;
+  };
+
+  if (apiError.data?.detail) return apiError.data.detail;
+  if (apiError.data?.errors?.length) return apiError.data.errors.join(", ");
+  return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
+};
+
 const LeagueDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -233,6 +244,7 @@ const LeagueDetailPage = () => {
   const [joinReviewOpen, setJoinReviewOpen] = useState(false);
   const [joinReviewProfile, setJoinReviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [joinReviewLoading, setJoinReviewLoading] = useState(false);
+  const [joinReviewError, setJoinReviewError] = useState<string | null>(null);
 
   const openJoinReview = (leagueId: League["id"]) => {
     if (!leagueId) {
@@ -255,6 +267,7 @@ const LeagueDetailPage = () => {
 
     const controller = new AbortController();
     setJoinReviewLoading(true);
+    setJoinReviewError(null);
 
     getPlayerPersonalDetails({ token, signal: controller.signal })
       .then((response) => {
@@ -262,9 +275,10 @@ const LeagueDetailPage = () => {
           setJoinReviewProfile(response);
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!controller.signal.aborted) {
           setJoinReviewProfile(null);
+          setJoinReviewError(getApiErrorMessage(error));
         }
       })
       .finally(() => {
@@ -1462,9 +1476,11 @@ const LeagueDetailPage = () => {
           <LeagueJoinReviewSheet
             league={league}
             profile={joinReviewProfile}
+            token={token}
             loading={joinReviewLoading}
+            profileError={joinReviewError}
             onClose={() => setJoinReviewOpen(false)}
-            onContinue={() => setJoinReviewOpen(false)}
+            onEligible={() => setJoinReviewOpen(false)}
           />
         ) : null}
       </section>

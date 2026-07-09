@@ -1,13 +1,18 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, X } from "lucide-react";
 
 import type { League } from "../../api/leagues";
-import type { PlayerGender, PlayerPersonalDetails } from "../../api/playerProfile";
+import {
+  patchPlayerPersonalDetails,
+  type PlayerGender,
+  type PlayerPersonalDetails,
+} from "../../api/playerProfile";
 import {
   evaluateLeagueEligibility,
   type LeagueJoinEligibility,
   type LeagueJoinPending,
 } from "./eligibility";
+import { buildJoinProfilePatch } from "./joinProfile";
 
 import "./LeagueJoin.css";
 
@@ -91,23 +96,87 @@ const describeFieldState = ({
 export interface LeagueJoinReviewSheetProps {
   league: League;
   profile: PlayerPersonalDetails | null;
+  token?: string;
   loading?: boolean;
+  profileError?: string | null;
   onClose: () => void;
-  onContinue?: (payload: { leagueId: League["id"]; pending: LeagueJoinPending }) => void;
+  onEligible?: (profile: PlayerPersonalDetails) => void;
+  onContinue?: () => void;
 }
+
+type JoinFieldKey = "gender" | "level" | "age";
+
+const getErrorMessage = (error: unknown) => {
+  const apiError = error as {
+    data?: { detail?: string; error?: string; errors?: string[] };
+    message?: string;
+  };
+
+  if (apiError.data?.detail) {
+    return apiError.data.detail;
+  }
+
+  if (apiError.data?.errors?.length) {
+    return apiError.data.errors.join(", ");
+  }
+
+  if (apiError.data?.error === "self_rating_locked") {
+    return "Your NTRP rating is locked and can't be changed here.";
+  }
+
+  return apiError.data?.error || apiError.message || "We couldn't save your profile.";
+};
+
+const getFieldErrorKey = (error: unknown): JoinFieldKey | null => {
+  const message = getErrorMessage(error).toLowerCase();
+
+  if (message.includes("gender")) {
+    return "gender";
+  }
+
+  if (
+    message.includes("usta_rating") ||
+    message.includes("ntrp") ||
+    message.includes("rating") ||
+    message.includes("self_rating_locked")
+  ) {
+    return "level";
+  }
+
+  if (message.includes("date_of_birth") || message.includes("date of birth") || message.includes("18")) {
+    return "age";
+  }
+
+  return null;
+};
 
 const LeagueJoinReviewSheet = ({
   league,
   profile,
+  token,
   loading = false,
+  profileError = null,
   onClose,
+  onEligible,
   onContinue,
 }: LeagueJoinReviewSheetProps) => {
   const titleId = useId();
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const [localProfile, setLocalProfile] = useState<PlayerPersonalDetails | null>(profile);
   const [pending, setPending] = useState<LeagueJoinPending>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<JoinFieldKey, string>>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleClose = useCallback(() => {
+    if (isSubmitting) {
+      return;
+    }
+
+    onClose();
+  }, [isSubmitting, onClose]);
 
   useEffect(() => {
     restoreFocusRef.current = document.activeElement instanceof HTMLElement
@@ -118,7 +187,7 @@ const LeagueJoinReviewSheet = ({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        handleClose();
       }
     };
 
@@ -127,11 +196,14 @@ const LeagueJoinReviewSheet = ({
       window.removeEventListener("keydown", onKeyDown);
       restoreFocusRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, [handleClose]);
 
   useEffect(() => {
+    setLocalProfile(profile);
     setPending({});
-  }, [league.id, profile?.id, profile?.user_id]);
+    setFieldErrors({});
+    setSubmitError(null);
+  }, [league.id, profile]);
 
   const latestEligibleDob = useMemo(() => getLatestEligibleDob(new Date()), []);
 
@@ -140,33 +212,93 @@ const LeagueJoinReviewSheet = ({
       evaluateLeagueEligibility({
         league: league as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
         profile: {
-          gender: profile?.gender,
-          usta_rating: profile?.usta_rating,
-          date_of_birth: profile?.date_of_birth,
+          gender: localProfile?.gender,
+          usta_rating: localProfile?.usta_rating,
+          date_of_birth: localProfile?.date_of_birth,
         },
         pending,
         now: new Date(),
       }),
-    [league, pending, profile?.date_of_birth, profile?.gender, profile?.usta_rating],
+    [league, localProfile?.date_of_birth, localProfile?.gender, localProfile?.usta_rating, pending],
   );
 
-  const genderValue = pending.gender ?? profile?.gender ?? "";
-  const levelValue = String(pending.usta_rating ?? profile?.usta_rating ?? "");
-  const dobValue = pending.date_of_birth ?? formatDateInputValue(profile?.date_of_birth);
+  const genderValue = pending.gender ?? localProfile?.gender ?? "";
+  const levelValue = String(pending.usta_rating ?? localProfile?.usta_rating ?? "");
+  const dobValue = pending.date_of_birth ?? formatDateInputValue(localProfile?.date_of_birth);
 
   const canEditGender = eligibility.gender.status === "missing" || hasValue(pending.gender);
   const canEditLevel = eligibility.level.status === "missing" || hasValue(pending.usta_rating);
   const canEditAge = eligibility.age.status === "missing" || hasValue(pending.date_of_birth);
+  const controlsDisabled = isSubmitting || (!!profileError && !localProfile);
+  const continueDisabled = loading || isSubmitting || !!profileError || !eligibility.canContinue;
 
-  const submit = () => {
-    if (!eligibility.canContinue) {
+  const submit = async () => {
+    if (continueDisabled) {
       return;
     }
 
-    onContinue?.({
-      leagueId: league.id,
-      pending,
-    });
+    const currentProfile = localProfile;
+    if (!currentProfile) {
+      setSubmitError("We couldn't load your profile. Please try again.");
+      return;
+    }
+
+    const patch = buildJoinProfilePatch(currentProfile, pending);
+    if (patch === null) {
+      setSubmitError("The profile values entered for this join request don't agree. Please review them and try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFieldErrors({});
+    setSubmitError(null);
+
+    try {
+      let nextProfile = currentProfile;
+
+      if (Object.keys(patch).length > 0) {
+        if (!token) {
+          throw new Error("You're no longer signed in. Please sign in again to continue.");
+        }
+
+        nextProfile = await patchPlayerPersonalDetails({
+          token,
+          body: patch,
+        });
+        setLocalProfile(nextProfile);
+        setPending({});
+      }
+
+      const nextEligibility = evaluateLeagueEligibility({
+        league: league as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
+        profile: {
+          gender: nextProfile.gender,
+          usta_rating: nextProfile.usta_rating,
+          date_of_birth: nextProfile.date_of_birth,
+        },
+        pending: {},
+        now: new Date(),
+      });
+
+      if (!nextEligibility.canContinue) {
+        setSubmitError("Your profile still doesn't meet this league's eligibility requirements.");
+        return;
+      }
+
+      onEligible?.(nextProfile);
+      onContinue?.();
+    } catch (error) {
+      const nextField = getFieldErrorKey(error);
+      const message = getErrorMessage(error);
+
+      if (nextField) {
+        setFieldErrors({ [nextField]: message });
+      } else {
+        setSubmitError(message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -175,7 +307,8 @@ const LeagueJoinReviewSheet = ({
         type="button"
         className="league-join-sheet__backdrop"
         aria-label="Close join review"
-        onClick={onClose}
+        onClick={handleClose}
+        disabled={isSubmitting}
       />
       <div className="league-join-sheet__panel">
         <button
@@ -183,7 +316,8 @@ const LeagueJoinReviewSheet = ({
           type="button"
           className="league-join-sheet__close"
           aria-label="Close join review"
-          onClick={onClose}
+          onClick={handleClose}
+          disabled={isSubmitting}
         >
           <X size={18} />
         </button>
@@ -200,6 +334,12 @@ const LeagueJoinReviewSheet = ({
           <div className="league-join-sheet__loading">Loading your profile…</div>
         ) : (
           <>
+            {profileError ? (
+              <p className="league-join-sheet__status league-join-sheet__status--error">
+                {profileError}
+              </p>
+            ) : null}
+
             <section className="league-join-sheet__section" aria-labelledby={`${titleId}-gender`}>
               <div className="league-join-sheet__field-head">
                 <div>
@@ -229,7 +369,12 @@ const LeagueJoinReviewSheet = ({
                           name="league-join-gender"
                           value={option.value}
                           checked={genderValue === option.value}
-                          onChange={() => setPending((current) => ({ ...current, gender: option.value }))}
+                          disabled={controlsDisabled}
+                          onChange={() => {
+                            setFieldErrors((current) => ({ ...current, gender: undefined }));
+                            setSubmitError(null);
+                            setPending((current) => ({ ...current, gender: option.value }));
+                          }}
                         />
                         <span>{option.label}</span>
                       </label>
@@ -237,8 +382,11 @@ const LeagueJoinReviewSheet = ({
                   </div>
                 </fieldset>
               ) : (
-                <div className="league-join-sheet__locked-value">{profile?.gender ?? "Unavailable"}</div>
+                <div className="league-join-sheet__locked-value">{localProfile?.gender ?? "Unavailable"}</div>
               )}
+              {fieldErrors.gender ? (
+                <p className="league-join-sheet__field-error">{fieldErrors.gender}</p>
+              ) : null}
             </section>
 
             <section className="league-join-sheet__section" aria-labelledby={`${titleId}-level`}>
@@ -260,12 +408,15 @@ const LeagueJoinReviewSheet = ({
                   <select
                     id="league-join-level"
                     value={levelValue}
-                    onChange={(event) =>
+                    disabled={controlsDisabled}
+                    onChange={(event) => {
+                      setFieldErrors((current) => ({ ...current, level: undefined }));
+                      setSubmitError(null);
                       setPending((current) => ({
                         ...current,
                         usta_rating: event.target.value || undefined,
-                      }))
-                    }
+                      }));
+                    }}
                   >
                     <option value="">Select a rating</option>
                     {NTRP_OPTIONS.map((option) => (
@@ -277,9 +428,12 @@ const LeagueJoinReviewSheet = ({
                 </label>
               ) : (
                 <div className="league-join-sheet__locked-value">
-                  {hasValue(profile?.usta_rating) ? profile?.usta_rating : "Unavailable"}
+                  {hasValue(localProfile?.usta_rating) ? localProfile?.usta_rating : "Unavailable"}
                 </div>
               )}
+              {fieldErrors.level ? (
+                <p className="league-join-sheet__field-error">{fieldErrors.level}</p>
+              ) : null}
             </section>
 
             <section className="league-join-sheet__section" aria-labelledby={`${titleId}-dob`}>
@@ -303,19 +457,25 @@ const LeagueJoinReviewSheet = ({
                     type="date"
                     max={latestEligibleDob}
                     value={dobValue}
-                    onChange={(event) =>
+                    disabled={controlsDisabled}
+                    onChange={(event) => {
+                      setFieldErrors((current) => ({ ...current, age: undefined }));
+                      setSubmitError(null);
                       setPending((current) => ({
                         ...current,
                         date_of_birth: event.target.value || undefined,
-                      }))
-                    }
+                      }));
+                    }}
                   />
                 </label>
               ) : (
                 <div className="league-join-sheet__locked-value">
-                  {formatDateInputValue(profile?.date_of_birth) || "Unavailable"}
+                  {formatDateInputValue(localProfile?.date_of_birth) || "Unavailable"}
                 </div>
               )}
+              {fieldErrors.age ? (
+                <p className="league-join-sheet__field-error">{fieldErrors.age}</p>
+              ) : null}
             </section>
 
             {eligibility.canContinue ? (
@@ -327,20 +487,25 @@ const LeagueJoinReviewSheet = ({
                 Fix the missing fields above or review the league requirements before continuing.
               </p>
             )}
+            {submitError ? (
+              <p className="league-join-sheet__status league-join-sheet__status--error">
+                {submitError}
+              </p>
+            ) : null}
           </>
         )}
 
         <div className="league-join-sheet__actions">
-          <button type="button" className="league-join-sheet__secondary" onClick={onClose}>
+          <button type="button" className="league-join-sheet__secondary" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </button>
           <button
             type="button"
             className="league-join-sheet__primary"
-            disabled={loading || !eligibility.canContinue}
-            onClick={submit}
+            disabled={continueDisabled}
+            onClick={() => void submit()}
           >
-            Continue
+            {isSubmitting ? "Saving…" : "Continue"}
           </button>
         </div>
       </div>
