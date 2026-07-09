@@ -8,10 +8,41 @@ import {
   listLeagues,
   listMyLeagues,
 } from "./leagues";
+import type { LeagueGender } from "./leagues";
 import {
   getPlayerPersonalDetails,
   patchPlayerPersonalDetails,
 } from "./playerProfile";
+import type { PlayerGender } from "./playerProfile";
+
+type IsEqual<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2)
+    ? true
+    : false;
+type Expect<T extends true> = T;
+
+type _leagueGenderExact = Expect<IsEqual<LeagueGender, "men" | "women" | "mixed">>;
+type _playerGenderExact = Expect<IsEqual<PlayerGender, "male" | "female" | "other">>;
+type _getPlayerPersonalDetailsRequiresToken =
+  Expect<IsEqual<Parameters<typeof getPlayerPersonalDetails>[0], { token: string; signal?: AbortSignal }>>;
+type _patchPlayerPersonalDetailsRequiresToken =
+  Expect<IsEqual<Parameters<typeof patchPlayerPersonalDetails>[0], {
+    token: string;
+    body: {
+      full_name?: string | null;
+      first_name?: string | null;
+      last_name?: string | null;
+      phone?: string | null;
+      date_of_birth?: string | null;
+      profile_picture?: string | null;
+      usta_rating?: number | string | null;
+      uta_rating?: number | string | null;
+      gender?: PlayerGender | null;
+      about_me?: string | null;
+    };
+    signal?: AbortSignal;
+  }>>;
 
 test("getLeagueMatchNeeds sends scope=all query", async () => {
   const previousFetch = globalThis.fetch;
@@ -36,6 +67,7 @@ test("getLeagueMatchNeeds sends scope=all query", async () => {
 test("league API exports stable browse path helpers", async () => {
   const leaguesApi = await import("./leagues");
 
+  assert.equal(leaguesApi.buildLeagueListPath?.(), "/leagues");
   assert.equal(leaguesApi.buildLeagueListPath?.("available"), "/leagues?segment=available");
   assert.equal(leaguesApi.buildLeagueRulesPath?.(12), "/leagues/12/rules");
 });
@@ -68,7 +100,7 @@ test("listLeagues requests a segmented browse response", async () => {
   assert.match(requestedUrl, /\/leagues\?segment=available$/);
 });
 
-test("listMyLeagues remains a compatibility wrapper over the mine segment", async () => {
+test("listMyLeagues remains a compatibility wrapper over the unsegmented leagues endpoint", async () => {
   const previousFetch = globalThis.fetch;
   let requestedUrl = "";
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -94,7 +126,7 @@ test("listMyLeagues remains a compatibility wrapper over the mine segment", asyn
     globalThis.fetch = previousFetch;
   }
 
-  assert.match(requestedUrl, /\/leagues\?segment=mine$/);
+  assert.match(requestedUrl, /\/leagues$/);
 });
 
 test("getLeagueDetail reads the split league detail response", async () => {

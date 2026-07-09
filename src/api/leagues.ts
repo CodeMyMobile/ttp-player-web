@@ -1,7 +1,7 @@
 import { request } from "./http";
 
 export type LeagueListSegment = "available" | "mine" | "archived";
-export type LeagueGender = "male" | "female" | "mixed" | "open" | (string & {});
+export type LeagueGender = "men" | "women" | "mixed";
 
 export interface League {
   id: number | string;
@@ -196,7 +196,7 @@ export const listLeagues = ({
   request<LeagueListResponse>(buildLeagueListPath(segment), { token, signal });
 
 export const listMyLeagues = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
-  listLeagues({ segment: "mine", token, signal });
+  request<LeagueListResponse>("/leagues", { token, signal });
 
 export const getLeagueDetail = ({
   leagueId,

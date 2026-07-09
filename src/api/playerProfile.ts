@@ -1,6 +1,6 @@
 import { request } from "./http";
 
-export type PlayerGender = "male" | "female" | "other" | (string & {});
+export type PlayerGender = "male" | "female" | "other";
 
 export interface PlayerProfile {
   id: number;
@@ -57,7 +57,7 @@ export interface PatchPlayerPersonalDetailsBody {
 
 const PLAYER_PERSONAL_DETAILS_PATH = "/player/personal_details";
 
-const omitUndefinedFields = <TBody extends Record<string, unknown>>(body: TBody) =>
+const omitUndefinedFields = <TBody extends object>(body: TBody) =>
   Object.fromEntries(
     Object.entries(body).filter(([, value]) => value !== undefined),
   ) as TBody;
@@ -86,9 +86,9 @@ export const getPlayerPersonalDetails = ({
   token,
   signal,
 }: {
-  token?: string;
+  token: string;
   signal?: AbortSignal;
-} = {}) =>
+}) =>
   request<PlayerPersonalDetails>(PLAYER_PERSONAL_DETAILS_PATH, {
     token,
     signal,
@@ -99,7 +99,7 @@ export const patchPlayerPersonalDetails = ({
   body,
   signal,
 }: {
-  token?: string;
+  token: string;
   body: PatchPlayerPersonalDetailsBody;
   signal?: AbortSignal;
 }) =>
