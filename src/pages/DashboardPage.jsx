@@ -29,6 +29,7 @@ import {
   storeLocationLabel,
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
+import { isLessonCancelled } from "../utils/lessonStatus";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import "./DashboardPage.css";
@@ -519,9 +520,10 @@ const buildCoachActivities = (records = []) =>
         moment(`${b.dayKey} ${b.time}`, "YYYY-MM-DD h:mm A").valueOf(),
     );
 
-const buildScheduleItems = (lessons = []) =>
+const buildScheduleItems = (lessons = [], playerId = null) =>
   lessons
     .map((lesson) => {
+      if (isLessonCancelled(lesson, playerId)) return null;
       const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
       const type = resolveLessonKind(lesson);
       const startSource =
@@ -639,9 +641,10 @@ const buildScheduleMatchItems = (records = [], currentUser) =>
     .filter(Boolean)
     .sort((a, b) => moment(a.startTime).valueOf() - moment(b.startTime).valueOf());
 
-const buildActivityItems = (lessons = []) =>
+const buildActivityItems = (lessons = [], playerId = null) =>
   lessons
     .map((lesson) => {
+      if (isLessonCancelled(lesson, playerId)) return null;
       const zonedStart = parseNearbyMoment(
         lesson.startTime ??
           lesson.start_time ??
@@ -913,6 +916,7 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { displayName } = usePlayerIdentity();
+  const playerId = user?.session?.user_id ?? user?.id ?? null;
   const dashboardInviteIdentity = useMemo(() => getDashboardUserIdentityRecord(user), [user]);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const [scheduleState, setScheduleState] = useState({ status: "idle", items: [], error: null });
@@ -1009,7 +1013,7 @@ const DashboardPage = () => {
         const matches = scheduleMatchesResult.status === "fulfilled" ? scheduleMatchesResult.value.matches : [];
         setMatchNeedsAlerts(deriveMatchNeedsAlerts(matches, user));
         const scheduleItems = [
-          ...buildScheduleItems(lessons),
+          ...buildScheduleItems(lessons, playerId),
           ...buildScheduleMatchItems(matches, user),
         ].sort((a, b) => moment(a.startTime).valueOf() - moment(b.startTime).valueOf());
         const scheduleError =
@@ -1065,7 +1069,7 @@ const DashboardPage = () => {
       if (nearbyResult.status === "fulfilled") {
         const nearbyResponse = nearbyResult.value;
         const coachActivities = buildCoachActivities(extractCollection(nearbyResponse?.coaches_availability));
-        const groupActivities = buildActivityItems(extractCollection(nearbyResponse?.group_lessons));
+        const groupActivities = buildActivityItems(extractCollection(nearbyResponse?.group_lessons), playerId);
         const matchActivities = buildMatchActivities(extractCollection(nearbyResponse?.match_play));
         const externalActivities =
           externalLessonsResult.status === "fulfilled"
@@ -1111,7 +1115,7 @@ const DashboardPage = () => {
       cancelled = true;
       controller.abort();
     };
-  }, [activityFilterEnd, activityFilterStart, dashboardInviteIdentity, locationPosition, searchRadius, user]);
+  }, [activityFilterEnd, activityFilterStart, dashboardInviteIdentity, locationPosition, playerId, searchRadius, user]);
 
   const dayTabs = useMemo(
     () => {

@@ -400,6 +400,58 @@
   font-weight: 700;
 }
 
+/* Cancelled sessions — kept in place but muted, with a Rebook action. */
+.schedule-card--cancelled {
+  border-left-color: #cbd5e1;
+  background: #f8fafc;
+  box-shadow: none;
+  cursor: default;
+}
+
+.schedule-card--cancelled .schedule-card__time,
+.schedule-card--cancelled .schedule-card__content strong,
+.schedule-card--cancelled .schedule-card__location {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.schedule-card__status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.schedule-card__rebook {
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.schedule-card--purple .schedule-card__rebook {
+  color: #8b5cf6;
+}
+
+.schedule-card--green .schedule-card__rebook {
+  color: #10b981;
+}
+
+.schedule-card--amber .schedule-card__rebook {
+  color: #f59e0b;
+}
+
+.schedule-card--blue .schedule-card__rebook {
+  color: #3b82f6;
+}
+
 @media (min-width: 768px) {
   .schedule-page {
     padding-bottom: 0;
