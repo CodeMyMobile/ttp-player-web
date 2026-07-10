@@ -89,7 +89,7 @@ const formatDate = (value?: string) => {
 
 const formatRange = (league: League) => {
   const start = formatDate(league.start_date);
-  const end = formatDate(league.deadline);
+  const end = formatDate(league.end_date || league.deadline);
   if (start === "Dates TBD" && end === "Dates TBD") return "Dates TBD";
   return `${start} - ${end}`;
 };

@@ -11,6 +11,7 @@ export interface League {
   format?: string;
   status?: string;
   start_date?: string;
+  end_date?: string | null;
   deadline?: string;
   membership_status?: string;
   joined_via?: string | null;
