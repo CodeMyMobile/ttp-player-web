@@ -76,6 +76,20 @@ test("buildJoinProfilePatch preserves normalized alias values", () => {
   });
 });
 
+test("buildJoinProfilePatch treats dob as an existing profile date of birth", () => {
+  const patch = buildJoinProfilePatch(
+    baseProfile({
+      date_of_birth: undefined,
+      dob: "1990-05-10",
+    }),
+    basePending({
+      date_of_birth: "1992-03-15",
+    }),
+  );
+
+  assert.deepEqual(patch, {});
+});
+
 test("buildJoinProfilePatch refuses to build when pending aliases disagree", () => {
   assert.equal(
     buildJoinProfilePatch(

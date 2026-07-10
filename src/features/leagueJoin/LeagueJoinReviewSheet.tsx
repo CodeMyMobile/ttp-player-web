@@ -65,6 +65,9 @@ const formatDateInputValue = (value: string | null | undefined) => {
   return parsed.toISOString().slice(0, 10);
 };
 
+const readProfileDateOfBirth = (profile: PlayerPersonalDetails | null | undefined) =>
+  profile?.date_of_birth ?? profile?.dateOfBirth ?? profile?.dob;
+
 const getLatestEligibleDob = (now: Date) => {
   const latest = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
   return latest.toISOString().slice(0, 10);
@@ -214,17 +217,18 @@ const LeagueJoinReviewSheet = ({
         profile: {
           gender: localProfile?.gender,
           usta_rating: localProfile?.usta_rating,
-          date_of_birth: localProfile?.date_of_birth,
+          date_of_birth: readProfileDateOfBirth(localProfile),
         },
         pending,
         now: new Date(),
       }),
-    [league, localProfile?.date_of_birth, localProfile?.gender, localProfile?.usta_rating, pending],
+    [league, localProfile, pending],
   );
 
   const genderValue = pending.gender ?? localProfile?.gender ?? "";
   const levelValue = String(pending.usta_rating ?? localProfile?.usta_rating ?? "");
-  const dobValue = pending.date_of_birth ?? formatDateInputValue(localProfile?.date_of_birth);
+  const profileDateOfBirth = readProfileDateOfBirth(localProfile);
+  const dobValue = pending.date_of_birth ?? formatDateInputValue(profileDateOfBirth);
 
   const canEditGender = eligibility.gender.status === "missing" || hasValue(pending.gender);
   const canEditLevel = eligibility.level.status === "missing" || hasValue(pending.usta_rating);
@@ -274,7 +278,7 @@ const LeagueJoinReviewSheet = ({
         profile: {
           gender: nextProfile.gender,
           usta_rating: nextProfile.usta_rating,
-          date_of_birth: nextProfile.date_of_birth,
+          date_of_birth: readProfileDateOfBirth(nextProfile),
         },
         pending: {},
         now: new Date(),
@@ -470,7 +474,7 @@ const LeagueJoinReviewSheet = ({
                 </label>
               ) : (
                 <div className="league-join-sheet__locked-value">
-                  {formatDateInputValue(localProfile?.date_of_birth) || "Unavailable"}
+                  {formatDateInputValue(profileDateOfBirth) || "Unavailable"}
                 </div>
               )}
               {fieldErrors.age ? (

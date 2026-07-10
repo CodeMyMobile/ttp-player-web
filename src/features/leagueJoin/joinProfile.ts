@@ -82,6 +82,9 @@ const readPendingDateOfBirth = (pending: LeagueJoinPending) => {
 
 const isMissingProfileField = (value: unknown) => !hasValue(value);
 
+const readProfileDateOfBirth = (profile: PlayerPersonalDetails | null | undefined) =>
+  profile?.date_of_birth ?? profile?.dateOfBirth ?? profile?.dob;
+
 export const buildJoinProfilePatch = (
   profile: PlayerPersonalDetails | null | undefined,
   pending: LeagueJoinPending,
@@ -103,7 +106,7 @@ export const buildJoinProfilePatch = (
     patch.usta_rating = nextLevel;
   }
 
-  if (isMissingProfileField(profile?.date_of_birth) && nextDateOfBirth !== undefined) {
+  if (isMissingProfileField(readProfileDateOfBirth(profile)) && nextDateOfBirth !== undefined) {
     patch.date_of_birth = nextDateOfBirth;
   }
 

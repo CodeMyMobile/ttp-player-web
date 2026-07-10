@@ -16,6 +16,8 @@ export interface PlayerPersonalDetails {
   user_id?: number;
   full_name?: string | null;
   date_of_birth?: string | null;
+  dateOfBirth?: string | null;
+  dob?: string | null;
   phone?: string | null;
   profile_picture?: string | null;
   usta_rating?: number | string | null;
