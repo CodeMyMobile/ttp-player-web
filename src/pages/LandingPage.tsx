@@ -2,50 +2,167 @@ import { Link } from "react-router-dom";
 import {
   Award,
   CalendarCheck,
-  Trophy,
   Wrench,
-  ShieldCheck,
-  Users,
-  MapPin,
+  BarChart3,
   UserPlus,
   Search,
-  Play,
+  ListChecks,
+  ArrowRight,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 
+import heroImg from "../assets/landing/hero.jpg";
+import heroNightImg from "../assets/landing/hero-night.jpg";
+import heroClinicImg from "../assets/landing/hero-clinic.jpg";
+import coachingImg from "../assets/landing/coaching.jpg";
+import groupLessonsImg from "../assets/landing/group-lessons.jpg";
+import playPartnersImg from "../assets/landing/play-partners.jpg";
+import leaguesImg from "../assets/landing/match-nights.jpg";
+import communityImg from "../assets/landing/community.jpg";
+import ctaImg from "../assets/landing/cta-highfive.jpg";
+
+import LandingShowcase from "./LandingShowcase";
 import "./LandingPage.css";
 
-// Public, unauthenticated landing page — the front door for cold visitors.
-// Truthful-UI: static marketing content only. The dynamic sections (coaches list,
-// players-looking) have no reachable public data source today (see landing-page-findings.md),
-// so they render honest static/invitation treatments — no fabricated coaches, players, or counts.
+// Public, unauthenticated landing page. Photography is load-bearing: the hero, community band,
+// and CTA are text-over-image; the pillars pair each photo directly with the copy it illustrates.
+// Stock photos are used ONLY for marketing sections — never for the real coaches/players data
+// cards. Alt text describes the activity generically (no names, no member/coach claims).
 
 const signupState = { mode: "signup" as const };
 
-// `to` links a card to its real public browse route (no account needed); cards without
-// `to` are authenticated-only features described honestly.
+// Alternating image/text pillars — each pairs a photo with the copy it illustrates and links
+// to a real public route. `reverse` toggles the image side, kept L→R→L→R across all rows.
+type PillarData = {
+  img: string;
+  alt: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  supporting?: string | null;
+  verified?: boolean;
+  to: string;
+  linkLabel: string;
+};
+
+const COACHING: PillarData = {
+  img: coachingImg,
+  alt: "One player guiding another's forehand technique on a clay court.",
+  eyebrow: "Coaching",
+  title: "Learn from certified coaches",
+  body: "Browse coaches by format and rate, book a session, and track every lesson from your account.",
+  supporting: "Private · Semi-private · Group sessions",
+  to: "/find-coaches",
+  linkLabel: "Browse coaches",
+};
+const GROUP_LESSONS: PillarData = {
+  img: groupLessonsImg,
+  alt: "A group class warming up together on a tennis court.",
+  eyebrow: "Group lessons",
+  title: "Clinics, liveball, and group classes",
+  body: "Group lessons, clinics, and liveball sessions — browse what's on by date, location, and level, and grab a spot in a couple of taps.",
+  to: "/group-lessons",
+  linkLabel: "Browse classes",
+};
+const PLAYERS: PillarData = {
+  img: playPartnersImg,
+  alt: "Two players greeting each other at the net before a match.",
+  eyebrow: "Players",
+  title: "Find your hitting partner",
+  body: "Post when and where you want to play, set your level, and get matched with players looking for a game. Filter for players with a verified rating — identity and level confirmed through community reviews, so it's a fair match.",
+  verified: true,
+  to: "/find-players",
+  linkLabel: "Find a partner",
+};
+const LEAGUES: PillarData = {
+  img: leaguesImg,
+  alt: "Two players in a doubles rally during a daytime match.",
+  eyebrow: "Leagues",
+  title: "Play flexible league matches",
+  body: "Join flex leagues and schedule matches on your own time — then log results and climb the standings.",
+  supporting: "Flexible scheduling · Live standings",
+  to: "/matches",
+  linkLabel: "Join a league",
+};
+
+const Pillar = ({ pillar, reverse }: { pillar: PillarData; reverse: boolean }) => (
+  <article className={`landing-pillar${reverse ? " landing-pillar--reverse" : ""}`}>
+    <div className="landing-pillar__media">
+      <img src={pillar.img} alt={pillar.alt} loading="lazy" />
+    </div>
+    <div className="landing-pillar__body">
+      <p className="landing-pillar__eyebrow">{pillar.eyebrow}</p>
+      <h3 className="landing-pillar__title">{pillar.title}</h3>
+      <p className="landing-pillar__text">{pillar.body}</p>
+      {pillar.verified ? (
+        <p className="landing-pillar__badge">
+          <Check className="landing-pillar__badge-icon" aria-hidden="true" /> Verified rating ·
+          community-reviewed
+        </p>
+      ) : null}
+      {pillar.supporting ? <p className="landing-pillar__meta">{pillar.supporting}</p> : null}
+      <Link to={pillar.to} className="landing-pillar__link">
+        {pillar.linkLabel}
+        <ArrowRight className="landing-pillar__link-icon" aria-hidden="true" />
+      </Link>
+    </div>
+  </article>
+);
+
+// "Coaches you can trust" — green band matching the in-app banner. Copy stays literally true
+// as the roster grows (invite-only, personally vetted).
+const TrustBand = () => (
+  <section className="landing-trust" aria-labelledby="trust-heading">
+    <div className="landing-container landing-trust__inner">
+      <span className="landing-trust__icon" aria-hidden="true">
+        <ShieldCheck />
+      </span>
+      <h2 id="trust-heading" className="landing-trust__title">
+        Coaches you can trust
+      </h2>
+      <p className="landing-trust__text">
+        Not a self-serve platform. We personally invite every coach on The Tennis Plan.
+      </p>
+      <div className="landing-trust__markers">
+        <span className="landing-trust__marker">
+          <Check aria-hidden="true" /> Invite-only
+        </span>
+        <span className="landing-trust__marker">
+          <Check aria-hidden="true" /> Personally vetted
+        </span>
+        <span className="landing-trust__marker">
+          <Check aria-hidden="true" /> People we actually know
+        </span>
+      </div>
+    </div>
+  </section>
+);
+
+// "Everything in one place" — complements the pillars (no coaches/players/leagues duplication).
 const FEATURES = [
-  {
-    icon: Award,
-    title: "Find certified coaches",
-    body: "Browse coaches, see their formats and rates, and book a session that fits your game.",
-    to: "/find-coaches",
-  },
-  {
-    icon: Trophy,
-    title: "Matches & flex leagues",
-    body: "Find open matches, post your availability, and climb the ladder.",
-    to: "/matches",
-  },
   {
     icon: CalendarCheck,
     title: "Group lessons",
-    body: "Join high-energy group liveball and clinics — browse upcoming sessions near a coach.",
+    body: "Join high-energy group liveball and clinics near a coach.",
     to: "/group-lessons",
+  },
+  {
+    icon: Award,
+    title: "Lesson packages",
+    body: "Buy credits once and redeem them across sessions — every booking tracked for you.",
+    to: undefined as string | undefined,
   },
   {
     icon: Wrench,
     title: "Restring your racket",
-    body: "Keep your gear match-ready with restringing right alongside your lessons and matches.",
+    body: "Keep your gear match-ready right alongside your lessons and matches.",
+    to: undefined as string | undefined,
+  },
+  {
+    icon: BarChart3,
+    title: "Results & standings",
+    body: "Log your match results and follow how your league is shaping up.",
     to: undefined as string | undefined,
   },
 ];
@@ -62,7 +179,7 @@ const STEPS = [
     body: "Book a certified coach, or post your availability to get matched with other players.",
   },
   {
-    icon: Play,
+    icon: ListChecks,
     title: "Book, play, and track",
     body: "Manage lessons, packages, and league results — your whole tennis life in one app.",
   },
@@ -89,8 +206,23 @@ const LandingPage = () => {
       </header>
 
       <main id="main">
-        {/* ---------- Hero ---------- */}
+        {/* ---------- Photographic hero ---------- */}
         <section className="landing-hero">
+          <div className="landing-hero__slides" aria-hidden="true">
+            <div
+              className="landing-hero__slide landing-hero__slide--1"
+              style={{ backgroundImage: `url(${heroImg})` }}
+            />
+            <div
+              className="landing-hero__slide landing-hero__slide--2"
+              style={{ backgroundImage: `url(${heroNightImg})` }}
+            />
+            <div
+              className="landing-hero__slide landing-hero__slide--3"
+              style={{ backgroundImage: `url(${heroClinicImg})` }}
+            />
+          </div>
+          <div className="landing-hero__scrim" aria-hidden="true" />
           <div className="landing-container landing-hero__inner">
             <p className="landing-eyebrow">Coaches · Players · Leagues</p>
             <h1 className="landing-hero__title">
@@ -108,7 +240,7 @@ const LandingPage = () => {
               >
                 Create your account
               </Link>
-              <Link to="/login" className="landing-btn landing-btn--ghost landing-btn--lg">
+              <Link to="/login" className="landing-btn landing-btn--glass landing-btn--lg">
                 I already play here
               </Link>
             </div>
@@ -118,118 +250,37 @@ const LandingPage = () => {
                 browse coaches — no account needed
               </Link>
             </p>
-            {/* Actionable quick-links — each routes to a real public page. */}
-            <ul className="landing-hero__chips" aria-label="Quick links">
-              <li>
-                <Link to="/find-coaches" className="landing-chip landing-chip--link">
-                  <Award className="landing-chip__icon" aria-hidden="true" /> Browse coaches
-                </Link>
-              </li>
-              <li>
-                <Link to="/find-players" className="landing-chip landing-chip--link">
-                  <Users className="landing-chip__icon" aria-hidden="true" /> Find a partner
-                </Link>
-              </li>
-              <li>
-                <Link to="/matches" className="landing-chip landing-chip--link">
-                  <Trophy className="landing-chip__icon" aria-hidden="true" /> Join a league
-                </Link>
-              </li>
-            </ul>
           </div>
         </section>
 
-        {/* ---------- Meet the coaches (honest static — no public coaches-list endpoint) ---------- */}
-        <section className="landing-section" aria-labelledby="coaches-heading">
+        {/* ---------- Coaching pillar ---------- */}
+        <section className="landing-section" aria-labelledby="pillars-heading">
           <div className="landing-container">
-            <div className="landing-section__head">
-              <h2 id="coaches-heading" className="landing-section__title">
-                Coaching from certified pros
-              </h2>
-              <p className="landing-section__lede">
-                Work with coaches who fit your goals — private, semi-private, or group sessions,
-                bookable and trackable from your account.
-              </p>
-            </div>
-            <div className="landing-coach-grid">
-              <article className="landing-value-card">
-                <span className="landing-value-card__icon" aria-hidden="true">
-                  <ShieldCheck />
-                </span>
-                <h3 className="landing-value-card__title">Certified &amp; vetted</h3>
-                <p className="landing-value-card__body">
-                  Coaches list their experience, formats, and rates so you can choose with
-                  confidence.
-                </p>
-              </article>
-              <article className="landing-value-card">
-                <span className="landing-value-card__icon" aria-hidden="true">
-                  <CalendarCheck />
-                </span>
-                <h3 className="landing-value-card__title">Flexible formats</h3>
-                <p className="landing-value-card__body">
-                  Private one-on-one, semi-private with a partner, or high-energy group liveball —
-                  your choice.
-                </p>
-              </article>
-              <article className="landing-value-card">
-                <span className="landing-value-card__icon" aria-hidden="true">
-                  <Award />
-                </span>
-                <h3 className="landing-value-card__title">Packages that pay off</h3>
-                <p className="landing-value-card__body">
-                  Buy a package once and redeem credits across sessions — every booking tracked for
-                  you.
-                </p>
-              </article>
-            </div>
-            <div className="landing-section__cta landing-section__cta--row">
-              <Link to="/find-coaches" className="landing-btn landing-btn--primary">
-                Browse coaches
-              </Link>
-              <Link to="/group-lessons" className="landing-btn landing-btn--ghost">
-                Browse group lessons
-              </Link>
+            <h2 id="pillars-heading" className="visually-hidden">
+              What you can do on The Tennis Plan
+            </h2>
+            <div className="landing-pillars">
+              <Pillar pillar={COACHING} reverse={false} />
             </div>
           </div>
         </section>
 
-        {/* ---------- Players looking to play (gated — invitation tile only, no individuals) ---------- */}
-        <section className="landing-section landing-section--tint" aria-labelledby="players-heading">
+        {/* ---------- Coaches you can trust ---------- */}
+        <TrustBand />
+
+        {/* ---------- Group lessons + Players + Leagues (alternating L→R→L→R) ---------- */}
+        <section className="landing-section">
           <div className="landing-container">
-            <div className="landing-section__head">
-              <h2 id="players-heading" className="landing-section__title">
-                Players looking to play
-              </h2>
-              <p className="landing-section__lede">
-                Post when and where you want to play, and get matched with players at your level.
-              </p>
+            <div className="landing-pillars">
+              <Pillar pillar={GROUP_LESSONS} reverse={true} />
+              <Pillar pillar={PLAYERS} reverse={false} />
+              <Pillar pillar={LEAGUES} reverse={true} />
             </div>
-            <article className="landing-invite">
-              <span className="landing-invite__icon" aria-hidden="true">
-                <MapPin />
-              </span>
-              <div className="landing-invite__body">
-                <h3 className="landing-invite__title">See who&apos;s looking — or post your own</h3>
-                <p className="landing-invite__text">
-                  Browse players looking for a match by level and area, or post your availability and
-                  let The Tennis Plan match you. Signing up unlocks messaging and posting.
-                </p>
-              </div>
-              <div className="landing-invite__actions">
-                <Link to="/find-players" className="landing-btn landing-btn--primary">
-                  See who&apos;s looking
-                </Link>
-                <Link to="/login" state={signupState} className="landing-btn landing-btn--ghost">
-                  Post your availability
-                </Link>
-              </div>
-            </article>
           </div>
         </section>
 
-        {/* ---------- Feature grid ---------- */}
-        <section className="landing-section" aria-labelledby="features-heading">
+        {/* ---------- Everything in one place ---------- */}
+        <section className="landing-section landing-section--tint" aria-labelledby="features-heading">
           <div className="landing-container">
             <div className="landing-section__head">
               <h2 id="features-heading" className="landing-section__title">
@@ -265,8 +316,32 @@ const LandingPage = () => {
           </div>
         </section>
 
+        {/* ---------- See it in action ---------- */}
+        <LandingShowcase />
+
+        {/* ---------- Community band (text over image) ---------- */}
+        <section
+          className="landing-community"
+          aria-labelledby="community-heading"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(15,23,42,0.76) 0%, rgba(15,23,42,0.58) 50%, rgba(15,23,42,0.52) 100%)," +
+              `url(${communityImg})`,
+          }}
+        >
+          <div className="landing-container landing-community__inner">
+            <h2 id="community-heading" className="landing-community__title">
+              From first-timers to 4.5s
+            </h2>
+            <p className="landing-community__text">
+              Whatever your level, there&apos;s a place for you here — a coach to learn from, a
+              partner to hit with, and a league to play in. Tennis is better together.
+            </p>
+          </div>
+        </section>
+
         {/* ---------- How it works ---------- */}
-        <section className="landing-section landing-section--tint" aria-labelledby="how-heading">
+        <section className="landing-section" aria-labelledby="how-heading">
           <div className="landing-container">
             <div className="landing-section__head">
               <h2 id="how-heading" className="landing-section__title">
@@ -290,8 +365,15 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* ---------- Final CTA ---------- */}
-        <section className="landing-cta" aria-labelledby="cta-heading">
+        {/* ---------- Final CTA (over photo) ---------- */}
+        <section
+          className="landing-cta landing-cta--photo"
+          aria-labelledby="cta-heading"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(15,23,42,0.5), rgba(15,23,42,0.6))," + `url(${ctaImg})`,
+          }}
+        >
           <div className="landing-container landing-cta__inner">
             <h2 id="cta-heading" className="landing-cta__title">
               Ready to play?
@@ -307,7 +389,7 @@ const LandingPage = () => {
               >
                 Create your account
               </Link>
-              <Link to="/login" className="landing-btn landing-btn--ghostOnDark landing-btn--lg">
+              <Link to="/login" className="landing-btn landing-btn--glass landing-btn--lg">
                 Sign in
               </Link>
             </div>
