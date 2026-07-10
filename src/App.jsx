@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardPage from "./pages/DashboardPage";
+import LandingPage from "./pages/LandingPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
 import PlayDatesMatchPage from "./play-dates/pages/MatchPage";
@@ -181,6 +182,27 @@ const AuthRedirectRoute = ({ children }) => {
   return children;
 };
 
+// Public front door: anonymous visitors get the marketing landing page; authenticated
+// users keep the exact same experience as before (ProtectedRoute + Dashboard). Router
+// config only — reads existing auth state via useAuth, no auth logic changed.
+const RootRoute = () => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div className="loading-screen">Preparing the experience…</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  return (
+    <ProtectedRoute>
+      <DashboardPage />
+    </ProtectedRoute>
+  );
+};
+
 const buildMatchesUser = (authUser) => {
   const personalDetails = readStoredObject("playerPersonalDetails");
   const loginResponse = readStoredObject("authLoginResponse");
@@ -325,11 +347,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/"
-      element={(
-        <ProtectedRoute>
-          <DashboardPage />
-        </ProtectedRoute>
-      )}
+      element={<RootRoute />}
     />
     <Route
       path="/matches"
