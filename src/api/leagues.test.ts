@@ -69,6 +69,10 @@ test("league API exports stable browse path helpers", async () => {
 
   assert.equal(leaguesApi.buildLeagueListPath?.(), "/leagues");
   assert.equal(leaguesApi.buildLeagueListPath?.("available"), "/leagues?segment=available");
+  assert.equal(
+    leaguesApi.buildLeagueListPath?.({ segment: "available", area: "Santa Monica" }),
+    "/leagues?segment=available&area=Santa+Monica",
+  );
   assert.equal(leaguesApi.buildLeagueRulesPath?.(12), "/leagues/12/rules");
 });
 
@@ -91,13 +95,13 @@ test("listLeagues requests a segmented browse response", async () => {
   }) as typeof fetch;
 
   try {
-    const response = await listLeagues({ segment: "available", token: "abc" });
+    const response = await listLeagues({ segment: "available", area: "Santa Monica", token: "abc" });
     assert.equal(response.sections.available[0]?.id, 10);
   } finally {
     globalThis.fetch = previousFetch;
   }
 
-  assert.match(requestedUrl, /\/leagues\?segment=available$/);
+  assert.match(requestedUrl, /\/leagues\?segment=available&area=Santa\+Monica$/);
 });
 
 test("listMyLeagues remains a compatibility wrapper over the unsegmented leagues endpoint", async () => {

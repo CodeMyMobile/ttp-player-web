@@ -16,6 +16,12 @@ export interface League {
   joined_via?: string | null;
   paid?: boolean;
   current_rules_version?: string | null;
+  location?: string | null;
+  venue_id?: number | string | null;
+  venue_name?: string | null;
+  venue_area?: string | null;
+  venue_latitude?: number | string | null;
+  venue_longitude?: number | string | null;
   spots_filled?: number | string | null;
   spots_remaining?: number | string | null;
   is_full?: boolean | null;
@@ -205,8 +211,23 @@ export const isLeagueSlotAvailable = (
   return true;
 };
 
-export const buildLeagueListPath = (segment?: LeagueListSegment) =>
-  segment ? `/leagues?segment=${encodeURIComponent(segment)}` : "/leagues";
+export interface LeagueListParams {
+  segment?: LeagueListSegment;
+  location?: string;
+  area?: string;
+  venueId?: number | string;
+}
+
+export const buildLeagueListPath = (params: LeagueListSegment | LeagueListParams = {}) => {
+  const normalized = typeof params === "string" ? { segment: params } : params;
+  const search = new URLSearchParams();
+  if (normalized.segment) search.set("segment", normalized.segment);
+  if (normalized.location) search.set("location", normalized.location);
+  if (normalized.area) search.set("area", normalized.area);
+  if (normalized.venueId) search.set("venue_id", String(normalized.venueId));
+  const query = search.toString();
+  return query ? `/leagues?${query}` : "/leagues";
+};
 
 export const buildLeagueDetailPath = (leagueId: number | string) => `/leagues/${leagueId}`;
 
@@ -215,14 +236,20 @@ export const buildLeagueRulesPath = (leagueId: number | string) =>
 
 export const listLeagues = ({
   segment,
+  location,
+  area,
+  venueId,
   token,
   signal,
 }: {
   segment?: LeagueListSegment;
+  location?: string;
+  area?: string;
+  venueId?: number | string;
   token?: string;
   signal?: AbortSignal;
 } = {}) =>
-  request<LeagueListResponse>(buildLeagueListPath(segment), { token, signal });
+  request<LeagueListResponse>(buildLeagueListPath({ segment, location, area, venueId }), { token, signal });
 
 export const listMyLeagues = ({ token, signal }: { token?: string; signal?: AbortSignal } = {}) =>
   request<LeagueListResponse>("/leagues", { token, signal });

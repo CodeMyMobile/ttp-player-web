@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleAlert,
   CircleDot,
+  MapPin,
   Search,
   Trophy,
   Users,
@@ -99,6 +100,12 @@ const formatMoney = (value: unknown) => {
     return "$0";
   }
   return `$${(costCents / 100).toFixed(0)}`;
+};
+
+const getLeagueLocationLabel = (league: League) => {
+  const label = league.location ||
+    [league.venue_name, league.venue_area].filter(Boolean).join(" · ");
+  return typeof label === "string" && label.trim() ? label : "Location TBD";
 };
 
 const getApiErrorMessage = (error: unknown) => {
@@ -248,6 +255,10 @@ const LeagueCard = ({
           <Users size={14} />
           {league.membership_status ?? "Public league"}
         </span>
+        <span>
+          <MapPin size={14} />
+          {getLeagueLocationLabel(league)}
+        </span>
       </div>
 
       <div className="browse-league-card__capacity">
@@ -313,6 +324,7 @@ const LeaguesPage = () => {
   const [topFilter, setTopFilter] = useState<BrowseTopFilter>("all");
   const [availableFilter, setAvailableFilter] =
     useState<LeagueBrowseAvailableFilter>("for-you");
+  const [locationFilter, setLocationFilter] = useState("all");
   const [sections, setSections] = useState<LeagueSections>(EMPTY_SECTIONS);
   const [profile, setProfile] = useState<PlayerPersonalDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -342,6 +354,15 @@ const LeaguesPage = () => {
       league,
     ] as const);
     return new Map(entries);
+  }, [sections.archived, sections.available, sections.mine]);
+
+  const locationOptions = useMemo(() => {
+    const areas = new Set<string>();
+    [...sections.mine, ...sections.available, ...sections.archived].forEach((league) => {
+      const area = typeof league.venue_area === "string" ? league.venue_area.trim() : "";
+      if (area) areas.add(area);
+    });
+    return Array.from(areas).sort((left, right) => left.localeCompare(right));
   }, [sections.archived, sections.available, sections.mine]);
 
   const loadReviewProfile = useCallback(async () => {
@@ -415,7 +436,11 @@ const LeaguesPage = () => {
     setError(null);
     setArchivedLoaded(false);
 
-    listLeagues({ token, signal: controller.signal })
+    listLeagues({
+      area: locationFilter === "all" ? undefined : locationFilter,
+      token,
+      signal: controller.signal,
+    })
       .then((response) => {
         const nextSections = normalizeSections(response.sections);
         setSections({
@@ -439,7 +464,7 @@ const LeaguesPage = () => {
       });
 
     return () => controller.abort();
-  }, [token]);
+  }, [locationFilter, token]);
 
   useEffect(() => {
     if (topFilter !== "archived" || archivedLoaded) {
@@ -450,7 +475,12 @@ const LeaguesPage = () => {
     setLoading(true);
     setError(null);
 
-    listLeagues({ segment: "archived", token, signal: controller.signal })
+    listLeagues({
+      segment: "archived",
+      area: locationFilter === "all" ? undefined : locationFilter,
+      token,
+      signal: controller.signal,
+    })
       .then((response) => {
         if (controller.signal.aborted) {
           return;
@@ -480,7 +510,7 @@ const LeaguesPage = () => {
       });
 
     return () => controller.abort();
-  }, [archivedLoaded, token, topFilter]);
+  }, [archivedLoaded, locationFilter, token, topFilter]);
 
   useEffect(() => {
     if (!token || !isAuthenticated) {
@@ -651,6 +681,17 @@ const LeaguesPage = () => {
               ))}
             </div>
           ) : null}
+
+          <label className="leagues-page__location-filter">
+            <MapPin size={15} />
+            <span>Location</span>
+            <select value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
+              <option value="all">All locations</option>
+              {locationOptions.map((area) => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {joinFlowMessage ? (
