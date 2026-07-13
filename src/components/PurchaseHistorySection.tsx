@@ -202,6 +202,7 @@ const PurchaseHistorySection = () => {
               <ul className="ph-past-list">
                 {past.map((purchase, index) => {
                   const expired = isExpired(purchase, now);
+                  const refunded = String(purchase.status ?? "") === "refunded";
                   const coachName = coachNames[String(purchase.coach_id)] || "";
                   const price = formatAmount(purchase.amount_paid, purchase.currency);
                   return (
@@ -212,7 +213,7 @@ const PurchaseHistorySection = () => {
                       </span>
                       <span className="ph-past-row__meta">
                         <span className={`ph-past-status ph-past-status--${expired ? "expired" : "used"}`}>
-                          {expired ? "Expired" : "Used up"}
+                          {refunded ? "Refunded · 0 credits" : expired ? "Expired" : "Used up"}
                         </span>
                         {price ? ` · ${price}` : ""}
                       </span>
