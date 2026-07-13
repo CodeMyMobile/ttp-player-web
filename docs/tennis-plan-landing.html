@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Tennis Plan — Find your coach. Play your match.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16121F; --muted:#6E6B82; --faint:#8582A0;
+    --purple:#7B6EF0; --purple-dark:#4A3FB0; --purple-tint:#EEEDFE; --eyebrow:#8B58C4;
+    --lime:#B9E356; --lime-dark:#3B6D11; --lime-tint:#EAF3DE;
+    --bg:#E9EAF2; --card:#FFFFFF; --fill:#EDEDF7;
+    --shadow-card:0 6px 18px rgba(80,70,150,.08);
+    --shadow-lift:0 10px 30px rgba(80,70,150,.10);
+    --r-card:22px; --r-tile:16px; --r-btn:14px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 24px;}
+  a{color:inherit; text-decoration:none;}
+  h1,h2,h3{margin:0; letter-spacing:-0.03em; font-weight:700;}
+  p{margin:0;}
+  .eyebrow{display:block; font-size:12px; font-weight:600; letter-spacing:0.09em;
+    color:var(--eyebrow); text-transform:uppercase; margin-bottom:10px;}
+  .photowell{background:var(--purple-tint); color:#9C96D8; display:flex;
+    align-items:center; justify-content:center; flex-direction:column; gap:6px;}
+  .photowell svg{width:28px; height:28px;}
+  .photowell .cap{font-size:12px;}
+
+  /* buttons */
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    font-family:inherit; font-size:15px; font-weight:500; border:0; cursor:pointer;
+    padding:13px 24px; border-radius:var(--r-btn); transition:transform .12s ease, box-shadow .12s ease, background .12s ease;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--purple); color:#fff; box-shadow:0 8px 20px rgba(123,110,240,.32);}
+  .btn-primary:hover{background:#6a5cec;}
+  .btn-secondary{background:var(--fill); color:var(--ink);}
+  .btn-secondary:hover{background:#e4e3f4;}
+  .btn-lime{background:var(--lime); color:var(--ink); box-shadow:0 8px 20px rgba(150,190,70,.30);}
+  .btn-lime:hover{background:#adda45;}
+  .btn:focus-visible{outline:3px solid var(--purple); outline-offset:2px;}
+
+  /* nav */
+  .nav{display:flex; align-items:center; justify-content:space-between; padding:22px 0;}
+  .brand{display:flex; align-items:center; gap:11px; font-size:19px; font-weight:700; letter-spacing:-0.03em;}
+  .brand .mark{width:36px; height:36px; border-radius:11px; background:var(--lime);
+    box-shadow:0 6px 14px rgba(150,190,70,.35); display:flex; align-items:center; justify-content:center;}
+  .brand .plan{color:var(--purple);}
+  .nav-right{display:flex; align-items:center; gap:18px;}
+  .nav-link{font-size:14px; color:var(--muted); font-weight:500;}
+  .nav-link:hover{color:var(--ink);}
+  .nav-cta{font-size:14px; font-weight:500; color:#fff; background:var(--purple);
+    padding:9px 18px; border-radius:12px; box-shadow:0 6px 16px rgba(123,110,240,.32);}
+  .nav-cta:hover{background:#6a5cec;}
+
+  /* hero */
+  .hero{background:var(--card); border-radius:var(--r-card); box-shadow:var(--shadow-lift);
+    overflow:hidden; display:grid; grid-template-columns:1.05fr .95fr; margin-top:6px;}
+  .hero-copy{padding:52px 44px;}
+  .hero h1{font-size:44px; line-height:1.04; margin-bottom:14px;}
+  .hero h1 .accent{color:var(--purple);}
+  .hero-sub{font-size:16px; line-height:1.55; color:var(--muted); max-width:34ch; margin-bottom:28px;}
+  .hero-actions{display:flex; gap:12px; flex-wrap:wrap;}
+  .hero-visual{position:relative; min-height:380px;}
+  .hero-visual .photowell{position:absolute; inset:0;}
+  .hero-badge{position:absolute; left:20px; bottom:20px; background:#fff; border-radius:14px;
+    padding:11px 14px; display:flex; align-items:center; gap:11px; box-shadow:0 8px 22px rgba(80,70,150,.18);}
+  .hero-badge .ic{width:34px; height:34px; border-radius:50%; background:var(--lime-tint);
+    color:var(--lime-dark); display:flex; align-items:center; justify-content:center;}
+  .hero-badge .ic svg{width:18px; height:18px;}
+  .hero-badge b{font-size:13px; font-weight:500; display:block;}
+  .hero-badge span{font-size:11px; color:var(--faint);}
+
+  section{padding-top:56px;}
+  .section-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:22px;}
+  .section-head h2{font-size:26px;}
+  .section-head .lede{font-size:14px; color:var(--muted); margin-top:6px;}
+  .link-more{font-size:14px; font-weight:500; color:var(--purple); white-space:nowrap;}
+  .link-more:hover{text-decoration:underline;}
+
+  /* coaches */
+  .coach-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+  .coach-card{background:var(--card); border-radius:var(--r-tile); box-shadow:var(--shadow-card);
+    overflow:hidden; transition:transform .14s ease, box-shadow .14s ease;}
+  .coach-card:hover{transform:translateY(-3px); box-shadow:var(--shadow-lift);}
+  .coach-card .photowell{height:150px;}
+  .coach-card .body{padding:13px 15px;}
+  .coach-card .name{font-weight:500; font-size:14.5px;}
+  .coach-card .meta{font-size:12.5px; color:var(--faint); margin-top:3px; display:flex; align-items:center; gap:5px;}
+  .star{color:#EF9F27; width:14px; height:14px;}
+
+  /* players */
+  .player-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .player-card{background:var(--card); border-radius:var(--r-tile); box-shadow:var(--shadow-card); padding:16px;}
+  .player-top{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+  .avatar{width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;}
+  .avatar svg{width:18px; height:18px;}
+  .player-card .name{font-weight:500; font-size:14.5px;}
+  .player-card .loc{font-size:12px; color:var(--faint);}
+  .chip-green{font-size:11px; font-weight:500; color:var(--lime-dark); background:var(--lime-tint); padding:4px 9px; border-radius:8px;}
+  .avail{font-size:12.5px; color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:7px;}
+  .avail svg{width:14px; height:14px; color:var(--purple); flex-shrink:0;}
+  .player-cta{display:block; width:100%; text-align:center; font-size:13.5px; font-weight:500;
+    color:#fff; background:var(--purple); padding:10px; border-radius:11px; border:0; cursor:pointer; font-family:inherit;}
+  .player-cta:hover{background:#6a5cec;}
+  .post-card{background:var(--ink); border-radius:var(--r-tile); padding:16px; display:flex; flex-direction:column; justify-content:center;}
+  .post-card .pic{color:var(--lime); margin-bottom:8px;}
+  .post-card .pic svg{width:22px; height:22px;}
+  .post-card .name{font-weight:500; font-size:14.5px; color:#fff;}
+  .post-card .txt{font-size:12.5px; color:#B3B0CE; line-height:1.45; margin:3px 0 14px;}
+  .post-card .cta{text-align:center; font-size:13.5px; font-weight:500; color:var(--ink); background:var(--lime); padding:9px; border-radius:11px;}
+
+  /* features */
+  .feature-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  .feature{background:var(--card); border-radius:var(--r-tile); box-shadow:var(--shadow-card);
+    padding:18px 20px; display:flex; gap:14px; align-items:flex-start;}
+  .icon-tile{width:44px; height:44px; border-radius:12px; background:#fff; box-shadow:0 4px 12px rgba(80,70,150,.14);
+    display:flex; align-items:center; justify-content:center; color:var(--purple); flex-shrink:0;}
+  .icon-tile svg{width:21px; height:21px;}
+  .feature .ft-title{font-weight:500; font-size:15px; margin-bottom:3px;}
+  .feature .ft-desc{font-size:12.5px; color:var(--faint); line-height:1.45;}
+
+  /* how it works */
+  .steps{background:var(--card); border-radius:var(--r-card); box-shadow:var(--shadow-card);
+    padding:30px 28px; display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+  .step .num{width:28px; height:28px; border-radius:8px; background:var(--purple-tint); color:var(--purple-dark);
+    font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; margin-bottom:11px;}
+  .step .st-title{font-weight:500; font-size:15px; margin-bottom:3px;}
+  .step .st-desc{font-size:13px; color:var(--faint); line-height:1.45;}
+
+  /* final cta */
+  .final{margin-top:56px; background:var(--ink); border-radius:var(--r-card); padding:48px 28px;
+    text-align:center; box-shadow:0 12px 30px rgba(22,18,31,.25);}
+  .final h2{font-size:28px; color:#fff; margin-bottom:10px;}
+  .final p{font-size:15px; color:#B3B0CE; margin-bottom:26px;}
+
+  /* footer */
+  footer{padding:34px 0 44px; display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  footer .brand{font-size:15px;}
+  footer .brand .mark{width:26px; height:26px; border-radius:8px;}
+  footer .brand .mark svg{width:15px; height:15px;}
+  .foot-links{display:flex; gap:20px; font-size:13px; color:var(--faint);}
+  .foot-links a:hover{color:var(--ink);}
+
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr;}
+    .hero-copy{padding:38px 28px;}
+    .hero h1{font-size:36px;}
+    .hero-visual{min-height:240px;}
+    .coach-grid{grid-template-columns:1fr;}
+    .player-grid{grid-template-columns:1fr 1fr;}
+    .feature-grid{grid-template-columns:1fr;}
+    .steps{grid-template-columns:1fr;}
+    .section-head{flex-direction:column; align-items:flex-start;}
+  }
+  @media (max-width:520px){
+    .player-grid{grid-template-columns:1fr;}
+    .hero h1{font-size:30px;}
+    .nav-link{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important; scroll-behavior:auto !important;}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.6-7-11a7 7 0 0 1 14 0c0 4.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="3"/><circle cx="16.5" cy="9" r="2.4"/><path d="M3 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M15 14c2.7 0 4.7 1.9 4.7 4.6"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6.5a4 4 0 0 0-5.2 5.2L4 17.6V20h2.4l5.9-5.8a4 4 0 0 0 5.2-5.2l-2.4 2.4-2-2z"/></symbol>
+  <symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5 5c3 3 3 11 0 14M19 5c-3 3-3 11 0 14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-9 9"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 32 32"><path d="M12 7 C16 13,16 19,12 25" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M20 7 C16 13,16 19,20 25" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="wrap">
+
+  <nav class="nav">
+    <div class="brand">
+      <span class="mark"><svg width="19" height="19"><use href="#i-mark"/></svg></span>
+      The Tennis <span class="plan">Plan</span>
+    </div>
+    <div class="nav-right">
+      <a class="nav-link" href="#">Coaches</a>
+      <a class="nav-link" href="#">Play</a>
+      <a class="nav-link" href="#">Sign in</a>
+      <a class="nav-cta" href="#">Get started</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Coaching · matches · leagues</span>
+      <h1>Find your coach.<br><span class="accent">Play your match.</span></h1>
+      <p class="hero-sub">Real coaches near you, lesson packages you can track, and players at your level looking for a game.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#">Create your account&nbsp;→</a>
+        <a class="btn btn-secondary" href="#">I already play here</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="photowell"><svg><use href="#i-photo"/></svg><span class="cap">Hero photo · player mid-rally</span></div>
+      <div class="hero-badge">
+        <span class="ic"><svg><use href="#i-ball"/></svg></span>
+        <div><b>120 open matches</b><span>across the ladder this week</span></div>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Meet the coaches</span>
+        <h2>Certified, reviewed, booking now</h2>
+      </div>
+      <a class="link-more" href="#">See all&nbsp;→</a>
+    </div>
+    <div class="coach-grid">
+      <div class="coach-card">
+        <div class="photowell" style="background:#EEEDFE;color:#9C96D8"><svg><use href="#i-photo"/></svg></div>
+        <div class="body"><div class="name">Coach headshot</div><div class="meta"><svg class="star"><use href="#i-star"/></svg> 4.9 · from £45/hr</div></div>
+      </div>
+      <div class="coach-card">
+        <div class="photowell" style="background:#EAF3DE;color:#8DAE57"><svg><use href="#i-photo"/></svg></div>
+        <div class="body"><div class="name">Coach headshot</div><div class="meta"><svg class="star"><use href="#i-star"/></svg> 4.8 · from £50/hr</div></div>
+      </div>
+      <div class="coach-card">
+        <div class="photowell" style="background:#FBEAF0;color:#C98BA6"><svg><use href="#i-photo"/></svg></div>
+        <div class="body"><div class="name">Coach headshot</div><div class="meta"><svg class="star"><use href="#i-star"/></svg> 5.0 · from £42/hr</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Players looking to play</span>
+        <h2>Just want to hit? Find a partner</h2>
+        <p class="lede">Real members who've posted their availability. No lesson, no stakes — just a game.</p>
+      </div>
+      <a class="link-more" href="#">See all&nbsp;→</a>
+    </div>
+    <div class="player-grid">
+      <div class="player-card">
+        <div class="player-top">
+          <span class="avatar" style="background:#EEEDFE;color:#9C96D8"><svg><use href="#i-photo"/></svg></span>
+          <div style="flex:1"><div class="name">Player name</div><div class="loc">Riverside Courts</div></div>
+          <span class="chip-green">3.5</span>
+        </div>
+        <div class="avail"><svg><use href="#i-cal"/></svg> Free Sat &amp; Sun mornings</div>
+        <button class="player-cta">Sign up to say hi</button>
+      </div>
+      <div class="player-card">
+        <div class="player-top">
+          <span class="avatar" style="background:#EAF3DE;color:#8DAE57"><svg><use href="#i-photo"/></svg></span>
+          <div style="flex:1"><div class="name">Player name</div><div class="loc">Victoria Park</div></div>
+          <span class="chip-green">4.0</span>
+        </div>
+        <div class="avail"><svg><use href="#i-cal"/></svg> Weekday evenings after 6</div>
+        <button class="player-cta">Sign up to say hi</button>
+      </div>
+      <div class="player-card">
+        <div class="player-top">
+          <span class="avatar" style="background:#FBEAF0;color:#C98BA6"><svg><use href="#i-photo"/></svg></span>
+          <div style="flex:1"><div class="name">Player name</div><div class="loc">Southbank Club</div></div>
+          <span class="chip-green">3.0</span>
+        </div>
+        <div class="avail"><svg><use href="#i-cal"/></svg> Flexible most afternoons</div>
+        <button class="player-cta">Sign up to say hi</button>
+      </div>
+      <div class="post-card">
+        <span class="pic"><svg><use href="#i-plus"/></svg></span>
+        <div class="name">Looking to play?</div>
+        <p class="txt">Post your availability and let partners come to you.</p>
+        <a class="cta" href="#">Post availability&nbsp;→</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">Everything in one place</span>
+    <div class="feature-grid" style="margin-top:14px">
+      <div class="feature"><span class="icon-tile"><svg><use href="#i-pin"/></svg></span><div><div class="ft-title">Find certified coaches</div><div class="ft-desc">Browse and filter coaches in your area.</div></div></div>
+      <div class="feature"><span class="icon-tile"><svg><use href="#i-cal"/></svg></span><div><div class="ft-title">Book &amp; track packages</div><div class="ft-desc">Buy lesson packages, spend credits, see history.</div></div></div>
+      <div class="feature"><span class="icon-tile"><svg><use href="#i-users"/></svg></span><div><div class="ft-title">Matches &amp; flex leagues</div><div class="ft-desc">Join singles matches at your level.</div></div></div>
+      <div class="feature"><span class="icon-tile"><svg><use href="#i-tool"/></svg></span><div><div class="ft-title">Restring your racket</div><div class="ft-desc">Book restringing with local partners.</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <span class="eyebrow">How it works</span>
+    <div class="steps" style="margin-top:14px">
+      <div class="step"><div class="num">1</div><div class="st-title">Create your profile</div><div class="st-desc">Set your level and where you play.</div></div>
+      <div class="step"><div class="num">2</div><div class="st-title">Find coaches &amp; matches</div><div class="st-desc">Book a lesson or claim an open match.</div></div>
+      <div class="step"><div class="num">3</div><div class="st-title">Play &amp; climb</div><div class="st-desc">Log results and move up the ladder.</div></div>
+    </div>
+  </section>
+
+  <section class="final">
+    <h2>Ready for your next match?</h2>
+    <p>Join free. Book your first lesson in minutes.</p>
+    <a class="btn btn-lime" href="#">Get started&nbsp;→</a>
+  </section>
+
+  <footer>
+    <div class="brand">
+      <span class="mark"><svg width="15" height="15"><use href="#i-mark"/></svg></span>
+      The Tennis <span class="plan">Plan</span>
+    </div>
+    <div class="foot-links">
+      <a href="#">Terms of Service</a>
+      <a href="#">Privacy Policy</a>
+      <span>© The Tennis Plan</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
