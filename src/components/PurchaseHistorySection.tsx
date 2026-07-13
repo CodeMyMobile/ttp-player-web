@@ -42,9 +42,13 @@ const formatAmount = (amount?: string, currency?: string) => {
 const packageNameOf = (purchase: PackagePurchase) =>
   purchase.metadata?.package_snapshot?.name || "Lesson package";
 
+const isGroupLessonPackage = (purchase: PackagePurchase) =>
+  (purchase.lesson_types_allowed ?? []).map((type) => String(type).toLowerCase()).includes("group");
+
 const canRequestRefund = (purchase: PackagePurchase) =>
   purchase.paid === true &&
   String(purchase.status ?? "") === "succeeded" &&
+  isGroupLessonPackage(purchase) &&
   Number(purchase.credits_used ?? 0) === 0 &&
   (Boolean(purchase.stripe_payment_intent_id?.trim()) || Boolean(purchase.charged_payment_intent_id?.trim())) &&
   !purchase.refund_request &&
