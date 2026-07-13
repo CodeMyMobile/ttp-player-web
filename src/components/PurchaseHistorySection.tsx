@@ -1,5 +1,7 @@
-import { getPackageCreditsRemaining, type PackagePurchase } from "../api/playerPackages";
+import { useEffect, useState } from "react";
+import { getPackageCreditsRemaining, requestPackageRefund, type PackagePurchase } from "../api/playerPackages";
 import { usePackagePurchases } from "../hooks/usePackagePurchases";
+import { getStoredAuthToken } from "../services/authToken";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EXPIRING_SOON_DAYS = 14;
@@ -40,10 +42,20 @@ const formatAmount = (amount?: string, currency?: string) => {
 const packageNameOf = (purchase: PackagePurchase) =>
   purchase.metadata?.package_snapshot?.name || "Lesson package";
 
-const AvailableCard = ({ purchase, coachName, now }: {
+const canRequestRefund = (purchase: PackagePurchase) =>
+  purchase.paid === true &&
+  String(purchase.status ?? "") === "succeeded" &&
+  Number(purchase.credits_used ?? 0) === 0 &&
+  !purchase.refund_request &&
+  !purchase.refund_status;
+
+const AvailableCard = ({ purchase, coachName, now, onRefundRequest, requestingRefund, refundError }: {
   purchase: PackagePurchase;
   coachName: string;
   now: number;
+  onRefundRequest: (purchase: PackagePurchase) => void;
+  requestingRefund: boolean;
+  refundError?: string | null;
 }) => {
   const remaining = getPackageCreditsRemaining(purchase);
   const totalRaw = Number(purchase.credits_total ?? remaining);
@@ -85,6 +97,14 @@ const AvailableCard = ({ purchase, coachName, now }: {
             Expires in {days} day{days === 1 ? "" : "s"}
           </span>
         ) : null}
+        {purchase.refund_request || purchase.refund_status ? (
+          <span className="ph-flag ph-flag--amber">Refund requested</span>
+        ) : canRequestRefund(purchase) ? (
+          <button type="button" className="ph-card__action" onClick={() => onRefundRequest(purchase)} disabled={requestingRefund}>
+            {requestingRefund ? "Requesting..." : "Request refund"}
+          </button>
+        ) : null}
+        {refundError ? <span className="ph-card__error">{refundError}</span> : null}
       </div>
 
       {/* TODO(book-a-lesson): a "Use a credit" / "Book a lesson" CTA attaches here once
@@ -95,11 +115,48 @@ const AvailableCard = ({ purchase, coachName, now }: {
 
 const PurchaseHistorySection = () => {
   const { purchases, coachNames, loading, error } = usePackagePurchases();
+  const [localPurchases, setLocalPurchases] = useState<PackagePurchase[]>([]);
+  const [requestingRefundId, setRequestingRefundId] = useState<string | null>(null);
+  const [refundErrors, setRefundErrors] = useState<Record<string, string>>({});
   const now = Date.now();
+
+  useEffect(() => {
+    setLocalPurchases(purchases);
+  }, [purchases]);
+
+  const handleRefundRequest = async (purchase: PackagePurchase) => {
+    const id = purchase.id;
+    if (id == null) return;
+    const key = String(id);
+    const token = getStoredAuthToken({ preferScheme: "token" });
+    if (!token) {
+      setRefundErrors((current) => ({ ...current, [key]: "Sign in to request a refund." }));
+      return;
+    }
+    setRequestingRefundId(key);
+    setRefundErrors((current) => ({ ...current, [key]: "" }));
+    try {
+      const response = await requestPackageRefund({ token, purchaseId: id });
+      setLocalPurchases((current) =>
+        current.map((item) =>
+          String(item.id) === key
+            ? { ...item, refund_request: response.request ?? item.refund_request, refund_status: response.request?.status ?? "pending" }
+            : item
+        )
+      );
+    } catch (err) {
+      setRefundErrors((current) => ({
+        ...current,
+        [key]: err instanceof Error ? err.message : "Unable to request refund.",
+      }));
+    } finally {
+      setRequestingRefundId(null);
+    }
+  };
 
   const available: PackagePurchase[] = [];
   const past: PackagePurchase[] = [];
-  for (const purchase of purchases) {
+  for (const purchase of localPurchases) {
     if (!isExpired(purchase, now) && getPackageCreditsRemaining(purchase) > 0) available.push(purchase);
     else past.push(purchase);
   }
@@ -113,7 +170,7 @@ const PurchaseHistorySection = () => {
         <p className="ph-status">Loading your purchase history…</p>
       ) : error ? (
         <p className="ph-status ph-status--error">{error}</p>
-      ) : purchases.length === 0 ? (
+      ) : localPurchases.length === 0 ? (
         <p className="ph-status">You haven't purchased any lesson packages yet.</p>
       ) : (
         <>
@@ -127,6 +184,9 @@ const PurchaseHistorySection = () => {
                     purchase={purchase}
                     coachName={coachNames[String(purchase.coach_id)] || ""}
                     now={now}
+                    onRefundRequest={handleRefundRequest}
+                    requestingRefund={requestingRefundId === String(purchase.id)}
+                    refundError={refundErrors[String(purchase.id)]}
                   />
                 ))}
               </div>

@@ -33,6 +33,17 @@ export interface PackagePurchaseMetadata {
   [key: string]: unknown;
 }
 
+export interface PackageRefundRequest {
+  id?: number | string;
+  purchase_id?: number | string;
+  status?: "pending" | "approved" | "rejected" | "failed" | string;
+  reason?: string | null;
+  requested_at?: string | null;
+  processed_at?: string | null;
+  stripe_refund_id?: string | null;
+  [key: string]: unknown;
+}
+
 export interface PackagePurchase {
   id?: number | string;
   coach_id?: number | string;
@@ -54,6 +65,8 @@ export interface PackagePurchase {
   charged_payment_intent_id?: string | null;
   lesson_types_allowed?: string[];
   metadata?: PackagePurchaseMetadata;
+  refund_request?: PackageRefundRequest | null;
+  refund_status?: string | null;
   [key: string]: unknown;
 }
 
@@ -104,6 +117,18 @@ export interface PurchaseCoachPackageParams {
   token: string;
   packageId: number | string;
   paymentMethodId: string;
+}
+
+export interface RequestPackageRefundParams {
+  token: string;
+  purchaseId: number | string;
+  reason?: string;
+}
+
+export interface RequestPackageRefundResponse {
+  request?: PackageRefundRequest;
+  purchase?: PackagePurchase;
+  replayed?: boolean;
 }
 
 export const isReservedPackagePurchase = (purchase?: PackagePurchase | null) =>
@@ -185,6 +210,16 @@ export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: Purc
   });
 
 export const reserveCoachPackage = purchaseCoachPackage;
+
+export const requestPackageRefund = ({ token, purchaseId, reason }: RequestPackageRefundParams) =>
+  request<RequestPackageRefundResponse>(`/player/packages/${purchaseId}/refund-request`, {
+    method: "POST",
+    token,
+    authScheme: "Token",
+    body: {
+      ...(reason ? { reason } : {}),
+    },
+  });
 
 export const consumePackageCredits = ({
   token,
