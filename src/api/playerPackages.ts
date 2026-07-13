@@ -141,6 +141,7 @@ export const isActivePackagePurchase = (purchase?: PackagePurchase | null) =>
 
 export const getPackageCreditsRemaining = (purchase?: PackagePurchase | null) => {
   if (!purchase || isReservedPackagePurchase(purchase)) return 0;
+  if (String(purchase.status ?? "") === "refunded") return 0;
   const remaining = Number(purchase.credits_remaining ?? 0);
   return Number.isFinite(remaining) ? Math.max(remaining, 0) : 0;
 };
