@@ -46,6 +46,7 @@ const canRequestRefund = (purchase: PackagePurchase) =>
   purchase.paid === true &&
   String(purchase.status ?? "") === "succeeded" &&
   Number(purchase.credits_used ?? 0) === 0 &&
+  (Boolean(purchase.stripe_payment_intent_id?.trim()) || Boolean(purchase.charged_payment_intent_id?.trim())) &&
   !purchase.refund_request &&
   !purchase.refund_status;
 
@@ -100,11 +101,11 @@ const AvailableCard = ({ purchase, coachName, now, onRefundRequest, requestingRe
         {purchase.refund_request || purchase.refund_status ? (
           <span className="ph-flag ph-flag--amber">Refund requested</span>
         ) : canRequestRefund(purchase) ? (
-          <button type="button" className="ph-card__action" onClick={() => onRefundRequest(purchase)} disabled={requestingRefund}>
+          <button type="button" className="ph-flag ph-flag--amber" onClick={() => onRefundRequest(purchase)} disabled={requestingRefund}>
             {requestingRefund ? "Requesting..." : "Request refund"}
           </button>
         ) : null}
-        {refundError ? <span className="ph-card__error">{refundError}</span> : null}
+        {refundError ? <span className="ph-past-status ph-past-status--expired">{refundError}</span> : null}
       </div>
 
       {/* TODO(book-a-lesson): a "Use a credit" / "Book a lesson" CTA attaches here once
