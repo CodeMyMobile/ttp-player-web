@@ -256,6 +256,7 @@ const GroupLessonDetailsPage = () => {
   const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
   const [bookingWithCredits, setBookingWithCredits] = useState(false);
   const [purchasingPackage, setPurchasingPackage] = useState(false);
+  const [pendingCreditConfirm, setPendingCreditConfirm] = useState<{ lessonId: number | string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const routeState = (location.state as GroupLessonDetailsRouteState | null | undefined) ?? null;
@@ -629,6 +630,7 @@ const GroupLessonDetailsPage = () => {
       status: playerRecord.status,
       paymentStatus: playerRecord.paymentStatus,
       participantId: playerRecord.participantId ?? playerRecord.id,
+      creditStatus: playerRecord.creditStatus,
     };
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
@@ -672,6 +674,43 @@ const GroupLessonDetailsPage = () => {
     setSelectedPackageId(String(defaultPackage.id));
   }, [bestValuePackage, packageOptions, selectedPackageId]);
 
+  const confirmCreditBooking = useCallback(async (lessonId: number | string) => {
+    if (!authToken) throw new Error("Sign in to confirm this lesson.");
+    await updatePlayerLesson({
+      token: authToken,
+      lessonId,
+      status: "CONFIRMED",
+    });
+    setPendingCreditConfirm(null);
+    await refreshLesson();
+  }, [authToken, refreshLesson]);
+
+  useEffect(() => {
+    if (pendingCreditConfirm || !lesson?.id || !currentUserBookingStatus) return;
+    if (
+      currentUserBookingStatus.creditStatus === "pending" &&
+      !isActiveGroupLessonBookingStatus(
+        currentUserBookingStatus.status,
+        currentUserBookingStatus.paymentStatus,
+      )
+    ) {
+      setPendingCreditConfirm({ lessonId: lesson.id });
+    }
+  }, [currentUserBookingStatus, lesson?.id, pendingCreditConfirm]);
+
+  const handleRetryCreditConfirm = useCallback(async () => {
+    if (!pendingCreditConfirm) return;
+    setBookingWithCredits(true);
+    setPackagePurchaseError(null);
+    try {
+      await confirmCreditBooking(pendingCreditConfirm.lessonId);
+    } catch (error) {
+      setPackagePurchaseError(error instanceof Error ? error.message : "Confirming your spot failed. Please retry.");
+    } finally {
+      setBookingWithCredits(false);
+    }
+  }, [confirmCreditBooking, pendingCreditConfirm]);
+
   const handleBookWithCredits = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedCreditId) return;
     if (!currentUserBookingStatus?.participantId) {
@@ -689,18 +728,22 @@ const GroupLessonDetailsPage = () => {
         purchaseId: selectedCreditId,
         participantId: currentUserBookingStatus.participantId,
       });
-      await updatePlayerLesson({
-        token: authToken,
-        lessonId: lesson.id,
-        status: "CONFIRMED",
-      });
-      await refreshLesson();
+      try {
+        await confirmCreditBooking(lesson.id);
+      } catch (confirmError) {
+        setPendingCreditConfirm({ lessonId: lesson.id });
+        setPackagePurchaseError(
+          confirmError instanceof Error && confirmError.message.trim()
+            ? confirmError.message
+            : "Your credit was applied, but confirming your spot failed. Please retry.",
+        );
+      }
     } catch (error) {
       setPackagePurchaseError(error instanceof Error ? error.message : "Unable to apply credits.");
     } finally {
       setBookingWithCredits(false);
     }
-  }, [authToken, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, refreshLesson, selectedCreditId]);
+  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, selectedCreditId]);
 
   const handleBuyPackageAndApply = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
@@ -731,11 +774,17 @@ const GroupLessonDetailsPage = () => {
         purchaseId: purchaseResponse.purchase?.id,
         participantId: currentUserBookingStatus.participantId,
       });
-      await updatePlayerLesson({
-        token: authToken,
-        lessonId: lesson.id,
-        status: "CONFIRMED",
-      });
+      try {
+        await confirmCreditBooking(lesson.id);
+      } catch (confirmError) {
+        setPendingCreditConfirm({ lessonId: lesson.id });
+        setPackagePurchaseError(
+          confirmError instanceof Error && confirmError.message.trim()
+            ? confirmError.message
+            : "Your credit was applied, but confirming your spot failed. Please retry.",
+        );
+        return;
+      }
       if (purchaseResponse.purchase?.id != null) {
         setSelectedCreditId(String(purchaseResponse.purchase.id));
       }
@@ -759,7 +808,7 @@ const GroupLessonDetailsPage = () => {
     } finally {
       setPurchasingPackage(false);
     }
-  }, [authToken, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
+  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
 
   if (isLoading) {
     return (
@@ -1627,11 +1676,25 @@ const GroupLessonDetailsPage = () => {
                       {creditsLoading ? <p className="group-lesson-details__checkout-caption">Checking credits...</p> : null}
                       {creditsError ? <p className="group-lesson-details__checkout-error">{creditsError}</p> : null}
                       {packagePurchaseError ? <p className="group-lesson-details__checkout-error">{packagePurchaseError}</p> : null}
+                      {pendingCreditConfirm && !isBooked ? (
+                        <div className="group-lesson-details__status-pending" role="status">
+                          <p><strong>Your credit was applied. One step left.</strong></p>
+                          <p>We could not confirm your spot automatically. Finish confirming without using another credit.</p>
+                          <button
+                            type="button"
+                            className="group-lesson-details__checkout-action"
+                            disabled={bookingWithCredits}
+                            onClick={() => void handleRetryCreditConfirm()}
+                          >
+                            {bookingWithCredits ? "Confirming..." : "Finish confirming your spot"}
+                          </button>
+                        </div>
+                      ) : null}
 
                       <button
                         type="button"
                         className="group-lesson-details__checkout-action"
-                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits}
+                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits || Boolean(pendingCreditConfirm)}
                         onClick={() => {
                           if (!isSignedIn) {
                             promptSignIn();
