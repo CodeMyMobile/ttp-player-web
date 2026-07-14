@@ -24,8 +24,12 @@ import {
   previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
+import type { PlayerPersonalDetails } from "../api/playerProfile";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
+import AuthDrawer from "../components/auth/AuthDrawer";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
+import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import {
   DEFAULT_LEAGUE_TIMEZONE,
@@ -33,6 +37,8 @@ import {
   formatLeagueTime as formatTime,
   isFutureLeagueItem,
 } from "./leagueDetailTime";
+import { getLeagueCardVariant } from "./leagueBrowse";
+import { requiresLeagueAuthPrompt } from "./leagueAuthGate";
 import { orientScore } from "./leagueScore";
 
 import "./LeaguesPage.css";
@@ -133,16 +139,28 @@ const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: stri
 
 const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
 
+const getApiErrorMessage = (error: unknown) => {
+  const apiError = error as {
+    data?: { detail?: string; error?: string; errors?: string[] };
+    message?: string;
+  };
+
+  if (apiError.data?.detail) return apiError.data.detail;
+  if (apiError.data?.errors?.length) return apiError.data.errors.join(", ");
+  return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
+};
+
 const LeagueDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const navStateHandledRef = useRef(false);
+  const pendingAuthActionRef = useRef<(() => void) | null>(null);
   // When another page (e.g. the dashboard) hands off here to open a drawer, it can
   // pass a `returnTo` path so closing the drawer routes back there instead of
   // stranding the user on this page.
   const returnToRef = useRef<string | null>(null);
-  const { user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -222,6 +240,76 @@ const LeagueDetailPage = () => {
     opponentName: string;
     scoreString: string;
   } | null>(null);
+  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
+  const [joinReviewOpen, setJoinReviewOpen] = useState(false);
+  const [joinReviewProfile, setJoinReviewProfile] = useState<PlayerPersonalDetails | null>(null);
+  const [joinReviewLoading, setJoinReviewLoading] = useState(false);
+  const [joinReviewError, setJoinReviewError] = useState<string | null>(null);
+
+  const openJoinReview = (leagueId: League["id"]) => {
+    if (!leagueId) {
+      return;
+    }
+
+    setJoinReviewOpen(true);
+  };
+
+  useEffect(() => {
+    if (!joinReviewOpen) {
+      return;
+    }
+
+    if (!token) {
+      setJoinReviewProfile(null);
+      setJoinReviewError("Please sign in again to continue.");
+      setJoinReviewLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setJoinReviewLoading(true);
+    setJoinReviewError(null);
+
+    getPlayerPersonalDetails({ token, signal: controller.signal })
+      .then((response) => {
+        if (!controller.signal.aborted) {
+          setJoinReviewProfile(response);
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setJoinReviewProfile(null);
+          setJoinReviewError(getApiErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setJoinReviewLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [joinReviewOpen, token]);
+
+  const requireLeagueAuth = (action?: () => void) => {
+    if (!requiresLeagueAuthPrompt(isAuthenticated)) {
+      action?.();
+      return true;
+    }
+    pendingAuthActionRef.current = action ?? null;
+    setAuthDrawerOpen(true);
+    return false;
+  };
+
+  const handleLeagueAuthenticated = () => {
+    const action = pendingAuthActionRef.current;
+    pendingAuthActionRef.current = null;
+    action?.();
+  };
+
+  const navigateWithLeagueAuth = (to: string, state?: Record<string, unknown>) => {
+    requireLeagueAuth(() => navigate(to, state ? { state } : undefined));
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -326,9 +414,11 @@ const LeagueDetailPage = () => {
   // Pending-fixture "Quick Invite": open the Need-a-Match drawer and pre-select the
   // opponent so they're already checked when the flow reaches the invite step.
   const quickInvite = (fixture: LeagueFixture) => {
-    const opponentId = String(fixture.player1_id) === String(userId) ? fixture.player2_id : fixture.player1_id;
-    setSelectedInviteIds(opponentId != null ? [opponentId] : []);
-    openNeedDrawer();
+    requireLeagueAuth(() => {
+      const opponentId = String(fixture.player1_id) === String(userId) ? fixture.player2_id : fixture.player1_id;
+      setSelectedInviteIds(opponentId != null ? [opponentId] : []);
+      openNeedDrawer();
+    });
   };
 
   const returnToNeedForm = () => {
@@ -475,25 +565,27 @@ const LeagueDetailPage = () => {
 
   // Open the confirm preview for a clicked need/suggestion (no auto-join).
   const previewAccept = (type: "suggestion" | "need", itemId: number | string) => {
-    if (type === "suggestion") {
-      const s = suggestions.find((x) => String(x.id) === String(itemId));
-      setConfirmAccept({
-        type,
-        id: itemId,
-        name: s?.player_name || "League player",
-        when: s ? `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}` : undefined,
-        location: s?.match_location ?? null,
-      });
-    } else {
-      const n = allNeeds.find((x) => String(x.id) === String(itemId));
-      setConfirmAccept({
-        type,
-        id: itemId,
-        name: n?.player_name || "League player",
-        when: n ? `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}` : undefined,
-        location: n?.match_location ?? n?.location ?? n?.location_text ?? null,
-      });
-    }
+    requireLeagueAuth(() => {
+      if (type === "suggestion") {
+        const s = suggestions.find((x) => String(x.id) === String(itemId));
+        setConfirmAccept({
+          type,
+          id: itemId,
+          name: s?.player_name || "League player",
+          when: s ? `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}` : undefined,
+          location: s?.match_location ?? null,
+        });
+      } else {
+        const n = allNeeds.find((x) => String(x.id) === String(itemId));
+        setConfirmAccept({
+          type,
+          id: itemId,
+          name: n?.player_name || "League player",
+          when: n ? `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}` : undefined,
+          location: n?.match_location ?? n?.location ?? n?.location_text ?? null,
+        });
+      }
+    });
   };
 
   // Explicit join — only fires from the confirm dialog's "Request match" button.
@@ -517,9 +609,11 @@ const LeagueDetailPage = () => {
     navStateHandledRef.current = true;
     returnToRef.current = navState.returnTo ?? null;
     if (navState.openPost) {
-      openNeedDrawer();
+      requireLeagueAuth(openNeedDrawer);
     } else if (navState.openScore) {
-      openScoreDrawer();
+      requireLeagueAuth(() => {
+        void openScoreDrawer();
+      });
     } else if (navState.acceptSuggestionId != null) {
       previewAccept("suggestion", navState.acceptSuggestionId);
     } else if (navState.acceptNeedId != null) {
@@ -696,8 +790,16 @@ const LeagueDetailPage = () => {
             <p>{players.length ? `${players.length} active players` : "League details"}</p>
           </div>
           <div className="league-detail__actions">
-            <button type="button" onClick={() => navigate(`/leagues/${id}/post-availability`)}>Need a Match</button>
-            <button type="button" onClick={openScoreDrawer}>Add Score</button>
+            {league && getLeagueCardVariant(league) === "available" ? (
+              <button
+                type="button"
+                onClick={() => requireLeagueAuth(() => void openJoinReview(league.id))}
+              >
+                Join League
+              </button>
+            ) : null}
+            <button type="button" onClick={() => navigateWithLeagueAuth(`/leagues/${id}/post-availability`)}>Need a Match</button>
+            <button type="button" onClick={() => requireLeagueAuth(() => void openScoreDrawer())}>Add Score</button>
           </div>
         </header>
 
@@ -729,7 +831,7 @@ const LeagueDetailPage = () => {
                       className="league-browser-preview__item"
                       key={item.key}
                       disabled={needSubmitting || !item.available}
-                      onClick={() => item.available && setConfirmAccept({ type: item.type, id: item.id, name: item.name, when: item.when, location: item.location })}
+                      onClick={() => item.available && previewAccept(item.type, item.id)}
                     >
                       <span className="league-browser-preview__player">
                         <strong>{item.name}</strong>
@@ -753,8 +855,16 @@ const LeagueDetailPage = () => {
                 <p>No players looking for matches yet.</p>
               </div>
             )}
-            <button type="button" className="cta-need-match" onClick={() => navigate(`/leagues/${id}/post-availability`)}>+ Need a Match</button>
-            <Link className="league-browser-preview__seeall" to={`/leagues/${id}/match-browser`}>
+            <button type="button" className="cta-need-match" onClick={() => navigateWithLeagueAuth(`/leagues/${id}/post-availability`)}>+ Need a Match</button>
+            <Link
+              className="league-browser-preview__seeall"
+              to={`/leagues/${id}/match-browser`}
+              onClick={(event) => {
+                if (!requiresLeagueAuthPrompt(isAuthenticated)) return;
+                event.preventDefault();
+                navigateWithLeagueAuth(`/leagues/${id}/match-browser`);
+              }}
+            >
               See all{allNeedsCount ? ` (${allNeedsCount})` : ""} →
             </Link>
           </section>
@@ -830,7 +940,7 @@ const LeagueDetailPage = () => {
                 type="button"
                 className="league-need-flow__outline"
                 disabled={needSubmitting}
-                onClick={handlePostAnyway}
+                onClick={() => requireLeagueAuth(() => void handlePostAnyway())}
               >
                 {needSubmitting ? "Posting..." : suggestions.length ? "Post Anyway" : "Post Match Need"}
               </button>
@@ -877,7 +987,7 @@ const LeagueDetailPage = () => {
 
             <div className="league-need-flow__actions">
               <button type="button" onClick={() => setNeedFlowStep("precheck")}>Back</button>
-              <button type="button" disabled={needSubmitting} onClick={() => handleAcceptSuggestion(selectedSuggestion.id)}>
+              <button type="button" disabled={needSubmitting} onClick={() => requireLeagueAuth(() => void handleAcceptSuggestion(selectedSuggestion.id))}>
                 {needSubmitting ? "Accepting..." : "Accept"}
               </button>
             </div>
@@ -936,7 +1046,7 @@ const LeagueDetailPage = () => {
               <button
                 type="button"
                 disabled={!selectedInviteIds.length || inviteSubmitting}
-                onClick={handleSendInvites}
+                onClick={() => requireLeagueAuth(() => void handleSendInvites())}
               >
                 {inviteSubmitting ? "Sending..." : "Send Invites"}
               </button>
@@ -1076,7 +1186,7 @@ const LeagueDetailPage = () => {
                     {suggestion.match_date || "Date TBD"} · {suggestion.match_time || "Time TBD"} · {suggestion.match_location || "Location TBD"}
                     {suggestion.time_variance_minutes !== undefined ? ` · ${suggestion.time_variance_minutes} min apart` : ""}
                   </p>
-                  <button type="button" onClick={() => handleAcceptSuggestion(suggestion.id)}>
+                  <button type="button" onClick={() => requireLeagueAuth(() => void handleAcceptSuggestion(suggestion.id))}>
                     Accept match
                   </button>
                 </div>
@@ -1169,7 +1279,7 @@ const LeagueDetailPage = () => {
 
               <div className="league-need-drawer__actions">
                 <button type="button" onClick={() => setNeedDrawerOpen(false)}>Cancel</button>
-                <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={handlePreviewNeed}>
+                <button type="button" disabled={!needDate || !needTime || !needLocation || needSubmitting} onClick={() => requireLeagueAuth(() => void handlePreviewNeed())}>
                   {needSubmitting ? "Checking..." : "Next"}
                 </button>
               </div>
@@ -1317,7 +1427,7 @@ const LeagueDetailPage = () => {
                 <button
                   type="button"
                   disabled={!scoreOpponentId || !scoreDate || !scoreLocation || scoreSubmitting}
-                  onClick={handleSubmitScore}
+                  onClick={() => requireLeagueAuth(() => void handleSubmitScore())}
                 >
                   {scoreSubmitting ? "Submitting..." : "Submit score"}
                 </button>
@@ -1345,12 +1455,34 @@ const LeagueDetailPage = () => {
               {needError ? <p className="league-need-error">{needError}</p> : null}
               <div className="league-confirm__actions">
                 <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
-                <button type="button" disabled={needSubmitting} onClick={requestMatch}>
+                <button type="button" disabled={needSubmitting} onClick={() => requireLeagueAuth(() => void requestMatch())}>
                   {needSubmitting ? "Joining..." : "Join match"}
                 </button>
               </div>
             </div>
           </div>
+        ) : null}
+        <AuthDrawer
+          open={authDrawerOpen}
+          onClose={() => {
+            pendingAuthActionRef.current = null;
+            setAuthDrawerOpen(false);
+          }}
+          onAuthenticated={handleLeagueAuthenticated}
+          initialMode="signup"
+          title="Join the league"
+          subtitle="Sign in or create an account to post availability, join matches, and submit scores."
+        />
+        {joinReviewOpen && league ? (
+          <LeagueJoinReviewSheet
+            league={league}
+            profile={joinReviewProfile}
+            token={token}
+            loading={joinReviewLoading}
+            profileError={joinReviewError}
+            onClose={() => setJoinReviewOpen(false)}
+            onEligible={() => setJoinReviewOpen(false)}
+          />
         ) : null}
       </section>
     </MainLayout>

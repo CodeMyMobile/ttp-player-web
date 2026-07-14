@@ -513,19 +513,11 @@ const AppRoutes = () => (
     />
     <Route
       path="/leagues"
-      element={(
-        <ProtectedRoute>
-          <LeaguesPage />
-        </ProtectedRoute>
-      )}
+      element={<LeaguesPage />}
     />
     <Route
       path="/leagues/:id"
-      element={(
-        <ProtectedRoute>
-          <LeagueDetailPage />
-        </ProtectedRoute>
-      )}
+      element={<LeagueDetailPage />}
     />
     <Route
       path="/leagues/:id/dashboard"
