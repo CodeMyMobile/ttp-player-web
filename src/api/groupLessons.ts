@@ -43,6 +43,8 @@ export interface GroupLesson {
     avatarUrl?: string;
     paymentStatus?: number;
     status?: number;
+    creditStatus?: string | null;
+    creditPurchaseId?: number | string | null;
   }>;
   groupPlayers?: Array<{
     id?: number | string;
@@ -71,6 +73,8 @@ export interface UpcomingGroupLessonPlayerApi {
   profile_picture?: string;
   payment_status?: number;
   status?: number;
+  credit_status?: string | null;
+  credit_purchase_id?: number | string | null;
   [key: string]: unknown;
 }
 
@@ -307,6 +311,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       phone: typeof player.phone === "string" ? player.phone : undefined,
       paymentStatus: Number.isFinite(paymentStatus) ? paymentStatus : undefined,
       status: Number.isFinite(status) ? status : undefined,
+      creditStatus: typeof player.credit_status === "string" ? player.credit_status : null,
+      creditPurchaseId: player.credit_purchase_id ?? null,
     };
   });
   const activeGroupPlayers = normalizedGroupPlayers.filter(isActiveGroupLessonPlayer);
