@@ -35,3 +35,6 @@ export const getCoachProfilePaymentOptions = ({
   { value: "wallet", enabled: applePayReady },
   { value: "card", enabled: true },
 ];
+
+export const getDefaultCoachProfilePaymentChoice = (coachAllowsPayOnCourt: boolean): CoachProfilePaymentChoice =>
+  coachAllowsPayOnCourt ? "pay-on-court" : "card";
