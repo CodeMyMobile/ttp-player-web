@@ -168,12 +168,16 @@ const normalizeCurrentUser = (authUser?: unknown): CurrentUser => {
     id: firstString(
       authRecord.id,
       authRecord.user_id,
+      authRecord.player_id,
       profile.user_id,
       profile.id,
+      profile.player_id,
       personalDetails.user_id,
       personalDetails.id,
+      personalDetails.player_id,
       loginProfile.user_id,
       loginProfile.id,
+      loginProfile.player_id,
       loginResponse.user_id,
     ) || CURRENT_USER.id,
     name: firstString(
@@ -225,6 +229,38 @@ const normalizeFixture = (fixture: ApiLeagueFixture): LeagueFixture => ({
   status: fixture.status || "scheduled",
   score: fixture.score || null,
 });
+
+// Given a league fixture and the current user, return the *other* player — the opponent.
+// This is drift-prone correctness logic (it was previously duplicated and got the wrong
+// answer when the current user couldn't be identified), so it lives in one place.
+//
+// It identifies "me" by id first, then by name — the name fallback matters because when
+// useCurrentUser can't resolve a real id (and falls back to a mock CURRENT_USER.id), the
+// id matches neither player. The old code then blindly returned player1, which is the
+// current user whenever they happen to be player1 — showing the submitter's own name in
+// every "opponent" slot. Here we never return a player we've positively identified as me.
+export function resolveLeagueOpponent(
+  fixture: Pick<LeagueFixture, "player1Id" | "player2Id" | "player1Name" | "player2Name">,
+  me: { id?: string | number | null; name?: string | null },
+): { id: string; name: string } {
+  const norm = (value: unknown) => String(value ?? "").trim().toLowerCase();
+  const meId = norm(me?.id);
+  const meName = norm(me?.name);
+  const player1 = { id: String(fixture.player1Id ?? ""), name: fixture.player1Name ?? "" };
+  const player2 = { id: String(fixture.player2Id ?? ""), name: fixture.player2Name ?? "" };
+
+  const idMatches = (player: { id: string; name: string }) => meId !== "" && meId === norm(player.id);
+  const nameMatches = (player: { id: string; name: string }) => meName !== "" && meName === norm(player.name);
+
+  if (idMatches(player1)) return player2;
+  if (idMatches(player2)) return player1;
+  if (nameMatches(player1)) return player2;
+  if (nameMatches(player2)) return player1;
+  // Neither could be matched to the current user (no resolvable id or name). We can't tell
+  // who's who, so fall back to player2 rather than player1 — the important guarantee above
+  // is that a positively-identified "me" is never returned as the opponent.
+  return player2;
+}
 
 export function useCurrentUser(authUser?: unknown): CurrentUser {
   return normalizeCurrentUser(authUser);

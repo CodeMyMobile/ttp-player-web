@@ -12,6 +12,7 @@ import { ReviewCard } from "./ReviewCard";
 import { SentCard } from "./SentCard";
 import { Avatar, PrimaryButton, SectionLabel } from "./ui";
 import {
+  resolveLeagueOpponent,
   submitLeagueMatchResult,
   submitMatchResult,
   useCurrentUser,
@@ -49,11 +50,7 @@ function LeagueFixturePicker({
   onFixtureChange,
 }: LeagueFixturePickerProps) {
   const selectedFixture = fixtures.find((fixture) => fixture.id === selectedFixtureId) || null;
-  const opponentName = selectedFixture
-    ? String(selectedFixture.player1Id) === String(me.id)
-      ? selectedFixture.player2Name
-      : selectedFixture.player1Name
-    : null;
+  const opponentName = selectedFixture ? resolveLeagueOpponent(selectedFixture, me).name : null;
 
   return (
     <div>
@@ -195,17 +192,14 @@ export default function LogResultPage() {
 
   const leagueOpponent = useMemo<Player | null>(() => {
     if (!selectedFixture) return null;
-    const meId = String(me.id);
-    const isPlayer1 = String(selectedFixture.player1Id) === meId;
-    const opponentId = isPlayer1 ? selectedFixture.player2Id : selectedFixture.player1Id;
-    const opponentName = isPlayer1 ? selectedFixture.player2Name : selectedFixture.player1Name;
+    const opponent = resolveLeagueOpponent(selectedFixture, me);
     return {
-      id: opponentId,
-      name: opponentName,
+      id: opponent.id,
+      name: opponent.name,
       ntrp: "",
       color: "bg-sky-100 text-sky-700",
     };
-  }, [me.id, selectedFixture]);
+  }, [me.id, me.name, selectedFixture]);
 
   const effectiveOpponent = matchType === "league" ? leagueOpponent : matchType === "recreational" ? opponent : null;
 
