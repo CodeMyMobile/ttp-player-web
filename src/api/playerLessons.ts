@@ -1,4 +1,5 @@
 import { request } from "./http";
+import { isPayOnCourt, type BookingPaymentMethod } from "./groupLessons";
 
 export interface LessonMetadata {
   title?: string;
@@ -202,12 +203,14 @@ export interface JoinLessonParams {
   court?: number | string | null;
   status: string;
   paymentMethodId?: string;
+  paymentMethod?: BookingPaymentMethod;
 }
 
 export interface BookGroupLessonWithCardParams {
   token: string;
   lessonId: number | string;
-  paymentMethodId: string;
+  paymentMethodId?: string;
+  paymentMethod?: BookingPaymentMethod;
 }
 
 export const joinLesson = ({
@@ -222,6 +225,7 @@ export const joinLesson = ({
   court = 0,
   status,
   paymentMethodId,
+  paymentMethod,
 }: JoinLessonParams) =>
   request(`/player/lesson/${lessonId}/book`, {
     method: "POST",
@@ -235,18 +239,22 @@ export const joinLesson = ({
       end_date_time_tz: endDateTimeTz,
       status,
       court,
-      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+      ...(isPayOnCourt(paymentMethod)
+        ? { payment_method: "pay_on_court" }
+        : paymentMethodId
+          ? { payment_method_id: paymentMethodId }
+          : {}),
     },
   });
 
-export const bookGroupLessonWithCard = ({ token, lessonId, paymentMethodId }: BookGroupLessonWithCardParams) =>
+export const bookGroupLessonWithCard = ({ token, lessonId, paymentMethodId, paymentMethod }: BookGroupLessonWithCardParams) =>
   request(`/player/lesson/${lessonId}/book`, {
     method: "POST",
     token,
     authScheme: "Token",
-    body: {
-      payment_method_id: paymentMethodId,
-    },
+    body: isPayOnCourt(paymentMethod)
+      ? { payment_method: "pay_on_court" }
+      : { payment_method_id: paymentMethodId },
   });
 
 export interface CancelLessonBookingParams {
@@ -271,6 +279,7 @@ export interface RequestPrivateLessonParams {
   court?: number | string | null;
   status?: string;
   paymentMethodId?: string;
+  paymentMethod?: BookingPaymentMethod;
   metadata?: {
     session_prep?: {
       who_for?: "myself" | "my_child";
@@ -302,6 +311,7 @@ export const requestPrivateLesson = ({
   court = 0,
   status = "PENDING",
   paymentMethodId,
+  paymentMethod,
   metadata,
 }: RequestPrivateLessonParams) =>
   request<NewLessonResponse>("/player/newlesson", {
@@ -316,7 +326,11 @@ export const requestPrivateLesson = ({
       location_id: locationId,
       court,
       status,
-      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+      ...(isPayOnCourt(paymentMethod)
+        ? { payment_method: "pay_on_court" }
+        : paymentMethodId
+          ? { payment_method_id: paymentMethodId }
+          : {}),
       ...(metadata ? { metadata } : {}),
     },
   });

@@ -8,6 +8,7 @@ import { listMatches, normalizeMatchRecord } from "../../../api/matches";
 import { getStoredAuthToken } from "../../../services/authToken";
 import usePlayerIdentity from "../../../hooks/usePlayerIdentity";
 import MainLayout from "../../../components/MainLayout";
+import { isPayOnCourt } from "../../../api/groupLessons";
 
 type ScheduleSegment = "upcoming" | "past";
 type ScheduleFilter = "all" | "lesson" | "group" | "match";
@@ -173,16 +174,24 @@ const buildLessonItem = (lesson: LessonSummary, segment: ScheduleSegment): Sched
   );
   const leadingMeta = coachName ? `Coach ${coachName}` : isGroup ? "Group session" : "Lesson session";
   const chips = [level];
+  const paymentMethod = firstString(
+    (lesson as { payment_method?: unknown }).payment_method,
+    (lesson as { paymentMethod?: unknown }).paymentMethod,
+  );
+
+  if (isPayOnCourt(paymentMethod)) {
+    chips.push("Payment due on court");
+  }
 
   if (isGroup && playerLimit !== null) {
     chips.push(`${currentPlayers ?? 0}/${playerLimit} spots`);
-  } else if (segment === "past") {
+  } else if (segment === "past" && !isPayOnCourt(paymentMethod)) {
     const statusLabel = formatLessonStatus(
-      (lesson as { payment_status?: unknown }).payment_status,
-      (lesson as { paymentStatus?: unknown }).paymentStatus,
-      (lesson as { status?: unknown }).status,
-      (lesson as { booking_status?: unknown }).booking_status,
-    );
+	      (lesson as { payment_status?: unknown }).payment_status,
+	      (lesson as { paymentStatus?: unknown }).paymentStatus,
+	      (lesson as { status?: unknown }).status,
+	      (lesson as { booking_status?: unknown }).booking_status,
+	    );
     chips.push(statusLabel ?? "Completed");
   }
 

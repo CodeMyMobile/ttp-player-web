@@ -11,7 +11,7 @@ import MainLayout from "../components/MainLayout";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
 import {
   fetchUpcomingGroupLessons,
-  isActiveGroupLessonBookingStatus,
+  holdsGroupSpot,
   mapUpcomingGroupLessonsResponse,
   normalizeLevel,
   type GroupLesson,
@@ -659,7 +659,7 @@ const GroupLessonsPage = () => {
         return false;
       });
       if (!playerRecord) return false;
-      return isActiveGroupLessonBookingStatus(playerRecord.status, playerRecord.paymentStatus);
+      return holdsGroupSpot(playerRecord.status, playerRecord.paymentStatus, playerRecord.paymentMethod);
     },
     [currentUserIdentity],
   );

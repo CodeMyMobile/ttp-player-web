@@ -5,6 +5,7 @@ import { request } from "./http";
 export type CoachProfileRecord = CoachProfile & {
   fullName?: string;
   profilePicture?: string;
+  allow_pay_on_court?: boolean;
 };
 
 export type FetchCoachProfileOptions = {

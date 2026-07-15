@@ -32,6 +32,7 @@ export type BookingStatusModalProps = {
     etaText?: string;
     lessonId?: string;
     paymentMethodLabel?: string;
+    paymentDue?: boolean;
     spotsRemainingAfterBooking?: number;
     showPackagePrompt?: boolean;
     cancellationPolicyText?: string;
@@ -246,7 +247,11 @@ const BookingStatusModal = ({
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-[13px] text-slate-600">
                   <span>💳</span>
-                  <span>Paid with {data.paymentMethodLabel ?? data.amountLabel}</span>
+	                  <span>
+	                    {data.paymentDue
+	                      ? `Payment due on court${data.paymentMethodLabel ? ` (${data.paymentMethodLabel})` : ""}`
+	                      : `Paid with ${data.paymentMethodLabel ?? data.amountLabel}`}
+	                  </span>
                 </div>
                 <div className="text-sm font-bold text-slate-900">{data.amount}</div>
               </div>
