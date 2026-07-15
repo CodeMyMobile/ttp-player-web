@@ -83,6 +83,7 @@ import {
 import { buildCoachShareUrl } from "../utils/shareLinks.js";
 import {
   getCoachProfilePaymentOptions,
+  resolveCoachAllowsPayOnCourt,
   type CoachProfilePaymentChoice,
 } from "../utils/coachProfilePaymentOptions";
 
@@ -1070,7 +1071,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       }
     })();
   const firstBookingKey = `coach-first-booking:${profile?.id ?? "coach"}:${playerId}`;
-  const coachAllowsPayOnCourt = Boolean(profile?.allow_pay_on_court);
+  const coachAllowsPayOnCourt = resolveCoachAllowsPayOnCourt(profile);
 
   const redirectToLogin = (returnState?: Record<string, unknown>) => {
     navigate("/login", {

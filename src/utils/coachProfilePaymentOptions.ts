@@ -5,6 +5,22 @@ export type CoachProfilePaymentOption = {
   enabled: boolean;
 };
 
+const readBooleanFlag = (value: unknown): boolean => value === true || value === "true" || value === 1 || value === "1";
+
+export const resolveCoachAllowsPayOnCourt = (profile: unknown): boolean => {
+  if (!profile || typeof profile !== "object") return false;
+  const record = profile as Record<string, unknown>;
+  if (readBooleanFlag(record.allow_pay_on_court) || readBooleanFlag(record.allowPayOnCourt)) {
+    return true;
+  }
+  const payment = record.payment;
+  if (payment && typeof payment === "object") {
+    const paymentRecord = payment as Record<string, unknown>;
+    return readBooleanFlag(paymentRecord.allow_pay_on_court) || readBooleanFlag(paymentRecord.allowPayOnCourt);
+  }
+  return false;
+};
+
 export const getCoachProfilePaymentOptions = ({
   availableCredits,
   applePayReady,
