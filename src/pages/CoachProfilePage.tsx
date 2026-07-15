@@ -47,6 +47,7 @@ import {
   cancelBooking,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
+  bookGroupLessonWithCard,
   joinLesson,
   type CoachScheduleEntry,
   type Lesson,
@@ -80,6 +81,10 @@ import {
   getCoachPackageLessonTypeOptions,
 } from "../utils/coachPackageFilters.js";
 import { buildCoachShareUrl } from "../utils/shareLinks.js";
+import {
+  getCoachProfilePaymentOptions,
+  type CoachProfilePaymentChoice,
+} from "../utils/coachProfilePaymentOptions";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -109,7 +114,7 @@ type LessonTypeFilter = "all" | "private" | "group";
 type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
-type PaymentChoice = "credits" | "card" | "wallet";
+type PaymentChoice = CoachProfilePaymentChoice;
 type PackageLessonTypeFilter = "all" | "private" | "group";
 
 type FindCoachesStateSnapshot = {
@@ -1065,6 +1070,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       }
     })();
   const firstBookingKey = `coach-first-booking:${profile?.id ?? "coach"}:${playerId}`;
+  const coachAllowsPayOnCourt = Boolean(profile?.allow_pay_on_court);
 
   const redirectToLogin = (returnState?: Record<string, unknown>) => {
     navigate("/login", {
@@ -1759,6 +1765,16 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   }, [checkoutBestValuePackage, checkoutPackageOptions, selectedPackageId]);
 
   const applePayAmount = selectedSlotPricing?.stripeAmountCents ?? 0;
+  const paymentOptions = useMemo(
+    () =>
+      getCoachProfilePaymentOptions({
+        availableCredits,
+        applePayReady: isApplePayReady,
+        coachAllowsPayOnCourt,
+      }),
+    [availableCredits, coachAllowsPayOnCourt, isApplePayReady],
+  );
+  const canPayOnCourt = paymentOptions.some((option) => option.value === "pay-on-court" && option.enabled);
 
   useEffect(() => {
     let cancelled = false;
@@ -2496,7 +2512,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       const eligiblePurchase = eligiblePackageCredits[0];
 
       if (selectedSlot.type === "group" && selectedSlot.sourceLessonId) {
-        if (paymentChoice === "credits") {
+        if (paymentChoice === "pay-on-court") {
+          await bookGroupLessonWithCard({
+            token: authToken,
+            lessonId: selectedSlot.sourceLessonId,
+            paymentMethod: "pay_on_court",
+          });
+          resolvedBookingStatus = "CONFIRMED";
+        } else if (paymentChoice === "credits") {
           await updatePlayerLesson({
             token: authToken,
             lessonId: selectedSlot.sourceLessonId,
@@ -2553,6 +2576,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           court: selectedSlot.courtValue ?? 0,
           status: "PENDING",
           paymentMethodId: paymentChoice === "card" ? selectedPaymentMethodId : undefined,
+          paymentMethod: paymentChoice === "pay-on-court" ? "pay_on_court" : undefined,
           metadata: buildSessionPrepMetadata(),
         });
         const privateLessonRecord = privateLessonResponse.lesson as Record<string, unknown> | undefined;
@@ -3522,6 +3546,28 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       </div>
                     )}
 
+                    {canPayOnCourt ? (
+                      <label className={`coach-payment-choice${paymentChoice === "pay-on-court" ? " coach-payment-choice--active" : ""}`}>
+                        <input
+                          type="radio"
+                          name="payment-choice"
+                          value="pay-on-court"
+                          checked={paymentChoice === "pay-on-court"}
+                          onChange={() => setPaymentChoice("pay-on-court")}
+                        />
+                        <div className="coach-payment-choice__icon" aria-hidden="true">💵</div>
+                        <div className="coach-payment-choice__body">
+                          <div className="coach-payment-choice__title-row">
+                            <span className="coach-payment-choice__title">Pay on court</span>
+                          </div>
+                          <p className="coach-payment-choice__subtitle">
+                            Reserve now and pay {coachFirstName} cash or Venmo on lesson day.
+                          </p>
+                        </div>
+                        {paymentChoice === "pay-on-court" ? <span className="coach-payment-choice__check">✓</span> : null}
+                      </label>
+                    ) : null}
+
                     <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${!isApplePayReady ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
@@ -3641,6 +3687,20 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         <strong>{formatCurrencyPrecise(0)}</strong>
                       </div>
                     </div>
+                  ) : paymentChoice === "pay-on-court" && selectedSlotPricing ? (
+                    <div className="coach-payment-modal__price-breakdown">
+                      <div className="coach-payment-modal__price-row">
+                        <span>Due to coach on lesson day</span>
+                        <strong>{formatCurrencyPrecise(selectedSlotPricing.coachFee)}</strong>
+                      </div>
+                      <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                        <span>Total charged today</span>
+                        <strong>{formatCurrencyPrecise(0)}</strong>
+                      </div>
+                      <p className="coach-payment-modal__price-note">
+                        No card processing fee or service fee. Pay {coachFirstName} directly on the day.
+                      </p>
+                    </div>
                   ) : selectedSlotPricing ? (
                     <>
                       <LessonPaymentSummary
@@ -3696,6 +3756,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     ? "Booking…"
                     : paymentChoice === "credits"
                       ? "Confirm with credits"
+                      : paymentChoice === "pay-on-court"
+                        ? selectedSlot?.type === "private"
+                          ? "Request - pay on the day"
+                          : "Book - pay on the day"
                       : paymentChoice === "wallet"
                         ? applePayLoading
                           ? "Opening Apple Pay..."
