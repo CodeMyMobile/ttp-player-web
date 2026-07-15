@@ -249,11 +249,13 @@ export function resolveLeagueOpponent(
   const player1 = { id: String(fixture.player1Id ?? ""), name: fixture.player1Name ?? "" };
   const player2 = { id: String(fixture.player2Id ?? ""), name: fixture.player2Name ?? "" };
 
-  const isMe = (player: { id: string; name: string }) =>
-    (meId !== "" && meId === norm(player.id)) || (meName !== "" && meName === norm(player.name));
+  const idMatches = (player: { id: string; name: string }) => meId !== "" && meId === norm(player.id);
+  const nameMatches = (player: { id: string; name: string }) => meName !== "" && meName === norm(player.name);
 
-  if (isMe(player1)) return player2;
-  if (isMe(player2)) return player1;
+  if (idMatches(player1)) return player2;
+  if (idMatches(player2)) return player1;
+  if (nameMatches(player1)) return player2;
+  if (nameMatches(player2)) return player1;
   // Neither could be matched to the current user (no resolvable id or name). We can't tell
   // who's who, so fall back to player2 rather than player1 — the important guarantee above
   // is that a positively-identified "me" is never returned as the opponent.

@@ -22,6 +22,12 @@ test("resolveLeagueOpponent — me is player2 by id → opponent is player1", ()
   assert.equal(opponent.name, "Alex Prior");
 });
 
+test("resolveLeagueOpponent — id match wins over stale name match", () => {
+  const opponent = resolveLeagueOpponent(fixture, { id: "222", name: "Alex Prior" });
+  assert.equal(opponent.id, "111");
+  assert.equal(opponent.name, "Alex Prior");
+});
+
 // The reported bug: the current-user id can't be resolved and falls back to a mock that
 // matches neither fixture player. The name fallback still identifies the submitter, so the
 // opponent is the *other* player — never the submitter themselves.
