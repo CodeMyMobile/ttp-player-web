@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthDrawerProvider } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
@@ -724,9 +725,11 @@ function App() {
     <AuthProvider>
       <HashRouter>
         <ScrollToTop />
-        <div className="app-shell">
-          <AppRoutes />
-        </div>
+        <AuthDrawerProvider>
+          <div className="app-shell">
+            <AppRoutes />
+          </div>
+        </AuthDrawerProvider>
       </HashRouter>
     </AuthProvider>
   );

@@ -1,4 +1,6 @@
+import type React from "react";
 import { Link } from "react-router-dom";
+import { useAuthDrawer } from "../context/AuthDrawerContext";
 import {
   Award,
   CalendarCheck,
@@ -186,6 +188,18 @@ const STEPS = [
 ];
 
 const LandingPage = () => {
+  // Summon the reusable auth drawer in-context (sheet on mobile / modal on desktop) instead
+  // of bouncing to the full /login page. The Link markup + href stays for deep links and
+  // middle/cmd-click; onClick just intercepts a normal left-click to open the drawer.
+  const { openAuth } = useAuthDrawer();
+  const handleAuth =
+    (mode: "signup" | "signin") =>
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
+      event.preventDefault();
+      openAuth({ mode });
+    };
+
   return (
     <div className="landing">
       {/* ---------- Nav ---------- */}
@@ -195,10 +209,15 @@ const LandingPage = () => {
             The Tennis <span className="landing-brand__accent">Plan</span>
           </Link>
           <nav className="landing-nav__actions" aria-label="Primary">
-            <Link to="/login" className="landing-link">
+            <Link to="/login" className="landing-link" onClick={handleAuth("signin")}>
               Sign in
             </Link>
-            <Link to="/login" state={signupState} className="landing-btn landing-btn--primary">
+            <Link
+              to="/login"
+              state={signupState}
+              className="landing-btn landing-btn--primary"
+              onClick={handleAuth("signup")}
+            >
               Get started
             </Link>
           </nav>
@@ -237,10 +256,15 @@ const LandingPage = () => {
                 to="/login"
                 state={signupState}
                 className="landing-btn landing-btn--primary landing-btn--lg"
+                onClick={handleAuth("signup")}
               >
                 Create your account
               </Link>
-              <Link to="/login" className="landing-btn landing-btn--glass landing-btn--lg">
+              <Link
+                to="/login"
+                className="landing-btn landing-btn--glass landing-btn--lg"
+                onClick={handleAuth("signin")}
+              >
                 I already play here
               </Link>
             </div>
@@ -386,10 +410,15 @@ const LandingPage = () => {
                 to="/login"
                 state={signupState}
                 className="landing-btn landing-btn--onDark landing-btn--lg"
+                onClick={handleAuth("signup")}
               >
                 Create your account
               </Link>
-              <Link to="/login" className="landing-btn landing-btn--glass landing-btn--lg">
+              <Link
+                to="/login"
+                className="landing-btn landing-btn--glass landing-btn--lg"
+                onClick={handleAuth("signin")}
+              >
                 Sign in
               </Link>
             </div>
@@ -410,7 +439,7 @@ const LandingPage = () => {
             <a className="landing-link" href="/terms/">
               Terms of Service
             </a>
-            <Link className="landing-link" to="/login">
+            <Link className="landing-link" to="/login" onClick={handleAuth("signin")}>
               Sign in
             </Link>
           </nav>

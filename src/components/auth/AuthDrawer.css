@@ -310,3 +310,53 @@
     animation: none;
   }
 }
+
+/* ----- Additions for the two-step flow, phone row, and browse link ----- */
+.auth-drawer__step {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b5cf6;
+}
+.auth-drawer__phone-row {
+  display: flex;
+  gap: 8px;
+}
+.auth-drawer__phone-row select {
+  flex: 0 0 auto;
+  min-width: 104px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #101828;
+  font-size: 14px;
+}
+.auth-drawer__phone-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.auth-drawer__help {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #667085;
+}
+.auth-drawer__browse {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.auth-drawer__browse:hover {
+  text-decoration: underline;
+}
