@@ -16,6 +16,7 @@ import {
   acceptLeagueMatchNeedPreview,
   createLeagueResult,
   createLeagueMatchNeed,
+  getLeagueDetail,
   getLeagueFixtures,
   getLeagueMatchNeeds,
   getLeaguePlayers,
@@ -210,6 +211,9 @@ const LeagueDetailPage = () => {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guest (logged-out) preview: a lightweight league teaser that funnels to signup, instead
+  // of the full data page (whose fetches are auth-only and would error for a guest).
+  const [guestLeague, setGuestLeague] = useState<League | null>(null);
   const [isNeedDrawerOpen, setNeedDrawerOpen] = useState(false);
   const [needDate, setNeedDate] = useState(todayInputValue);
   const [needTime, setNeedTime] = useState("");
@@ -312,7 +316,9 @@ const LeagueDetailPage = () => {
   };
 
   useEffect(() => {
-    if (!id) return;
+    // The full league page runs on auth-only endpoints; skip them for guests, who get the
+    // signup-focused preview below instead.
+    if (!id || !isAuthenticated) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -345,7 +351,20 @@ const LeagueDetailPage = () => {
       });
 
     return () => controller.abort();
-  }, [id, token, reloadKey]);
+  }, [id, token, reloadKey, isAuthenticated]);
+
+  // Guest preview data — a single public endpoint (same resource as the public /leagues list),
+  // so it works for both an in-app click and a shared /leagues/:id deep link.
+  useEffect(() => {
+    if (isAuthenticated || !id) return;
+    const controller = new AbortController();
+    getLeagueDetail({ leagueId: id, signal: controller.signal })
+      .then((response) => setGuestLeague(response.league))
+      .catch(() => {
+        // Non-fatal: fall back to generic copy if the summary can't load.
+      });
+    return () => controller.abort();
+  }, [id, isAuthenticated]);
 
   const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
@@ -778,6 +797,68 @@ const LeagueDetailPage = () => {
       setScoreSubmitting(false);
     }
   };
+
+  // ---------- Guest (logged-out) view: signup-focused league preview ----------
+  if (!isAuthenticated) {
+    const leagueName = guestLeague?.name?.trim() || "this league";
+    const startLabel = guestLeague?.start_date ? formatDate(guestLeague.start_date) : null;
+    const spotsRemaining =
+      guestLeague?.spots_remaining == null ? null : Number(guestLeague.spots_remaining);
+    const chips = [
+      guestLeague?.skill_band ? `Level ${guestLeague.skill_band}` : null,
+      guestLeague?.format || null,
+      startLabel ? `Starts ${startLabel}` : null,
+      spotsRemaining != null && Number.isFinite(spotsRemaining)
+        ? spotsRemaining > 0
+          ? `${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
+          : "Full"
+        : null,
+    ].filter(Boolean) as string[];
+    const goToAuth = (mode: "signup" | "signin") =>
+      navigate("/login", { state: { mode, from: { pathname: `/leagues/${id}` } } });
+
+    return (
+      <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+        <section className="league-detail league-guest">
+          <Link className="league-detail__back" to="/leagues">Back to leagues</Link>
+          <div className="league-guest__card">
+            <p className="league-guest__eyebrow">Flex league</p>
+            <h1 className="league-guest__title">
+              {guestLeague?.name?.trim() || "Join this league"}
+            </h1>
+            {chips.length ? (
+              <div className="league-guest__chips">
+                {chips.map((chip) => (
+                  <span key={chip} className="league-guest__chip">{chip}</span>
+                ))}
+              </div>
+            ) : null}
+            <p className="league-guest__pitch">
+              Create your free account to join {leagueName}, schedule matches on your own time,
+              and climb the standings.
+            </p>
+            <div className="league-guest__actions">
+              <button
+                type="button"
+                className="league-guest__cta league-guest__cta--primary"
+                onClick={() => goToAuth("signup")}
+              >
+                Create your account to join
+              </button>
+              <button
+                type="button"
+                className="league-guest__cta league-guest__cta--secondary"
+                onClick={() => goToAuth("signin")}
+              >
+                I already have an account
+              </button>
+            </div>
+            <p className="league-guest__note">Free to join · no card needed to sign up</p>
+          </div>
+        </section>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
