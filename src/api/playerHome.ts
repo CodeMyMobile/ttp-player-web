@@ -122,14 +122,32 @@ export const getPlayerFutureLessons = async ({
   signal,
 }: PlayerFutureLessonsParams) => {
   const finalPerPage = perPage ?? lessonsPerPage ?? 5;
-  return request<PaginatedResponse<LessonSummary>>("/player/upcoming_lessons", {
-    token,
-    signal,
-    query: {
-      perPage: finalPerPage,
-      page,
-    },
-  });
+  try {
+    return await request<PaginatedResponse<LessonSummary>>("/player/upcoming_lessons", {
+      token,
+      signal,
+      query: {
+        perPage: finalPerPage,
+        page,
+      },
+    });
+  } catch (error) {
+    const requestError = error as Error & {
+      status?: number;
+      data?: { detail?: unknown; message?: unknown; error?: unknown };
+    };
+    const detail =
+      requestError.data?.detail ??
+      requestError.data?.message ??
+      requestError.data?.error ??
+      requestError.message;
+
+    if (requestError.status === 404 && String(detail).toLowerCase() === "lessons not found") {
+      return { data: [], lessons: [] };
+    }
+
+    throw error;
+  }
 };
 
 export interface PlayerPastLessonsParams extends PaginationParams {
