@@ -60,3 +60,17 @@ export function parseSharePath(pathname) {
   const id = normalizeShareId(rawId);
   return isSupportedShareType(type) && id ? { type, id } : null;
 }
+
+function compactShareMessage(text, url) {
+  return [text, url].map(item => String(item || "").trim()).filter(Boolean).join(" ");
+}
+
+export function buildSocialShareTargets({ title = "", text = "", url = "" } = {}) {
+  const message = compactShareMessage(text, url);
+  const encodedMessage = encodeURIComponent(message);
+  return {
+    sms: `sms:?&body=${encodedMessage}`,
+    whatsapp: `https://wa.me/?text=${encodedMessage}`,
+    email: `mailto:?subject=${encodeURIComponent(title)}&body=${encodedMessage}`,
+  };
+}

@@ -33,6 +33,7 @@ import {
 } from "../api/playerPackages";
 import { getPlayerStripePaymentMethods, type PlayerStripePaymentMethod } from "../api/playerStripe";
 import MainLayout from "../components/MainLayout";
+import SocialShareButtons from "../components/SocialShareButtons";
 import { colors, typography } from "../lib/theme";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -934,15 +935,17 @@ const GroupLessonDetailsPage = () => {
   const groupTotalDue = groupUsesCredits
     ? groupCoachFee + groupServiceFee
     : groupCoachFee + groupCreditFee + groupServiceFee;
+  const lessonShareUrl = buildGroupLessonShareUrl(lesson.id);
+  const lessonShareText = `Join ${lesson.title} with ${coachName}`;
   const handleShare = async () => {
-    const shareUrl = buildGroupLessonShareUrl(lesson.id);
+    const shareUrl = lessonShareUrl;
     if (!shareUrl) return;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: lesson.title,
-          text: `Join ${lesson.title} with ${coachName}`,
+          text: lessonShareText,
           url: shareUrl,
         });
         return;
@@ -1218,6 +1221,13 @@ const GroupLessonDetailsPage = () => {
                         </span>
                       </div>
                     </div>
+                    <SocialShareButtons
+                      compact
+                      className="group-lesson-details__share-row"
+                      title={lesson.title}
+                      text={lessonShareText}
+                      url={lessonShareUrl}
+                    />
                   </div>
                 </header>
 
