@@ -573,6 +573,7 @@ const PlayerLessonDetailsPage = () => {
         paymentMethod: lessonPaymentMethod,
       })
     : null;
+  const isPayOnCourtLesson = isPayOnCourt(lessonPaymentMethod) || paymentChoice === "pay-on-court";
   const coachId = useMemo(
     () => parseNumber(lessonRecord?.coach_id ?? lessonRecord?.coachId),
     [lessonRecord],
@@ -700,12 +701,14 @@ const PlayerLessonDetailsPage = () => {
   const selectedPackagePrice = selectedPackage ? parseMoney(selectedPackage.total_price) : null;
   const totalDueCents = useMemo(() => {
     if (!lessonPriceBreakdown) return lessonTotalAmountCents;
-    const amount =
-      paymentChoice === "credits"
-        ? lessonPriceBreakdown.coachFee + lessonPriceBreakdown.serviceFee
-        : lessonPriceBreakdown.coachFee + lessonPriceBreakdown.creditFee + lessonPriceBreakdown.serviceFee;
+    let amount = lessonPriceBreakdown.coachFee + lessonPriceBreakdown.creditFee + lessonPriceBreakdown.serviceFee;
+    if (isPayOnCourtLesson) {
+      amount = lessonPriceBreakdown.coachFee;
+    } else if (paymentChoice === "credits") {
+      amount = lessonPriceBreakdown.coachFee + lessonPriceBreakdown.serviceFee;
+    }
     return Math.round(amount * 100);
-  }, [lessonPriceBreakdown, lessonTotalAmountCents, paymentChoice]);
+  }, [isPayOnCourtLesson, lessonPriceBreakdown, lessonTotalAmountCents, paymentChoice]);
 
   useEffect(() => {
     if (selectedPackageId || packageOptions.length === 0) return;
@@ -1452,10 +1455,15 @@ const PlayerLessonDetailsPage = () => {
                   {lessonPriceBreakdown ? (
                     <div className="player-lesson-details__price-breakdown">
                       <div><span>Coach fee</span><strong>${lessonPriceBreakdown.coachFee.toFixed(2)}</strong></div>
-                      {paymentChoice !== "credits" ? (
+                      {paymentChoice !== "credits" && !isPayOnCourtLesson ? (
                         <div><span>Credit fee</span><strong>${lessonPriceBreakdown.creditFee.toFixed(2)}</strong></div>
                       ) : null}
-                      <div><span>Service fee</span><strong>${lessonPriceBreakdown.serviceFee.toFixed(2)}</strong></div>
+                      {!isPayOnCourtLesson ? (
+                        <div><span>Service fee</span><strong>${lessonPriceBreakdown.serviceFee.toFixed(2)}</strong></div>
+                      ) : null}
+                      {isPayOnCourtLesson ? (
+                        <div><span>Due to coach on lesson day</span><strong>${lessonPriceBreakdown.coachFee.toFixed(2)}</strong></div>
+                      ) : null}
                     </div>
                   ) : null}
 

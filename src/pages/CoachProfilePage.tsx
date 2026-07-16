@@ -3719,6 +3719,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           lessontype_id: selectedSlot.lessonTypeId,
                         }}
                         formatMoney={formatCurrencyPrecise}
+                        paymentMethod={paymentChoice}
                       />
                       <p className="coach-payment-modal__hint">
                         {selectedSlotPricing.isOpenGroup
@@ -4663,6 +4664,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         lessontype_id: selectedSlot.lessonTypeId,
                       }}
                       formatMoney={formatCurrencyPrecise}
+                      paymentMethod={paymentChoice}
                     />
                   ) : (
                     <div className="coach-total-box">
