@@ -195,12 +195,31 @@ type MineEnrichment = {
   preSeason?: boolean; // no standings yet → league hasn't started
 };
 
-const getViewerId = (user: unknown): string | null => {
+const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+// The account id (user.id) and the league player_id are different id-spaces, so a single-id
+// compare misses the viewer's own row. Match by id OR name OR email — mirrors useLeagueDashboard.
+const buildViewerIdentities = (user: unknown): Set<string> => {
   const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
-  const id =
-    u.id ?? u.user_id ?? u.player_id ?? u.profile?.id ?? u.profile?.user_id;
-  return id == null ? null : String(id);
+  const profile = (u.profile ?? {}) as Record<string, unknown>;
+  const userId = u.id ?? u.user_id ?? u.player_id ?? profile.id ?? profile.user_id;
+  return new Set(
+    [
+      normalizeIdentity(userId),
+      normalizeIdentity(u.email),
+      normalizeIdentity(profile.email),
+      normalizeIdentity(u.full_name),
+      normalizeIdentity(profile.full_name),
+      normalizeIdentity(u.name),
+    ].filter(Boolean),
+  );
 };
+
+const matchesViewer = (identities: Set<string>, ...candidates: unknown[]): boolean =>
+  candidates
+    .map(normalizeIdentity)
+    .filter(Boolean)
+    .some((identity) => identities.has(identity));
 
 const levelChipLabel = (league: League): string => {
   const band = typeof league.skill_band === "string" ? league.skill_band.trim() : "";
@@ -483,7 +502,7 @@ const ArchiveRow = ({
 const LeaguesPage = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const viewerId = useMemo(() => getViewerId(user), [user]);
+  const viewerIdentities = useMemo(() => buildViewerIdentities(user), [user]);
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -801,9 +820,9 @@ const LeaguesPage = () => {
         if (controller.signal.aborted) return;
         const standings: LeagueStanding[] = standingsRes.standings ?? [];
         const total = standings.length;
-        const mineRow = viewerId
-          ? standings.find((row) => String(row.player_id) === viewerId)
-          : undefined;
+        const mineRow = standings.find((row) =>
+          matchesViewer(viewerIdentities, row.player_id, row.full_name),
+        );
         setMineEnrichment((current) => ({
           ...current,
           [id]: {
@@ -823,7 +842,7 @@ const LeaguesPage = () => {
     });
 
     return () => controller.abort();
-  }, [sections.mine, token, viewerId]);
+  }, [sections.mine, token, viewerIdentities]);
 
   // Archive final-standing ranks — fetched lazily, and only once the archive is expanded, so
   // the collapsed default costs zero extra requests.
@@ -837,9 +856,9 @@ const LeaguesPage = () => {
         const res = await getLeagueStandings({ leagueId: league.id, token, signal: controller.signal });
         if (controller.signal.aborted) return;
         const standings: LeagueStanding[] = res.standings ?? [];
-        const mineRow = viewerId
-          ? standings.find((row) => String(row.player_id) === viewerId)
-          : undefined;
+        const mineRow = standings.find((row) =>
+          matchesViewer(viewerIdentities, row.player_id, row.full_name),
+        );
         setArchiveRanks((current) => ({ ...current, [id]: mineRow?.rank ?? null }));
       } catch {
         if (!controller.signal.aborted) {
@@ -848,7 +867,7 @@ const LeaguesPage = () => {
       }
     });
     return () => controller.abort();
-  }, [archiveExpanded, sections.archived, token, viewerId, archiveRanks]);
+  }, [archiveExpanded, sections.archived, token, viewerIdentities, archiveRanks]);
 
   const handleShareLeague = useCallback(async (league: League) => {
     const url = `${window.location.origin}${window.location.pathname}#/leagues/${league.id}`;
