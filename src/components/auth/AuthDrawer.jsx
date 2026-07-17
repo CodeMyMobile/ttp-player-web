@@ -3,11 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, X } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
-import { shouldCaptureOAuthPhone } from "../OAuthPhoneCapture";
+import { shouldCaptureOAuthPhone, shouldCaptureProfilePhone } from "../OAuthPhoneCapture";
 import { googlePlayerLogin, signup as signupService } from "../../services/auth";
 import { createPlayerPersonalDetails } from "../../services/player";
 import { getPhoneDigits } from "../../services/phone";
 import { SMS_DISCLOSURE_TEXT } from "../../services/smsConsent";
+import { buildCompletedSignupSession } from "./AuthDrawerSession";
 import "./AuthDrawer.css";
 
 // Reusable auth sheet/modal — bottom sheet on mobile, centered modal on desktop (see
@@ -135,7 +136,12 @@ const AuthDrawer = ({
         setPendingSession(response);
         setStep(2);
       } else {
-        await login(email, password);
+        const response = await login(email, password);
+        if (shouldCaptureProfilePhone(response)) {
+          setPendingSession(response);
+          setStep(2);
+          return;
+        }
         finishAuth();
       }
     } catch (err) {
@@ -235,13 +241,24 @@ const AuthDrawer = ({
         pendingSession?.access_token ||
         pendingSession?.token ||
         (typeof window !== "undefined" ? localStorage.getItem("authToken") : null);
-      await createPlayerPersonalDetails({
+      const updatedProfile = await createPlayerPersonalDetails({
         player: token,
         fullName: fullName || undefined,
         mobile: phoneDigits,
         smsConsentGranted: true,
-        smsConsentMethod: "auth_drawer_signup",
+        smsConsentMethod: isSignup ? "auth_drawer_signup" : "auth_drawer_signin",
       });
+      const nextSession = buildCompletedSignupSession({
+        session: pendingSession,
+        updatedProfile,
+        phone: phoneDigits,
+        fullName,
+      });
+      localStorage.setItem("authLoginResponse", JSON.stringify(nextSession));
+      localStorage.setItem("playerPersonalDetails", JSON.stringify(nextSession.profile));
+      localStorage.removeItem("oauthPhoneCapturePending");
+      localStorage.removeItem("oauthPhoneCaptureProvider");
+      establishSession?.(nextSession);
       finishAuth();
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Unable to save your phone number.");
@@ -301,7 +318,7 @@ const AuthDrawer = ({
   if (!open) return null;
 
   const headingId = "auth-drawer-heading";
-  const onStep2 = isSignup && step === 2;
+  const onStep2 = step === 2;
 
   return (
     <div className="auth-drawer" role="presentation">
