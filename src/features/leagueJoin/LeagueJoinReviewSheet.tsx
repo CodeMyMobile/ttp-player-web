@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CircleAlert, CircleCheck, X } from "lucide-react";
 
 import type { League } from "../../api/leagues";
@@ -179,6 +180,7 @@ const LeagueJoinReviewSheet = ({
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const navigate = useNavigate();
   const [localProfile, setLocalProfile] = useState<PlayerPersonalDetails | null>(profile);
   const [pending, setPending] = useState<LeagueJoinPending>({});
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<JoinFieldKey, string>>>({});
@@ -335,10 +337,18 @@ const LeagueJoinReviewSheet = ({
   // league — wrong division, out-of-band rating, or under 18). Distinct from "missing" fields the
   // player can fill in. Presentation only — the gate is still eligibility.canContinue.
   const hardBlock = genderMismatch || levelMismatch || ageMismatch;
+  // One clean, self-contained sentence per failing requirement (named against the player's
+  // value) so a single-field block reads well and multiple don't repeat the requirements.
   const blockReasons = [
-    genderMismatch ? `it's a ${formatLeagueGender(league)} league` : null,
-    levelMismatch ? `it's for ${formatLeagueLevelRange(league)}` : null,
-    ageMismatch ? "players must be 18 or over" : null,
+    genderMismatch
+      ? `This league is ${formatLeagueGender(league)} only — your profile is set to a different division.`
+      : null,
+    levelMismatch
+      ? `This league is for ${formatLeagueLevelRange(league)} — your profile rating is outside that range.`
+      : null,
+    ageMismatch
+      ? "This league is 18-and-over — your date of birth on file doesn't meet that."
+      : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -372,11 +382,7 @@ const LeagueJoinReviewSheet = ({
           </h2>
           <p id={descriptionId}>
             {hardBlock ? (
-              <>
-                It&apos;s open to {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+
-                {blockReasons.length ? <> — {blockReasons.join(", and ")}</> : null}. Your profile
-                doesn&apos;t match, so you can&apos;t join this one.
-              </>
+              <>{blockReasons.join(" ")}</>
             ) : (
               <>
                 This league needs {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+.{" "}
@@ -558,7 +564,10 @@ const LeagueJoinReviewSheet = ({
             <button
               type="button"
               className="league-join-sheet__primary league-join-sheet__primary--wide"
-              onClick={handleClose}
+              onClick={() => {
+                handleClose();
+                navigate("/leagues");
+              }}
             >
               Browse other leagues
             </button>
