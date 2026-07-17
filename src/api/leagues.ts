@@ -26,6 +26,10 @@ export interface League {
   spots_filled?: number | string | null;
   spots_remaining?: number | string | null;
   is_full?: boolean | null;
+  // Entry fee in cents. Already flows in the enrollment payload (read by LeaguePaymentStep);
+  // typed here so browse/join surfaces can render the price. May be absent on list items —
+  // callers omit the price chip when it is (never render "$0"/"$NaN").
+  cost_cents?: number | string | null;
   [key: string]: unknown;
 }
 
