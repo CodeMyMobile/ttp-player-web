@@ -1,0 +1,44 @@
+/* Design tokens for the league-join journey redesign, extracted from the prototype's :root
+   (docs/tennis-plan-join-prototype-FE-only.html). Namespaced with a --tpl- prefix so they can
+   live on :root without colliding with the app's existing generic CSS variables. Imported by
+   the redesigned browse page, public join page, and join-flow modal.
+
+   Brand note: the prototype's --violet (#7c3aed) is the design's deep accent; the app's primary
+   remains #8B5CF6 (see CLAUDE.md). Both are represented so gradients match the prototype. */
+:root {
+  --tpl-violet: #7c3aed;
+  --tpl-violet-deep: #5b21b6;
+  --tpl-violet-soft: #f3eefe;
+  --tpl-violet-mid: #a78bfa;
+  --tpl-ink: #17151f;
+  --tpl-ink-soft: #5b5768;
+  --tpl-ink-faint: #8d8999;
+  --tpl-line: #eceaf2;
+  --tpl-bg: #faf9fc;
+  --tpl-card: #ffffff;
+  --tpl-green: #16a34a;
+  --tpl-green-soft: #e8f7ee;
+  --tpl-amber: #b45309;
+  --tpl-amber-soft: #fdf3e3;
+  --tpl-radius: 20px;
+  --tpl-shadow: 0 1px 2px rgba(23, 21, 31, 0.04), 0 8px 24px rgba(23, 21, 31, 0.06);
+  --tpl-shadow-lift: 0 2px 4px rgba(23, 21, 31, 0.05), 0 16px 40px rgba(92, 33, 182, 0.12);
+}
+
+/* Scoped accessibility defaults for redesign surfaces (wrapper class = .tpl). Kept off the
+   global element selector so the rest of the app is unaffected. */
+.tpl :focus-visible {
+  outline: 3px solid var(--tpl-violet-mid);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tpl *,
+  .tpl *::before,
+  .tpl *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
