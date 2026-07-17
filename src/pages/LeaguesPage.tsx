@@ -6,11 +6,9 @@ import {
   getLeagueRules,
   getLeagueMatchNeeds,
   getLeagueStandings,
-  getLeagueFixtures,
   listLeagues,
   type League,
   type LeagueEnrollmentResponse,
-  type LeagueFixture,
   type LeagueRuleVersion,
   type LeagueSections,
   type LeagueStanding,
@@ -195,8 +193,6 @@ type MineEnrichment = {
   wins?: number;
   losses?: number;
   preSeason?: boolean; // no standings yet → league hasn't started
-  hasUnlogged?: boolean;
-  unloggedOpponent?: string | null;
 };
 
 const getViewerId = (user: unknown): string | null => {
@@ -212,10 +208,12 @@ const levelChipLabel = (league: League): string => {
   return first || "TP";
 };
 
+// Actual players in the league (spots_filled), not the capacity. Prefer filled so the card
+// reflects real enrollment; fall back to total only if filled isn't provided.
 const playerCountLabel = (league: League): string | null => {
   const cap = getLeagueCapacity(league);
-  if (cap.total != null) return `${cap.total} players`;
-  if (cap.filled != null) return `${cap.filled} players`;
+  if (cap.filled != null) return `${cap.filled} player${cap.filled === 1 ? "" : "s"}`;
+  if (cap.total != null) return `${cap.total} spots`;
   return null;
 };
 
@@ -275,10 +273,7 @@ const PlayingNowCard = ({
 
   const action = resolveLeagueNextAction({
     preSeason,
-    hasUnloggedScore: Boolean(enrichment?.hasUnlogged),
-    unloggedOpponentName: enrichment?.unloggedOpponent ?? null,
     minimumMet: progress.met,
-    playersLookingCount: lookingCount,
     rankLabel: enrichment?.rank ? ordinal(enrichment.rank) : null,
   });
 
@@ -372,7 +367,7 @@ const PlayingNowCard = ({
       ) : (
         <span className={`ljr-next-action${action.tone === "ok" ? " is-ok" : ""}`}>
           <span className="ljr-next-ico" aria-hidden="true">
-            {action.kind === "log-score" ? "✎" : action.tone === "ok" ? "✓" : "•"}
+            {action.tone === "ok" ? "✓" : "•"}
           </span>
           <span>{action.text}</span>
           <span className="ljr-next-go">{action.cta}</span>
@@ -802,29 +797,13 @@ const LeaguesPage = () => {
     sections.mine.forEach(async (league) => {
       const id = String(league.id);
       try {
-        const [standingsRes, fixturesRes] = await Promise.all([
-          getLeagueStandings({ leagueId: league.id, token, signal: controller.signal }),
-          getLeagueFixtures({
-            leagueId: league.id,
-            token,
-            status: "scheduled",
-            mine: true,
-            signal: controller.signal,
-          }),
-        ]);
+        const standingsRes = await getLeagueStandings({ leagueId: league.id, token, signal: controller.signal });
         if (controller.signal.aborted) return;
         const standings: LeagueStanding[] = standingsRes.standings ?? [];
         const total = standings.length;
         const mineRow = viewerId
           ? standings.find((row) => String(row.player_id) === viewerId)
           : undefined;
-        const pending = (fixturesRes.fixtures ?? []).filter((fixture) => !fixture.score);
-        const firstPending: LeagueFixture | undefined = pending[0];
-        const opponent = firstPending
-          ? (String(firstPending.player1_id) === viewerId
-              ? firstPending.player2_name
-              : firstPending.player1_name) ?? null
-          : null;
         setMineEnrichment((current) => ({
           ...current,
           [id]: {
@@ -835,8 +814,6 @@ const LeaguesPage = () => {
             matchesPlayed: Number(mineRow?.matches_played ?? 0),
             wins: mineRow ? Number(mineRow.wins) : undefined,
             losses: mineRow ? Number(mineRow.losses) : undefined,
-            hasUnlogged: pending.length > 0,
-            unloggedOpponent: opponent,
           },
         }));
       } catch {
@@ -929,7 +906,7 @@ const LeaguesPage = () => {
     if (!enrichment || enrichment.loading) return count;
     const looking = lookingCounts[String(league.id)] ?? 0;
     const met = computeSeasonProgress(enrichment.matchesPlayed ?? 0).met;
-    if (enrichment.hasUnlogged || (!enrichment.preSeason && !met && looking > 0)) return count + 1;
+    if (!enrichment.preSeason && !met && looking > 0) return count + 1;
     return count;
   }, 0);
 
