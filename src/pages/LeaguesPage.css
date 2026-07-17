@@ -2786,3 +2786,12 @@
 .ljr-confirm__ic { display: grid; place-items: center; color: var(--tpl-violet, #7c3aed); flex-shrink: 0; }
 .ljr-confirm__go { margin-left: auto; color: var(--tpl-violet, #7c3aed); font-weight: 700; }
 .ljr-confirm__primary { width: 100%; }
+
+/* Stage 4b — payment step additions (hold note, expiry, amber full state) */
+.league-join-payment-methods__exp { margin-left: auto; font-size: 12.5px; color: var(--tpl-ink-faint, #8d8999); font-weight: 500; }
+.ljr-hold-note { display: flex; gap: 10px; align-items: flex-start; background: var(--tpl-violet-soft, #f3eefe); border-radius: 13px; padding: 13px 15px; font-size: 13px; color: var(--tpl-violet-deep, #5b21b6); line-height: 1.5; margin: 6px 0 4px; }
+.ljr-hold-note__ic { flex-shrink: 0; margin-top: 1px; }
+.ljr-full-state { text-align: center; background: var(--tpl-amber-soft, #fdf3e3); border: 1px solid #f4d9a8; border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ljr-full-state__ic { font-size: 30px; }
+.ljr-full-state__title { font-size: 16px; font-weight: 800; color: var(--tpl-amber, #b45309); }
+.ljr-full-state__body { font-size: 13.5px; color: #8a5a1f; max-width: 36ch; margin-bottom: 6px; }

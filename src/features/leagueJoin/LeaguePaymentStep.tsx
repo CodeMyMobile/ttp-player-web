@@ -128,8 +128,9 @@ const LeaguePaymentInner = ({
     } catch (error) {
       const code = (error as { data?: { error?: string } })?.data?.error;
       if (code === "league_full_not_charged") {
+        // Show the amber "you weren't charged" state in-modal; the host's onLeagueFull runs
+        // when the user taps Back to browse (no immediate close).
         dispatch({ type: "league_full_not_charged" });
-        onLeagueFull();
         return;
       }
 
@@ -151,56 +152,87 @@ const LeaguePaymentInner = ({
         </div>
       </div>
 
-      {savedMethods.length > 0 ? (
-        <div className="league-join-payment-methods" role="radiogroup" aria-label="Payment method">
-          {savedMethods.map((method) => (
-            <label key={method.id} className={selectedMethodId === method.id ? "is-selected" : undefined}>
-              <input
-                type="radio"
-                name="league-payment-method"
-                checked={selectedMethodId === method.id}
-                onChange={() => setSelectedMethodId(method.id)}
-              />
-              <span>{method.card?.brand || "Card"} ending {method.card?.last4 || "----"}</span>
-            </label>
-          ))}
-          <label className={isNewCard ? "is-selected" : undefined}>
-            <input
-              type="radio"
-              name="league-payment-method"
-              checked={isNewCard}
-              onChange={() => setSelectedMethodId("new-card")}
-            />
-            <span>Add credit or debit card</span>
-          </label>
+      {state.step === "browse" ? (
+        <div className="ljr-full-state" role="alert">
+          <span className="ljr-full-state__ic" aria-hidden="true">⚠️</span>
+          <p className="ljr-full-state__title">The league filled before your payment completed</p>
+          <p className="ljr-full-state__body">
+            You haven&apos;t been charged — the hold was released. New seasons open all the time; browse
+            other leagues that still have room.
+          </p>
+          <button type="button" className="league-join-sheet__primary" onClick={onLeagueFull}>
+            Back to browse
+          </button>
         </div>
-      ) : null}
+      ) : (
+        <>
+          {savedMethods.length > 0 ? (
+            <div className="league-join-payment-methods" role="radiogroup" aria-label="Payment method">
+              {savedMethods.map((method) => {
+                const exp =
+                  method.card?.exp_month && method.card?.exp_year
+                    ? `Expires ${String(method.card.exp_month).padStart(2, "0")}/${String(method.card.exp_year).slice(-2)}`
+                    : null;
+                return (
+                  <label key={method.id} className={selectedMethodId === method.id ? "is-selected" : undefined}>
+                    <input
+                      type="radio"
+                      name="league-payment-method"
+                      checked={selectedMethodId === method.id}
+                      onChange={() => setSelectedMethodId(method.id)}
+                    />
+                    <span>{method.card?.brand || "Card"} ····{method.card?.last4 || "----"}</span>
+                    {exp ? <span className="league-join-payment-methods__exp">{exp}</span> : null}
+                  </label>
+                );
+              })}
+              <label className={isNewCard ? "is-selected" : undefined}>
+                <input
+                  type="radio"
+                  name="league-payment-method"
+                  checked={isNewCard}
+                  onChange={() => setSelectedMethodId("new-card")}
+                />
+                <span>Add credit or debit card</span>
+              </label>
+            </div>
+          ) : null}
 
-      {isNewCard ? (
-        <div className="league-join-card-element">
-          <CardElement onReady={() => setCardReady(true)} />
-        </div>
-      ) : null}
+          {isNewCard ? (
+            <div className="league-join-card-element">
+              <CardElement onReady={() => setCardReady(true)} />
+            </div>
+          ) : null}
 
-      {state.error ? (
-        <p className="league-join-sheet__status league-join-sheet__status--error">
-          {state.error}
-        </p>
-      ) : null}
+          <div className="ljr-hold-note">
+            <span className="ljr-hold-note__ic" aria-hidden="true">🛡</span>
+            <span>
+              We place a hold now and only charge you once your spot is confirmed. If the league fills
+              first, the hold is released — you pay nothing.
+            </span>
+          </div>
 
-      <div className="league-join-sheet__actions">
-        <button type="button" className="league-join-sheet__secondary" disabled={busy} onClick={onBack}>
-          Back
-        </button>
-        <button
-          type="button"
-          className="league-join-sheet__primary"
-          disabled={busy || !stripe || (isNewCard && !cardReady)}
-          onClick={() => void pay()}
-        >
-          {busy ? "Processing..." : `Pay ${formatCost(league)}`}
-        </button>
-      </div>
+          {state.error ? (
+            <p className="league-join-sheet__status league-join-sheet__status--error">
+              {state.error}
+            </p>
+          ) : null}
+
+          <div className="league-join-sheet__actions">
+            <button type="button" className="league-join-sheet__secondary" disabled={busy} onClick={onBack}>
+              Back
+            </button>
+            <button
+              type="button"
+              className="league-join-sheet__primary"
+              disabled={busy || !stripe || (isNewCard && !cardReady)}
+              onClick={() => void pay()}
+            >
+              {busy ? "Processing..." : `Pay ${formatCost(league)}`}
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 };
