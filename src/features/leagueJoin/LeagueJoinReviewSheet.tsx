@@ -153,6 +153,18 @@ const getFieldErrorKey = (error: unknown): JoinFieldKey | null => {
   return null;
 };
 
+// Presentational only — a single "✓ Level — you're 4.5" style check row for the eligibility
+// sheet's two variants. No logic; the sheet computes pass/fail and passes strings in.
+const EligCheckRow = ({ label, value, ok = true }: { label: string; value: string; ok?: boolean }) => (
+  <div className="ljr-check">
+    <span className={`ljr-check__tick${ok ? "" : " is-alert"}`}>
+      {ok ? <CircleCheck size={14} /> : <CircleAlert size={14} />}
+    </span>
+    <span className="ljr-check__lbl">{label}</span>
+    <span className="ljr-check__val">{value}</span>
+  </div>
+);
+
 const LeagueJoinReviewSheet = ({
   league,
   profile,
@@ -305,6 +317,20 @@ const LeagueJoinReviewSheet = ({
     }
   };
 
+  // Presentation-derived flags for the two prototype variants ("You're a match" vs "Two quick
+  // things first"). Pure — no bearing on gate/submit logic (eligibility.canContinue drives that).
+  const anyNeeds = canEditGender || canEditLevel || canEditAge;
+  const allPass = eligibility.canContinue && !anyNeeds;
+  const genderPass = eligibility.gender.status === "pass" && !canEditGender;
+  const levelPass = eligibility.level.status === "pass" && !canEditLevel;
+  const agePass = eligibility.age.status === "pass" && !canEditAge;
+  const genderMismatch = !canEditGender && eligibility.gender.status !== "pass";
+  const levelMismatch = !canEditLevel && eligibility.level.status !== "pass";
+  const ageMismatch = !canEditAge && eligibility.age.status !== "pass";
+  const levelCheckValue = hasValue(localProfile?.usta_rating)
+    ? `You're ${localProfile?.usta_rating} — inside ${formatLeagueLevelRange(league)}`
+    : `Inside ${formatLeagueLevelRange(league)}`;
+
   return (
     <div className="league-join-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId}>
       <button
@@ -326,11 +352,13 @@ const LeagueJoinReviewSheet = ({
           <X size={18} />
         </button>
 
-        <div className="league-join-sheet__header">
-          <p className="league-join-sheet__eyebrow">League join review</p>
-          <h2 id={titleId}>Check your eligibility</h2>
+        <div className="league-join-sheet__header ljr-elig-head">
+          <h2 id={titleId}>{allPass ? "You're a match ✓" : "Two quick things first"}</h2>
           <p id={descriptionId}>
-            {league.name} · {formatLeagueGender(league)} · {formatLeagueLevelRange(league)} · 18+
+            This league needs {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+.{" "}
+            {allPass
+              ? "Here's how your profile lines up:"
+              : "Fill in what's missing — we'll save it to your profile."}
           </p>
         </div>
 
@@ -344,11 +372,15 @@ const LeagueJoinReviewSheet = ({
               </p>
             ) : null}
 
-            <section className="league-join-sheet__section" aria-labelledby={`${titleId}-gender`}>
-              <div className="league-join-sheet__field-head">
-                <div>
-                  <h3 id={`${titleId}-gender`}>Gender</h3>
-                  <p>{describeFieldState({
+            <div className="ljr-check-list">
+              {genderPass ? (
+                <EligCheckRow label="Division" value={`${formatLeagueGender(league)} league`} />
+              ) : null}
+              {genderMismatch ? (
+                <EligCheckRow
+                  ok={false}
+                  label="Division"
+                  value={describeFieldState({
                     field: eligibility.gender,
                     label: "Gender",
                     mismatch:
@@ -357,12 +389,39 @@ const LeagueJoinReviewSheet = ({
                         : league.gender === "men"
                           ? "This league is limited to men players."
                           : "This league only accepts Other players through the mixed division.",
-                  })}</p>
-                </div>
-                {eligibility.gender.status === "pass" ? <CircleCheck size={18} /> : <CircleAlert size={18} />}
-              </div>
+                  })}
+                />
+              ) : null}
+              {levelPass ? <EligCheckRow label="Level" value={levelCheckValue} /> : null}
+              {levelMismatch ? (
+                <EligCheckRow
+                  ok={false}
+                  label="Level"
+                  value={describeFieldState({
+                    field: eligibility.level,
+                    label: "NTRP rating",
+                    mismatch: `This league accepts ${formatLeagueLevelRange(league)}.`,
+                  })}
+                />
+              ) : null}
+              {agePass ? <EligCheckRow label="Age" value="18+ confirmed" /> : null}
+              {ageMismatch ? (
+                <EligCheckRow
+                  ok={false}
+                  label="Age"
+                  value={describeFieldState({
+                    field: eligibility.age,
+                    label: "Date of birth",
+                    mismatch: "Players must be at least 18 years old to join this league.",
+                  })}
+                />
+              ) : null}
+            </div>
 
-              {canEditGender ? (
+            {canEditGender ? (
+              <div className="ljr-need">
+                <div className="ljr-need__lbl">Which division do you play in?</div>
+                <div className="ljr-need__why">This is a {formatLeagueGender(league)} league.</div>
                 <fieldset className="league-join-sheet__fieldset">
                   <legend className="league-join-sheet__legend">Gender</legend>
                   <div className="league-join-sheet__segmented" role="radiogroup" aria-label="Gender">
@@ -385,28 +444,16 @@ const LeagueJoinReviewSheet = ({
                     ))}
                   </div>
                 </fieldset>
-              ) : (
-                <div className="league-join-sheet__locked-value">{localProfile?.gender ?? "Unavailable"}</div>
-              )}
-              {fieldErrors.gender ? (
-                <p className="league-join-sheet__field-error">{fieldErrors.gender}</p>
-              ) : null}
-            </section>
-
-            <section className="league-join-sheet__section" aria-labelledby={`${titleId}-level`}>
-              <div className="league-join-sheet__field-head">
-                <div>
-                  <h3 id={`${titleId}-level`}>NTRP rating</h3>
-                  <p>{describeFieldState({
-                    field: eligibility.level,
-                    label: "NTRP rating",
-                    mismatch: `This league accepts ${formatLeagueLevelRange(league)}.`,
-                  })}</p>
-                </div>
-                {eligibility.level.status === "pass" ? <CircleCheck size={18} /> : <CircleAlert size={18} />}
+                {fieldErrors.gender ? (
+                  <p className="league-join-sheet__field-error">{fieldErrors.gender}</p>
+                ) : null}
               </div>
+            ) : null}
 
-              {canEditLevel ? (
+            {canEditLevel ? (
+              <div className="ljr-need">
+                <div className="ljr-need__lbl">What&apos;s your NTRP rating?</div>
+                <div className="ljr-need__why">This league accepts {formatLeagueLevelRange(league)}.</div>
                 <label className="league-join-sheet__select-field" htmlFor="league-join-level">
                   <span>NTRP rating</span>
                   <select
@@ -430,30 +477,16 @@ const LeagueJoinReviewSheet = ({
                     ))}
                   </select>
                 </label>
-              ) : (
-                <div className="league-join-sheet__locked-value">
-                  {hasValue(localProfile?.usta_rating) ? localProfile?.usta_rating : "Unavailable"}
-                </div>
-              )}
-              {fieldErrors.level ? (
-                <p className="league-join-sheet__field-error">{fieldErrors.level}</p>
-              ) : null}
-            </section>
-
-            <section className="league-join-sheet__section" aria-labelledby={`${titleId}-dob`}>
-              <div className="league-join-sheet__field-head">
-                <div>
-                  <h3 id={`${titleId}-dob`}>Date of birth</h3>
-                  <p>{describeFieldState({
-                    field: eligibility.age,
-                    label: "Date of birth",
-                    mismatch: "Players must be at least 18 years old to join this league.",
-                  })}</p>
-                </div>
-                {eligibility.age.status === "pass" ? <CircleCheck size={18} /> : <CircleAlert size={18} />}
+                {fieldErrors.level ? (
+                  <p className="league-join-sheet__field-error">{fieldErrors.level}</p>
+                ) : null}
               </div>
+            ) : null}
 
-              {canEditAge ? (
+            {canEditAge ? (
+              <div className="ljr-need">
+                <div className="ljr-need__lbl">Date of birth</div>
+                <div className="ljr-need__why">League play requires players to be 18 or over.</div>
                 <label className="league-join-sheet__date-field" htmlFor="league-join-dob">
                   <span>Date of birth</span>
                   <input
@@ -472,25 +505,18 @@ const LeagueJoinReviewSheet = ({
                     }}
                   />
                 </label>
-              ) : (
-                <div className="league-join-sheet__locked-value">
-                  {formatDateInputValue(profileDateOfBirth) || "Unavailable"}
-                </div>
-              )}
-              {fieldErrors.age ? (
-                <p className="league-join-sheet__field-error">{fieldErrors.age}</p>
-              ) : null}
-            </section>
+                {fieldErrors.age ? (
+                  <p className="league-join-sheet__field-error">{fieldErrors.age}</p>
+                ) : null}
+              </div>
+            ) : null}
 
-            {eligibility.canContinue ? (
-              <p className="league-join-sheet__status league-join-sheet__status--ready">
-                Your profile matches this league. Continue to the next join step.
+            {anyNeeds ? (
+              <p className="ljr-save-note">
+                These save to your player profile — you won&apos;t be asked again.
               </p>
-            ) : (
-              <p className="league-join-sheet__status">
-                Fix the missing fields above or review the league requirements before continuing.
-              </p>
-            )}
+            ) : null}
+
             {submitError ? (
               <p className="league-join-sheet__status league-join-sheet__status--error">
                 {submitError}
@@ -509,7 +535,7 @@ const LeagueJoinReviewSheet = ({
             disabled={continueDisabled}
             onClick={() => void submit()}
           >
-            {isSubmitting ? "Saving…" : "Continue"}
+            {isSubmitting ? "Saving…" : allPass ? "Looks right — continue" : "Save & continue"}
           </button>
         </div>
       </div>
