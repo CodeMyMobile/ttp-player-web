@@ -1155,6 +1155,32 @@ const LeaguesPage = () => {
               onClick={closeJoinFlow}
             />
             <div className="league-join-sheet__panel">
+              <div className="ljr-modal-head">
+                <div className="ljr-modal-summary">
+                  <div className="ljr-modal-lvl">{levelChipLabel(reviewLeague)}</div>
+                  <div className="ljr-modal-summary__text">
+                    <b>{reviewLeague.name}</b>
+                    <span>
+                      {[formatRange(reviewLeague), getLeagueLocationLabel(reviewLeague), priceLabel(reviewLeague)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </div>
+                </div>
+                <div className="ljr-modal-steps">
+                  {([["Eligibility", 1], ["Sign", 2], ["Pay", 3]] as const).map(([label, n]) => {
+                    const current = joinStep === "agreement" ? 2 : joinStep === "payment" ? 3 : 4;
+                    return (
+                      <div
+                        key={label}
+                        className={`ljr-modal-st${n < current ? " is-done" : ""}${n === current ? " is-now" : ""}`}
+                      >
+                        {label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               {joinStep === "agreement" ? (
                 <LeagueAgreementStep
                   league={reviewLeague}

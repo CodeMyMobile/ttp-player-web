@@ -47,8 +47,7 @@ const LeagueAgreementStep = ({
       <div className="league-join-step__header">
         <FileText size={20} />
         <div>
-          <p className="league-join-sheet__eyebrow">Step 1 of 2</p>
-          <h2 id="league-agreement-title">Sign-up agreement</h2>
+          <h2 id="league-agreement-title">Sign the league agreement</h2>
           <p>{league.name} · Rules {rulesVersion}</p>
         </div>
       </div>

@@ -146,8 +146,7 @@ const LeaguePaymentInner = ({
       <div className="league-join-step__header">
         <CreditCard size={20} />
         <div>
-          <p className="league-join-sheet__eyebrow">Step 2 of 2</p>
-          <h2 id="league-payment-title">Payment</h2>
+          <h2 id="league-payment-title">Pay {formatCost(league)} to lock your spot</h2>
           <p>{league.name} · {formatCost(league)}</p>
         </div>
       </div>
