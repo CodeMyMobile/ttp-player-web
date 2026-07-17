@@ -5,6 +5,7 @@ import { formatPhoneNumber, formatPhoneDisplay } from "../services/phone";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { createPlayerPersonalDetails, updatePlayerPersonalDetails } from "../services/player";
 import { normalizeProfileRating } from "../utils/profileRatings";
+import { resolveSmsConsentGranted } from "../services/smsConsent";
 
 import "./ProfileManager.css";
 
@@ -82,6 +83,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       };
       setDetails(normalizedDetails);
       setPhoneInput(formatPhoneDisplay(data?.phone) || "");
+      setSmsConsentGranted(resolveSmsConsentGranted(data));
       setImagePreview(normalizedDetails.profile_picture || "");
     } catch (err) {
       console.error(err);

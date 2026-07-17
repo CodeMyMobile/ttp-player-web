@@ -37,3 +37,14 @@ export const withSmsConsent = (payload, granted, method = "signup_checkbox") => 
     smsConsent: buildSmsConsentPayload(method),
   };
 };
+
+export const resolveSmsConsentGranted = (record) => {
+  if (!record || typeof record !== "object") return false;
+
+  if (record.smsConsentGranted === true || record.sms_consent_granted === true) {
+    return true;
+  }
+
+  const consent = record.smsConsent || record.sms_consent || record.sms_consent_record;
+  return Boolean(consent && typeof consent === "object" && consent.granted === true);
+};
