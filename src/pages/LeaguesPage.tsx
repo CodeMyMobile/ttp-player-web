@@ -199,18 +199,27 @@ const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLower
 
 // The account id (user.id) and the league player_id are different id-spaces, so a single-id
 // compare misses the viewer's own row. Match by id OR name OR email — mirrors useLeagueDashboard.
-const buildViewerIdentities = (user: unknown): Set<string> => {
+const buildViewerIdentities = (
+  user: unknown,
+  player?: PlayerPersonalDetails | null,
+): Set<string> => {
   const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
-  const profile = (u.profile ?? {}) as Record<string, unknown>;
-  const userId = u.id ?? u.user_id ?? u.player_id ?? profile.id ?? profile.user_id;
+  const uProfile = (u.profile ?? {}) as Record<string, unknown>;
+  const userId = u.id ?? u.user_id ?? u.player_id ?? uProfile.id ?? uProfile.user_id;
   return new Set(
     [
       normalizeIdentity(userId),
       normalizeIdentity(u.email),
-      normalizeIdentity(profile.email),
+      normalizeIdentity(uProfile.email),
       normalizeIdentity(u.full_name),
-      normalizeIdentity(profile.full_name),
+      normalizeIdentity(uProfile.full_name),
       normalizeIdentity(u.name),
+      // The fetched player profile is the reliable league-player identity (user_id matches
+      // standings.player_id; full_name matches standings.full_name).
+      normalizeIdentity(player?.user_id),
+      normalizeIdentity(player?.id),
+      normalizeIdentity(player?.full_name),
+      normalizeIdentity(player?.email),
     ].filter(Boolean),
   );
 };
@@ -502,7 +511,6 @@ const ArchiveRow = ({
 const LeaguesPage = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const viewerIdentities = useMemo(() => buildViewerIdentities(user), [user]);
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -518,6 +526,9 @@ const LeaguesPage = () => {
   const [locationFilter, setLocationFilter] = useState("all");
   const [sections, setSections] = useState<LeagueSections>(EMPTY_SECTIONS);
   const [profile, setProfile] = useState<PlayerPersonalDetails | null>(null);
+  // Identity set for matching the viewer to their standings row — includes the fetched player
+  // profile (its user_id/full_name align with the standings, unlike the thin auth `user`).
+  const viewerIdentities = useMemo(() => buildViewerIdentities(user, profile), [user, profile]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
