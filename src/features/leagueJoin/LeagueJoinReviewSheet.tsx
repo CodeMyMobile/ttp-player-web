@@ -331,6 +331,16 @@ const LeagueJoinReviewSheet = ({
     ? `You're ${localProfile?.usta_rating} — inside ${formatLeagueLevelRange(league)}`
     : `Inside ${formatLeagueLevelRange(league)}`;
 
+  // Hard block: a locked, non-fixable disqualification (existing profile value doesn't meet the
+  // league — wrong division, out-of-band rating, or under 18). Distinct from "missing" fields the
+  // player can fill in. Presentation only — the gate is still eligibility.canContinue.
+  const hardBlock = genderMismatch || levelMismatch || ageMismatch;
+  const blockReasons = [
+    genderMismatch ? `it's a ${formatLeagueGender(league)} league` : null,
+    levelMismatch ? `it's for ${formatLeagueLevelRange(league)}` : null,
+    ageMismatch ? "players must be 18 or over" : null,
+  ].filter(Boolean) as string[];
+
   return (
     <div className="league-join-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId}>
       <button
@@ -352,13 +362,29 @@ const LeagueJoinReviewSheet = ({
           <X size={18} />
         </button>
 
-        <div className="league-join-sheet__header ljr-elig-head">
-          <h2 id={titleId}>{allPass ? "You're a match ✓" : "Two quick things first"}</h2>
+        <div className={`league-join-sheet__header ljr-elig-head${hardBlock ? " is-blocked" : ""}`}>
+          <h2 id={titleId}>
+            {hardBlock
+              ? "This league isn't a match for your profile"
+              : allPass
+                ? "You're a match ✓"
+                : "Two quick things first"}
+          </h2>
           <p id={descriptionId}>
-            This league needs {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+.{" "}
-            {allPass
-              ? "Here's how your profile lines up:"
-              : "Fill in what's missing — we'll save it to your profile."}
+            {hardBlock ? (
+              <>
+                It&apos;s open to {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+
+                {blockReasons.length ? <> — {blockReasons.join(", and ")}</> : null}. Your profile
+                doesn&apos;t match, so you can&apos;t join this one.
+              </>
+            ) : (
+              <>
+                This league needs {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+.{" "}
+                {allPass
+                  ? "Here's how your profile lines up:"
+                  : "Fill in what's missing — we'll save it to your profile."}
+              </>
+            )}
           </p>
         </div>
 
@@ -418,7 +444,7 @@ const LeagueJoinReviewSheet = ({
               ) : null}
             </div>
 
-            {canEditGender ? (
+            {!hardBlock && canEditGender ? (
               <div className="ljr-need">
                 <div className="ljr-need__lbl">Which division do you play in?</div>
                 <div className="ljr-need__why">This is a {formatLeagueGender(league)} league.</div>
@@ -450,7 +476,7 @@ const LeagueJoinReviewSheet = ({
               </div>
             ) : null}
 
-            {canEditLevel ? (
+            {!hardBlock && canEditLevel ? (
               <div className="ljr-need">
                 <div className="ljr-need__lbl">What&apos;s your NTRP rating?</div>
                 <div className="ljr-need__why">This league accepts {formatLeagueLevelRange(league)}.</div>
@@ -483,7 +509,7 @@ const LeagueJoinReviewSheet = ({
               </div>
             ) : null}
 
-            {canEditAge ? (
+            {!hardBlock && canEditAge ? (
               <div className="ljr-need">
                 <div className="ljr-need__lbl">Date of birth</div>
                 <div className="ljr-need__why">League play requires players to be 18 or over.</div>
@@ -511,7 +537,7 @@ const LeagueJoinReviewSheet = ({
               </div>
             ) : null}
 
-            {anyNeeds ? (
+            {!hardBlock && anyNeeds ? (
               <p className="ljr-save-note">
                 These save to your player profile — you won&apos;t be asked again.
               </p>
@@ -526,17 +552,31 @@ const LeagueJoinReviewSheet = ({
         )}
 
         <div className="league-join-sheet__actions">
-          <button type="button" className="league-join-sheet__secondary" onClick={handleClose} disabled={isSubmitting}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="league-join-sheet__primary"
-            disabled={continueDisabled}
-            onClick={() => void submit()}
-          >
-            {isSubmitting ? "Saving…" : allPass ? "Looks right — continue" : "Save & continue"}
-          </button>
+          {hardBlock ? (
+            // Not eligible (locked mismatch): no way to continue from here — offer an exit to
+            // browse instead of a permanently-disabled Continue. Gate logic is unchanged.
+            <button
+              type="button"
+              className="league-join-sheet__primary league-join-sheet__primary--wide"
+              onClick={handleClose}
+            >
+              Browse other leagues
+            </button>
+          ) : (
+            <>
+              <button type="button" className="league-join-sheet__secondary" onClick={handleClose} disabled={isSubmitting}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="league-join-sheet__primary"
+                disabled={continueDisabled}
+                onClick={() => void submit()}
+              >
+                {isSubmitting ? "Saving…" : allPass ? "Looks right — continue" : "Save & continue"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
