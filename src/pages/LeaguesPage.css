@@ -2770,3 +2770,19 @@
 .ljr-jp-cta { margin-left: auto; flex-shrink: 0; background: linear-gradient(135deg, #8b5cf6, var(--tpl-violet)); color: #fff; font-weight: 700; font-size: 14.5px; padding: 13px 24px; border-radius: 13px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.32); transition: transform 0.15s; }
 .ljr-jp-cta:hover { transform: translateY(-1px); }
 @media (max-width: 560px) { .ljr-jp-specband { grid-template-columns: 1fr; } }
+
+/* ============================================================================
+   Stage 4a — join-flow confirmation step (.ljr-confirm). Tokens from tokens.css.
+   ============================================================================ */
+.ljr-confirm { display: flex; flex-direction: column; gap: 20px; text-align: left; }
+.ljr-confirm__head { text-align: center; padding: 4px 0 0; }
+.ljr-confirm__emoji { font-size: 46px; line-height: 1; margin-bottom: 12px; }
+.ljr-confirm__head h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 6px; color: var(--tpl-ink, #17151f); }
+.ljr-confirm__head p { color: var(--tpl-ink-soft, #5b5768); font-size: 14.5px; max-width: 40ch; margin: 0 auto; }
+.ljr-confirm__head b { color: var(--tpl-ink, #17151f); font-weight: 700; }
+.ljr-confirm__actions { display: flex; flex-direction: column; gap: 9px; }
+.ljr-confirm__item { display: flex; align-items: center; gap: 12px; background: var(--tpl-bg, #faf9fc); border: 1px solid var(--tpl-line, #eceaf2); border-radius: 13px; padding: 13px 15px; font-size: 14px; font-weight: 500; text-align: left; width: 100%; cursor: pointer; color: var(--tpl-ink, #17151f); transition: background 0.15s, border-color 0.15s; }
+.ljr-confirm__item:hover { background: var(--tpl-violet-soft, #f3eefe); border-color: var(--tpl-violet-mid, #a78bfa); }
+.ljr-confirm__ic { display: grid; place-items: center; color: var(--tpl-violet, #7c3aed); flex-shrink: 0; }
+.ljr-confirm__go { margin-left: auto; color: var(--tpl-violet, #7c3aed); font-weight: 700; }
+.ljr-confirm__primary { width: 100%; }

@@ -1191,7 +1191,11 @@ const LeaguesPage = () => {
                 <LeagueJoinSuccess
                   league={reviewLeague}
                   result={joinResult}
-                  onViewLeague={closeJoinFlow}
+                  firstName={firstName !== "there" ? firstName : undefined}
+                  onViewLeague={() => {
+                    closeJoinFlow();
+                    navigate(`/leagues/${reviewLeague.id}/dashboard`);
+                  }}
                 />
               ) : null}
             </div>
