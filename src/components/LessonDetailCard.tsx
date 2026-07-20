@@ -11,6 +11,7 @@ import {
   Circle,
 } from "lucide-react";
 import { Lesson } from "../api/playerLessons";
+import { holdsGroupSpot, isPayOnCourt, resolveBookingState } from "../api/groupLessons";
 import "./LessonDetailCard.css";
 
 type LessonDetailCardProps = {
@@ -45,9 +46,10 @@ const parseStatusCode = (value: unknown) => {
 
 const isConfirmedGroupPlayer = (player: unknown) => {
   const record = player as Record<string, unknown>;
-  return (
-    parseStatusCode(record.status) === 1 &&
-    parseStatusCode(record.payment_status ?? record.paymentStatus) === 1
+  return holdsGroupSpot(
+    record.status as number | string | null | undefined,
+    (record.payment_status ?? record.paymentStatus) as number | string | null | undefined,
+    (record.payment_method ?? record.paymentMethod) as string | null | undefined,
   );
 };
 
@@ -126,18 +128,31 @@ const resolveStatus = (
           return candidateId != null && String(candidateId) === String(playerId);
         })
       : undefined;
-  const numericStatus = playerRecord
-    ? isConfirmedGroupPlayer(playerRecord)
-      ? 1
-      : parseStatusCode((playerRecord as Record<string, unknown>).status) === 2 ||
-          parseStatusCode((playerRecord as Record<string, unknown>).payment_status) === 2 ||
-          parseStatusCode((playerRecord as Record<string, unknown>).paymentStatus) === 2
-        ? 2
-        : 0
-    : parseStatusCode(lessonRecord.status);
+  if (playerRecord) {
+    const record = playerRecord as Record<string, unknown>;
+    const state = resolveBookingState({
+      status: record.status as number | string | null | undefined,
+      paymentStatus: (record.payment_status ?? record.paymentStatus) as number | string | null | undefined,
+      paymentMethod: (record.payment_method ?? record.paymentMethod) as string | null | undefined,
+    });
+    return { label: state.label, tone: state.tone };
+  }
+  const numericStatus = parseStatusCode(lessonRecord.status);
   if (numericStatus !== null) {
     if (numericStatus === 0) return { label: "Pending", tone: "pending" };
-    if (numericStatus === 1) return { label: "Confirmed", tone: "success" };
+    if (numericStatus === 1) {
+      const paymentStatus = (lessonRecord.payment_status ?? lessonRecord.paymentStatus) as number | string | null | undefined;
+      const paymentMethod = (lessonRecord.payment_method ?? lessonRecord.paymentMethod ?? lessonRecord.payment_method_id) as string | null | undefined;
+      if (paymentStatus !== undefined || isPayOnCourt(paymentMethod)) {
+        const state = resolveBookingState({
+          status: numericStatus,
+          paymentStatus,
+          paymentMethod,
+        });
+        return { label: state.key === "booked" ? "Confirmed" : state.label, tone: state.tone };
+      }
+      return { label: "Confirmed", tone: "success" };
+    }
     if (numericStatus === 2) return { label: "Cancelled", tone: "danger" };
   }
   if (isGroupLesson && lessonTypeName.includes("open group")) {

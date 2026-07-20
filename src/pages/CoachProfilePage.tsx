@@ -47,6 +47,7 @@ import {
   cancelBooking,
   fetchCoachLessonsByDate,
   fetchCoachSchedule,
+  bookGroupLessonWithCard,
   joinLesson,
   type CoachScheduleEntry,
   type Lesson,
@@ -80,6 +81,12 @@ import {
   getCoachPackageLessonTypeOptions,
 } from "../utils/coachPackageFilters.js";
 import { buildCoachShareUrl } from "../utils/shareLinks.js";
+import {
+  getDefaultCoachProfilePaymentChoice,
+  getCoachProfilePaymentOptions,
+  resolveCoachAllowsPayOnCourt,
+  type CoachProfilePaymentChoice,
+} from "../utils/coachProfilePaymentOptions";
 
 import "./CoachProfilePage.css";
 import "../components/coaches/coaches.css";
@@ -109,7 +116,7 @@ type LessonTypeFilter = "all" | "private" | "group";
 type AnchorTab = "about" | "specialties" | "courts";
 type BookingStep = "about" | "confirm" | "card" | "success";
 type IntroWho = "Myself" | "My child" | "";
-type PaymentChoice = "credits" | "card" | "wallet";
+type PaymentChoice = CoachProfilePaymentChoice;
 type PackageLessonTypeFilter = "all" | "private" | "group";
 
 type FindCoachesStateSnapshot = {
@@ -1065,6 +1072,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       }
     })();
   const firstBookingKey = `coach-first-booking:${profile?.id ?? "coach"}:${playerId}`;
+  const coachAllowsPayOnCourt = resolveCoachAllowsPayOnCourt(profile);
 
   const redirectToLogin = (returnState?: Record<string, unknown>) => {
     navigate("/login", {
@@ -1759,6 +1767,17 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   }, [checkoutBestValuePackage, checkoutPackageOptions, selectedPackageId]);
 
   const applePayAmount = selectedSlotPricing?.stripeAmountCents ?? 0;
+  const paymentOptions = useMemo(
+    () =>
+      getCoachProfilePaymentOptions({
+        availableCredits,
+        applePayReady: isApplePayReady,
+        coachAllowsPayOnCourt,
+      }),
+    [availableCredits, coachAllowsPayOnCourt, isApplePayReady],
+  );
+  const canPayOnCourt = paymentOptions.some((option) => option.value === "pay-on-court" && option.enabled);
+  const preferredPaymentChoice = getDefaultCoachProfilePaymentChoice(coachAllowsPayOnCourt);
 
   useEffect(() => {
     let cancelled = false;
@@ -2065,13 +2084,13 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
 
   const openBookingFlow = (slot: LoadedSlot) => {
     if (!isLoggedIn) {
-      openAuthPrompt({ resumeBookingSlotId: slot.id, resumePaymentChoice: "card" });
+      openAuthPrompt({ resumeBookingSlotId: slot.id, resumePaymentChoice: preferredPaymentChoice });
       return;
     }
 
     setUpsellDismissed(false);
     setSelectedSlot(slot);
-    setPaymentChoice("card");
+    setPaymentChoice(preferredPaymentChoice);
     setPaymentMethodsError(null);
     setBookingError(null);
     setBookingSuccess(null);
@@ -2097,7 +2116,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     setPurchasingPackage(false);
   };
 
-  const openPaymentSheet = (choice: PaymentChoice = "card", slotOverride?: LoadedSlot) => {
+  const openPaymentSheet = (choice: PaymentChoice = preferredPaymentChoice, slotOverride?: LoadedSlot) => {
     const targetSlot = slotOverride ?? selectedSlot;
 
     if (!isLoggedIn) {
@@ -2496,7 +2515,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       const eligiblePurchase = eligiblePackageCredits[0];
 
       if (selectedSlot.type === "group" && selectedSlot.sourceLessonId) {
-        if (paymentChoice === "credits") {
+        if (paymentChoice === "pay-on-court") {
+          await bookGroupLessonWithCard({
+            token: authToken,
+            lessonId: selectedSlot.sourceLessonId,
+            paymentMethod: "pay_on_court",
+          });
+          resolvedBookingStatus = "CONFIRMED";
+        } else if (paymentChoice === "credits") {
           await updatePlayerLesson({
             token: authToken,
             lessonId: selectedSlot.sourceLessonId,
@@ -2553,6 +2579,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           court: selectedSlot.courtValue ?? 0,
           status: "PENDING",
           paymentMethodId: paymentChoice === "card" ? selectedPaymentMethodId : undefined,
+          paymentMethod: paymentChoice === "pay-on-court" ? "pay_on_court" : undefined,
           metadata: buildSessionPrepMetadata(),
         });
         const privateLessonRecord = privateLessonResponse.lesson as Record<string, unknown> | undefined;
@@ -3522,6 +3549,28 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       </div>
                     )}
 
+                    {canPayOnCourt ? (
+                      <label className={`coach-payment-choice${paymentChoice === "pay-on-court" ? " coach-payment-choice--active" : ""}`}>
+                        <input
+                          type="radio"
+                          name="payment-choice"
+                          value="pay-on-court"
+                          checked={paymentChoice === "pay-on-court"}
+                          onChange={() => setPaymentChoice("pay-on-court")}
+                        />
+                        <div className="coach-payment-choice__icon" aria-hidden="true">💵</div>
+                        <div className="coach-payment-choice__body">
+                          <div className="coach-payment-choice__title-row">
+                            <span className="coach-payment-choice__title">Pay on court</span>
+                          </div>
+                          <p className="coach-payment-choice__subtitle">
+                            Reserve now and pay {coachFirstName} cash or Venmo on lesson day.
+                          </p>
+                        </div>
+                        {paymentChoice === "pay-on-court" ? <span className="coach-payment-choice__check">✓</span> : null}
+                      </label>
+                    ) : null}
+
                     <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${!isApplePayReady ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
@@ -3548,16 +3597,72 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     </label>
                   </div>
 
-                  <div className="coach-payment-modal__saved-label">Saved cards</div>
+                  {paymentChoice === "card" ? (
+                    <>
+                      <div className="coach-payment-modal__saved-label">Saved cards</div>
 
-                  {paymentMethodsLoading ? <p className="coach-payment-modal__hint">Loading your cards…</p> : null}
+                      {paymentMethodsLoading ? <p className="coach-payment-modal__hint">Loading your cards…</p> : null}
 
-                  {paymentChoice === "card" && !paymentMethodsLoading && paymentMethods.length === 0 ? (
-                    <div className="coach-payment-modal__empty">
-                      <strong>No payment method on file</strong>
-                      <p>Add a card before booking this lesson.</p>
+                      {!paymentMethodsLoading && paymentMethods.length === 0 ? (
+                        <div className="coach-payment-modal__empty">
+                          <strong>No payment method on file</strong>
+                          <p>Add a card before booking this lesson.</p>
+                          <Link
+                            to="/settings/payment-methods"
+                            state={{
+                              from: {
+                                pathname: location.pathname,
+                                search: location.search,
+                                hash: location.hash,
+                                state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+                              },
+                            }}
+                          >
+                            Add payment method
+                          </Link>
+                        </div>
+                      ) : null}
+
+                      {paymentMethods.length > 0 ? (
+                        <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
+                          {paymentMethods.map((method) => {
+                            const brand = (method.card?.brand ?? "Card").toString();
+                            const last4 = method.card?.last4 ?? "••••";
+                            const expMonth = method.card?.exp_month;
+                            const expYear = method.card?.exp_year;
+                            const isActive = selectedPaymentMethodId === method.id;
+                            return (
+                              <button
+                                key={method.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={isActive}
+                                className={`coach-payment-card${isActive ? " coach-payment-card--active" : ""}`}
+                                onClick={() => {
+                                  setPaymentChoice("card");
+                                  setSelectedPaymentMethodId(method.id);
+                                }}
+                              >
+                                <div className="coach-payment-card__brand-badge">
+                                  <span className="coach-payment-card__brand-mark">{brand === "visa" || brand === "Visa" ? "VISA" : brand.toUpperCase()}</span>
+                                </div>
+                                <div className="coach-payment-card__meta">
+                                  <span className="coach-payment-card__last4">•••• {last4}</span>
+                                  <span className="coach-payment-card__expiry">
+                                    {expMonth && expYear ? `Expires ${expMonth.toString().padStart(2, "0")}/${`${expYear}`.slice(-2)}` : "Saved card"}
+                                    {method.is_default ? " · Default" : ""}
+                                  </span>
+                                </div>
+                                {isActive ? <span className="coach-payment-choice__check">✓</span> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
                       <Link
                         to="/settings/payment-methods"
+                        className="coach-payment-modal__add-card"
                         state={{
                           from: {
                             pathname: location.pathname,
@@ -3567,62 +3672,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           },
                         }}
                       >
-                        Add payment method
+                        + Add new card
                       </Link>
-                    </div>
+                    </>
                   ) : null}
-
-                  {paymentMethods.length > 0 ? (
-                    <div className="coach-payment-modal__list" role="radiogroup" aria-label="Payment methods">
-                      {paymentMethods.map((method) => {
-                        const brand = (method.card?.brand ?? "Card").toString();
-                        const last4 = method.card?.last4 ?? "••••";
-                        const expMonth = method.card?.exp_month;
-                        const expYear = method.card?.exp_year;
-                        const isActive = paymentChoice === "card" && selectedPaymentMethodId === method.id;
-                        return (
-                          <button
-                            key={method.id}
-                            type="button"
-                            role="radio"
-                            aria-checked={isActive}
-                            className={`coach-payment-card${isActive ? " coach-payment-card--active" : ""}`}
-                            onClick={() => {
-                              setPaymentChoice("card");
-                              setSelectedPaymentMethodId(method.id);
-                            }}
-                          >
-                            <div className="coach-payment-card__brand-badge">
-                              <span className="coach-payment-card__brand-mark">{brand === "visa" || brand === "Visa" ? "VISA" : brand.toUpperCase()}</span>
-                            </div>
-                            <div className="coach-payment-card__meta">
-                              <span className="coach-payment-card__last4">•••• {last4}</span>
-                              <span className="coach-payment-card__expiry">
-                                {expMonth && expYear ? `Expires ${expMonth.toString().padStart(2, "0")}/${`${expYear}`.slice(-2)}` : "Saved card"}
-                                {method.is_default ? " · Default" : ""}
-                              </span>
-                            </div>
-                            {isActive ? <span className="coach-payment-choice__check">✓</span> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  <Link
-                    to="/settings/payment-methods"
-                    className="coach-payment-modal__add-card"
-                    state={{
-                      from: {
-                        pathname: location.pathname,
-                        search: location.search,
-                        hash: location.hash,
-                        state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
-                      },
-                    }}
-                  >
-                    + Add new card
-                  </Link>
                 </section>
 
                 <section className="coach-payment-modal__section">
@@ -3641,6 +3694,20 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         <strong>{formatCurrencyPrecise(0)}</strong>
                       </div>
                     </div>
+                  ) : paymentChoice === "pay-on-court" && selectedSlotPricing ? (
+                    <div className="coach-payment-modal__price-breakdown">
+                      <div className="coach-payment-modal__price-row">
+                        <span>Due to coach on lesson day</span>
+                        <strong>{formatCurrencyPrecise(selectedSlotPricing.coachFee)}</strong>
+                      </div>
+                      <div className="coach-payment-modal__price-row coach-payment-modal__price-row--total">
+                        <span>Total charged today</span>
+                        <strong>{formatCurrencyPrecise(0)}</strong>
+                      </div>
+                      <p className="coach-payment-modal__price-note">
+                        No card processing fee or service fee. Pay {coachFirstName} directly on the day.
+                      </p>
+                    </div>
                   ) : selectedSlotPricing ? (
                     <>
                       <LessonPaymentSummary
@@ -3652,6 +3719,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           lessontype_id: selectedSlot.lessonTypeId,
                         }}
                         formatMoney={formatCurrencyPrecise}
+                        paymentMethod={paymentChoice}
                       />
                       <p className="coach-payment-modal__hint">
                         {selectedSlotPricing.isOpenGroup
@@ -3666,20 +3734,22 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
               </div>
 
               <div className="coach-payment-modal__actions">
-                <Link
-                  to="/settings/payment-methods"
-                  className="coach-payment-modal__link"
-                  state={{
-                    from: {
-                      pathname: location.pathname,
-                      search: location.search,
-                      hash: location.hash,
-                      state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
-                    },
-                  }}
-                >
-                  Manage payment methods
-                </Link>
+                {paymentChoice === "card" ? (
+                  <Link
+                    to="/settings/payment-methods"
+                    className="coach-payment-modal__link"
+                    state={{
+                      from: {
+                        pathname: location.pathname,
+                        search: location.search,
+                        hash: location.hash,
+                        state: selectedSlot ? { resumeBookingSlotId: selectedSlot.id, resumePaymentChoice: "card" } : undefined,
+                      },
+                    }}
+                  >
+                    Manage payment methods
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   className="coach-payment-modal__confirm"
@@ -3696,6 +3766,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     ? "Booking…"
                     : paymentChoice === "credits"
                       ? "Confirm with credits"
+                      : paymentChoice === "pay-on-court"
+                        ? selectedSlot?.type === "private"
+                          ? "Request - pay on the day"
+                          : "Book - pay on the day"
                       : paymentChoice === "wallet"
                         ? applePayLoading
                           ? "Opening Apple Pay..."
@@ -4519,7 +4593,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     <button
                       type="button"
                       className="coach-secondary-button"
-                      onClick={() => openPaymentSheet("card")}
+                      onClick={() => openPaymentSheet()}
                     >
                       Skip to payment
                     </button>
@@ -4527,7 +4601,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       type="button"
                       className="coach-primary-button"
                       disabled={!canContinueIntro}
-                      onClick={() => openPaymentSheet("card")}
+                      onClick={() => openPaymentSheet()}
                     >
                       Continue to payment
                     </button>
@@ -4590,6 +4664,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                         lessontype_id: selectedSlot.lessonTypeId,
                       }}
                       formatMoney={formatCurrencyPrecise}
+                      paymentMethod={paymentChoice}
                     />
                   ) : (
                     <div className="coach-total-box">
@@ -4615,7 +4690,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     </div>
                   ) : null}
 
-                  <button type="button" className="coach-primary-button" onClick={() => openPaymentSheet("card")}>
+                  <button type="button" className="coach-primary-button" onClick={() => openPaymentSheet()}>
                     Continue to payment
                   </button>
                       </>

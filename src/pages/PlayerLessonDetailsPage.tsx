@@ -43,6 +43,7 @@ import {
   type PackagePurchase,
 } from "../api/playerPackages";
 import { updatePlayerLesson } from "../api/player";
+import { isPayOnCourt, resolveBookingState } from "../api/groupLessons";
 import AddCardForm from "../components/payments/AddCardForm";
 import { getStoredAuthToken } from "../services/authToken";
 import { packageAllowsLessonCreditType, type LessonCreditType } from "../utils/lessonPricing";
@@ -414,7 +415,7 @@ const PlayerLessonDetailsPage = () => {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentChoice, setPaymentChoice] = useState<"card" | "credits" | "apple-pay">("card");
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "credits" | "apple-pay" | "pay-on-court">("card");
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -557,6 +558,22 @@ const PlayerLessonDetailsPage = () => {
   const isConfirmed = lessonStatus === 1;
   const isCancelled = lessonStatus === 2;
   const lessonRecord = lesson as Record<string, unknown> | null;
+  const lessonPaymentMethod =
+    (lessonRecord?.payment_method as string | undefined) ??
+    (lessonRecord?.paymentMethod as string | undefined) ??
+    (lessonRecord?.payment_method_id as string | undefined);
+  const lessonPaymentStatus =
+    lessonRecord?.payment_status ??
+    lessonRecord?.paymentStatus ??
+    (isPayOnCourt(lessonPaymentMethod) ? 0 : undefined);
+  const privateBookingState = isPayOnCourt(lessonPaymentMethod)
+    ? resolveBookingState({
+        status: lessonStatus,
+        paymentStatus: lessonPaymentStatus as number | string | null | undefined,
+        paymentMethod: lessonPaymentMethod,
+      })
+    : null;
+  const isPayOnCourtLesson = isPayOnCourt(lessonPaymentMethod) || paymentChoice === "pay-on-court";
   const coachId = useMemo(
     () => parseNumber(lessonRecord?.coach_id ?? lessonRecord?.coachId),
     [lessonRecord],
@@ -618,6 +635,8 @@ const PlayerLessonDetailsPage = () => {
   const statusVariant = !isSignedIn ? "payment" : isCancelled ? "cancelled" : isConfirmed ? "confirmed" : isAwaitingCoachConfirmation ? "awaiting" : "payment";
   const statusTitle = !isSignedIn
     ? "Sign in to book"
+    : privateBookingState?.key === "pay_on_court"
+    ? "Booked · pay on the day"
     : isConfirmed
     ? "Lesson confirmed"
     : isCancelled
@@ -627,6 +646,8 @@ const PlayerLessonDetailsPage = () => {
       : "Payment pending";
   const statusBody = !isSignedIn
     ? "View the class details now. Sign in when you're ready to reserve a spot."
+    : privateBookingState?.key === "pay_on_court"
+    ? `${coachName} has confirmed your session. Pay your coach on the day by cash or Venmo.`
     : isConfirmed
     ? `${coachName} has confirmed your session. You’re set for ${lessonDateLabel} at ${lessonTimeRange.split(" · ")[0]}.`
     : isCancelled
@@ -636,6 +657,8 @@ const PlayerLessonDetailsPage = () => {
       : "Accept and pay to lock this lesson in.";
   const sidebarStatusLabel = !isSignedIn
     ? "Sign in required"
+    : privateBookingState?.key === "pay_on_court"
+    ? "Booked · pay on the day"
     : isConfirmed
     ? "Booked"
     : isCancelled
@@ -678,12 +701,14 @@ const PlayerLessonDetailsPage = () => {
   const selectedPackagePrice = selectedPackage ? parseMoney(selectedPackage.total_price) : null;
   const totalDueCents = useMemo(() => {
     if (!lessonPriceBreakdown) return lessonTotalAmountCents;
-    const amount =
-      paymentChoice === "credits"
-        ? lessonPriceBreakdown.coachFee + lessonPriceBreakdown.serviceFee
-        : lessonPriceBreakdown.coachFee + lessonPriceBreakdown.creditFee + lessonPriceBreakdown.serviceFee;
+    let amount = lessonPriceBreakdown.coachFee + lessonPriceBreakdown.creditFee + lessonPriceBreakdown.serviceFee;
+    if (isPayOnCourtLesson) {
+      amount = lessonPriceBreakdown.coachFee;
+    } else if (paymentChoice === "credits") {
+      amount = lessonPriceBreakdown.coachFee + lessonPriceBreakdown.serviceFee;
+    }
     return Math.round(amount * 100);
-  }, [lessonPriceBreakdown, lessonTotalAmountCents, paymentChoice]);
+  }, [isPayOnCourtLesson, lessonPriceBreakdown, lessonTotalAmountCents, paymentChoice]);
 
   useEffect(() => {
     if (selectedPackageId || packageOptions.length === 0) return;
@@ -1430,10 +1455,15 @@ const PlayerLessonDetailsPage = () => {
                   {lessonPriceBreakdown ? (
                     <div className="player-lesson-details__price-breakdown">
                       <div><span>Coach fee</span><strong>${lessonPriceBreakdown.coachFee.toFixed(2)}</strong></div>
-                      {paymentChoice !== "credits" ? (
+                      {paymentChoice !== "credits" && !isPayOnCourtLesson ? (
                         <div><span>Credit fee</span><strong>${lessonPriceBreakdown.creditFee.toFixed(2)}</strong></div>
                       ) : null}
-                      <div><span>Service fee</span><strong>${lessonPriceBreakdown.serviceFee.toFixed(2)}</strong></div>
+                      {!isPayOnCourtLesson ? (
+                        <div><span>Service fee</span><strong>${lessonPriceBreakdown.serviceFee.toFixed(2)}</strong></div>
+                      ) : null}
+                      {isPayOnCourtLesson ? (
+                        <div><span>Due to coach on lesson day</span><strong>${lessonPriceBreakdown.coachFee.toFixed(2)}</strong></div>
+                      ) : null}
                     </div>
                   ) : null}
 
