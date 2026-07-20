@@ -3571,6 +3571,30 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       </label>
                     ) : null}
 
+                    <label className={`coach-payment-choice${paymentChoice === "card" ? " coach-payment-choice--active" : ""}`}>
+                      <input
+                        type="radio"
+                        name="payment-choice"
+                        value="card"
+                        checked={paymentChoice === "card"}
+                        onChange={() => setPaymentChoice("card")}
+                      />
+                      <div className="coach-payment-choice__icon" aria-hidden="true">💳</div>
+                      <div className="coach-payment-choice__body">
+                        <div className="coach-payment-choice__title-row">
+                          <span className="coach-payment-choice__title">Saved card</span>
+                        </div>
+                        <p className="coach-payment-choice__subtitle">
+                          {paymentMethodsLoading
+                            ? "Loading your saved cards..."
+                            : paymentMethods.length > 0
+                              ? `${paymentMethods.length} saved card${paymentMethods.length === 1 ? "" : "s"} available.`
+                              : "Add a card to pay securely at checkout."}
+                        </p>
+                      </div>
+                      {paymentChoice === "card" ? <span className="coach-payment-choice__check">✓</span> : null}
+                    </label>
+
                     <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${!isApplePayReady ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
