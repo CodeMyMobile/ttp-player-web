@@ -26,7 +26,7 @@ import {
   getPlayerStripePaymentMethods,
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
-import AuthDrawer from "../components/auth/AuthDrawer";
+import { useAuthDrawer } from "../context/AuthDrawerContext";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import LeagueAgreementStep from "../features/leagueJoin/LeagueAgreementStep";
@@ -331,7 +331,7 @@ const LeaguesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
   const [pendingJoinRequest, setPendingJoinRequest] = useState<PendingLeagueJoinRequest | null>(null);
-  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
+  const { openAuth } = useAuthDrawer();
   const [reviewLeagueId, setReviewLeagueId] = useState<string | number | null>(null);
   const [reviewProfile, setReviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
@@ -547,7 +547,6 @@ const LeaguesPage = () => {
     }
 
     setPendingJoinRequest(resumed.pending);
-    setAuthDrawerOpen(false);
     void openJoinReview(resumed.leagueId);
   }, [isAuthenticated, openJoinReview, pendingJoinRequest, token]);
 
@@ -632,7 +631,16 @@ const LeaguesPage = () => {
     if (result.action === "open_auth") {
       setPendingJoinRequest(result.pending);
       setJoinIntentLeagueId(leagueId);
-      setAuthDrawerOpen(true);
+      openAuth({
+        mode: "signup",
+        reason: "Sign in or create an account to review league eligibility and continue.",
+        // Cleared only if they dismiss without authenticating; on success the resume
+        // effect above consumes pendingJoinRequest to open league review.
+        onDismiss: () => {
+          setPendingJoinRequest(null);
+          setJoinIntentLeagueId(null);
+        },
+      });
       return;
     }
 
@@ -793,21 +801,6 @@ const LeaguesPage = () => {
             </div>
           )
         ) : null}
-
-        <AuthDrawer
-          open={authDrawerOpen}
-          onClose={() => {
-            setPendingJoinRequest(null);
-            setJoinIntentLeagueId(null);
-            setAuthDrawerOpen(false);
-          }}
-          onAuthenticated={() => {
-            setAuthDrawerOpen(false);
-          }}
-          initialMode="signup"
-          title="Join the league"
-          subtitle="Sign in or create an account to review league eligibility and continue."
-        />
 
         {reviewLeague && !joinStep ? (
           <LeagueJoinReviewSheet

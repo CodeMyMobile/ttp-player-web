@@ -4,7 +4,7 @@ import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Users } from "lucide-reac
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
-import AuthDrawer from "../components/auth/AuthDrawer";
+import { useAuthDrawer } from "../context/AuthDrawerContext";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
@@ -141,7 +141,6 @@ const PlayerProfilePage = () => {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [verificationCountDelta, setVerificationCountDelta] = useState(0);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
   const [matchProfile] = useState(() => getStoredMatchProfile());
   const [openMatches, setOpenMatches] = useState<OpenMatch[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(true);
@@ -161,12 +160,16 @@ const PlayerProfilePage = () => {
     [user],
   );
   const isSignedIn = Boolean(authToken);
-  // Open the in-page auth drawer instead of navigating to /login — the user
+  const { openAuth } = useAuthDrawer();
+  // Summon the shared in-page auth drawer instead of navigating to /login — the user
   // stays on the profile and, on success, AuthContext updates `user` so this
   // page re-renders authenticated (revealing the Mutuals view, etc.).
   const promptSignIn = useCallback(() => {
-    setAuthDrawerOpen(true);
-  }, []);
+    openAuth({
+      mode: "signup",
+      reason: "Sign up or sign in to reveal your mutual connections.",
+    });
+  }, [openAuth]);
 
   // `silent` refetches (e.g. after a join) leave the section's loading/error
   // chrome untouched so the list updates in place without flashing a spinner.
@@ -874,14 +877,6 @@ const PlayerProfilePage = () => {
         onCreateMatch={createMatchInvite}
         senderAvailability={matchProfile?.availability ?? []}
         senderCourts={matchProfile?.localCourts ?? ""}
-      />
-
-      <AuthDrawer
-        open={authDrawerOpen}
-        onClose={() => setAuthDrawerOpen(false)}
-        initialMode="signup"
-        title={`See who you both know`}
-        subtitle={`Sign up or sign in to reveal your mutual connections with ${firstName}.`}
       />
     </MainLayout>
   );

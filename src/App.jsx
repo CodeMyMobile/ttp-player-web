@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthDrawerProvider, useAuthDrawer } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
@@ -121,6 +122,7 @@ const buildPhoneCaptureSession = (authUser) => {
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading, establishSession, user } = useAuth();
+  const { isOpen: isAuthDrawerOpen } = useAuthDrawer();
   const location = useLocation();
   const [phoneCaptureSession, setPhoneCaptureSession] = useState(() => buildPhoneCaptureSession(user));
 
@@ -138,7 +140,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (shouldCaptureProfilePhone(phoneCaptureSession)) {
+  if (!isAuthDrawerOpen && shouldCaptureProfilePhone(phoneCaptureSession)) {
     return (
       <OAuthPhoneCapture
         session={phoneCaptureSession}
@@ -724,9 +726,11 @@ function App() {
     <AuthProvider>
       <HashRouter>
         <ScrollToTop />
-        <div className="app-shell">
-          <AppRoutes />
-        </div>
+        <AuthDrawerProvider>
+          <div className="app-shell">
+            <AppRoutes />
+          </div>
+        </AuthDrawerProvider>
       </HashRouter>
     </AuthProvider>
   );

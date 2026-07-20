@@ -26,7 +26,7 @@ import {
 } from "../api/leagues";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
-import AuthDrawer from "../components/auth/AuthDrawer";
+import { useAuthDrawer } from "../context/AuthDrawerContext";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
 import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
@@ -240,7 +240,7 @@ const LeagueDetailPage = () => {
     opponentName: string;
     scoreString: string;
   } | null>(null);
-  const [authDrawerOpen, setAuthDrawerOpen] = useState(false);
+  const { openAuth } = useAuthDrawer();
   const [joinReviewOpen, setJoinReviewOpen] = useState(false);
   const [joinReviewProfile, setJoinReviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [joinReviewLoading, setJoinReviewLoading] = useState(false);
@@ -297,14 +297,20 @@ const LeagueDetailPage = () => {
       return true;
     }
     pendingAuthActionRef.current = action ?? null;
-    setAuthDrawerOpen(true);
+    openAuth({
+      mode: "signup",
+      reason: "Sign in or create an account to post availability, join matches, and submit scores.",
+      // On success, run the action they were attempting; on dismiss, drop it.
+      onSuccess: () => {
+        const pending = pendingAuthActionRef.current;
+        pendingAuthActionRef.current = null;
+        pending?.();
+      },
+      onDismiss: () => {
+        pendingAuthActionRef.current = null;
+      },
+    });
     return false;
-  };
-
-  const handleLeagueAuthenticated = () => {
-    const action = pendingAuthActionRef.current;
-    pendingAuthActionRef.current = null;
-    action?.();
   };
 
   const navigateWithLeagueAuth = (to: string, state?: Record<string, unknown>) => {
@@ -1462,17 +1468,6 @@ const LeagueDetailPage = () => {
             </div>
           </div>
         ) : null}
-        <AuthDrawer
-          open={authDrawerOpen}
-          onClose={() => {
-            pendingAuthActionRef.current = null;
-            setAuthDrawerOpen(false);
-          }}
-          onAuthenticated={handleLeagueAuthenticated}
-          initialMode="signup"
-          title="Join the league"
-          subtitle="Sign in or create an account to post availability, join matches, and submit scores."
-        />
         {joinReviewOpen && league ? (
           <LeagueJoinReviewSheet
             league={league}
