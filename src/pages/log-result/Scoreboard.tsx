@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Minus, Plus, Trophy, X } from "lucide-react";
 import { Avatar, PointField } from "./ui";
 import { cellState, isTiebreakSet, setStatus, colLabel, visibleSetCount } from "./scoring";
@@ -26,43 +26,44 @@ const gamesBoxTone = (state: CellState): string =>
       ? "border-slate-200 bg-white text-slate-300 font-bold"
       : "border-slate-200 bg-white text-slate-600 font-bold";
 
-interface GamesBoxProps {
+interface ScoreCellProps {
+  avatar: ReactNode;
   value: number;
   max: number;
-  onChange: (value: number) => void;
-  tone: Side;
+  tone: Side; // only drives the focus-ring colour (you = violet, opp = slate)
   state: CellState;
   placeholder: boolean; // set is still empty — show a muted dash
+  editable: boolean;
   ariaLabel: string;
+  onChange?: (value: number) => void;
 }
 
-// Score entry: a clear −/＋ stepper, capped to 0–max so there's no junk (e.g.
-// "88") and no free keyboard — used for full-set games (0–7) AND the match
-// tiebreak (0–20). Same control everywhere for consistency.
-function GamesBox({ value, max, onChange, tone, state, placeholder, ariaLabel }: GamesBoxProps) {
+// One player's cell in the stacked set row: player avatar + a compact −/value/+ stepper
+// (editable) or a static value (read-only). The bordered cell is the tap surface; win/lose/
+// neutral tone comes from gamesBoxTone. Scoring behaviour (clamp to 0–max, disabled edges,
+// aria) is identical to the old GamesBox/StaticGames — layout/shell only changed.
+function ScoreCell({ avatar, value, max, tone, state, placeholder, editable, ariaLabel, onChange }: ScoreCellProps) {
   const ring = tone === "you" ? "focus-visible:ring-violet-500/40" : "focus-visible:ring-slate-400/40";
-
-  const step = `h-9 w-9 grid place-items-center rounded-lg text-slate-500 hover:bg-white active:scale-90 disabled:opacity-25 disabled:hover:bg-transparent transition-all focus-visible:outline-none focus-visible:ring-2 ${ring}`;
+  const step = `h-8 w-8 grid place-items-center rounded-lg text-slate-500 hover:bg-white active:scale-90 disabled:opacity-25 disabled:hover:bg-transparent transition-all focus-visible:outline-none focus-visible:ring-2 ${ring}`;
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50 px-0.5">
-      <button type="button" className={step} onClick={() => onChange(Math.max(0, value - 1))} disabled={value <= 0} aria-label={`Fewer — ${ariaLabel}`}>
-        <Minus className="h-4 w-4" />
-      </button>
-      <span className={`w-7 text-center text-xl tabular-nums ${gamesBoxTone(state)}`} aria-label={`${ariaLabel}: ${value}`} aria-live="polite">
-        {placeholder ? <span className="text-slate-300">–</span> : value}
-      </span>
-      <button type="button" className={step} onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More — ${ariaLabel}`}>
-        <Plus className="h-4 w-4" />
-      </button>
+    <div className={`flex items-center justify-between gap-1 rounded-xl border px-2 py-1.5 ${gamesBoxTone(state)}`}>
+      {avatar}
+      {editable ? (
+        <div className="flex items-center gap-0.5">
+          <button type="button" className={step} onClick={() => onChange?.(Math.max(0, value - 1))} disabled={value <= 0} aria-label={`Fewer — ${ariaLabel}`}>
+            <Minus className="h-4 w-4" />
+          </button>
+          <span className="w-6 text-center text-xl tabular-nums" aria-label={`${ariaLabel}: ${value}`} aria-live="polite">
+            {placeholder ? <span className="text-slate-300">–</span> : value}
+          </span>
+          <button type="button" className={step} onClick={() => onChange?.(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More — ${ariaLabel}`}>
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <span className="pr-1 text-xl tabular-nums" aria-label={`${ariaLabel}: ${value}`}>{value}</span>
+      )}
     </div>
-  );
-}
-
-function StaticGames({ value, state }: { value: number; state: CellState }) {
-  return (
-    <span className={`h-11 w-11 grid place-items-center rounded-xl border text-xl tabular-nums ${gamesBoxTone(state)}`}>
-      {value}
-    </span>
   );
 }
 
@@ -119,29 +120,45 @@ function SetRow({ index, set, format, me, opponent, controls, decider }: SetRowP
         </div>
       )}
       <div
-        className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 ${
+        className={`rounded-xl border px-2.5 py-2 ${
           decider ? "border-violet-300 bg-violet-50/60" : "border-slate-200 bg-white"
         } ${prompt ? "ring-2 ring-violet-500/30" : ""}`}
         role="group"
         aria-label={`${label} score${decider ? " (deciding set)" : ""}`}
       >
-        <span className={`w-10 shrink-0 text-[11px] font-bold uppercase tracking-wide ${decider ? "text-violet-500" : "text-slate-400"}`}>{label}</span>
-        <div className="flex flex-1 items-center justify-center gap-1.5">
-          <div className="relative shrink-0">
-            <Avatar name={me.name} size="h-7 w-7" text="text-[10px]" />
-            {youState === "win" && <Trophy className="absolute -right-1 -top-1 h-3 w-3 text-amber-500" />}
-          </div>
-          {editable
-            ? <GamesBox value={set.you} max={max} tone="you" state={youState} placeholder={empty} ariaLabel={`Your games in ${label}`} onChange={(v) => controls!.setVal(index, "you", v)} />
-            : <StaticGames value={set.you} state={youState} />}
-          <span className="px-0.5 text-lg font-bold text-slate-300">–</span>
-          {editable
-            ? <GamesBox value={set.opp} max={max} tone="opp" state={oppState} placeholder={empty} ariaLabel={`${oppName} games in ${label}`} onChange={(v) => controls!.setVal(index, "opp", v)} />
-            : <StaticGames value={set.opp} state={oppState} />}
-          <div className="relative shrink-0">
-            <Avatar name={oppName} color={opponent?.color || "bg-slate-200 text-slate-500"} size="h-7 w-7" text="text-[10px]" />
-            {oppState === "win" && <Trophy className="absolute -right-1 -top-1 h-3 w-3 text-amber-500" />}
-          </div>
+        {/* Line 1 — header: set label + in-flow winner trophy (no absolute positioning) */}
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium uppercase tracking-[0.05em] ${decider ? "text-violet-500" : "text-slate-400"}`}>{label}</span>
+          {(youState === "win" || oppState === "win") && (
+            <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
+          )}
+        </div>
+        {/* Line 2 — two stepper cells (you | opp). Two equal columns whenever they fit; at the
+            very narrowest widths (≈320px, where the page's nested padding + 32px tap targets
+            leave too little room) auto-fit drops to one column so nothing ever overflows. */}
+        <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2">
+          <ScoreCell
+            avatar={<Avatar name={me.name} size="h-[22px] w-[22px]" text="text-[9px]" />}
+            value={set.you}
+            max={max}
+            tone="you"
+            state={youState}
+            placeholder={empty}
+            editable={editable}
+            ariaLabel={`Your games in ${label}`}
+            onChange={editable ? (v) => controls!.setVal(index, "you", v) : undefined}
+          />
+          <ScoreCell
+            avatar={<Avatar name={oppName} color={opponent?.color || "bg-slate-200 text-slate-500"} size="h-[22px] w-[22px]" text="text-[9px]" />}
+            value={set.opp}
+            max={max}
+            tone="opp"
+            state={oppState}
+            placeholder={empty}
+            editable={editable}
+            ariaLabel={`${oppName} games in ${label}`}
+            onChange={editable ? (v) => controls!.setVal(index, "opp", v) : undefined}
+          />
         </div>
       </div>
 
