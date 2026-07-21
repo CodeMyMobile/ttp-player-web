@@ -70,21 +70,25 @@ const LeagueDashboardPage = () => {
   };
 
   // Hand off to the existing LeagueDetailPage flows via router state (the same
-  // channel MatchBrowserPage uses): openPost → Need-a-Match drawer, openScore →
-  // Add-Score drawer, acceptSuggestionId → the confirm-and-join accept flow.
+  // channel MatchBrowserPage uses): openPost → Need-a-Match drawer,
+  // acceptSuggestionId → the confirm-and-join accept flow.
   const goLeague = (state?: Record<string, unknown>) =>
     navigate(`/leagues/${id}`, state ? { state } : undefined);
 
-  // "Need a Match" / "Post availability" now goes to the multi-slot Post
-  // Availability page (merged from main via #250) — not the old single-slot
-  // drawer. "Log a Score" still uses the LeagueDetailPage score drawer (openScore).
+  // "Need a Match" / "Post availability" goes to the multi-slot Post Availability
+  // page (merged from main via #250).
   const goPostAvailability = () =>
     navigate(`/leagues/${id}/post-availability`, { state: { returnTo: `/leagues/${id}/dashboard` } });
+
+  // "Log a Score" opens the shared /log-result flow with this league preselected,
+  // so recording a result from the dashboard mirrors the global Log a Score entry.
+  const goLogScore = () =>
+    navigate("/log-result", { state: { matchType: "league", leagueId: id } });
 
   const handleNextMove = (target: NextMoveTarget) => {
     switch (target) {
       case "add-score":
-        goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` });
+        goLogScore();
         break;
       case "add-availability":
         goPostAvailability();
@@ -162,7 +166,7 @@ const LeagueDashboardPage = () => {
                         challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
                         lookingName={data.looking[0]?.name}
                         playersLookingCount={data.playersLookingCount}
-                        onReport={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}
+                        onReport={() => goLogScore()}
                         onRespond={showPending}
                         onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
                         onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
@@ -220,7 +224,7 @@ const LeagueDashboardPage = () => {
                       <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
                         Need a match
                       </button>
-                      <button type="button" className="btn" onClick={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}>
+                      <button type="button" className="btn" onClick={() => goLogScore()}>
                         <Icon name="plus" />
                         Add score
                       </button>
@@ -236,7 +240,7 @@ const LeagueDashboardPage = () => {
                     challengeFrom={data.nextMoveContext.pending_challenges_for_me[0]?.fromName}
                     lookingName={data.looking[0]?.name}
                     playersLookingCount={data.playersLookingCount}
-                    onReport={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}
+                    onReport={() => goLogScore()}
                     onRespond={() => setActiveTab("pending")}
                     onSeeLooking={() => navigate(`/leagues/${id}/match-browser`)}
                     onViewAll={() => navigate(`/leagues/${id}/match-browser`)}
@@ -278,7 +282,7 @@ const LeagueDashboardPage = () => {
 
         {isMobile && data ? (
           <div className="nextmove-bar">
-            <button type="button" className="btn" onClick={() => goLeague({ openScore: true, returnTo: `/leagues/${id}/dashboard` })}>
+            <button type="button" className="btn" onClick={() => goLogScore()}>
               Log a Score
             </button>
             <button type="button" className="btn ghost" onClick={() => goPostAvailability()}>
