@@ -287,8 +287,11 @@ const LeagueCard = ({
             Full
           </button>
         ) : null}
-        <Link className="browse-league-card__view" to={`/leagues/${league.id}`}>
-          View league
+        <Link
+          className="browse-league-card__view"
+          to={variant === "enrolled" && !archived ? `/leagues/${league.id}/dashboard` : `/leagues/${league.id}`}
+        >
+          {variant === "enrolled" && !archived ? "View dashboard" : "View league"}
           <ChevronRight size={16} />
         </Link>
       </div>
