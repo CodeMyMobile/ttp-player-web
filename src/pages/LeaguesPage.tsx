@@ -940,6 +940,18 @@ const LeaguesPage = () => {
 
   const reviewLeague = reviewLeagueId != null ? leagueById.get(String(reviewLeagueId)) ?? null : null;
 
+  // Lock body scroll while the join flow (eligibility sheet or agreement/payment
+  // steps) is open, otherwise the page behind the drawer scrolls.
+  const joinFlowOpen = Boolean(reviewLeague);
+  useEffect(() => {
+    if (!joinFlowOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [joinFlowOpen]);
+
   const handleJoinRequest = (leagueId: League["id"]) => {
     setJoinFlowMessage(null);
 

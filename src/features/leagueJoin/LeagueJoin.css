@@ -210,7 +210,9 @@
   color: #475569;
 }
 
-/* Apple Pay express button — only rendered when the device supports Apple Pay. */
+/* Apple Pay express button — only rendered when the device supports Apple Pay.
+   The @supports block below swaps in Apple's official native button (with the
+    Pay logo); the rule here is the fallback for anything that can't render it. */
 .league-join-applepay {
   width: 100%;
   min-height: 2.75rem;
@@ -225,8 +227,17 @@
   font-size: 1.15rem;
   font-weight: 500;
   cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
+}
+
+/* Official Apple Pay button — Safari renders the proper  Pay logo/branding and
+   draws its own content (the text children become the non-Safari fallback). */
+@supports (-webkit-appearance: -apple-pay-button) {
+  .league-join-applepay {
+    -webkit-appearance: -apple-pay-button;
+    appearance: -apple-pay-button;
+    -apple-pay-button-type: plain;
+    -apple-pay-button-style: black;
+  }
 }
 
 .league-join-applepay:disabled {
