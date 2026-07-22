@@ -5,10 +5,12 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   getLeagueRules,
   getLeagueMatchNeeds,
+  getLeagueFixtures,
   getLeagueStandings,
   listLeagues,
   type League,
   type LeagueEnrollmentResponse,
+  type LeagueFixture,
   type LeagueRuleVersion,
   type LeagueSections,
   type LeagueStanding,
@@ -189,7 +191,8 @@ type MineEnrichment = {
   error?: boolean;
   rank?: number | null; // viewer's standing rank
   total?: number | null; // total players in the standings
-  matchesPlayed?: number;
+  matchesPlayed?: number; // viewer's fixtures with a score (a result has been logged)
+  matchesTotal?: number; // viewer's scheduled fixtures (round-robin: players − 1 fallback)
   wins?: number;
   losses?: number;
   preSeason?: boolean; // no standings yet → league hasn't started
@@ -295,6 +298,10 @@ const PlayingNowCard = ({
   const loading = enrichment?.loading ?? true;
   const preSeason = enrichment?.preSeason ?? false;
   const progress = computeSeasonProgress(enrichment?.matchesPlayed ?? 0);
+  // Real match progress from the viewer's fixtures: played (has a score) of scheduled total.
+  const matchesPlayed = enrichment?.matchesPlayed ?? 0;
+  const matchesTotal = enrichment?.matchesTotal ?? 0;
+  const matchesPct = matchesTotal > 0 ? Math.round((matchesPlayed / matchesTotal) * 100) : 0;
   const weeks = weeksRemaining(league.end_date);
   const dateRange = formatRange(league);
   const players = playerCountLabel(league);
@@ -356,7 +363,7 @@ const PlayingNowCard = ({
 
       <div className="ljr-season">
         <div className="ljr-season-track">
-          <div className="ljr-season-fill" style={{ width: `${progress.pct}%` }} />
+          <div className="ljr-season-fill" style={{ width: `${matchesPct}%` }} />
         </div>
         {loading ? (
           <div className="ljr-season-label">
@@ -370,7 +377,7 @@ const PlayingNowCard = ({
               ) : (
                 <>
                   <b>
-                    {progress.played} of {progress.minimum}
+                    {matchesPlayed} of {matchesTotal}
                   </b>{" "}
                   matches played
                 </>
@@ -827,13 +834,41 @@ const LeaguesPage = () => {
     sections.mine.forEach(async (league) => {
       const id = String(league.id);
       try {
-        const standingsRes = await getLeagueStandings({ leagueId: league.id, token, signal: controller.signal });
+        // Standings gives rank/record; fixtures gives the viewer's real matches. Standings
+        // matches_played is 0 until results are aggregated (rank is rating-seeded), so we
+        // count played/total from the viewer's fixtures instead — a fixture with a score
+        // has been played. Fixtures failing (e.g. 404 = none) must not sink the card.
+        const [standingsRes, fixturesRes] = await Promise.all([
+          getLeagueStandings({ leagueId: league.id, token, signal: controller.signal }),
+          getLeagueFixtures({ leagueId: league.id, token, mine: true, signal: controller.signal }).catch(
+            () => ({ fixtures: [] as LeagueFixture[] }),
+          ),
+        ]);
         if (controller.signal.aborted) return;
         const standings: LeagueStanding[] = standingsRes.standings ?? [];
         const total = standings.length;
         const mineRow = standings.find((row) =>
           matchesViewer(viewerIdentities, row.player_id, row.full_name),
         );
+        // Filter to the viewer's own fixtures client-side too — robust even if the backend
+        // ignores mine:true and returns the whole league's fixtures.
+        const myFixtures = (fixturesRes.fixtures ?? []).filter((fixture) =>
+          matchesViewer(
+            viewerIdentities,
+            fixture.player1_id,
+            fixture.player1_name,
+            fixture.player2_id,
+            fixture.player2_name,
+          ),
+        );
+        const hasScore = (fixture: LeagueFixture) =>
+          typeof fixture.score === "string" && fixture.score.trim() !== "";
+        // Prefer the real scheduled count; fall back to round-robin (players − 1) if the
+        // fixtures list is empty but standings exist.
+        const matchesTotal = myFixtures.length || Math.max(0, total - 1);
+        const matchesPlayed = myFixtures.length
+          ? myFixtures.filter(hasScore).length
+          : Number(mineRow?.matches_played ?? 0);
         setMineEnrichment((current) => ({
           ...current,
           [id]: {
@@ -841,7 +876,8 @@ const LeaguesPage = () => {
             preSeason: total === 0,
             rank: mineRow?.rank ?? null,
             total: total || null,
-            matchesPlayed: Number(mineRow?.matches_played ?? 0),
+            matchesPlayed,
+            matchesTotal,
             wins: mineRow ? Number(mineRow.wins) : undefined,
             losses: mineRow ? Number(mineRow.losses) : undefined,
           },
