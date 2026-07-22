@@ -993,21 +993,39 @@ const LeaguesPage = () => {
           <div>
             <h1>Your leagues{isAuthenticated ? `, ${firstName}` : ""}</h1>
             <p className="ljr-hero-sub">
-              {isAuthenticated && sections.mine.length > 0 ? (
-                <>
-                  You&apos;re in <b>{sections.mine.length} league{sections.mine.length === 1 ? "" : "s"}</b> this season
-                  {pendingCount > 0 ? (
-                    <>
-                      {" "}— <b>{pendingCount} thing{pendingCount === 1 ? "" : "s"}</b> need
-                      {pendingCount === 1 ? "s" : ""} your attention.
-                    </>
-                  ) : (
-                    <> — nothing needs your attention right now.</>
-                  )}
-                </>
-              ) : (
-                <>Find a flex league at your level and start playing on your own schedule.</>
-              )}
+              {/* Full sentence on larger screens; a condensed version on mobile
+                  so the headline block doesn't push the cards down. */}
+              <span className="ljr-hero-sub__full">
+                {isAuthenticated && sections.mine.length > 0 ? (
+                  <>
+                    You&apos;re in <b>{sections.mine.length} league{sections.mine.length === 1 ? "" : "s"}</b> this season
+                    {pendingCount > 0 ? (
+                      <>
+                        {" "}— <b>{pendingCount} thing{pendingCount === 1 ? "" : "s"}</b> need
+                        {pendingCount === 1 ? "s" : ""} your attention.
+                      </>
+                    ) : (
+                      <> — nothing needs your attention right now.</>
+                    )}
+                  </>
+                ) : (
+                  <>Find a flex league at your level and start playing on your own schedule.</>
+                )}
+              </span>
+              <span className="ljr-hero-sub__compact">
+                {isAuthenticated && sections.mine.length > 0 ? (
+                  <>
+                    <b>{sections.mine.length} league{sections.mine.length === 1 ? "" : "s"}</b>
+                    {pendingCount > 0 ? (
+                      <> · <b>{pendingCount}</b> need{pendingCount === 1 ? "s" : ""} attention</>
+                    ) : (
+                      <> · all caught up</>
+                    )}
+                  </>
+                ) : (
+                  <>Find a flex league at your level.</>
+                )}
+              </span>
             </p>
           </div>
           <button
