@@ -219,7 +219,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
   border: none;
   border-radius: 8px;
   background: #000;
@@ -229,14 +228,23 @@
   cursor: pointer;
 }
 
-/* Official Apple Pay button — Safari renders the proper  Pay logo/branding and
-   draws its own content (the text children become the non-Safari fallback). */
+/* Fallback label for environments that can't render the native button (the button
+   only appears where Apple Pay is available, i.e. Safari, so this is rarely hit). */
+.league-join-applepay::before {
+  content: "Apple Pay";
+}
+
+/* Official Apple Pay button — Safari draws the proper  Pay logo/branding itself,
+   so drop the fallback label and hand the whole button over to the native control. */
 @supports (-webkit-appearance: -apple-pay-button) {
   .league-join-applepay {
     -webkit-appearance: -apple-pay-button;
     appearance: -apple-pay-button;
     -apple-pay-button-type: plain;
     -apple-pay-button-style: black;
+  }
+  .league-join-applepay::before {
+    content: none;
   }
 }
 

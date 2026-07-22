@@ -290,15 +290,16 @@ const LeaguePaymentInner = ({
         <>
           {isApplePayReady ? (
             <>
+              {/* No text children — the native Apple Pay button draws its own
+                  logo; a stray glyph here would paint over it. Fallback label is
+                  a CSS ::before, shown only where the native button is unsupported. */}
               <button
                 type="button"
                 className="league-join-applepay"
                 disabled={busy}
                 onClick={() => void payWithApplePay()}
                 aria-label={`Pay ${formatCost(league)} with Apple Pay`}
-              >
-                <span aria-hidden="true"></span> Pay
-              </button>
+              />
               <div className="league-join-or"><span>or pay with card</span></div>
             </>
           ) : null}
