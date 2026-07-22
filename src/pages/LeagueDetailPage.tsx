@@ -48,7 +48,6 @@ import { getPlayerPersonalDetails } from "../api/playerProfile";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../context/AuthContext";
-import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import {
   DEFAULT_LEAGUE_TIMEZONE,
@@ -157,17 +156,6 @@ const buildInviteMessage = (need: LeagueMatchNeed | null, fallbackLocation: stri
 };
 
 const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
-
-const getApiErrorMessage = (error: unknown) => {
-  const apiError = error as {
-    data?: { detail?: string; error?: string; errors?: string[] };
-    message?: string;
-  };
-
-  if (apiError.data?.detail) return apiError.data.detail;
-  if (apiError.data?.errors?.length) return apiError.data.errors.join(", ");
-  return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
-};
 
 // ───────────────────────── Stage 3: public pre-join league page ─────────────────────────
 const formatLeaguePrice = (league?: League | null): string | null => {
@@ -493,55 +481,12 @@ const LeagueDetailPage = () => {
   const [needSubmitting, setNeedSubmitting] = useState(false);
   const [needError, setNeedError] = useState<string | null>(null);
   const { openAuth } = useAuthDrawer();
-  const [joinReviewOpen, setJoinReviewOpen] = useState(false);
-  const [joinReviewProfile, setJoinReviewProfile] = useState<PlayerPersonalDetails | null>(null);
-  const [joinReviewLoading, setJoinReviewLoading] = useState(false);
-  const [joinReviewError, setJoinReviewError] = useState<string | null>(null);
-
   const openJoinReview = (leagueId: League["id"]) => {
-    if (!leagueId) {
-      return;
-    }
-
-    setJoinReviewOpen(true);
+    if (!leagueId) return;
+    // The detail page has no agreement/payment steps — hand off to the /leagues
+    // browse flow, which runs eligibility → agreement → payment for this league.
+    navigate("/leagues", { state: { openJoinLeagueId: leagueId } });
   };
-
-  useEffect(() => {
-    if (!joinReviewOpen) {
-      return;
-    }
-
-    if (!token) {
-      setJoinReviewProfile(null);
-      setJoinReviewError("Please sign in again to continue.");
-      setJoinReviewLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setJoinReviewLoading(true);
-    setJoinReviewError(null);
-
-    getPlayerPersonalDetails({ token, signal: controller.signal })
-      .then((response) => {
-        if (!controller.signal.aborted) {
-          setJoinReviewProfile(response);
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setJoinReviewProfile(null);
-          setJoinReviewError(getApiErrorMessage(error));
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setJoinReviewLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [joinReviewOpen, token]);
 
   const requireLeagueAuth = (action?: () => void) => {
     if (!requiresLeagueAuthPrompt(isAuthenticated)) {
@@ -1004,23 +949,6 @@ const LeagueDetailPage = () => {
   };
 
 
-  // Shared auth/join overlays — rendered by both the pre-join page and the enrolled detail view.
-  const joinFlowOverlays = (
-    <>
-      {joinReviewOpen && league ? (
-        <LeagueJoinReviewSheet
-          league={league}
-          profile={joinReviewProfile}
-          token={token}
-          loading={joinReviewLoading}
-          profileError={joinReviewError}
-          onClose={() => setJoinReviewOpen(false)}
-          onEligible={() => setJoinReviewOpen(false)}
-        />
-      ) : null}
-    </>
-  );
-
   // ---------- Stage 3: pre-join page for guests + authed non-members ----------
   if (isMember !== true) {
     const previewLeague = detail?.league ?? league;
@@ -1030,7 +958,6 @@ const LeagueDetailPage = () => {
           <div className="leagues-redesign tpl">
             <JoinPageSkeleton />
           </div>
-          {joinFlowOverlays}
         </MainLayout>
       );
     }
@@ -1079,7 +1006,6 @@ const LeagueDetailPage = () => {
             onJoin={() => requireLeagueAuth(() => void openJoinReview(previewLeague.id))}
           />
         </div>
-        {joinFlowOverlays}
       </MainLayout>
     );
   }
@@ -1616,7 +1542,6 @@ const LeagueDetailPage = () => {
             </div>
           </div>
         ) : null}
-        {joinFlowOverlays}
       </section>
     </MainLayout>
   );

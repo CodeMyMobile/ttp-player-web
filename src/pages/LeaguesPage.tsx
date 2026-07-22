@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, MapPin, Search, Share2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   getLeagueRules,
@@ -518,6 +518,7 @@ const ArchiveRow = ({
 const LeaguesPage = () => {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -967,6 +968,20 @@ const LeaguesPage = () => {
       void openJoinReview(result.leagueId);
     }
   };
+
+  // A league's own page hands the join off here (its detail view has no agreement/
+  // payment steps), passing the league via router state so we open the full flow.
+  const joinIntentHandledRef = useRef(false);
+  useEffect(() => {
+    if (joinIntentHandledRef.current) return;
+    const navState = routerLocation.state as { openJoinLeagueId?: string | number } | null;
+    if (navState?.openJoinLeagueId == null) return;
+    joinIntentHandledRef.current = true;
+    handleJoinRequest(navState.openJoinLeagueId);
+    // Strip the state so a refresh / back-nav doesn't re-open the flow.
+    navigate("/leagues", { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routerLocation.state]);
 
   const firstName =
     (profile?.full_name || (user as { full_name?: string } | null)?.full_name || "")
