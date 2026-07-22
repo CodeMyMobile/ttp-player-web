@@ -1,7 +1,11 @@
-import { useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { CreditCard } from "lucide-react";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import {
+  loadStripe,
+  type PaymentRequest as StripePaymentRequest,
+  type PaymentRequestPaymentMethodEvent,
+} from "@stripe/stripe-js";
 
 import {
   completeLeagueEnrollment,
@@ -38,7 +42,11 @@ export interface LeaguePaymentStepProps {
 
 const formatCost = (league: League) => {
   const cents = Number(league.cost_cents ?? 0);
-  return Number.isFinite(cents) ? `$${(cents / 100).toFixed(0)}` : "$0";
+  if (!Number.isFinite(cents)) return "$0";
+  const dollars = cents / 100;
+  // Match the browse/detail formatters: whole dollars as-is, otherwise 2 decimals
+  // (so $59.99 isn't rounded up to $60).
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
 };
 
 const makeIdempotencyKey = (leagueId: number | string) =>
@@ -69,6 +77,89 @@ const LeaguePaymentInner = ({
   const [cardReady, setCardReady] = useState(false);
   const isNewCard = selectedMethodId === "new-card";
   const busy = state.status === "authorizing" || state.status === "completing";
+
+  const amountCents = Math.max(0, Math.round(Number(league.cost_cents ?? 0)));
+  const [applePayRequest, setApplePayRequest] = useState<StripePaymentRequest | null>(null);
+  const [isApplePayReady, setIsApplePayReady] = useState(false);
+
+  // Probe Apple Pay availability for this amount. Only wallets the device actually
+  // supports (Safari + a card in Wallet, on a Stripe-verified domain) flip this on.
+  useEffect(() => {
+    if (!stripe || !amountCents) {
+      setApplePayRequest(null);
+      setIsApplePayReady(false);
+      return;
+    }
+    let cancelled = false;
+    const request = stripe.paymentRequest({
+      country: "US",
+      currency: "usd",
+      total: { label: league.name || "League entry", amount: amountCents },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    });
+    request
+      .canMakePayment()
+      .then((canPay) => {
+        if (cancelled) return;
+        setApplePayRequest(canPay?.applePay ? request : null);
+        setIsApplePayReady(Boolean(canPay?.applePay));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setApplePayRequest(null);
+        setIsApplePayReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stripe, amountCents, league.name]);
+
+  // Shared authorize→complete tail: once a payment intent is authorized (manual
+  // capture → requires_capture), confirm enrollment. Used by both card and Apple Pay.
+  const completeEnrollment = async (
+    authorizedIntent: { id: string; status: string },
+    attemptId: string,
+  ) => {
+    dispatch({
+      type: "authorized",
+      attemptId,
+      paymentIntentId: authorizedIntent.id,
+    });
+
+    const response = await completeLeagueEnrollment({
+      leagueId: league.id,
+      attemptId,
+      paymentIntentId: authorizedIntent.id,
+      paymentIntentStatus: authorizedIntent.status,
+      signedName: agreement.signedName,
+      rulesVersion: agreement.rulesVersion,
+      token,
+    });
+
+    dispatch({
+      type: "completed",
+      membershipId: response.membership?.id ?? null,
+      seeded: Boolean(response.seeding?.seeded),
+      startingRating: response.seeding?.starting_rating ?? null,
+    });
+    onSuccess(response);
+  };
+
+  const handlePayError = (error: unknown) => {
+    const code = (error as { data?: { error?: string } })?.data?.error;
+    if (code === "league_full_not_charged") {
+      // Show the amber "you weren't charged" state in-modal; the host's onLeagueFull runs
+      // when the user taps Back to browse (no immediate close).
+      dispatch({ type: "league_full_not_charged" });
+      return;
+    }
+
+    dispatch({
+      type: "payment_failed",
+      message: getErrorMessage(error),
+    });
+  };
 
   const pay = async () => {
     if (!stripe || (isNewCard && !elements)) {
@@ -102,42 +193,74 @@ const LeaguePaymentInner = ({
         throw new Error("Payment was not authorized for capture.");
       }
 
-      dispatch({
-        type: "authorized",
-        attemptId: paymentIntent.attempt_id,
-        paymentIntentId: authorizedIntent.id,
-      });
+      await completeEnrollment(authorizedIntent, paymentIntent.attempt_id);
+    } catch (error) {
+      handlePayError(error);
+    }
+  };
 
-      const response = await completeLeagueEnrollment({
+  // Apple Pay express checkout — same authorize-then-complete (manual capture) flow as
+  // the card path, but the payment method comes from the Apple Pay sheet. Only reachable
+  // when the device reports Apple Pay is available (see the effect above).
+  const payWithApplePay = async () => {
+    if (!stripe || !applePayRequest) {
+      dispatch({ type: "payment_failed", message: "Apple Pay is not ready yet." });
+      return;
+    }
+
+    dispatch({ type: "authorize_started" });
+
+    try {
+      const paymentIntent = await createLeaguePaymentIntent({
         leagueId: league.id,
-        attemptId: paymentIntent.attempt_id,
-        paymentIntentId: authorizedIntent.id,
-        paymentIntentStatus: authorizedIntent.status,
-        signedName: agreement.signedName,
-        rulesVersion: agreement.rulesVersion,
+        idempotencyKey: makeIdempotencyKey(league.id),
         token,
       });
 
-      dispatch({
-        type: "completed",
-        membershipId: response.membership?.id ?? null,
-        seeded: Boolean(response.seeding?.seeded),
-        startingRating: response.seeding?.starting_rating ?? null,
+      const event = await new Promise<PaymentRequestPaymentMethodEvent>((resolve, reject) => {
+        const onPaymentMethod = (ev: PaymentRequestPaymentMethodEvent) => {
+          applePayRequest.off("cancel", onCancel);
+          resolve(ev);
+        };
+        const onCancel = () => {
+          applePayRequest.off("paymentmethod", onPaymentMethod);
+          reject(new Error("__apple_pay_cancelled__"));
+        };
+        applePayRequest.once("paymentmethod", onPaymentMethod);
+        applePayRequest.once("cancel", onCancel);
+        try {
+          applePayRequest.show();
+        } catch (err) {
+          applePayRequest.off("paymentmethod", onPaymentMethod);
+          applePayRequest.off("cancel", onCancel);
+          reject(err);
+        }
       });
-      onSuccess(response);
-    } catch (error) {
-      const code = (error as { data?: { error?: string } })?.data?.error;
-      if (code === "league_full_not_charged") {
-        // Show the amber "you weren't charged" state in-modal; the host's onLeagueFull runs
-        // when the user taps Back to browse (no immediate close).
-        dispatch({ type: "league_full_not_charged" });
-        return;
+
+      const { error, paymentIntent: authorizedIntent } = await stripe.confirmCardPayment(
+        paymentIntent.client_secret,
+        { payment_method: event.paymentMethod.id },
+        { handleActions: false },
+      );
+
+      if (error) {
+        event.complete("fail");
+        throw new Error(error.message || "Payment authorization failed.");
+      }
+      event.complete("success");
+
+      if (!authorizedIntent || authorizedIntent.status !== "requires_capture") {
+        throw new Error("Payment was not authorized for capture.");
       }
 
-      dispatch({
-        type: "payment_failed",
-        message: getErrorMessage(error),
-      });
+      await completeEnrollment(authorizedIntent, paymentIntent.attempt_id);
+    } catch (error) {
+      if ((error as { message?: string })?.message === "__apple_pay_cancelled__") {
+        // User dismissed the Apple Pay sheet — quietly return to the form.
+        dispatch({ type: "reset" });
+        return;
+      }
+      handlePayError(error);
     }
   };
 
@@ -165,6 +288,21 @@ const LeaguePaymentInner = ({
         </div>
       ) : (
         <>
+          {isApplePayReady ? (
+            <>
+              <button
+                type="button"
+                className="league-join-applepay"
+                disabled={busy}
+                onClick={() => void payWithApplePay()}
+                aria-label={`Pay ${formatCost(league)} with Apple Pay`}
+              >
+                <span aria-hidden="true"></span> Pay
+              </button>
+              <div className="league-join-or"><span>or pay with card</span></div>
+            </>
+          ) : null}
+
           {savedMethods.length > 0 ? (
             <div className="league-join-payment-methods" role="radiogroup" aria-label="Payment method">
               {savedMethods.map((method) => {

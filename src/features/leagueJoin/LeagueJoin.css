@@ -210,6 +210,51 @@
   color: #475569;
 }
 
+/* Apple Pay express button — only rendered when the device supports Apple Pay. */
+.league-join-applepay {
+  width: 100%;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: none;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.league-join-applepay:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.league-join-or {
+  display: flex;
+  align-items: center;
+  margin: 0.9rem 0 0.25rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.league-join-or::before,
+.league-join-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.league-join-or span {
+  padding: 0 0.65rem;
+}
+
 .league-join-step {
   display: grid;
   gap: 1rem;
