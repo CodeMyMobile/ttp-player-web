@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Autocomplete from "react-google-autocomplete";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Mail, Phone, Trophy, Users, X } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  Clock,
+  Info,
+  Mail,
+  MapPin,
+  Phone,
+  Share2,
+  Star,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
 
 import {
   type League,
+  type LeagueCapacity,
+  type LeagueDetailResponse,
   type LeagueFixture,
   type LeagueMatchNeed,
   type LeagueMatchSuggestion,
@@ -14,6 +30,7 @@ import {
   isLeagueSlotAvailable,
   acceptLeagueMatchNeedPreview,
   createLeagueMatchNeed,
+  getLeagueDetail,
   getLeagueFixtures,
   getLeagueMatchNeeds,
   getLeaguePlayers,
@@ -21,6 +38,11 @@ import {
   previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
+import { evaluateLeagueEligibility } from "../features/leagueJoin/eligibility";
+import { getLeagueCapacity } from "./leagueBrowse";
+import { leaguePhoto } from "../utils/leaguePhoto";
+import { leagueVenueDistanceMiles, formatDistanceMiles } from "../utils/distance";
+import "./leagueRedesign.tokens.css";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
@@ -147,6 +169,256 @@ const getApiErrorMessage = (error: unknown) => {
   return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
 };
 
+// ───────────────────────── Stage 3: public pre-join league page ─────────────────────────
+const formatLeaguePrice = (league?: League | null): string | null => {
+  if (!league || league.cost_cents == null || league.cost_cents === "") return null;
+  const cents = Number(league.cost_cents);
+  if (!Number.isFinite(cents)) return null;
+  if (cents <= 0) return "Free";
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+};
+
+const genderFlag = (gender?: string | null): string | null => {
+  const g = typeof gender === "string" ? gender.toLowerCase() : "";
+  if (g === "men") return "Men's";
+  if (g === "women") return "Women's";
+  if (g === "mixed") return "Mixed";
+  return null;
+};
+
+const JoinPageSkeleton = () => (
+  <div className="ljr-jp">
+    <div className="ljr-jp-hero ljr-skel" style={{ height: 220, borderRadius: "0 0 26px 26px" }} />
+    <div className="ljr-jp-body">
+      <div className="ljr-skel" style={{ height: 26, width: "60%", margin: "18px 0" }} />
+      <div className="ljr-skel" style={{ height: 80, borderRadius: 18 }} />
+    </div>
+  </div>
+);
+
+// The public pre-join league page — shown to logged-out and authed-but-not-enrolled viewers.
+// Presentational: all data comes from the (public) league detail; the CTA calls back to the
+// page's existing join launcher / auth gate.
+const LeagueJoinPageView = ({
+  league,
+  capacity,
+  eligibilityPass,
+  distanceLabel,
+  priceLabel,
+  onBack,
+  onShare,
+  onJoin,
+}: {
+  league: League;
+  capacity: LeagueCapacity | null;
+  eligibilityPass: boolean | null; // true = green strip; null/false = neutral variant
+  distanceLabel: string | null;
+  priceLabel: string | null;
+  onBack: () => void;
+  onShare: () => void;
+  onJoin: () => void;
+}) => {
+  const cap = capacity ?? getLeagueCapacity(league);
+  const remaining = cap.remaining;
+  const filled = cap.filled;
+  const total = cap.total;
+  const hot = remaining != null && remaining > 0 && remaining <= 3;
+  const spotsFlag =
+    remaining == null ? null : remaining > 0 ? `Only ${remaining} spot${remaining === 1 ? "" : "s"} left` : "Full";
+  const level = typeof league.skill_band === "string" && league.skill_band.trim() ? league.skill_band.trim() : null;
+  const gender = genderFlag(league.gender);
+  const venue =
+    league.venue_name ||
+    [league.venue_area].filter(Boolean).join("") ||
+    (typeof league.location === "string" ? league.location : "") ||
+    "the league's home courts";
+  const dateRange = [league.start_date, league.end_date]
+    .filter(Boolean)
+    .map((d) => formatDate(String(d)))
+    .join(" – ");
+  const capPct = total && total > 0 && filled != null ? Math.round((filled / total) * 100) : 0;
+  const priceCopy = priceLabel ? `${priceLabel} · full season` : "Season entry";
+
+  return (
+    <div className="ljr-jp">
+      <header className="ljr-jp-hero">
+        <img src={leaguePhoto(league)} alt="" aria-hidden="true" />
+        <button type="button" className="ljr-jp-circ ljr-jp-circ--l" onClick={onBack} aria-label="Back to leagues">
+          <ChevronLeft size={18} />
+        </button>
+        <button type="button" className="ljr-jp-circ ljr-jp-circ--r" onClick={onShare} aria-label="Share this league">
+          <Share2 size={16} />
+        </button>
+        {hot && spotsFlag ? <span className="ljr-jp-hot">{spotsFlag}</span> : null}
+      </header>
+
+      <div className="ljr-jp-body">
+        <div className="ljr-jp-titleblock">
+          <div className="ljr-jp-flags">
+            {level ? <span className="ljr-jp-flag">{`NTRP ${level}`}</span> : null}
+            {gender ? <span className="ljr-jp-flag">{gender}</span> : null}
+          </div>
+          <h1>{league.name}</h1>
+          <div className="ljr-jp-sub">
+            A season of matches on your schedule{dateRange ? ` · ${dateRange}` : ""}
+          </div>
+        </div>
+
+        <div className="ljr-jp-specband">
+          <div className="ljr-jp-spec-item">
+            <CalendarDays size={16} />
+            <div>
+              <div className="k">Season</div>
+              <div className="v">{dateRange || "Dates TBD"}</div>
+            </div>
+          </div>
+          <div className="ljr-jp-spec-item">
+            <MapPin size={16} />
+            <div>
+              <div className="k">Courts</div>
+              <div className="v">{[venue, distanceLabel].filter(Boolean).join(" · ")}</div>
+            </div>
+          </div>
+          <div className="ljr-jp-spec-item">
+            <Clock size={16} />
+            <div>
+              <div className="k">Pace</div>
+              <div className="v">Min 6 matches · you pick when</div>
+            </div>
+          </div>
+          <div className="ljr-jp-spec-item">
+            <Star size={16} />
+            <div>
+              <div className="k">Entry</div>
+              <div className="v">{priceCopy}</div>
+            </div>
+          </div>
+        </div>
+
+        <section className="ljr-jp-section">
+          <h2>How a flex league works</h2>
+          <p className="ljr-jp-lede">No fixed match nights — you play when it suits you.</p>
+          <div className="ljr-jp-card ljr-jp-how">
+            <div className="ljr-jp-how-step">
+              <span className="ljr-jp-how-num">1</span>
+              <div>
+                <b>Post when you can play</b>
+                <p>Put up your availability whenever you want a match — an evening, a weekend morning, whatever works.</p>
+              </div>
+            </div>
+            <div className="ljr-jp-how-step">
+              <span className="ljr-jp-how-num">2</span>
+              <div>
+                <b>Match with players in the league</b>
+                <p>Other players see you&apos;re looking and respond — or you jump on their posts. You arrange the time and court between you.</p>
+              </div>
+            </div>
+            <div className="ljr-jp-how-step">
+              <span className="ljr-jp-how-num">3</span>
+              <div>
+                <b>Log scores, climb the standings</b>
+                <p>Play at least 6 matches over the season. Every result updates the standings and your rating.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="ljr-jp-section">
+          <h2>Who you&apos;ll play</h2>
+          <p className="ljr-jp-lede">
+            Real matches, not blowouts{level ? ` — everyone's inside the ${level} band` : ""}.
+          </p>
+          <div className="ljr-jp-card">
+            <div className="ljr-jp-wholine">
+              {filled != null ? <b>{filled} players in</b> : <b>Open for players</b>} — every player passed the same
+              level check you will.
+            </div>
+            {total != null ? (
+              <>
+                <div className="ljr-jp-capline">
+                  <span>
+                    {filled ?? 0} of {total} spots filled
+                  </span>
+                  {remaining != null && remaining > 0 ? (
+                    <span className="ljr-jp-warnpill">{remaining} left</span>
+                  ) : null}
+                </div>
+                <div className="ljr-jp-captrack">
+                  <div className="ljr-jp-capfill" style={{ width: `${capPct}%` }} />
+                </div>
+              </>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="ljr-jp-section">
+          <h2>Where you&apos;ll play</h2>
+          <div className="ljr-jp-card ljr-jp-where">
+            <p>
+              <b>{venue}</b>
+              {distanceLabel ? <> — <b>{distanceLabel} from you.</b></> : "."} You and your opponent pick the court
+              that suits you both; this is the league&apos;s home base.
+            </p>
+            <div className="ljr-jp-map">Map — {venue}</div>
+          </div>
+        </section>
+
+        <section className="ljr-jp-section">
+          <h2>Good to know</h2>
+          <details>
+            <summary>What if I&apos;m away for a week or two?</summary>
+            <div className="ljr-jp-a">No problem — there&apos;s no weekly fixture to miss. You post availability when you&apos;re around and play more in the weeks you&apos;re free. You just need your 6 matches in by the end of the season.</div>
+          </details>
+          <details>
+            <summary>How do I find opponents?</summary>
+            <div className="ljr-jp-a">Post your availability in the league and other players respond, or browse who&apos;s looking and jump on their posts. Most players in an active league find a match within a couple of days.</div>
+          </details>
+          <details>
+            <summary>Who pays for courts?</summary>
+            <div className="ljr-jp-a">Court fees are split between the two players. You choose the court together when you arrange the match.</div>
+          </details>
+          <details>
+            <summary>Can I get a refund if I change my mind?</summary>
+            <div className="ljr-jp-a">Full refund up to the day the season starts. After the season begins, entry is non-refundable — your spot has taken someone else&apos;s place.</div>
+          </details>
+          <details>
+            <summary>Is my level right for this league?</summary>
+            <div className="ljr-jp-a">If your NTRP is {level || "in band"}, yes. Your profile rating is checked automatically when you join — and your results will settle you at the right level fast.</div>
+          </details>
+
+          {eligibilityPass ? (
+            <div className="ljr-jp-elig is-pass">
+              <Check size={16} />
+              <span>Your profile matches this league. Joining takes about a minute.</span>
+            </div>
+          ) : (
+            <div className="ljr-jp-elig">
+              <Info size={16} />
+              <span>
+                This league needs {[level ? `NTRP ${level}` : null, gender, "18+"].filter(Boolean).join(", ")} — we&apos;ll
+                check your profile when you join.
+              </span>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="ljr-jp-sticky">
+        <div className="ljr-jp-sticky-inner">
+          <div className="ljr-jp-bar-info">
+            <b>{priceCopy}</b>
+            {hot && spotsFlag ? <span>{spotsFlag}</span> : null}
+          </div>
+          <button type="button" className="ljr-jp-cta" onClick={onJoin}>
+            Join this league
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LeagueDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -206,6 +478,11 @@ const LeagueDetailPage = () => {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Stage 3: public league detail (works for guests + authed non-members) drives the pre-join
+  // page and the enrolled-vs-not decision. previewProfile powers the eligibility strip.
+  const [detail, setDetail] = useState<LeagueDetailResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [previewProfile, setPreviewProfile] = useState<PlayerPersonalDetails | null>(null);
   const [isNeedDrawerOpen, setNeedDrawerOpen] = useState(false);
   const [needDate, setNeedDate] = useState(todayInputValue);
   const [needTime, setNeedTime] = useState("");
@@ -292,8 +569,61 @@ const LeagueDetailPage = () => {
     requireLeagueAuth(() => navigate(to, state ? { state } : undefined));
   };
 
+  // Membership: derived from the public detail. null while it loads.
+  const isMember = useMemo<boolean | null>(() => {
+    if (!detail) return null;
+    const status =
+      typeof detail.membership_state?.status === "string"
+        ? detail.membership_state.status.toLowerCase()
+        : "";
+    if (status && status !== "none") return true;
+    if (detail.membership_state?.joined_via) return true;
+    return detail.league ? getLeagueCardVariant(detail.league) === "enrolled" : false;
+  }, [detail]);
+
+  // Public detail fetch — guests + authed. Same resource as the public /leagues list, so it
+  // works for shared /leagues/:id deep links. Seeds `league` so the join CTA / review sheet
+  // have it even before the (member-only) heavy fetch runs.
   useEffect(() => {
     if (!id) return;
+    const controller = new AbortController();
+    setDetailLoading(true);
+    getLeagueDetail({ leagueId: id, token, signal: controller.signal })
+      .then((response) => {
+        if (controller.signal.aborted) return;
+        setDetail(response);
+        setLeague((current) => current ?? response.league);
+      })
+      .catch(() => {
+        // Non-fatal: the pre-join page falls back to generic copy.
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDetailLoading(false);
+      });
+    return () => controller.abort();
+  }, [id, token]);
+
+  // Profile for the eligibility strip (authed viewers only; guests get the neutral variant).
+  useEffect(() => {
+    if (!token) {
+      setPreviewProfile(null);
+      return;
+    }
+    const controller = new AbortController();
+    getPlayerPersonalDetails({ token, signal: controller.signal })
+      .then((response) => {
+        if (!controller.signal.aborted) setPreviewProfile(response);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPreviewProfile(null);
+      });
+    return () => controller.abort();
+  }, [token]);
+
+  useEffect(() => {
+    // Heavy, member-only detail (standings/players/fixtures/needs). Guests and authed
+    // non-members get the pre-join page instead, so skip these auth-only calls for them.
+    if (!id || !isAuthenticated || isMember !== true) return;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -326,7 +656,7 @@ const LeagueDetailPage = () => {
       });
 
     return () => controller.abort();
-  }, [id, token]);
+  }, [id, token, isAuthenticated, isMember]);
 
   const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
@@ -672,6 +1002,87 @@ const LeagueDetailPage = () => {
       setInviteSubmitting(false);
     }
   };
+
+
+  // Shared auth/join overlays — rendered by both the pre-join page and the enrolled detail view.
+  const joinFlowOverlays = (
+    <>
+      {joinReviewOpen && league ? (
+        <LeagueJoinReviewSheet
+          league={league}
+          profile={joinReviewProfile}
+          token={token}
+          loading={joinReviewLoading}
+          profileError={joinReviewError}
+          onClose={() => setJoinReviewOpen(false)}
+          onEligible={() => setJoinReviewOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+
+  // ---------- Stage 3: pre-join page for guests + authed non-members ----------
+  if (isMember !== true) {
+    const previewLeague = detail?.league ?? league;
+    if (!previewLeague || (detailLoading && !detail)) {
+      return (
+        <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+          <div className="leagues-redesign tpl">
+            <JoinPageSkeleton />
+          </div>
+          {joinFlowOverlays}
+        </MainLayout>
+      );
+    }
+
+    const eligibilityPass: boolean | null = (() => {
+      if (!isAuthenticated || !previewProfile) return null;
+      const result = evaluateLeagueEligibility({
+        league: previewLeague as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
+        profile: {
+          gender: previewProfile.gender,
+          usta_rating: previewProfile.usta_rating,
+          date_of_birth: previewProfile.date_of_birth,
+        },
+        pending: {},
+        now: new Date(),
+      });
+      return ![result.gender, result.level, result.age].some(
+        (field) => field.status === "existing_mismatch" || field.status === "entered_mismatch",
+      );
+    })();
+
+    const shareLeague = async () => {
+      const url = `${window.location.origin}${window.location.pathname}#/leagues/${previewLeague.id}`;
+      try {
+        if (typeof navigator !== "undefined" && navigator.share) {
+          await navigator.share({ title: previewLeague.name, url });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+      } catch {
+        // share dismissed / clipboard blocked
+      }
+    };
+
+    return (
+      <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
+        <div className="leagues-redesign tpl">
+          <LeagueJoinPageView
+            league={previewLeague}
+            capacity={detail?.metadata ?? null}
+            eligibilityPass={eligibilityPass}
+            distanceLabel={formatDistanceMiles(leagueVenueDistanceMiles(previewLeague))}
+            priceLabel={formatLeaguePrice(previewLeague)}
+            onBack={() => navigate("/leagues")}
+            onShare={() => void shareLeague()}
+            onJoin={() => requireLeagueAuth(() => void openJoinReview(previewLeague.id))}
+          />
+        </div>
+        {joinFlowOverlays}
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout pageClassName="leagues-shell" hideMobileNewMatch>
@@ -1205,17 +1616,7 @@ const LeagueDetailPage = () => {
             </div>
           </div>
         ) : null}
-        {joinReviewOpen && league ? (
-          <LeagueJoinReviewSheet
-            league={league}
-            profile={joinReviewProfile}
-            token={token}
-            loading={joinReviewLoading}
-            profileError={joinReviewError}
-            onClose={() => setJoinReviewOpen(false)}
-            onEligible={() => setJoinReviewOpen(false)}
-          />
-        ) : null}
+        {joinFlowOverlays}
       </section>
     </MainLayout>
   );

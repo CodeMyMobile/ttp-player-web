@@ -1,25 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CalendarDays,
-  ChevronRight,
-  CircleAlert,
-  CircleDot,
-  MapPin,
-  Search,
-  Trophy,
-  Users,
-} from "lucide-react";
-import { Link } from "react-router-dom";
+import { CircleAlert, MapPin, Search, Share2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   getLeagueRules,
   getLeagueMatchNeeds,
+  getLeagueFixtures,
+  getLeagueStandings,
   listLeagues,
   type League,
   type LeagueEnrollmentResponse,
+  type LeagueFixture,
   type LeagueRuleVersion,
   type LeagueSections,
+  type LeagueStanding,
 } from "../api/leagues";
+import { computeSeasonProgress, weeksRemaining } from "../utils/leagueSeason";
+import { resolveLeagueNextAction } from "../utils/leagueNextAction";
+import { rankMedal, ordinal } from "../utils/leagueMedal";
+import { leaguePhoto } from "../utils/leaguePhoto";
+import { leagueVenueDistanceMiles, formatDistanceMiles } from "../utils/distance";
+import "./leagueRedesign.tokens.css";
 import type { PlayerPersonalDetails } from "../api/playerProfile";
 import { getPlayerPersonalDetails } from "../api/playerProfile";
 import {
@@ -59,16 +60,6 @@ const EMPTY_SECTIONS: LeagueSections = {
   archived: [],
 };
 
-const TOP_FILTERS: Array<{
-  value: BrowseTopFilter;
-  label: string;
-}> = [
-  { value: "all", label: "All" },
-  { value: "available", label: "Available" },
-  { value: "mine", label: "My leagues" },
-  { value: "archived", label: "Archived" },
-];
-
 const AVAILABLE_FILTERS: Array<{
   value: LeagueBrowseAvailableFilter;
   label: string;
@@ -94,14 +85,6 @@ const formatRange = (league: League) => {
   return `${start} - ${end}`;
 };
 
-const formatMoney = (value: unknown) => {
-  const costCents = typeof value === "number" ? value : Number(value ?? 0);
-  if (!Number.isFinite(costCents)) {
-    return "$0";
-  }
-  return `$${(costCents / 100).toFixed(0)}`;
-};
-
 const getLeagueLocationLabel = (league: League) => {
   const label = league.location ||
     [league.venue_name, league.venue_area].filter(Boolean).join(" · ");
@@ -119,18 +102,6 @@ const getApiErrorMessage = (error: unknown) => {
   return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
 };
 
-const getSectionTitle = (filter: BrowseTopFilter) => {
-  switch (filter) {
-    case "available":
-      return "Available leagues";
-    case "mine":
-      return "My leagues";
-    case "archived":
-      return "Archived leagues";
-    default:
-      return "Browse leagues";
-  }
-};
 
 const getEmptyCopy = ({
   filter,
@@ -197,107 +168,6 @@ const SectionEmptyState = ({
   </div>
 );
 
-const LeagueCard = ({
-  league,
-  variant,
-  lookingCount,
-  joinPending,
-  onJoin,
-  archived = false,
-}: {
-  league: League;
-  variant: LeagueCardVariant;
-  lookingCount: number;
-  joinPending: boolean;
-  onJoin: (leagueId: League["id"]) => void;
-  archived?: boolean;
-}) => {
-  const capacity = getLeagueCapacity(league);
-  const metaText =
-    [league.skill_band, league.gender, league.status].filter(Boolean).join(" · ") ||
-    "Flex league";
-
-  return (
-    <article className={`browse-league-card browse-league-card--${variant}`}>
-      <div className="browse-league-card__header">
-        <div className="browse-league-card__title-group">
-          <span className="browse-league-card__icon">
-            <Trophy size={18} />
-          </span>
-          <div>
-            <div className="browse-league-card__headline">
-              <h2>{league.name}</h2>
-              <span className={`browse-league-card__badge browse-league-card__badge--${archived ? "archived" : variant}`}>
-                {archived ? "Archived" : variant === "enrolled" ? "Enrolled" : variant === "full" ? "Full" : "Open"}
-              </span>
-            </div>
-            <p>{metaText}</p>
-          </div>
-        </div>
-        {variant === "enrolled" && lookingCount > 0 ? (
-          <span className="browse-league-card__looking">
-            <Users size={14} />
-            {lookingCount} looking
-          </span>
-        ) : null}
-      </div>
-
-      <div className="browse-league-card__meta">
-        <span>
-          <CalendarDays size={14} />
-          {formatRange(league)}
-        </span>
-        <span>
-          <CircleDot size={14} />
-          {formatMoney(league.cost_cents)}
-        </span>
-        <span>
-          <Users size={14} />
-          {league.membership_status ?? "Public league"}
-        </span>
-        <span>
-          <MapPin size={14} />
-          {getLeagueLocationLabel(league)}
-        </span>
-      </div>
-
-      <div className="browse-league-card__capacity">
-        <div className="browse-league-card__capacity-head">
-          <strong>Capacity</strong>
-          <span>
-            {capacity.total != null && capacity.filled != null
-              ? `${capacity.filled}/${capacity.total} spots filled`
-              : capacity.isFull
-                ? "League is full"
-                : "Capacity TBD"}
-          </span>
-        </div>
-        <div className="browse-league-card__capacity-bar" aria-hidden="true">
-          <span style={{ width: `${capacity.progressPercent}%` }} />
-        </div>
-      </div>
-
-      <div className="browse-league-card__actions">
-        {archived ? null : variant === "available" ? (
-          <button type="button" className="browse-league-card__join" onClick={() => onJoin(league.id)}>
-            {joinPending ? "Selected" : "Join"}
-          </button>
-        ) : variant === "full" ? (
-          <button type="button" className="browse-league-card__join browse-league-card__join--disabled" disabled>
-            Full
-          </button>
-        ) : null}
-        <Link
-          className="browse-league-card__view"
-          to={variant === "enrolled" && !archived ? `/leagues/${league.id}/dashboard` : `/leagues/${league.id}`}
-        >
-          {variant === "enrolled" && !archived ? "View dashboard" : "View league"}
-          <ChevronRight size={16} />
-        </Link>
-      </div>
-    </article>
-  );
-};
 
 const LoadingSkeleton = () => (
   <div className="leagues-page__grid" aria-hidden="true">
@@ -313,8 +183,341 @@ const LoadingSkeleton = () => (
   </div>
 );
 
+// ───────────────────────── Stage 2b: redesigned browse cards ─────────────────────────
+// Per-enrolled-league data that loads asynchronously AFTER the card is on screen, so the
+// page never blocks on N standings/fixtures requests. Undefined = not fetched yet.
+type MineEnrichment = {
+  loading: boolean;
+  error?: boolean;
+  rank?: number | null; // viewer's standing rank
+  total?: number | null; // total players in the standings
+  matchesPlayed?: number; // viewer's fixtures with a score (a result has been logged)
+  matchesTotal?: number; // viewer's scheduled fixtures (round-robin: players − 1 fallback)
+  wins?: number;
+  losses?: number;
+  preSeason?: boolean; // no standings yet → league hasn't started
+};
+
+const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+// The account id (user.id) and the league player_id are different id-spaces, so a single-id
+// compare misses the viewer's own row. Match by id OR name OR email — mirrors useLeagueDashboard.
+const buildViewerIdentities = (
+  user: unknown,
+  player?: PlayerPersonalDetails | null,
+): Set<string> => {
+  const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
+  const uProfile = (u.profile ?? {}) as Record<string, unknown>;
+  const userId = u.id ?? u.user_id ?? u.player_id ?? uProfile.id ?? uProfile.user_id;
+  return new Set(
+    [
+      normalizeIdentity(userId),
+      normalizeIdentity(u.email),
+      normalizeIdentity(uProfile.email),
+      normalizeIdentity(u.full_name),
+      normalizeIdentity(uProfile.full_name),
+      normalizeIdentity(u.name),
+      // The fetched player profile is the reliable league-player identity (user_id matches
+      // standings.player_id; full_name matches standings.full_name).
+      normalizeIdentity(player?.user_id),
+      normalizeIdentity(player?.id),
+      normalizeIdentity(player?.full_name),
+      normalizeIdentity(player?.email),
+    ].filter(Boolean),
+  );
+};
+
+const matchesViewer = (identities: Set<string>, ...candidates: unknown[]): boolean =>
+  candidates
+    .map(normalizeIdentity)
+    .filter(Boolean)
+    .some((identity) => identities.has(identity));
+
+const levelChipLabel = (league: League): string => {
+  const band = typeof league.skill_band === "string" ? league.skill_band.trim() : "";
+  const first = band.split(/[\s/–-]+/)[0];
+  return first || "TP";
+};
+
+// Actual players in the league (spots_filled), not the capacity. Prefer filled so the card
+// reflects real enrollment; fall back to total only if filled isn't provided.
+const playerCountLabel = (league: League): string | null => {
+  const cap = getLeagueCapacity(league);
+  if (cap.filled != null) return `${cap.filled} player${cap.filled === 1 ? "" : "s"}`;
+  if (cap.total != null) return `${cap.total} spots`;
+  return null;
+};
+
+// Price from cost_cents. Absent → null (chip omitted; never "$0"/"$NaN"). 0 → "Free".
+const priceLabel = (league: League): string | null => {
+  if (league.cost_cents == null || league.cost_cents === "") return null;
+  const cents = Number(league.cost_cents);
+  if (!Number.isFinite(cents)) return null;
+  if (cents <= 0) return "Free";
+  const dollars = cents / 100;
+  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
+};
+
+const seasonLabel = (dateStr?: string | null): string => {
+  if (!dateStr) return "Past seasons";
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return "Past seasons";
+  const month = parsed.getMonth();
+  const year = parsed.getFullYear();
+  const season =
+    month <= 1 || month === 11 ? "Winter" : month <= 4 ? "Spring" : month <= 7 ? "Summer" : "Fall";
+  return `${season} ${year}`;
+};
+
+const groupArchivedBySeason = (leagues: League[]): Array<[string, League[]]> => {
+  const groups = new Map<string, League[]>();
+  leagues.forEach((league) => {
+    const label = seasonLabel(league.start_date);
+    const bucket = groups.get(label);
+    if (bucket) bucket.push(league);
+    else groups.set(label, [league]);
+  });
+  return Array.from(groups.entries());
+};
+
+const SkeletonBar = ({ w = "100%" }: { w?: string }) => (
+  <span className="ljr-skel" style={{ width: w }} aria-hidden="true" />
+);
+
+const PlayingNowCard = ({
+  league,
+  enrichment,
+  lookingCount,
+  onOpen,
+}: {
+  league: League;
+  enrichment: MineEnrichment | undefined;
+  lookingCount: number;
+  onOpen: () => void;
+}) => {
+  const loading = enrichment?.loading ?? true;
+  const preSeason = enrichment?.preSeason ?? false;
+  const progress = computeSeasonProgress(enrichment?.matchesPlayed ?? 0);
+  // Real match progress from the viewer's fixtures: played (has a score) of scheduled total.
+  const matchesPlayed = enrichment?.matchesPlayed ?? 0;
+  const matchesTotal = enrichment?.matchesTotal ?? 0;
+  const matchesPct = matchesTotal > 0 ? Math.round((matchesPlayed / matchesTotal) * 100) : 0;
+  const weeks = weeksRemaining(league.end_date);
+  const dateRange = formatRange(league);
+  const players = playerCountLabel(league);
+
+  const action = resolveLeagueNextAction({
+    preSeason,
+    minimumMet: progress.met,
+    rankLabel: enrichment?.rank ? ordinal(enrichment.rank) : null,
+  });
+
+  const recordBits: string[] = [];
+  if (!preSeason && enrichment?.wins != null && enrichment?.losses != null) {
+    recordBits.push(`${enrichment.wins}–${enrichment.losses} record`);
+  }
+  if (weeks != null && weeks > 0) recordBits.push(`${weeks} wk${weeks === 1 ? "" : "s"} left`);
+
+  return (
+    <article
+      className="ljr-mine-card"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="ljr-mine-top">
+        <div className="ljr-level-chip">{levelChipLabel(league)}</div>
+        <div className="ljr-mine-head">
+          <div className="ljr-mine-title">{league.name}</div>
+          <div className="ljr-mine-meta">
+            {[dateRange, players].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+        <div className="ljr-standing">
+          {loading ? (
+            <SkeletonBar w="42px" />
+          ) : preSeason ? (
+            <>
+              <b>—</b>
+              <span>Pre-season</span>
+            </>
+          ) : enrichment?.rank ? (
+            <>
+              <b>{ordinal(enrichment.rank)}</b>
+              <span>of {enrichment.total ?? "—"}</span>
+            </>
+          ) : (
+            <>
+              <b>—</b>
+              <span>Not ranked</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="ljr-season">
+        <div className="ljr-season-track">
+          <div className="ljr-season-fill" style={{ width: `${matchesPct}%` }} />
+        </div>
+        {loading ? (
+          <div className="ljr-season-label">
+            <SkeletonBar w="120px" />
+          </div>
+        ) : (
+          <div className="ljr-season-label">
+            <span>
+              {preSeason && weeks != null && weeks > 0 ? (
+                <b>Starts in {weeks} wk{weeks === 1 ? "" : "s"}</b>
+              ) : (
+                <>
+                  <b>
+                    {matchesPlayed} of {matchesTotal}
+                  </b>{" "}
+                  matches played
+                </>
+              )}
+            </span>
+            <span>{preSeason ? "Enrolled ✓" : recordBits.join(" · ")}</span>
+          </div>
+        )}
+      </div>
+
+      {!preSeason && lookingCount > 0 ? (
+        <span className="ljr-looking-chip">
+          <span className="ljr-pulse" />
+          {lookingCount} looking for matches →
+        </span>
+      ) : null}
+
+      {loading ? (
+        <span className="ljr-next-action">
+          <SkeletonBar w="70%" />
+        </span>
+      ) : (
+        <span className={`ljr-next-action${action.tone === "ok" ? " is-ok" : ""}`}>
+          <span className="ljr-next-ico" aria-hidden="true">
+            {action.tone === "ok" ? "✓" : "•"}
+          </span>
+          <span>{action.text}</span>
+          <span className="ljr-next-go">{action.cta}</span>
+        </span>
+      )}
+    </article>
+  );
+};
+
+const DiscoveryCard = ({
+  league,
+  distanceLabel,
+  priceLabel,
+  onJoin,
+  onDetails,
+  onShare,
+}: {
+  league: League;
+  distanceLabel: string | null;
+  priceLabel: string | null;
+  onJoin: () => void;
+  onDetails: () => void;
+  onShare: () => void;
+}) => {
+  const cap = getLeagueCapacity(league);
+  const remaining = cap.remaining;
+  const hot = remaining != null && remaining > 0 && remaining <= 3;
+  const band = typeof league.skill_band === "string" && league.skill_band.trim()
+    ? league.skill_band.trim()
+    : null;
+  const venue = getLeagueLocationLabel(league);
+
+  return (
+    <article className="ljr-disc-card">
+      <div className="ljr-photo">
+        <img src={leaguePhoto(league)} alt="" aria-hidden="true" />
+        {remaining != null ? (
+          <span className={`ljr-spots-flag${hot ? " is-hot" : ""}`}>
+            {remaining > 0 ? (hot ? `Only ${remaining} spot${remaining === 1 ? "" : "s"} left` : `${remaining} spots open`) : "Full"}
+          </span>
+        ) : null}
+        {band ? <span className="ljr-lvl-flag">{band}</span> : null}
+      </div>
+      <div className="ljr-disc-body">
+        <div className="ljr-disc-title">{league.name}</div>
+        <div className="ljr-spec-row">
+          <span className="ljr-spec">{formatRange(league)}</span>
+          {venue || distanceLabel ? (
+            <span className="ljr-spec is-dist">
+              {[venue, distanceLabel].filter(Boolean).join(" · ")}
+            </span>
+          ) : null}
+          {priceLabel ? <span className="ljr-spec">{priceLabel}</span> : null}
+        </div>
+        <div className="ljr-people-row">
+          <span className="ljr-who">
+            {cap.filled != null ? <b>{cap.filled} players in</b> : "Open for players"}
+            {band ? ` · all inside ${band}` : ""}
+          </span>
+        </div>
+        <div className="ljr-disc-foot">
+          <button type="button" className="ljr-btn-join" onClick={onJoin}>
+            Join this league
+          </button>
+          <button type="button" className="ljr-btn-ghost" onClick={onDetails}>
+            Details
+          </button>
+          <button type="button" className="ljr-btn-icon" onClick={onShare} aria-label="Share this league">
+            <Share2 size={17} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+};
+
+const ArchiveRow = ({
+  league,
+  rank,
+  onOpen,
+}: {
+  league: League;
+  rank: number | null | undefined;
+  onOpen: () => void;
+}) => {
+  const medal = rankMedal(rank);
+  const players = playerCountLabel(league);
+  return (
+    <div
+      className="ljr-arch-row"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      <div className={`ljr-arch-medal${medal.className ? ` ${medal.className}` : ""}`}>{medal.emoji}</div>
+      <div className="ljr-arch-main">
+        <div className="ljr-arch-name">{league.name}</div>
+        <div className="ljr-arch-sub">{[formatRange(league), players].filter(Boolean).join(" · ")}</div>
+      </div>
+      <div className="ljr-arch-result">
+        <b>{medal.label}</b>
+      </div>
+    </div>
+  );
+};
+
 const LeaguesPage = () => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const token = useMemo(
     () =>
       user?.session?.access_token ??
@@ -330,6 +533,9 @@ const LeaguesPage = () => {
   const [locationFilter, setLocationFilter] = useState("all");
   const [sections, setSections] = useState<LeagueSections>(EMPTY_SECTIONS);
   const [profile, setProfile] = useState<PlayerPersonalDetails | null>(null);
+  // Identity set for matching the viewer to their standings row — includes the fetched player
+  // profile (its user_id/full_name align with the standings, unlike the thin auth `user`).
+  const viewerIdentities = useMemo(() => buildViewerIdentities(user, profile), [user, profile]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinIntentLeagueId, setJoinIntentLeagueId] = useState<string | number | null>(null);
@@ -350,6 +556,14 @@ const LeaguesPage = () => {
   const [joinFlowMessage, setJoinFlowMessage] = useState<string | null>(null);
   const [lookingCounts, setLookingCounts] = useState<Record<string, number>>({});
   const [archivedLoaded, setArchivedLoaded] = useState(false);
+  // Per-enrolled-league enrichment (standings + unlogged fixtures), loaded async per card.
+  const [mineEnrichment, setMineEnrichment] = useState<Record<string, MineEnrichment>>({});
+  // Archive is collapsed by default; standings ranks are fetched only once it's expanded.
+  const [archiveExpanded, setArchiveExpanded] = useState(false);
+  const [archiveListLoading, setArchiveListLoading] = useState(false);
+  const [archiveRanks, setArchiveRanks] = useState<Record<string, number | null>>({});
+  const [shareToast, setShareToast] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const leagueById = useMemo(() => {
     const entries = [...sections.mine, ...sections.available, ...sections.archived].map((league) => [
@@ -467,16 +681,24 @@ const LeaguesPage = () => {
       });
 
     return () => controller.abort();
-  }, [locationFilter, token]);
+  }, [locationFilter, token, reloadKey]);
 
   useEffect(() => {
-    if (topFilter !== "archived" || archivedLoaded) {
+    // Load the archived list when its tab is active OR the collapsible archive is expanded.
+    if ((topFilter !== "archived" && !archiveExpanded) || archivedLoaded) {
       return;
     }
 
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+    // Full-page loading only on the dedicated archived tab; expanding the collapsible archive
+    // on the "all" view uses a local spinner so it never blanks the page.
+    const dedicated = topFilter === "archived";
+    if (dedicated) {
+      setLoading(true);
+      setError(null);
+    } else {
+      setArchiveListLoading(true);
+    }
 
     listLeagues({
       segment: "archived",
@@ -503,17 +725,19 @@ const LeaguesPage = () => {
         if (controller.signal.aborted) {
           return;
         }
-
-        setError(err instanceof Error ? err.message : "Failed to load archived leagues");
+        if (dedicated) {
+          setError(err instanceof Error ? err.message : "Failed to load archived leagues");
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) {
-          setLoading(false);
+          if (dedicated) setLoading(false);
+          else setArchiveListLoading(false);
         }
       });
 
     return () => controller.abort();
-  }, [archivedLoaded, locationFilter, token, topFilter]);
+  }, [archivedLoaded, locationFilter, token, topFilter, archiveExpanded]);
 
   useEffect(() => {
     if (!token || !isAuthenticated) {
@@ -589,38 +813,130 @@ const LeaguesPage = () => {
     return () => controller.abort();
   }, [sections.mine, token]);
 
+  // Per-enrolled-league enrichment: standings (rank / of-N / matches / record) + the viewer's
+  // pending fixtures (unlogged score). Runs AFTER the cards render — each card shows a skeleton
+  // until its own request resolves, so the page never blocks on N requests.
+  useEffect(() => {
+    if (!token || sections.mine.length === 0) {
+      setMineEnrichment({});
+      return;
+    }
+    const controller = new AbortController();
+    setMineEnrichment(() => {
+      const init: Record<string, MineEnrichment> = {};
+      sections.mine.forEach((league) => {
+        init[String(league.id)] = { loading: true };
+      });
+      return init;
+    });
+
+    sections.mine.forEach(async (league) => {
+      const id = String(league.id);
+      try {
+        // Standings gives rank/record; fixtures gives the viewer's real matches. Standings
+        // matches_played is 0 until results are aggregated (rank is rating-seeded), so we
+        // count played/total from the viewer's fixtures instead — a fixture with a score
+        // has been played. Fixtures failing (e.g. 404 = none) must not sink the card.
+        const [standingsRes, fixturesRes] = await Promise.all([
+          getLeagueStandings({ leagueId: league.id, token, signal: controller.signal }),
+          getLeagueFixtures({ leagueId: league.id, token, mine: true, signal: controller.signal }).catch(
+            () => ({ fixtures: [] as LeagueFixture[] }),
+          ),
+        ]);
+        if (controller.signal.aborted) return;
+        const standings: LeagueStanding[] = standingsRes.standings ?? [];
+        const total = standings.length;
+        const mineRow = standings.find((row) =>
+          matchesViewer(viewerIdentities, row.player_id, row.full_name),
+        );
+        // Filter to the viewer's own fixtures client-side too — robust even if the backend
+        // ignores mine:true and returns the whole league's fixtures.
+        const myFixtures = (fixturesRes.fixtures ?? []).filter((fixture) =>
+          matchesViewer(
+            viewerIdentities,
+            fixture.player1_id,
+            fixture.player1_name,
+            fixture.player2_id,
+            fixture.player2_name,
+          ),
+        );
+        const hasScore = (fixture: LeagueFixture) =>
+          typeof fixture.score === "string" && fixture.score.trim() !== "";
+        // Prefer the real scheduled count; fall back to round-robin (players − 1) if the
+        // fixtures list is empty but standings exist.
+        const matchesTotal = myFixtures.length || Math.max(0, total - 1);
+        const matchesPlayed = myFixtures.length
+          ? myFixtures.filter(hasScore).length
+          : Number(mineRow?.matches_played ?? 0);
+        setMineEnrichment((current) => ({
+          ...current,
+          [id]: {
+            loading: false,
+            preSeason: total === 0,
+            rank: mineRow?.rank ?? null,
+            total: total || null,
+            matchesPlayed,
+            matchesTotal,
+            wins: mineRow ? Number(mineRow.wins) : undefined,
+            losses: mineRow ? Number(mineRow.losses) : undefined,
+          },
+        }));
+      } catch {
+        if (controller.signal.aborted) return;
+        setMineEnrichment((current) => ({ ...current, [id]: { loading: false, error: true } }));
+      }
+    });
+
+    return () => controller.abort();
+  }, [sections.mine, token, viewerIdentities]);
+
+  // Archive final-standing ranks — fetched lazily, and only once the archive is expanded, so
+  // the collapsed default costs zero extra requests.
+  useEffect(() => {
+    if (!archiveExpanded || !token || sections.archived.length === 0) return;
+    const controller = new AbortController();
+    sections.archived.forEach(async (league) => {
+      const id = String(league.id);
+      if (archiveRanks[id] !== undefined) return; // already resolved
+      try {
+        const res = await getLeagueStandings({ leagueId: league.id, token, signal: controller.signal });
+        if (controller.signal.aborted) return;
+        const standings: LeagueStanding[] = res.standings ?? [];
+        const mineRow = standings.find((row) =>
+          matchesViewer(viewerIdentities, row.player_id, row.full_name),
+        );
+        setArchiveRanks((current) => ({ ...current, [id]: mineRow?.rank ?? null }));
+      } catch {
+        if (!controller.signal.aborted) {
+          setArchiveRanks((current) => ({ ...current, [id]: null }));
+        }
+      }
+    });
+    return () => controller.abort();
+  }, [archiveExpanded, sections.archived, token, viewerIdentities, archiveRanks]);
+
+  const handleShareLeague = useCallback(async (league: League) => {
+    const url = `${window.location.origin}${window.location.pathname}#/leagues/${league.id}`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: league.name, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareToast("Link copied");
+      window.setTimeout(() => setShareToast(null), 2000);
+    } catch {
+      // User dismissed the share sheet or clipboard was blocked — nothing to do.
+    }
+  }, []);
+
   const filteredAvailableLeagues = useMemo(
     () => filterAvailableLeagues(sections.available, availableFilter, profile),
     [availableFilter, profile, sections.available],
   );
 
-  const visibleCards = useMemo(() => {
-    switch (topFilter) {
-      case "available":
-        return filteredAvailableLeagues;
-      case "mine":
-        return sections.mine;
-      case "archived":
-        return sections.archived;
-      default:
-        return [...sections.mine, ...filteredAvailableLeagues];
-    }
-  }, [filteredAvailableLeagues, sections.archived, sections.mine, topFilter]);
-
-  const topFilterCounts = useMemo(
-    () => ({
-      all: sections.mine.length + filteredAvailableLeagues.length,
-      available: filteredAvailableLeagues.length,
-      mine: sections.mine.length,
-      archived: sections.archived.length,
-    }),
-    [filteredAvailableLeagues.length, sections.archived.length, sections.mine.length],
-  );
-
   const emptyCopy = getEmptyCopy({ filter: topFilter, availableFilter, isAuthenticated });
 
-  const showAvailableSubfilters = topFilter === "all" || topFilter === "available";
-  const hasVisibleCards = visibleCards.length > 0;
   const reviewLeague = reviewLeagueId != null ? leagueById.get(String(reviewLeagueId)) ?? null : null;
 
   const handleJoinRequest = (leagueId: League["id"]) => {
@@ -652,58 +968,76 @@ const LeaguesPage = () => {
     }
   };
 
+  const firstName =
+    (profile?.full_name || (user as { full_name?: string } | null)?.full_name || "")
+      .trim()
+      .split(/\s+/)[0] || "there";
+
+  // Count of enrolled leagues that need attention (unlogged score, or minimum-not-met while
+  // players are looking). Updates as per-card enrichment resolves — never blocks render.
+  const pendingCount = sections.mine.reduce((count, league) => {
+    const enrichment = mineEnrichment[String(league.id)];
+    if (!enrichment || enrichment.loading) return count;
+    const looking = lookingCounts[String(league.id)] ?? 0;
+    const met = computeSeasonProgress(enrichment.matchesPlayed ?? 0).met;
+    if (!enrichment.preSeason && !met && looking > 0) return count + 1;
+    return count;
+  }, 0);
+
+  const archivedGroups = groupArchivedBySeason(sections.archived);
+
   return (
     <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
-      <section className="leagues-page">
-        <header className="leagues-page__header leagues-page__header--stacked">
+      <div className="leagues-redesign tpl">
+        <header className="ljr-hero-greet">
           <div>
-            <p className="leagues-page__eyebrow">League browse</p>
-            <h1>{getSectionTitle(topFilter)}</h1>
-            <p>Browse public flex leagues, track the ones you have joined, and see where the next season still has room.</p>
+            <h1>Your leagues{isAuthenticated ? `, ${firstName}` : ""}</h1>
+            <p className="ljr-hero-sub">
+              {/* Full sentence on larger screens; a condensed version on mobile
+                  so the headline block doesn't push the cards down. */}
+              <span className="ljr-hero-sub__full">
+                {isAuthenticated && sections.mine.length > 0 ? (
+                  <>
+                    You&apos;re in <b>{sections.mine.length} league{sections.mine.length === 1 ? "" : "s"}</b> this season
+                    {pendingCount > 0 ? (
+                      <>
+                        {" "}— <b>{pendingCount} thing{pendingCount === 1 ? "" : "s"}</b> need
+                        {pendingCount === 1 ? "s" : ""} your attention.
+                      </>
+                    ) : (
+                      <> — nothing needs your attention right now.</>
+                    )}
+                  </>
+                ) : (
+                  <>Find a flex league at your level and start playing on your own schedule.</>
+                )}
+              </span>
+              <span className="ljr-hero-sub__compact">
+                {isAuthenticated && sections.mine.length > 0 ? (
+                  <>
+                    <b>{sections.mine.length} league{sections.mine.length === 1 ? "" : "s"}</b>
+                    {pendingCount > 0 ? (
+                      <> · <b>{pendingCount}</b> need{pendingCount === 1 ? "s" : ""} attention</>
+                    ) : (
+                      <> · all caught up</>
+                    )}
+                  </>
+                ) : (
+                  <>Find a flex league at your level.</>
+                )}
+              </span>
+            </p>
           </div>
+          <button
+            type="button"
+            className="ljr-btn-primary"
+            onClick={() =>
+              document.getElementById("ljr-discover")?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            Find a new league ↓
+          </button>
         </header>
-
-        <div className="leagues-page__controls">
-          <div className="leagues-page__segmented" role="tablist" aria-label="League browse sections">
-            {TOP_FILTERS.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                className={topFilter === filter.value ? "is-active" : undefined}
-                onClick={() => setTopFilter(filter.value)}
-              >
-                <span>{filter.label}</span>
-                <strong>{topFilterCounts[filter.value]}</strong>
-              </button>
-            ))}
-          </div>
-
-          {showAvailableSubfilters ? (
-            <div className="leagues-page__subfilters" role="tablist" aria-label="Available league filters">
-              {AVAILABLE_FILTERS.map((filter) => (
-                <button
-                  key={filter.value}
-                  type="button"
-                  className={availableFilter === filter.value ? "is-active" : undefined}
-                  onClick={() => setAvailableFilter(filter.value)}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <label className="leagues-page__location-filter">
-            <MapPin size={15} />
-            <span>Location</span>
-            <select value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
-              <option value="all">All locations</option>
-              {locationOptions.map((area) => (
-                <option key={area} value={area}>{area}</option>
-              ))}
-            </select>
-          </label>
-        </div>
 
         {joinFlowMessage ? (
           <div className="leagues-page__notice">
@@ -712,97 +1046,145 @@ const LeaguesPage = () => {
           </div>
         ) : null}
 
-        {loading ? <LoadingSkeleton /> : null}
-        {error ? <div className="leagues-page__state leagues-page__state--error">{error}</div> : null}
-
-        {!loading && !error ? (
-          topFilter === "all" ? (
-            <div className="leagues-page__sections">
-              <section className="leagues-page__section">
-                <div className="leagues-page__section-head">
-                  <h2>My leagues</h2>
-                  <span>{sections.mine.length}</span>
+        {loading ? (
+          <LoadingSkeleton />
+        ) : error ? (
+          <div className="leagues-page__state leagues-page__state--error">
+            <span>{error}</span>
+            <button type="button" onClick={() => setReloadKey((key) => key + 1)}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            {isAuthenticated && sections.mine.length > 0 ? (
+              <section className="ljr-section" aria-label="Your leagues">
+                <div className="ljr-section-head">
+                  <h2>
+                    Playing now <span className="ljr-count-pill">{sections.mine.length}</span>
+                  </h2>
                 </div>
-                {sections.mine.length > 0 ? (
-                  <div className="leagues-page__grid">
-                    {sections.mine.map((league) => (
-                      <LeagueCard
-                        key={`mine-${league.id}`}
-                        league={league}
-                        variant={getLeagueCardVariant(league)}
-                        lookingCount={lookingCounts[String(league.id)] ?? 0}
-                        joinPending={joinIntentLeagueId === league.id}
-                        onJoin={handleJoinRequest}
-                      />
-                    ))}
-                  </div>
-                ) : (
+                <div className="ljr-mine-grid">
+                  {sections.mine.map((league) => (
+                    <PlayingNowCard
+                      key={`mine-${league.id}`}
+                      league={league}
+                      enrichment={mineEnrichment[String(league.id)]}
+                      lookingCount={lookingCounts[String(league.id)] ?? 0}
+                      onOpen={() => navigate(`/leagues/${league.id}/dashboard`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="ljr-section" id="ljr-discover" aria-label="Open leagues near you">
+              <div className="ljr-section-head">
+                <h2>Open near you</h2>
+              </div>
+              <p className="ljr-discover-intro">
+                Picked for your level and location. Seasons start soon — spots go quickly at 4.0 and up.
+              </p>
+
+              <div className="ljr-filter-row">
+                {AVAILABLE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    className={`ljr-chip${availableFilter === filter.value ? " is-on" : ""}`}
+                    onClick={() => setAvailableFilter(filter.value)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+                {locationOptions.length > 0 ? (
+                  <label className="ljr-chip ljr-chip-filter">
+                    <MapPin size={14} />
+                    <select
+                      value={locationFilter}
+                      onChange={(event) => setLocationFilter(event.target.value)}
+                      aria-label="Filter by location"
+                    >
+                      <option value="all">All locations</option>
+                      {locationOptions.map((area) => (
+                        <option key={area} value={area}>
+                          {area}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+
+              {filteredAvailableLeagues.length > 0 ? (
+                <div className="ljr-disc-grid">
+                  {filteredAvailableLeagues.map((league) => (
+                    <DiscoveryCard
+                      key={`avail-${league.id}`}
+                      league={league}
+                      distanceLabel={formatDistanceMiles(leagueVenueDistanceMiles(league))}
+                      priceLabel={priceLabel(league)}
+                      onJoin={() => handleJoinRequest(league.id)}
+                      onDetails={() => navigate(`/leagues/${league.id}`)}
+                      onShare={() => void handleShareLeague(league)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="leagues-page__empty">
+                  <Search size={28} />
+                  <h2>{emptyCopy.title}</h2>
+                  <p>{emptyCopy.body}</p>
+                </div>
+              )}
+            </section>
+
+            <footer className="ljr-past">
+              <button
+                type="button"
+                onClick={() => setArchiveExpanded((open) => !open)}
+                aria-expanded={archiveExpanded}
+              >
+                {archiveExpanded ? "Hide past seasons ↑" : "View past seasons →"}
+              </button>
+            </footer>
+
+            {archiveExpanded ? (
+              <section className="ljr-section ljr-archive" aria-label="Your past seasons">
+                <div className="ljr-section-head">
+                  <h2>Your seasons</h2>
+                </div>
+                {archiveListLoading && sections.archived.length === 0 ? (
+                  <p className="ljr-archive-loading">Loading past seasons…</p>
+                ) : sections.archived.length === 0 ? (
                   <SectionEmptyState
-                    title={isAuthenticated ? "You have not joined any leagues" : "No joined leagues yet"}
-                    body={
-                      isAuthenticated
-                        ? "Joined leagues will move to this section as soon as you are added."
-                        : "When you sign in and join a league, it will be grouped here."
-                    }
+                    title="No past seasons yet"
+                    body="Completed leagues will show here with your final standing."
                   />
+                ) : (
+                  archivedGroups.map(([label, leagues]) => (
+                    <div className="ljr-season-group" key={label}>
+                      <div className="ljr-season-title">{label}</div>
+                      {leagues.map((league) => (
+                        <ArchiveRow
+                          key={`arch-${league.id}`}
+                          league={league}
+                          rank={archiveRanks[String(league.id)]}
+                          onOpen={() => navigate(`/leagues/${league.id}/dashboard`)}
+                        />
+                      ))}
+                    </div>
+                  ))
                 )}
               </section>
+            ) : null}
+          </>
+        )}
 
-              <section className="leagues-page__section">
-                <div className="leagues-page__section-head">
-                  <h2>{availableFilter === "for-you" ? "Available for you" : "Available leagues"}</h2>
-                  <span>{filteredAvailableLeagues.length}</span>
-                </div>
-                {filteredAvailableLeagues.length > 0 ? (
-                  <div className="leagues-page__grid">
-                    {filteredAvailableLeagues.map((league) => (
-                      <LeagueCard
-                        key={`available-${league.id}`}
-                        league={league}
-                        variant={getLeagueCardVariant(league)}
-                        lookingCount={0}
-                        joinPending={joinIntentLeagueId === league.id}
-                        onJoin={handleJoinRequest}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <SectionEmptyState
-                    title={
-                      availableFilter === "for-you"
-                        ? "No leagues match your current profile"
-                        : "No public leagues available right now"
-                    }
-                    body={
-                      availableFilter === "for-you"
-                        ? "Switch to All levels to browse every public season while you finish your profile."
-                        : "Check back soon for the next league launch."
-                    }
-                  />
-                )}
-              </section>
-            </div>
-          ) : hasVisibleCards ? (
-            <div className="leagues-page__grid">
-              {visibleCards.map((league) => (
-                <LeagueCard
-                  key={`${topFilter}-${league.id}`}
-                  league={league}
-                  variant={getLeagueCardVariant(league)}
-                  lookingCount={topFilter === "mine" ? lookingCounts[String(league.id)] ?? 0 : 0}
-                  joinPending={joinIntentLeagueId === league.id}
-                  onJoin={handleJoinRequest}
-                  archived={topFilter === "archived"}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="leagues-page__empty">
-              <Search size={28} />
-              <h2>{emptyCopy.title}</h2>
-              <p>{emptyCopy.body}</p>
-            </div>
-          )
+        {shareToast ? (
+          <div className="ljr-toast" role="status">
+            {shareToast}
+          </div>
         ) : null}
 
         {reviewLeague && !joinStep ? (
@@ -827,6 +1209,32 @@ const LeaguesPage = () => {
               onClick={closeJoinFlow}
             />
             <div className="league-join-sheet__panel">
+              <div className="ljr-modal-head">
+                <div className="ljr-modal-summary">
+                  <div className="ljr-modal-lvl">{levelChipLabel(reviewLeague)}</div>
+                  <div className="ljr-modal-summary__text">
+                    <b>{reviewLeague.name}</b>
+                    <span>
+                      {[formatRange(reviewLeague), getLeagueLocationLabel(reviewLeague), priceLabel(reviewLeague)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </div>
+                </div>
+                <div className="ljr-modal-steps">
+                  {([["Eligibility", 1], ["Sign", 2], ["Pay", 3]] as const).map(([label, n]) => {
+                    const current = joinStep === "agreement" ? 2 : joinStep === "payment" ? 3 : 4;
+                    return (
+                      <div
+                        key={label}
+                        className={`ljr-modal-st${n < current ? " is-done" : ""}${n === current ? " is-now" : ""}`}
+                      >
+                        {label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               {joinStep === "agreement" ? (
                 <LeagueAgreementStep
                   league={reviewLeague}
@@ -863,13 +1271,17 @@ const LeaguesPage = () => {
                 <LeagueJoinSuccess
                   league={reviewLeague}
                   result={joinResult}
-                  onViewLeague={closeJoinFlow}
+                  firstName={firstName !== "there" ? firstName : undefined}
+                  onViewLeague={() => {
+                    closeJoinFlow();
+                    navigate(`/leagues/${reviewLeague.id}/dashboard`);
+                  }}
                 />
               ) : null}
             </div>
           </div>
         ) : null}
-      </section>
+      </div>
     </MainLayout>
   );
 };
