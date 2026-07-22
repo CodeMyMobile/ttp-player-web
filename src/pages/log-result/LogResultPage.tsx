@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { CalendarCheck, Info } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Shell } from "./Shell";
@@ -106,6 +107,7 @@ function LeagueFixturePicker({
 
 export default function LogResultPage() {
   const { user } = useAuth();
+  const routerLocation = useLocation();
   const me = useCurrentUser(user);
   const { courts, loading: courtsLoading, error: courtsError } = useCourtsApi();
 
@@ -176,6 +178,17 @@ export default function LogResultPage() {
       setSets((s) => s.map((row, i) => (i === 2 ? newSet() : row)));
     }
   }, [sets, format]);
+
+  // Preselect from nav-state when arriving from a specific league (the league
+  // page's "Add Score" or the dashboard's "Log a Score") so this page opens
+  // straight into League mode with that league chosen — mirroring the flow.
+  useEffect(() => {
+    const preset = routerLocation.state as { matchType?: MatchType; leagueId?: string | number } | null;
+    if (!preset) return;
+    if (preset.matchType) setMatchType(preset.matchType);
+    if (preset.leagueId != null) setSelectedLeagueId(String(preset.leagueId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!selectedLeagueId && leagues[0]) setSelectedLeagueId(leagues[0].id);

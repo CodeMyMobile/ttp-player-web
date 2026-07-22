@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getPlayerPastLessons } from "../api/playerHome";
-import { isActiveGroupLessonBookingStatus } from "../api/groupLessons";
+import { holdsGroupSpot } from "../api/groupLessons";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
 
@@ -77,8 +77,8 @@ export const useBookedLessons = (): UseBookedLessonsResult => {
             );
           });
           if (!entry) continue;
-          // Keep only active/confirmed bookings (skips cancelled/pending).
-          if (!isActiveGroupLessonBookingStatus(entry.status, entry.payment_status)) continue;
+          // Keep only bookings that hold a spot (paid or pay-on-court).
+          if (!holdsGroupSpot(entry.status, entry.payment_status, entry.payment_method as string | undefined)) continue;
           const meta = (lesson.metadata as Record<string, unknown>) ?? {};
           mine.push({
             id: (lesson.id as number | string) ?? `${mine.length}`,

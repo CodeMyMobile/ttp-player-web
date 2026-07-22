@@ -53,7 +53,7 @@ import {
   type PlayerStripePaymentMethod,
   type PlayerStripePaymentMethodListResponse,
 } from "../api/playerStripe";
-import { bookGroupLessonWithCard, joinLesson } from "../api/playerLessons";
+import { bookGroupLessonWithCard, joinLesson, requestPrivateLesson } from "../api/playerLessons";
 import { updatePlayerLesson } from "../api/player";
 import { useAuth } from "../context/AuthContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -700,7 +700,7 @@ const BookingConfirmationPage = () => {
     if (paymentMethodsLoading) {
       return;
     }
-    if (paymentMethod === "apple-pay" || paymentMethod === "credits" || paymentMethod === "new-card") {
+    if (paymentMethod === "apple-pay" || paymentMethod === "credits" || paymentMethod === "new-card" || paymentMethod === "pay-on-court") {
       return;
     }
     if (paymentMethods.some((method) => method.id === paymentMethod)) {
@@ -792,7 +792,7 @@ const BookingConfirmationPage = () => {
   useEffect(() => {
     const controller = new AbortController();
 
-    if (!groupLessonId || !resolvedCoachId || !authToken) {
+    if (!resolvedCoachId || !authToken) {
       setGroupLessonCoachProfile(null);
       return () => controller.abort();
     }
@@ -811,7 +811,7 @@ const BookingConfirmationPage = () => {
       });
 
     return () => controller.abort();
-  }, [authToken, groupLessonId, resolvedCoachId]);
+  }, [authToken, resolvedCoachId]);
 
   const lessonDetails = selectedSlot ? profile?.booking.lessonTypes.find((type) => type.id === selectedSlot.lessonType) : undefined;
 
@@ -1212,6 +1212,8 @@ const BookingConfirmationPage = () => {
   const isUsingCredits = paymentMethod === "credits";
   const isUsingApplePay = paymentMethod === "apple-pay";
   const isUsingNewCard = paymentMethod === "new-card";
+  const isUsingPayOnCourt = paymentMethod === "pay-on-court";
+  const coachAllowsPayOnCourt = Boolean(groupLessonCoachProfile?.allow_pay_on_court);
   const fallbackCardId =
     paymentMethods.find((method) => method.isDefault)?.id ?? paymentMethods[0]?.id ?? "apple-pay";
   const heldCredits = isFiniteNumber(creditsBalance?.held) ? creditsBalance.held : 0;
@@ -1222,6 +1224,8 @@ const BookingConfirmationPage = () => {
 
   const priceLabel = isUsingCredits
     ? "Credit to apply"
+    : isUsingPayOnCourt
+      ? "Due to coach on the day"
     : isGroupLesson
       ? "Total due today"
       : "Total due now";
@@ -1232,6 +1236,9 @@ const BookingConfirmationPage = () => {
     if (isUsingCredits) {
       const expiresMessage = creditSummary.nextExpiry ? ` Next expiry ${creditSummary.nextExpiry}.` : "";
       return `We'll deduct 1 credit from your balance. You'll have ${remainingCreditsLabel} remaining.${expiresMessage}`;
+    }
+    if (isUsingPayOnCourt) {
+      return `${priceValue} due to your coach on the day (cash/Venmo).`;
     }
     if (isUsingApplePay) {
       return isGroupLesson
@@ -1256,6 +1263,9 @@ const BookingConfirmationPage = () => {
     if (isUsingCredits) {
       return "Pay with credits";
     }
+    if (isUsingPayOnCourt) {
+      return isGroupLesson ? "Book · pay on the day" : "Request · pay on the day";
+    }
     if (isUsingApplePay) {
       return isGroupLesson ? "Confirm with Apple Pay" : "Request with Apple Pay";
     }
@@ -1270,6 +1280,11 @@ const BookingConfirmationPage = () => {
       return isGroupLesson
         ? "Credit is deducted immediately to secure your spot."
         : "We reserve the credit but only deduct it after coach approval.";
+    }
+    if (isUsingPayOnCourt) {
+      return isGroupLesson
+        ? "Your spot is held now. Pay your coach directly on the day."
+        : "Your coach will review the request. Pay directly on the day once confirmed.";
     }
     return isGroupLesson
       ? "Your lesson is confirmed instantly when spots are available."
@@ -1333,7 +1348,7 @@ const BookingConfirmationPage = () => {
   }, [materializedCreditLessonId]);
 
   const bookOpenGroupLessonWithPayment = useCallback(
-    async (paymentMethodId: string) => {
+    async (paymentMethodId?: string, paymentChoiceOverride?: "pay_on_court") => {
       if (!authToken) {
         throw new Error("Sign in to complete your booking.");
       }
@@ -1373,6 +1388,7 @@ const BookingConfirmationPage = () => {
           court: groupLesson.court ?? 0,
           status: "CONFIRMED",
           paymentMethodId,
+          paymentMethod: paymentChoiceOverride,
         });
       }
 
@@ -1380,10 +1396,43 @@ const BookingConfirmationPage = () => {
         token: authToken,
         lessonId: bookableLessonId,
         paymentMethodId,
+        paymentMethod: paymentChoiceOverride,
       });
     },
     [authToken, groupLesson, groupLessonId, numericSourceLessonId, selectedSlot?.id, slotId],
   );
+
+  const requestPrivatePayOnCourt = useCallback(async () => {
+    if (!authToken) {
+      throw new Error("Sign in to request this lesson.");
+    }
+    if (!resolvedCoachId || !selectedDate || !selectedSlot) {
+      throw new Error("Missing lesson details for this request.");
+    }
+
+    const start = moment(`${selectedDate.id} ${selectedSlot.time}`, "YYYY-MM-DD h:mm A", true);
+    if (!start.isValid()) {
+      throw new Error("Missing lesson time details for this request.");
+    }
+    const durationMinutes = parseDurationToMinutes(selectedSlot.duration) ?? 60;
+    const end = start.clone().add(durationMinutes, "minutes");
+    const profileLocation = groupLessonCoachProfile?.locations?.[0];
+    const rawLocationId = profileLocation?.id ?? (groupLessonCoachProfile as Record<string, unknown> | null)?.location_id;
+    const locationId = Number(rawLocationId);
+
+    await requestPrivateLesson({
+      token: authToken,
+      coachId: resolvedCoachId,
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString(),
+      startDateTimeTz: start.toISOString(),
+      endDateTimeTz: end.toISOString(),
+      locationId: Number.isFinite(locationId) ? locationId : 0,
+      court: 0,
+      status: "PENDING",
+      paymentMethod: "pay_on_court",
+    });
+  }, [authToken, groupLessonCoachProfile, resolvedCoachId, selectedDate, selectedSlot]);
 
   const completeCreditBookingSuccess = useCallback(async () => {
     setPendingCreditConfirm(null);
@@ -1650,6 +1699,37 @@ const BookingConfirmationPage = () => {
       return;
     }
 
+    if (isUsingPayOnCourt) {
+      if (!authToken) {
+        setConsumeError("Sign in to complete your booking.");
+        return;
+      }
+      if (!coachAllowsPayOnCourt) {
+        setConsumeError("This coach is not accepting pay on court for this lesson.");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      try {
+        if (isGroupLesson) {
+          const response = await bookOpenGroupLessonWithPayment(undefined, "pay_on_court");
+          if (!isGroupBookingResponseSuccessful(response)) {
+            throw new Error("Booking could not be confirmed.");
+          }
+          await refreshGroupLesson();
+        } else {
+          await requestPrivatePayOnCourt();
+        }
+        setIsConfirmed(true);
+        setIsConfirmationModalOpen(true);
+      } catch (error) {
+        setConsumeError(error instanceof Error ? error.message : "Unable to complete booking.");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+      return;
+    }
+
     if (isGroupLesson) {
       if (!authToken) {
         setConsumeError("Sign in to complete your booking.");
@@ -1820,21 +1900,35 @@ const BookingConfirmationPage = () => {
   );
 
   const nextStepsItems = isInstantlyConfirmed
-    ? [
-        "Your spot is reserved immediately as long as space remains.",
-        "We'll email your receipt and lesson details right away.",
-        "Manage your booking or make changes from your dashboard.",
-      ]
-    : [
-        `Your request is sent directly to ${coachFirstName} for review.`,
-        "You'll receive an email as soon as the coach confirms.",
-        `Once approved, your booking is confirmed and payment is processed.`,
-      ];
+    ? isUsingPayOnCourt
+      ? [
+          "Your spot is reserved immediately as long as space remains.",
+          "Pay your coach directly on the day by cash or Venmo.",
+          "Manage your booking or make changes from your dashboard.",
+        ]
+      : [
+          "Your spot is reserved immediately as long as space remains.",
+          "We'll email your receipt and lesson details right away.",
+          "Manage your booking or make changes from your dashboard.",
+        ]
+    : isUsingPayOnCourt
+      ? [
+          `Your request is sent directly to ${coachFirstName} for review.`,
+          "You'll receive an email as soon as the coach confirms.",
+          "Once approved, pay your coach directly on the day.",
+        ]
+      : [
+          `Your request is sent directly to ${coachFirstName} for review.`,
+          "You'll receive an email as soon as the coach confirms.",
+          `Once approved, your booking is confirmed and payment is processed.`,
+        ];
 
   const confirmationStatus = isInstantlyConfirmed
     ? {
         title: "You are confirmed",
-        copy: `Your spot is reserved for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
+        copy: isUsingPayOnCourt
+          ? `Your spot is reserved for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. Pay your coach on the day.`
+          : `Your spot is reserved for ${lessonDateLabel ?? "your upcoming lesson"} at ${timeRange ?? selectedSlot?.time}. We'll send a receipt to your email and keep you posted on any updates.`,
       }
     : {
         title: "Lesson Request sent",
@@ -1844,6 +1938,8 @@ const BookingConfirmationPage = () => {
   const modalStatus: BookingStatus = isInstantlyConfirmed ? "CONFIRMED" : "PENDING";
   const paymentMethodLabel = isUsingCredits
     ? `1 ${creditLessonType} credit`
+    : isUsingPayOnCourt
+      ? "Pay on court"
     : isUsingApplePay
       ? "Apple Pay"
       : selectedSavedCard
@@ -1864,11 +1960,12 @@ const BookingConfirmationPage = () => {
     timeLabel: timeRange ?? selectedSlot?.time ?? "Time TBD",
     locationName: locationLabel ?? "Location TBD",
     locationAddress: groupLesson?.locationCity ?? locationLabel ?? "Location TBD",
-    amountLabel: isInstantlyConfirmed ? "Amount charged" : "Lesson total",
+    amountLabel: isUsingPayOnCourt ? "Due to coach" : isInstantlyConfirmed ? "Amount charged" : "Lesson total",
     amount: priceValue,
     etaText: "~24 hrs",
     lessonId: groupLesson?.id,
-    paymentMethodLabel,
+	    paymentMethodLabel,
+	    paymentDue: isUsingPayOnCourt,
     spotsRemainingAfterBooking: isGroupLesson ? Math.max(openSpots - 1, 0) : undefined,
     showPackagePrompt: isGroupLesson ? !isUsingCredits : false,
     cancellationPolicyText:
@@ -1993,13 +2090,15 @@ const BookingConfirmationPage = () => {
   const sessionPriceLabel = groupLesson?.pricePerPlayer ?? selectedSlot?.price ?? "--";
   const sessionPriceAmount = parsePriceValue(sessionPriceLabel);
   const cardProcessingFee =
-    !isUsingCredits && !isUsingApplePay && sessionPriceAmount != null
+    !isUsingCredits && !isUsingApplePay && !isUsingPayOnCourt && sessionPriceAmount != null
       ? Math.round(sessionPriceAmount * 0.03 * 100) / 100
       : 0;
   const totalPriceAmount =
     sessionPriceAmount != null
       ? isUsingCredits
         ? 0
+        : isUsingPayOnCourt
+          ? sessionPriceAmount
         : sessionPriceAmount + cardProcessingFee
       : null;
   const subtotalLabel =
@@ -2012,14 +2111,18 @@ const BookingConfirmationPage = () => {
         .format("MMM D")
         .toUpperCase()}`
     : summaryDateBand;
-  const groupConfirmButtonLabel = getGroupLessonCheckoutButtonLabel({
-    isUsingCredits,
-    isConsumingCredits,
-    isProcessingPayment,
-    groupLessonCancelled,
-    totalPriceLabel,
-  });
-  const cardFeeText = isUsingApplePay || isUsingCredits ? null : "Card processing fee may apply";
+  const groupConfirmButtonLabel = isUsingPayOnCourt
+    ? isProcessingPayment
+      ? "Booking..."
+      : "Book · pay on the day"
+    : getGroupLessonCheckoutButtonLabel({
+        isUsingCredits,
+        isConsumingCredits,
+        isProcessingPayment,
+        groupLessonCancelled,
+        totalPriceLabel,
+      });
+  const cardFeeText = isUsingApplePay || isUsingCredits || isUsingPayOnCourt ? null : "Card processing fee may apply";
 
   const handleBuySelectedPackage = async () => {
     setConsumeError(null);
@@ -2289,10 +2392,29 @@ const BookingConfirmationPage = () => {
     </div>
   );
 
+  const payOnCourtCard = coachAllowsPayOnCourt ? (
+    <label className={`payment-method-card payment-method-card--cash${isUsingPayOnCourt ? " payment-method-card--selected" : ""}`}>
+      <input
+        type="radio"
+        name="payment-method"
+        value="pay-on-court"
+        checked={isUsingPayOnCourt}
+        onChange={() => setPaymentMethod("pay-on-court")}
+      />
+      <span className="payment-method-card__selector" aria-hidden />
+      <span className="payment-method-card__icon">💵</span>
+      <span className="payment-method-card__body">
+        <span className="payment-method-card__title">Pay on court</span>
+        <span className="payment-method-card__subtitle">Cash or Venmo with your coach</span>
+      </span>
+    </label>
+  ) : null;
+
   const groupPaymentMethods = (
     <>
       <div className="payment-methods__stack payment-methods__stack--group">
         {creditsPaymentCard}
+        {payOnCourtCard}
 
         <label className={`payment-method-card payment-method-card--wallet${isUsingApplePay ? " payment-method-card--selected" : ""}`}>
           <input
@@ -2508,7 +2630,7 @@ const BookingConfirmationPage = () => {
                       <span className="booking-confirmation__price-row-label">Session</span>
                       <span className="booking-confirmation__price-row-value">{subtotalLabel}</span>
                     </div>
-                    {!isUsingCredits && !isUsingApplePay && sessionPriceAmount != null ? (
+	                    {!isUsingCredits && !isUsingApplePay && !isUsingPayOnCourt && sessionPriceAmount != null ? (
                       <div className="booking-confirmation__price-row is-muted">
                         <span className="booking-confirmation__price-row-label">Card processing fee (3%)</span>
                         <span className="booking-confirmation__price-row-value">${cardProcessingFee.toFixed(2)}</span>
@@ -2525,17 +2647,22 @@ const BookingConfirmationPage = () => {
                       <span className="booking-confirmation__price-total-label">Total</span>
                       <span className="booking-confirmation__price-total-value">{totalPriceLabel}</span>
                     </div>
-                    {isUsingCredits ? (
-                      <div className="booking-confirmation__price-caption">Paid with 1 group credit</div>
-                    ) : null}
+	                    {isUsingCredits ? (
+	                      <div className="booking-confirmation__price-caption">Paid with 1 group credit</div>
+	                    ) : isUsingPayOnCourt ? (
+	                      <div className="booking-confirmation__price-caption">
+	                        {subtotalLabel} due to your coach on the day (cash/Venmo)
+	                      </div>
+	                    ) : null}
                   </div>
                 </div>
 
                 <div className="booking-confirmation__policy">
                   <span className="booking-confirmation__policy-emoji" aria-hidden>ℹ️</span>
                   <div className="booking-confirmation__policy-copy">
-                    Cancel at least 24 hours before your class for a full refund or credit. Cancellations within
-                    24 hours are non-refundable.
+	                  {isUsingPayOnCourt
+	                    ? "Cancel at least 24 hours before your class. No card charge is created for pay on court."
+	                    : "Cancel at least 24 hours before your class for a full refund or credit. Cancellations within 24 hours are non-refundable."}
                   </div>
                 </div>
 
@@ -2630,11 +2757,17 @@ const BookingConfirmationPage = () => {
 
               <div className="booking-confirmation__payment">
                 <p className="booking-confirmation__section-label">Payment method</p>
-                <div className="payment-methods">
-                  {lessonCreditsSection}
-                  {digitalWalletSection}
-                  {savedCardsSection}
-                </div>
+	                <div className="payment-methods">
+	                  {lessonCreditsSection}
+	                  {payOnCourtCard ? (
+	                    <div className="payment-methods__group">
+	                      <span className="payment-methods__group-label">Offline payment</span>
+	                      <div className="payment-methods__stack">{payOnCourtCard}</div>
+	                    </div>
+	                  ) : null}
+	                  {digitalWalletSection}
+	                  {savedCardsSection}
+	                </div>
               </div>
 
               <div className="booking-confirmation__price-card">
@@ -2670,8 +2803,9 @@ const BookingConfirmationPage = () => {
               <div className="booking-confirmation__policy">
                 <AlertCircle aria-hidden size={16} />
                 <div className="booking-confirmation__policy-copy">
-                  Cancel at least 24 hours before your class for a full refund or credit. Cancellations within
-                  24 hours are non-refundable.
+	                  {isUsingPayOnCourt
+	                    ? "Cancel at least 24 hours before your class. No card charge is created for pay on court."
+	                    : "Cancel at least 24 hours before your class for a full refund or credit. Cancellations within 24 hours are non-refundable."}
                 </div>
               </div>
 
@@ -2682,8 +2816,10 @@ const BookingConfirmationPage = () => {
                   onClick={handleConfirm}
                   disabled={isConfirmDisabled}
                 >
-                  {isProcessingPayment
-                    ? "Processing Apple Pay..."
+	                  {isProcessingPayment
+	                    ? isUsingPayOnCourt
+	                      ? "Booking..."
+	                      : "Processing Apple Pay..."
                     : isConsumingCredits
                       ? "Applying credits..."
                       : confirmButtonLabel}

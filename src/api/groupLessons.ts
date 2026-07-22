@@ -45,6 +45,7 @@ export interface GroupLesson {
     status?: number;
     creditStatus?: string | null;
     creditPurchaseId?: number | string | null;
+    paymentMethod?: string;
   }>;
   groupPlayers?: Array<{
     id?: number | string;
@@ -56,6 +57,7 @@ export interface GroupLesson {
     phone?: string;
     paymentStatus?: number;
     status?: number;
+    paymentMethod?: string;
   }>;
   highlights?: string[];
 }
@@ -73,6 +75,7 @@ export interface UpcomingGroupLessonPlayerApi {
   profile_picture?: string;
   payment_status?: number;
   status?: number;
+  payment_method?: string;
   credit_status?: string | null;
   credit_purchase_id?: number | string | null;
   [key: string]: unknown;
@@ -262,6 +265,45 @@ const parseStatusValue = (value?: number | string | null) => {
   return null;
 };
 
+export type BookingPaymentMethod = "card" | "credits" | "pay_on_court" | string | null | undefined;
+
+export const isPayOnCourt = (method: BookingPaymentMethod) =>
+  String(method ?? "").toLowerCase() === "pay_on_court";
+
+export const holdsGroupSpot = (
+  status?: number | string | null,
+  paymentStatus?: number | string | null,
+  paymentMethod?: BookingPaymentMethod,
+) => {
+  if (parseStatusValue(status) !== 1) return false;
+  return parseStatusValue(paymentStatus) === 1 || isPayOnCourt(paymentMethod);
+};
+
+export type BookingStateKey = "cancelled" | "booked" | "pay_on_court" | "pending";
+
+export const resolveBookingState = ({
+  status,
+  paymentStatus,
+  paymentMethod,
+}: {
+  status?: number | string | null;
+  paymentStatus?: number | string | null;
+  paymentMethod?: BookingPaymentMethod;
+}): { key: BookingStateKey; label: string; tone: "danger" | "success" | "pending"; paymentDue: boolean } => {
+  const numericStatus = parseStatusValue(status);
+  const numericPaymentStatus = parseStatusValue(paymentStatus);
+  if (numericStatus === 2 || numericPaymentStatus === 2) {
+    return { key: "cancelled", label: "Cancelled", tone: "danger", paymentDue: false };
+  }
+  if (numericStatus === 1 && numericPaymentStatus === 1) {
+    return { key: "booked", label: "Booked", tone: "success", paymentDue: false };
+  }
+  if (numericStatus === 1 && isPayOnCourt(paymentMethod)) {
+    return { key: "pay_on_court", label: "Booked · pay on the day", tone: "success", paymentDue: true };
+  }
+  return { key: "pending", label: "Pending", tone: "pending", paymentDue: false };
+};
+
 export const isActiveGroupLessonBookingStatus = (
   status?: number | string | null,
   paymentStatus?: number | string | null,
@@ -275,10 +317,13 @@ export const isActiveGroupLessonPlayer = (player: {
   status?: number | string | null;
   paymentStatus?: number | string | null;
   payment_status?: number | string | null;
+  paymentMethod?: BookingPaymentMethod;
+  payment_method?: BookingPaymentMethod;
 }) => {
-  return isActiveGroupLessonBookingStatus(
+  return holdsGroupSpot(
     player.status,
     player.paymentStatus ?? player.payment_status,
+    player.paymentMethod ?? player.payment_method,
   );
 };
 
@@ -313,6 +358,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       status: Number.isFinite(status) ? status : undefined,
       creditStatus: typeof player.credit_status === "string" ? player.credit_status : null,
       creditPurchaseId: player.credit_purchase_id ?? null,
+      paymentMethod: typeof player.payment_method === "string" ? player.payment_method : undefined,
     };
   });
   const activeGroupPlayers = normalizedGroupPlayers.filter(isActiveGroupLessonPlayer);
@@ -369,6 +415,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       avatarUrl: player.avatarUrl,
       paymentStatus: player.paymentStatus,
       status: player.status,
+      paymentMethod: player.paymentMethod,
     })),
     groupPlayers: normalizedGroupPlayers,
   };

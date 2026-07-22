@@ -15,9 +15,11 @@ import moment from "moment";
 import {
   fetchUpcomingGroupLessons,
   fetchUpcomingGroupLessonById,
+  holdsGroupSpot,
   isActiveGroupLessonBookingStatus,
   mapUpcomingGroupLesson,
   mapUpcomingGroupLessonsResponse,
+  resolveBookingState,
   type GroupLesson,
 } from "../api/groupLessons";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
@@ -39,7 +41,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
 import { buildGroupLessonShareUrl } from "../utils/shareLinks";
-import { fetchPublicLessonById } from "../api/playerLessons";
+import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -184,20 +186,11 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-const formatParticipantStatus = (status?: number | string | null, paymentStatus?: number | string | null) => {
-  if (isActiveGroupLessonBookingStatus(status, paymentStatus)) {
-    return "Booked";
-  }
-  const numericStatus = typeof status === "number" ? status : Number(status);
-  const numericPaymentStatus = typeof paymentStatus === "number" ? paymentStatus : Number(paymentStatus);
-  if (numericStatus === 2 || numericPaymentStatus === 2) {
-    return "Cancelled";
-  }
-  if (numericStatus === 0 || numericPaymentStatus === 0) {
-    return "Pending";
-  }
-  return "Pending";
-};
+const formatParticipantStatus = (
+  status?: number | string | null,
+  paymentStatus?: number | string | null,
+  paymentMethod?: string | null,
+) => resolveBookingState({ status, paymentStatus, paymentMethod }).label;
 
 type CancelFlowState = "closed" | "confirm" | "success";
 
@@ -249,12 +242,13 @@ const GroupLessonDetailsPage = () => {
   const [paymentMethods, setPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
-  const [paymentChoice, setPaymentChoice] = useState<"credits" | "apple-pay" | "card">("card");
+  const [paymentChoice, setPaymentChoice] = useState<"credits" | "apple-pay" | "card" | "pay-on-court">("card");
   const [creditsPackageOpen, setCreditsPackageOpen] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
   const [bookingWithCredits, setBookingWithCredits] = useState(false);
+  const [bookingPayOnCourt, setBookingPayOnCourt] = useState(false);
   const [purchasingPackage, setPurchasingPackage] = useState(false);
   const [pendingCreditConfirm, setPendingCreditConfirm] = useState<{ lessonId: number | string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -629,6 +623,7 @@ const GroupLessonDetailsPage = () => {
     return {
       status: playerRecord.status,
       paymentStatus: playerRecord.paymentStatus,
+      paymentMethod: playerRecord.paymentMethod,
       participantId: playerRecord.participantId ?? playerRecord.id,
       creditStatus: playerRecord.creditStatus,
     };
@@ -646,6 +641,8 @@ const GroupLessonDetailsPage = () => {
     }
     setPaymentChoice((current) => (current === "credits" ? "card" : current));
   }, [availableCredits, selectedCreditId]);
+
+  const coachAllowsPayOnCourt = Boolean(coachProfile?.allow_pay_on_court);
 
   const packageOptions = useMemo(() => {
     return packages
@@ -744,6 +741,24 @@ const GroupLessonDetailsPage = () => {
       setBookingWithCredits(false);
     }
   }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, selectedCreditId]);
+
+  const handleBookPayOnCourt = useCallback(async () => {
+    if (!lesson?.id || !authToken) return;
+    setBookingPayOnCourt(true);
+    setPackagePurchaseError(null);
+    try {
+      await bookGroupLessonWithCard({
+        token: authToken,
+        lessonId: lesson.id,
+        paymentMethod: "pay_on_court",
+      });
+      await refreshLesson();
+    } catch (error) {
+      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to book pay on court.");
+    } finally {
+      setBookingPayOnCourt(false);
+    }
+  }, [authToken, lesson?.id, refreshLesson]);
 
   const handleBuyPackageAndApply = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
@@ -864,10 +879,16 @@ const GroupLessonDetailsPage = () => {
     );
   }
 
-  const isBooked = isActiveGroupLessonBookingStatus(
+  const isBooked = holdsGroupSpot(
     currentUserBookingStatus?.status,
     currentUserBookingStatus?.paymentStatus,
+    currentUserBookingStatus?.paymentMethod,
   );
+  const currentBookingState = resolveBookingState({
+    status: currentUserBookingStatus?.status,
+    paymentStatus: currentUserBookingStatus?.paymentStatus,
+    paymentMethod: currentUserBookingStatus?.paymentMethod,
+  });
   const sourceLesson = lesson.sourceLesson as Record<string, unknown> | undefined;
   const bookedCountRaw = Number(sourceLesson?.booked_count ?? lesson.participants.length);
   const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : lesson.participants.length;
@@ -877,6 +898,7 @@ const GroupLessonDetailsPage = () => {
     avatarUrl: "avatarUrl" in participant && typeof participant.avatarUrl === "string" ? participant.avatarUrl : undefined,
     paymentStatus: "paymentStatus" in participant ? participant.paymentStatus : undefined,
     status: "status" in participant ? participant.status : undefined,
+    paymentMethod: "paymentMethod" in participant ? participant.paymentMethod : undefined,
   }));
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
   const timeRange = lesson.startDateTime && lesson.endDateTime
@@ -931,9 +953,15 @@ const GroupLessonDetailsPage = () => {
   const groupCreditFee = Math.round(groupCoachFee * 0.03 * 100) / 100;
   const groupServiceFee = 1;
   const groupUsesCredits = paymentChoice === "credits" && availableCredits > 0 && selectedCreditId != null;
+  const isPayOnCourtChoice = paymentChoice === "pay-on-court";
   const groupTotalDue = groupUsesCredits
     ? groupCoachFee + groupServiceFee
-    : groupCoachFee + groupCreditFee + groupServiceFee;
+    : isPayOnCourtChoice
+      ? groupCoachFee
+      : groupCoachFee + groupCreditFee + groupServiceFee;
+  const paymentDueLine = currentBookingState.paymentDue
+    ? `Pay ${formatMoney(groupCoachFee)} to coach on the day`
+    : null;
   const handleShare = async () => {
     const shareUrl = buildGroupLessonShareUrl(lesson.id);
     if (!shareUrl) return;
@@ -1241,10 +1269,11 @@ const GroupLessonDetailsPage = () => {
                       <div className="group-lesson-details__booked-icon" aria-hidden>
                         ✓
                       </div>
-                      <div className="group-lesson-details__booked-copy">
-                        <strong>You&apos;re booked</strong>
-                        <span>Your spot is confirmed for this class.</span>
-                      </div>
+	                      <div className="group-lesson-details__booked-copy">
+	                        <strong>You&apos;re booked</strong>
+	                        <span>Your spot is confirmed for this class.</span>
+	                        {paymentDueLine ? <span>{paymentDueLine}</span> : null}
+	                      </div>
                     </div>
                   </section>
                 ) : null}
@@ -1306,7 +1335,7 @@ const GroupLessonDetailsPage = () => {
                                 ) : null}
                               </div>
                               <span className="group-lesson-details__participant-status">
-                                {formatParticipantStatus(participant.status, participant.paymentStatus)}
+                                {formatParticipantStatus(participant.status, participant.paymentStatus, participant.paymentMethod)}
                               </span>
                             </li>
                           ))}
@@ -1438,10 +1467,11 @@ const GroupLessonDetailsPage = () => {
                         <div className="group-lesson-details__booked-icon" aria-hidden>
                           ✓
                         </div>
-                        <div className="group-lesson-details__booked-copy">
-                          <strong>You&apos;re booked</strong>
-                          <span>Your place is confirmed.</span>
-                        </div>
+	                        <div className="group-lesson-details__booked-copy">
+	                          <strong>You&apos;re booked</strong>
+	                          <span>Your place is confirmed.</span>
+	                          {paymentDueLine ? <span>{paymentDueLine}</span> : null}
+	                        </div>
                       </div>
 
                       <div className="group-lesson-details__booking-meta">
@@ -1497,7 +1527,11 @@ const GroupLessonDetailsPage = () => {
                         {isSignedIn ? "Confirm this session" : "Sign in to book"}
                       </p>
                       <p className="group-lesson-details__booking-price">{formatMoney(groupTotalDue)}</p>
-                      <p className="group-lesson-details__booking-price-caption">{lesson.title}</p>
+                      <p className="group-lesson-details__booking-price-caption">
+                        {isPayOnCourtChoice
+                          ? `${formatMoney(groupCoachFee)} due to your coach on the day (cash/Venmo)`
+                          : lesson.title}
+                      </p>
 
                       <div className="group-lesson-details__booking-meta">
                         <div className="group-lesson-details__booking-meta-item">
@@ -1520,16 +1554,22 @@ const GroupLessonDetailsPage = () => {
                         </div>
                       </div>
 
-                      <div className="group-lesson-details__booking-pill group-lesson-details__booking-pill--payment">
-                        {isSignedIn ? "Needs payment" : "Sign in required"}
-                      </div>
+	                      <div className="group-lesson-details__booking-pill group-lesson-details__booking-pill--payment">
+	                        {isSignedIn
+	                          ? isPayOnCourtChoice
+	                            ? "Pay on the day"
+	                            : "Needs payment"
+	                          : "Sign in required"}
+	                      </div>
 
                       <div className="group-lesson-details__price-breakdown">
                         <div><span>Coach fee</span><strong>${groupCoachFee.toFixed(2)}</strong></div>
-                        {!groupUsesCredits ? (
+                        {!groupUsesCredits && !isPayOnCourtChoice ? (
                           <div><span>Credit fee</span><strong>${groupCreditFee.toFixed(2)}</strong></div>
                         ) : null}
-                        <div><span>Service fee</span><strong>${groupServiceFee.toFixed(2)}</strong></div>
+                        {!isPayOnCourtChoice ? (
+                          <div><span>Service fee</span><strong>${groupServiceFee.toFixed(2)}</strong></div>
+                        ) : null}
                       </div>
 
                       {isSignedIn ? (
@@ -1537,7 +1577,7 @@ const GroupLessonDetailsPage = () => {
                         <p className="group-lesson-details__status-pending">Choose how you want to pay.</p>
 
                         <div className="group-lesson-details__payment-choice">
-                          {availableCredits > 0 ? (
+	                          {availableCredits > 0 ? (
                             <label className={`group-lesson-details__payment-option${paymentChoice === "credits" ? " is-selected" : ""}`}>
                               <input
                                 type="radio"
@@ -1550,9 +1590,21 @@ const GroupLessonDetailsPage = () => {
                               <span>
                                 {availableCredits} group credit{availableCredits === 1 ? "" : "s"} available
                               </span>
+	                            </label>
+	                          ) : null}
+                          {coachAllowsPayOnCourt ? (
+                            <label className={`group-lesson-details__payment-option${paymentChoice === "pay-on-court" ? " is-selected" : ""}`}>
+                              <input
+                                type="radio"
+                                name="group-payment-choice"
+                                checked={paymentChoice === "pay-on-court"}
+                                onChange={() => setPaymentChoice("pay-on-court")}
+                              />
+                              <span aria-hidden>💵</span>
+                              <span>Pay on court — cash or Venmo with your coach</span>
                             </label>
                           ) : null}
-                          <label className={`group-lesson-details__payment-option${paymentChoice === "apple-pay" ? " is-selected" : ""}`}>
+	                          <label className={`group-lesson-details__payment-option${paymentChoice === "apple-pay" ? " is-selected" : ""}`}>
                             <input
                               type="radio"
                               name="group-payment-choice"
@@ -1694,7 +1746,7 @@ const GroupLessonDetailsPage = () => {
                       <button
                         type="button"
                         className="group-lesson-details__checkout-action"
-                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits || Boolean(pendingCreditConfirm)}
+                        disabled={lesson.cancelled || spotsRemaining === 0 || isBooked || bookingWithCredits || bookingPayOnCourt || Boolean(pendingCreditConfirm)}
                         onClick={() => {
                           if (!isSignedIn) {
                             promptSignIn();
@@ -1702,6 +1754,10 @@ const GroupLessonDetailsPage = () => {
                           }
                           if (paymentChoice === "credits" && availableCredits > 0 && selectedCreditId) {
                             void handleBookWithCredits();
+                            return;
+                          }
+                          if (paymentChoice === "pay-on-court") {
+                            void handleBookPayOnCourt();
                             return;
                           }
                           navigate(`/booking/confirm?groupLesson=${lesson.id}`, {
@@ -1716,23 +1772,29 @@ const GroupLessonDetailsPage = () => {
                           ? "Cancelled"
                           : bookingWithCredits
                             ? "Applying credits..."
+                            : bookingPayOnCourt
+                              ? "Booking..."
                             : isBooked
                               ? "Booked"
                               : spotsRemaining === 0
                                 ? "Join waitlist"
                                 : !isSignedIn
                                   ? "Sign in to book"
-                                  : groupUsesCredits
-                                    ? "Book with credits"
-                                    : paymentChoice === "apple-pay"
-                                      ? "Continue with Apple Pay"
-                                      : "Book now"}
+	                                  : groupUsesCredits
+	                                    ? "Book with credits"
+                                      : paymentChoice === "pay-on-court"
+                                        ? "Book · pay on the day"
+	                                    : paymentChoice === "apple-pay"
+	                                      ? "Continue with Apple Pay"
+	                                      : "Book now"}
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">
                         {spotsRemaining === 0
                           ? "We’ll notify you if a player drops and a spot re-opens."
-                          : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
+                          : isPayOnCourtChoice
+                            ? "Your place is held now. Pay your coach on the day."
+                            : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
                       </p>
                     </>
                   )}
