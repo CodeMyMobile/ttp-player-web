@@ -259,6 +259,18 @@ const getMatchLevelParam = (selectedLevelFilter) => {
   return selectedLevelFilter === "4.5+" ? "4.5" : selectedLevelFilter;
 };
 
+const getUserStateKey = (user) => {
+  if (!user || typeof user !== "object") return "";
+  return JSON.stringify({
+    id: user.id ?? user.user_id ?? null,
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    type: user.type ?? user.user_type ?? "",
+    skillLevel: user.skillLevel ?? user.profile?.usta_rating ?? user.usta_rating ?? "",
+    identityIds: collectMemberIds(user),
+  });
+};
+
 const pickMatchGender = (match = {}) =>
   (
     match.gender ??
@@ -1093,6 +1105,13 @@ const TennisMatchApp = ({
   const inviteSummaryErrorLoggedRef = useRef(false);
   const inviteSummaryFallbackSupportedRef = useRef(true);
   const notificationSummaryRetryAtRef = useRef(0);
+  const matchesRequestKeyRef = useRef("");
+  const matchesInFlightKeyRef = useRef("");
+  const attentionRequestKeyRef = useRef("");
+  const attentionInFlightKeyRef = useRef("");
+  const pendingInvitesRequestKeyRef = useRef("");
+  const pendingInvitesInFlightRef = useRef(null);
+  const notificationSummaryInFlightRef = useRef(null);
   const handleNotificationsAvailabilityChange = useCallback((supported) => {
     setNotificationsSupported(Boolean(supported));
   }, []);
@@ -1267,7 +1286,15 @@ const TennisMatchApp = ({
     const normalizedUser = Array.isArray(externalUser.identityIds)
       ? externalUser
       : { ...externalUser, identityIds: collectMemberIds(externalUser) };
-    setCurrentUser(normalizedUser);
+    let changed = false;
+    setCurrentUser((prev) => {
+      if (getUserStateKey(prev) === getUserStateKey(normalizedUser)) {
+        return prev;
+      }
+      changed = true;
+      return normalizedUser;
+    });
+    if (!changed) return;
     try {
       localStorage.setItem("user", JSON.stringify(normalizedUser));
     } catch {
@@ -1669,27 +1696,46 @@ const TennisMatchApp = ({
     if (!currentUser) {
       setPendingInvites([]);
       setInvitesError("");
+      pendingInvitesRequestKeyRef.current = "";
       return;
     }
-
-    try {
-      setInvitesLoading(true);
-      const data = await listInvites({ status: "pending", perPage: 50 });
-      const invitesArray = Array.isArray(data?.invites) ? data.invites : data || [];
-      setPendingInvites(invitesArray);
-      setInvitesError("");
-    } catch (err) {
-      console.error("Failed to load invites", err);
-      if (isMatchArchivedError(err) || err?.response?.data?.error === MATCH_ARCHIVED_ERROR) {
-        setInvitesError("Some invites belong to archived matches and can't be loaded.");
-      } else {
-        setInvitesError(
-          err?.response?.data?.message || err?.message || "Failed to load invites",
-        );
-      }
-    } finally {
-      setInvitesLoading(false);
+    const requestKey = JSON.stringify({
+      userId: currentUser.id ?? currentUser.user_id ?? currentUser.email ?? "user",
+      status: "pending",
+      perPage: 50,
+    });
+    if (
+      pendingInvitesRequestKeyRef.current?.key === requestKey &&
+      Date.now() - pendingInvitesRequestKeyRef.current.at < 5000
+    ) {
+      return;
     }
+    if (pendingInvitesInFlightRef.current) return pendingInvitesInFlightRef.current;
+
+    pendingInvitesInFlightRef.current = (async () => {
+      try {
+        setInvitesLoading(true);
+        const data = await listInvites({ status: "pending", perPage: 50 });
+        const invitesArray = Array.isArray(data?.invites) ? data.invites : data || [];
+        setPendingInvites(invitesArray);
+        setInvitesError("");
+        pendingInvitesRequestKeyRef.current = { key: requestKey, at: Date.now() };
+      } catch (err) {
+        console.error("Failed to load invites", err);
+        if (isMatchArchivedError(err) || err?.response?.data?.error === MATCH_ARCHIVED_ERROR) {
+          setInvitesError("Some invites belong to archived matches and can't be loaded.");
+        } else {
+          setInvitesError(
+            err?.response?.data?.message || err?.message || "Failed to load invites",
+          );
+        }
+      } finally {
+        pendingInvitesInFlightRef.current = null;
+        setInvitesLoading(false);
+      }
+    })();
+
+    return pendingInvitesInFlightRef.current;
   }, [currentUser]);
 
 
@@ -1752,6 +1798,8 @@ const TennisMatchApp = ({
       setMatches([]);
       setMatchCounts({});
       setMatchPagination(null);
+      matchesRequestKeyRef.current = "";
+      matchesInFlightKeyRef.current = "";
       return;
     }
 
@@ -1796,6 +1844,29 @@ const TennisMatchApp = ({
         selectedGenderFilter && selectedGenderFilter !== "Any"
           ? selectedGenderFilter
           : undefined;
+      const requestKey = JSON.stringify({
+        userId: currentUser.id ?? currentUser.user_id ?? currentUser.email ?? "user",
+        apiFilter,
+        status,
+        search: matchSearch,
+        page: matchPage,
+        perPage: selectedDayKey ? 50 : 10,
+        when,
+        level,
+        format,
+        gender,
+        includeHidden,
+        locationParams,
+        memberIdentityIds,
+      });
+      if (
+        matchesInFlightKeyRef.current === requestKey ||
+        (matchesRequestKeyRef.current?.key === requestKey &&
+          Date.now() - matchesRequestKeyRef.current.at < 5000)
+      ) {
+        return;
+      }
+      matchesInFlightKeyRef.current = requestKey;
       const data = await listMatches(apiFilter, {
         status,
         search: matchSearch,
@@ -2245,11 +2316,14 @@ const TennisMatchApp = ({
 
       setMatchCounts(normalizedCounts);
       setMatches(transformed);
+      matchesRequestKeyRef.current = { key: requestKey, at: Date.now() };
     } catch (err) {
       displayToast(
         err.response?.data?.message || "Failed to load matches",
         "error",
       );
+    } finally {
+      matchesInFlightKeyRef.current = "";
     }
   }, [
     activeFilter,
@@ -2269,10 +2343,26 @@ const TennisMatchApp = ({
   const fetchAttentionMatches = useCallback(async () => {
     if (!currentUser) {
       setAttentionMatches([]);
+      attentionRequestKeyRef.current = "";
+      attentionInFlightKeyRef.current = "";
+      return;
+    }
+    const requestKey = JSON.stringify({
+      userId: currentUser.id ?? currentUser.user_id ?? currentUser.email ?? "user",
+      limit: 3,
+      withinHours: 48,
+      memberIdentityIds,
+    });
+    if (
+      attentionInFlightKeyRef.current === requestKey ||
+      (attentionRequestKeyRef.current?.key === requestKey &&
+        Date.now() - attentionRequestKeyRef.current.at < 5000)
+    ) {
       return;
     }
 
     try {
+      attentionInFlightKeyRef.current = requestKey;
       let data;
       try {
         data = await listAttentionMatches({
@@ -2429,9 +2519,12 @@ const TennisMatchApp = ({
         .slice(0, 3);
 
       setAttentionMatches(attentionItems);
+      attentionRequestKeyRef.current = { key: requestKey, at: Date.now() };
     } catch (error) {
       console.error("Failed to load attention matches", error);
       setAttentionMatches([]);
+    } finally {
+      attentionInFlightKeyRef.current = "";
     }
   }, [currentUser, memberIdentityIds]);
 
@@ -2635,6 +2728,10 @@ const TennisMatchApp = ({
         setLastSeenNotificationAt(null);
         return;
       }
+      if (notificationSummaryInFlightRef.current && !forceRetry) {
+        return;
+      }
+      notificationSummaryInFlightRef.current = true;
 
       setHomeFeedLoading(true);
       setHomeFeedError("");
@@ -2744,6 +2841,7 @@ const TennisMatchApp = ({
           notificationSummaryRetryAtRef.current = Date.now() + backoffMs;
         }
       } finally {
+        notificationSummaryInFlightRef.current = false;
         setHomeFeedLoading(false);
       }
     }, [
