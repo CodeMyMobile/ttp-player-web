@@ -114,6 +114,16 @@ export function buildMatchPayloadFromCard(card, ctx = {}) {
     card.levelMode === "range"
       ? { min: card.rMin, max: card.rMax }
       : { min: playerRating, max: playerRating };
+  const hasSlotOptions =
+    type === "open" &&
+    card.format === "Singles" &&
+    ((Array.isArray(card.timeOptions) && card.timeOptions.some(Boolean)) ||
+      (Array.isArray(card.locationOptions) &&
+        card.locationOptions.some((option) =>
+          typeof option === "string"
+            ? option.trim()
+            : option?.location_text || option?.locationText || option?.location,
+        )));
 
   return buildMatchPayload(
     {
@@ -123,9 +133,11 @@ export function buildMatchPayloadFromCard(card, ctx = {}) {
       location: card.location,
       latitude: card.latitude,
       longitude: card.longitude,
-      totalPlayers: card.count,
+      totalPlayers: hasSlotOptions ? 1 : card.count,
       format: card.format,
       notes: "",
+      timeOptions: card.timeOptions,
+      locationOptions: card.locationOptions,
       skillLevel: skill.min,
       skillLevelMin: skill.min,
       skillLevelMax: skill.max,

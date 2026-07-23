@@ -2589,6 +2589,58 @@ const MatchDetailsModal = ({
     </div>
   );
 
+  const renderOfferedSlotSummary = () => {
+    if (!unresolvedSinglesSlot) return null;
+    const hasTimes = offeredSlotOptions.times.length > 0;
+    const hasLocations = offeredSlotOptions.locations.length > 0;
+    if (!hasTimes && !hasLocations) return null;
+
+    return (
+      <section className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-900">
+            <Calendar className="h-4 w-4 text-emerald-700" />
+            Time options
+          </div>
+          <div className="space-y-1.5">
+            {hasTimes ? (
+              offeredSlotOptions.times.map((option, index) => (
+                <div
+                  key={`${option.value}-${index}`}
+                  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  {option.label}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">No time options yet</p>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-900">
+            <MapPin className="h-4 w-4 text-emerald-700" />
+            Location options
+          </div>
+          <div className="space-y-1.5">
+            {hasLocations ? (
+              offeredSlotOptions.locations.map((option, index) => (
+                <div
+                  key={`${option.value.location_text}-${index}`}
+                  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  {option.label}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">No location options yet</p>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   const renderPendingInvites = () => (
     <section className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
       <div className="flex items-center gap-2">
@@ -3024,6 +3076,7 @@ const MatchDetailsModal = ({
               </p>
             </div>
           )}
+          {renderOfferedSlotSummary()}
           <section className="rounded-2xl bg-gray-50 p-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
@@ -3517,6 +3570,8 @@ const MatchDetailsModal = ({
           </div>
         </div>
       </div>
+
+      {renderOfferedSlotSummary()}
 
       <section className="rounded-2xl bg-gray-50 p-3 sm:p-4">
         <div className="flex items-start gap-3">

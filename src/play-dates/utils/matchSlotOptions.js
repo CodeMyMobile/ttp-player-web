@@ -29,6 +29,21 @@ const normalizeLocationOption = (value) => {
   };
 };
 
+export const normalizeGooglePlaceLocationOption = (place) => {
+  const placeName = typeof place?.name === "string" ? place.name.trim() : "";
+  const formattedAddress =
+    typeof place?.formatted_address === "string" ? place.formatted_address.trim() : "";
+  const label = placeName || formattedAddress;
+  if (!label) return null;
+  const lat = place?.geometry?.location?.lat?.();
+  const lng = place?.geometry?.location?.lng?.();
+  return {
+    location_text: label,
+    latitude: typeof lat === "number" ? lat : null,
+    longitude: typeof lng === "number" ? lng : null,
+  };
+};
+
 const sameLocation = (left, right) => {
   const a = normalizeLocationOption(left);
   const b = normalizeLocationOption(right);
@@ -86,16 +101,27 @@ export const buildSlotOptionPayloadFields = ({
 };
 
 export const buildOfferedSlotOptions = (match = {}) => {
-  const preferredTime = parseIso(match.start_date_time ?? match.startDateTime);
+  const source = match || {};
+  const preferredTime = parseIso(source.start_date_time ?? source.startDateTime);
   const preferredLocation = normalizeLocationOption({
-    location_text: match.location_text ?? match.location,
-    latitude: match.latitude,
-    longitude: match.longitude,
+    location_text: source.location_text ?? source.location,
+    latitude: source.latitude,
+    longitude: source.longitude,
   });
+  const timeOptions = Array.isArray(source.time_options)
+    ? source.time_options
+    : Array.isArray(source.timeOptions)
+      ? source.timeOptions
+      : [];
+  const locationOptions = Array.isArray(source.location_options)
+    ? source.location_options
+    : Array.isArray(source.locationOptions)
+      ? source.locationOptions
+      : [];
 
   const times = uniqueTimes([
     preferredTime,
-    ...(Array.isArray(match.time_options) ? match.time_options : []),
+    ...timeOptions,
   ]).map((value) => ({
     value,
     label: new Intl.DateTimeFormat("en-US", {
@@ -109,7 +135,7 @@ export const buildOfferedSlotOptions = (match = {}) => {
 
   const locations = uniqueLocations([
     preferredLocation,
-    ...(Array.isArray(match.location_options) ? match.location_options : []),
+    ...locationOptions,
   ]).map((value) => ({
     value,
     label: value.location_text,
@@ -119,4 +145,5 @@ export const buildOfferedSlotOptions = (match = {}) => {
 };
 
 export const isUnresolvedSinglesSlotMatch = (match = {}) =>
-  Number(match.player_limit ?? match.playerLimit) === 1 && match.slot_resolved === false;
+  Number((match || {}).player_limit ?? (match || {}).playerLimit) === 1 &&
+  ((match || {}).slot_resolved ?? (match || {}).slotResolved) === false;

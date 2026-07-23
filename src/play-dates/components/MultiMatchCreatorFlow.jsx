@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Autocomplete from "react-google-autocomplete";
 import {
   ArrowRight,
   Calendar,
@@ -23,6 +24,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import { getPersonalDetails } from "../services/auth";
 import { updatePlayerPersonalDetails } from "../services/player";
 import { buildMatchPayloadFromCard } from "../utils/buildMatchPayload";
+import { normalizeGooglePlaceLocationOption } from "../utils/matchSlotOptions";
 import {
   buildAvailabilityShareMessage,
   mergeCreateResults,
@@ -99,6 +101,8 @@ const newCard = () => ({
   location: "",
   latitude: null,
   longitude: null,
+  timeOptions: [],
+  locationOptions: [],
   expanded: true,
   saved: false,
 });
@@ -361,7 +365,11 @@ function MultiMatchCreatorFlow({
     );
 
   const setFormat = (id, format) =>
-    updateCard(id, { format, count: FMT[format].count });
+    updateCard(id, {
+      format,
+      count: FMT[format].count,
+      ...(format === "Singles" ? {} : { timeOptions: [], locationOptions: [] }),
+    });
 
   const bumpCount = (id, delta) => {
     const card = cards.find((c) => c.id === id);
@@ -449,6 +457,63 @@ function MultiMatchCreatorFlow({
       expanded: true,
     });
     setScreen("build");
+  };
+
+  const addTimeOption = (id) => {
+    updateCard(id, {
+      timeOptions: [...(cards.find((c) => c.id === id)?.timeOptions || []), ""],
+    });
+  };
+  const updateTimeOption = (id, index, value) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    updateCard(id, {
+      timeOptions: (card.timeOptions || []).map((option, optionIndex) =>
+        optionIndex === index ? value : option,
+      ),
+    });
+  };
+  const removeTimeOption = (id, index) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    updateCard(id, {
+      timeOptions: (card.timeOptions || []).filter((_, optionIndex) => optionIndex !== index),
+    });
+  };
+  const addLocationOption = (id) => {
+    updateCard(id, {
+      locationOptions: [
+        ...(cards.find((c) => c.id === id)?.locationOptions || []),
+        { location_text: "", latitude: null, longitude: null },
+      ],
+    });
+  };
+  const updateLocationOption = (id, index, value) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    updateCard(id, {
+      locationOptions: (card.locationOptions || []).map((option, optionIndex) =>
+        optionIndex === index
+          ? typeof value === "string"
+            ? { location_text: value, latitude: null, longitude: null }
+            : value
+          : option,
+      ),
+    });
+  };
+  const selectLocationOption = (id, index, place) => {
+    const option = normalizeGooglePlaceLocationOption(place);
+    if (!option) return;
+    updateLocationOption(id, index, option);
+  };
+  const removeLocationOption = (id, index) => {
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    updateCard(id, {
+      locationOptions: (card.locationOptions || []).filter(
+        (_, optionIndex) => optionIndex !== index,
+      ),
+    });
   };
 
   // ---- invite actions ----
@@ -689,6 +754,20 @@ function MultiMatchCreatorFlow({
                   onSetDuration={(d) => updateCard(card.id, { duration: d })}
                   onOpenWhen={() => openWhen(card.id)}
                   onOpenLoc={() => openLoc(card.id)}
+                  type={type}
+                  onAddTimeOption={() => addTimeOption(card.id)}
+                  onUpdateTimeOption={(index, value) =>
+                    updateTimeOption(card.id, index, value)
+                  }
+                  onRemoveTimeOption={(index) => removeTimeOption(card.id, index)}
+                  onAddLocationOption={() => addLocationOption(card.id)}
+                  onUpdateLocationOption={(index, value) =>
+                    updateLocationOption(card.id, index, value)
+                  }
+                  onSelectLocationOption={(index, place) =>
+                    selectLocationOption(card.id, index, place)
+                  }
+                  onRemoveLocationOption={(index) => removeLocationOption(card.id, index)}
                   onDone={() => doneCard(card.id)}
                   onRemove={() => removeCard(card.id)}
                 />
@@ -973,10 +1052,19 @@ const MatchCard = ({
   onSetDuration,
   onOpenWhen,
   onOpenLoc,
+  type,
+  onAddTimeOption,
+  onUpdateTimeOption,
+  onRemoveTimeOption,
+  onAddLocationOption,
+  onUpdateLocationOption,
+  onSelectLocationOption,
+  onRemoveLocationOption,
   onDone,
   onRemove,
 }) => {
   const cfg = FMT[card.format];
+  const showSlotOptions = type === "open" && card.format === "Singles";
   if (!card.expanded) {
     return (
       <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200">
@@ -1179,6 +1267,89 @@ const MatchCard = ({
           )}
         </RowButton>
 
+        {showSlotOptions && (
+          <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[12px] font-extrabold text-slate-700">
+                Offer options
+              </span>
+              <span className="text-[11px] font-bold text-slate-400">
+                First pick locks
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {(card.timeOptions || []).map((option, optionIndex) => (
+                <div key={`time-${optionIndex}`} className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={option}
+                    onChange={(event) =>
+                      onUpdateTimeOption(optionIndex, event.target.value)
+                    }
+                    className="min-w-0 flex-1 rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold text-slate-700"
+                    aria-label={`Alternative time ${optionIndex + 1}`}
+                  />
+                  <IconButton
+                    onClick={() => onRemoveTimeOption(optionIndex)}
+                    ariaLabel="Remove alternative time"
+                  >
+                    <X size={14} />
+                  </IconButton>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={onAddTimeOption}
+                className="flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-slate-200 bg-white px-3 py-2 text-[12.5px] font-extrabold text-violet-700"
+              >
+                <Plus size={14} /> Add time
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {(card.locationOptions || []).map((option, optionIndex) => (
+                <div key={`location-${optionIndex}`} className="flex items-center gap-2">
+                  <Autocomplete
+                    apiKey={import.meta.env.VITE_GOOGLE_API_KEY}
+                    options={{
+                      types: ["establishment"],
+                      fields: ["formatted_address", "geometry", "name"],
+                    }}
+                    onPlaceSelected={(place) =>
+                      onSelectLocationOption(optionIndex, place)
+                    }
+                    value={
+                      typeof option === "string"
+                        ? option
+                        : option?.location_text || option?.locationText || ""
+                    }
+                    onChange={(event) =>
+                      onUpdateLocationOption(optionIndex, event.target.value)
+                    }
+                    placeholder="Alternative location"
+                    className="min-w-0 flex-1 rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold text-slate-700"
+                    aria-label={`Alternative location ${optionIndex + 1}`}
+                  />
+                  <IconButton
+                    onClick={() => onRemoveLocationOption(optionIndex)}
+                    ariaLabel="Remove alternative location"
+                  >
+                    <X size={14} />
+                  </IconButton>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={onAddLocationOption}
+                className="flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-slate-200 bg-white px-3 py-2 text-[12.5px] font-extrabold text-violet-700"
+              >
+                <Plus size={14} /> Add location
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 flex gap-2.5">
           {multiple && (
             <button
@@ -1245,6 +1416,16 @@ const Stepper = ({ children, ...props }) => (
   <button
     type="button"
     className="grid h-[30px] w-[30px] place-items-center rounded-[9px] border border-slate-200 bg-white text-[17px] font-extrabold text-violet-700"
+    {...props}
+  >
+    {children}
+  </button>
+);
+const IconButton = ({ children, ariaLabel, ...props }) => (
+  <button
+    type="button"
+    className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500"
+    aria-label={ariaLabel}
     {...props}
   >
     {children}

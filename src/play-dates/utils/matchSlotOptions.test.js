@@ -5,6 +5,7 @@ import {
   buildOfferedSlotOptions,
   buildSlotOptionPayloadFields,
   isUnresolvedSinglesSlotMatch,
+  normalizeGooglePlaceLocationOption,
 } from "./matchSlotOptions.js";
 
 test("singles options payload keeps preferred scalar and sends alternatives only", () => {
@@ -64,8 +65,54 @@ test("offered slots combine preferred values with alternatives for respondent pi
   ]);
 });
 
+test("offered slots read normalized camelCase option aliases", () => {
+  const options = buildOfferedSlotOptions({
+    startDateTime: "2026-08-01T18:00:00.000Z",
+    location: "Penmar",
+    timeOptions: ["2026-08-02T18:00:00.000Z"],
+    locationOptions: [{ location_text: "Ocean View", latitude: 34.01, longitude: -118.48 }],
+  });
+
+  assert.deepEqual(options.times.map((item) => item.value), [
+    "2026-08-01T18:00:00.000Z",
+    "2026-08-02T18:00:00.000Z",
+  ]);
+  assert.deepEqual(options.locations.map((item) => item.value.location_text), [
+    "Penmar",
+    "Ocean View",
+  ]);
+});
+
+test("unresolved singles slot match reads normalized camelCase resolved flag", () => {
+  assert.equal(isUnresolvedSinglesSlotMatch({ playerLimit: 1, slotResolved: false }), true);
+});
+
 test("unresolved singles slot match uses authoritative raw fields", () => {
   assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 1, slot_resolved: false }), true);
   assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 4, slot_resolved: false }), false);
   assert.equal(isUnresolvedSinglesSlotMatch({ player_limit: 1, slot_resolved: true }), false);
+});
+
+test("slot helpers tolerate empty modal state", () => {
+  assert.equal(isUnresolvedSinglesSlotMatch(null), false);
+  assert.deepEqual(buildOfferedSlotOptions(null), { times: [], locations: [] });
+});
+
+test("Google place location option keeps label and coordinates", () => {
+  const option = normalizeGooglePlaceLocationOption({
+    name: "Ocean View Courts",
+    formatted_address: "2701 Barnard Way, Santa Monica, CA",
+    geometry: {
+      location: {
+        lat: () => 34.01,
+        lng: () => -118.48,
+      },
+    },
+  });
+
+  assert.deepEqual(option, {
+    location_text: "Ocean View Courts",
+    latitude: 34.01,
+    longitude: -118.48,
+  });
 });

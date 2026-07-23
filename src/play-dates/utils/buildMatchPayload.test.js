@@ -264,3 +264,25 @@ test("card Round-robin with custom count maps format + player_limit", () => {
   assert.equal(payload.match_format, "Round Robin");
   assert.equal(payload.player_limit, 6);
 });
+
+test("card open Singles with slot options maps to one respondent slot and carries alternatives", () => {
+  const card = {
+    ...baseFlowCard(),
+    format: "Singles",
+    count: 2,
+    timeOptions: ["2026-06-21T18:00:00.000Z"],
+    locationOptions: [
+      { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
+    ],
+  };
+  const payload = buildMatchPayloadFromCard(card, {
+    type: "open",
+    playerRating: null,
+    shareChoice: "broadcast",
+  });
+  assert.equal(payload.player_limit, 1);
+  assert.deepEqual(payload.time_options, ["2026-06-21T18:00:00.000Z"]);
+  assert.deepEqual(payload.location_options, [
+    { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
+  ]);
+});
