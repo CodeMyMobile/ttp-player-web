@@ -286,3 +286,21 @@ test("card open Singles with slot options maps to one respondent slot and carrie
     { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
   ]);
 });
+
+test("card open Singles accepts time-only slot options on the preferred date", () => {
+  const card = {
+    ...baseFlowCard(),
+    format: "Singles",
+    count: 2,
+    timeOptions: ["19:30"],
+  };
+  const payload = buildMatchPayloadFromCard(card, {
+    type: "open",
+    playerRating: null,
+    shareChoice: "broadcast",
+  });
+  assert.equal(payload.player_limit, 1);
+  assert.deepEqual(payload.time_options, [
+    new Date(2026, 5, 20, 19, 30, 0, 0).toISOString(),
+  ]);
+});

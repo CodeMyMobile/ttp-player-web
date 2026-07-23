@@ -5,6 +5,24 @@ const parseIso = (value) => {
   return parsed.toISOString();
 };
 
+const parseTimeOnly = (value, preferredTime) => {
+  if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) return null;
+  const preferredDate = new Date(preferredTime);
+  if (Number.isNaN(preferredDate.getTime())) return null;
+  const [hour, minute] = value.split(":").map(Number);
+  if (hour > 23 || minute > 59) return null;
+  const next = new Date(
+    preferredDate.getFullYear(),
+    preferredDate.getMonth(),
+    preferredDate.getDate(),
+    hour,
+    minute,
+    0,
+    0,
+  );
+  return Number.isNaN(next.getTime()) ? null : next.toISOString();
+};
+
 const parseNumberOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -89,7 +107,10 @@ export const buildSlotOptionPayloadFields = ({
 
   const preferredIso = parseIso(preferredTime);
   const preferredLocationOption = normalizeLocationOption(preferredLocation);
-  const alternativeTimes = uniqueTimes(timeOptions).filter((value) => value !== preferredIso);
+  const normalizedTimeOptions = timeOptions.map(
+    (value) => parseTimeOnly(value, preferredTime) || value,
+  );
+  const alternativeTimes = uniqueTimes(normalizedTimeOptions).filter((value) => value !== preferredIso);
   const alternativeLocations = uniqueLocations(locationOptions).filter(
     (value) => !sameLocation(value, preferredLocationOption),
   );

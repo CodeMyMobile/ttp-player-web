@@ -4446,7 +4446,7 @@ const TennisMatchApp = ({
                           {(matchData.timeOptions || []).map((value, index) => (
                             <div key={`time-option-${index}`} className="flex gap-2">
                               <input
-                                type="datetime-local"
+                                type="time"
                                 value={value}
                                 onChange={(event) =>
                                   setMatchData((prev) => ({

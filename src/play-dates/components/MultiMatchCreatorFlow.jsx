@@ -1282,7 +1282,7 @@ const MatchCard = ({
               {(card.timeOptions || []).map((option, optionIndex) => (
                 <div key={`time-${optionIndex}`} className="flex items-center gap-2">
                   <input
-                    type="datetime-local"
+                    type="time"
                     value={option}
                     onChange={(event) =>
                       onUpdateTimeOption(optionIndex, event.target.value)
