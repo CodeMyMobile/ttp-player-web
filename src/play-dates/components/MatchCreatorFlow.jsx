@@ -53,6 +53,7 @@ import {
   RECENT_PLAYERS_EVENT,
 } from "../utils/recentPlayers";
 import { getMatchGroup, listMatchGroups } from "../services/matchGroups";
+import { buildSlotOptionPayloadFields } from "../utils/matchSlotOptions";
 
 const HOURS_IN_MS = 60 * 60 * 1000;
 const MAX_PRIVATE_INVITES = 30;
@@ -94,6 +95,8 @@ const initialMatchData = () => {
     balls: "Host provides",
     verifiedOnly: false,
     notes: "",
+    timeOptions: [],
+    locationOptions: [],
     invitedPlayers: [],
     manualInvitees: [],
     notifyPlayers: [],
@@ -846,6 +849,20 @@ const MatchCreatorFlow = ({ onCancel, onReturnHome, onMatchCreated, onCreateGrou
         payload.visibility = "hidden";
         payload.match_visibility = "hidden";
       }
+      Object.assign(
+        payload,
+        buildSlotOptionPayloadFields({
+          playerLimit: matchData.totalPlayers,
+          preferredTime: isoStart,
+          preferredLocation: {
+            location_text: matchData.location,
+            latitude: matchData.latitude,
+            longitude: matchData.longitude,
+          },
+          timeOptions: matchData.timeOptions,
+          locationOptions: matchData.locationOptions,
+        }),
+      );
     }
 
     setCreating(true);

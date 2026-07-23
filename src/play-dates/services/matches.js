@@ -382,12 +382,18 @@ export const cancelMatch = async (id) => {
   );
 };
 
-export const joinMatch = (id) =>
+export const joinMatch = (id, { chosen_time, chosenTime, chosen_location, chosenLocation } = {}) =>
   unwrap(
     api(`/matches/${id}/join`, {
       method: "POST",
       authSchemePreference: "token",
-      json: { match_id: id },
+      json: {
+        match_id: id,
+        ...(chosen_time || chosenTime ? { chosen_time: chosen_time || chosenTime } : {}),
+        ...(chosen_location || chosenLocation
+          ? { chosen_location: chosen_location || chosenLocation }
+          : {}),
+      },
     })
   );
 

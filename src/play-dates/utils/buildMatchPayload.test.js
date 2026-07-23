@@ -131,6 +131,21 @@ test("verifiedOnly coerces to boolean on both keys", () => {
   assert.equal(payload.verified_only, true);
 });
 
+test("singles payload includes selectable alternative times and locations", () => {
+  const card = {
+    ...baseCard(),
+    totalPlayers: 1,
+    format: "Singles",
+    timeOptions: ["2026-06-21T18:00:00.000Z"],
+    locationOptions: [{ location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 }],
+  };
+  const payload = buildMatchPayload(card, { type: "open" });
+  assert.deepEqual(payload.time_options, ["2026-06-21T18:00:00.000Z"]);
+  assert.deepEqual(payload.location_options, [
+    { location_text: "Ocean View Courts", latitude: 34.01, longitude: -118.48 },
+  ]);
+});
+
 test("my-level falls back to skillLevel when min/max absent", () => {
   const card = { ...baseCard(), skillLevelMin: "", skillLevelMax: "", skillLevel: "4.0" };
   const payload = buildMatchPayload(card, { type: "open" });

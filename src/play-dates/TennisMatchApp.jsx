@@ -131,6 +131,7 @@ import {
   recordRecentLocation as persistRecentLocation,
   RECENT_LOCATIONS_EVENT,
 } from "./utils/recentLocations";
+import { buildSlotOptionPayloadFields } from "./utils/matchSlotOptions";
 
 const DEFAULT_SKILL_LEVEL = "2.5 - Beginner";
 
@@ -996,6 +997,8 @@ const TennisMatchApp = ({
     latitude: null,
     longitude: null,
     mapUrl: "",
+    timeOptions: [],
+    locationOptions: [],
     notes: "",
     hostId: null,
     hostName: "",
@@ -3787,6 +3790,13 @@ const TennisMatchApp = ({
         matchData.type === "closed"
           ? DEFAULT_SKILL_LEVEL
           : matchData.skillLevel || undefined;
+      const hasSelectableSlotOptions =
+        privacy === "open" &&
+        matchData.format === "Singles" &&
+        matchData.playerCount === 2 &&
+        ((Array.isArray(matchData.timeOptions) && matchData.timeOptions.length > 0) ||
+          (Array.isArray(matchData.locationOptions) && matchData.locationOptions.length > 0));
+      const backendPlayerLimit = hasSelectableSlotOptions ? 1 : matchData.playerCount;
 
       const basePayload = {
         status,
@@ -3797,14 +3807,30 @@ const TennisMatchApp = ({
         location: matchData.location || undefined,
         latitude: matchData.latitude ?? undefined,
         longitude: matchData.longitude ?? undefined,
-        player_limit: matchData.playerCount,
-        playerCount: matchData.playerCount,
+        player_limit: backendPlayerLimit,
+        playerCount: backendPlayerLimit,
         skill_level_min: skillLevelValue,
         skillLevel: skillLevelValue,
         match_format: matchData.format || undefined,
         format: matchData.format || undefined,
         notes: matchData.notes || undefined,
       };
+      if (hasSelectableSlotOptions) {
+        Object.assign(
+          basePayload,
+          buildSlotOptionPayloadFields({
+            playerLimit: 1,
+            preferredTime: isoDate,
+            preferredLocation: {
+              location_text: matchData.location,
+              latitude: matchData.latitude,
+              longitude: matchData.longitude,
+            },
+            timeOptions: matchData.timeOptions,
+            locationOptions: matchData.locationOptions,
+          }),
+        );
+      }
 
       return Object.fromEntries(
         Object.entries(basePayload).filter(([, value]) => value !== undefined)
@@ -4383,6 +4409,126 @@ const TennisMatchApp = ({
                   </select>
                 </div>
               </div>
+
+              {matchData.type === "open" &&
+                matchData.format === "Singles" &&
+                matchData.playerCount === 2 && (
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <div className="mb-4">
+                      <p className="text-sm font-black uppercase tracking-wider text-emerald-900">
+                        Offer options
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-emerald-700">
+                        First player to join picks one offered time and location.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
+                            Alternative times
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMatchData((prev) => ({
+                                ...prev,
+                                timeOptions: [...(prev.timeOptions || []), ""],
+                              }))
+                            }
+                            className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-emerald-700 shadow-sm"
+                          >
+                            Add time
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {(matchData.timeOptions || []).map((value, index) => (
+                            <div key={`time-option-${index}`} className="flex gap-2">
+                              <input
+                                type="datetime-local"
+                                value={value}
+                                onChange={(event) =>
+                                  setMatchData((prev) => ({
+                                    ...prev,
+                                    timeOptions: (prev.timeOptions || []).map((item, itemIndex) =>
+                                      itemIndex === index ? event.target.value : item,
+                                    ),
+                                  }))
+                                }
+                                className="min-w-0 flex-1 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold text-gray-800"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMatchData((prev) => ({
+                                    ...prev,
+                                    timeOptions: (prev.timeOptions || []).filter((_, itemIndex) => itemIndex !== index),
+                                  }))
+                                }
+                                className="rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
+                            Alternative locations
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMatchData((prev) => ({
+                                ...prev,
+                                locationOptions: [...(prev.locationOptions || []), { location_text: "", latitude: null, longitude: null }],
+                              }))
+                            }
+                            className="rounded-lg bg-white px-3 py-1.5 text-xs font-black text-emerald-700 shadow-sm"
+                          >
+                            Add location
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {(matchData.locationOptions || []).map((option, index) => (
+                            <div key={`location-option-${index}`} className="flex gap-2">
+                              <input
+                                type="text"
+                                value={option.location_text || ""}
+                                placeholder="Court or venue"
+                                onChange={(event) =>
+                                  setMatchData((prev) => ({
+                                    ...prev,
+                                    locationOptions: (prev.locationOptions || []).map((item, itemIndex) =>
+                                      itemIndex === index ? { ...item, location_text: event.target.value } : item,
+                                    ),
+                                  }))
+                                }
+                                className="min-w-0 flex-1 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold text-gray-800"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMatchData((prev) => ({
+                                    ...prev,
+                                    locationOptions: (prev.locationOptions || []).filter((_, itemIndex) => itemIndex !== index),
+                                  }))
+                                }
+                                className="rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               <div>
                 <label className="block text-sm font-black text-gray-700 mb-3 uppercase tracking-wider">

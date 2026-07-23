@@ -1,4 +1,5 @@
 import { combineDateAndTimeToIso } from "./datetime.js";
+import { buildSlotOptionPayloadFields } from "./matchSlotOptions.js";
 
 // Pure payload builder for the multi-match creation flow.
 //
@@ -73,6 +74,21 @@ export function buildMatchPayload(card, { type } = {}) {
       payload.visibility = "hidden";
       payload.match_visibility = "hidden";
     }
+
+    Object.assign(
+      payload,
+      buildSlotOptionPayloadFields({
+        playerLimit: card.totalPlayers,
+        preferredTime: isoStart,
+        preferredLocation: {
+          location_text: card.location,
+          latitude: card.latitude,
+          longitude: card.longitude,
+        },
+        timeOptions: card.timeOptions,
+        locationOptions: card.locationOptions,
+      }),
+    );
   }
 
   return payload;
