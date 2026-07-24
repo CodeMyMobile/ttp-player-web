@@ -22,6 +22,12 @@ export interface NormalizedMatchParticipant {
   status?: string;
 }
 
+export interface MatchLocationOption {
+  location_text: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface NormalizedMatch {
   id: string;
   access: "Open" | "Private";
@@ -42,6 +48,13 @@ export interface NormalizedMatch {
   hostName?: string;
   hostIdentityIds?: string[];
   participants?: NormalizedMatchParticipant[];
+  status?: string;
+  playerLimit?: number;
+  timeOptions?: string[];
+  locationOptions?: MatchLocationOption[];
+  slotResolved?: boolean;
+  slotResolvedAt?: string;
+  slotResolvedBy?: string;
   raw?: unknown;
 }
 
@@ -88,6 +101,8 @@ export interface CreateMatchParams {
   matchFormat?: string | null;
   notes?: string | null;
   linkOnly?: boolean;
+  timeOptions?: string[];
+  locationOptions?: MatchLocationOption[];
   token?: string | null;
   signal?: AbortSignal;
 }
@@ -236,6 +251,8 @@ export const createMatch = async ({
   matchFormat,
   notes,
   linkOnly,
+  timeOptions,
+  locationOptions,
   token,
   signal,
 }: CreateMatchParams) => {
@@ -283,6 +300,21 @@ export const createMatch = async ({
     payload.listing_visibility = "link_only";
     payload.visibility = "hidden";
     payload.match_visibility = "hidden";
+  }
+
+  if (matchType === "open" && normalizedRosterSize === 1) {
+    if (Array.isArray(timeOptions) && timeOptions.length > 0) {
+      payload.time_options = timeOptions.map(toIsoString).filter(Boolean);
+    }
+    if (Array.isArray(locationOptions) && locationOptions.length > 0) {
+      payload.location_options = locationOptions
+        .map((option) => ({
+          location_text: option.location_text,
+          latitude: typeof option.latitude === "number" ? option.latitude : null,
+          longitude: typeof option.longitude === "number" ? option.longitude : null,
+        }))
+        .filter((option) => option.location_text.trim());
+    }
   }
 
   const executeCreate = async (override?: Record<string, unknown>) =>
@@ -1033,6 +1065,32 @@ const deriveStartIso = (record: Record<string, unknown>): string | undefined =>
     record.start,
   ]);
 
+const deriveTimeOptions = (record: Record<string, unknown>): string[] | undefined => {
+  if (!Array.isArray(record.time_options)) return undefined;
+  const values = record.time_options
+    .map((value) => toIsoString(typeof value === "string" ? value : null))
+    .filter(Boolean) as string[];
+  return values.length ? values : undefined;
+};
+
+const deriveLocationOptions = (record: Record<string, unknown>): MatchLocationOption[] | undefined => {
+  if (!Array.isArray(record.location_options)) return undefined;
+  const values = record.location_options
+    .map((value) => {
+      if (!value || typeof value !== "object") return null;
+      const option = value as Record<string, unknown>;
+      const locationText = firstString([option.location_text, option.locationText, option.location]);
+      if (!locationText) return null;
+      return {
+        location_text: locationText,
+        latitude: firstNumber([option.latitude]) ?? null,
+        longitude: firstNumber([option.longitude]) ?? null,
+      } satisfies MatchLocationOption;
+    })
+    .filter(Boolean) as MatchLocationOption[];
+  return values.length ? values : undefined;
+};
+
 const extractMatchesArray = (payload: unknown): unknown[] => {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
@@ -1341,6 +1399,14 @@ export const normalizeMatchRecord = (
   const format = deriveMatchFormat(safeRecord);
   const hostIdentityIds = deriveHostIdentities(safeRecord);
   const participants = deriveParticipants(safeRecord, { currentUser: options.currentUser });
+  const status = firstString([safeRecord.status]);
+  const playerLimit = firstNumber([safeRecord.player_limit]);
+  const timeOptions = deriveTimeOptions(safeRecord);
+  const locationOptions = deriveLocationOptions(safeRecord);
+  const slotResolved =
+    typeof safeRecord.slot_resolved === "boolean" ? safeRecord.slot_resolved : undefined;
+  const slotResolvedAt = firstString([safeRecord.slot_resolved_at]);
+  const slotResolvedBy = firstString([safeRecord.slot_resolved_by]);
   const hostProfile = [safeRecord.host_profile, safeRecord.hostProfile, safeRecord.organizer_profile]
     .find((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
   const hostName = firstString([
@@ -1372,6 +1438,13 @@ export const normalizeMatchRecord = (
     hostName,
     hostIdentityIds: hostIdentityIds.length > 0 ? hostIdentityIds : undefined,
     participants,
+    status,
+    playerLimit,
+    timeOptions,
+    locationOptions,
+    slotResolved,
+    slotResolvedAt,
+    slotResolvedBy,
     raw: record,
   };
 };

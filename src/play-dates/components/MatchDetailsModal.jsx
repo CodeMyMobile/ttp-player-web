@@ -95,6 +95,10 @@ import {
   recordRecentLocation as persistRecentLocation,
   RECENT_LOCATIONS_EVENT,
 } from "../utils/recentLocations";
+import {
+  buildOfferedSlotOptions,
+  isUnresolvedSinglesSlotMatch,
+} from "../utils/matchSlotOptions";
 
 const safeDate = (value) => {
   if (!value) return null;
@@ -880,6 +884,8 @@ const MatchDetailsModal = ({
   const [notifyResults, setNotifyResults] = useState([]);
   const [notifySelected, setNotifySelected] = useState([]);
   const [notifySending, setNotifySending] = useState(false);
+  const [selectedSlotTime, setSelectedSlotTime] = useState("");
+  const [selectedSlotLocationIndex, setSelectedSlotLocationIndex] = useState(0);
   const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY;
   const shareCopyTimeoutRef = useRef(null);
 
@@ -920,6 +926,8 @@ const MatchDetailsModal = ({
 
   const match = matchData?.match || null;
   const viewerInvite = matchData?.viewerInvite || null;
+  const unresolvedSinglesSlot = useMemo(() => isUnresolvedSinglesSlotMatch(match), [match]);
+  const offeredSlotOptions = useMemo(() => buildOfferedSlotOptions(match || {}), [match]);
   const matchPrivacy = useMemo(() => getMatchPrivacy(match), [match]);
   const listingVisibility = useMemo(
     () => normalizeListingVisibility(deriveListingVisibility(match)),
@@ -1018,6 +1026,11 @@ const MatchDetailsModal = ({
       setEditError("");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setSelectedSlotTime(offeredSlotOptions.times[0]?.value || "");
+    setSelectedSlotLocationIndex(0);
+  }, [match?.id, offeredSlotOptions.times, offeredSlotOptions.locations]);
 
   const hasEditChanges = useMemo(
     () => JSON.stringify(editForm) !== JSON.stringify(originalEditForm),
@@ -1240,16 +1253,17 @@ const MatchDetailsModal = ({
 
   const isArchived = match?.status === "archived";
   const isCancelled = match?.status === "cancelled";
-  const isUpcoming = match?.status === "upcoming";
+  const isUpcoming = match?.status === "upcoming" || match?.status === "open";
   const isPrivate = matchPrivacy === "private";
   const isOpenMatch = !isPrivate;
   const isFull = useMemo(() => {
+    if (unresolvedSinglesSlot) return false;
     if (capacityInfo && typeof capacityInfo.isFull === "boolean") {
       return capacityInfo.isFull;
     }
     if (remainingSpots === null) return false;
     return remainingSpots === 0;
-  }, [capacityInfo, remainingSpots]);
+  }, [capacityInfo, remainingSpots, unresolvedSinglesSlot]);
   const matchId = match?.id ?? null;
   const canManageInvites = Boolean(onManageInvites) && isHost && matchId;
   const canLeaveMatch = isJoined && !isHost && !isArchived && !isCancelled;
@@ -2220,6 +2234,12 @@ const MatchDetailsModal = ({
     if (isCancelled) return "This match has been cancelled.";
     if (!isUpcoming) return "This match is no longer accepting players.";
     if (isFull) return "This match is currently full.";
+    if (
+      unresolvedSinglesSlot &&
+      (!selectedSlotTime || !offeredSlotOptions.locations[selectedSlotLocationIndex])
+    ) {
+      return "Pick a time and location to join.";
+    }
     return null;
   };
 
@@ -2321,7 +2341,13 @@ const MatchDetailsModal = ({
     }
     try {
       setJoining(true);
-      await joinMatch(match.id);
+      const selectedLocation = offeredSlotOptions.locations[selectedSlotLocationIndex]?.value;
+      await joinMatch(match.id, unresolvedSinglesSlot
+        ? {
+            chosen_time: selectedSlotTime,
+            chosen_location: selectedLocation,
+          }
+        : undefined);
       setStatus("success");
       await onMatchRefresh?.();
       if (onReloadMatch && onUpdateMatch) {
@@ -2562,6 +2588,58 @@ const MatchDetailsModal = ({
       )}
     </div>
   );
+
+  const renderOfferedSlotSummary = () => {
+    if (!unresolvedSinglesSlot) return null;
+    const hasTimes = offeredSlotOptions.times.length > 0;
+    const hasLocations = offeredSlotOptions.locations.length > 0;
+    if (!hasTimes && !hasLocations) return null;
+
+    return (
+      <section className="grid gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-900">
+            <Calendar className="h-4 w-4 text-emerald-700" />
+            Time options
+          </div>
+          <div className="space-y-1.5">
+            {hasTimes ? (
+              offeredSlotOptions.times.map((option, index) => (
+                <div
+                  key={`${option.value}-${index}`}
+                  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  {option.label}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">No time options yet</p>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-black text-emerald-900">
+            <MapPin className="h-4 w-4 text-emerald-700" />
+            Location options
+          </div>
+          <div className="space-y-1.5">
+            {hasLocations ? (
+              offeredSlotOptions.locations.map((option, index) => (
+                <div
+                  key={`${option.value.location_text}-${index}`}
+                  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  {option.label}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm font-semibold text-emerald-700">No location options yet</p>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  };
 
   const renderPendingInvites = () => (
     <section className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -2998,6 +3076,7 @@ const MatchDetailsModal = ({
               </p>
             </div>
           )}
+          {renderOfferedSlotSummary()}
           <section className="rounded-2xl bg-gray-50 p-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
@@ -3220,6 +3299,47 @@ const MatchDetailsModal = ({
             renderDeclinedInvites()
           )}
 
+          {unresolvedSinglesSlot && !isJoined && !isArchived && !isCancelled && (
+            <section className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <div>
+                <p className="text-sm font-black text-emerald-900">Pick your slot</p>
+                <p className="mt-1 text-xs font-semibold text-emerald-700">
+                  Your choice locks the match time and court when you join.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-black uppercase tracking-wide text-emerald-800">
+                  Time
+                  <select
+                    value={selectedSlotTime}
+                    onChange={(event) => setSelectedSlotTime(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-gray-800"
+                  >
+                    {offeredSlotOptions.times.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-black uppercase tracking-wide text-emerald-800">
+                  Location
+                  <select
+                    value={selectedSlotLocationIndex}
+                    onChange={(event) => setSelectedSlotLocationIndex(Number(event.target.value))}
+                    className="mt-2 w-full rounded-xl border border-emerald-100 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-gray-800"
+                  >
+                    {offeredSlotOptions.locations.map((option, index) => (
+                      <option key={`${option.value.location_text}-${index}`} value={index}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+          )}
+
           {!isArchived && !isCancelled && (
             isOpenMatch ? (
               <section className={`space-y-3 rounded-2xl border ${shareContainerTone} p-4`}>
@@ -3397,9 +3517,11 @@ const MatchDetailsModal = ({
               {status === "details" && disabledReason && (
                 <p className="mt-2 text-center text-xs font-semibold text-gray-500">{disabledReason}</p>
               )}
-              {remainingSpots !== null && (
+              {(remainingSpots !== null || unresolvedSinglesSlot) && (
                 <p className="mt-2 text-center text-xs font-semibold text-gray-500">
-                  {remainingSpots} spot{remainingSpots === 1 ? "" : "s"} remaining
+                  {unresolvedSinglesSlot
+                    ? "1 singles slot available"
+                    : `${remainingSpots} spot${remainingSpots === 1 ? "" : "s"} remaining`}
                 </p>
               )}
               {canDeclineInvite && (
@@ -3448,6 +3570,8 @@ const MatchDetailsModal = ({
           </div>
         </div>
       </div>
+
+      {renderOfferedSlotSummary()}
 
       <section className="rounded-2xl bg-gray-50 p-3 sm:p-4">
         <div className="flex items-start gap-3">
