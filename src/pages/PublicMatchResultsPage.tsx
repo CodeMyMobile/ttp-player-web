@@ -8,6 +8,7 @@ import { deriveNtrp } from "../utils/ratingConversions";
 import { useAuth } from "../context/AuthContext";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
 import { canChallenge } from "../utils/challengeEntitlement";
+import MainLayout from "../components/MainLayout";
 
 type Ranking = {
   rank: number;
@@ -84,11 +85,39 @@ const matchesLeague = (ranking: Ranking, league: string) => {
   return String(ranking.rating_leagues || "").split(/\s+/).includes(league);
 };
 
-const resolveViewerId = (user: unknown): string | null => {
+const norm = (value: unknown) => String(value ?? "").trim().toLowerCase();
+
+// The account id and the ranking user_id are different id-spaces (account id can be
+// "1" while ranking rows use player ids), so a single-id compare misses the viewer.
+// Match by id OR full name OR email — mirrors the league dashboard's viewer matching.
+const buildViewerIdentities = (user: unknown): Set<string> => {
   const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
-  const id = u.id ?? u.user_id ?? u.player_id ?? u.profile?.id ?? u.profile?.user_id;
-  const value = id == null ? "" : String(id).trim();
-  return value ? value : null;
+  const p = (u.profile ?? {}) as Record<string, unknown>;
+  return new Set(
+    [
+      u.id, u.user_id, u.player_id, p.id, p.user_id,
+      u.full_name, u.name, p.full_name,
+      u.email, p.email,
+    ]
+      .map(norm)
+      .filter(Boolean),
+  );
+};
+
+const matchesViewer = (identities: Set<string>, ...candidates: unknown[]) =>
+  candidates.map(norm).filter(Boolean).some((value) => identities.has(value));
+
+// NTRP → TRP so a signed-in player who has no ranked TRP yet can still anchor
+// "Near my level" off their profile rating. Inverse of NTRP = 3.5 + (trp-5)*0.5.
+const ntrpToTrp = (ntrp: unknown): number | null => {
+  const n = toNumber(ntrp);
+  return n === null ? null : 5 + (n - 3.5) * 2;
+};
+
+const readViewerNtrp = (user: unknown): unknown => {
+  const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
+  const p = (u.profile ?? {}) as Record<string, unknown>;
+  return u.skillLevel ?? p.usta_rating ?? u.usta_rating ?? p.skill_level ?? u.skill_level ?? p.ntrp ?? u.ntrp;
 };
 
 export default function PublicMatchResultsPage() {
@@ -131,16 +160,23 @@ export default function PublicMatchResultsPage() {
     };
   }, []);
 
-  const viewerId = useMemo(() => (isAuthenticated ? resolveViewerId(user) : null), [isAuthenticated, user]);
+  const viewerIdentities = useMemo(
+    () => (isAuthenticated ? buildViewerIdentities(user) : new Set<string>()),
+    [isAuthenticated, user],
+  );
+  const isMe = (ranking: Ranking) =>
+    viewerIdentities.size > 0 && matchesViewer(viewerIdentities, ranking.user_id, ranking.full_name);
 
-  // The viewer's own row + rating, used to mark "You" and to power "Near my level".
+  // Rating that powers "Near my level": the viewer's ranked TRP if they're on the
+  // ladder, else derived from their profile NTRP so signed-in players can still use it.
   const myRating = useMemo(() => {
-    if (!viewerId) return null;
-    const mine = rankings.find((ranking) => String(ranking.user_id) === viewerId);
-    return toNumber(mine?.current_rating);
-  }, [rankings, viewerId]);
+    const mine = rankings.find((ranking) => matchesViewer(viewerIdentities, ranking.user_id, ranking.full_name));
+    const ranked = toNumber(mine?.current_rating);
+    if (ranked !== null) return ranked;
+    return isAuthenticated ? ntrpToTrp(readViewerNtrp(user)) : null;
+  }, [rankings, viewerIdentities, isAuthenticated, user]);
 
-  const canNearMyLevel = myRating !== null;
+  const canNearMyLevel = isAuthenticated && myRating !== null;
 
   const leagues = useMemo(() => {
     const found = new Set<string>();
@@ -179,7 +215,7 @@ export default function PublicMatchResultsPage() {
   // hand off to the existing match-request flow with the opponent pre-passed.
   // (The composer consumes `challengeOpponent` to prefill the invitee in PR C.)
   const startChallenge = (ranking: Ranking) => {
-    if (!canChallenge({ id: viewerId, isAuthenticated })) return;
+    if (!canChallenge({ isAuthenticated })) return;
     const challengeOpponent = { id: ranking.user_id, name: ranking.full_name };
     const launch = () => navigate("/matches", { state: { openNewMatch: true, challengeOpponent } });
     if (!isAuthenticated) {
@@ -194,9 +230,9 @@ export default function PublicMatchResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f4ff] text-slate-900">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4 sm:px-6">
+    <MainLayout>
+      <div className="bg-[#f7f4ff] text-slate-900">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 pt-5 sm:px-6">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500 text-white shadow-lg shadow-violet-500/20">
             <Trophy className="h-5 w-5" />
           </div>
@@ -209,7 +245,6 @@ export default function PublicMatchResultsPage() {
             {stats.matches} matches · {stats.players} players
           </div>
         </div>
-      </header>
 
       <main className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -307,7 +342,7 @@ export default function PublicMatchResultsPage() {
                         key={ranking.user_id}
                         ranking={ranking}
                         index={index}
-                        isMe={viewerId != null && String(ranking.user_id) === viewerId}
+                        isMe={isMe(ranking)}
                         onOpen={() => openProfile(ranking)}
                         onChallenge={() => startChallenge(ranking)}
                       />
@@ -322,7 +357,7 @@ export default function PublicMatchResultsPage() {
                     key={ranking.user_id}
                     ranking={ranking}
                     index={index}
-                    isMe={viewerId != null && String(ranking.user_id) === viewerId}
+                    isMe={isMe(ranking)}
                     onOpen={() => openProfile(ranking)}
                     onChallenge={() => startChallenge(ranking)}
                   />
@@ -340,7 +375,8 @@ export default function PublicMatchResultsPage() {
           Tap any row to open a profile. Tap <span className="text-violet-600">Challenge</span> to start a match.
         </p>
       </main>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
 
