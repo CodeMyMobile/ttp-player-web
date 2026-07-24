@@ -118,13 +118,29 @@ const normalizeToNtrp = (raw) => {
   return NTRP.includes(rounded) ? rounded : "4.5+";
 };
 
-const initialRating = (currentUser) =>
-  normalizeToNtrp(
-    currentUser?.skillLevel ??
-      currentUser?.profile?.usta_rating ??
-      currentUser?.usta_rating ??
-      currentUser?.ntrp,
-  );
+// Pull the player's rating from wherever it lives — the profile stores it under a
+// few different keys (usta_rating / skill_level / ntrp), and skillLevel can be an
+// empty string (so we can't `??`-chain past it). Return the first value that maps
+// to an NTRP bucket.
+const initialRating = (currentUser) => {
+  const candidates = [
+    currentUser?.skillLevel,
+    currentUser?.profile?.usta_rating,
+    currentUser?.profile?.ustaRating,
+    currentUser?.profile?.skill_level,
+    currentUser?.profile?.skillLevel,
+    currentUser?.profile?.ntrp,
+    currentUser?.usta_rating,
+    currentUser?.skill_level,
+    currentUser?.ntrp,
+  ];
+  for (const candidate of candidates) {
+    if (candidate == null || String(candidate).trim() === "") continue;
+    const normalized = normalizeToNtrp(candidate);
+    if (normalized) return normalized;
+  }
+  return null;
+};
 
 function MultiMatchCreatorFlow({
   onCancel,
