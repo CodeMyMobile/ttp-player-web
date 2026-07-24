@@ -154,6 +154,33 @@ const normalizeSections = (sections?: LeagueSections | null): LeagueSections => 
   archived: sections?.archived ?? [],
 });
 
+// FE stopgap: the backend can leave a finished/past league under `mine` while the
+// viewer's membership is still "active", so it never lands in the archived segment
+// and lingers among active leagues. Treat a league as past when its season has
+// clearly ended (a finished-ish status, or an end date before today) so we can
+// surface it under Past seasons instead. Remove once the backend categorizes these.
+const FINISHED_LEAGUE_STATUSES = new Set([
+  "finished",
+  "completed",
+  "complete",
+  "ended",
+  "closed",
+  "archived",
+  "past",
+]);
+
+const isPastLeague = (league: League): boolean => {
+  const status = String(league.status ?? "").trim().toLowerCase();
+  if (FINISHED_LEAGUE_STATUSES.has(status)) return true;
+  const end = league.end_date || league.deadline;
+  if (!end) return false;
+  const endTime = new Date(end).getTime();
+  if (!Number.isFinite(endTime)) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return endTime < startOfToday.getTime();
+};
+
 const SectionEmptyState = ({
   title,
   body,
@@ -533,6 +560,9 @@ const LeaguesPage = () => {
     useState<LeagueBrowseAvailableFilter>("for-you");
   const [locationFilter, setLocationFilter] = useState("all");
   const [sections, setSections] = useState<LeagueSections>(EMPTY_SECTIONS);
+  // Finished/past leagues split out of `mine` at load (see isPastLeague), surfaced
+  // under Past seasons instead of active leagues.
+  const [finishedMine, setFinishedMine] = useState<League[]>([]);
   const [profile, setProfile] = useState<PlayerPersonalDetails | null>(null);
   // Identity set for matching the viewer to their standings row — includes the fetched player
   // profile (its user_id/full_name align with the standings, unlike the thin auth `user`).
@@ -567,12 +597,19 @@ const LeaguesPage = () => {
   const [reloadKey, setReloadKey] = useState(0);
 
   const leagueById = useMemo(() => {
-    const entries = [...sections.mine, ...sections.available, ...sections.archived].map((league) => [
+    const entries = [...sections.mine, ...sections.available, ...sections.archived, ...finishedMine].map((league) => [
       String(league.id),
       league,
     ] as const);
     return new Map(entries);
-  }, [sections.archived, sections.available, sections.mine]);
+  }, [sections.archived, sections.available, sections.mine, finishedMine]);
+
+  // Past seasons = the backend's archived segment + finished leagues we pulled out
+  // of `mine`, de-duped by id (backend entry wins).
+  const pastSeasonLeagues = useMemo(() => {
+    const ids = new Set(sections.archived.map((league) => String(league.id)));
+    return [...sections.archived, ...finishedMine.filter((league) => !ids.has(String(league.id)))];
+  }, [sections.archived, finishedMine]);
 
   const locationOptions = useMemo(() => {
     const areas = new Set<string>();
@@ -661,8 +698,10 @@ const LeaguesPage = () => {
     })
       .then((response) => {
         const nextSections = normalizeSections(response.sections);
+        // Pull finished/past leagues out of `mine` so they show under Past seasons.
+        setFinishedMine(nextSections.mine.filter(isPastLeague));
         setSections({
-          mine: nextSections.mine,
+          mine: nextSections.mine.filter((league) => !isPastLeague(league)),
           available: nextSections.available,
           archived: [],
         });
@@ -894,9 +933,9 @@ const LeaguesPage = () => {
   // Archive final-standing ranks — fetched lazily, and only once the archive is expanded, so
   // the collapsed default costs zero extra requests.
   useEffect(() => {
-    if (!archiveExpanded || !token || sections.archived.length === 0) return;
+    if (!archiveExpanded || !token || pastSeasonLeagues.length === 0) return;
     const controller = new AbortController();
-    sections.archived.forEach(async (league) => {
+    pastSeasonLeagues.forEach(async (league) => {
       const id = String(league.id);
       if (archiveRanks[id] !== undefined) return; // already resolved
       try {
@@ -914,7 +953,7 @@ const LeaguesPage = () => {
       }
     });
     return () => controller.abort();
-  }, [archiveExpanded, sections.archived, token, viewerIdentities, archiveRanks]);
+  }, [archiveExpanded, pastSeasonLeagues, token, viewerIdentities, archiveRanks]);
 
   const handleShareLeague = useCallback(async (league: League) => {
     const url = `${window.location.origin}${window.location.pathname}#/leagues/${league.id}`;
@@ -1011,7 +1050,7 @@ const LeaguesPage = () => {
     return count;
   }, 0);
 
-  const archivedGroups = groupArchivedBySeason(sections.archived);
+  const archivedGroups = groupArchivedBySeason(pastSeasonLeagues);
 
   return (
     <MainLayout pageClassName="leagues-shell" mobileChrome="home" hideMobileNewMatch>
@@ -1181,9 +1220,9 @@ const LeaguesPage = () => {
                 <div className="ljr-section-head">
                   <h2>Your seasons</h2>
                 </div>
-                {archiveListLoading && sections.archived.length === 0 ? (
+                {archiveListLoading && pastSeasonLeagues.length === 0 ? (
                   <p className="ljr-archive-loading">Loading past seasons…</p>
-                ) : sections.archived.length === 0 ? (
+                ) : pastSeasonLeagues.length === 0 ? (
                   <SectionEmptyState
                     title="No past seasons yet"
                     body="Completed leagues will show here with your final standing."
