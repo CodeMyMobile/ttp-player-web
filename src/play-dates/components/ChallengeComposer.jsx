@@ -9,9 +9,8 @@ import { getAvatarInitials } from "../utils/avatar";
 
 // Dedicated "Challenge <player>" flow. Purpose-built so it's obvious you're inviting
 // one specific player — but it reuses the exact same loop as the general composer
-// (createMatch private → sendInvites) so there's no new backend surface.
-const FORMATS = ["Singles", "Doubles"];
-const FORMAT_COUNT = { Singles: 2, Doubles: 4 };
+// (createMatch private → sendInvites) so there's no new backend surface. A challenge
+// is always 1v1, so the format is fixed to Singles (no selector).
 
 const Shell = ({ children }) => (
   <div className="mx-auto flex min-h-[560px] w-full max-w-[440px] flex-col overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-200">
@@ -50,7 +49,6 @@ export default function ChallengeComposer({ opponent, currentUser, onCancel, onS
   const [location, setLocation] = useState("");
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
-  const [format, setFormat] = useState("Singles");
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -136,8 +134,8 @@ export default function ChallengeComposer({ opponent, currentUser, onCancel, onS
     setSending(true);
     try {
       const card = {
-        format,
-        count: FORMAT_COUNT[format] || 2,
+        format: "Singles",
+        count: 2,
         levelMode: "my",
         rMin: playerRating,
         rMax: playerRating,
@@ -189,22 +187,6 @@ export default function ChallengeComposer({ opponent, currentUser, onCancel, onS
         </Field>
         <Field label="Court">
           <RowButton onClick={() => setScreen("loc")} value={location || "Pick a court"} active={Boolean(location)} />
-        </Field>
-        <Field label="Format">
-          <div className="flex gap-2">
-            {FORMATS.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFormat(f)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-bold ${
-                  format === f ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
         </Field>
         <Field label="Note (optional)">
           <textarea
