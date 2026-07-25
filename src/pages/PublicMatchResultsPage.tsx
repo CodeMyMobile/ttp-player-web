@@ -216,7 +216,12 @@ export default function PublicMatchResultsPage() {
   // (The composer consumes `challengeOpponent` to prefill the invitee in PR C.)
   const startChallenge = (ranking: Ranking) => {
     if (!canChallenge({ isAuthenticated })) return;
-    const challengeOpponent = { id: ranking.user_id, name: ranking.full_name };
+    const ntrp = estimateNtrp(ranking);
+    const challengeOpponent = {
+      id: ranking.user_id,
+      name: ranking.full_name,
+      ntrp: ntrp === "-" ? undefined : ntrp,
+    };
     const launch = () => navigate("/matches", { state: { openNewMatch: true, challengeOpponent } });
     if (!isAuthenticated) {
       openAuth({

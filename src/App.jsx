@@ -277,6 +277,7 @@ const PlayDatesAppRoute = () => {
             onExternalLogout={logout}
             hideAppHeader
             openCreateOnReady={shouldOpenCreateOnReady}
+            challengeOpponent={location.state?.challengeOpponent ?? null}
             onCreateReadyHandled={() => navigate("/matches", { replace: true })}
             onScreenChange={setPlayDatesScreen}
           />

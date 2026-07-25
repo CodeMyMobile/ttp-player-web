@@ -93,7 +93,7 @@ export function buildMatchPayload(card, { type } = {}) {
  *           shareChoice: "broadcast"|"profile" }} ctx
  */
 export function buildMatchPayloadFromCard(card, ctx = {}) {
-  const { type, playerRating = null, shareChoice = "broadcast" } = ctx;
+  const { type, playerRating = null, shareChoice = "broadcast", notes = "" } = ctx;
   const skill =
     card.levelMode === "range"
       ? { min: card.rMin, max: card.rMax }
@@ -109,7 +109,7 @@ export function buildMatchPayloadFromCard(card, ctx = {}) {
       longitude: card.longitude,
       totalPlayers: card.count,
       format: card.format,
-      notes: "",
+      notes,
       skillLevel: skill.min,
       skillLevelMin: skill.min,
       skillLevelMax: skill.max,

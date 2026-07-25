@@ -88,6 +88,7 @@ import InviteScreen from "./components/InviteScreen";
 import MatchDetailsModal from "./components/MatchDetailsModal";
 import MatchCreatorFlow from "./components/MatchCreatorFlow";
 import MultiMatchCreatorFlow from "./components/MultiMatchCreatorFlow";
+import ChallengeComposer from "./components/ChallengeComposer";
 import { isMultiMatchEnabled } from "./utils/featureFlags";
 import LandingPage from "./pages/LandingPage.jsx";
 import PlayerConnectionsPage from "./pages/PlayerConnectionsPage.jsx";
@@ -932,6 +933,7 @@ const TennisMatchApp = ({
   onExternalLogout,
   hideAppHeader = false,
   openCreateOnReady = false,
+  challengeOpponent = null,
   onCreateReadyHandled = null,
   onScreenChange = null,
 } = {}) => {
@@ -939,6 +941,9 @@ const TennisMatchApp = ({
   const location = useLocation();
   const initialPath = getInitialPath();
   const [currentUser, setCurrentUser] = useState(null);
+  // Opponent to pre-populate as a private-match invitee when the create flow is
+  // opened from a "Challenge" (captured so it survives the nav-state being cleared).
+  const [challengeTarget, setChallengeTarget] = useState(null);
   const memberIdentityIds = useMemo(
     () => collectMemberIds(currentUser),
     [currentUser],
@@ -1290,11 +1295,15 @@ const TennisMatchApp = ({
     if (!openCreateOnReady || !currentUser) return;
     setShowSignInModal(false);
     setShowPreview(false);
+    // Capture the challenge target before onCreateReadyHandled clears the nav-state.
+    if (challengeOpponent && challengeOpponent.id != null) {
+      setChallengeTarget(challengeOpponent);
+    }
     setCurrentScreen("create");
     if (typeof onCreateReadyHandled === "function") {
       onCreateReadyHandled();
     }
-  }, [currentUser, onCreateReadyHandled, openCreateOnReady]);
+  }, [currentUser, onCreateReadyHandled, openCreateOnReady, challengeOpponent]);
 
   useEffect(() => {
     const userId = currentUser?.id;
@@ -6829,6 +6838,26 @@ const TennisMatchApp = ({
           )}
           {currentScreen === "create" &&
             (() => {
+              // A challenge gets the dedicated, single-opponent composer; everything
+              // else uses the general match maker.
+              if (challengeTarget) {
+                return (
+                  <ChallengeComposer
+                    opponent={challengeTarget}
+                    currentUser={currentUser}
+                    onCancel={() => {
+                      setChallengeTarget(null);
+                      goToBrowse();
+                    }}
+                    onSent={() => {
+                      setChallengeTarget(null);
+                      goToBrowse();
+                      fetchMatches();
+                      fetchPendingInvites();
+                    }}
+                  />
+                );
+              }
               const CreateFlow = isMultiMatchEnabled()
                 ? MultiMatchCreatorFlow
                 : MatchCreatorFlow;
