@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Swords, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
+import { useChallenge } from "../hooks/useChallenge";
+import { buildApiUrl } from "../api/config";
+import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
@@ -26,6 +29,19 @@ import {
 import { buildSmsUrl, getSmsRecipient } from "../utils/smsLink";
 
 type OpenMatch = Record<string, unknown>;
+
+type PlayerRanking = {
+  user_id: number | string;
+  rank?: number;
+  current_rating?: number | null;
+  wins?: number;
+  losses?: number;
+  calculated_ntrp?: string | number | null;
+  calculated_utr?: string | number | null;
+  usta_rating?: string | number | null;
+  uta_rating?: string | number | null;
+  rating_gender?: string | null;
+};
 
 import "./PlayerProfilePage.css";
 
@@ -118,7 +134,29 @@ const PlayerProfilePage = () => {
     }
     return readStoredUserId();
   }, [user]);
+  const challenge = useChallenge();
+  const [ranking, setRanking] = useState<PlayerRanking | null>(null);
   const locationState = location.state as { player?: DirectoryPlayer } | undefined;
+
+  // Rating / NTRP~ / UTR~ / W-L for this player come from the ladder rankings, not
+  // the profile fetch. Client-find by id for now (a ?user_id= param is the PR E fix).
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    fetch(buildApiUrl("/match-results/rankings"))
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!alive) return;
+        const rows: PlayerRanking[] = Array.isArray(data?.rankings) ? data.rankings : [];
+        setRanking(rows.find((row) => String(row.user_id) === String(id)) ?? null);
+      })
+      .catch(() => {
+        if (alive) setRanking(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   // The router-state player (set when navigating in-app) is only a fast-path so
   // we can render instantly. We always fetch by id below so cold/shared links
@@ -452,6 +490,21 @@ const PlayerProfilePage = () => {
   const primaryLocation = player.location || normalizeStringArray(player.raw?.playerLocations)[0] || "Location unavailable";
   const playerLevel = player.level || (typeof player.raw?.skillLevel === "string" ? player.raw.skillLevel : undefined);
   const isLevelConfirmed = player.verified || Boolean(player.raw?.isLevelConfirmed);
+
+  const isSelf = myPlayerId != null && String(id) === String(myPlayerId);
+  const rankStats = ranking
+    ? {
+        rank: ranking.rank,
+        rating:
+          ranking.current_rating != null && Number.isFinite(Number(ranking.current_rating))
+            ? Number(ranking.current_rating).toFixed(3)
+            : "-",
+        ntrp: deriveNtrp(ranking.calculated_ntrp ?? ranking.usta_rating, ranking.current_rating, ranking.rating_gender).value ?? "-",
+        utr: deriveUtr(ranking.calculated_utr ?? ranking.uta_rating, ranking.current_rating).value ?? "-",
+        record: `${ranking.wins ?? 0}–${ranking.losses ?? 0}`,
+      }
+    : null;
+  const challengeNtrp = playerLevel || (rankStats?.ntrp !== "-" ? rankStats?.ntrp : undefined);
   const verificationCountRaw = player.verificationCount ?? player.raw?.verifiedLevelCount;
   const verificationCount =
     typeof verificationCountRaw === "number"
@@ -631,7 +684,39 @@ const PlayerProfilePage = () => {
             {primaryLocation}
           </p>
 
+          {rankStats ? (
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl bg-violet-50 px-3 py-2.5 text-center">
+                <div className="text-[10px] font-black uppercase tracking-wide text-violet-500">Rating</div>
+                <div className="text-lg font-black tabular-nums text-violet-700">{rankStats.rating}</div>
+              </div>
+              <div className="rounded-xl bg-emerald-50 px-3 py-2.5 text-center">
+                <div className="text-[10px] font-black uppercase tracking-wide text-emerald-600">NTRP~</div>
+                <div className="text-lg font-black tabular-nums text-emerald-700">{rankStats.ntrp}</div>
+              </div>
+              <div className="rounded-xl bg-blue-50 px-3 py-2.5 text-center">
+                <div className="text-[10px] font-black uppercase tracking-wide text-blue-600">UTR~</div>
+                <div className="text-lg font-black tabular-nums text-blue-700">{rankStats.utr}</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
+                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Record</div>
+                <div className="text-lg font-black tabular-nums text-slate-700">{rankStats.record}</div>
+              </div>
+            </div>
+          ) : null}
+
           {player.bio ? <p className="ppv-bio">{player.bio}</p> : null}
+
+          {!isSelf ? (
+            <button
+              type="button"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-black text-white transition-colors hover:bg-violet-700"
+              onClick={() => challenge({ id: id ?? player.id, name: player.name, ntrp: challengeNtrp ? String(challengeNtrp) : undefined })}
+            >
+              <Swords size={18} strokeWidth={2.2} aria-hidden="true" />
+              Challenge {firstName}
+            </button>
+          ) : null}
 
           <button type="button" className="ppv-connect" onClick={openConnectModal}>
             <MessageCircle size={18} strokeWidth={2.2} aria-hidden="true" />

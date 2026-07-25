@@ -6,8 +6,7 @@ import { buildApiUrl } from "../api/config";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import { deriveNtrp } from "../utils/ratingConversions";
 import { useAuth } from "../context/AuthContext";
-import { useAuthDrawer } from "../context/AuthDrawerContext";
-import { canChallenge } from "../utils/challengeEntitlement";
+import { useChallenge } from "../hooks/useChallenge";
 import MainLayout from "../components/MainLayout";
 
 type Ranking = {
@@ -123,7 +122,7 @@ const readViewerNtrp = (user: unknown): unknown => {
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { openAuth } = useAuthDrawer();
+  const challenge = useChallenge();
 
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,27 +210,13 @@ export default function PublicMatchResultsPage() {
 
   const openProfile = (ranking: Ranking) => navigate(`/players/${ranking.user_id}`);
 
-  // Single entry point for starting a challenge: entitlement gate → sign-in gate →
-  // hand off to the existing match-request flow with the opponent pre-passed.
-  // (The composer consumes `challengeOpponent` to prefill the invitee in PR C.)
   const startChallenge = (ranking: Ranking) => {
-    if (!canChallenge({ isAuthenticated })) return;
     const ntrp = estimateNtrp(ranking);
-    const challengeOpponent = {
+    challenge({
       id: ranking.user_id,
       name: ranking.full_name,
       ntrp: ntrp === "-" ? undefined : ntrp,
-    };
-    const launch = () => navigate("/matches", { state: { openNewMatch: true, challengeOpponent } });
-    if (!isAuthenticated) {
-      openAuth({
-        mode: "signup",
-        reason: `Sign in or create an account to challenge ${ranking.full_name}.`,
-        onSuccess: launch,
-      });
-      return;
-    }
-    launch();
+    });
   };
 
   return (
