@@ -1594,6 +1594,8 @@ export default function InvitationPage() {
   const matchHeading = match.match_format
     ? `${match.match_format} Match`
     : "Private Match";
+  // A direct singles invite reads as a challenge — frame it that way.
+  const isChallengeInvite = String(match.match_format || "").toLowerCase().includes("single");
 
   const activeParticipants = getActiveParticipants(match, previewWithRoster);
   const rosterParticipants = getRosterParticipants(match, previewWithRoster);
@@ -2123,7 +2125,11 @@ export default function InvitationPage() {
             className="mx-auto mb-3.5 border-[3px] border-white shadow-[0_4px_16px_rgba(139,92,246,0.3)]"
           />
           <h1 className="mb-1 text-[26px] font-extrabold leading-tight text-slate-800">
-            {inviterFirstName ? `${inviterFirstName} invited you!` : "You're invited!"}
+            {inviterFirstName
+              ? `${inviterFirstName} ${isChallengeInvite ? "challenged" : "invited"} you!`
+              : isChallengeInvite
+                ? "You've been challenged!"
+                : "You're invited!"}
           </h1>
           <p className="text-sm font-medium text-slate-500">{heroSubtitle}</p>
         </section>

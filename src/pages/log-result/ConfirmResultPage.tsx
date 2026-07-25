@@ -141,18 +141,23 @@ export default function ConfirmResultPage() {
             ) : null}
 
             {isPending ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <PrimaryButton disabled={!!working} onClick={() => respond("confirm")}>
-                  {working === "confirm" ? "Confirming..." : "Confirm score"}
-                </PrimaryButton>
-                <button
-                  disabled={!!working}
-                  onClick={() => respond("reject")}
-                  className="rounded-xl border border-rose-200 bg-white px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-60"
-                >
-                  {working === "reject" ? "Rejecting..." : "Reject score"}
-                </button>
-              </div>
+              <>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <PrimaryButton disabled={!!working} onClick={() => respond("confirm")}>
+                    {working === "confirm" ? "Confirming..." : "Confirm score"}
+                  </PrimaryButton>
+                  <button
+                    disabled={!!working}
+                    onClick={() => respond("reject")}
+                    className="rounded-xl border border-rose-200 bg-white px-4 py-3 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-60"
+                  >
+                    {working === "reject" ? "Working..." : "That's not right"}
+                  </button>
+                </div>
+                <p className="mt-3 text-center text-xs font-semibold text-slate-400">
+                  Auto-confirms in 48 hours if you don&apos;t respond — you can dispute in that window.
+                </p>
+              </>
             ) : null}
           </>
         ) : (
