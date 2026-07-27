@@ -166,16 +166,39 @@ export default function PublicMatchResultsPage() {
   const isMe = (ranking: Ranking) =>
     viewerIdentities.size > 0 && matchesViewer(viewerIdentities, ranking.user_id, ranking.full_name);
 
+  // The viewer's own ranking row — powers the "your standing" bar and the You tag.
+  const myRow = useMemo(
+    () => rankings.find((ranking) => matchesViewer(viewerIdentities, ranking.user_id, ranking.full_name)) ?? null,
+    [rankings, viewerIdentities],
+  );
+
   // Rating that powers "Near my level": the viewer's ranked TRP if they're on the
   // ladder, else derived from their profile NTRP so signed-in players can still use it.
   const myRating = useMemo(() => {
-    const mine = rankings.find((ranking) => matchesViewer(viewerIdentities, ranking.user_id, ranking.full_name));
-    const ranked = toNumber(mine?.current_rating);
+    const ranked = toNumber(myRow?.current_rating);
     if (ranked !== null) return ranked;
     return isAuthenticated ? ntrpToTrp(readViewerNtrp(user)) : null;
-  }, [rankings, viewerIdentities, isAuthenticated, user]);
+  }, [myRow, isAuthenticated, user]);
 
   const canNearMyLevel = isAuthenticated && myRating !== null;
+
+  // Only shown when the viewer is actually on the ladder (has a rank).
+  const myStanding = myRow
+    ? {
+        rank: myRow.rank,
+        rating: formatRating(myRow.current_rating),
+        ntrp: estimateNtrp(myRow),
+        record: `${myRow.wins ?? 0}-${myRow.losses ?? 0}`,
+      }
+    : null;
+
+  const jumpToMe = () => {
+    const target = [
+      document.getElementById("ladder-me-desktop"),
+      document.getElementById("ladder-me-mobile"),
+    ].find((el) => el && el.offsetParent !== null);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const leagues = useMemo(() => {
     const found = new Set<string>();
@@ -206,7 +229,6 @@ export default function PublicMatchResultsPage() {
     [rankings],
   );
 
-  const topThree = filtered.slice(0, 3);
 
   const openProfile = (ranking: Ranking) => navigate(`/players/${ranking.user_id}`);
 
@@ -236,7 +258,7 @@ export default function PublicMatchResultsPage() {
           </div>
         </div>
 
-      <main className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+      <main className={`mx-auto max-w-5xl px-4 py-5 sm:px-6 ${myStanding ? "pb-28" : ""}`}>
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
             <div className="space-y-3">
@@ -271,33 +293,6 @@ export default function PublicMatchResultsPage() {
             </label>
           </div>
         </section>
-
-        {topThree.length ? (
-          <section className="mt-5 grid gap-3 md:grid-cols-3">
-            {topThree.map((ranking, index) => (
-              <button
-                key={ranking.user_id}
-                type="button"
-                onClick={() => openProfile(ranking)}
-                className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-violet-300 hover:bg-violet-50/40"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl">{index === 0 ? "🏆" : index === 1 ? "🥈" : "🥉"}</span>
-                  <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-black text-violet-600">
-                    {formatRating(ranking.current_rating)}
-                  </span>
-                </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <Avatar name={ranking.full_name} index={index} />
-                  <div className="min-w-0">
-                    <p className="truncate font-black text-slate-900">{ranking.full_name}</p>
-                    <p className="text-sm font-semibold text-slate-400">{displayLeague(ranking)}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </section>
-        ) : null}
 
         <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -366,6 +361,25 @@ export default function PublicMatchResultsPage() {
         </p>
       </main>
       </div>
+
+      {myStanding ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-3 sm:pb-5">
+          <button
+            type="button"
+            onClick={jumpToMe}
+            className="pointer-events-auto flex w-full max-w-lg items-center gap-3 rounded-2xl bg-violet-600 px-4 py-3 text-left text-white shadow-xl shadow-violet-900/25 transition-colors hover:bg-violet-700"
+          >
+            <span className="grid h-8 min-w-8 place-items-center rounded-lg bg-white/15 px-2 text-sm font-black tabular-nums">
+              #{myStanding.rank ?? "—"}
+            </span>
+            <span className="text-sm font-black">You</span>
+            <span className="truncate text-xs font-semibold text-violet-100">
+              {myStanding.rating} · NTRP {myStanding.ntrp} · {myStanding.record}
+            </span>
+            <span className="ml-auto shrink-0 text-xs font-bold text-violet-100">Jump to my spot →</span>
+          </button>
+        </div>
+      ) : null}
     </MainLayout>
   );
 }
@@ -404,14 +418,8 @@ function Avatar({ name, index }: { name: string; index: number }) {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  const classes = rank === 1
-    ? "bg-amber-100 text-amber-700"
-    : rank === 2
-      ? "bg-slate-100 text-slate-600"
-      : rank === 3
-        ? "bg-orange-100 text-orange-700"
-        : "bg-transparent text-slate-300";
-  return <span className={`inline-grid h-8 w-8 place-items-center rounded-lg text-sm font-black ${classes}`}>{rank}</span>;
+  // Flat, neutral rank number — no gold/silver/bronze medals.
+  return <span className="inline-grid h-8 w-8 place-items-center text-sm font-black tabular-nums text-slate-500">{rank}</span>;
 }
 
 function ChallengeButton({ onChallenge }: { onChallenge: () => void }) {
@@ -450,6 +458,7 @@ function RankingRow({
   const rank = index + 1;
   return (
     <tr
+      id={isMe ? "ladder-me-desktop" : undefined}
       onClick={onOpen}
       className={`cursor-pointer transition-colors ${isMe ? "bg-violet-50 hover:bg-violet-100/70" : "hover:bg-slate-50"}`}
     >
@@ -490,7 +499,7 @@ function RankingCard({
 }) {
   const rank = index + 1;
   return (
-    <div onClick={onOpen} className={`cursor-pointer p-4 ${isMe ? "bg-violet-50" : ""}`}>
+    <div id={isMe ? "ladder-me-mobile" : undefined} onClick={onOpen} className={`cursor-pointer p-4 ${isMe ? "bg-violet-50" : ""}`}>
       <div className="flex items-center gap-3">
         <RankBadge rank={rank} />
         <Avatar name={ranking.full_name} index={index} />
