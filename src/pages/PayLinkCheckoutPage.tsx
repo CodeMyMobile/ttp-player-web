@@ -10,6 +10,7 @@ import {
   formatPayLinkMoney,
   getItemSpecs,
   getRestringingPayLink,
+  isPayLinkDemoMode,
   shouldShowAccountPrompt,
   type RestringingPayLinkCheckout,
   type RestringingPayLinkSummary,
@@ -60,7 +61,7 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
 
 const useDemoMode = () => {
   const search = typeof window === "undefined" ? "" : window.location.search;
-  return import.meta.env.DEV || new URLSearchParams(search).get("demo") === "1";
+  return isPayLinkDemoMode(search);
 };
 
 interface PayLinkPaymentFormProps {

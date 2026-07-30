@@ -7,6 +7,7 @@ import {
   formatPayLinkMoney,
   getItemSpecs,
   getRestringingPayLink,
+  isPayLinkDemoMode,
   shouldShowAccountPrompt,
 } from "./restringingPayLinks";
 
@@ -47,6 +48,12 @@ test("shouldShowAccountPrompt only returns true for login-available account link
   assert.equal(shouldShowAccountPrompt({ eligible: true, status: "login_available" }), true);
   assert.equal(shouldShowAccountPrompt({ eligible: true, status: "linked" }), false);
   assert.equal(shouldShowAccountPrompt({ eligible: false, status: "hidden" }), false);
+});
+
+test("pay-link demo mode is explicit, not implied by local dev", () => {
+  assert.equal(isPayLinkDemoMode(""), false);
+  assert.equal(isPayLinkDemoMode("?demo=1"), true);
+  assert.equal(isPayLinkDemoMode("?demo=0"), false);
 });
 
 test("pay-link API uses public endpoints with optional auth", async () => {

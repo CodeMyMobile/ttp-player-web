@@ -119,3 +119,9 @@ export const getItemSpecs = (item: Pick<
 export const shouldShowAccountPrompt = (account: RestringingPayLinkAccount | null | undefined) =>
   Boolean(account?.eligible && account.status === "login_available");
 
+export const isPayLinkDemoMode = (search: string | URLSearchParams | null | undefined) => {
+  const params = search instanceof URLSearchParams
+    ? search
+    : new URLSearchParams(search || "");
+  return params.get("demo") === "1";
+};
