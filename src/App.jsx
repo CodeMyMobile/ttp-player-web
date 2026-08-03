@@ -34,6 +34,7 @@ import AccountProfilePage from "./pages/AccountProfilePage";
 import PlayerMatchProfilePage from "./pages/PlayerMatchProfilePage";
 import PlayerMatchProfileEditPage from "./pages/PlayerMatchProfileEditPage";
 import PaymentMethodsPage from "./pages/PaymentMethodsPage";
+import PayLinkCheckoutPage from "./pages/PayLinkCheckoutPage";
 import BlockedUsersPage from "./pages/BlockedUsersPage";
 import BookingConfirmationPage from "./pages/BookingConfirmationPage";
 import PurchaseLessonPackagePage from "./pages/PurchaseLessonPackagePage";
@@ -338,6 +339,10 @@ const AppRoutes = () => (
     <Route
       path="/li/:token"
       element={<LessonInvitePage />}
+    />
+    <Route
+      path="/pay/:token"
+      element={<PayLinkCheckoutPage />}
     />
     <Route
       path="/match-results"
@@ -722,13 +727,21 @@ const ScrollToTop = () => {
 };
 
 function App() {
+  const directPayMatch = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/pay\/([^/?#]+)/)
+    : null;
+
   return (
     <AuthProvider>
       <HashRouter>
         <ScrollToTop />
         <AuthDrawerProvider>
           <div className="app-shell">
-            <AppRoutes />
+            {directPayMatch ? (
+              <PayLinkCheckoutPage token={decodeURIComponent(directPayMatch[1])} />
+            ) : (
+              <AppRoutes />
+            )}
           </div>
         </AuthDrawerProvider>
       </HashRouter>
