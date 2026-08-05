@@ -55,6 +55,7 @@ import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
+import RestringingPlayerFlow from "./restringing/RestringingPlayerFlow";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
 import "./App.css";
@@ -561,6 +562,10 @@ const AppRoutes = () => (
     <Route
       path="/find-coaches"
       element={<FindCoaches />}
+    />
+    <Route
+      path="/restring"
+      element={<RestringingPlayerFlow />}
     />
     {/* Deprecated: the post-questionnaire "Your matches" experience now lives in FindCoaches
         matched-mode. Redirect any lingering links into it. */}
