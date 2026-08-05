@@ -398,6 +398,7 @@ export default function RestringingPlayerFlow() {
 
   const validateConfig = () => {
     if (!tier) return false;
+    if (adviceRequested && !isOwnTier(tier)) return true;
     if (isOwnTier(tier)) return Boolean(clean(ownString));
     if (needsOtherString) return Boolean(clean(otherString));
     return Boolean(stringId || catalog[0]?.id);
@@ -418,8 +419,8 @@ export default function RestringingPlayerFlow() {
 
   const buildItems = () => buildCheckoutItems({
     serviceTierId: tier.id,
-    selectedStringId: needsOtherString ? null : stringId || catalog[0]?.id || null,
-    customStringText: needsOtherString ? otherString : null,
+    selectedStringId: adviceRequested ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
+    customStringText: adviceRequested ? null : needsOtherString ? otherString : null,
     ownStringText: isOwnTier(tier) ? ownString : null,
     gauge,
     tensionMains: tension,

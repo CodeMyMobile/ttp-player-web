@@ -56,6 +56,22 @@ test("advice requested nulls specs in checkout payload", () => {
   });
 });
 
+test("advice requested can defer vendor string choice", () => {
+  const items = buildCheckoutItems({
+    serviceTierId: 4,
+    selectedStringId: null,
+    customStringText: null,
+    racketMakeModel: "Wilson Blade 98",
+    adviceRequested: true,
+    quantity: 1,
+  });
+
+  assert.equal(items[0].string_id, null);
+  assert.equal(items[0].custom_string_text, null);
+  assert.equal(items[0].gauge, null);
+  assert.equal(items[0].tension_lbs_mains, null);
+});
+
 test("different per racket produces one order item per racket", () => {
   const items = buildCheckoutItems({
     serviceTierId: 5,
