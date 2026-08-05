@@ -183,6 +183,7 @@ export default function RestringingPlayerFlow() {
     () => catalog.find((item) => Number(item.id) === Number(stringId)) || null,
     [catalog, stringId],
   );
+  const needsOtherString = Boolean(tier && !isOwnTier(tier) && (stringId === "other" || catalog.length === 0));
   const totalCents = (Number(tier?.price_cents || 0) * quantity);
   const totalLabel = formatMoneyCents(totalCents);
 
@@ -252,7 +253,7 @@ export default function RestringingPlayerFlow() {
         if (cancelled) return;
         const rows = data.catalog || [];
         setCatalog(rows);
-        setStringId(rows[0]?.id ? String(rows[0].id) : "");
+        setStringId(rows[0]?.id ? String(rows[0].id) : "other");
       })
       .catch(() => {
         if (!cancelled) setCatalog([]);
@@ -353,7 +354,7 @@ export default function RestringingPlayerFlow() {
   const validateConfig = () => {
     if (!tier) return false;
     if (isOwnTier(tier)) return Boolean(clean(ownString));
-    if (stringId === "other") return Boolean(clean(otherString));
+    if (needsOtherString) return Boolean(clean(otherString));
     return Boolean(stringId || catalog[0]?.id);
   };
 
@@ -372,8 +373,8 @@ export default function RestringingPlayerFlow() {
 
   const buildItems = () => buildCheckoutItems({
     serviceTierId: tier.id,
-    selectedStringId: stringId === "other" ? null : stringId || catalog[0]?.id || null,
-    customStringText: stringId === "other" ? otherString : null,
+    selectedStringId: needsOtherString ? null : stringId || catalog[0]?.id || null,
+    customStringText: needsOtherString ? otherString : null,
     ownStringText: isOwnTier(tier) ? ownString : null,
     gauge,
     tensionMains: tension,
@@ -618,9 +619,9 @@ export default function RestringingPlayerFlow() {
                       {item.brand} {item.name}
                     </button>
                   ))}
-                  <button type="button" className={stringId === "other" ? "is-active" : ""} onClick={() => setStringId("other")}>Other...</button>
+                  <button type="button" className={needsOtherString ? "is-active" : ""} onClick={() => setStringId("other")}>Other...</button>
                 </div>
-                {stringId === "other" ? <Field label="Describe the string"><input value={otherString} onChange={(event) => setOtherString(event.target.value)} placeholder="Brand and model" /><small>Subject to availability; your stringer confirms at drop-off.</small></Field> : null}
+                {needsOtherString ? <Field label="Describe the string"><input value={otherString} onChange={(event) => setOtherString(event.target.value)} placeholder="Brand and model" /><small>Required for Other. Subject to availability; your stringer confirms at drop-off.</small></Field> : null}
               </>
             )}
             <span className="rsg-label">Gauge</span>
