@@ -91,38 +91,54 @@ function TileButton({ active, children, ...props }) {
   );
 }
 
-function StripePaymentForm({ totalLabel, onPaid, disabled }) {
+function StripePaymentForm({ clientSecret, totalLabel, onPaid, disabled }) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [paymentElementReady, setPaymentElementReady] = useState(false);
 
   const confirm = useCallback(async () => {
     if (!stripe || !elements || submitting || disabled) return;
-    setSubmitting(true);
-    setError("");
-    const result = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-      confirmParams: {
-        return_url: `${window.location.origin}${window.location.pathname}${window.location.search}#/restring`,
-      },
-    });
-    if (result.error) {
-      setError(result.error.message || "Payment could not be completed.");
-      setSubmitting(false);
+    if (!paymentElementReady) {
+      setError("Secure payment fields are still loading.");
       return;
     }
-    onPaid();
-    setSubmitting(false);
-  }, [disabled, elements, onPaid, stripe, submitting]);
+    setSubmitting(true);
+    setError("");
+    try {
+      const submitResult = await elements.submit();
+      if (submitResult.error) {
+        setError(submitResult.error.message || "Check your payment details and try again.");
+        return;
+      }
+
+      const result = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        redirect: "if_required",
+        confirmParams: {
+          return_url: `${window.location.origin}${window.location.pathname}${window.location.search}#/restring`,
+        },
+      });
+      if (result.error) {
+        setError(result.error.message || "Payment could not be completed.");
+        return;
+      }
+      onPaid();
+    } catch (err) {
+      setError(err?.message || "Payment could not be completed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [clientSecret, disabled, elements, onPaid, paymentElementReady, stripe, submitting]);
 
   return (
     <div className="rsg-payment">
       <ExpressCheckoutElement onConfirm={() => void confirm()} />
-      <PaymentElement options={{ layout: "tabs" }} />
+      <PaymentElement options={{ layout: "tabs" }} onReady={() => setPaymentElementReady(true)} />
       {error ? <p className="rsg-error">{error}</p> : null}
-      <button type="button" className="rsg-primary" disabled={!stripe || submitting || disabled} onClick={confirm}>
+      <button type="button" className="rsg-primary" disabled={!stripe || !paymentElementReady || submitting || disabled} onClick={confirm}>
         {submitting ? "Processing..." : `Pay ${totalLabel}`}
       </button>
     </div>
@@ -811,7 +827,7 @@ export default function RestringingPlayerFlow() {
                   </>
                 ) : stripePromise && checkoutResult.client_secret ? (
                   <Elements stripe={stripePromise} options={{ clientSecret: checkoutResult.client_secret, appearance: { theme: "stripe" } }}>
-                    <StripePaymentForm totalLabel={totalLabel} disabled={busy} onPaid={() => { setConfirmedOrder(checkoutResult.order); void refreshOrders(); go("confirmation"); }} />
+                    <StripePaymentForm clientSecret={checkoutResult.client_secret} totalLabel={totalLabel} disabled={busy} onPaid={() => { setConfirmedOrder(checkoutResult.order); void refreshOrders(); go("confirmation"); }} />
                   </Elements>
                 ) : (
                   <p className="rsg-error">Stripe is not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.</p>
