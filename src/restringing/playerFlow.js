@@ -10,6 +10,28 @@ export const categoryLabel = (category) => ({
   prem_poly: "Premium Polyester",
 }[category] || "String");
 
+const titleizeStatus = (value) => cleanText(value)
+  .replace(/[_-]+/g, " ")
+  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+export const orderStatusLabel = (status) => ({
+  pending: "Pending drop-off",
+  dropped_off: "Dropped off",
+  in_progress: "Stringing",
+  ready_for_pickup: "Ready for pickup",
+  picked_up: "Picked up",
+  fulfilled: "Picked up",
+  cancelled: "Cancelled",
+}[cleanText(status).toLowerCase()] || titleizeStatus(status) || "Unknown");
+
+export const paymentStatusLabel = (status) => ({
+  unpaid: "Awaiting payment",
+  paid: "Paid",
+  refunded: "Refunded",
+  cancelled: "Cancelled",
+  payment_failed: "Payment failed",
+}[cleanText(status).toLowerCase()] || titleizeStatus(status) || "Unknown");
+
 export function recommendStringCategory(answers = {}) {
   const premium = answers.budget === "Best performance" || answers.premiumPreference === "premium";
   const arm = answers.arm || answers.armDiscomfort;
@@ -135,3 +157,31 @@ export function buildCheckoutItems({
 
 export const formatMoneyCents = (cents) =>
   `$${(Number(cents || 0) / 100).toFixed(2)}`;
+
+export function normalizePaymentMethods(payload) {
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.payment_methods)
+      ? payload.payment_methods
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : [];
+  const defaultId = payload?.default_payment_method_id || payload?.default_payment_method || null;
+
+  return rows
+    .filter((method) => method && method.id)
+    .map((method) => {
+      const card = method.card || {};
+      return {
+        id: String(method.id),
+        brand: cleanText(card.brand || method.brand || "card"),
+        last4: cleanText(card.last4 || method.last4 || ""),
+        expMonth: card.exp_month || method.exp_month || null,
+        expYear: card.exp_year || method.exp_year || null,
+        isDefault: Boolean(method.is_default || method.default || method.default_for_currency || method.id === defaultId),
+      };
+    })
+    .sort((left, right) => Number(right.isDefault) - Number(left.isDefault));
+}

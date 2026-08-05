@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronLeft,
+  ClipboardList,
   CreditCard,
   Home,
   LogOut,
@@ -48,6 +49,7 @@ const navItems = [
 
 const userMenuItems = [
   { label: "Restring Service", to: "/restring", icon: RefreshCw },
+  { label: "Restring orders", to: "/restring?screen=orders", icon: ClipboardList },
   { label: "My Leagues", to: "/leagues", icon: Trophy },
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },

@@ -4,6 +4,9 @@ import { test } from "node:test";
 import {
   buildCheckoutItems,
   lbsToKg,
+  normalizePaymentMethods,
+  orderStatusLabel,
+  paymentStatusLabel,
   recommendStringCategory,
 } from "./playerFlow.js";
 
@@ -72,4 +75,27 @@ test("different per racket produces one order item per racket", () => {
   assert.equal(items[1].racket_make_model, "Babolat Pure Aero");
   assert.equal(items[1].string_id, 22);
   assert.equal(items[1].notes, "blue grip");
+});
+
+test("normalizes saved payment method payloads with default first", () => {
+  const methods = normalizePaymentMethods({
+    data: [
+      { id: "pm_old", card: { brand: "visa", last4: "4242", exp_month: 1, exp_year: 2030 } },
+      { id: "pm_default", card: { brand: "mastercard", last4: "4444" } },
+    ],
+    default_payment_method_id: "pm_default",
+  });
+
+  assert.deepEqual(methods, [
+    { id: "pm_default", brand: "mastercard", last4: "4444", expMonth: null, expYear: null, isDefault: true },
+    { id: "pm_old", brand: "visa", last4: "4242", expMonth: 1, expYear: 2030, isDefault: false },
+  ]);
+});
+
+test("labels restringing order and payment statuses for players", () => {
+  assert.equal(orderStatusLabel("pending"), "Pending drop-off");
+  assert.equal(orderStatusLabel("ready_for_pickup"), "Ready for pickup");
+  assert.equal(orderStatusLabel("vendor_review"), "Vendor Review");
+  assert.equal(paymentStatusLabel("unpaid"), "Awaiting payment");
+  assert.equal(paymentStatusLabel("payment_failed"), "Payment failed");
 });

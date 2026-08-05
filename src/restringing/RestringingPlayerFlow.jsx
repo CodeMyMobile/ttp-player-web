@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
+import { useLocation } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
   ChevronLeft,
+  CreditCard,
   MapPin,
   MessageCircle,
   Minus,
@@ -22,6 +24,9 @@ import {
   formatMoneyCents,
   GAUGES,
   lbsToKg,
+  normalizePaymentMethods,
+  orderStatusLabel,
+  paymentStatusLabel,
   recommendStringCategory,
 } from "./playerFlow.js";
 import {
@@ -30,6 +35,7 @@ import {
   createCheckoutOrder,
   getVendorProfile,
   listMyOrders,
+  listSavedPaymentMethods,
   listServiceTiers,
   listVendorStrings,
   listVendors,
@@ -56,24 +62,6 @@ const defaultTiers = [
   { id: 5, name: "Restringing + Standard Polyester", price_cents: 4499, string_category: "std_poly" },
   { id: 6, name: "Restringing + Premium Polyester", price_cents: 4999, string_category: "prem_poly" },
 ];
-
-const statusLabel = {
-  pending: "Pending",
-  dropped_off: "Dropped off",
-  in_progress: "Stringing",
-  ready_for_pickup: "Ready",
-  picked_up: "Picked up",
-  fulfilled: "Picked up",
-  cancelled: "Cancelled",
-};
-
-const paymentLabel = {
-  unpaid: "Unpaid",
-  paid: "Paid",
-  refunded: "Refunded",
-  cancelled: "Cancelled",
-  payment_failed: "Payment failed",
-};
 
 const tierSub = (tier) => ({
   syn_gut: "Reliable all-rounder",
@@ -142,6 +130,7 @@ function StripePaymentForm({ totalLabel, onPaid, disabled }) {
 }
 
 export default function RestringingPlayerFlow() {
+  const location = useLocation();
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const authDrawer = useAuthDrawer();
   const [screen, setScreen] = useState("home");
@@ -177,6 +166,10 @@ export default function RestringingPlayerFlow() {
   const [perRacketItems, setPerRacketItems] = useState([]);
   const [checkoutResult, setCheckoutResult] = useState(null);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+  const [paymentChoice, setPaymentChoice] = useState("new");
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
 
   const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tierId, tiers]);
   const selectedString = useMemo(
@@ -218,6 +211,29 @@ export default function RestringingPlayerFlow() {
     }
   }, [isAuthenticated]);
 
+  const refreshPaymentMethods = useCallback(async () => {
+    if (!isAuthenticated) {
+      setPaymentMethods([]);
+      setSelectedPaymentMethodId("");
+      setPaymentChoice("new");
+      return;
+    }
+    setPaymentMethodsLoading(true);
+    try {
+      const rows = normalizePaymentMethods(await listSavedPaymentMethods());
+      setPaymentMethods(rows);
+      const defaultMethod = rows.find((method) => method.isDefault) || rows[0] || null;
+      setSelectedPaymentMethodId(defaultMethod?.id || "");
+      setPaymentChoice(defaultMethod ? "saved" : "new");
+    } catch {
+      setPaymentMethods([]);
+      setSelectedPaymentMethodId("");
+      setPaymentChoice("new");
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -244,6 +260,19 @@ export default function RestringingPlayerFlow() {
   useEffect(() => {
     void refreshOrders();
   }, [refreshOrders]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    if (params.get("screen") === "orders") {
+      setScreen("orders");
+      setHistory((items) => (items.length ? items : ["home"]));
+      void refreshOrders();
+    }
+  }, [location.search, refreshOrders]);
+
+  useEffect(() => {
+    void refreshPaymentMethods();
+  }, [refreshPaymentMethods]);
 
   useEffect(() => {
     if (!tier || !selectedVendor) return;
@@ -387,7 +416,7 @@ export default function RestringingPlayerFlow() {
     perRacketItems,
   });
 
-  const startCheckout = async () => {
+  const startCheckout = async (paymentMethodId = null) => {
     if (!isAuthenticated) {
       authDrawer.openAuth({
         mode: "signup",
@@ -403,9 +432,11 @@ export default function RestringingPlayerFlow() {
       const result = await createCheckoutOrder({
         vendorId: selectedVendor.id,
         items: buildItems(),
+        paymentMethodId,
       });
       setCheckoutResult(result);
       setConfirmedOrder(result.order);
+      return result;
     } catch (err) {
       if (err?.status === 401 || err?.status === 403) {
         logout?.();
@@ -417,6 +448,40 @@ export default function RestringingPlayerFlow() {
         return;
       }
       setError(err?.data?.detail || err.message || "Checkout failed.");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const payWithSavedMethod = async () => {
+    if (!selectedPaymentMethodId) {
+      setError("Choose a saved payment method first.");
+      return;
+    }
+    if (!stripePromise) {
+      setError("Stripe is not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.");
+      return;
+    }
+    const result = await startCheckout(selectedPaymentMethodId);
+    if (!result?.client_secret) return;
+    setBusy(true);
+    setError("");
+    try {
+      const stripe = await stripePromise;
+      if (!stripe) throw new Error("Stripe is not ready.");
+      const confirmation = await stripe.confirmCardPayment(result.client_secret, {
+        payment_method: selectedPaymentMethodId,
+      });
+      if (confirmation.error) {
+        setError(confirmation.error.message || "Payment could not be completed.");
+        return;
+      }
+      setConfirmedOrder(result.order);
+      await refreshOrders();
+      go("confirmation");
+    } catch (err) {
+      setError(err?.message || "Payment could not be completed.");
     } finally {
       setBusy(false);
     }
@@ -706,7 +771,44 @@ export default function RestringingPlayerFlow() {
             ) : (
               <section className="rsg-card">
                 {!checkoutResult ? (
-                  <button type="button" className="rsg-primary" disabled={busy} onClick={startCheckout}>{busy ? "Preparing payment..." : "Continue to payment"}</button>
+                  <>
+                    {paymentMethodsLoading ? <p>Loading saved payment methods...</p> : null}
+                    {paymentMethods.length ? (
+                      <>
+                        <span className="rsg-label">Payment method</span>
+                        <div className="rsg-pay-methods">
+                          {paymentMethods.map((method) => (
+                            <button
+                              key={method.id}
+                              type="button"
+                              className={`rsg-pay-method ${paymentChoice === "saved" && selectedPaymentMethodId === method.id ? "is-active" : ""}`}
+                              onClick={() => { setPaymentChoice("saved"); setSelectedPaymentMethodId(method.id); }}
+                            >
+                              <CreditCard size={18} />
+                              <span><b>{method.brand.toUpperCase()} {method.last4 ? `•••• ${method.last4}` : ""}</b><small>{method.isDefault ? "Default card" : "Saved card"}{method.expMonth && method.expYear ? ` · exp ${method.expMonth}/${method.expYear}` : ""}</small></span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            className={`rsg-pay-method ${paymentChoice === "new" ? "is-active" : ""}`}
+                            onClick={() => setPaymentChoice("new")}
+                          >
+                            <Plus size={18} />
+                            <span><b>Use a new card</b><small>Apple Pay, Google Pay, Link, or card</small></span>
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                    {paymentChoice === "saved" && paymentMethods.length ? (
+                      <button type="button" className="rsg-primary" disabled={busy || !selectedPaymentMethodId} onClick={payWithSavedMethod}>
+                        {busy ? "Processing..." : `Pay ${totalLabel}`}
+                      </button>
+                    ) : (
+                      <button type="button" className="rsg-primary" disabled={busy} onClick={() => void startCheckout()}>
+                        {busy ? "Preparing payment..." : "Continue to payment"}
+                      </button>
+                    )}
+                  </>
                 ) : stripePromise && checkoutResult.client_secret ? (
                   <Elements stripe={stripePromise} options={{ clientSecret: checkoutResult.client_secret, appearance: { theme: "stripe" } }}>
                     <StripePaymentForm totalLabel={totalLabel} disabled={busy} onPaid={() => { setConfirmedOrder(checkoutResult.order); void refreshOrders(); go("confirmation"); }} />
@@ -748,9 +850,9 @@ export default function RestringingPlayerFlow() {
               {orders.map((order) => (
                 <section className="rsg-card" key={order.id}>
                   <div className="rsg-order-head">
-                    <span className="rsg-pill">{statusLabel[order.fulfillment_status] || order.fulfillment_status}</span>
-                    <span className="rsg-pill">{paymentLabel[order.payment_status] || order.payment_status}</span>
                     <b>#{order.id}</b>
+                    <span className="rsg-status-pill"><small>Order</small>{orderStatusLabel(order.fulfillment_status || order.status)}</span>
+                    <span className="rsg-status-pill rsg-status-pill--payment"><small>Payment</small>{paymentStatusLabel(order.payment_status)}</span>
                   </div>
                   {(order.items || []).map((item) => <p key={item.id}>{item.racket_make_model}: {orderStringLine(item)}</p>)}
                   <p>{order.vendor_name} · {formatMoneyCents(order.total_cents)}</p>
@@ -783,7 +885,7 @@ export default function RestringingPlayerFlow() {
         .rsg-stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0}.rsg-stepper button{width:42px;height:42px;border-radius:999px;border:1px solid #e5e7eb;background:white}.rsg-stepper div{min-width:92px;text-align:center;border:1px solid #e5e7eb;border-radius:16px;padding:8px}.rsg-stepper b{display:block;font-size:24px}.rsg-stepper small{display:block;color:#6b7280}
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-review{border-top:1px solid #eef2f7;padding:10px 0}.rsg-review span{display:block;color:#f59e0b}
-        .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+        .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
       `}</style>
     </div>

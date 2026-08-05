@@ -27,12 +27,16 @@ export const captureVendorLead = (payload) =>
     json: payload,
   }));
 
-export const createCheckoutOrder = ({ vendorId, items }) =>
+export const listSavedPaymentMethods = () =>
+  unwrap(api("/player/stripe/payment_method_list"));
+
+export const createCheckoutOrder = ({ vendorId, items, paymentMethodId = null }) =>
   unwrap(api("/player/restringing/checkout", {
     method: "POST",
     json: {
       vendor_id: vendorId,
       items,
+      ...(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
     },
   }));
 
