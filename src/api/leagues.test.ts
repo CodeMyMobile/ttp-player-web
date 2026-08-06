@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getLeagueDetail,
   getLeagueMatchNeeds,
+  getLeaguePlayers,
   getLeagueRules,
   listLeagues,
   listMyLeagues,
@@ -62,6 +63,44 @@ test("getLeagueMatchNeeds sends scope=all query", async () => {
   }
 
   assert.match(requestedUrl, /\/leagues\/10\/match-needs\?scope=all$/);
+});
+
+test("getLeaguePlayers sends rated ladder filters", async () => {
+  const previousFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({
+      league: { id: 10, name: "West LA Ladder" },
+      players: [],
+      viewer_rank: 4,
+      viewer_rating: 7.179,
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const response = await getLeaguePlayers({
+      leagueId: 10,
+      token: "abc",
+      ratedOnly: true,
+      courtLocationId: 45,
+      nearLat: 34.05,
+      nearLng: -118.24,
+      radiusMiles: 10,
+      sort: "rating",
+    });
+    assert.equal(response.viewer_rank, 4);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  assert.match(
+    requestedUrl,
+    /\/leagues\/10\/players\?rated_only=true&court_location_id=45&near_lat=34\.05&near_lng=-118\.24&radius_miles=10&sort=rating$/,
+  );
 });
 
 test("league API exports stable browse path helpers", async () => {

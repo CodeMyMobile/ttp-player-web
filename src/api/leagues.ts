@@ -59,10 +59,29 @@ export interface LeaguePlayer {
   calculated_utr?: number | string | null;
   // Used only as the base for an estimated NTRP when no real value exists.
   rating_gender?: string | null;
+  is_estimate?: boolean | null;
+  rating_source?: string | null;
+  rating_delta_from_viewer?: number | string | null;
+  distance_miles?: number | string | null;
+  court_locations?: Array<{
+    id?: number | string | null;
+    location_id?: number | string | null;
+    location?: string | null;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+    location_type?: string | null;
+  }> | null;
   phone?: string | null;
   email?: string | null;
   membership_status?: string;
   [key: string]: unknown;
+}
+
+export interface LeaguePlayersResponse {
+  league: League;
+  players: LeaguePlayer[];
+  viewer_rank?: number | null;
+  viewer_rating?: number | string | null;
 }
 
 export interface LeagueResultOpponent {
@@ -366,15 +385,35 @@ export const getLeagueStandings = ({
 export const getLeaguePlayers = ({
   leagueId,
   token,
+  ratedOnly,
+  courtLocationId,
+  nearLat,
+  nearLng,
+  radiusMiles,
+  sort,
   signal,
 }: {
   leagueId: number | string;
   token?: string;
+  ratedOnly?: boolean;
+  courtLocationId?: number | string;
+  nearLat?: number;
+  nearLng?: number;
+  radiusMiles?: number;
+  sort?: "rating";
   signal?: AbortSignal;
 }) =>
-  request<{ league: League; players: LeaguePlayer[] }>(`/leagues/${leagueId}/players`, {
+  request<LeaguePlayersResponse>(`/leagues/${leagueId}/players`, {
     token,
     signal,
+    query: {
+      rated_only: ratedOnly || undefined,
+      court_location_id: courtLocationId,
+      near_lat: nearLat,
+      near_lng: nearLng,
+      radius_miles: radiusMiles,
+      sort,
+    },
   });
 
 export const getLeagueFixtures = ({
