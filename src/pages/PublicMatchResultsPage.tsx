@@ -39,6 +39,16 @@ export type Ranking = {
   calculated_utr?: string | number | null;
   rating_gender?: string | null;
   rating_leagues?: string | null;
+  primary_court?: string | null;
+  court_area?: string | null;
+  court_locations?: Array<{
+    id?: number | string | null;
+    location?: string | null;
+    area?: string | null;
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+    location_type?: string | null;
+  }> | null;
 };
 
 export type DecoratedRanking = Ranking & {
@@ -113,14 +123,14 @@ const estimateNtrp = (ranking: Ranking) =>
 const estimateUtr = (ranking: Ranking) =>
   deriveUtr(ranking.calculated_utr ?? ranking.uta_rating, ranking.current_rating).value ?? "-";
 
-const ratingLeagues = (ranking: Ranking) =>
-  String(ranking.rating_leagues || "").split(/\s+/).filter(Boolean);
-
 export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
   rankings
     .map((ranking) => {
       const seed = stableSeed(ranking);
-      const court = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
+      const fallbackCourt = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
+      const backendCourt = Array.isArray(ranking.court_locations) ? ranking.court_locations[0] : null;
+      const primaryCourt = ranking.primary_court || backendCourt?.location || fallbackCourt.name;
+      const courtArea = ranking.court_area || backendCourt?.area || fallbackCourt.area;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
       return {
@@ -130,8 +140,8 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         ratingLabel: formatRating(ratingNumber),
         ntrpLabel: estimateNtrp(ranking),
         utrLabel: estimateUtr(ranking),
-        primaryCourt: court.name,
-        courtArea: court.area,
+        primaryCourt,
+        courtArea,
         availability: [
           AVAILABILITY[seed % AVAILABILITY.length],
           AVAILABILITY[(seed + 2) % AVAILABILITY.length],
@@ -156,6 +166,16 @@ export const getSuggestedRankings = (
     .map(({ ranking }) => ranking);
 };
 
+export const filterRankingsByPlace = (
+  rankings: DecoratedRanking[],
+  filters: { area?: string; court?: string } = {},
+) =>
+  rankings.filter((ranking) => {
+    if (filters.area && ranking.courtArea !== filters.area) return false;
+    if (filters.court && ranking.primaryCourt !== filters.court) return false;
+    return true;
+  });
+
 export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent: ConnectIntent } => ({
   connectIntent: {
     invitee: {
@@ -171,9 +191,6 @@ export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent:
   },
 });
 
-const matchesLeague = (ranking: Ranking, league: string) =>
-  league === "all" || ratingLeagues(ranking).includes(league);
-
 const displayChange = (value: unknown) => {
   const parsed = toNumber(value);
   if (parsed === null || Math.abs(parsed) < 0.001) return { label: "0.000", tone: "text-slate-400", icon: null };
@@ -182,20 +199,6 @@ const displayChange = (value: unknown) => {
     tone: parsed > 0 ? "text-emerald-600" : "text-rose-600",
     icon: parsed > 0 ? "up" : "down",
   };
-};
-
-const leagueLabel = (league: string) => {
-  const labels: Record<string, string> = {
-    sum45: "Summer 4.5",
-    sum35: "Summer 3.5",
-    "4.25": "Spring 4.25",
-    s40: "Spring 4.0",
-    s35: "Spring 3.5",
-    w35: "Women's 3.5",
-    Winter: "Winter",
-    m: "Multi-league",
-  };
-  return labels[league] || league;
 };
 
 const clickOnKeyboard = (event: React.KeyboardEvent, action: () => void) => {
@@ -209,12 +212,9 @@ export default function PublicMatchResultsPage() {
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [gender, setGender] = useState<"all" | "M" | "F">("all");
-  const [league, setLeague] = useState("all");
   const [search, setSearch] = useState("");
-  const [nearLevelOnly, setNearLevelOnly] = useState(true);
-  const [myCourtsOnly, setMyCourtsOnly] = useState(false);
-  const [activeOnly, setActiveOnly] = useState(false);
+  const [areaFilter, setAreaFilter] = useState("");
+  const [courtFilter, setCourtFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -252,24 +252,26 @@ export default function PublicMatchResultsPage() {
     [decorated, selectedId],
   );
 
-  const leagues = useMemo(() => {
-    const found = new Set<string>();
-    rankings.forEach((ranking) => ratingLeagues(ranking).forEach((tag) => found.add(tag)));
-    return [...found].sort();
-  }, [rankings]);
+  const areas = useMemo(
+    () => Array.from(new Set(decorated.map((ranking) => ranking.courtArea))).sort(),
+    [decorated],
+  );
+  const courts = useMemo(
+    () => Array.from(new Set(
+      decorated
+        .filter((ranking) => !areaFilter || ranking.courtArea === areaFilter)
+        .map((ranking) => ranking.primaryCourt),
+    )).sort(),
+    [areaFilter, decorated],
+  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return decorated.filter((ranking) => {
-      if (gender !== "all" && ranking.rating_gender !== gender) return false;
-      if (!matchesLeague(ranking, league)) return false;
+    return filterRankingsByPlace(decorated, { area: areaFilter, court: courtFilter }).filter((ranking) => {
       if (query && !ranking.full_name.toLowerCase().includes(query)) return false;
-      if (activeOnly && Number(ranking.matches_played || 0) <= 0) return false;
-      if (viewer && nearLevelOnly && Math.abs(ranking.ratingNumber - viewer.ratingNumber) > 0.45) return false;
-      if (viewer && myCourtsOnly && ranking.primaryCourt !== viewer.primaryCourt) return false;
       return true;
     });
-  }, [activeOnly, decorated, gender, league, myCourtsOnly, nearLevelOnly, search, viewer]);
+  }, [areaFilter, courtFilter, decorated, search]);
 
   const suggestions = useMemo(() => getSuggestedRankings(decorated, viewer, 3), [decorated, viewer]);
 
@@ -319,31 +321,34 @@ export default function PublicMatchResultsPage() {
           </section>
 
           <section className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <Pill active={nearLevelOnly} onClick={() => setNearLevelOnly((value) => !value)}>
-                Near my level
-              </Pill>
-              <Pill active={false} onClick={() => setNearLevelOnly(false)}>
-                All levels
-              </Pill>
-              <span className="mx-1 h-6 w-px bg-slate-100" />
-              <Pill active={myCourtsOnly} onClick={() => setMyCourtsOnly((value) => !value)}>
-                My courts
-              </Pill>
-              <Pill active={false} onClick={() => setMyCourtsOnly(false)}>
-                Any court
-              </Pill>
-              <span className="mx-1 h-6 w-px bg-slate-100" />
-              <Pill active={activeOnly} onClick={() => setActiveOnly((value) => !value)}>
-                Has results
-              </Pill>
-              <Pill active={gender === "M"} onClick={() => setGender(gender === "M" ? "all" : "M")}>Men</Pill>
-              <Pill active={gender === "F"} onClick={() => setGender(gender === "F" ? "all" : "F")}>Women</Pill>
-              {leagues.slice(0, 4).map((tag) => (
-                <Pill key={tag} active={league === tag} onClick={() => setLeague(league === tag ? "all" : tag)}>
-                  {leagueLabel(tag)}
-                </Pill>
-              ))}
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <FilterSelect
+                label="Location"
+                value={areaFilter}
+                onChange={(value) => {
+                  setAreaFilter(value);
+                  setCourtFilter("");
+                }}
+                options={areas}
+                allLabel="All locations"
+              />
+              <FilterSelect
+                label="Court"
+                value={courtFilter}
+                onChange={setCourtFilter}
+                options={courts}
+                allLabel="All courts"
+              />
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
+                onClick={() => {
+                  setAreaFilter("");
+                  setCourtFilter("");
+                }}
+              >
+                Reset
+              </button>
             </div>
           </section>
 
@@ -468,19 +473,33 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
   );
 }
 
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  allLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  allLabel: string;
+}) {
   return (
-    <button
-      type="button"
-      className={`rounded-full border px-3.5 py-2 text-xs font-black transition ${
-        active
-          ? "border-violet-500 bg-violet-50 text-violet-700"
-          : "border-slate-200 bg-white text-slate-500 hover:border-violet-300 hover:text-violet-700"
-      }`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
+      >
+        <option value="">{allLabel}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
