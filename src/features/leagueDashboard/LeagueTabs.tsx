@@ -13,6 +13,7 @@ import Icon from "./Icon";
 import type { LeagueData, StandingRow, TabKey } from "./types";
 
 const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: "ladder", label: "Ladder" },
   { key: "standings", label: "Standings" },
   { key: "players", label: "Players" },
   { key: "results", label: "Results" },
@@ -51,6 +52,7 @@ interface LeagueTabsProps {
   activeTab: TabKey;
   onTabChange: (tab: TabKey) => void;
   onSchedule: (pendingId: string) => void;
+  onChallenge?: (playerId: string) => void;
   // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
   // render only the active panel (avoids showing two tab strips).
   hideTabBar?: boolean;
@@ -60,7 +62,7 @@ interface LeagueTabsProps {
 const contactHref = (contact: string) =>
   contact.includes("@") ? `mailto:${contact}` : `sms:${contact.replace(/[^\d+]/g, "")}`;
 
-const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, hideTabBar }: LeagueTabsProps) => (
+const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hideTabBar }: LeagueTabsProps) => (
   <>
     {hideTabBar ? null : (
       <div className="tabs" role="tablist" aria-label="League detail">
@@ -78,6 +80,51 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, hideTabBar }: Le
         ))}
       </div>
     )}
+
+    {activeTab === "ladder" ? (
+      <section className="panel card ladder-panel">
+        <div className="ladder-head">
+          <div>
+            <div className="eyebrow">Rated players</div>
+            <h2>League ladder</h2>
+          </div>
+          <span>{data.ladder.length} rated</span>
+        </div>
+        {data.ladder.length ? (
+          <div className="ladder-list">
+            {data.ladder.map((row) => (
+              <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
+                <span className="ladder-rank">#{row.rank}</span>
+                <span className="av">{row.initials}</span>
+                <div className="ladder-player">
+                  <div className="pl">
+                    <span className="pl-nm">{row.name}</span>
+                    {row.isViewer ? <span className="you-tag">you</span> : null}
+                  </div>
+                  <div className="rt">
+                    {row.ratingType} {row.ratingLabel}
+                    {row.ntrpLabel !== "-" && row.ratingType !== "NTRP" ? ` · NTRP ${row.ntrpLabel}` : ""}
+                    {row.utrLabel !== "-" && row.ratingType !== "UTR" ? ` · UTR ${row.utrLabel}` : ""}
+                    {row.ratingBadge ? ` · ${row.ratingBadge}` : ""}
+                  </div>
+                </div>
+                <span className={recordClass(row.wins, row.losses)}>{row.recordLabel}</span>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={row.isViewer}
+                  onClick={() => onChallenge?.(row.playerId)}
+                >
+                  Challenge
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="list-empty">No rated players yet.</div>
+        )}
+      </section>
+    ) : null}
 
     {activeTab === "standings" ? (
       <section className="panel card">

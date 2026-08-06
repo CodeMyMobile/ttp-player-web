@@ -604,9 +604,22 @@ const LeagueDetailPage = () => {
       getLeagueMatchNeeds({ leagueId: id, token, scope: "all", signal: controller.signal }),
     ])
       .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse, allNeedsResponse]) => {
+        const standingsPlayers = (standingsResponse.standings ?? []).map((row) => ({
+          player_id: row.player_id,
+          full_name: row.full_name,
+          current_rating: row.current_rating,
+          usta_rating: row.usta_rating,
+          uta_rating: row.uta_rating,
+          calculated_ntrp: row.calculated_ntrp,
+          calculated_utr: row.calculated_utr,
+          is_estimate: row.is_estimate,
+          rating_gender: row.rating_gender,
+          matches_played: row.matches_played,
+          rating_source: row.matches_played > 0 ? "results" : row.is_estimate ? "self_rated" : null,
+        }));
         setLeague(standingsResponse.league ?? playersResponse.league);
         setStandings(standingsResponse.standings ?? []);
-        setPlayers(playersResponse.players ?? []);
+        setPlayers((playersResponse.players?.length ? playersResponse.players : standingsPlayers) as LeaguePlayer[]);
         setResults(resultsResponse.fixtures ?? []);
         setPending(pendingResponse.fixtures ?? []);
         setMatchNeeds(needsResponse.myNeeds ?? []);

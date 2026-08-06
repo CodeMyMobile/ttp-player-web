@@ -5,6 +5,7 @@
 // without any component changes — the hooks are the only seam that would swap.
 
 import type { NextMoveContext } from "./nextMove";
+import type { LeagueLadderRow } from "../../pages/leagueLadder";
 
 // Re-export the next-move contract so consumers import everything from one place.
 export type {
@@ -26,7 +27,7 @@ export type {
  *  gray   = inactive / archived / no action needed */
 export type StatusTone = "amber" | "green" | "violet" | "gray";
 
-export type TabKey = "standings" | "players" | "results" | "pending";
+export type TabKey = "ladder" | "standings" | "players" | "results" | "pending";
 
 export interface LeagueStatus {
   label: string;
@@ -159,6 +160,7 @@ export interface ViewerHero {
 export interface LeagueData {
   summary: LeagueSummary;
   standings: StandingRow[];
+  ladder: LeagueLadderRow[];
   roster: RosterPlayer[];
   results: ResultRow[];
   pending: PendingRow[];

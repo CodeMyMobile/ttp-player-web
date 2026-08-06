@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import MainLayout from "../../components/MainLayout";
+import { buildLeagueChallengeState } from "../../pages/leagueLadder";
 import ActionSlot from "./ActionSlot";
 import Hero from "./Hero";
 import Icon from "./Icon";
@@ -33,7 +34,7 @@ const LeagueDashboardPage = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data, hero, nextMove, leagues, loading, error } = useLeagueDashboard(id);
-  const [activeTab, setActiveTab] = useState<TabKey>("standings");
+  const [activeTab, setActiveTab] = useState<TabKey>("ladder");
   // Mobile section state (Overview + the four data tabs). Kept separate from the
   // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
   const [section, setSection] = useState<SectionKey>("overview");
@@ -57,7 +58,7 @@ const LeagueDashboardPage = () => {
 
   // Reset to the default tab/section whenever the active league changes.
   useEffect(() => {
-    setActiveTab("standings");
+    setActiveTab("ladder");
     setSection("overview");
   }, [data?.summary.id]);
 
@@ -84,6 +85,17 @@ const LeagueDashboardPage = () => {
   // so recording a result from the dashboard mirrors the global Log a Score entry.
   const goLogScore = () =>
     navigate("/log-result", { state: { matchType: "league", leagueId: id } });
+
+  const goChallenge = (playerId: string) => {
+    const row = data?.ladder.find((item) => item.playerId === playerId);
+    if (!row || row.isViewer) return;
+    navigate("/matches/create", {
+      state: buildLeagueChallengeState({
+        row,
+        leagueName: data?.summary.name,
+      }),
+    });
+  };
 
   const handleNextMove = (target: NextMoveTarget) => {
     switch (target) {
@@ -196,6 +208,7 @@ const LeagueDashboardPage = () => {
                         activeTab={section as TabKey}
                         onTabChange={setSection}
                         onSchedule={() => goPostAvailability()}
+                        onChallenge={goChallenge}
                         hideTabBar
                       />
                     </div>
@@ -273,6 +286,7 @@ const LeagueDashboardPage = () => {
                     activeTab={activeTab}
                     onTabChange={setActiveTab}
                     onSchedule={() => goPostAvailability()}
+                    onChallenge={goChallenge}
                   />
                 </>
               )}

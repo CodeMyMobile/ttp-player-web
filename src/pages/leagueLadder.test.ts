@@ -43,29 +43,40 @@ const players = [
     full_name: "Unrated Player",
     current_rating: null,
   },
+  {
+    player_id: 210,
+    full_name: "Player25",
+    current_rating: null,
+    usta_rating: "5.0",
+    uta_rating: "5.0",
+    self_rating_source: "player",
+  },
 ];
 
 const standings = [
   { player_id: 4, wins: 2, losses: 1 },
   { player_id: 3, wins: 7, losses: 3 },
   { player_id: 5, wins: 3, losses: 0 },
+  { player_id: 210, wins: 0, losses: 0 },
 ];
 
-test("buildLeagueLadderRows ranks only rated players by rating", () => {
+test("buildLeagueLadderRows ranks players with TRP or self-entered ratings", () => {
   const rows = buildLeagueLadderRows({ players, standings, viewerId: 4 });
 
-  assert.deepEqual(rows.map((row) => row.playerId), ["3", "4", "5"]);
+  assert.deepEqual(rows.map((row) => row.playerId), ["3", "4", "5", "210"]);
   assert.equal(rows[0]?.rank, 1);
   assert.equal(rows[1]?.isViewer, true);
   assert.equal(rows[1]?.recordLabel, "2-1");
   assert.equal(rows[0]?.ratingBadge, "Estimated");
+  assert.equal(rows[3]?.ratingLabel, "5.0");
+  assert.equal(rows[3]?.ratingType, "NTRP");
 });
 
 test("buildSuggestedChallengeRows picks nearby non-viewer opponents", () => {
   const rows = buildLeagueLadderRows({ players, standings, viewerId: 4 });
   const suggested = buildSuggestedChallengeRows(rows, "4");
 
-  assert.deepEqual(suggested.map((row) => row.playerId), ["3", "5"]);
+  assert.deepEqual(suggested.map((row) => row.playerId), ["3", "5", "210"]);
   assert.equal(suggested[0]?.suggestionReason, "0.012 above you");
   assert.equal(suggested[1]?.suggestionReason, "0.034 below you");
 });

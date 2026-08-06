@@ -8,6 +8,7 @@ export interface LeagueLadderRow {
   rank: number;
   rating: number;
   ratingLabel: string;
+  ratingType: "TRP" | "NTRP" | "UTR";
   ntrpLabel: string;
   utrLabel: string;
   recordLabel: string;
@@ -32,6 +33,16 @@ const numeric = (value: unknown): number | null => {
 const formatFixed = (value: unknown, digits: number) => {
   const parsed = numeric(value);
   return parsed === null ? "-" : parsed.toFixed(digits);
+};
+
+const displayRating = (player: LeaguePlayer) => {
+  const trp = numeric(player.current_rating);
+  if (trp !== null) return { rating: trp, ratingType: "TRP" as const, ratingLabel: trp.toFixed(3) };
+  const ntrp = numeric(player.calculated_ntrp ?? player.usta_rating);
+  if (ntrp !== null) return { rating: ntrp, ratingType: "NTRP" as const, ratingLabel: ntrp.toFixed(1) };
+  const utr = numeric(player.calculated_utr ?? player.uta_rating);
+  if (utr !== null) return { rating: utr, ratingType: "UTR" as const, ratingLabel: utr.toFixed(1) };
+  return null;
 };
 
 const initials = (name: string) => {
@@ -89,7 +100,7 @@ export const buildLeagueLadderRows = ({
 
   return players
     .map((player) => {
-      const rating = numeric(player.current_rating);
+      const rating = displayRating(player);
       if (rating === null) return null;
       const playerId = String(player.player_id);
       const name = player.full_name || `Player ${playerId}`;
@@ -101,8 +112,9 @@ export const buildLeagueLadderRows = ({
         name,
         initials: initials(name),
         rank: 0,
-        rating,
-        ratingLabel: rating.toFixed(3),
+        rating: rating.rating,
+        ratingLabel: rating.ratingLabel,
+        ratingType: rating.ratingType,
         ntrpLabel: formatFixed(player.calculated_ntrp ?? player.usta_rating, 2),
         utrLabel: formatFixed(player.calculated_utr ?? player.uta_rating, 1),
         recordLabel: `${record.wins}-${record.losses}`,
@@ -137,7 +149,7 @@ export const buildSuggestedChallengeRows = (
       const delta = row.rating - viewer.rating;
       return {
         ...row,
-        suggestionReason: `${Math.abs(delta).toFixed(3)} ${delta >= 0 ? "above" : "below"} you`,
+        suggestionReason: `${Math.abs(delta).toFixed(row.ratingType === "TRP" && viewer.ratingType === "TRP" ? 3 : 1)} ${delta >= 0 ? "above" : "below"} you`,
       };
     })
     .sort((a, b) => Math.abs(a.rating - viewer.rating) - Math.abs(b.rating - viewer.rating))
@@ -155,9 +167,9 @@ export const buildLeagueChallengeState = ({
     invitee: {
       id: row.playerId,
       name: row.name,
-      level: `TRP ${row.ratingLabel}`,
+      level: `${row.ratingType} ${row.ratingLabel}`,
     },
-    senderLevel: `TRP ${row.ratingLabel}`,
+    senderLevel: `${row.ratingType} ${row.ratingLabel}`,
     suggestedAvailability: [],
     preferredCourt: row.courtLabels[0] ?? null,
     source: "league-ladder",
