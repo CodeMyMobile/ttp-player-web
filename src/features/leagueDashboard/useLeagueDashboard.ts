@@ -32,6 +32,7 @@ import {
   formatLeagueTime,
   isFutureLeagueItem,
 } from "../../pages/leagueDetailTime";
+import { buildLeagueLadderRows } from "../../pages/leagueLadder";
 import { orientScore } from "../../pages/leagueScore";
 import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
 import { computeNextMove } from "./nextMove";
@@ -309,6 +310,21 @@ const buildDashboard = (
       ...(matchesViewer(viewer, row.player_id, row.full_name) ? { isYou: true } : {}),
     };
   });
+
+  const ladderPlayers = players.length ? players : standings.map((row) => ({
+    player_id: row.player_id,
+    full_name: row.full_name,
+    current_rating: row.current_rating,
+    usta_rating: row.usta_rating,
+    uta_rating: row.uta_rating,
+    calculated_ntrp: row.calculated_ntrp,
+    calculated_utr: row.calculated_utr,
+    is_estimate: row.is_estimate,
+    rating_gender: row.rating_gender,
+    matches_played: row.matches_played,
+    rating_source: row.matches_played > 0 ? "results" : row.is_estimate ? "self_rated" : null,
+  }));
+  const ladder = buildLeagueLadderRows({ players: ladderPlayers, standings, viewerId });
 
   // Roster.
   const roster: RosterPlayer[] = players.map((player) => {
@@ -595,6 +611,7 @@ const buildDashboard = (
   const data: LeagueData = {
     summary,
     standings: standingRows,
+    ladder,
     roster,
     results,
     pending: pendingRows,

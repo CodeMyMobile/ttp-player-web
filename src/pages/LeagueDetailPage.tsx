@@ -7,11 +7,13 @@ import {
   ChevronLeft,
   Clock,
   Info,
-  Mail,
   MapPin,
-  Phone,
+  Search,
   Share2,
   Star,
+  Swords,
+  Target,
+  TrendingUp,
   Trophy,
   Users,
   X,
@@ -57,6 +59,12 @@ import {
 } from "./leagueDetailTime";
 import { getLeagueCardVariant } from "./leagueBrowse";
 import { requiresLeagueAuthPrompt } from "./leagueAuthGate";
+import {
+  type LeagueLadderRow,
+  buildLeagueChallengeState,
+  buildLeagueLadderRows,
+  buildSuggestedChallengeRows,
+} from "./leagueLadder";
 import { orientScore } from "./leagueScore";
 
 import "./LeaguesPage.css";
@@ -66,7 +74,7 @@ type NeedFlowStep = "idle" | "precheck" | "accept" | "invite";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
-  { key: "players", label: "Players" },
+  { key: "players", label: "Ladder" },
   { key: "results", label: "Results" },
   { key: "pending", label: "Pending" },
 ];
@@ -451,6 +459,8 @@ const LeagueDetailPage = () => {
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<LeagueStanding[]>([]);
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
+  const [ladderSearch, setLadderSearch] = useState("");
+  const [selectedLadderPlayerId, setSelectedLadderPlayerId] = useState<string | null>(null);
   const [results, setResults] = useState<LeagueFixture[]>([]);
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
@@ -572,19 +582,44 @@ const LeagueDetailPage = () => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    const venueLat = Number(detail?.league?.venue_latitude);
+    const venueLng = Number(detail?.league?.venue_longitude);
+    const hasVenueCoordinates = Number.isFinite(venueLat) && Number.isFinite(venueLng);
 
     Promise.all([
       getLeagueStandings({ leagueId: id, token, signal: controller.signal }),
-      getLeaguePlayers({ leagueId: id, token, signal: controller.signal }),
+      getLeaguePlayers({
+        leagueId: id,
+        token,
+        ratedOnly: true,
+        sort: "rating",
+        nearLat: hasVenueCoordinates ? venueLat : undefined,
+        nearLng: hasVenueCoordinates ? venueLng : undefined,
+        radiusMiles: hasVenueCoordinates ? 10 : undefined,
+        signal: controller.signal,
+      }),
       getLeagueFixtures({ leagueId: id, token, status: "confirmed", signal: controller.signal }),
       getLeagueFixtures({ leagueId: id, token, status: "scheduled", mine: true, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId: id, token, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId: id, token, scope: "all", signal: controller.signal }),
     ])
       .then(([standingsResponse, playersResponse, resultsResponse, pendingResponse, needsResponse, allNeedsResponse]) => {
+        const standingsPlayers = (standingsResponse.standings ?? []).map((row) => ({
+          player_id: row.player_id,
+          full_name: row.full_name,
+          current_rating: row.current_rating,
+          usta_rating: row.usta_rating,
+          uta_rating: row.uta_rating,
+          calculated_ntrp: row.calculated_ntrp,
+          calculated_utr: row.calculated_utr,
+          is_estimate: row.is_estimate,
+          rating_gender: row.rating_gender,
+          matches_played: row.matches_played,
+          rating_source: row.matches_played > 0 ? "results" : row.is_estimate ? "self_rated" : null,
+        }));
         setLeague(standingsResponse.league ?? playersResponse.league);
         setStandings(standingsResponse.standings ?? []);
-        setPlayers(playersResponse.players ?? []);
+        setPlayers((playersResponse.players?.length ? playersResponse.players : standingsPlayers) as LeaguePlayer[]);
         setResults(resultsResponse.fixtures ?? []);
         setPending(pendingResponse.fixtures ?? []);
         setMatchNeeds(needsResponse.myNeeds ?? []);
@@ -601,7 +636,7 @@ const LeagueDetailPage = () => {
       });
 
     return () => controller.abort();
-  }, [id, token, isAuthenticated, isMember]);
+  }, [id, token, isAuthenticated, isMember, detail?.league?.venue_latitude, detail?.league?.venue_longitude]);
 
   const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
@@ -622,6 +657,18 @@ const LeagueDetailPage = () => {
     standings.forEach((row) => map.set(String(row.player_id), { wins: row.wins, losses: row.losses }));
     return map;
   }, [standings]);
+  const ladderRows = useMemo(
+    () => buildLeagueLadderRows({ players, standings, viewerId: userId, search: ladderSearch }),
+    [players, standings, userId, ladderSearch],
+  );
+  const suggestedLadderRows = useMemo(
+    () => buildSuggestedChallengeRows(ladderRows, userId, 3),
+    [ladderRows, userId],
+  );
+  const selectedLadderPlayer = useMemo(
+    () => ladderRows.find((row) => row.playerId === selectedLadderPlayerId) ?? suggestedLadderRows[0] ?? ladderRows[0] ?? null,
+    [ladderRows, selectedLadderPlayerId, suggestedLadderRows],
+  );
   const futureSuggestions = useMemo(() => suggestions.filter(isFutureLeagueItem), [suggestions]);
   const futureNeeds = useMemo(() => allNeeds.filter(isFutureLeagueItem), [allNeeds]);
   const allNeedsCount = futureNeeds.length;
@@ -674,6 +721,17 @@ const LeagueDetailPage = () => {
       const opponentId = String(fixture.player1_id) === String(userId) ? fixture.player2_id : fixture.player1_id;
       setSelectedInviteIds(opponentId != null ? [opponentId] : []);
       openNeedDrawer();
+    });
+  };
+
+  const challengeLadderPlayer = (row: LeagueLadderRow) => {
+    requireLeagueAuth(() => {
+      navigate("/matches/create", {
+        state: buildLeagueChallengeState({
+          row,
+          leagueName: league?.name,
+        }),
+      });
     });
   };
 
@@ -1318,43 +1376,146 @@ const LeagueDetailPage = () => {
         ) : null}
 
         {!showNeedFlow && !loading && !error && activeTab === "players" ? (
-          <div className="league-table-wrap">
-            <table className="league-table league-table--players">
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>TRP</th>
-                  <th>NTRP</th>
-                  <th>UTR</th>
-                  <th>Contact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((player) => (
-                  <tr key={player.player_id}>
-                    <td>
-                      {player.phone ? (
-                        <a className="league-player-link" href={`sms:${player.phone}`}>{displayValue(player.full_name)}</a>
-                      ) : (
-                        displayValue(player.full_name)
-                      )}
-                    </td>
-                    <td className="league-table__rating">{formatTrp(player.current_rating) ?? "-"}</td>
-                    <td>{displayValue(player.usta_rating)}</td>
-                    <td>{displayValue(player.uta_rating)}</td>
-                    <td>
-                      <div className="league-contact">
-                        {player.phone ? <a href={`tel:${player.phone}`}><Phone size={13} />{player.phone}</a> : null}
-                        {player.email ? <a href={`mailto:${player.email}`}><Mail size={13} />{player.email}</a> : null}
-                        {!player.phone && !player.email ? "-" : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!players.length ? <div className="league-detail__empty">No active players yet.</div> : null}
-          </div>
+          <section className="league-ladder" aria-label="League ladder">
+            <div className="league-ladder__filters" aria-label="Ladder filters">
+              <span className="league-ladder__pill league-ladder__pill--active"><Target size={14} /> Rated players</span>
+              <span className="league-ladder__pill league-ladder__pill--active"><MapPin size={14} /> Any listed court</span>
+              <span className="league-ladder__pill"><TrendingUp size={14} /> Near my level</span>
+            </div>
+
+            {suggestedLadderRows.length ? (
+              <>
+                <div className="league-ladder__label">Suggested for you</div>
+                <div className="league-ladder__suggested">
+                  {suggestedLadderRows.map((row) => (
+                    <article className="league-ladder-suggestion" key={row.playerId}>
+                      <button
+                        type="button"
+                        className="league-ladder-suggestion__main"
+                        onClick={() => setSelectedLadderPlayerId(row.playerId)}
+                      >
+                        <span className="league-ladder__avatar">{row.initials}</span>
+                        <span>
+                          <strong>{row.name}</strong>
+                          <em>#{row.rank} · TRP {row.ratingLabel}</em>
+                        </span>
+                      </button>
+                      <p>{row.suggestionReason || (row.courtLabels[0] ? `Plays ${row.courtLabels[0]}` : "Close ladder opponent")}</p>
+                      <button type="button" className="league-ladder__challenge" onClick={() => challengeLadderPlayer(row)}>
+                        <Swords size={14} /> Challenge
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            <div className="league-ladder__grid">
+              <div className="league-ladder-card">
+                <div className="league-ladder-card__head">
+                  <div>
+                    <h2><Trophy size={17} /> Ladder</h2>
+                    <p>{ladderRows.length} rated player{ladderRows.length === 1 ? "" : "s"}</p>
+                  </div>
+                  <label className="league-ladder-search" htmlFor="league-ladder-search">
+                    <Search size={15} />
+                    <input
+                      id="league-ladder-search"
+                      type="search"
+                      placeholder="Search player"
+                      value={ladderSearch}
+                      onChange={(event) => setLadderSearch(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div className="league-ladder-table" role="table" aria-label="Rated league players">
+                  <div className="league-ladder-row league-ladder-row--head" role="row">
+                    <span>#</span>
+                    <span>Player</span>
+                    <span>Rating</span>
+                    <span>NTRP</span>
+                    <span>W-L</span>
+                    <span />
+                  </div>
+                  {ladderRows.map((row) => (
+                    <div
+                      className={`league-ladder-row${row.isViewer ? " league-ladder-row--you" : ""}${selectedLadderPlayer?.playerId === row.playerId ? " league-ladder-row--selected" : ""}`}
+                      key={row.playerId}
+                      onClick={() => setSelectedLadderPlayerId(row.playerId)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedLadderPlayerId(row.playerId);
+                        }
+                      }}
+                      role="row"
+                      tabIndex={0}
+                    >
+                      <span className="league-ladder-row__rank">{row.rank}</span>
+                      <span className="league-ladder-player">
+                        <span className="league-ladder__avatar">{row.initials}</span>
+                        <span>
+                          <strong>{row.name}{row.isViewer ? <em className="league-ladder__you">You</em> : null}</strong>
+                          <small>{[row.courtLabels[0], row.distanceLabel].filter(Boolean).join(" · ") || row.ratingSource || "League player"}</small>
+                        </span>
+                      </span>
+                      <span className="league-ladder__rating">{row.ratingLabel}</span>
+                      <span className="league-ladder__ntrp">{row.ntrpLabel}</span>
+                      <span className="league-ladder__record">{row.recordLabel}</span>
+                      <span className="league-ladder-row__action">
+                        {row.isViewer ? (
+                          <span className="league-ladder__pending">Your rank</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="league-ladder__challenge"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              challengeLadderPlayer(row);
+                            }}
+                          >
+                            <Swords size={14} /> Challenge
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {!ladderRows.length ? <div className="league-detail__empty">No rated players yet.</div> : null}
+              </div>
+
+              {selectedLadderPlayer ? (
+                <aside className="league-ladder-profile">
+                  <div className="league-ladder-profile__top">
+                    <span className="league-ladder__avatar league-ladder__avatar--lg">{selectedLadderPlayer.initials}</span>
+                    <div>
+                      <h2>{selectedLadderPlayer.name}</h2>
+                      <p>Rank #{selectedLadderPlayer.rank} · TRP {selectedLadderPlayer.ratingLabel}</p>
+                    </div>
+                  </div>
+                  <div className="league-ladder-profile__stats">
+                    <span><em>Rating</em><strong>{selectedLadderPlayer.ratingLabel}</strong></span>
+                    <span><em>NTRP</em><strong>{selectedLadderPlayer.ntrpLabel}</strong></span>
+                    <span><em>UTR</em><strong>{selectedLadderPlayer.utrLabel}</strong></span>
+                    <span><em>Record</em><strong>{selectedLadderPlayer.recordLabel}</strong></span>
+                  </div>
+                  <div className="league-ladder-profile__chips">
+                    {selectedLadderPlayer.ratingBadge ? <span>{selectedLadderPlayer.ratingBadge}</span> : null}
+                    {selectedLadderPlayer.ratingSource ? <span>{selectedLadderPlayer.ratingSource}</span> : null}
+                    {selectedLadderPlayer.courtLabels.map((label) => <span key={label}><MapPin size={13} /> {label}</span>)}
+                  </div>
+                  {!selectedLadderPlayer.isViewer ? (
+                    <button type="button" className="league-ladder-profile__cta" onClick={() => challengeLadderPlayer(selectedLadderPlayer)}>
+                      <Swords size={15} /> Challenge with private match
+                    </button>
+                  ) : (
+                    <p className="league-ladder-profile__note">This is where you stack up against nearby rated players.</p>
+                  )}
+                </aside>
+              ) : null}
+            </div>
+          </section>
         ) : null}
 
         {!showNeedFlow && !loading && !error && activeTab === "results" ? (

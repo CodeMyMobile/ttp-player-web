@@ -10,11 +10,12 @@ import { useRef } from "react";
 
 import type { TabKey } from "./types";
 
-// Local key adds the "overview" activation section alongside the four data tabs.
+// Local key adds the "overview" activation section alongside the data tabs.
 export type SectionKey = "overview" | TabKey;
 
 const SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "overview", label: "Overview" },
+  { key: "ladder", label: "Ladder" },
   { key: "standings", label: "Standings" },
   { key: "players", label: "Players" },
   { key: "results", label: "Results" },
