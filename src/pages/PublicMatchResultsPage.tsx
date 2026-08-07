@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Autocomplete from "react-google-autocomplete";
 import {
   Activity,
   ArrowDown,
@@ -49,6 +50,7 @@ export type Ranking = {
     longitude?: string | number | null;
     location_type?: string | null;
   }> | null;
+  distance_miles?: number | string | null;
 };
 
 export type DecoratedRanking = Ranking & {
@@ -62,6 +64,14 @@ export type DecoratedRanking = Ranking & {
   availability: string[];
   avatarClass: string;
   avatarToneClass: string;
+  distanceMiles: number | null;
+  distanceLabel: string | null;
+};
+
+export type RankingsUrlFilters = {
+  nearLat?: number | null;
+  nearLng?: number | null;
+  radiusMiles?: number | null;
 };
 
 const WEST_LA_COURTS = [
@@ -110,6 +120,27 @@ const formatRating = (value: unknown, digits = 3, fallback = "-") => {
   return parsed === null ? fallback : parsed.toFixed(digits);
 };
 
+const formatDistance = (value: unknown) => {
+  const parsed = toNumber(value);
+  if (parsed === null) return null;
+  if (parsed < 10) return `${parsed.toFixed(1)} mi`;
+  return `${Math.round(parsed)} mi`;
+};
+
+export const buildRankingsUrl = ({ nearLat, nearLng, radiusMiles }: RankingsUrlFilters = {}) => {
+  const params = new URLSearchParams();
+  if (Number.isFinite(nearLat) && Number.isFinite(nearLng)) {
+    params.set("near_lat", String(nearLat));
+    params.set("near_lng", String(nearLng));
+    if (Number.isFinite(radiusMiles) && Number(radiusMiles) > 0) {
+      params.set("radius_miles", String(radiusMiles));
+    }
+  }
+
+  const query = params.toString();
+  return buildApiUrl(`/match-results/rankings${query ? `?${query}` : ""}`);
+};
+
 const initials = (name: string) => {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
   if (!parts.length) return "TP";
@@ -133,6 +164,7 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
       const courtArea = ranking.court_area || backendCourt?.area || fallbackCourt.area;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
+      const distanceMiles = toNumber(ranking.distance_miles);
       return {
         ...ranking,
         initials: initials(ranking.full_name),
@@ -148,6 +180,8 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         ],
         avatarClass: avatar[0],
         avatarToneClass: avatar[1],
+        distanceMiles,
+        distanceLabel: formatDistance(distanceMiles),
       };
     })
     .sort((a, b) => Number(a.rank) - Number(b.rank));
@@ -165,16 +199,6 @@ export const getSuggestedRankings = (
     .slice(0, limit)
     .map(({ ranking }) => ranking);
 };
-
-export const filterRankingsByPlace = (
-  rankings: DecoratedRanking[],
-  filters: { area?: string; court?: string } = {},
-) =>
-  rankings.filter((ranking) => {
-    if (filters.area && ranking.courtArea !== filters.area) return false;
-    if (filters.court && ranking.primaryCourt !== filters.court) return false;
-    return true;
-  });
 
 export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent: ConnectIntent } => ({
   connectIntent: {
@@ -207,21 +231,26 @@ const clickOnKeyboard = (event: React.KeyboardEvent, action: () => void) => {
   action();
 };
 
+const radiusOptions = [5, 10, 25, 50];
+
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [areaFilter, setAreaFilter] = useState("");
-  const [courtFilter, setCourtFilter] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationKey, setLocationKey] = useState(0);
+  const [nearLat, setNearLat] = useState<number | null>(null);
+  const [nearLng, setNearLng] = useState<number | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState(10);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError(null);
-    fetch(buildApiUrl("/match-results/rankings"))
+    fetch(buildRankingsUrl({ nearLat, nearLng, radiusMiles }))
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error || "Failed to load rankings");
@@ -244,7 +273,7 @@ export default function PublicMatchResultsPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [nearLat, nearLng, radiusMiles]);
 
   const decorated = useMemo(() => decorateRankings(rankings), [rankings]);
   const viewer = useMemo(
@@ -252,26 +281,13 @@ export default function PublicMatchResultsPage() {
     [decorated, selectedId],
   );
 
-  const areas = useMemo(
-    () => Array.from(new Set(decorated.map((ranking) => ranking.courtArea))).sort(),
-    [decorated],
-  );
-  const courts = useMemo(
-    () => Array.from(new Set(
-      decorated
-        .filter((ranking) => !areaFilter || ranking.courtArea === areaFilter)
-        .map((ranking) => ranking.primaryCourt),
-    )).sort(),
-    [areaFilter, decorated],
-  );
-
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return filterRankingsByPlace(decorated, { area: areaFilter, court: courtFilter }).filter((ranking) => {
+    return decorated.filter((ranking) => {
       if (query && !ranking.full_name.toLowerCase().includes(query)) return false;
       return true;
     });
-  }, [areaFilter, courtFilter, decorated, search]);
+  }, [decorated, search]);
 
   const suggestions = useMemo(() => getSuggestedRankings(decorated, viewer, 3), [decorated, viewer]);
 
@@ -321,35 +337,65 @@ export default function PublicMatchResultsPage() {
           </section>
 
           <section className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <FilterSelect
-                label="Location"
-                value={areaFilter}
-                onChange={(value) => {
-                  setAreaFilter(value);
-                  setCourtFilter("");
-                }}
-                options={areas}
-                allLabel="All locations"
-              />
-              <FilterSelect
-                label="Court"
-                value={courtFilter}
-                onChange={setCourtFilter}
-                options={courts}
-                allLabel="All courts"
-              />
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px_auto] md:items-end">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Location</span>
+                <Autocomplete
+                  key={`ladder-location-${locationKey}`}
+                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
+                  placeholder="Search city, address, or court"
+                  defaultValue={locationSearch}
+                  onChange={(event) => {
+                    setLocationSearch((event.target as HTMLInputElement).value);
+                    setNearLat(null);
+                    setNearLng(null);
+                  }}
+                  onPlaceSelected={(place) => {
+                    const lat = place?.geometry?.location?.lat?.();
+                    const lng = place?.geometry?.location?.lng?.();
+                    setLocationSearch(place?.formatted_address || place?.name || "");
+                    setNearLat(typeof lat === "number" && Number.isFinite(lat) ? lat : null);
+                    setNearLng(typeof lng === "number" && Number.isFinite(lng) ? lng : null);
+                  }}
+                  options={{
+                    types: ["geocode", "establishment"],
+                    fields: ["formatted_address", "geometry", "name", "address_components"],
+                    componentRestrictions: { country: "us" },
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Radius</span>
+                <select
+                  value={radiusMiles}
+                  onChange={(event) => setRadiusMiles(Number(event.target.value))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
+                >
+                  {radiusOptions.map((option) => (
+                    <option key={option} value={option}>{option} mi</option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
                 onClick={() => {
-                  setAreaFilter("");
-                  setCourtFilter("");
+                  setLocationSearch("");
+                  setNearLat(null);
+                  setNearLng(null);
+                  setRadiusMiles(10);
+                  setLocationKey((key) => key + 1);
                 }}
               >
                 Reset
               </button>
             </div>
+            {nearLat !== null && nearLng !== null ? (
+              <div className="mt-2 text-xs font-bold text-slate-400">
+                Showing players within {radiusMiles} mi of {locationSearch || "selected location"}.
+              </div>
+            ) : null}
           </section>
 
           {suggestions.length ? (
@@ -473,36 +519,6 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
   );
 }
 
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-  allLabel,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-  allLabel: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-      >
-        <option value="">{allLabel}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 function Avatar({ ranking }: { ranking: DecoratedRanking }) {
   return (
     <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black ${ranking.avatarClass} ${ranking.avatarToneClass}`}>
@@ -571,7 +587,7 @@ function LadderRow({
           </span>
           <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-slate-400">
             <MapPin size={12} />
-            {ranking.primaryCourt}
+            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
           </span>
         </span>
       </span>
@@ -625,7 +641,9 @@ function MobileRankingCard({
             <span className="truncate text-sm font-black">{ranking.full_name}</span>
             {viewer ? <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-black text-white">you</span> : null}
           </div>
-          <div className="mt-0.5 text-xs font-semibold text-slate-400">{ranking.primaryCourt}</div>
+          <div className="mt-0.5 text-xs font-semibold text-slate-400">
+            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
+          </div>
         </div>
         <Badge>{ranking.ratingLabel}</Badge>
       </div>
@@ -675,7 +693,9 @@ function ProfilePanel({
         <Avatar ranking={ranking} />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-lg font-black">{ranking.full_name}</h2>
-          <p className="text-sm font-semibold text-slate-400">Rank #{ranking.rank} · {ranking.courtArea}</p>
+          <p className="text-sm font-semibold text-slate-400">
+            Rank #{ranking.rank} · {ranking.distanceLabel ? `${ranking.distanceLabel} away` : ranking.courtArea}
+          </p>
         </div>
       </div>
 

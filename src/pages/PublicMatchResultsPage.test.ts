@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import {
+  buildRankingsUrl,
   buildChallengeState,
   decorateRankings,
-  filterRankingsByPlace,
   getSuggestedRankings,
 } from "./PublicMatchResultsPage";
 
@@ -46,17 +46,24 @@ test("buildChallengeState opens private match creation with ranking context", ()
   assert.equal(state.connectIntent.source, "match-results-ladder");
 });
 
-test("filterRankingsByPlace narrows by seeded location and court", () => {
-  const decorated = decorateRankings(rankings);
-  const kevin = decorated.find((row) => row.full_name === "Kevin Kurstin");
-  assert.ok(kevin);
-
-  const filtered = filterRankingsByPlace(decorated, {
-    area: kevin.courtArea,
-    court: kevin.primaryCourt,
+test("buildRankingsUrl sends radius search params", () => {
+  const url = buildRankingsUrl({
+    nearLat: 34.05,
+    nearLng: -118.45,
+    radiusMiles: 10,
   });
 
-  assert.ok(filtered.length >= 1);
-  assert.ok(filtered.every((row) => row.courtArea === kevin.courtArea));
-  assert.ok(filtered.every((row) => row.primaryCourt === kevin.primaryCourt));
+  assert.ok(url.includes("/match-results/rankings?"));
+  assert.ok(url.includes("near_lat=34.05"));
+  assert.ok(url.includes("near_lng=-118.45"));
+  assert.ok(url.includes("radius_miles=10"));
+});
+
+test("decorateRankings formats backend distance when radius search is used", () => {
+  const [first] = decorateRankings([
+    { ...rankings[0], distance_miles: "4.27" },
+  ]);
+
+  assert.equal(first.distanceMiles, 4.27);
+  assert.equal(first.distanceLabel, "4.3 mi");
 });
