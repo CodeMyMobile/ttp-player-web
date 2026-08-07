@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { buildApiUrl } from "../api/config";
+import api, { unwrap } from "../services/api";
 import type { ConnectIntent } from "../types/matchPlay";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
@@ -86,6 +87,15 @@ export type RankingsUrlFilters = {
 
 type Coordinates = { latitude: number; longitude: number };
 
+export type PlayedCourt = {
+  id: number | string;
+  name: string;
+  area?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  matches_played?: number | string | null;
+};
+
 const WEST_LA_COURTS = [
   { name: "Cheviot Hills", area: "Rancho Park" },
   { name: "Westwood Rec", area: "Westwood" },
@@ -114,6 +124,11 @@ const AVATAR_CLASSES = [
 ];
 
 const toNumber = (value: unknown): number | null => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toFiniteCoordinate = (value: unknown): number | null => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
@@ -167,6 +182,41 @@ export const labelFromReverseGeocode = (data: unknown, fallback: string) => {
   const labelParts = [locality, region, countryCode].filter(Boolean) as string[];
   if (labelParts.length) return labelParts.join(", ");
   return record?.display_name?.split(",").slice(0, 2).join(", ").trim() || fallback;
+};
+
+export const calculateDistanceMiles = (from: Coordinates, to: Coordinates) => {
+  const earthRadiusMiles = 3958.8;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const latDelta = toRadians(to.latitude - from.latitude);
+  const lngDelta = toRadians(to.longitude - from.longitude);
+  const fromLat = toRadians(from.latitude);
+  const toLat = toRadians(to.latitude);
+  const a = Math.sin(latDelta / 2) ** 2
+    + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(lngDelta / 2) ** 2;
+  return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+export const resolveCourtFilterSelection = ({
+  court,
+  location,
+  radiusMiles,
+}: {
+  court: PlayedCourt;
+  location?: Coordinates | null;
+  radiusMiles: number;
+}) => {
+  const latitude = toFiniteCoordinate(court.latitude);
+  const longitude = toFiniteCoordinate(court.longitude);
+  const fallback = { clearLocation: false, nearLat: null, nearLng: null };
+  if (latitude === null || longitude === null) return fallback;
+
+  const courtCoords = { latitude, longitude };
+  const distance = location ? calculateDistanceMiles(location, courtCoords) : null;
+  return {
+    clearLocation: distance !== null && distance > radiusMiles,
+    nearLat: latitude,
+    nearLng: longitude,
+  };
 };
 
 export const buildRankingsUrl = ({ nearLat, nearLng, radiusMiles }: RankingsUrlFilters = {}) => {
@@ -288,6 +338,8 @@ export default function PublicMatchResultsPage() {
   const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
   const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
+  const [selectedCourtId, setSelectedCourtId] = useState("");
 
   const applyLocation = ({ label, latitude, longitude, persist = false }: {
     label: string;
@@ -298,11 +350,17 @@ export default function PublicMatchResultsPage() {
     setLocationSearch(label);
     setNearLat(latitude);
     setNearLng(longitude);
+    setSelectedCourtId("");
     setLocationKey((key) => key + 1);
     if (persist) {
       storeLocation({ latitude, longitude });
       storeLocationLabel(label);
     }
+  };
+
+  const clearLocationState = () => {
+    setLocationSearch("");
+    setLocationKey((key) => key + 1);
   };
 
   useEffect(() => {
@@ -348,6 +406,7 @@ export default function PublicMatchResultsPage() {
 
   useEffect(() => {
     if (nearLat === null || nearLng === null) return;
+    if (selectedCourtId) return;
     if (locationSearch && locationSearch !== "Current location") return;
 
     const coords = { latitude: nearLat, longitude: nearLng };
@@ -377,7 +436,23 @@ export default function PublicMatchResultsPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [locationSearch, nearLat, nearLng]);
+  }, [locationSearch, nearLat, nearLng, selectedCourtId]);
+
+  useEffect(() => {
+    let alive = true;
+    unwrap(api("/match-results/my-courts"))
+      .then((data) => {
+        if (!alive) return;
+        setPlayedCourts(Array.isArray(data?.courts) ? data.courts : []);
+      })
+      .catch(() => {
+        if (alive) setPlayedCourts([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -436,6 +511,48 @@ export default function PublicMatchResultsPage() {
     [decorated, selectedId, viewer],
   );
 
+  const selectedPlayedCourt = useMemo(
+    () => playedCourts.find((court) => String(court.id) === selectedCourtId) ?? null,
+    [playedCourts, selectedCourtId],
+  );
+
+  const activeFilterLabel = selectedPlayedCourt
+    ? selectedPlayedCourt.name
+    : locationSearch;
+
+  const handlePlayedCourtChange = (courtId: string) => {
+    setSelectedCourtId(courtId);
+    if (!courtId) {
+      const stored = getStoredLocation();
+      if (stored) {
+        applyLocation({
+          label: getStoredLocationLabel() || "Current location",
+          latitude: stored.latitude,
+          longitude: stored.longitude,
+        });
+      } else {
+        setNearLat(null);
+        setNearLng(null);
+      }
+      return;
+    }
+
+    const court = playedCourts.find((item) => String(item.id) === courtId);
+    if (!court) return;
+    const stored = getStoredLocation();
+    const currentLocation = locationSearch && stored
+      ? { latitude: stored.latitude, longitude: stored.longitude }
+      : null;
+    const result = resolveCourtFilterSelection({
+      court,
+      location: currentLocation,
+      radiusMiles,
+    });
+    if (result.clearLocation) clearLocationState();
+    setNearLat(result.nearLat);
+    setNearLng(result.nearLng);
+  };
+
   const openChallenge = (ranking: DecoratedRanking) => {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
   };
@@ -470,7 +587,7 @@ export default function PublicMatchResultsPage() {
           </section>
 
           <section className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px_auto] md:items-end">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_130px_auto] md:items-end">
               <label className="block">
                 <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Location</span>
                 <Autocomplete
@@ -482,6 +599,7 @@ export default function PublicMatchResultsPage() {
                     setLocationSearch((event.target as HTMLInputElement).value);
                     setNearLat(null);
                     setNearLng(null);
+                    setSelectedCourtId("");
                   }}
                   onPlaceSelected={(place) => {
                     const lat = place?.geometry?.location?.lat?.();
@@ -502,6 +620,25 @@ export default function PublicMatchResultsPage() {
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
                 />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Courts you've played at</span>
+                <select
+                  value={selectedCourtId}
+                  onChange={(event) => handlePlayedCourtChange(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
+                >
+                  <option value="">No court filter</option>
+                  {playedCourts.map((court) => {
+                    const hasCoords = toFiniteCoordinate(court.latitude) !== null && toFiniteCoordinate(court.longitude) !== null;
+                    return (
+                      <option key={court.id} value={court.id} disabled={!hasCoords}>
+                        {[court.name, court.area].filter(Boolean).join(" - ")}
+                        {hasCoords ? "" : " (no location)"}
+                      </option>
+                    );
+                  })}
+                </select>
               </label>
               <label className="block">
                 <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Radius</span>
@@ -527,6 +664,7 @@ export default function PublicMatchResultsPage() {
                   setNearLat(null);
                   setNearLng(null);
                   setRadiusMiles(10);
+                  setSelectedCourtId("");
                   setLocationKey((key) => key + 1);
                 }}
               >
@@ -535,7 +673,7 @@ export default function PublicMatchResultsPage() {
             </div>
             {nearLat !== null && nearLng !== null ? (
               <div className="mt-2 text-xs font-bold text-slate-400">
-                Showing players within {radiusMiles} mi of {locationSearch || "selected location"}.
+                Showing players within {radiusMiles} mi of {activeFilterLabel || "selected location"}.
               </div>
             ) : null}
           </section>

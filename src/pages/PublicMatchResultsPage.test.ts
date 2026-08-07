@@ -9,6 +9,7 @@ import {
   formatCoordinatesLabel,
   getSuggestedRankings,
   labelFromReverseGeocode,
+  resolveCourtFilterSelection,
 } from "./PublicMatchResultsPage";
 
 test("estimate badge follows is_estimate, not provisional K status", () => {
@@ -82,4 +83,22 @@ test("reverse geocode helpers build location label from coordinates", () => {
   assert.ok(url.includes("lon=-118.45"));
   assert.equal(formatCoordinatesLabel(coords), "34.05° N, 118.45° W");
   assert.equal(label, "Los Angeles, California, US");
+});
+
+test("court filter clears location when selected court is outside radius", () => {
+  const result = resolveCourtFilterSelection({
+    court: {
+      id: 7,
+      name: "Penmar Recreation Center",
+      area: "Venice",
+      latitude: 34.0001,
+      longitude: -118.4501,
+    },
+    location: { latitude: 34.1478, longitude: -118.1445 },
+    radiusMiles: 5,
+  });
+
+  assert.equal(result.clearLocation, true);
+  assert.equal(result.nearLat, 34.0001);
+  assert.equal(result.nearLng, -118.4501);
 });
