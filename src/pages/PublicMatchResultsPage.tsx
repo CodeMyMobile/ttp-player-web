@@ -19,6 +19,16 @@ import { buildApiUrl } from "../api/config";
 import type { ConnectIntent } from "../types/matchPlay";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
+import {
+  DEFAULT_RADIUS_MILES,
+  getStoredLocation,
+  getStoredLocationLabel,
+  getStoredLocationRadius,
+  storeLocation,
+  storeLocationLabel,
+  storeLocationRadius,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
 
 export type Ranking = {
   rank: number;
@@ -74,6 +84,8 @@ export type RankingsUrlFilters = {
   radiusMiles?: number | null;
 };
 
+type Coordinates = { latitude: number; longitude: number };
+
 const WEST_LA_COURTS = [
   { name: "Cheviot Hills", area: "Rancho Park" },
   { name: "Westwood Rec", area: "Westwood" },
@@ -125,6 +137,36 @@ const formatDistance = (value: unknown) => {
   if (parsed === null) return null;
   if (parsed < 10) return `${parsed.toFixed(1)} mi`;
   return `${Math.round(parsed)} mi`;
+};
+
+export const formatCoordinatesLabel = (coords: Coordinates) => (
+  `${Math.abs(coords.latitude).toFixed(2)}° ${coords.latitude >= 0 ? "N" : "S"}, ${Math.abs(coords.longitude).toFixed(2)}° ${coords.longitude >= 0 ? "E" : "W"}`
+);
+
+export const buildReverseGeocodeUrl = (coords: Coordinates) => {
+  const query = new URLSearchParams({
+    format: "jsonv2",
+    lat: coords.latitude.toString(),
+    lon: coords.longitude.toString(),
+  });
+  return `https://nominatim.openstreetmap.org/reverse?${query.toString()}`;
+};
+
+export const labelFromReverseGeocode = (data: unknown, fallback: string) => {
+  const record = data as { address?: Record<string, unknown>; display_name?: string };
+  const address = record?.address ?? {};
+  const locality =
+    (address.city as string | undefined) ||
+    (address.town as string | undefined) ||
+    (address.village as string | undefined) ||
+    (address.hamlet as string | undefined) ||
+    (address.suburb as string | undefined) ||
+    (address.county as string | undefined);
+  const region = (address.state as string | undefined) || (address.region as string | undefined);
+  const countryCode = typeof address.country_code === "string" ? address.country_code.toUpperCase() : null;
+  const labelParts = [locality, region, countryCode].filter(Boolean) as string[];
+  if (labelParts.length) return labelParts.join(", ");
+  return record?.display_name?.split(",").slice(0, 2).join(", ").trim() || fallback;
 };
 
 export const buildRankingsUrl = ({ nearLat, nearLng, radiusMiles }: RankingsUrlFilters = {}) => {
@@ -235,16 +277,107 @@ const radiusOptions = [5, 10, 25, 50];
 
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
+  const storedLocation = getStoredLocation();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState(() => getStoredLocationLabel() || "");
   const [locationKey, setLocationKey] = useState(0);
-  const [nearLat, setNearLat] = useState<number | null>(null);
-  const [nearLng, setNearLng] = useState<number | null>(null);
-  const [radiusMiles, setRadiusMiles] = useState(10);
+  const [nearLat, setNearLat] = useState<number | null>(() => storedLocation?.latitude ?? null);
+  const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
+  const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const applyLocation = ({ label, latitude, longitude, persist = false }: {
+    label: string;
+    latitude: number;
+    longitude: number;
+    persist?: boolean;
+  }) => {
+    setLocationSearch(label);
+    setNearLat(latitude);
+    setNearLng(longitude);
+    setLocationKey((key) => key + 1);
+    if (persist) {
+      storeLocation({ latitude, longitude });
+      storeLocationLabel(label);
+    }
+  };
+
+  useEffect(() => {
+    const syncStoredLocation = () => {
+      const nextLocation = getStoredLocation();
+      const nextRadius = getStoredLocationRadius();
+      if (nextRadius !== null) setRadiusMiles(nextRadius);
+      if (!nextLocation) return;
+
+      applyLocation({
+        label: getStoredLocationLabel() || "Current location",
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
+      });
+    };
+
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
+  }, []);
+
+  useEffect(() => {
+    if (storedLocation || typeof navigator === "undefined" || !navigator.geolocation) {
+      return;
+    }
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) return;
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+        applyLocation({ label: "Current location", latitude, longitude, persist: true });
+      },
+      () => undefined,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (nearLat === null || nearLng === null) return;
+    if (locationSearch && locationSearch !== "Current location") return;
+
+    const coords = { latitude: nearLat, longitude: nearLng };
+    const fallback = formatCoordinatesLabel(coords);
+    let cancelled = false;
+    const controller = new AbortController();
+
+    fetch(buildReverseGeocodeUrl(coords), {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const label = labelFromReverseGeocode(data, fallback);
+        setLocationSearch(label);
+        setLocationKey((key) => key + 1);
+        storeLocationLabel(label);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLocationSearch(fallback);
+        setLocationKey((key) => key + 1);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [locationSearch, nearLat, nearLng]);
 
   useEffect(() => {
     let alive = true;
@@ -353,9 +486,14 @@ export default function PublicMatchResultsPage() {
                   onPlaceSelected={(place) => {
                     const lat = place?.geometry?.location?.lat?.();
                     const lng = place?.geometry?.location?.lng?.();
-                    setLocationSearch(place?.formatted_address || place?.name || "");
-                    setNearLat(typeof lat === "number" && Number.isFinite(lat) ? lat : null);
-                    setNearLng(typeof lng === "number" && Number.isFinite(lng) ? lng : null);
+                    const label = place?.formatted_address || place?.name || "";
+                    if (typeof lat === "number" && Number.isFinite(lat) && typeof lng === "number" && Number.isFinite(lng)) {
+                      applyLocation({ label, latitude: lat, longitude: lng, persist: true });
+                    } else {
+                      setLocationSearch(label);
+                      setNearLat(null);
+                      setNearLng(null);
+                    }
                   }}
                   options={{
                     types: ["geocode", "establishment"],
@@ -369,7 +507,11 @@ export default function PublicMatchResultsPage() {
                 <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Radius</span>
                 <select
                   value={radiusMiles}
-                  onChange={(event) => setRadiusMiles(Number(event.target.value))}
+                  onChange={(event) => {
+                    const nextRadius = Number(event.target.value);
+                    setRadiusMiles(nextRadius);
+                    storeLocationRadius(nextRadius);
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
                 >
                   {radiusOptions.map((option) => (

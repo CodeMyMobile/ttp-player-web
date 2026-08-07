@@ -3,9 +3,12 @@ import test from "node:test";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import {
   buildRankingsUrl,
+  buildReverseGeocodeUrl,
   buildChallengeState,
   decorateRankings,
+  formatCoordinatesLabel,
   getSuggestedRankings,
+  labelFromReverseGeocode,
 } from "./PublicMatchResultsPage";
 
 test("estimate badge follows is_estimate, not provisional K status", () => {
@@ -66,4 +69,17 @@ test("decorateRankings formats backend distance when radius search is used", () 
 
   assert.equal(first.distanceMiles, 4.27);
   assert.equal(first.distanceLabel, "4.3 mi");
+});
+
+test("reverse geocode helpers build location label from coordinates", () => {
+  const coords = { latitude: 34.05, longitude: -118.45 };
+  const url = buildReverseGeocodeUrl(coords);
+  const label = labelFromReverseGeocode({
+    address: { city: "Los Angeles", state: "California", country_code: "us" },
+  }, formatCoordinatesLabel(coords));
+
+  assert.ok(url.includes("lat=34.05"));
+  assert.ok(url.includes("lon=-118.45"));
+  assert.equal(formatCoordinatesLabel(coords), "34.05° N, 118.45° W");
+  assert.equal(label, "Los Angeles, California, US");
 });
