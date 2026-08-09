@@ -1,4 +1,5 @@
 import api, { unwrap } from "../services/api.js";
+import { mergeTierCatalogs } from "./playerFlow.js";
 
 const qs = (params) => {
   const query = new URLSearchParams();
@@ -20,6 +21,21 @@ export const getVendorProfile = (vendorId) =>
 
 export const listVendorStrings = ({ vendorId, serviceTierId }) =>
   unwrap(api(`/restringing/vendors/${vendorId}/catalog${qs({ service_tier_id: serviceTierId })}`));
+
+// String-first needs one flat catalog, but the API is scoped per service tier.
+// Fetch each string tier's catalog ONCE and merge — the caller caches the result
+// and filters it client-side per keystroke (never re-fetches while typing).
+export async function assembleVendorCatalog({ vendorId, tiers = [] }) {
+  const stringTiers = (tiers || []).filter((tier) => tier && tier.string_category);
+  const tierCatalogs = await Promise.all(
+    stringTiers.map((tier) =>
+      listVendorStrings({ vendorId, serviceTierId: tier.id })
+        .then((data) => ({ tier, catalog: (data && data.catalog) || [] }))
+        .catch(() => ({ tier, catalog: [] })),
+    ),
+  );
+  return mergeTierCatalogs(tierCatalogs);
+}
 
 export const captureVendorLead = (payload) =>
   unwrap(api("/restringing/vendor-leads", {

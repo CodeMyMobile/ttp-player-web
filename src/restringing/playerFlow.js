@@ -2,13 +2,21 @@ export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
 export const lbsToKg = (lbs) => (Number(lbs) * 0.45359237).toFixed(1);
 
+const titleizeSlug = (value) =>
+  String(value || "")
+    .replace(/[_/-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 export const categoryLabel = (category) => ({
   syn_gut: "Synthetic Gut",
   std_multi: "Standard Multifilament",
   prem_multi: "Premium Multifilament",
   std_poly: "Standard Polyester",
   prem_poly: "Premium Polyester",
-}[category] || "String");
+  // The 3 new categories (poly/multi hybrid, gut/poly hybrid, natural gut) render
+  // via the titleized-slug fallback until Sahil confirms their exact enum keys.
+}[category] || (category ? titleizeSlug(category) : "String"));
 
 const titleizeStatus = (value) => cleanText(value)
   .replace(/[_-]+/g, " ")
@@ -184,4 +192,108 @@ export function normalizePaymentMethods(payload) {
       };
     })
     .sort((left, right) => Number(right.isDefault) - Number(left.isDefault));
+}
+
+/* ---------------- string-first catalog helpers ---------------- */
+
+// Material bucket derived from the category slug. The catalog's `material` field
+// is free text / may be absent, so we derive from the category enum (the brief's
+// "derive the material filter from the category slug"). Backend dependency: this
+// assumes the category slug contains the material words.
+export function materialFromCategory(category) {
+  const value = String(category || "").toLowerCase();
+  if (!value) return "own";
+  const poly = value.includes("poly");
+  const multi = value.includes("multi");
+  const gut = value.includes("gut");
+  const syn = value.includes("syn");
+  const nat = value.includes("nat");
+  if (value.includes("hybrid") || (poly && (multi || gut))) return "hybrid";
+  if (syn) return "syn gut";
+  if (nat || (gut && !poly && !syn)) return "nat gut";
+  if (poly) return "poly";
+  if (multi) return "multi";
+  return "other";
+}
+
+export const isHybridCategory = (category) => materialFromCategory(category) === "hybrid";
+
+// Flatten per-tier vendor catalogs into one list, tagging each string with the
+// category / price / material of the tier it came from. Assembled once and cached;
+// keystroke filtering runs over the result and never re-fetches.
+export function mergeTierCatalogs(tierCatalogs = []) {
+  const seen = new Set();
+  const merged = [];
+  tierCatalogs.forEach(({ tier, catalog = [] }) => {
+    (catalog || []).forEach((row) => {
+      if (!row) return;
+      const category = row.string_category ?? tier?.string_category ?? null;
+      const key = row.id != null
+        ? `id:${row.id}`
+        : `nm:${cleanText(row.brand).toLowerCase()}|${cleanText(row.name).toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push({
+        ...row,
+        string_category: category,
+        tier_id: row.tier_id ?? tier?.id ?? null,
+        price_cents: row.price_cents ?? tier?.price_cents ?? null,
+        material: row.material || materialFromCategory(category),
+      });
+    });
+  });
+  return merged;
+}
+
+export const deriveTier = (category, tiers = []) =>
+  tiers.find((tier) => tier && tier.string_category === category) || null;
+
+// Brands available within the active material — keeps the two filters from
+// intersecting to nothing on a tap (brief: brand list scoped to active material).
+export function brandsForMaterial(catalog = [], material = "all") {
+  const pool = material === "all" ? catalog : catalog.filter((row) => row.material === material);
+  return [...new Set(pool.map((row) => cleanText(row.brand)).filter(Boolean))].sort();
+}
+
+export function filterCatalog(catalog = [], { query = "", material = "all", brand = "all" } = {}) {
+  const needle = String(query).trim().toLowerCase();
+  return catalog.filter((row) => {
+    if (material !== "all" && row.material !== material) return false;
+    if (brand !== "all" && cleanText(row.brand) !== brand) return false;
+    if (needle && !`${cleanText(row.brand)} ${cleanText(row.name)}`.toLowerCase().includes(needle)) return false;
+    return true;
+  });
+}
+
+// Split text into parts for highlighting the matched substring (case-insensitive,
+// first occurrence). Returns [{ text, match }]; the JSX wraps match parts in <mark>.
+export function highlightMatch(text, query) {
+  const source = String(text ?? "");
+  const needle = String(query ?? "").trim();
+  if (!needle) return [{ text: source, match: false }];
+  const index = source.toLowerCase().indexOf(needle.toLowerCase());
+  if (index < 0) return [{ text: source, match: false }];
+  return [
+    { text: source.slice(0, index), match: false },
+    { text: source.slice(index, index + needle.length), match: true },
+    { text: source.slice(index + needle.length), match: false },
+  ].filter((part) => part.text.length > 0);
+}
+
+// Exact-match a past order item back to a current catalog entry (string_id first,
+// then exact brand+name). No fuzzy matching by design — a wrong prefill is worse
+// than none. Returns the catalog row, or null (null → route to search prefilled).
+export function resolveReorderString(orderItem, catalog = []) {
+  if (!orderItem) return null;
+  if (orderItem.string_id != null && orderItem.string_id !== "") {
+    const byId = catalog.find((row) => Number(row.id) === Number(orderItem.string_id));
+    if (byId) return byId;
+  }
+  const brand = cleanText(orderItem.string_brand).toLowerCase();
+  const name = cleanText(orderItem.string_name).toLowerCase();
+  if (!name) return null;
+  return catalog.find((row) =>
+    cleanText(row.brand).toLowerCase() === brand &&
+    cleanText(row.name).toLowerCase() === name,
+  ) || null;
 }
