@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -14,8 +14,9 @@ import {
   Plus,
   RefreshCw,
   Star,
+  X,
 } from "lucide-react";
-import AppNav from "../components/AppNav.jsx";
+import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
@@ -73,6 +74,28 @@ const tierSub = (tier) => ({
 
 const clean = (value) => String(value || "").trim();
 const isOwnTier = (tier) => tier && tier.string_category === null;
+
+// Chrome model: section screens keep the app bottom nav; order-flow screens hide it
+// and get an X + a 6-step progress bar. The app header never appears inside restringing.
+const SECTION_SCREENS = new Set(["home", "stringers", "orders"]);
+const FLOW_STEP = { mode: 1, search: 2, own: 2, vendor: 3, config: 4, rackets: 5, checkout: 6 };
+const SCREEN_TITLES = {
+  home: "Restring",
+  stringers: "Find a stringer",
+  orders: "My orders",
+  mode: "New order",
+  search: "Choose a string",
+  own: "Your string",
+  vendor: "Choose a stringer",
+  profile: "Stringer",
+  config: "Your setup",
+  rackets: "Your rackets",
+  checkout: "Review & pay",
+  confirmation: "Order placed",
+  tier: "Choose a service",
+  wizard: "Help me choose",
+  recommendation: "Our pick",
+};
 
 function Field({ label, children }) {
   return (
@@ -147,10 +170,11 @@ function StripePaymentForm({ clientSecret, totalLabel, onPaid, disabled }) {
 
 export default function RestringingPlayerFlow() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const authDrawer = useAuthDrawer();
   const [screen, setScreen] = useState("home");
-  const [history, setHistory] = useState([]);
+  const [, setHistory] = useState([]);
   const [tiers, setTiers] = useState(defaultTiers);
   const [vendors, setVendors] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
@@ -534,16 +558,65 @@ export default function RestringingPlayerFlow() {
       ? otherString
       : ownString;
 
+  const inSection = SECTION_SCREENS.has(screen);
+  const isTerminal = screen === "confirmation";
+  const flowStep = FLOW_STEP[screen] || 0;
+  const navTitle = SCREEN_TITLES[screen] || "Restring";
+  const showBack = !isTerminal;
+  const showClose = !inSection && !isTerminal; // X only exists to bail out of an order
+  const showProgress = flowStep > 0;
+
+  const exitToHome = () => {
+    setHistory([]);
+    setScreen("home");
+    setError("");
+  };
+  const onHeaderBack = () => {
+    if (screen === "home") {
+      navigate("/"); // Back on the Restring landing returns to app home
+      return;
+    }
+    back();
+  };
+
   return (
     <div className="dashboard-page restring-page">
-      <AppNav />
-      <main className="rsg-shell">
-        {screen !== "home" ? (
-          <button type="button" className="rsg-back" onClick={back}>
-            <ChevronLeft size={18} /> Back
-          </button>
+      <header className="rsg-nav">
+        <div className="rsg-nav-bar">
+          {showBack ? (
+            <button
+              type="button"
+              className="rsg-nav-btn"
+              onClick={onHeaderBack}
+              aria-label={screen === "home" ? "Back to home" : "Back"}
+            >
+              <ChevronLeft size={22} />
+            </button>
+          ) : (
+            <span className="rsg-nav-btn rsg-nav-spacer" aria-hidden="true" />
+          )}
+          <div className="rsg-nav-title">{navTitle}</div>
+          {showClose ? (
+            <button type="button" className="rsg-nav-btn" onClick={exitToHome} aria-label="Close order">
+              <X size={22} />
+            </button>
+          ) : (
+            <span className="rsg-nav-btn rsg-nav-spacer" aria-hidden="true" />
+          )}
+        </div>
+        {showProgress ? (
+          <div
+            className="rsg-nav-prog"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={6}
+            aria-valuenow={flowStep}
+          >
+            <span style={{ width: `${Math.round((flowStep / 6) * 100)}%` }} />
+          </div>
         ) : null}
-
+      </header>
+      <main className="rsg-shell">
         {error ? <div className="rsg-alert">{error}</div> : null}
         {loading || authLoading ? <div className="rsg-card">Loading restringing options...</div> : null}
 
@@ -886,9 +959,20 @@ export default function RestringingPlayerFlow() {
           </>
         ) : null}
       </main>
+      {inSection ? <MobileHomeBottomNav /> : null}
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
         .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}
+        .rsg-nav{position:sticky;top:0;z-index:20;background:rgba(244,245,247,.86);backdrop-filter:blur(8px);border-bottom:1px solid #edf0f4}
+        .rsg-nav-bar{max-width:760px;margin:0 auto;display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;height:52px;padding:0 12px}
+        .rsg-nav-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;border:0;background:transparent;color:#111827;cursor:pointer}
+        .rsg-nav-btn:not(.rsg-nav-spacer):hover{background:#eceef2}
+        .rsg-nav-btn:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+        .rsg-nav-spacer{background:transparent;cursor:default}
+        .rsg-nav-title{text-align:center;font-weight:900;font-size:16px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rsg-nav-prog{height:3px;background:#ede9fe;overflow:hidden}
+        .rsg-nav-prog span{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .25s ease}
+        @media (prefers-reduced-motion:reduce){.rsg-nav-prog span{transition:none}}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
         .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}
