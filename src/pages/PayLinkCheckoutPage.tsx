@@ -363,7 +363,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   }, [loadCheckout]);
 
   useEffect(() => {
-    if (!accountLinked || !hasAuthToken || demoMode) {
+    if (!hasAuthToken || demoMode) {
       setPaymentMethods([]);
       setSelectedPaymentMethodId(null);
       setPaymentMethodsError(null);
@@ -404,7 +404,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     return () => {
       cancelled = true;
     };
-  }, [accountLinked, authToken, demoMode, hasAuthToken]);
+  }, [authToken, demoMode, hasAuthToken]);
 
   const stripePromise = useMemo(() => {
     if (!stripePublishableKey || !checkout?.client_secret || demoMode) return null;
@@ -435,7 +435,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const firstItem = summary?.order.items[0];
 
   const renderSavedPaymentMethods = () => {
-    if (!accountLinked || !hasAuthToken) return null;
+    if (!hasAuthToken) return null;
     return (
       <div className="pay-link-saved-methods">
         <div className="pay-link-saved-methods__header">
