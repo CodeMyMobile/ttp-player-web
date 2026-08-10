@@ -153,7 +153,7 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const confirmPayment = useCallback(async () => {
+  const confirmElementPayment = useCallback(async () => {
     if (!stripe || !elements) {
       setMessage("Secure payment fields are still loading.");
       return;
@@ -162,25 +162,6 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
     setSubmitting(true);
     setMessage(null);
     try {
-      if (selectedPaymentMethodId) {
-        const result = await stripe.confirmCardPayment(checkout.client_secret, {
-          payment_method: selectedPaymentMethodId,
-        });
-
-        if (result.error) {
-          setMessage(result.error.message || "Payment could not be confirmed.");
-          return;
-        }
-
-        onPaid();
-        return;
-      }
-
-      if (!elements) {
-        setMessage("Secure payment fields are still loading.");
-        return;
-      }
-
       const submitResult = await elements.submit();
       if (submitResult.error) {
         setMessage(submitResult.error.message || "Check your payment details and try again.");
@@ -207,7 +188,41 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
     } finally {
       setSubmitting(false);
     }
-  }, [checkout.client_secret, elements, onPaid, selectedPaymentMethodId, stripe]);
+  }, [checkout.client_secret, elements, onPaid, stripe]);
+
+  const confirmSavedPaymentMethod = useCallback(async () => {
+    if (!stripe || !selectedPaymentMethodId) {
+      setMessage("Choose a payment method and try again.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const result = await stripe.confirmCardPayment(checkout.client_secret, {
+        payment_method: selectedPaymentMethodId,
+      });
+
+      if (result.error) {
+        setMessage(result.error.message || "Payment could not be confirmed.");
+        return;
+      }
+
+      onPaid();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Payment could not be confirmed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [checkout.client_secret, onPaid, selectedPaymentMethodId, stripe]);
+
+  const confirmPayment = useCallback(async () => {
+    if (selectedPaymentMethodId) {
+      await confirmSavedPaymentMethod();
+      return;
+    }
+    await confirmElementPayment();
+  }, [confirmElementPayment, confirmSavedPaymentMethod, selectedPaymentMethodId]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -216,22 +231,21 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
 
   return (
     <form className="pay-link-payment" onSubmit={handleSubmit}>
+      <div className="pay-link-wallets">
+        <ExpressCheckoutElement
+          onConfirm={() => void confirmElementPayment()}
+          options={{
+            paymentMethods: {
+              applePay: "auto",
+              googlePay: "auto",
+              link: "auto",
+              amazonPay: "never",
+            },
+          }}
+        />
+      </div>
+      <div className="pay-link-or"><span>{selectedPaymentMethodId ? "or use saved card" : "or pay by card"}</span></div>
       {selectedPaymentMethodId ? null : (
-        <>
-          <div className="pay-link-wallets">
-            <ExpressCheckoutElement
-              onConfirm={() => void confirmPayment()}
-              options={{
-                paymentMethods: {
-                  applePay: "auto",
-                  googlePay: "auto",
-                  link: "auto",
-                  amazonPay: "never",
-                },
-              }}
-            />
-          </div>
-          <div className="pay-link-or"><span>or pay by card</span></div>
           <div className="pay-link-stripe">
             <PaymentElement
               options={{
@@ -248,7 +262,6 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
               }}
             />
           </div>
-        </>
       )}
       {message ? <p className="pay-link-status pay-link-status--error" role="alert">{message}</p> : null}
       <button
