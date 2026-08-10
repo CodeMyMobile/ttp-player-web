@@ -274,6 +274,9 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const demoMode = useDemoMode();
   const { isAuthenticated } = useAuth();
   const { openAuth } = useAuthDrawer();
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    getStoredAuthToken({ preferScheme: "token" }),
+  );
   const [hasDemoAccount, setHasDemoAccount] = useState(true);
   const [guest, setGuest] = useState(false);
   const [summary, setSummary] = useState<RestringingPayLinkSummary | null>(() =>
@@ -289,6 +292,29 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const [loading, setLoading] = useState(!demoMode);
   const [error, setError] = useState<string | null>(null);
   const accountLinked = summary?.account_link.status === "linked";
+  const hasAuthToken = Boolean(authToken);
+
+  const refreshAuthToken = useCallback(() => {
+    const nextToken = getStoredAuthToken({ preferScheme: "token" });
+    setAuthToken(nextToken);
+    return nextToken;
+  }, []);
+
+  useEffect(() => {
+    refreshAuthToken();
+  }, [isAuthenticated, refreshAuthToken]);
+
+  useEffect(() => {
+    const syncAuthToken = () => {
+      refreshAuthToken();
+    };
+    window.addEventListener("storage", syncAuthToken);
+    window.addEventListener("focus", syncAuthToken);
+    return () => {
+      window.removeEventListener("storage", syncAuthToken);
+      window.removeEventListener("focus", syncAuthToken);
+    };
+  }, [refreshAuthToken]);
 
   const loadSummary = useCallback(async () => {
     if (!token) {
@@ -306,20 +332,18 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     setLoading(true);
     setError(null);
     try {
-      const authToken = getStoredAuthToken({ preferScheme: "token" });
       setSummary(await getRestringingPayLink(token, authToken));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment link could not be loaded.");
     } finally {
       setLoading(false);
     }
-  }, [demoMode, hasDemoAccount, token]);
+  }, [authToken, demoMode, hasDemoAccount, token]);
 
   const loadCheckout = useCallback(async () => {
     if (!token || demoMode || paid) return;
     setCheckoutLoading(true);
     try {
-      const authToken = getStoredAuthToken({ preferScheme: "token" });
       setCheckout(await createRestringingPayLinkCheckout(token, authToken, {
         paymentMethodId: selectedPaymentMethodId,
       }));
@@ -328,7 +352,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     } finally {
       setCheckoutLoading(false);
     }
-  }, [demoMode, paid, selectedPaymentMethodId, token]);
+  }, [authToken, demoMode, paid, selectedPaymentMethodId, token]);
 
   useEffect(() => {
     void loadSummary();
@@ -339,7 +363,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   }, [loadCheckout]);
 
   useEffect(() => {
-    if (!accountLinked || !isAuthenticated || demoMode) {
+    if (!accountLinked || !hasAuthToken || demoMode) {
       setPaymentMethods([]);
       setSelectedPaymentMethodId(null);
       setPaymentMethodsError(null);
@@ -352,7 +376,6 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
       setPaymentMethodsLoading(true);
       setPaymentMethodsError(null);
       try {
-        const authToken = getStoredAuthToken({ preferScheme: "token" });
         if (!authToken) {
           setPaymentMethods([]);
           setSelectedPaymentMethodId(null);
@@ -381,7 +404,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     return () => {
       cancelled = true;
     };
-  }, [accountLinked, demoMode, isAuthenticated]);
+  }, [accountLinked, authToken, demoMode, hasAuthToken]);
 
   const stripePromise = useMemo(() => {
     if (!stripePublishableKey || !checkout?.client_secret || demoMode) return null;
@@ -412,7 +435,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const firstItem = summary?.order.items[0];
 
   const renderSavedPaymentMethods = () => {
-    if (!accountLinked || !isAuthenticated) return null;
+    if (!accountLinked || !hasAuthToken) return null;
     return (
       <div className="pay-link-saved-methods">
         <div className="pay-link-saved-methods__header">
@@ -603,8 +626,8 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
                           mode: "signin",
                           reason: "Log in to save this order to your Tennis Plan profile.",
                           onSuccess: () => {
-                            void loadSummary();
-                            void loadCheckout();
+                            refreshAuthToken();
+                            setGuest(false);
                           },
                         })}
                       >
