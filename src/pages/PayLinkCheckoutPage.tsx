@@ -16,6 +16,11 @@ import {
   type RestringingPayLinkCheckout,
   type RestringingPayLinkSummary,
 } from "../api/restringingPayLinks";
+import {
+  getPlayerStripePaymentMethods,
+  type PlayerStripePaymentMethod,
+  type PlayerStripePaymentMethodListResponse,
+} from "../api/playerStripe";
 import { useAuth } from "../context/AuthContext";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
 import { getStoredAuthToken } from "../services/authToken";
@@ -65,9 +70,47 @@ const useDemoMode = () => {
   return isPayLinkDemoMode(search);
 };
 
+const extractPaymentMethods = (
+  payload: PlayerStripePaymentMethod[] | PlayerStripePaymentMethodListResponse | null | undefined,
+) => {
+  if (!payload) return [] as PlayerStripePaymentMethod[];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.payment_methods)) return payload.payment_methods;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [] as PlayerStripePaymentMethod[];
+};
+
+const resolveDefaultPaymentMethodId = (
+  payload: PlayerStripePaymentMethod[] | PlayerStripePaymentMethodListResponse | null | undefined,
+  methods: PlayerStripePaymentMethod[],
+) => {
+  const payloadDefault = !Array.isArray(payload) && payload
+    ? payload.default_payment_method_id || payload.default_payment_method
+    : null;
+  return (
+    payloadDefault ||
+    methods.find((method) => method.is_default || method.default || method.default_for_currency)?.id ||
+    methods[0]?.id ||
+    null
+  );
+};
+
+const formatPaymentMethodLabel = (method: PlayerStripePaymentMethod) => {
+  const brand = method.card?.brand
+    ? `${method.card.brand.charAt(0).toUpperCase()}${method.card.brand.slice(1)}`
+    : "Card";
+  const last4 = method.card?.last4 ? `•••• ${method.card.last4}` : method.id;
+  const exp = method.card?.exp_month && method.card?.exp_year
+    ? `Exp ${String(method.card.exp_month).padStart(2, "0")}/${String(method.card.exp_year).slice(-2)}`
+    : "";
+  return [brand, last4, exp].filter(Boolean).join(" · ");
+};
+
 interface PayLinkPaymentFormProps {
   checkout: RestringingPayLinkCheckout;
   summary: RestringingPayLinkSummary;
+  selectedPaymentMethodId?: string | null;
   onPaid: () => void;
 }
 
@@ -103,7 +146,7 @@ const DemoPayLinkPaymentForm = ({ summary, onPaid }: Omit<PayLinkPaymentFormProp
   </form>
 );
 
-const PayLinkPaymentForm = ({ checkout, summary, onPaid }: PayLinkPaymentFormProps) => {
+const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid }: PayLinkPaymentFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
@@ -118,6 +161,25 @@ const PayLinkPaymentForm = ({ checkout, summary, onPaid }: PayLinkPaymentFormPro
     setSubmitting(true);
     setMessage(null);
     try {
+      if (selectedPaymentMethodId) {
+        const result = await stripe.confirmCardPayment(checkout.client_secret, {
+          payment_method: selectedPaymentMethodId,
+        });
+
+        if (result.error) {
+          setMessage(result.error.message || "Payment could not be confirmed.");
+          return;
+        }
+
+        onPaid();
+        return;
+      }
+
+      if (!elements) {
+        setMessage("Secure payment fields are still loading.");
+        return;
+      }
+
       const submitResult = await elements.submit();
       if (submitResult.error) {
         setMessage(submitResult.error.message || "Check your payment details and try again.");
@@ -144,7 +206,7 @@ const PayLinkPaymentForm = ({ checkout, summary, onPaid }: PayLinkPaymentFormPro
     } finally {
       setSubmitting(false);
     }
-  }, [checkout.client_secret, elements, onPaid, stripe]);
+  }, [checkout.client_secret, elements, onPaid, selectedPaymentMethodId, stripe]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -153,36 +215,40 @@ const PayLinkPaymentForm = ({ checkout, summary, onPaid }: PayLinkPaymentFormPro
 
   return (
     <form className="pay-link-payment" onSubmit={handleSubmit}>
-      <div className="pay-link-wallets">
-        <ExpressCheckoutElement
-          onConfirm={() => void confirmPayment()}
-          options={{
-            paymentMethods: {
-              applePay: "auto",
-              googlePay: "auto",
-              link: "auto",
-              amazonPay: "never",
-            },
-          }}
-        />
-      </div>
-      <div className="pay-link-or"><span>or pay by card</span></div>
-      <div className="pay-link-stripe">
-        <PaymentElement
-          options={{
-            paymentMethodOrder: ["link", "card"],
-            wallets: {
-              applePay: "never",
-              googlePay: "never",
-            },
-            fields: {
-              billingDetails: {
-                email: "auto",
-              },
-            },
-          }}
-        />
-      </div>
+      {selectedPaymentMethodId ? null : (
+        <>
+          <div className="pay-link-wallets">
+            <ExpressCheckoutElement
+              onConfirm={() => void confirmPayment()}
+              options={{
+                paymentMethods: {
+                  applePay: "auto",
+                  googlePay: "auto",
+                  link: "auto",
+                  amazonPay: "never",
+                },
+              }}
+            />
+          </div>
+          <div className="pay-link-or"><span>or pay by card</span></div>
+          <div className="pay-link-stripe">
+            <PaymentElement
+              options={{
+                paymentMethodOrder: ["link", "card"],
+                wallets: {
+                  applePay: "never",
+                  googlePay: "never",
+                },
+                fields: {
+                  billingDetails: {
+                    email: "auto",
+                  },
+                },
+              }}
+            />
+          </div>
+        </>
+      )}
       {message ? <p className="pay-link-status pay-link-status--error" role="alert">{message}</p> : null}
       <button
         type="submit"
@@ -214,9 +280,15 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     demoMode ? demoSummary(true) : null,
   );
   const [checkout, setCheckout] = useState<RestringingPayLinkCheckout | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(!demoMode);
+  const [paymentMethods, setPaymentMethods] = useState<PlayerStripePaymentMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [loading, setLoading] = useState(!demoMode);
   const [error, setError] = useState<string | null>(null);
+  const accountLinked = summary?.account_link.status === "linked";
 
   const loadSummary = useCallback(async () => {
     if (!token) {
@@ -245,13 +317,18 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
 
   const loadCheckout = useCallback(async () => {
     if (!token || demoMode || paid) return;
+    setCheckoutLoading(true);
     try {
       const authToken = getStoredAuthToken({ preferScheme: "token" });
-      setCheckout(await createRestringingPayLinkCheckout(token, authToken));
+      setCheckout(await createRestringingPayLinkCheckout(token, authToken, {
+        paymentMethodId: selectedPaymentMethodId,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Secure checkout could not be prepared.");
+    } finally {
+      setCheckoutLoading(false);
     }
-  }, [demoMode, paid, token]);
+  }, [demoMode, paid, selectedPaymentMethodId, token]);
 
   useEffect(() => {
     void loadSummary();
@@ -260,6 +337,51 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   useEffect(() => {
     void loadCheckout();
   }, [loadCheckout]);
+
+  useEffect(() => {
+    if (!accountLinked || !isAuthenticated || demoMode) {
+      setPaymentMethods([]);
+      setSelectedPaymentMethodId(null);
+      setPaymentMethodsError(null);
+      setPaymentMethodsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      setPaymentMethodsLoading(true);
+      setPaymentMethodsError(null);
+      try {
+        const authToken = getStoredAuthToken({ preferScheme: "token" });
+        if (!authToken) {
+          setPaymentMethods([]);
+          setSelectedPaymentMethodId(null);
+          return;
+        }
+        const payload = await getPlayerStripePaymentMethods(authToken);
+        if (cancelled) return;
+        const methods = extractPaymentMethods(payload);
+        setPaymentMethods(methods);
+        setSelectedPaymentMethodId((current) =>
+          current && methods.some((method) => method.id === current)
+            ? current
+            : resolveDefaultPaymentMethodId(payload, methods)
+        );
+      } catch (err) {
+        if (cancelled) return;
+        setPaymentMethods([]);
+        setSelectedPaymentMethodId(null);
+        setPaymentMethodsError(err instanceof Error ? err.message : "Unable to load saved cards.");
+      } finally {
+        if (!cancelled) setPaymentMethodsLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountLinked, demoMode, isAuthenticated]);
 
   const stripePromise = useMemo(() => {
     if (!stripePublishableKey || !checkout?.client_secret || demoMode) return null;
@@ -285,10 +407,46 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   }, [checkout?.client_secret]);
 
   const accountVisible = summary && shouldShowAccountPrompt(summary.account_link) && !guest && !paid;
-  const accountLinked = summary?.account_link.status === "linked";
   const vendorTel = buildVendorTelHref(summary?.vendor.phone);
   const vendorHoursText = formatVendorHours(summary?.vendor.hours ?? null);
   const firstItem = summary?.order.items[0];
+
+  const renderSavedPaymentMethods = () => {
+    if (!accountLinked || !isAuthenticated) return null;
+    return (
+      <div className="pay-link-saved-methods">
+        <div className="pay-link-saved-methods__header">
+          <strong>Saved cards</strong>
+          {paymentMethodsLoading ? <span>Loading...</span> : null}
+        </div>
+        {paymentMethodsError ? (
+          <p className="pay-link-status pay-link-status--error" role="alert">{paymentMethodsError}</p>
+        ) : null}
+        {paymentMethods.map((method) => (
+          <label className="pay-link-saved-method" key={method.id}>
+            <input
+              type="radio"
+              name="pay-link-payment-method"
+              value={method.id}
+              checked={selectedPaymentMethodId === method.id}
+              onChange={() => setSelectedPaymentMethodId(method.id)}
+            />
+            <span>{formatPaymentMethodLabel(method)}</span>
+          </label>
+        ))}
+        <label className="pay-link-saved-method">
+          <input
+            type="radio"
+            name="pay-link-payment-method"
+            value=""
+            checked={!selectedPaymentMethodId}
+            onChange={() => setSelectedPaymentMethodId(null)}
+          />
+          <span>Use a new card</span>
+        </label>
+      </div>
+    );
+  };
 
   const renderOrderSummary = () => {
     if (!summary) return null;
@@ -352,7 +510,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         </section>
       );
     }
-    if (!demoMode && (!checkout || !stripePromise || !elementsOptions)) {
+    if (!demoMode && (checkoutLoading || !checkout || !stripePromise || !elementsOptions)) {
       return (
         <section className="pay-link-card pay-link-panel pay-link-loading">
           <Loader2 className="pay-link-spin" size={18} aria-hidden />
@@ -364,16 +522,18 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     return (
       <section className="pay-link-card pay-link-panel">
         <h2>Payment</h2>
+        {renderSavedPaymentMethods()}
         {demoMode ? (
           <DemoPayLinkPaymentForm
             summary={summary}
             onPaid={() => setPaid(true)}
           />
         ) : (
-          <Elements stripe={stripePromise} options={elementsOptions}>
+          <Elements stripe={stripePromise} options={elementsOptions} key={checkout.client_secret}>
             <PayLinkPaymentForm
               checkout={checkout as RestringingPayLinkCheckout}
               summary={summary}
+              selectedPaymentMethodId={selectedPaymentMethodId}
               onPaid={() => setPaid(true)}
             />
           </Elements>
@@ -442,7 +602,10 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
                         onClick={() => openAuth({
                           mode: "signin",
                           reason: "Log in to save this order to your Tennis Plan profile.",
-                          onSuccess: () => void loadSummary(),
+                          onSuccess: () => {
+                            void loadSummary();
+                            void loadCheckout();
+                          },
                         })}
                       >
                         Log in & save

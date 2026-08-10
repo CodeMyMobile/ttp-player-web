@@ -115,10 +115,14 @@ test("checkout API returns client secret and connected account id", async () => 
   }) as typeof fetch;
 
   try {
-    const checkout = await createRestringingPayLinkCheckout("raw-token");
+    const checkout = await createRestringingPayLinkCheckout("raw-token", "Token abc", {
+      paymentMethodId: "pm_saved",
+    });
     assert.deepEqual(checkout, { client_secret: "pi_123_secret", stripe_account_id: "acct_vendor" });
     assert.equal(calls[0].url.endsWith("/restringing/pay-links/raw-token/checkout"), true);
     assert.equal(calls[0].init?.method, "POST");
+    assert.equal((calls[0].init?.headers as Record<string, string>).Authorization, "Token abc");
+    assert.equal(calls[0].init?.body, JSON.stringify({ payment_method_id: "pm_saved" }));
   } finally {
     globalThis.fetch = originalFetch;
   }
