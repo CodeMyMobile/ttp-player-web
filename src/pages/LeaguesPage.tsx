@@ -36,6 +36,7 @@ import LeaguePaymentStep from "../features/leagueJoin/LeaguePaymentStep";
 import LeagueJoinReviewSheet from "../features/leagueJoin/LeagueJoinReviewSheet";
 import { getStoredAuthToken } from "../services/authToken";
 import { isFutureLeagueItem } from "./leagueDetailTime";
+import { resolveLeagueAuthToken } from "./leagueAuthToken";
 import {
   requestLeagueJoin,
   resumePendingLeagueJoin,
@@ -547,12 +548,10 @@ const LeaguesPage = () => {
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const token = useMemo(
-    () =>
-      user?.session?.access_token ??
-      user?.access_token ??
-      user?.token ??
-      getStoredAuthToken({ preferScheme: "token" }) ??
-      undefined,
+    () => resolveLeagueAuthToken({
+      storedToken: getStoredAuthToken({ preferScheme: "token" }),
+      user,
+    }),
     [user],
   );
   const [topFilter, setTopFilter] = useState<BrowseTopFilter>("all");
