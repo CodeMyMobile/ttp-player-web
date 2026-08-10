@@ -64,11 +64,20 @@ export const getRestringingPayLink = (token: string, authToken?: string | null) 
     authScheme: "Token",
   });
 
-export const createRestringingPayLinkCheckout = (token: string, authToken?: string | null) =>
+export interface CreateRestringingPayLinkCheckoutOptions {
+  paymentMethodId?: string | null;
+}
+
+export const createRestringingPayLinkCheckout = (
+  token: string,
+  authToken?: string | null,
+  options: CreateRestringingPayLinkCheckoutOptions = {},
+) =>
   request<RestringingPayLinkCheckout>(`/restringing/pay-links/${encodeToken(token)}/checkout`, {
     method: "POST",
     token: authToken || undefined,
     authScheme: "Token",
+    body: options.paymentMethodId ? { payment_method_id: options.paymentMethodId } : undefined,
   });
 
 export const formatPayLinkMoney = (cents: number | null | undefined) => {
