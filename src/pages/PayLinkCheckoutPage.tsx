@@ -82,21 +82,6 @@ const extractPaymentMethods = (
   return [] as PlayerStripePaymentMethod[];
 };
 
-const resolveDefaultPaymentMethodId = (
-  payload: PlayerStripePaymentMethod[] | PlayerStripePaymentMethodListResponse | null | undefined,
-  methods: PlayerStripePaymentMethod[],
-) => {
-  const payloadDefault = !Array.isArray(payload) && payload
-    ? payload.default_payment_method_id || payload.default_payment_method
-    : null;
-  return (
-    payloadDefault ||
-    methods.find((method) => method.is_default || method.default || method.default_for_currency)?.id ||
-    methods[0]?.id ||
-    null
-  );
-};
-
 const formatPaymentMethodLabel = (method: PlayerStripePaymentMethod) => {
   const brand = method.card?.brand
     ? `${method.card.brand.charAt(0).toUpperCase()}${method.card.brand.slice(1)}`
@@ -153,7 +138,7 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const confirmPayment = useCallback(async () => {
+  const confirmElementPayment = useCallback(async () => {
     if (!stripe || !elements) {
       setMessage("Secure payment fields are still loading.");
       return;
@@ -162,25 +147,6 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
     setSubmitting(true);
     setMessage(null);
     try {
-      if (selectedPaymentMethodId) {
-        const result = await stripe.confirmCardPayment(checkout.client_secret, {
-          payment_method: selectedPaymentMethodId,
-        });
-
-        if (result.error) {
-          setMessage(result.error.message || "Payment could not be confirmed.");
-          return;
-        }
-
-        onPaid();
-        return;
-      }
-
-      if (!elements) {
-        setMessage("Secure payment fields are still loading.");
-        return;
-      }
-
       const submitResult = await elements.submit();
       if (submitResult.error) {
         setMessage(submitResult.error.message || "Check your payment details and try again.");
@@ -207,7 +173,41 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
     } finally {
       setSubmitting(false);
     }
-  }, [checkout.client_secret, elements, onPaid, selectedPaymentMethodId, stripe]);
+  }, [checkout.client_secret, elements, onPaid, stripe]);
+
+  const confirmSavedPaymentMethod = useCallback(async () => {
+    if (!stripe || !selectedPaymentMethodId) {
+      setMessage("Choose a payment method and try again.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const result = await stripe.confirmCardPayment(checkout.client_secret, {
+        payment_method: selectedPaymentMethodId,
+      });
+
+      if (result.error) {
+        setMessage(result.error.message || "Payment could not be confirmed.");
+        return;
+      }
+
+      onPaid();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Payment could not be confirmed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [checkout.client_secret, onPaid, selectedPaymentMethodId, stripe]);
+
+  const confirmPayment = useCallback(async () => {
+    if (selectedPaymentMethodId) {
+      await confirmSavedPaymentMethod();
+      return;
+    }
+    await confirmElementPayment();
+  }, [confirmElementPayment, confirmSavedPaymentMethod, selectedPaymentMethodId]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -216,22 +216,21 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
 
   return (
     <form className="pay-link-payment" onSubmit={handleSubmit}>
+      <div className="pay-link-wallets">
+        <ExpressCheckoutElement
+          onConfirm={() => void confirmElementPayment()}
+          options={{
+            paymentMethods: {
+              applePay: "auto",
+              googlePay: "auto",
+              link: "auto",
+              amazonPay: "never",
+            },
+          }}
+        />
+      </div>
+      <div className="pay-link-or"><span>{selectedPaymentMethodId ? "or use saved card" : "or pay by card"}</span></div>
       {selectedPaymentMethodId ? null : (
-        <>
-          <div className="pay-link-wallets">
-            <ExpressCheckoutElement
-              onConfirm={() => void confirmPayment()}
-              options={{
-                paymentMethods: {
-                  applePay: "auto",
-                  googlePay: "auto",
-                  link: "auto",
-                  amazonPay: "never",
-                },
-              }}
-            />
-          </div>
-          <div className="pay-link-or"><span>or pay by card</span></div>
           <div className="pay-link-stripe">
             <PaymentElement
               options={{
@@ -248,7 +247,6 @@ const PayLinkPaymentForm = ({ checkout, summary, selectedPaymentMethodId, onPaid
               }}
             />
           </div>
-        </>
       )}
       {message ? <p className="pay-link-status pay-link-status--error" role="alert">{message}</p> : null}
       <button
@@ -389,7 +387,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         setSelectedPaymentMethodId((current) =>
           current && methods.some((method) => method.id === current)
             ? current
-            : resolveDefaultPaymentMethodId(payload, methods)
+            : null
         );
       } catch (err) {
         if (cancelled) return;
@@ -440,9 +438,19 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     return (
       <div className="pay-link-saved-methods">
         <div className="pay-link-saved-methods__header">
-          <strong>Saved cards</strong>
+          <strong>Choose payment method</strong>
           {paymentMethodsLoading ? <span>Loading...</span> : null}
         </div>
+        <label className="pay-link-saved-method">
+          <input
+            type="radio"
+            name="pay-link-payment-method"
+            value=""
+            checked={!selectedPaymentMethodId}
+            onChange={() => setSelectedPaymentMethodId(null)}
+          />
+          <span>Apple Pay / Google Pay / new card</span>
+        </label>
         {paymentMethodsError ? (
           <p className="pay-link-status pay-link-status--error" role="alert">{paymentMethodsError}</p>
         ) : null}
@@ -458,16 +466,6 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             <span>{formatPaymentMethodLabel(method)}</span>
           </label>
         ))}
-        <label className="pay-link-saved-method">
-          <input
-            type="radio"
-            name="pay-link-payment-method"
-            value=""
-            checked={!selectedPaymentMethodId}
-            onChange={() => setSelectedPaymentMethodId(null)}
-          />
-          <span>Use a new card</span>
-        </label>
       </div>
     );
   };
