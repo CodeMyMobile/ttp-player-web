@@ -82,21 +82,6 @@ const extractPaymentMethods = (
   return [] as PlayerStripePaymentMethod[];
 };
 
-const resolveDefaultPaymentMethodId = (
-  payload: PlayerStripePaymentMethod[] | PlayerStripePaymentMethodListResponse | null | undefined,
-  methods: PlayerStripePaymentMethod[],
-) => {
-  const payloadDefault = !Array.isArray(payload) && payload
-    ? payload.default_payment_method_id || payload.default_payment_method
-    : null;
-  return (
-    payloadDefault ||
-    methods.find((method) => method.is_default || method.default || method.default_for_currency)?.id ||
-    methods[0]?.id ||
-    null
-  );
-};
-
 const formatPaymentMethodLabel = (method: PlayerStripePaymentMethod) => {
   const brand = method.card?.brand
     ? `${method.card.brand.charAt(0).toUpperCase()}${method.card.brand.slice(1)}`
@@ -402,7 +387,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
         setSelectedPaymentMethodId((current) =>
           current && methods.some((method) => method.id === current)
             ? current
-            : resolveDefaultPaymentMethodId(payload, methods)
+            : null
         );
       } catch (err) {
         if (cancelled) return;
@@ -453,9 +438,19 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     return (
       <div className="pay-link-saved-methods">
         <div className="pay-link-saved-methods__header">
-          <strong>Saved cards</strong>
+          <strong>Choose payment method</strong>
           {paymentMethodsLoading ? <span>Loading...</span> : null}
         </div>
+        <label className="pay-link-saved-method">
+          <input
+            type="radio"
+            name="pay-link-payment-method"
+            value=""
+            checked={!selectedPaymentMethodId}
+            onChange={() => setSelectedPaymentMethodId(null)}
+          />
+          <span>Apple Pay / Google Pay / new card</span>
+        </label>
         {paymentMethodsError ? (
           <p className="pay-link-status pay-link-status--error" role="alert">{paymentMethodsError}</p>
         ) : null}
@@ -471,16 +466,6 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             <span>{formatPaymentMethodLabel(method)}</span>
           </label>
         ))}
-        <label className="pay-link-saved-method">
-          <input
-            type="radio"
-            name="pay-link-payment-method"
-            value=""
-            checked={!selectedPaymentMethodId}
-            onChange={() => setSelectedPaymentMethodId(null)}
-          />
-          <span>Use a new card</span>
-        </label>
       </div>
     );
   };
