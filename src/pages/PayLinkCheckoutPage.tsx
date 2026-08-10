@@ -24,6 +24,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
 import { getStoredAuthToken } from "../services/authToken";
+import AppNav from "../components/AppNav";
 
 import "./PayLinkCheckoutPage.css";
 
@@ -567,13 +568,17 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
 
   return (
     <div className="pay-link-page">
-      <header className="pay-link-header">
-        <div className="pay-link-brand">
-          <div className="pay-link-brand__mark">🎾</div>
-          <div className="pay-link-brand__name">The Tennis <span>Plan</span></div>
-        </div>
-        <span className="pay-link-pill pay-link-pill--gray"><ShieldCheck size={14} aria-hidden /> Secure checkout</span>
-      </header>
+      {hasAuthToken ? (
+        <AppNav hideMobileNewMatch />
+      ) : (
+        <header className="pay-link-header">
+          <div className="pay-link-brand">
+            <div className="pay-link-brand__mark">🎾</div>
+            <div className="pay-link-brand__name">The Tennis <span>Plan</span></div>
+          </div>
+          <span className="pay-link-pill pay-link-pill--gray"><ShieldCheck size={14} aria-hidden /> Secure checkout</span>
+        </header>
+      )}
 
       <main className="pay-link-wrap">
         {loading ? (
