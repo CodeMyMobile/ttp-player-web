@@ -8,6 +8,7 @@ import {
   buildVendorTelHref,
   createRestringingPayLinkCheckout,
   formatPayLinkMoney,
+  formatVendorHours,
   getItemSpecs,
   getRestringingPayLink,
   isPayLinkDemoMode,
@@ -286,6 +287,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const accountVisible = summary && shouldShowAccountPrompt(summary.account_link) && !guest && !paid;
   const accountLinked = summary?.account_link.status === "linked";
   const vendorTel = buildVendorTelHref(summary?.vendor.phone);
+  const vendorHoursText = formatVendorHours(summary?.vendor.hours ?? null);
   const firstItem = summary?.order.items[0];
 
   const renderOrderSummary = () => {
@@ -302,7 +304,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
           <div className="pay-link-vendor__body">
             <div className="pay-link-vendor__name">{summary.vendor.name}</div>
             {summary.vendor.address ? <div className="pay-link-muted">📍 {summary.vendor.address}</div> : null}
-            {summary.vendor.hours ? <div className="pay-link-muted">🕘 {summary.vendor.hours}</div> : null}
+            {vendorHoursText ? <div className="pay-link-muted">🕘 {vendorHoursText}</div> : null}
           </div>
           {vendorTel ? (
             <a className="pay-link-btn pay-link-btn--white pay-link-btn--sm" href={vendorTel}>
@@ -413,7 +415,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
               <section className="pay-link-card pay-link-panel">
                 <h2>What happens next</h2>
                 <div className="pay-link-steps">
-                  <div className="pay-link-step"><span>1</span><div><strong>Drop off your racket</strong><p>{summary.vendor.address} · {summary.vendor.hours}</p></div></div>
+                  <div className="pay-link-step"><span>1</span><div><strong>Drop off your racket</strong><p>{[summary.vendor.address, vendorHoursText].filter(Boolean).join(" · ")}</p></div></div>
                   <div className="pay-link-step"><span>2</span><div><strong>We string it</strong><p>{firstItem?.advice_requested ? "Gauge and tension will be agreed at drop-off." : `${firstItem?.tension_lbs_mains ?? "TBD"} lbs · gauge ${firstItem?.gauge ?? "TBD"}`}</p></div></div>
                   <div className="pay-link-step"><span>3</span><div><strong>We text you when ready</strong><p>SMS to {summary.order.masked_phone || "your phone"}</p></div></div>
                 </div>

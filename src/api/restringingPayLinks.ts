@@ -11,7 +11,7 @@ export interface RestringingPayLinkVendor {
   name: string;
   address: string | null;
   phone: string | null;
-  hours: string | null;
+  hours: string | Record<string, string | null | undefined> | null;
 }
 
 export interface RestringingPayLinkItem {
@@ -83,6 +83,34 @@ export const buildVendorTelHref = (phone: string | null | undefined) => {
   if (!phone) return "";
   const normalized = phone.replace(/[^\d+]/g, "");
   return normalized ? `tel:${normalized}` : "";
+};
+
+const VENDOR_HOUR_DAYS: Array<[string, string]> = [
+  ["mon", "Mon"],
+  ["tue", "Tue"],
+  ["wed", "Wed"],
+  ["thu", "Thu"],
+  ["fri", "Fri"],
+  ["sat", "Sat"],
+  ["sun", "Sun"],
+];
+
+export const formatVendorHours = (
+  hours: RestringingPayLinkVendor["hours"],
+) => {
+  if (!hours) return "";
+  if (typeof hours === "string") return hours.trim();
+  if (typeof hours !== "object") return "";
+
+  return VENDOR_HOUR_DAYS
+    .map(([key, label]) => {
+      const value = hours[key];
+      return typeof value === "string" && value.trim()
+        ? `${label} ${value.trim()}`
+        : "";
+    })
+    .filter(Boolean)
+    .join(" · ");
 };
 
 const formatTension = (mains: number | null | undefined, crosses: number | null | undefined) => {

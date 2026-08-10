@@ -5,6 +5,7 @@ import {
   buildVendorTelHref,
   createRestringingPayLinkCheckout,
   formatPayLinkMoney,
+  formatVendorHours,
   getItemSpecs,
   getRestringingPayLink,
   isPayLinkDemoMode,
@@ -19,6 +20,20 @@ test("formatPayLinkMoney formats cents as USD", () => {
 test("buildVendorTelHref strips display formatting from vendor phone", () => {
   assert.equal(buildVendorTelHref("+1 (512) 555-0199"), "tel:+15125550199");
   assert.equal(buildVendorTelHref(null), "");
+});
+
+test("formatVendorHours renders vendor hours objects safely", () => {
+  assert.equal(formatVendorHours({
+    mon: "09:00-17:00",
+    tue: "09:00-17:00",
+    wed: "09:00-17:00",
+    thu: "09:00-17:00",
+    fri: "09:00-19:00",
+    sat: "10:00-14:00",
+    sun: "",
+  }), "Mon 09:00-17:00 · Tue 09:00-17:00 · Wed 09:00-17:00 · Thu 09:00-17:00 · Fri 09:00-19:00 · Sat 10:00-14:00");
+  assert.equal(formatVendorHours("Mon-Sat"), "Mon-Sat");
+  assert.equal(formatVendorHours(null), "");
 });
 
 test("getItemSpecs returns a dashed TBD spec for advice orders", () => {
