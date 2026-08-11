@@ -11,6 +11,7 @@ type TestSlot = {
   id: string;
   type: "private" | "group";
   start: string;
+  locationId?: number | null;
   sourceLessonId?: number;
 };
 
@@ -101,6 +102,33 @@ test("mergeAvailabilityDayGroups dedupes existing profile lesson slots", () => {
   );
 
   assert.deepEqual(merged[0].slots.map((slot) => slot.id), ["profile-group"]);
+});
+
+test("mergeAvailabilityDayGroups dedupes private slots with different generated ids", () => {
+  const merged = mergeAvailabilityDayGroups(
+    [
+      day("2026-08-13", [
+        {
+          id: "2026-08-13-1122-540",
+          type: "private",
+          start: "2026-08-13T09:00:00.000Z",
+          locationId: 37,
+        },
+      ]),
+    ],
+    [
+      day("2026-08-13", [
+        {
+          id: "2026-08-13-private-0-0",
+          type: "private",
+          start: "2026-08-13T09:00:00.000Z",
+          locationId: 37,
+        },
+      ]),
+    ],
+  );
+
+  assert.deepEqual(merged[0].slots.map((slot) => slot.id), ["2026-08-13-1122-540"]);
 });
 
 test("isCancelledLessonStatus treats cancelled lessons as open schedule time", () => {

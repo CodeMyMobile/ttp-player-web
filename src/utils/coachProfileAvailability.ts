@@ -2,6 +2,9 @@ export type CoachProfileAvailabilitySlot = {
   id: string;
   start: string;
   type?: string;
+  locationId?: number | string | null;
+  court?: string | number | null;
+  courtValue?: string | number | null;
   sourceLessonId?: number;
 };
 
@@ -13,6 +16,11 @@ export type CoachProfileAvailabilityDay<T extends CoachProfileAvailabilitySlot> 
 const slotIdentity = (slot: CoachProfileAvailabilitySlot) => {
   if (slot.sourceLessonId != null) {
     return `${slot.type ?? "lesson"}:lesson:${slot.sourceLessonId}`;
+  }
+  const startTime = Date.parse(slot.start);
+  if (Number.isFinite(startTime)) {
+    const locationKey = slot.locationId ?? slot.courtValue ?? slot.court ?? "";
+    return `${slot.type ?? "slot"}:time:${startTime}:location:${locationKey}`;
   }
   return slot.id;
 };
