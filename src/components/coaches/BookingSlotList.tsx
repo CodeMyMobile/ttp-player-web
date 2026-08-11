@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { ChevronRight, MapPin, Moon, Sun, Sunrise, type LucideIcon } from "lucide-react";
-import moment from "moment";
 
+import { getAvailabilitySlotPeriod, type CoachProfileAvailabilityPeriod } from "../../utils/coachProfileAvailability";
 import "./BookingSlotList.css";
 
 /**
@@ -39,7 +39,7 @@ interface BookingSlotListProps<T extends BookingSlotItem> {
   resolveBookingState?: (slot: T) => SlotBookingState;
 }
 
-type Period = "morning" | "afternoon" | "evening";
+type Period = CoachProfileAvailabilityPeriod;
 
 const PERIODS: Array<{ key: Period; label: string; Icon: LucideIcon }> = [
   { key: "morning", label: "Morning", Icon: Sunrise },
@@ -54,25 +54,9 @@ const PERIOD_COLORS: Record<Period, { tint: string; text: string; accent: string
   evening: { tint: "#EDE9FE", text: "#6D28D9", accent: "#8B5CF6" },
 };
 
-// Fallback hour parse from a display label ("7:30 AM" -> 7, "12:00 PM" -> 12, "5:00 PM" -> 17)
-// used only when `start` is missing/invalid, so a bad timestamp can't silently bucket to "now".
-const parseHourFromLabel = (label: string): number => {
-  const match = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(label ?? "");
-  if (!match) return 12; // safe default → afternoon
-  const ampm = match[3]?.toUpperCase();
-  if (!ampm) return Number(match[1]);
-  let hour = Number(match[1]) % 12;
-  if (ampm === "PM") hour += 12;
-  return hour;
-};
-
 // hour < 12 → morning; 12 ≤ hour < 17 → afternoon (noon lands here); hour ≥ 17 → evening (5pm lands here).
-const periodOfSlot = (slot: BookingSlotItem): Period => {
-  const parsed = moment(slot.start);
-  const hour = parsed.isValid() ? parsed.hour() : parseHourFromLabel(slot.timeLabel);
-  if (hour < 12) return "morning";
-  if (hour < 17) return "afternoon";
-  return "evening";
+export const periodOfSlot = (slot: BookingSlotItem): Period => {
+  return getAvailabilitySlotPeriod(slot.timeLabel);
 };
 
 function BookingSlotList<T extends BookingSlotItem>({

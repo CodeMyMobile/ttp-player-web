@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getAvailabilitySlotPeriod,
   isCancelledLessonStatus,
   mergeAvailabilityDayGroups,
+  parseCoachAvailabilityClock,
   type CoachProfileAvailabilityDay,
 } from "./coachProfileAvailability";
 
@@ -136,4 +138,16 @@ test("isCancelledLessonStatus treats cancelled lessons as open schedule time", (
   assert.equal(isCancelledLessonStatus("2"), true);
   assert.equal(isCancelledLessonStatus("CANCELLED"), true);
   assert.equal(isCancelledLessonStatus(1), false);
+});
+
+test("parseCoachAvailabilityClock treats schedule clock labels as UTC", () => {
+  const parsed = parseCoachAvailabilityClock("2026-08-11", "10:00 AM");
+
+  assert.equal(parsed?.toISOString(), "2026-08-11T10:00:00.000Z");
+});
+
+test("getAvailabilitySlotPeriod uses displayed slot time", () => {
+  assert.equal(getAvailabilitySlotPeriod("9:00 AM"), "morning");
+  assert.equal(getAvailabilitySlotPeriod("12:00 PM"), "afternoon");
+  assert.equal(getAvailabilitySlotPeriod("5:00 PM"), "evening");
 });
