@@ -1,3 +1,7 @@
+import moment from "moment";
+
+export type CoachProfileAvailabilityPeriod = "morning" | "afternoon" | "evening";
+
 export type CoachProfileAvailabilitySlot = {
   id: string;
   start: string;
@@ -68,4 +72,27 @@ export const isCancelledLessonStatus = (status: unknown) => {
     return normalized === "2" || normalized === "cancelled" || normalized === "canceled";
   }
   return false;
+};
+
+export const parseCoachAvailabilityClock = (isoDate: string, value?: string) => {
+  if (!value) return null;
+  const parsed = moment.utc(`${isoDate} ${value}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm", moment.ISO_8601], true);
+  return parsed.isValid() ? parsed : null;
+};
+
+const parseHourFromLabel = (label: string): number => {
+  const match = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec(label ?? "");
+  if (!match) return 12;
+  const ampm = match[3]?.toUpperCase();
+  if (!ampm) return Number(match[1]);
+  let hour = Number(match[1]) % 12;
+  if (ampm === "PM") hour += 12;
+  return hour;
+};
+
+export const getAvailabilitySlotPeriod = (timeLabel: string): CoachProfileAvailabilityPeriod => {
+  const hour = parseHourFromLabel(timeLabel);
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
 };

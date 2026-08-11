@@ -79,6 +79,7 @@ import {
 import {
   isCancelledLessonStatus,
   mergeAvailabilityDayGroups,
+  parseCoachAvailabilityClock,
 } from "../utils/coachProfileAvailability";
 import {
   filterCoachPackagesByLessonType,
@@ -640,9 +641,7 @@ const resolveSlotDurationSegments = (slotDuration?: string, lessonTypeDuration?:
 };
 
 const parseClock = (isoDate: string, value?: string) => {
-  if (!value) return null;
-  const parsed = moment(`${isoDate} ${value}`, ["YYYY-MM-DD h:mm A", "YYYY-MM-DD HH:mm", moment.ISO_8601], true);
-  return parsed.isValid() ? parsed : null;
+  return parseCoachAvailabilityClock(isoDate, value);
 };
 
 const resolveLessonType = (lesson: Lesson) => {
