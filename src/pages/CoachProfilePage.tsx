@@ -77,6 +77,10 @@ import {
   getGroupParticipantBookingState,
 } from "../utils/coachProfileBookingState.js";
 import {
+  isCancelledLessonStatus,
+  mergeAvailabilityDayGroups,
+} from "../utils/coachProfileAvailability";
+import {
   filterCoachPackagesByLessonType,
   getCoachPackageLessonTypeOptions,
 } from "../utils/coachPackageFilters.js";
@@ -1306,137 +1310,24 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     setScheduleLoading(true);
 
     const loadAvailability = async () => {
-      const availableDates = apiProfile?.booking?.availableDates ?? [];
-      if (availableDates.length) {
-        const mappedDays = availableDates.map((day): DayGroup => {
-          const isoDate = day.id ?? "";
-          const slots = (day.slots ?? []).flatMap((slot, index): LoadedSlot[] => {
-            const lessonType = String(slot.lessonType ?? "private").toLowerCase();
-            const type = lessonType.includes("group") ? "group" : "private";
-            const lessonTypeConfig = bookingLessonTypes.find((item) => item.id === slot.lessonType || item.id === lessonType);
-            const durationSegments = resolveSlotDurationSegments(slot.duration, lessonTypeConfig?.duration);
-            const parsedStart = parseClock(isoDate, slot.time);
-            const groupPlayers = Array.isArray(slot.groupPlayers)
-              ? slot.groupPlayers
-              : Array.isArray(slot.group_players)
-                ? slot.group_players
-                : undefined;
-            const bookingState = (() => {
-              if (type === "group") {
-                return getGroupParticipantBookingState(groupPlayers, user) ?? undefined;
-              }
-              const normalizedStatus = extractBookingStatus(slot.lessonStatus);
-              if (normalizedStatus === "CONFIRMED") return "confirmed" as const;
-              if (normalizedStatus === "PENDING") return "pending" as const;
-              return undefined;
-            })();
-
-            return durationSegments.map(({ offsetMin, durationLabel, durationMin }, segmentIndex) => {
-              const segmentStart = parsedStart?.clone().add(offsetMin, "minutes") ?? null;
-              const segmentEnd = segmentStart ? segmentStart.clone().add(durationMin, "minutes") : null;
-              const baseId = slot.id ?? `${isoDate}-${type}-${index}`;
-              const id = durationSegments.length > 1 ? `${baseId}-${segmentIndex}` : baseId;
-              const sourceLessonId = Number(slot.sourceLessonId ?? slot.lessonId ?? 0) || undefined;
-              const metadata = slot.metadata ?? {};
-
-              return {
-                id,
-                type,
-                isoDate,
-                dayLabel: day.day ?? moment(isoDate).format("ddd"),
-                dateLabel: day.label ?? moment(isoDate).format("MMM D"),
-                timeLabel: segmentStart?.isValid() ? segmentStart.format("h:mm A") : slot.time ?? "Time TBD",
-                durationLabel,
-                durationMin,
-                court: shortenLocationLabel(slot.location ?? slot.title ?? primaryLocationLabel),
-                priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
-                start: slot.startDateTime ?? segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
-                end: slot.endDateTime ?? segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
-                className: type === "group" ? slot.title ?? metadata.title ?? "Group lesson" : undefined,
-                level: type === "group" ? slot.level ?? metadata.level ?? "All levels" : undefined,
-                description: type === "group" ? slot.description ?? metadata.description ?? "Live coached group session." : undefined,
-                spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
-                totalSpots: type === "group" ? slot.totalSpots ?? undefined : undefined,
-                locationId: slot.locationId ?? null,
-                courtValue: slot.court ?? null,
-                sourceLessonId,
-                bookingState,
-                groupPlayers,
-                hourlyRate: type === "private" ? parseCurrency(slot.price ?? privatePriceLabel) ?? null : null,
-                groupPricePerPerson: type === "group" ? parseCurrency(slot.price ?? groupPriceLabel) ?? null : null,
-                discountPercentage: 0,
-                lessonTypeName: type === "group" ? String(slot.lessonType ?? "Group") : "Private",
-                lessonTypeId: type === "group" ? Number(slot.lessonTypeId ?? 3) : 1,
-                coachId: Number(profile?.id ?? 0) || null,
-              };
-            });
-          });
-
-          return {
-            isoDate,
-            dayLabel: day.day ?? moment(isoDate).format("ddd"),
-            dateLabel: day.label ?? moment(isoDate).format("MMM D"),
-            shortDateLabel: day.date ?? moment(isoDate).format("D"),
-            slots,
-          };
-        });
-
-        const daysByIso = new Map(mappedDays.map((day) => [day.isoDate, day]));
-        const validMoments = mappedDays
-          .map((day) => moment(day.isoDate, "YYYY-MM-DD", true))
-          .filter((date) => date.isValid())
-          .sort((a, b) => a.valueOf() - b.valueOf());
-        const rangeStart = validMoments[0]?.clone().startOf("day") ?? moment().startOf("day");
-        const minimumRangeEnd = rangeStart.clone().add(SCHEDULE_WINDOW_DAYS - 1, "days");
-        const latestAvailable = validMoments[validMoments.length - 1]?.clone().startOf("day") ?? minimumRangeEnd;
-        const rangeEnd = latestAvailable.isAfter(minimumRangeEnd) ? latestAvailable : minimumRangeEnd;
-        const nextDays: DayGroup[] = [];
-
-        for (let cursor = rangeStart.clone(); cursor.isSameOrBefore(rangeEnd, "day"); cursor.add(1, "day")) {
-          const isoDate = cursor.format("YYYY-MM-DD");
-          nextDays.push(daysByIso.get(isoDate) ?? buildEmptyDayGroup(cursor));
-        }
-
-        if (active) {
-          setSlotsByDay(nextDays);
-          setScheduleLoading(false);
-        }
-        return;
-      }
-
-      if (!authToken) {
-        if (active) {
-          const nextDays = Array.from({ length: SCHEDULE_WINDOW_DAYS }, (_, offset) =>
-            buildEmptyDayGroup(moment().startOf("day").add(offset, "days")),
-          );
-          setSlotsByDay(nextDays);
-          setScheduleLoading(false);
-        }
-        return;
-      }
-
-      const nextDays: DayGroup[] = [];
-
-      for (let offset = 0; offset < SCHEDULE_WINDOW_DAYS; offset += 1) {
-        const currentDay = moment().add(offset, "days");
+      const loadScheduleDay = async (currentDay: moment.Moment): Promise<DayGroup> => {
         const isoDate = currentDay.format("YYYY-MM-DD");
         const weekday = currentDay.format("dddd").toUpperCase();
 
         const scheduleEntries = await fetchCoachSchedule({
-          token: authToken,
+          token: authToken ?? "",
           coachId: profile.id,
           day: weekday,
         }).catch(() => [] as CoachScheduleEntry[]);
 
         if (!scheduleEntries.length) {
-          nextDays.push({
+          return {
             isoDate,
             dayLabel: currentDay.format("ddd"),
             dateLabel: currentDay.format("MMM D"),
             shortDateLabel: currentDay.format("D"),
             slots: [],
-          });
-          continue;
+          };
         }
 
         const lessons = await fetchCoachLessonsByDate({
@@ -1446,6 +1337,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         }).catch(() => [] as Lesson[]);
 
         const occupiedRanges = lessons
+          .filter((lesson) => !isCancelledLessonStatus(lesson.status))
           .map((lesson) => ({
             start: moment.utc(lesson.start_date_time),
             end: moment.utc(lesson.end_date_time),
@@ -1455,7 +1347,8 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         const privateSlots = scheduleEntries.flatMap((entry, entryIndex) => {
           const start = parseClock(isoDate, String(entry.from ?? ""));
           const end = parseClock(isoDate, String(entry.to ?? ""));
-          if (!start || !end || !end.isAfter(start)) return [];
+          if (!start || !end) return [];
+          if (!end.isAfter(start)) end.add(1, "day");
 
           const slots: LoadedSlot[] = [];
           let cursor = start.clone();
@@ -1554,13 +1447,141 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           });
 
         const slots = [...privateSlots, ...groupSlots].sort((a, b) => moment(a.start).valueOf() - moment(b.start).valueOf());
-        nextDays.push({
+        return {
           isoDate,
           dayLabel: currentDay.format("ddd"),
           dateLabel: currentDay.format("MMM D"),
           shortDateLabel: currentDay.format("D"),
           slots,
+        };
+      };
+
+      const availableDates = apiProfile?.booking?.availableDates ?? [];
+      if (availableDates.length) {
+        const mappedDays = availableDates.map((day): DayGroup => {
+          const isoDate = day.id ?? "";
+          const slots = (day.slots ?? []).flatMap((slot, index): LoadedSlot[] => {
+            const lessonType = String(slot.lessonType ?? "private").toLowerCase();
+            const type = lessonType.includes("group") ? "group" : "private";
+            const lessonTypeConfig = bookingLessonTypes.find((item) => item.id === slot.lessonType || item.id === lessonType);
+            const durationSegments = resolveSlotDurationSegments(slot.duration, lessonTypeConfig?.duration);
+            const parsedStart = parseClock(isoDate, slot.time);
+            const groupPlayers = Array.isArray(slot.groupPlayers)
+              ? slot.groupPlayers
+              : Array.isArray(slot.group_players)
+                ? slot.group_players
+                : undefined;
+            const bookingState = (() => {
+              if (type === "group") {
+                return getGroupParticipantBookingState(groupPlayers, user) ?? undefined;
+              }
+              const normalizedStatus = extractBookingStatus(slot.lessonStatus);
+              if (normalizedStatus === "CONFIRMED") return "confirmed" as const;
+              if (normalizedStatus === "PENDING") return "pending" as const;
+              return undefined;
+            })();
+
+            return durationSegments.map(({ offsetMin, durationLabel, durationMin }, segmentIndex) => {
+              const segmentStart = parsedStart?.clone().add(offsetMin, "minutes") ?? null;
+              const segmentEnd = segmentStart ? segmentStart.clone().add(durationMin, "minutes") : null;
+              const baseId = slot.id ?? `${isoDate}-${type}-${index}`;
+              const id = durationSegments.length > 1 ? `${baseId}-${segmentIndex}` : baseId;
+              const sourceLessonId = Number(slot.sourceLessonId ?? slot.lessonId ?? 0) || undefined;
+              const metadata = slot.metadata ?? {};
+
+              return {
+                id,
+                type,
+                isoDate,
+                dayLabel: day.day ?? moment(isoDate).format("ddd"),
+                dateLabel: day.label ?? moment(isoDate).format("MMM D"),
+                timeLabel: segmentStart?.isValid() ? segmentStart.format("h:mm A") : slot.time ?? "Time TBD",
+                durationLabel,
+                durationMin,
+                court: shortenLocationLabel(slot.location ?? slot.title ?? primaryLocationLabel),
+                priceLabel: slot.price ?? (type === "group" ? groupPriceLabel ?? "$0" : privatePriceLabel),
+                start: slot.startDateTime ?? segmentStart?.toISOString() ?? `${isoDate}T09:00:00`,
+                end: slot.endDateTime ?? segmentEnd?.toISOString() ?? `${isoDate}T10:00:00`,
+                className: type === "group" ? slot.title ?? metadata.title ?? "Group lesson" : undefined,
+                level: type === "group" ? slot.level ?? metadata.level ?? "All levels" : undefined,
+                description: type === "group" ? slot.description ?? metadata.description ?? "Live coached group session." : undefined,
+                spotsLeft: type === "group" ? slot.spotsRemaining : undefined,
+                totalSpots: type === "group" ? slot.totalSpots ?? undefined : undefined,
+                locationId: slot.locationId ?? null,
+                courtValue: slot.court ?? null,
+                sourceLessonId,
+                bookingState,
+                groupPlayers,
+                hourlyRate: type === "private" ? parseCurrency(slot.price ?? privatePriceLabel) ?? null : null,
+                groupPricePerPerson: type === "group" ? parseCurrency(slot.price ?? groupPriceLabel) ?? null : null,
+                discountPercentage: 0,
+                lessonTypeName: type === "group" ? String(slot.lessonType ?? "Group") : "Private",
+                lessonTypeId: type === "group" ? Number(slot.lessonTypeId ?? 3) : 1,
+                coachId: Number(profile?.id ?? 0) || null,
+              };
+            });
+          });
+
+          return {
+            isoDate,
+            dayLabel: day.day ?? moment(isoDate).format("ddd"),
+            dateLabel: day.label ?? moment(isoDate).format("MMM D"),
+            shortDateLabel: day.date ?? moment(isoDate).format("D"),
+            slots,
+          };
         });
+
+        const daysByIso = new Map(mappedDays.map((day) => [day.isoDate, day]));
+        const validMoments = mappedDays
+          .map((day) => moment(day.isoDate, "YYYY-MM-DD", true))
+          .filter((date) => date.isValid())
+          .sort((a, b) => a.valueOf() - b.valueOf());
+        const rangeStart = validMoments[0]?.clone().startOf("day") ?? moment().startOf("day");
+        const minimumRangeEnd = rangeStart.clone().add(SCHEDULE_WINDOW_DAYS - 1, "days");
+        const latestAvailable = validMoments[validMoments.length - 1]?.clone().startOf("day") ?? minimumRangeEnd;
+        const rangeEnd = latestAvailable.isAfter(minimumRangeEnd) ? latestAvailable : minimumRangeEnd;
+        const nextDays: DayGroup[] = [];
+
+        for (let cursor = rangeStart.clone(); cursor.isSameOrBefore(rangeEnd, "day"); cursor.add(1, "day")) {
+          const isoDate = cursor.format("YYYY-MM-DD");
+          nextDays.push(daysByIso.get(isoDate) ?? buildEmptyDayGroup(cursor));
+        }
+
+        if (authToken) {
+          const scheduleDays: DayGroup[] = [];
+          for (let cursor = rangeStart.clone(); cursor.isSameOrBefore(rangeEnd, "day"); cursor.add(1, "day")) {
+            scheduleDays.push(await loadScheduleDay(cursor.clone()));
+          }
+          const mergedDays = mergeAvailabilityDayGroups(nextDays, scheduleDays);
+          if (active) {
+            setSlotsByDay(mergedDays);
+            setScheduleLoading(false);
+          }
+          return;
+        }
+
+        if (active) {
+          setSlotsByDay(nextDays);
+          setScheduleLoading(false);
+        }
+        return;
+      }
+
+      if (!authToken) {
+        if (active) {
+          const nextDays = Array.from({ length: SCHEDULE_WINDOW_DAYS }, (_, offset) =>
+            buildEmptyDayGroup(moment().startOf("day").add(offset, "days")),
+          );
+          setSlotsByDay(nextDays);
+          setScheduleLoading(false);
+        }
+        return;
+      }
+
+      const nextDays: DayGroup[] = [];
+
+      for (let offset = 0; offset < SCHEDULE_WINDOW_DAYS; offset += 1) {
+        nextDays.push(await loadScheduleDay(moment().add(offset, "days")));
       }
 
       if (active) {
