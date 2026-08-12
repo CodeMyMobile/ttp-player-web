@@ -41,6 +41,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
 import { buildGroupLessonShareUrl } from "../utils/shareLinks";
+import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
 
 import "./GroupLessonDetailsPage.css";
@@ -892,7 +893,7 @@ const GroupLessonDetailsPage = () => {
   const sourceLesson = lesson.sourceLesson as Record<string, unknown> | undefined;
   const bookedCountRaw = Number(sourceLesson?.booked_count ?? lesson.participants.length);
   const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : lesson.participants.length;
-  const participantRows = (lesson.groupPlayers?.length ? lesson.groupPlayers : lesson.participants).map((participant, index) => ({
+  const participantRows = buildVisibleGroupLessonParticipantRows(lesson).map((participant, index) => ({
     id: String(participant.playerId ?? participant.id ?? `${lesson.id}-${index}`),
     name: "name" in participant && typeof participant.name === "string" ? participant.name : "Player",
     avatarUrl: "avatarUrl" in participant && typeof participant.avatarUrl === "string" ? participant.avatarUrl : undefined,
