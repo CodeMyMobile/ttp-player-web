@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -40,6 +40,7 @@ import {
   listVendorStrings,
   listVendors,
 } from "./restringingService.js";
+import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 
 const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
@@ -145,8 +146,11 @@ function StripePaymentForm({ clientSecret, totalLabel, onPaid, disabled }) {
   );
 }
 
-export default function RestringingPlayerFlow() {
+export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "" }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { vendorSlug: routeVendorSlug = "" } = useParams();
+  const activeVendorSlug = clean(directVendorSlug || routeVendorSlug);
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const authDrawer = useAuthDrawer();
   const [screen, setScreen] = useState("home");
@@ -291,6 +295,38 @@ export default function RestringingPlayerFlow() {
   }, [refreshPaymentMethods]);
 
   useEffect(() => {
+    if (!activeVendorSlug || loading) return undefined;
+    const vendor = findVendorBySlug(allVendors.length ? allVendors : vendors, activeVendorSlug);
+    if (!vendor) {
+      setScreen("vendor");
+      setHistory((items) => (items.length ? items : ["home"]));
+      return undefined;
+    }
+
+    let cancelled = false;
+    setBusy(true);
+    getVendorProfile(vendor.id)
+      .then((profile) => {
+        if (cancelled) return;
+        setSelectedVendor(profile || vendor);
+        setScreen("profile");
+        setHistory((items) => (items.length ? items : ["vendor"]));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSelectedVendor(vendor);
+        setScreen("profile");
+        setHistory((items) => (items.length ? items : ["vendor"]));
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeVendorSlug, allVendors, loading, vendors]);
+
+  useEffect(() => {
     if (!tier || !selectedVendor) return;
     let cancelled = false;
     listVendorStrings({ vendorId: selectedVendor.id, serviceTierId: tier.id })
@@ -390,6 +426,7 @@ export default function RestringingPlayerFlow() {
     setBusy(true);
     try {
       setSelectedVendor(await getVendorProfile(vendor.id));
+      navigate(vendorProfilePath(vendor));
       go("profile");
     } finally {
       setBusy(false);
@@ -649,7 +686,16 @@ export default function RestringingPlayerFlow() {
                       {vendor.phone_href ? <a className="rsg-icon-btn" href={vendor.phone_href}><Phone size={18} /></a> : null}
                       {vendor.sms_href ? <a className="rsg-icon-btn" href={vendor.sms_href}><MessageCircle size={18} /></a> : null}
                     </div>
-                    <button type="button" className="rsg-link" onClick={() => openVendorProfile(vendor)}>View full profile</button>
+                    <Link
+                      className="rsg-link"
+                      to={vendorProfilePath(vendor)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openVendorProfile(vendor);
+                      }}
+                    >
+                      View full profile
+                    </Link>
                   </section>
                 ))}
               </div>
