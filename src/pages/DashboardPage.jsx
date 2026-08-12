@@ -540,7 +540,7 @@ const buildScheduleItems = (lessons = []) =>
       );
       if (!startAt) return null;
 
-      const displayStart = type === "group" && startSource ? moment.utc(startSource) : moment(startAt);
+      const displayStart = zonedStart ?? moment(startAt);
       const coachName = pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name);
       const title =
         pickString(lesson.title, lesson.lesson_title, lesson.name, lesson.lesson_name, lesson.program_name) ||
