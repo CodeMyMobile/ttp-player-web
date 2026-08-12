@@ -21,6 +21,14 @@ export const getVendorProfile = (vendorId) =>
 export const listVendorStrings = ({ vendorId, serviceTierId }) =>
   unwrap(api(`/restringing/vendors/${vendorId}/catalog${qs({ service_tier_id: serviceTierId })}`));
 
+export const getClaimPreview = (token) =>
+  unwrap(api(`/restringing/claim-links/${encodeURIComponent(token)}`));
+
+export const claimRestringingOrder = (token) =>
+  unwrap(api(`/player/restringing/claim-links/${encodeURIComponent(token)}`, {
+    method: "POST",
+  }));
+
 export const captureVendorLead = (payload) =>
   unwrap(api("/restringing/vendor-leads", {
     method: "POST",
