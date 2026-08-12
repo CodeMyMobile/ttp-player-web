@@ -55,6 +55,7 @@ import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
 import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
+import RestringingClaimPage from "./restringing/RestringingClaimPage";
 import RestringingPlayerFlow from "./restringing/RestringingPlayerFlow";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
@@ -344,6 +345,10 @@ const AppRoutes = () => (
     <Route
       path="/pay/:token"
       element={<PayLinkCheckoutPage />}
+    />
+    <Route
+      path="/restringing/claim"
+      element={<RestringingClaimPage />}
     />
     <Route
       path="/match-results"
