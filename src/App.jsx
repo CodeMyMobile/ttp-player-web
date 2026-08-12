@@ -567,6 +567,10 @@ const AppRoutes = () => (
       path="/restring"
       element={<RestringingPlayerFlow />}
     />
+    <Route
+      path="/:vendorSlug"
+      element={<RestringingPlayerFlow />}
+    />
     {/* Deprecated: the post-questionnaire "Your matches" experience now lives in FindCoaches
         matched-mode. Redirect any lingering links into it. */}
     <Route
@@ -735,6 +739,12 @@ function App() {
   const directPayMatch = typeof window !== "undefined"
     ? window.location.pathname.match(/^\/pay\/([^/?#]+)/)
     : null;
+  const directVendorMatch = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/([^/?#]+)\/?$/)
+    : null;
+  const directVendorSlug = directVendorMatch && directVendorMatch[1] !== "pay"
+    ? decodeURIComponent(directVendorMatch[1])
+    : "";
 
   return (
     <AuthProvider>
@@ -744,6 +754,8 @@ function App() {
           <div className="app-shell">
             {directPayMatch ? (
               <PayLinkCheckoutPage token={decodeURIComponent(directPayMatch[1])} />
+            ) : directVendorSlug ? (
+              <RestringingPlayerFlow vendorSlug={directVendorSlug} />
             ) : (
               <AppRoutes />
             )}
