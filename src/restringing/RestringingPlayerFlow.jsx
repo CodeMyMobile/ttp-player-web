@@ -30,6 +30,12 @@ import {
   recommendStringCategory,
 } from "./playerFlow.js";
 import {
+  googleMapsUriForVendor,
+  googleReviewInitial,
+  googleReviewsForVendor,
+  hasGoogleSummary,
+} from "./googleReviews.js";
+import {
   cancelOrder,
   captureVendorLead,
   createCheckoutOrder,
@@ -89,6 +95,92 @@ function TileButton({ active, children, ...props }) {
     <button type="button" className={`rsg-tile ${active ? "is-active" : ""}`} {...props}>
       {children}
     </button>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <span className="rsg-google-logo" aria-label="Google">
+      <b>G</b><i>o</i><u>o</u><b>g</b><i>l</i><s>e</s>
+    </span>
+  );
+}
+
+function VendorRatingLink({ vendor }) {
+  if (!hasGoogleSummary(vendor)) return null;
+  return (
+    <button
+      type="button"
+      className="rsg-rating-link"
+      onClick={() => document.getElementById("reviews")?.scrollIntoView({ behavior: "smooth" })}
+    >
+      <span className="rsg-rating-stars">★ {Number(vendor.google.rating).toFixed(1)}</span>
+      <span>{Number(vendor.google.user_ratings_total)} Google reviews</span>
+    </button>
+  );
+}
+
+function GoogleReviewsBlock({ vendor }) {
+  const reviews = googleReviewsForVendor(vendor);
+  const mapsUri = googleMapsUriForVendor(vendor);
+  if (!reviews.length && !mapsUri) return null;
+
+  if (!reviews.length) {
+    return (
+      <section className="rsg-card rsg-reviews-card" id="reviews">
+        <div className="rsg-reviews-foot">
+          <GoogleLogo />
+          <span>Reviews from Google</span>
+          <a className="rsg-google-link" href={mapsUri} target="_blank" rel="noreferrer">See all ↗</a>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rsg-card rsg-reviews-card" id="reviews">
+      <div className="rsg-reviews-head">
+        <h2>Reviews</h2>
+        {hasGoogleSummary(vendor) ? (
+          <div className="rsg-reviews-score">
+            <span className="rsg-rating-stars">★ {Number(vendor.google.rating).toFixed(1)}</span>
+            <span>{Number(vendor.google.user_ratings_total)} on Google</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="rsg-reviews-list">
+        {reviews.map((review, index) => {
+          const stars = review.rating;
+          return (
+            <article className="rsg-google-review" key={`${review.authorName}-${index}`}>
+              {review.authorPhotoUri ? (
+                <img className="rsg-review-avatar" src={review.authorPhotoUri} alt="" />
+              ) : (
+                <span className="rsg-review-avatar">{googleReviewInitial(review)}</span>
+              )}
+              <div className="rsg-review-body">
+                <div className="rsg-review-top">
+                  <strong>{review.authorName}</strong>
+                  {review.relativeTimeDescription ? <span>{review.relativeTimeDescription}</span> : null}
+                </div>
+                <div className="rsg-review-stars">
+                  {"★".repeat(stars)}<span>{"★".repeat(5 - stars)}</span>
+                </div>
+                {review.text ? <p>{review.text}</p> : null}
+                {review.googleMapsUri ? (
+                  <a className="rsg-google-link" href={review.googleMapsUri} target="_blank" rel="noreferrer">View on Google ↗</a>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <div className="rsg-reviews-foot">
+        <GoogleLogo />
+        <span>Reviews from Google</span>
+        {mapsUri ? <a className="rsg-google-link" href={mapsUri} target="_blank" rel="noreferrer">See all ↗</a> : null}
+      </div>
+    </section>
   );
 }
 
@@ -678,7 +770,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 {vendors.map((vendor) => (
                   <section key={vendor.id} className="rsg-card">
                     <div className="rsg-vendor">
-                      <div><h2>{vendor.name}</h2><p><Star size={15} /> {vendor.google_rating || "New"} {vendor.google_rating_count ? `(${vendor.google_rating_count} Google reviews)` : ""}</p><p><MapPin size={15} /> {vendor.address || "Address pending"} {vendor.distance_miles ? `· ${Number(vendor.distance_miles).toFixed(1)} mi` : ""}</p></div>
+                      <div><h2>{vendor.name}</h2><p><Star size={15} /> New</p><p><MapPin size={15} /> {vendor.address || "Address pending"} {vendor.distance_miles ? `· ${Number(vendor.distance_miles).toFixed(1)} mi` : ""}</p></div>
                       <span className="rsg-pill">{vendor.turnaround_days || 3} day turnaround</span>
                     </div>
                     <div className="rsg-actions">
@@ -708,6 +800,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             <section className="rsg-card rsg-profile">
               <div className="rsg-profile-img">{selectedVendor.image_url ? <img src={selectedVendor.image_url} alt="" /> : "🎾"}</div>
               <h1>{selectedVendor.name}</h1>
+              <VendorRatingLink vendor={selectedVendor} />
               <p>{selectedVendor.description || "Professional restringing, setup advice, and quick local pickup."}</p>
               <p><MapPin size={15} /> {selectedVendor.address}</p>
               <button type="button" className="rsg-primary" onClick={() => go("config")}>Order here</button>
@@ -716,19 +809,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <h2>Strings in stock</h2>
               <p>{catalog.length ? catalog.map((item) => `${item.brand} ${item.name}`).slice(0, 8).join(", ") : "Catalog loads after service selection."}</p>
             </section>
-            <section className="rsg-card">
-              <h2>Google reviews</h2>
-              <div className="rsg-reviews">
-                {(selectedVendor.google_reviews || []).slice(0, 5).map((review, index) => (
-                  <div key={`${review.author_name}-${index}`} className="rsg-review">
-                    <b>{review.author_name || "Google reviewer"}</b>
-                    <span>{"★".repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}</span>
-                    <p>{review.text}</p>
-                  </div>
-                ))}
-                {!selectedVendor.google_reviews?.length ? <p>No attributed Google reviews loaded yet.</p> : null}
-              </div>
-            </section>
+            <GoogleReviewsBlock vendor={selectedVendor} />
           </>
         ) : null}
 
@@ -947,7 +1028,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.rsg-chips button{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:10px 13px;font-weight:800}.rsg-chips button.is-active{border-color:#7c3aed;background:#ede9fe;color:#6d28d9}
         .rsg-stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0}.rsg-stepper button{width:42px;height:42px;border-radius:999px;border:1px solid #e5e7eb;background:white}.rsg-stepper div{min-width:92px;text-align:center;border:1px solid #e5e7eb;border-radius:16px;padding:8px}.rsg-stepper b{display:block;font-size:24px}.rsg-stepper small{display:block;color:#6b7280}
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor p{display:flex;align-items:center;gap:5px}
-        .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-review{border-top:1px solid #eef2f7;padding:10px 0}.rsg-review span{display:block;color:#f59e0b}
+        .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
       `}</style>
