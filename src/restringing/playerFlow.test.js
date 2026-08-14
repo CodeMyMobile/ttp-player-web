@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   buildCheckoutItems,
+  catalogGaugesForString,
+  defaultGaugeForString,
   lbsToKg,
   normalizePaymentMethods,
   orderStatusLabel,
@@ -91,6 +93,20 @@ test("different per racket produces one order item per racket", () => {
   assert.equal(items[1].racket_make_model, "Babolat Pure Aero");
   assert.equal(items[1].string_id, 22);
   assert.equal(items[1].notes, "blue grip");
+});
+
+test("uses selected catalog string gauges for ordering", () => {
+  const lynx = { gauges: ["16", "17"], gauges_stocked: ["16", "18"] };
+  const velocity = { gauges: ["17", "18"], gauges_stocked: ["18", "17"] };
+
+  assert.deepEqual(catalogGaugesForString(lynx), ["16"]);
+  assert.deepEqual(catalogGaugesForString(velocity), ["18", "17"]);
+});
+
+test("defaults gauge to 16 when stocked, otherwise first selected string gauge", () => {
+  assert.equal(defaultGaugeForString({ gauges: ["17", "16"], gauges_stocked: ["17", "16"] }), "16");
+  assert.equal(defaultGaugeForString({ gauges: ["17", "18"], gauges_stocked: ["17", "18"] }), "17");
+  assert.equal(defaultGaugeForString(null), "16");
 });
 
 test("normalizes saved payment method payloads with default first", () => {
