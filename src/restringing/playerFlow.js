@@ -1,5 +1,25 @@
 export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
+const normalizeGaugeList = (values) => {
+  const rows = Array.isArray(values) ? values : [];
+  return [...new Set(rows.map((value) => String(value || "").trim()).filter(Boolean))];
+};
+
+export function catalogGaugesForString(string) {
+  if (!string) return GAUGES;
+  const realGauges = normalizeGaugeList(string.gauges);
+  const stockedGauges = normalizeGaugeList(string.gauges_stocked);
+  if (stockedGauges.length && realGauges.length) {
+    return stockedGauges.filter((gauge) => realGauges.includes(gauge));
+  }
+  return stockedGauges.length ? stockedGauges : realGauges;
+}
+
+export function defaultGaugeForString(string) {
+  const gauges = catalogGaugesForString(string);
+  return gauges.includes("16") ? "16" : gauges[0] || "16";
+}
+
 export const lbsToKg = (lbs) => (Number(lbs) * 0.45359237).toFixed(1);
 
 export const categoryLabel = (category) => ({

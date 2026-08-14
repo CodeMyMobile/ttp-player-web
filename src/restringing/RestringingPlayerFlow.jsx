@@ -20,9 +20,10 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
   buildCheckoutItems,
+  catalogGaugesForString,
   categoryLabel,
+  defaultGaugeForString,
   formatMoneyCents,
-  GAUGES,
   lbsToKg,
   normalizePaymentMethods,
   orderStatusLabel,
@@ -288,6 +289,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     () => catalog.find((item) => Number(item.id) === Number(stringId)) || null,
     [catalog, stringId],
   );
+  const selectedGaugeOptions = useMemo(
+    () => catalogGaugesForString(selectedString),
+    [selectedString],
+  );
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && (stringId === "other" || catalog.length === 0));
   const totalCents = (Number(tier?.price_cents || 0) * quantity);
   const totalLabel = formatMoneyCents(totalCents);
@@ -427,6 +432,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         const rows = data.catalog || [];
         setCatalog(rows);
         setStringId(rows[0]?.id ? String(rows[0].id) : "other");
+        setGauge(defaultGaugeForString(rows[0] || null));
       })
       .catch(() => {
         if (!cancelled) setCatalog([]);
@@ -435,6 +441,15 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       cancelled = true;
     };
   }, [selectedVendor, tier]);
+
+  useEffect(() => {
+    if (adviceRequested) return;
+    setGauge((current) => (
+      selectedGaugeOptions.includes(current)
+        ? current
+        : defaultGaugeForString(selectedString)
+    ));
+  }, [adviceRequested, selectedGaugeOptions, selectedString]);
 
   useEffect(() => {
     if (quantity < 2) setSetupMode("");
@@ -824,7 +839,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <span className="rsg-label">String</span>
                 <div className="rsg-chips">
                   {catalog.map((item) => (
-                    <button key={item.id} type="button" className={String(stringId || catalog[0]?.id) === String(item.id) ? "is-active" : ""} onClick={() => setStringId(String(item.id))}>
+                    <button key={item.id} type="button" className={String(stringId || catalog[0]?.id) === String(item.id) ? "is-active" : ""} onClick={() => { setStringId(String(item.id)); setGauge(defaultGaugeForString(item)); }}>
                       {item.brand} {item.name}
                     </button>
                   ))}
@@ -835,7 +850,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             )}
             <span className="rsg-label">Gauge</span>
             <div className="rsg-tiles">
-              {GAUGES.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
+              {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
             </div>
             <span className="rsg-label">{splitTension ? "Tension - mains" : "Tension"}</span>
             <div className="rsg-stepper">
