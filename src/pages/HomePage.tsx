@@ -7,7 +7,7 @@ import { readViewerId, useLadderStanding, useWeekBookings } from "../hooks/useHo
 import "./HomePage.css";
 
 /**
- * The redesigned home page, built to the state mockups in docs/.
+ * The redesigned home page, built to the state mockups in docs/home-states/.
  *
  * Reached only when VITE_HOME_V2 is on; otherwise App.jsx renders the existing
  * DashboardPage untouched. Sections land one PR at a time, so the page stays

@@ -18,7 +18,7 @@ UNKNOWN (not determinable).
 > exactly that reason.
 
 > **On the mockups.** Sections 1–7 were written from the prose description in the brief, because
-> the mockups were not in the repo at the time. They have since been added to `docs/` and checked
+> the mockups were not in the repo at the time. They have since been added to `docs/home-states/` and checked
 > against — see **"Verification against mockups"** at the end, which corrects one finding (the
 > rating delta) and adds field-level gaps. Read the two together. `docs/tip-of-day-investigation.md`
 > still does not exist, and the off-court module remains unaudited by design. v1 lives only on
@@ -268,7 +268,7 @@ client twice. Ask for it when the season module and alert stack land, not before
 
 # Verification against mockups
 
-**Date:** 2026-08-15 · Read-only. Verified against `docs/cold.html`, `established.html`,
+**Date:** 2026-08-15 · Read-only. Verified against `docs/home-states/cold.html`, `established.html`,
 `in-league.html`, `decline-confirm.html`, `rated-no-bookings.html` (the seven states are one
 template; these five cover every element).
 
@@ -299,12 +299,13 @@ is a radius and `rank` is proximity-ordered under it. The honest copy the curren
 only players whose `court_locations[]` includes that venue — which means "3rd among players whose
 home court is Penmar", still not "3rd at Penmar". Recommend **"3rd nearby"** for v1.
 
-**Decline confirm step.** `decline-confirm.html` reads "Decline this match? Mike will get a text
-letting them know." That matches the verified behaviour exactly — `POST /invites/reject` sets the
-status then SMSes the organiser with remaining open slots. **But the client cannot know whether the
-SMS was sent:** the send is wrapped in its own `try/catch`, the error is swallowed, and the response
-is always `{ message: 'Invite rejected' }`. So the copy promises a text that may silently not
-arrive. VERIFIED.
+**Decline confirm step.** `decline-confirm.html` reads "Decline this match? Mike will be notified."
+`POST /invites/reject` sets the status then SMSes the organiser with remaining open slots. **But the
+client cannot know whether the SMS was sent:** the send is wrapped in its own `try/catch`, the error
+is swallowed, and the response is always `{ message: 'Invite rejected' }`. The copy says "notified"
+precisely for that reason. An earlier draft of the mockup — quoted in this section until now — read
+"will get a text letting them know", which promised a delivery the API cannot confirm; it was changed,
+and this quote had been left behind. VERIFIED.
 
 ## 3. Newly surfaced field requirements
 
