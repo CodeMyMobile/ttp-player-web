@@ -101,3 +101,8 @@ Tokens live in **`src/lib/theme.ts`** (`colors`, `typography`, `radii`, `shadows
   Two such branches then conflict by construction — add/add on the same path — regardless of merge
   order, and no amount of sequencing avoids it. This bit a three-PR docs sequence
   (#307/#309/#310); the fix was one consolidated edit PR off `main`.
+- **A stacked PR only retargets to `main` automatically if the base branch is deleted, or if the PR is
+  retargeted before the base merges.** Otherwise it merges into a branch that has already been absorbed
+  into `main`, and so never reaches `main` at all. GitHub still shows it merged, because it is — just not
+  where you wanted. This lost #308 (the home action grid), which merged into `feat/home-v2-header-tiles`
+  twelve seconds after #306 merged that same branch into `main`; recovered by cherry-picking `c8eda95`.
