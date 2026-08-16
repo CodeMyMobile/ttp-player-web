@@ -1,9 +1,16 @@
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { ActionGrid } from "../components/home/ActionGrid";
+import { AlertStack } from "../components/home/AlertStack";
 import { StatusTiles } from "../components/home/StatusTiles";
+import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
-import { readViewerId, useLadderStanding, useWeekBookings } from "../hooks/useHomeStatus";
+import {
+  readViewerId,
+  useHomeAlerts,
+  useLadderStanding,
+  useWeekBookings,
+} from "../hooks/useHomeStatus";
 import "./HomePage.css";
 
 /**
@@ -21,7 +28,8 @@ export default function HomePage() {
   const { rating, isRated, positionLabel } = useLadderStanding(viewerId);
   // Always fetched, never gated on the rating: an unrated player with a
   // standing weekly lesson has real bookings and needs to see them.
-  const { count, nextLabel } = useWeekBookings();
+  const { count, nextLabel, today } = useWeekBookings();
+  const { alerts } = useHomeAlerts();
 
   return (
     <div className="player-home home-v2">
@@ -35,6 +43,14 @@ export default function HomePage() {
           bookingsCount={count}
           nextBookingLabel={nextLabel}
         />
+
+        {/* Order is the mockups' order: tiles, today row, alerts, grid. The
+            invite card belongs between the row and the stack and lands in
+            PR 5. Each section renders nothing when it has nothing, so the grid
+            moves up rather than a gap opening. */}
+        <TodayRow booking={today} />
+
+        <AlertStack alerts={alerts} />
 
         <ActionGrid isRated={isRated} />
       </main>

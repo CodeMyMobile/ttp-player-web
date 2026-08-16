@@ -21,9 +21,12 @@ import {
   lessonsToBookings,
   matchesToBookings,
   nextBookingLabel,
+  nextTodayBooking,
   summariseWeekBookings,
   type WeekBooking,
 } from "../utils/weekBookings";
+import { listMyOrders } from "../restringing/restringingService";
+import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { useApiRequest } from "./useApiRequest";
 
 /** Matches the identity fallback chain used elsewhere, e.g. LeagueDetailPage.tsx:438. */
@@ -140,15 +143,47 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
 
 const NO_PARAMS = {};
 
-/** Confirmed bookings in the next 7 days, plus the soonest. */
+/**
+ * Confirmed bookings in the next 7 days, the soonest, and the soonest still to
+ * come today.
+ *
+ * The today row is a filter over the same three responses rather than a fourth
+ * call — it cannot disagree with the tile beside it, which it would if it
+ * fetched separately.
+ */
 export function useWeekBookings(skip = false) {
   const { data, loading, error } = useApiRequest(bookingsFetcher, NO_PARAMS, { skip });
   const summary = useMemo(() => summariseWeekBookings(data ?? []), [data]);
+  const today = useMemo(() => nextTodayBooking(data ?? []), [data]);
 
   return {
     loading,
     error,
     count: summary.count,
     nextLabel: nextBookingLabel(summary.next),
+    today,
   };
+}
+
+const restringOrdersFetcher = async () => {
+  // listMyOrders already unwraps to data.orders ?? [].
+  const orders = await listMyOrders();
+  return Array.isArray(orders) ? orders : [];
+};
+
+/**
+ * The alert stack. One call today (restring orders); the shape takes a bag so
+ * later sources join without changing the signature.
+ *
+ * A failed fetch yields an empty stack, not an error row — an alert we cannot
+ * confirm is one we must not show.
+ */
+export function useHomeAlerts(skip = false): {
+  loading: boolean;
+  alerts: HomeAlert[];
+} {
+  const { data, loading } = useApiRequest(restringOrdersFetcher, NO_PARAMS, { skip });
+  const alerts = useMemo(() => buildHomeAlerts({ restringOrders: data ?? [] }), [data]);
+
+  return { loading, alerts };
 }
