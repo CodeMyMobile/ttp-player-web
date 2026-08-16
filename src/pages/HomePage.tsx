@@ -1,5 +1,6 @@
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
+import { ActionGrid } from "../components/home/ActionGrid";
 import { StatusTiles } from "../components/home/StatusTiles";
 import { useAuth } from "../context/AuthContext";
 import { readViewerId, useLadderStanding, useWeekBookings } from "../hooks/useHomeStatus";
@@ -33,6 +34,8 @@ export default function HomePage() {
           bookingsCount={count}
           nextBookingLabel={nextLabel}
         />
+
+        <ActionGrid isRated={isRated} />
       </main>
 
       <MobileHomeBottomNav />
