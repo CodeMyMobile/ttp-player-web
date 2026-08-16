@@ -215,8 +215,10 @@ client twice. Ask for it when the season module and alert stack land, not before
 2. **What timezone does the API anchor "today" to for lessons and matches?** Lessons use
    `America/Los_Angeles`; we need to know whether matches agree, because the home page
    has a "today" row and a rolling 7-day count.
-3. **Does `POST /player/discover/nearby` actually honour `filters.level`?** The client sends `"All"`
-   today. If it's ignored we'll drop the control from v1 rather than ship a no-op.
+3. ~~**Does `POST /player/discover/nearby` honour `filters.level`?**~~ **CLOSED** — traced, see
+   "Traced answers" below. Honoured, but only for group lessons and only as exact string equality
+   against free text. The level control is dropped from PR 3. Superseded by Q9, which reports the
+   same behaviour as a bug rather than a question.
 
 ### Needed for correctness, whenever
 
@@ -230,10 +232,38 @@ client twice. Ask for it when the season module and alert stack land, not before
 7. **Can rankings be scoped to a court/club rather than a radius?** Rows already carry
    `court_locations[]`. "3rd at Penmar" is currently approximated as "3rd within N miles of Penmar",
    which is a different and less meaningful claim.
-8. **What sets `previous_rating`, and is there any dated rating history?** It's overwritten every
-   match, so no windowed delta ("+0.2 this month") is possible from it. If a history table exists
-   we'd use it; if not, we'll keep the delta cut.
+8. ~~**What sets `previous_rating`, and is there any dated rating history?**~~ **CLOSED** —
+   traced. Every writer of the rating fields is enumerated in "Traced answers". There is no dated
+   history table, so the windowed delta stays impossible and the delta stays cut.
 
+### New, from the traces
+
+13. **`filters.level` on `/player/discover/nearby` is a bug in its own right,** independent of the
+   home page. It applies to **group lessons only** — coaches and open matches never receive it —
+   as exact string equality on `metadata->>'level'` against free text like
+   `"Beginner (NTRP 2.5)"`. An unrecognised value raises no error and returns **zero group
+   lessons**. Anyone who wires a level control to this gets a silent empty state for a third of
+   the feed. Needs a controlled vocabulary, range matching rather than equality, and coverage of
+   the other two sections.
+
+14. **`recomputeRatings()` writes a rating that blocks league enrolment — live bug, not a data
+    cleanup question.**
+
+    `recomputeRatings()` writes `current_rating = 0` to **every** non-deleted profile, including
+    players who have never played, and runs from ordinary league and match-confirmation paths
+    rather than as a migration.
+
+    League eligibility resolves the player's rating as
+    `usta_rating ?? self_rated_seed ?? starting_rating ?? current_rating`
+    (`src/services/league_eligibility.js:45-50`). A zero there **satisfies** the `missing_rating`
+    check and then **fails** `rating_out_of_band`.
+
+    **1099 of 1142 unrated players are blocked from enrolling in any league by a value the rating
+    engine wrote to profiles that have never played a match.** Only 43 have a `usta_rating` to fall
+    back on; `uta_rating` is not consulted by the eligibility chain at all.
+
+    This is not about tidying rows. Until it changes, league enrolment is closed to the majority of
+    the player base, and the home page cannot honestly send anyone there.
 ---
 
 # Verification against mockups
@@ -324,3 +354,208 @@ Genuinely new only; the existing eight stand.
     `src/config/rating.js`.
 12. **Does `POST /invites/reject` have any way to signal that the organiser SMS failed?** It's
     swallowed today and the response is always success — but the UI now promises the text explicitly.
+
+---
+
+# Traced answers — rating origin and the level filter
+
+**Date:** 2026-08-16 · Read-only, `ttp-api` @ `main` `c205767`. Two questions that were waiting on
+Sahil. **Both are now answered from the code, and one of them invalidates a decision already
+shipped.**
+
+## 1a. How a player gets a rating — none of (a), (b) or (c) as posed
+
+**The profile does not write a rating** (VERIFIED). `player_profile.current_rating` is written in
+exactly five production paths, and no questionnaire or profile save is among them:
+
+| Writer | Trigger |
+|---|---|
+| `src/services/rating_engine.js:129` | a match result is processed |
+| `src/services/league_enrollment.js:368` | league enrolment, seeded via `seedFromProfile` |
+| `src/services/rating_replay.js:65` | `recomputeRatings()` — computed, for players with matches |
+| `src/services/rating_replay.js:76` | `recomputeRatings()` — **seeded, for players without** |
+| `routes/admin_players.js:273` | admin edit |
+
+`routes/player_survey.js` contains zero rating references. So the "Set your level" premise is
+false: **there is no two-minute route to a rating.**
+
+### The part that matters more
+
+`recomputeRatings()` (`rating_replay.js:44-88`) loads **every non-deleted profile** —
+`listRatingSeeds` is `player_profile innerJoin users where is_deleted = false`, with no filter on
+having played — and writes `current_rating` for *all* of them. Players with no matches get
+`seedFromProfile(profile)`.
+
+It is not a one-off migration. It is called from `routes/leagues.js`,
+`src/services/match_result_auto_confirm.js`, `routes/admin_players.js`,
+`routes/admin_leagues.js` and `routes/admin_match_results.js` — ordinary operations.
+
+**So `current_rating` is non-null for essentially the whole player base.** VERIFIED against
+production (`GET /match-results/rankings`, public, 2026-08-16):
+
+- **1203** rows returned — every one has a non-null `current_rating`
+- **1134** of them have `current_rating = 0`, `starting_rating = 0`, `matches_played = 0`
+- **69** have a real rating (7.2, 8.19, …) with 3–10 matches played
+
+The zero is not `seedFromProfile`'s default — that is 5.0 (`src/config/rating.js:7`) — so these
+rows were zero-filled by an import or an earlier migration and have been carried forward by every
+recompute since. Either way the effect is the same.
+
+### Answer
+
+Closest to **(c), but neither branch is the profile.** A rating arrives by playing a rated match,
+by enrolling in a league, or by an admin action — never by completing a profile. And a *non-null*
+rating already exists for ~94% of players at a meaningless zero.
+
+### Implication — this breaks the gate as specified
+
+**The rated gate must not be "has a non-null `current_rating`".** That is true for 1134 players
+who have never played, and it would:
+
+- open every rating-gated surface for them,
+- render **"0.0"** in the rating tile,
+- and place them in a 1134-way tie for ladder position.
+
+The cold state would be unreachable for existing accounts. **A workable gate is
+`matches_played > 0`, or `current_rating > 0`** — both are already on the ranking row. This
+supersedes §3 row 10 and the gate PR 1 (#306) implemented.
+
+Level-filtering the feed inherits the same problem: a player at zero has no meaningful level, so
+level-based filtering can't key off the rating for most of the base.
+
+## 1b. `filters.level` is honoured — narrowly, and unusably as things stand
+
+**VERIFIED, traced end to end.**
+
+`POST /player/discover/nearby` extracts it at `routes/player_lesson.js:1071`
+(`filters.level || req.query.level || null`) and passes it to exactly **one** of the three feed
+sections — `fetchUpcomingGroupLessons` (`:1171`). Coaches and open matches never receive it.
+
+It reaches a WHERE clause (`models/player_lesson.js:583-590`):
+
+```js
+if (level && level !== "All") {
+  lessonsQuery.andWhereRaw(`coach_lessons.metadata->>'level' = ?`, [level]);
+}
+```
+
+- **Expects:** the exact stored string. `"All"` and null skip the predicate entirely, which is why
+  today's hardcoded `"All"` is a no-op *by input*, not because the backend ignores it.
+- **Unrecognised value:** no error — the predicate simply matches nothing, so group lessons come
+  back **empty** while coaches and matches are unaffected.
+- **The values are free text.** `src/api/groupLessons.ts:183-188` documents what the API actually
+  returns: labels like `"Beginner (NTRP 2.5)"`, plus `"All"`, empty, and lesson-type fallbacks
+  like `"Open Group"`. There is no controlled vocabulary, so a pill sending `"4.0"` matches
+  nothing and silently empties one third of the feed.
+
+### Answer
+
+Honoured, but only for group lessons, only on exact string equality, against an uncontrolled
+vocabulary. **Shipping a level control against this would silently empty part of the feed** —
+recommend dropping it from PR 3, as the brief's fallback anticipates.
+
+## Sahil questions now closed
+
+- **Q3 — "Does `discover/nearby` honour `filters.level`?"** → closed by 1b. Yes, narrowly; not
+  usable without a controlled vocabulary and coverage of the other two sections.
+- **Q8 — "What sets `previous_rating`, and is there dated rating history?"** → partly closed:
+  every writer of the rating fields is now enumerated above. No dated history table exists, so the
+  windowed delta stays impossible.
+
+Still open, and still his: Q1 (rank ordering under geo scoping), Q2 (timezone anchor), Q4
+(multi-league), Q5 (unentered scores), Q6 (restring status filter), Q7 (court-scoped rankings),
+Q9–Q12 from the mockup verification, plus the two added below.
+
+**New for him:** Q13 (the level filter, restated as a bug) and Q14 (the 1134 zero-rated rows —
+ongoing behaviour, not a one-off import).
+
+---
+
+# Traced answers — how a player can actually get rated
+
+**Date:** 2026-08-16 · Read-only, `ttp-api` @ `main` `c205767`.
+
+Prompted by the unrated state becoming the majority (1134 of 1203 accounts) with
+"Join a league to get rated" as its only exit. **The verdict is (a): any confirmed match result
+rates you, league or not — so the shipped CTA is wrong.** And it is worse than merely pointing at
+one route among several; the league route is currently blocked twice over for exactly the players
+who see it.
+
+## Q1 — which match types produce a rating? Any of them (VERIFIED)
+
+The rating engine's **only** input is `listConfirmedMatchResults`
+(`models/match_results.js:20-35`): `match_results` where `status = 'confirmed'` and
+`confirmed_at IS NOT NULL`. **No league filter — it does not even select `league_id`.**
+
+- `POST /match-results/` (`routes/match_results.js:88`) requires no league;
+  `validateMatchResultPayload` never mentions one.
+- Confirming a result (`src/services/match_result_auto_confirm.js:61-68`) sets `status`,
+  `confirmed_at`, then calls `recomputeRatings()`.
+
+**So a casual/challenge match counts exactly the same as a league match.** Play anyone, log the
+result, have the opponent confirm — rated. The client already has `/log-result`.
+
+## Q2 — the two thresholds govern different things (VERIFIED)
+
+| Constant | Value | Governs |
+|---|---|---|
+| `provisionalThreshold` | 5 | The K-factor. Under 5 matches the rating moves at `provisionalK` 0.8 rather than `k` 0.4 (`rating_engine.js:77-78`). Also sets `is_provisional` |
+| `estimateThreshold` | 3 | Labelling only — sets `is_estimate`, and marks the NTRP/UTR equivalents an estimate (`rating_equivalents.js:61`) |
+
+A player with **one** confirmed result is rated by our `matches_played > 0` gate and is
+simultaneously `is_provisional` and `is_estimate` by the API's own reckoning. Not a contradiction,
+but the tile would show a number the API itself calls an estimate — worth a design decision, not a
+code one.
+
+## Q3 — is a league open right now? Point-in-time, 2026-08-16, and it will change
+
+**No, on two counts.**
+
+**Status.** `GET /leagues` returns **5 available, every one `status: "draft"`**, all running
+Sep 1 – Nov 30, all level-banded: Men's 3.5, Men's 4.0, Men's 4.5, Women's Intermediate (3.5–4.0),
+Women's Advanced (4.0–4.5).
+
+**Eligibility.** `league_eligibility.js:43-76` requires gender, date of birth, not underage, **and
+a rating inside the league's band**. The rating resolves:
+
+```
+usta_rating ?? self_rated_seed ?? starting_rating ?? current_rating
+```
+
+Note `uta_rating` is **not** in that chain. For the zero-rated majority the chain resolves to
+**0** — not null — so they clear `missing_rating` and then fail `rating_out_of_band`.
+
+Of the 1142 players with no matches:
+
+| | |
+|---|---|
+| have a `usta_rating` (the only usable fallback) | **43** |
+| have `uta_rating` only — not consulted by eligibility | 30 |
+| have neither | **1099** |
+
+**So roughly 1099 of 1142 unrated players are ineligible for every level-banded league**, before
+the draft status is even considered. The band values aren't exposed on the public league payload,
+so the exact cut-off is **UNKNOWN** from outside — but a rating of 0 fails any positive lower band.
+
+There is also a circularity worth naming: the leagues are level-banded, entry needs a level, and
+the only thing that establishes a level is playing. A league cannot be the first step.
+
+## Verdict — (a)
+
+**Any confirmed match result rates you.** The league is one route among several, and currently the
+least available one. The CTA shipped in #306 points unrated players at the single door they cannot
+open.
+
+**Proposed replacement copy — not changed, this is a design decision:**
+
+> **Play a match to get rated** · Log the result and your opponent confirms
+
+pointing at `/matches` (or `/log-result` for a match already played). That is the route actually
+open to the players who see the prompt. League enrolment stays a valid route for the 43 with a USTA
+rating, and becomes the better one once a season opens and the player has a level.
+
+## For Sahil — extends Q14
+
+The zero-rated rows aren't only a display problem. Because eligibility reads
+`current_rating` as a fallback, a zero there actively **blocks league enrolment** with
+`rating_out_of_band`. Whatever is decided about those rows, this is the concrete harm.

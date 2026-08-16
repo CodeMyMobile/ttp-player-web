@@ -96,3 +96,8 @@ Tokens live in **`src/lib/theme.ts`** (`colors`, `typography`, `radii`, `shadows
 - API access goes through `src/api/*` modules; auth tokens through `src/services/authToken.js` — don't call `fetch` ad hoc in components.
 - Use mock data in `src/data/` to build UI without a live backend.
 - New routes go in `src/App.jsx`; wrap player-only pages in `ProtectedRoute`.
+- **Stacked branches that touch the same file must branch off the previous branch, not `main`.**
+  Seeding a branch by copying a file in from another worktree makes git see an *add*, not an edit.
+  Two such branches then conflict by construction — add/add on the same path — regardless of merge
+  order, and no amount of sequencing avoids it. This bit a three-PR docs sequence
+  (#307/#309/#310); the fix was one consolidated edit PR off `main`.
