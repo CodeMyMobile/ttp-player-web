@@ -10,8 +10,9 @@ import "./HomePage.css";
  * The redesigned home page, built to the state mockups in docs/.
  *
  * Reached only when VITE_HOME_V2 is on; otherwise App.jsx renders the existing
- * DashboardPage untouched. Sections land one PR at a time — this is PR 1
- * (header and status tiles), so the page is deliberately short.
+ * DashboardPage untouched. Sections land one PR at a time, so the page stays
+ * shorter than the mockups until the sequence finishes; what has shipped is
+ * whatever this component renders below.
  */
 export default function HomePage() {
   const { user } = useAuth();
