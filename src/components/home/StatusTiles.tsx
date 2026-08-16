@@ -36,11 +36,16 @@ export function StatusTiles({
   if (!isRated) {
     return (
       <section className="home-tiles">
-        <Link className="home-tile home-tile--prompt home-tile--full" to="/match-profile/edit">
+        {/* Joining a league is the deliberate way to become rated: enrolment
+            seeds current_rating (ttp-api league_enrollment.js:365-371). The
+            match-profile questionnaire does NOT — it never touches the rating —
+            so pointing this at "set your level" would loop the player straight
+            back to this same cold state. See §0.4 of the backend audit. */}
+        <Link className="home-tile home-tile--prompt home-tile--full" to="/leagues">
           <LineChart className="home-tile__lead-icon" size={20} aria-hidden="true" />
           <span className="home-tile__prompt-copy">
-            <span className="home-tile__prompt-title">Set your level</span>
-            <span className="home-tile__prompt-sub">2 minutes · see sessions that match you</span>
+            <span className="home-tile__prompt-title">Join a league to get rated</span>
+            <span className="home-tile__prompt-sub">A season places you on the local ladder</span>
           </span>
           <ChevronRight className="home-tile__chevron" size={16} aria-hidden="true" />
         </Link>
