@@ -17,8 +17,9 @@ export default function HomePage() {
   const viewerId = readViewerId(user);
 
   const { rating, isRated, positionLabel } = useLadderStanding(viewerId);
-  // No point counting bookings for a player we won't show the tile to.
-  const { count, nextLabel } = useWeekBookings(!isRated);
+  // Always fetched, never gated on the rating: an unrated player with a
+  // standing weekly lesson has real bookings and needs to see them.
+  const { count, nextLabel } = useWeekBookings();
 
   return (
     <div className="player-home home-v2">
