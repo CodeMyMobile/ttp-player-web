@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AuthDrawerProvider, useAuthDrawer } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
+import HomePage from "./pages/HomePage";
+import { isHomeV2Enabled } from "./utils/featureFlags";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
 import PlayDatesMatchPage from "./play-dates/pages/MatchPage";
@@ -203,7 +205,7 @@ const RootRoute = () => {
 
   return (
     <ProtectedRoute>
-      <DashboardPage />
+      {isHomeV2Enabled() ? <HomePage /> : <DashboardPage />}
     </ProtectedRoute>
   );
 };
