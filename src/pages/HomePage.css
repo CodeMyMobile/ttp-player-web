@@ -153,6 +153,128 @@
   color: #65a30d;
 }
 
+/* --- today row ------------------------------------------------------------ */
+
+.home-v2 .home-today {
+  margin-top: 8px;
+}
+
+.home-v2 .home-today__row,
+.home-v2 .home-alerts__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.home-v2 .home-today__row {
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.home-v2 .home-today__chip,
+.home-v2 .home-alerts__chip {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+/* Red is the today row's whole signal — it is the only red on the screen. */
+.home-v2 .home-today__chip {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.home-v2 .home-today__copy,
+.home-v2 .home-alerts__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-v2 .home-today__title,
+.home-v2 .home-alerts__title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-today__meta,
+.home-v2 .home-alerts__meta {
+  overflow: hidden;
+  font-size: 12px;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-today__chevron,
+.home-v2 .home-alerts__chevron {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+
+/* --- alert stack ---------------------------------------------------------- */
+
+/*
+ * The stack collapses to nothing when it empties, and the grid below shifts up
+ * by ~90px. Animating grid-template-rows from 1fr to 0fr transitions that
+ * without hardcoding a height, so the grid slides rather than snapping under
+ * someone's thumb mid-tap.
+ */
+.home-v2 .home-alerts {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 8px;
+  transition: grid-template-rows 220ms ease, margin-top 220ms ease;
+}
+
+.home-v2 .home-alerts--collapsed {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+}
+
+.home-v2 .home-alerts__list {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+/* Divider between rows only, never above the first or below the last. */
+.home-v2 .home-alerts__row + .home-alerts__row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.home-v2 .home-alerts__chip--violet {
+  background: #f5f3ff;
+  color: #8b5cf6;
+}
+
+.home-v2 .home-alerts__chip--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-v2 .home-alerts {
+    transition: none;
+  }
+}
+
 /* --- action grid ---------------------------------------------------------- */
 
 .home-v2 .home-grid {

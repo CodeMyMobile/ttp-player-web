@@ -14,6 +14,14 @@ export interface WeekBooking {
   kind: BookingKind;
   /** Epoch ms. */
   startsAt: number;
+  /**
+   * Both optional and both genuinely absent for some sources — the today row
+   * needs "Cardio tennis · Penmar", but only group lessons and matches carry
+   * the parts. Null means we could not read it, never "" or a placeholder, so
+   * the row can omit the line rather than render a gap.
+   */
+  title?: string | null;
+  location?: string | null;
 }
 
 export interface WeekBookingsSummary {
@@ -37,6 +45,13 @@ const numeric = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+/** Trim to a usable string, or null. Keeps "" and whitespace out of labels. */
+const text = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+};
+
 const pick = (source: Record<string, unknown> | null | undefined, keys: string[]) => {
   if (!source) return null;
   for (const key of keys) {
@@ -57,6 +72,70 @@ const pick = (source: Record<string, unknown> | null | undefined, keys: string[]
  */
 export const isWithinWeek = (startsAt: number, now: number) =>
   startsAt >= now && startsAt < now + WEEK_MS;
+
+/**
+ * Same local-timezone anchor as isWithinWeek, and for the today row it is the
+ * whole point: a lesson at 11pm local is today, while the same instant is
+ * already tomorrow in UTC. Comparing calendar parts rather than a ms window
+ * keeps that correct across a DST boundary, where a "day" is 23 or 25 hours.
+ */
+export const isLocalToday = (startsAt: number, now: number) => {
+  const at = new Date(startsAt);
+  const today = new Date(now);
+  return (
+    at.getFullYear() === today.getFullYear() &&
+    at.getMonth() === today.getMonth() &&
+    at.getDate() === today.getDate()
+  );
+};
+
+/**
+ * The soonest booking still to come today, or null. Null is the only "nothing
+ * today" answer — never a zero-ish booking — so the row renders or it doesn't.
+ */
+export const nextTodayBooking = (
+  bookings: WeekBooking[],
+  now: number = Date.now(),
+): WeekBooking | null => {
+  const today = (Array.isArray(bookings) ? bookings : [])
+    .filter(
+      (booking) =>
+        Number.isFinite(booking?.startsAt) &&
+        booking.startsAt >= now &&
+        isLocalToday(booking.startsAt, now),
+    )
+    .sort((a, b) => a.startsAt - b.startsAt);
+
+  return today[0] ?? null;
+};
+
+/**
+ * "Today, 6:00 PM" — the today row's headline.
+ *
+ * Minutes are always shown, unlike nextBookingLabel above, which drops ":00".
+ * That is not an inconsistency to tidy away: the mockups use both forms, the
+ * compact "Next Sat 10 AM" in the tile and the full "Today, 6:00 PM" here.
+ */
+export const todayTimeLabel = (booking: WeekBooking | null) => {
+  if (!booking) return null;
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(booking.startsAt));
+  return `Today, ${time}`;
+};
+
+/**
+ * "Cardio tennis · Penmar", or just one part, or null when we have neither.
+ * Never a bare separator.
+ */
+export const bookingMetaLabel = (booking: WeekBooking | null) => {
+  if (!booking) return null;
+  const parts = [booking.title, booking.location].filter(
+    (part): part is string => typeof part === "string" && part.trim() !== "",
+  );
+  return parts.length ? parts.join(" · ") : null;
+};
 
 export const summariseWeekBookings = (
   bookings: WeekBooking[],
@@ -93,7 +172,18 @@ export const lessonsToBookings = (rows: unknown[]): WeekBooking[] =>
     if (startsAt === null) return [];
     if (numeric(row.status) !== 1) return [];
     if (numeric(row.payment_status) !== 1) return [];
-    return [{ id: String(row.id ?? startsAt), kind: "lesson" as const, startsAt }];
+    // PlayerLesson declares only id/status/startTime/endTime/coachId — a title
+    // and venue are not part of the contract, so probe and accept null. A 1:1
+    // lesson today then shows its time with no sub-line, which is honest.
+    return [
+      {
+        id: String(row.id ?? startsAt),
+        kind: "lesson" as const,
+        startsAt,
+        title: text(pick(row, ["lesson_type_name", "title", "name"])),
+        location: text(pick(row, ["location_name", "location", "venue"])),
+      },
+    ];
   });
 
 /**
@@ -102,14 +192,28 @@ export const lessonsToBookings = (rows: unknown[]): WeekBooking[] =>
  * api/groupLessons rather than being restated here.
  */
 export const groupLessonsToBookings = (
-  lessons: Array<{ id?: unknown; startDateTime?: string | null }>,
+  lessons: Array<{
+    id?: unknown;
+    startDateTime?: string | null;
+    title?: string | null;
+    locationName?: string | null;
+  }>,
   holdsSpot: (lesson: unknown) => boolean,
 ): WeekBooking[] =>
   (Array.isArray(lessons) ? lessons : []).flatMap((lesson) => {
     const startsAt = toEpoch(lesson?.startDateTime);
     if (startsAt === null) return [];
     if (!holdsSpot(lesson)) return [];
-    return [{ id: String(lesson.id ?? startsAt), kind: "group" as const, startsAt }];
+    // title and locationName are both declared on the mapped GroupLesson.
+    return [
+      {
+        id: String(lesson.id ?? startsAt),
+        kind: "group" as const,
+        startsAt,
+        title: text(lesson.title),
+        location: text(lesson.locationName),
+      },
+    ];
   });
 
 /**
@@ -117,13 +221,29 @@ export const groupLessonsToBookings = (
  * invite has neither, which is how invites stay out of the count.
  */
 export const matchesToBookings = (
-  matches: Array<{ id?: unknown; relationship?: string; startDateTimeIso?: string | null }>,
+  matches: Array<{
+    id?: unknown;
+    relationship?: string;
+    startDateTimeIso?: string | null;
+    format?: string | null;
+    location?: string | null;
+  }>,
 ): WeekBooking[] =>
   (Array.isArray(matches) ? matches : []).flatMap((match) => {
     const startsAt = toEpoch(match?.startDateTimeIso);
     if (startsAt === null) return [];
     if (match.relationship !== "host" && match.relationship !== "participant") return [];
-    return [{ id: String(match.id ?? startsAt), kind: "match" as const, startsAt }];
+    // format and location both come off normalizeMatchRecord — utils/homeAlerts
+    // already reads the same two fields for the legacy dashboard alerts.
+    return [
+      {
+        id: String(match.id ?? startsAt),
+        kind: "match" as const,
+        startsAt,
+        title: text(match.format),
+        location: text(match.location),
+      },
+    ];
   });
 
 /** "Next Sat 10 AM" — the tile's sub-line. */
