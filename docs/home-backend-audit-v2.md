@@ -246,18 +246,24 @@ client twice. Ask for it when the season module and alert stack land, not before
    the feed. Needs a controlled vocabulary, range matching rather than equality, and coverage of
    the other two sections.
 
-14. **Are the 1134 zero-rated profiles intended?** `GET /match-results/rankings` returns 1203 rows;
-    1134 carry `current_rating = 0` with `matches_played = 0`.
+14. **`recomputeRatings()` writes a rating that blocks league enrolment — live bug, not a data
+    cleanup question.**
 
-    **This is not a one-off import artefact.** `recomputeRatings()` loads *every* non-deleted
-    profile — `listRatingSeeds` has no filter on having played — and writes `current_rating` for
-    all of them. It runs from `routes/leagues.js`, `match_result_auto_confirm.js` and three admin
-    routes, so it is **ongoing behaviour that keeps minting zero-rated entries**.
+    `recomputeRatings()` writes `current_rating = 0` to **every** non-deleted profile, including
+    players who have never played, and runs from ordinary league and match-confirmation paths
+    rather than as a migration.
 
-    We have worked around it by gating on `matches_played > 0` instead of on the rating. The
-    question decides whether a gate can ever key off the rating itself — and whether "1203 rated
-    players" is a number anyone should be quoting.
+    League eligibility resolves the player's rating as
+    `usta_rating ?? self_rated_seed ?? starting_rating ?? current_rating`
+    (`src/services/league_eligibility.js:45-50`). A zero there **satisfies** the `missing_rating`
+    check and then **fails** `rating_out_of_band`.
 
+    **1099 of 1142 unrated players are blocked from enrolling in any league by a value the rating
+    engine wrote to profiles that have never played a match.** Only 43 have a `usta_rating` to fall
+    back on; `uta_rating` is not consulted by the eligibility chain at all.
+
+    This is not about tidying rows. Until it changes, league enrolment is closed to the majority of
+    the player base, and the home page cannot honestly send anyone there.
 ---
 
 # Verification against mockups
