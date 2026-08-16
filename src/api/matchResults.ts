@@ -46,6 +46,24 @@ export const fetchRankings = ({
     },
   });
 
+/**
+ * Has this player actually played? This — not a non-null rating — is what the
+ * rated gate turns on.
+ *
+ * GET /match-results/rankings only excludes rows where current_rating IS NULL,
+ * and recomputeRatings() writes current_rating for EVERY non-deleted profile,
+ * not just players with matches. In production that means 1134 of 1203 rows
+ * carry current_rating = 0 with matches_played = 0. Gating on "has a rating"
+ * therefore admits ~94% of accounts who have never played, and shows them 0.0.
+ *
+ * matches_played states the real condition and survives whatever happens to
+ * those zero rows, because it doesn't depend on how a rating field came to be.
+ */
+export const hasPlayed = (row: RankingRow | null | undefined) => {
+  const played = Number(row?.matches_played);
+  return Number.isFinite(played) && played > 0;
+};
+
 const ratingOf = (row: RankingRow) => {
   // Number(null) is 0, not NaN — so null must be rejected before coercion or an
   // unrated player reads as rated with a rating of zero and sorts last.
@@ -69,7 +87,10 @@ const ratingOf = (row: RankingRow) => {
 export const rankedPosition = (rankings: RankingRow[], userId: number | null | undefined) => {
   if (!Array.isArray(rankings) || userId == null) return null;
 
-  const rated = rankings.filter((row) => ratingOf(row) !== null);
+  // Rank among players with evidence, for the same reason as the gate. This is
+  // numerically a no-op today — zero-rated rows sort below every real rating —
+  // but it keeps "3rd nearby" meaning third among people who have played.
+  const rated = rankings.filter((row) => hasPlayed(row) && ratingOf(row) !== null);
   const ordered = rated
     .map((row, index) => ({ row, index }))
     .sort((a, b) => {
@@ -92,9 +113,7 @@ export const isRatedInRankings = (
   userId: number | null | undefined,
 ) => {
   if (!Array.isArray(rankings) || userId == null) return false;
-  return rankings.some(
-    (row) => Number(row.user_id) === Number(userId) && ratingOf(row) !== null,
-  );
+  return rankings.some((row) => Number(row.user_id) === Number(userId) && hasPlayed(row));
 };
 
 const ORDINAL_SUFFIXES = ["th", "st", "nd", "rd"];
