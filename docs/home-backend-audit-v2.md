@@ -215,8 +215,10 @@ client twice. Ask for it when the season module and alert stack land, not before
 2. **What timezone does the API anchor "today" to for lessons and matches?** Lessons use
    `America/Los_Angeles`; we need to know whether matches agree, because the home page
    has a "today" row and a rolling 7-day count.
-3. **Does `POST /player/discover/nearby` actually honour `filters.level`?** The client sends `"All"`
-   today. If it's ignored we'll drop the control from v1 rather than ship a no-op.
+3. ~~**Does `POST /player/discover/nearby` honour `filters.level`?**~~ **CLOSED** — traced, see
+   "Traced answers" below. Honoured, but only for group lessons and only as exact string equality
+   against free text. The level control is dropped from PR 3. Superseded by Q9, which reports the
+   same behaviour as a bug rather than a question.
 
 ### Needed for correctness, whenever
 
@@ -230,9 +232,31 @@ client twice. Ask for it when the season module and alert stack land, not before
 7. **Can rankings be scoped to a court/club rather than a radius?** Rows already carry
    `court_locations[]`. "3rd at Penmar" is currently approximated as "3rd within N miles of Penmar",
    which is a different and less meaningful claim.
-8. **What sets `previous_rating`, and is there any dated rating history?** It's overwritten every
-   match, so no windowed delta ("+0.2 this month") is possible from it. If a history table exists
-   we'd use it; if not, we'll keep the delta cut.
+8. ~~**What sets `previous_rating`, and is there any dated rating history?**~~ **CLOSED** —
+   traced. Every writer of the rating fields is enumerated in "Traced answers". There is no dated
+   history table, so the windowed delta stays impossible and the delta stays cut.
+
+### New, from the traces
+
+13. **`filters.level` on `/player/discover/nearby` is a bug in its own right,** independent of the
+   home page. It applies to **group lessons only** — coaches and open matches never receive it —
+   as exact string equality on `metadata->>'level'` against free text like
+   `"Beginner (NTRP 2.5)"`. An unrecognised value raises no error and returns **zero group
+   lessons**. Anyone who wires a level control to this gets a silent empty state for a third of
+   the feed. Needs a controlled vocabulary, range matching rather than equality, and coverage of
+   the other two sections.
+
+14. **Are the 1134 zero-rated profiles intended?** `GET /match-results/rankings` returns 1203 rows;
+    1134 carry `current_rating = 0` with `matches_played = 0`.
+
+    **This is not a one-off import artefact.** `recomputeRatings()` loads *every* non-deleted
+    profile — `listRatingSeeds` has no filter on having played — and writes `current_rating` for
+    all of them. It runs from `routes/leagues.js`, `match_result_auto_confirm.js` and three admin
+    routes, so it is **ongoing behaviour that keeps minting zero-rated entries**.
+
+    We have worked around it by gating on `matches_played > 0` instead of on the rating. The
+    question decides whether a gate can ever key off the rating itself — and whether "1203 rated
+    players" is a number anyone should be quoting.
 
 ---
 
@@ -434,8 +458,7 @@ recommend dropping it from PR 3, as the brief's fallback anticipates.
 
 Still open, and still his: Q1 (rank ordering under geo scoping), Q2 (timezone anchor), Q4
 (multi-league), Q5 (unentered scores), Q6 (restring status filter), Q7 (court-scoped rankings),
-Q9–Q12 from the mockup verification.
+Q9–Q12 from the mockup verification, plus the two added below.
 
-**New for him, from 1a:** the 1134 zero-rated rows. Is that an import artefact to be cleaned up,
-or intended? It determines whether the gate can ever use the rating itself rather than
-`matches_played`.
+**New for him:** Q13 (the level filter, restated as a bug) and Q14 (the 1134 zero-rated rows —
+ongoing behaviour, not a one-off import).
