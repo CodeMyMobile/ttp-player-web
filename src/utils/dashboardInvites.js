@@ -49,6 +49,21 @@ const formatMoney = (value) => {
   return amount === null ? null : `$${amount.toFixed(0)}`;
 };
 
+// Kept alongside the copy in DashboardPage rather than shared: that file uses it
+// for coach records and lesson metadata too, and the four helpers above are
+// already duplicated across the pair. Following the existing arrangement beats
+// starting a third one in a move that is meant to change nothing.
+const firstObject = (...values) =>
+  values.find((value) => value && typeof value === "object" && !Array.isArray(value)) ?? null;
+
+const formatInviteExpiry = (value) => {
+  const parsed = parseNearbyMoment(value) ?? (value ? moment(value) : null);
+  if (!parsed?.isValid()) return null;
+  const now = moment();
+  if (parsed.isBefore(now)) return "Expired";
+  return parsed.fromNow();
+};
+
 const toInitials = (value, fallback = "TP") => {
   const label = pickString(value);
   if (!label) return fallback;
@@ -177,6 +192,101 @@ const resolveCoachInviteLessonDestination = (lessonId, lesson) => {
 
   return isGroupLesson && !isSemiPrivate ? `/group-lessons/${lessonId}` : `/player/lesson/${lessonId}`;
 };
+
+/**
+ * Normalises a /invites record into the shape the invite UI consumes.
+ *
+ * Moved here from DashboardPage so the v2 home card and the legacy dashboard
+ * share one set of field-fallback chains. Two chains over the same payload
+ * would drift, and the drift would be invisible until one screen disagreed
+ * with the other.
+ */
+export const buildPlayerInviteItems = (records = []) =>
+  records
+    .map((record, index) => {
+      const match = firstObject(record.match, record.match_play);
+      const senderProfile = firstObject(
+        record.profile,
+        record.sender,
+        record.inviter,
+        record.actor,
+        match?.host,
+      );
+      const senderName =
+        pickString(
+          record.sender_name,
+          record.inviter_name,
+          record.coach_name,
+          record.host_name,
+          record.full_name,
+          senderProfile?.full_name,
+          senderProfile?.name,
+          match?.host_name,
+        ) || "Player invite";
+      const startMoment =
+        parseNearbyMoment(
+          record.start_date_time,
+          record.start_at,
+          match?.start_date_time,
+          match?.start_at,
+        ) ?? null;
+      const location = formatDisplayLocation(
+        pickString(
+          record.location,
+          record.location_name,
+          match?.location_text,
+          match?.location,
+        ) || "Location TBD",
+      );
+      const matchLevel = pickString(
+        record.skill_level,
+        record.level,
+        match?.skill_level_min && match?.skill_level_max
+          ? `${match.skill_level_min}-${match.skill_level_max}`
+          : match?.skill_level_min,
+      );
+      const formatWord = pickString(match?.match_format, record.match_format)?.toLowerCase();
+      const description = formatWord ? `Invited you to a ${formatWord} match` : "Invited you to a match";
+      // Render the event time in the viewer's LOCAL zone (parseZone keeps the source
+      // UTC offset, which showed e.g. 10pm-UTC instead of 3pm-PDT).
+      const startLocal = startMoment?.isValid() ? startMoment.clone().local() : null;
+      const whenLabel = startLocal ? startLocal.format("ddd MMM D, h:mm A") : null;
+      const chips = [
+        startLocal ? `📅 ${startLocal.format("ddd MMM D")}` : null,
+        startLocal ? `⏰ ${startLocal.format("h:mm A")}` : null,
+        location ? `📍 ${location}` : null,
+        matchLevel ? `⭐ ${matchLevel}` : null,
+      ].filter(Boolean);
+      const destinationId = record.entity_id ?? match?.id ?? record.match_id ?? null;
+      const destination = destinationId != null ? `/matches/${destinationId}` : "/notifications";
+
+      return {
+        id: record.id ?? `player-invite-${index}`,
+        token: pickString(record.token, record.invite_token),
+        type: "player",
+        senderName,
+        initials: toInitials(senderName, "PL"),
+        avatarUrl: pickString(record.profile_picture, record.profile_url, senderProfile?.profile_picture, senderProfile?.profile_url),
+        typeLabel: "Player",
+        description,
+        chips,
+        whenLabel,
+        // Raw epoch ms alongside the formatted label: the home card sorts
+        // soonest-first, and a formatted string cannot be ordered. Null when the
+        // record carries no parseable start. DashboardPage ignores this.
+        startsAt: startLocal?.isValid() ? startLocal.valueOf() : null,
+        locationLabel: location || null,
+        isLeague: Boolean(match?.is_league_match ?? record.is_league_match),
+        leagueId: match?.league_id ?? record.league_id ?? null,
+        expiresLabel: formatInviteExpiry(record.expires_at ?? record.expiresAt),
+        deadlineAt: record.expires_at ?? record.expiresAt ?? null,
+        ctaHint: "Tap for details →",
+        accentClassName: "player",
+        destination,
+        inviteKind: "player",
+      };
+    })
+    .filter(Boolean);
 
 export const buildCoachInviteItems = (records = [], currentUser) => {
   const userIdentities = new Set(collectDashboardIdentityValues(currentUser));

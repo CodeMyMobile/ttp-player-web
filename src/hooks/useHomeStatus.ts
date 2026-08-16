@@ -26,7 +26,10 @@ import {
   type WeekBooking,
 } from "../utils/weekBookings";
 import { listMyOrders } from "../restringing/restringingService";
+import { listInvites } from "../services/invites";
+import { buildPlayerInviteItems } from "../utils/dashboardInvites";
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
+import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
 import { useApiRequest } from "./useApiRequest";
 
 /** Matches the identity fallback chain used elsewhere, e.g. LeagueDetailPage.tsx:438. */
@@ -186,4 +189,35 @@ export function useHomeAlerts(skip = false): {
   const alerts = useMemo(() => buildHomeAlerts({ restringOrders: data ?? [] }), [data]);
 
   return { loading, alerts };
+}
+
+/** The list endpoint has been seen returning several envelope shapes. */
+const extractInvites = (response: unknown): unknown[] => {
+  if (!response) return [];
+  if (Array.isArray(response)) return response;
+  const record = response as Record<string, unknown>;
+  for (const key of ["data", "invites", "items"]) {
+    if (Array.isArray(record[key])) return record[key] as unknown[];
+  }
+  return [];
+};
+
+const invitesFetcher = async () => {
+  // Same query the dashboard uses. perPage 5 is plenty: only the soonest is
+  // rendered and the rest collapse to a "N more" link.
+  const response = await listInvites({ status: "pending", page: 1, perPage: 5, filter: "pending" });
+  return buildPlayerInviteItems(extractInvites(response));
+};
+
+/**
+ * The pending invite to show, plus how many are behind it.
+ *
+ * Normalisation is shared with the legacy dashboard via buildPlayerInviteItems —
+ * one set of field-fallback chains over /invites, not two that can drift.
+ */
+export function useHomeInvites(skip = false) {
+  const { data, loading, error, refetch } = useApiRequest(invitesFetcher, NO_PARAMS, { skip });
+  const selection = useMemo(() => selectHomeInvite((data ?? []) as HomeInviteItem[]), [data]);
+
+  return { loading, error, refetch, ...selection };
 }
