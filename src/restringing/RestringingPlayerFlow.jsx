@@ -578,7 +578,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     selectedStringId: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
     customStringText: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
     ownStringText: isPresetCompositionTier(tier) ? null : isOwnTier(tier) ? ownString : null,
-    gauge,
+    gauge: isPresetCompositionTier(tier) ? null : gauge,
     tensionMains: tension,
     tensionCrosses: splitTension ? crosses : tension,
     adviceRequested,
@@ -587,7 +587,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     quantity,
     setupMode,
     perRacketItems: isPresetCompositionTier(tier)
-      ? perRacketItems.map((item) => ({ ...item, stringId: null, customStringText: null, ownStringText: null }))
+      ? perRacketItems.map((item) => ({ ...item, stringId: null, customStringText: null, ownStringText: null, gauge: null }))
       : perRacketItems,
   });
 
@@ -867,10 +867,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 {needsOtherString ? <Field label="Describe the string"><input value={otherString} onChange={(event) => setOtherString(event.target.value)} placeholder="Brand and model" /><small>Required for Other. Subject to availability; your stringer confirms at drop-off.</small></Field> : null}
               </>
             )}
-            <span className="rsg-label">Gauge</span>
-            <div className="rsg-tiles">
-              {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
-            </div>
+            {!isPresetCompositionTier(tier) ? (
+              <>
+                <span className="rsg-label">Gauge</span>
+                <div className="rsg-tiles">
+                  {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
+                </div>
+              </>
+            ) : null}
             <span className="rsg-label">{splitTension ? "Tension - mains" : "Tension"}</span>
             <div className="rsg-stepper">
               <button type="button" disabled={adviceRequested} onClick={() => setTension((value) => Math.max(40, value - 1))}><Minus size={16} /></button>
@@ -934,7 +938,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <h1>Checkout</h1>
               <div className="rsg-summary">
                 <b>{tier.name} · x{quantity}</b>
-                <span>{adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : selectedStringName || "String"} · gauge ${gauge} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
+                <span>{adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
                 <strong>{totalLabel}</strong>

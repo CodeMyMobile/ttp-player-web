@@ -18,6 +18,7 @@ test("recognizes vendor-selected preset composition tiers", () => {
   assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "poly_multi_hybrid" }), true);
   assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "natural_gut_hybrid" }), true);
   assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "natural_gut" }), true);
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "unknown_composition" }), false);
   assert.equal(isPresetCompositionTier({ string_category: null, string_composition: null }), false);
 });
 

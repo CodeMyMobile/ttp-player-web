@@ -30,7 +30,13 @@ export const categoryLabel = (category) => ({
   prem_poly: "Premium Polyester",
 }[category] || "String");
 
-export const isPresetCompositionTier = (tier) => Boolean(tier?.string_composition);
+const PRESET_COMPOSITIONS = new Set([
+  "poly_multi_hybrid",
+  "natural_gut_hybrid",
+  "natural_gut",
+]);
+
+export const isPresetCompositionTier = (tier) => PRESET_COMPOSITIONS.has(tier?.string_composition);
 
 export const serviceCompositionLabel = (composition) => ({
   poly_multi_hybrid: "Polyester + Multifilament hybrid",
