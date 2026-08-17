@@ -59,6 +59,16 @@ test("getItemSpecs returns tension and gauge tiles for fixed-spec orders", () =>
   ]);
 });
 
+test("getItemSpecs returns no racket specs for custom sale items", () => {
+  assert.deepEqual(getItemSpecs({
+    id: 2,
+    item_type: "custom",
+    label: "Balls",
+    unit_price_cents: 500,
+    item_qty: 2,
+  }), []);
+});
+
 test("shouldShowAccountPrompt only returns true for login-available account links", () => {
   assert.equal(shouldShowAccountPrompt({ eligible: true, status: "login_available" }), true);
   assert.equal(shouldShowAccountPrompt({ eligible: true, status: "linked" }), false);
