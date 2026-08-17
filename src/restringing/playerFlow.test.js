@@ -10,7 +10,23 @@ import {
   orderStatusLabel,
   paymentStatusLabel,
   recommendStringCategory,
+  isPresetCompositionTier,
+  serviceCompositionLabel,
 } from "./playerFlow.js";
+
+test("recognizes vendor-selected preset composition tiers", () => {
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "poly_multi_hybrid" }), true);
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "natural_gut_hybrid" }), true);
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "natural_gut" }), true);
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "unknown_composition" }), false);
+  assert.equal(isPresetCompositionTier({ string_category: null, string_composition: null }), false);
+});
+
+test("labels included vendor-selected string compositions", () => {
+  assert.equal(serviceCompositionLabel("poly_multi_hybrid"), "Polyester + Multifilament hybrid");
+  assert.equal(serviceCompositionLabel("natural_gut_hybrid"), "Natural gut hybrid");
+  assert.equal(serviceCompositionLabel("natural_gut"), "Natural gut");
+});
 
 test("arm discomfort wins over affordable and never recommends polyester", () => {
   const result = recommendStringCategory({

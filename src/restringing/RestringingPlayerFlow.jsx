@@ -29,6 +29,8 @@ import {
   orderStatusLabel,
   paymentStatusLabel,
   recommendStringCategory,
+  isPresetCompositionTier,
+  serviceCompositionLabel,
 } from "./playerFlow.js";
 import {
   googleMapsUriForVendor,
@@ -69,9 +71,12 @@ const defaultTiers = [
   { id: 4, name: "Restringing + Premium Multifilament", price_cents: 4999, string_category: "prem_multi" },
   { id: 5, name: "Restringing + Standard Polyester", price_cents: 4499, string_category: "std_poly" },
   { id: 6, name: "Restringing + Premium Polyester", price_cents: 4999, string_category: "prem_poly" },
+  { id: 7, name: "Restring + Poly / Multi Hybrid", price_cents: 4999, string_category: null, string_composition: "poly_multi_hybrid" },
+  { id: 8, name: "Restring + Natural Gut Hybrid", price_cents: 6999, string_category: null, string_composition: "natural_gut_hybrid" },
+  { id: 9, name: "Restring + Natural Gut", price_cents: 8999, string_category: null, string_composition: "natural_gut" },
 ];
 
-const tierSub = (tier) => ({
+const tierSub = (tier) => isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : ({
   syn_gut: "Reliable all-rounder",
   std_multi: "Comfort and power",
   prem_multi: "Top comfort and feel",
@@ -80,7 +85,7 @@ const tierSub = (tier) => ({
 }[tier?.string_category] || "You supply the string");
 
 const clean = (value) => String(value || "").trim();
-const isOwnTier = (tier) => tier && tier.string_category === null;
+const isOwnTier = (tier) => tier && tier.string_category === null && !isPresetCompositionTier(tier);
 
 function Field({ label, children }) {
   return (
@@ -293,7 +298,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     () => catalogGaugesForString(selectedString),
     [selectedString],
   );
-  const needsOtherString = Boolean(tier && !isOwnTier(tier) && (stringId === "other" || catalog.length === 0));
+  const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
   const totalCents = (Number(tier?.price_cents || 0) * quantity);
   const totalLabel = formatMoneyCents(totalCents);
 
@@ -425,6 +430,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
   useEffect(() => {
     if (!tier || !selectedVendor) return;
+    if (isPresetCompositionTier(tier)) {
+      setCatalog([]);
+      setStringId("");
+      setGauge("");
+      return undefined;
+    }
     let cancelled = false;
     listVendorStrings({ vendorId: selectedVendor.id, serviceTierId: tier.id })
       .then((data) => {
@@ -443,13 +454,13 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   }, [selectedVendor, tier]);
 
   useEffect(() => {
-    if (adviceRequested) return;
+    if (adviceRequested || isPresetCompositionTier(tier)) return;
     setGauge((current) => (
       selectedGaugeOptions.includes(current)
         ? current
         : defaultGaugeForString(selectedString)
     ));
-  }, [adviceRequested, selectedGaugeOptions, selectedString]);
+  }, [adviceRequested, selectedGaugeOptions, selectedString, tier]);
 
   useEffect(() => {
     if (quantity < 2) setSetupMode("");
@@ -542,6 +553,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
   const validateConfig = () => {
     if (!tier) return false;
+    if (isPresetCompositionTier(tier)) return true;
     if (adviceRequested && !isOwnTier(tier)) return true;
     if (isOwnTier(tier)) return Boolean(clean(ownString));
     if (needsOtherString) return Boolean(clean(otherString));
@@ -563,10 +575,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
   const buildItems = () => buildCheckoutItems({
     serviceTierId: tier.id,
-    selectedStringId: adviceRequested ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
-    customStringText: adviceRequested ? null : needsOtherString ? otherString : null,
-    ownStringText: isOwnTier(tier) ? ownString : null,
-    gauge,
+    selectedStringId: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
+    customStringText: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
+    ownStringText: isPresetCompositionTier(tier) ? null : isOwnTier(tier) ? ownString : null,
+    gauge: isPresetCompositionTier(tier) ? null : gauge,
     tensionMains: tension,
     tensionCrosses: splitTension ? crosses : tension,
     adviceRequested,
@@ -574,7 +586,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     orderNotes,
     quantity,
     setupMode,
-    perRacketItems,
+    perRacketItems: isPresetCompositionTier(tier)
+      ? perRacketItems.map((item) => ({ ...item, stringId: null, customStringText: null, ownStringText: null, gauge: null }))
+      : perRacketItems,
   });
 
   const startCheckout = async (paymentMethodId = null) => {
@@ -835,7 +849,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           <section className="rsg-card">
             <h1>Your string setup</h1>
             <p>{tier.name} at {selectedVendor?.name}</p>
-            {isOwnTier(tier) ? (
+            {isPresetCompositionTier(tier) ? (
+              <p>Included strings: {serviceCompositionLabel(tier.string_composition)}. Your stringer will choose the matching setup.</p>
+            ) : isOwnTier(tier) ? (
               <Field label="String you are bringing"><input value={ownString} onChange={(event) => setOwnString(event.target.value)} placeholder="Luxilon ALU Power 16L" /></Field>
             ) : (
               <>
@@ -851,10 +867,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 {needsOtherString ? <Field label="Describe the string"><input value={otherString} onChange={(event) => setOtherString(event.target.value)} placeholder="Brand and model" /><small>Required for Other. Subject to availability; your stringer confirms at drop-off.</small></Field> : null}
               </>
             )}
-            <span className="rsg-label">Gauge</span>
-            <div className="rsg-tiles">
-              {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
-            </div>
+            {!isPresetCompositionTier(tier) ? (
+              <>
+                <span className="rsg-label">Gauge</span>
+                <div className="rsg-tiles">
+                  {selectedGaugeOptions.map((item) => <TileButton key={item} active={gauge === item && !adviceRequested} disabled={adviceRequested} onClick={() => setGauge(item)}><small>gauge</small><b>{item}</b></TileButton>)}
+                </div>
+              </>
+            ) : null}
             <span className="rsg-label">{splitTension ? "Tension - mains" : "Tension"}</span>
             <div className="rsg-stepper">
               <button type="button" disabled={adviceRequested} onClick={() => setTension((value) => Math.max(40, value - 1))}><Minus size={16} /></button>
@@ -918,7 +938,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <h1>Checkout</h1>
               <div className="rsg-summary">
                 <b>{tier.name} · x{quantity}</b>
-                <span>{adviceRequested ? "Specs decided at drop-off" : `${selectedStringName || "String"} · gauge ${gauge} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
+                <span>{adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
                 <strong>{totalLabel}</strong>
