@@ -16,6 +16,9 @@ export interface RestringingPayLinkVendor {
 
 export interface RestringingPayLinkItem {
   id: number;
+  item_type?: "restring" | "custom";
+  label?: string | null;
+  item_qty?: number | null;
   racket_make_model?: string | null;
   service_tier_name?: string | null;
   string_description?: string | null;
@@ -131,8 +134,9 @@ const formatTension = (mains: number | null | undefined, crosses: number | null 
 
 export const getItemSpecs = (item: Pick<
   RestringingPayLinkItem,
-  "advice_requested" | "gauge" | "tension_lbs_mains" | "tension_lbs_crosses"
+  "item_type" | "advice_requested" | "gauge" | "tension_lbs_mains" | "tension_lbs_crosses"
 >): PayLinkSpecTile[] => {
+  if (item.item_type === "custom") return [];
   if (item.advice_requested) {
     return [{ label: "Specs", value: "TBD", sublabel: "at drop-off", pending: true }];
   }

@@ -45,6 +45,7 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
     total_cents: 2999,
     items: [{
       id: 7,
+      item_type: "restring",
       racket_make_model: "Yonex Ezone 98",
       service_tier_name: "Restringing Only",
       string_description: "Own string: Yonex Poly Tour Pro 1.25",
@@ -53,6 +54,7 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
       tension_lbs_crosses: 52,
       advice_requested: false,
       unit_price_cents: 2999,
+      item_qty: 1,
     }],
   },
   vendor: {
@@ -497,10 +499,16 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             <div className="pay-link-item" key={item.id}>
               <div className="pay-link-item__line">
                 <div>
-                  <div className="pay-link-item__name">{item.service_tier_name || "Racket service"}</div>
-                  <div className="pay-link-muted">{item.racket_make_model || "Racket"} · {item.string_description || "String to confirm"}</div>
+                  <div className="pay-link-item__name">
+                    {item.item_type === "custom" ? item.label || "Custom item" : item.service_tier_name || "Racket service"}
+                  </div>
+                  <div className="pay-link-muted">
+                    {item.item_type === "custom"
+                      ? `Qty ${item.item_qty || 1}`
+                      : `${item.racket_make_model || "Racket"} · ${item.string_description || "String to confirm"}`}
+                  </div>
                 </div>
-                <strong>{formatPayLinkMoney(item.unit_price_cents)}</strong>
+                <strong>{formatPayLinkMoney(Number(item.unit_price_cents || 0) * Number(item.item_qty || 1))}</strong>
               </div>
               <div className="pay-link-specs">
                 {getItemSpecs(item).map((spec) => (

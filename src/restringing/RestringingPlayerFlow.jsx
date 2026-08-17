@@ -665,6 +665,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   };
 
   const orderStringLine = (item) => {
+    if (item.item_type === "custom") {
+      return `${item.label || "Custom item"} x ${item.item_qty || 1} · ${formatMoneyCents(Number(item.unit_price_cents || 0) * Number(item.item_qty || 1))}`;
+    }
     if (item.advice_requested) return "Specs decided at drop-off";
     const stringName = item.string_name
       ? `${item.string_brand || ""} ${item.string_name}`.trim()
@@ -1013,7 +1016,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                     <span className="rsg-status-pill"><small>Order</small>{orderStatusLabel(order.fulfillment_status || order.status)}</span>
                     <span className="rsg-status-pill rsg-status-pill--payment"><small>Payment</small>{paymentStatusLabel(order.payment_status)}</span>
                   </div>
-                  {(order.items || []).map((item) => <p key={item.id}>{item.racket_make_model}: {orderStringLine(item)}</p>)}
+                  {(order.items || []).map((item) => (
+                    <p key={item.id}>
+                      {item.item_type === "custom" ? "Item" : item.racket_make_model}: {orderStringLine(item)}
+                    </p>
+                  ))}
                   <p>{order.vendor_name} · {formatMoneyCents(order.total_cents)}</p>
                   {order.fulfillment_status === "pending" ? (
                     <>
