@@ -30,6 +30,14 @@ export const categoryLabel = (category) => ({
   prem_poly: "Premium Polyester",
 }[category] || "String");
 
+export const isPresetCompositionTier = (tier) => Boolean(tier?.string_composition);
+
+export const serviceCompositionLabel = (composition) => ({
+  poly_multi_hybrid: "Polyester + Multifilament hybrid",
+  natural_gut_hybrid: "Natural gut hybrid",
+  natural_gut: "Natural gut",
+}[composition] || "Included strings");
+
 const titleizeStatus = (value) => cleanText(value)
   .replace(/[_-]+/g, " ")
   .replace(/\b\w/g, (letter) => letter.toUpperCase());
