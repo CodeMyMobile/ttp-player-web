@@ -36,6 +36,10 @@ export interface RestringingPayLinkOrder {
   payment_status: string;
   fulfillment_status: string;
   subtotal_cents: number;
+  discount_label?: string | null;
+  discount_type?: "percent" | "fixed" | null;
+  discount_value?: number | null;
+  discount_amount_cents?: number | null;
   tax_cents: number;
   total_cents: number;
   items: RestringingPayLinkItem[];

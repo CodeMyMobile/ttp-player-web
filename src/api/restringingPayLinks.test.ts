@@ -94,6 +94,10 @@ test("pay-link API uses public endpoints with optional auth", async () => {
         payment_status: "unpaid",
         fulfillment_status: "pending",
         subtotal_cents: 4200,
+        discount_label: "Member",
+        discount_type: "percent",
+        discount_value: 10,
+        discount_amount_cents: 420,
         tax_cents: 300,
         total_cents: 4500,
         items: [],
@@ -106,6 +110,7 @@ test("pay-link API uses public endpoints with optional auth", async () => {
   try {
     const summary = await getRestringingPayLink("raw-token", "Token abc");
     assert.equal(summary.order.id, 42);
+    assert.equal(summary.order.discount_amount_cents, 420);
     assert.equal(calls[0].url.endsWith("/restringing/pay-links/raw-token"), true);
     assert.equal((calls[0].init?.headers as Record<string, string>).Authorization, "Token abc");
   } finally {

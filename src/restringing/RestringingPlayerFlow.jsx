@@ -1022,6 +1022,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                     </p>
                   ))}
                   <p>{order.vendor_name} · {formatMoneyCents(order.total_cents)}</p>
+                  {Number(order.discount_amount_cents || 0) > 0 ? (
+                    <p>{order.discount_label || "Discount"} -{formatMoneyCents(order.discount_amount_cents)}</p>
+                  ) : null}
                   {order.fulfillment_status === "pending" ? (
                     <>
                       <button type="button" className="rsg-secondary" onClick={async () => { await cancelOrder(order.id); await refreshOrders(); }}>Cancel order (full refund)</button>
