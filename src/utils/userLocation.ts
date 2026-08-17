@@ -3,6 +3,7 @@ export type Coordinates = { latitude: number; longitude: number };
 const USER_LOCATION_STORAGE_KEY = "player:web:user-location";
 const USER_LOCATION_LABEL_STORAGE_KEY = "player:web:user-location-label";
 const USER_LOCATION_RADIUS_STORAGE_KEY = "player:web:user-location-radius";
+const USER_LOCATION_AREA_STORAGE_KEY = "player:web:user-location-area";
 export const USER_LOCATION_CHANGED_EVENT = "player:web:user-location-changed";
 
 const DEFAULT_COORDINATES_VALUE: Coordinates = { latitude: 34.0549076, longitude: -118.242643 };
@@ -67,6 +68,68 @@ export const storeLocationLabel = (label: string | null) => {
   } catch {
     // ignore storage errors
   }
+};
+
+// The neighbourhood for the chosen location ("Mar Vista"), captured from the
+// Google Places result at pick time. Kept separate from the label because the
+// label is a full formatted address, far too long for the header.
+export const getStoredLocationArea = (): string | null => {
+  try {
+    const raw = localStorage.getItem(USER_LOCATION_AREA_STORAGE_KEY);
+    if (!raw) return null;
+    const trimmed = raw.trim();
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+};
+
+export const storeLocationArea = (area: string | null) => {
+  try {
+    if (!area || !area.trim()) {
+      localStorage.removeItem(USER_LOCATION_AREA_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
+      return;
+    }
+    localStorage.setItem(USER_LOCATION_AREA_STORAGE_KEY, area.trim());
+    window.dispatchEvent(new CustomEvent(USER_LOCATION_CHANGED_EVENT));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+/**
+ * Pulls the neighbourhood out of a Google Places result, most specific first.
+ * Returns null when the place carries none of these, so callers fall back
+ * rather than showing something misleading.
+ */
+export const readPlaceArea = (place: unknown): string | null => {
+  const components = (place as { address_components?: unknown })?.address_components;
+  if (!Array.isArray(components)) return null;
+
+  const preference = ["neighborhood", "sublocality", "sublocality_level_1", "locality"];
+  for (const type of preference) {
+    const match = components.find(
+      (component) =>
+        component &&
+        typeof component === "object" &&
+        Array.isArray((component as { types?: unknown }).types) &&
+        (component as { types: unknown[] }).types.includes(type),
+    ) as { long_name?: string; short_name?: string } | undefined;
+    const name = match?.long_name || match?.short_name;
+    if (name && name.trim()) return name.trim();
+  }
+  return null;
+};
+
+/**
+ * Header fallback for accounts that stored a location before areas were
+ * captured: show the first segment of the address rather than the whole thing.
+ */
+export const shortLocationLabel = (label: string | null): string | null => {
+  if (!label) return null;
+  const first = label.split(",")[0]?.trim();
+  return first || null;
 };
 
 export const getStoredLocationRadius = (): number | null => {

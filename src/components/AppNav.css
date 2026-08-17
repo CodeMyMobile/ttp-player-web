@@ -843,3 +843,26 @@
     display: none;
   }
 }
+
+/* The brand must never be clipped by the location control.
+   The location is the only element in the bar allowed to shrink: it truncates
+   to an ellipsis, and the wordmark keeps its width at every viewport. */
+.app-nav__brand {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.app-nav__location-wrap {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.app-nav__location {
+  min-width: 0;
+}
+
+.app-nav__location span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -35,6 +35,10 @@ import {
   getStoredLocationRadius,
   storeLocation,
   storeLocationLabel,
+  storeLocationArea,
+  getStoredLocationArea,
+  readPlaceArea,
+  shortLocationLabel,
   storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
 } from "../utils/userLocation";
@@ -91,6 +95,7 @@ const AppNav = ({
   const [isNotificationsLoading, setNotificationsLoading] = useState(false);
   const [isLocationOpen, setLocationOpen] = useState(false);
   const [locationLabel, setLocationLabel] = useState(getStoredLocationLabel() || "Current location");
+  const [locationArea, setLocationArea] = useState(getStoredLocationArea());
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -151,6 +156,7 @@ const AppNav = ({
   useEffect(() => {
     const syncLocationState = () => {
       setLocationLabel(getStoredLocationLabel() || "Current location");
+      setLocationArea(getStoredLocationArea());
       setSearchRadius(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
     };
 
@@ -188,9 +194,14 @@ const AppNav = ({
     navigate("/create");
   };
 
-  const applyLocationSelection = ({ label, latitude, longitude }) => {
+  const applyLocationSelection = ({ label, latitude, longitude, area = null }) => {
     storeLocation({ latitude, longitude });
     storeLocationLabel(label);
+    // The header shows the neighbourhood, not the full address. Geolocation
+    // gives us no place components, so "Current location" clears it and the
+    // header falls back to the short label.
+    storeLocationArea(area);
+    setLocationArea(area);
     setLocationLabel(label);
     setLocationSearchTerm(label);
     setLocationError("");
@@ -244,7 +255,7 @@ const AppNav = ({
       return;
     }
 
-    applyLocationSelection({ label, latitude, longitude });
+    applyLocationSelection({ label, latitude, longitude, area: readPlaceArea(place) });
   };
 
   const radiusProgress = ((searchRadius - 1) / 24) * 100;
@@ -299,7 +310,7 @@ const AppNav = ({
               }}
             >
               <MapPin size={14} />
-              <span>{locationLabel}</span>
+              <span>{locationArea || shortLocationLabel(locationLabel) || locationLabel}</span>
               <ChevronDown size={14} />
             </button>
           </div>

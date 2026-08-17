@@ -1,0 +1,334 @@
+/* Home redesign (VITE_HOME_V2). Scoped under .home-v2 so nothing here can
+   affect the existing DashboardPage while both are in the tree. */
+
+.home-v2__main {
+  width: min(640px, 100%);
+  margin: 0 auto;
+  padding: 16px 16px 96px;
+}
+
+/* --- status tiles --------------------------------------------------------- */
+
+.home-v2 .home-tiles {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.home-v2 .home-tile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 12px;
+  padding: 12px;
+  text-decoration: none;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.home-v2 .home-tile:hover {
+  transform: translateY(-1px);
+}
+
+.home-v2 .home-tile--full {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Rating — the lime tile. */
+.home-v2 .home-tile--rating {
+  background: #f7fee7;
+  box-shadow: inset 0 0 0 1px #d9f99d;
+  color: #1a2e05;
+}
+
+.home-v2 .home-tile--rating .home-tile__label {
+  color: #4d7c0f;
+}
+
+.home-v2 .home-tile--rating .home-tile__sub {
+  color: #65a30d;
+}
+
+/* Bookings and prompts — the white tile. */
+.home-v2 .home-tile--bookings {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #0f172a;
+}
+
+.home-v2 .home-tile--prompt {
+  background: #f7fee7;
+  box-shadow: inset 0 0 0 1px #d9f99d;
+  color: #1a2e05;
+}
+
+.home-v2 .home-tile--prompt-compact {
+  justify-content: center;
+}
+
+.home-v2 .home-tile__label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.home-v2 .home-tile__label--spread {
+  justify-content: space-between;
+}
+
+.home-v2 .home-tile__link-hint {
+  flex-shrink: 0;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.home-v2 .home-tile__value-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.home-v2 .home-tile__value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.home-v2 .home-tile__unit {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.home-v2 .home-tile__sub {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-tile__sub--muted {
+  color: #94a3b8;
+}
+
+.home-v2 .home-tile__lead-icon {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+  color: #65a30d;
+}
+
+.home-v2 .home-tile--bookings .home-tile__lead-icon {
+  color: #94a3b8;
+}
+
+.home-v2 .home-tile__prompt-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-v2 .home-tile__prompt-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-v2 .home-tile__prompt-sub {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.home-v2 .home-tile--prompt .home-tile__prompt-sub {
+  color: #4d7c0f;
+}
+
+.home-v2 .home-tile__chevron {
+  flex-shrink: 0;
+  color: #65a30d;
+}
+
+/* --- today row ------------------------------------------------------------ */
+
+.home-v2 .home-today {
+  margin-top: 8px;
+}
+
+.home-v2 .home-today__row,
+.home-v2 .home-alerts__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.home-v2 .home-today__row {
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.home-v2 .home-today__chip,
+.home-v2 .home-alerts__chip {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+/* Red is the today row's whole signal — it is the only red on the screen. */
+.home-v2 .home-today__chip {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.home-v2 .home-today__copy,
+.home-v2 .home-alerts__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-v2 .home-today__title,
+.home-v2 .home-alerts__title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-today__meta,
+.home-v2 .home-alerts__meta {
+  overflow: hidden;
+  font-size: 12px;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-today__chevron,
+.home-v2 .home-alerts__chevron {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+
+/* --- alert stack ---------------------------------------------------------- */
+
+/*
+ * The stack collapses to nothing when it empties, and the grid below shifts up
+ * by ~90px. Animating grid-template-rows from 1fr to 0fr transitions that
+ * without hardcoding a height, so the grid slides rather than snapping under
+ * someone's thumb mid-tap.
+ */
+.home-v2 .home-alerts {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 8px;
+  transition: grid-template-rows 220ms ease, margin-top 220ms ease;
+}
+
+.home-v2 .home-alerts--collapsed {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+}
+
+.home-v2 .home-alerts__list {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+/* Divider between rows only, never above the first or below the last. */
+.home-v2 .home-alerts__row + .home-alerts__row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.home-v2 .home-alerts__chip--violet {
+  background: #f5f3ff;
+  color: #8b5cf6;
+}
+
+.home-v2 .home-alerts__chip--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-v2 .home-alerts {
+    transition: none;
+  }
+}
+
+/* --- action grid ---------------------------------------------------------- */
+
+.home-v2 .home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.home-v2 .home-grid__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  /* Keeps one- and two-line labels on the same baseline grid, so both rows
+     are equal height at every width. */
+  min-height: 84px;
+  border: 0;
+  border-radius: 12px;
+  padding: 16px 8px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #334155;
+  text-decoration: none;
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.home-v2 .home-grid__tile:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px #cbd5e1;
+}
+
+.home-v2 .home-grid__icon {
+  flex-shrink: 0;
+  color: #475569;
+}
+
+.home-v2 .home-grid__label {
+  /* Two lines must fit at 360px without truncating — roughly 104px per tile. */
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.home-v2 .home-grid__tile--locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.home-v2 .home-grid__tile--locked:hover {
+  transform: none;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
