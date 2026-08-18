@@ -1,5 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { forgotPassword as forgotPasswordService, login as loginService, logout as logoutService } from "../services/auth.js";
+import {
+  forgotPassword as forgotPasswordService,
+  login as loginService,
+  logout as logoutService,
+  refreshSession,
+} from "../services/auth.js";
 import { getStoredAuthToken } from "../services/authToken.js";
 
 const AuthContext = createContext({});
@@ -24,6 +29,18 @@ const getStoredUser = () => {
   );
 };
 
+const isExpiredJwt = (token) => {
+  const jwt = String(token || "").trim().split(/\s+/).pop();
+  if (!jwt) return false;
+
+  try {
+    const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.exp === "number" && payload.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,12 +48,30 @@ export const AuthProvider = ({ children }) => {
   const [lastEmail, setLastEmail] = useState("");
 
   useEffect(() => {
-    const token = getStoredAuthToken();
-    if (token) {
-      setIsAuthenticated(true);
-      setUser(getStoredUser());
-    }
-    setLoading(false);
+    let active = true;
+
+    const initializeSession = async () => {
+      const token = getStoredAuthToken();
+      if (token && isExpiredJwt(token)) {
+        try {
+          await refreshSession();
+        } catch {
+          logoutService();
+          window.dispatchEvent(new Event("auth:session-expired"));
+        }
+      }
+
+      const currentToken = getStoredAuthToken();
+      if (!active) return;
+      setIsAuthenticated(Boolean(currentToken) && !isExpiredJwt(currentToken));
+      setUser(currentToken && !isExpiredJwt(currentToken) ? getStoredUser() : null);
+      setLoading(false);
+    };
+
+    initializeSession();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -50,12 +85,20 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       const token = getStoredAuthToken();
-      setIsAuthenticated(Boolean(token));
-      setUser(token ? getStoredUser() : null);
+      const validToken = token && !isExpiredJwt(token);
+      if (token && !validToken) logoutService();
+      setIsAuthenticated(Boolean(validToken));
+      setUser(validToken ? getStoredUser() : null);
     };
 
     window.addEventListener("storage", syncStoredAuth);
-    return () => window.removeEventListener("storage", syncStoredAuth);
+    window.addEventListener("auth:session-refreshed", syncStoredAuth);
+    window.addEventListener("auth:session-expired", syncStoredAuth);
+    return () => {
+      window.removeEventListener("storage", syncStoredAuth);
+      window.removeEventListener("auth:session-refreshed", syncStoredAuth);
+      window.removeEventListener("auth:session-expired", syncStoredAuth);
+    };
   }, []);
 
   const login = useCallback(async (email, password) => {

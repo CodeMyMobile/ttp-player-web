@@ -28,6 +28,67 @@ const persistAuthSession = (data) => {
   }
 };
 
+const getStoredRefreshToken = () => {
+  try {
+    return localStorage.getItem("refreshToken");
+  } catch {
+    return null;
+  }
+};
+
+let refreshInFlight = null;
+
+/**
+ * Exchanges the rotating refresh JWT for a new session. This deliberately uses
+ * fetch rather than the shared HTTP client so a failed refresh cannot recurse
+ * through the 401 recovery interceptor.
+ */
+const requestSessionRefresh = async () => {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) {
+    const error = new Error("Missing refresh token");
+    error.status = 401;
+    throw error;
+  }
+
+  const response = await fetch(buildApiUrl("/auth/refresh-token"), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Token ${refreshToken}`,
+    },
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    // Keep the status below even when a proxy returns a non-JSON error.
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      data?.detail || data?.message || data?.error || response.statusText || "Unable to refresh session",
+    );
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  persistAuthSession(data);
+  window.dispatchEvent(new Event("auth:session-refreshed"));
+  return data;
+};
+
+export const refreshSession = () => {
+  if (!refreshInFlight) {
+    refreshInFlight = requestSessionRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+};
+
 export const getApplePlayerLoginUrl = () => buildApiUrl("/auth/apple");
 
 export const consumeAppleAuthRedirect = () => {

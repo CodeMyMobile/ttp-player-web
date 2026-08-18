@@ -311,6 +311,9 @@ const GroupLessonDetailsPage = () => {
           if (!token) {
             throw error;
           }
+          if ((error as { status?: number }).status === 401) {
+            throw error;
+          }
           const position = getStoredLocation() ?? DEFAULT_POSITION;
           const fallbackResponse = await fetchUpcomingGroupLessons({
             token,

@@ -1,4 +1,6 @@
 import { API_BASE_URL, DEFAULT_AUTH_SCHEME, buildApiUrl } from "./config";
+import { logout, refreshSession } from "../services/auth";
+import { getStoredAuthToken } from "../services/authToken";
 
 export type AuthScheme = "token" | "Bearer" | (string & {});
 
@@ -20,6 +22,11 @@ export interface RequestOptions<TBody = unknown> {
    */
   rawBody?: boolean;
 }
+
+const endExpiredSession = () => {
+  logout();
+  window.dispatchEvent(new Event("auth:session-expired"));
+};
 
 const buildQueryString = (query?: RequestQuery) => {
   if (!query) return "";
@@ -69,6 +76,33 @@ export async function request<TResponse = unknown, TBody = unknown>(
     rawBody = false,
   }: RequestOptions<TBody> = {},
 ): Promise<TResponse> {
+  return performRequest<TResponse, TBody>(path, {
+    method,
+    token,
+    authScheme,
+    headers,
+    query,
+    body,
+    signal,
+    rawBody,
+  });
+}
+
+async function performRequest<TResponse = unknown, TBody = unknown>(
+  path: string,
+  options: RequestOptions<TBody>,
+  retriedAfterRefresh = false,
+): Promise<TResponse> {
+  const {
+    method = "GET",
+    token,
+    authScheme = DEFAULT_AUTH_SCHEME,
+    headers = {},
+    query,
+    body,
+    signal,
+    rawBody = false,
+  } = options;
   const url = buildApiUrl(path);
   const queryString = buildQueryString(query);
   const authHeader = normalizeAuthHeader(token, authScheme);
@@ -111,6 +145,18 @@ export async function request<TResponse = unknown, TBody = unknown>(
   });
 
   if (!response.ok) {
+    if (response.status === 401 && token && !retriedAfterRefresh) {
+      try {
+        await refreshSession();
+        return performRequest<TResponse, TBody>(
+          path,
+          { ...options, token: getStoredAuthToken({ preferScheme: authScheme }) || undefined },
+          true,
+        );
+      } catch {
+        endExpiredSession();
+      }
+    }
     let errorPayload: unknown;
     try {
       errorPayload = await response.json();

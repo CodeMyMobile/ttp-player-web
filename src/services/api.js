@@ -1,5 +1,6 @@
 import { buildApiUrl } from "../api/config";
 import { getStoredAuthToken, normalizeAuthToken } from "./authToken";
+import { logout, refreshSession } from "./auth";
 
 const api = (path, options = {}) => {
   const {
@@ -49,11 +50,33 @@ const api = (path, options = {}) => {
   const url = buildApiUrl(path);
   // Default to no cookies to avoid CORS credential restrictions unless explicitly requested
   const credentials = providedCredentials ?? "omit";
-  return fetch(url, {
+  const fetchOptions = {
     ...rest,
     credentials,
     headers,
     ...(hasBody ? { body } : {}),
+  };
+
+  return fetch(url, fetchOptions).then(async (response) => {
+    if (response.status !== 401 || !token || path === "/auth/refresh-token") {
+      return response;
+    }
+
+    try {
+      await refreshSession();
+      const refreshedToken = getStoredAuthToken({ preferScheme: authSchemePreference });
+      return fetch(url, {
+        ...fetchOptions,
+        headers: {
+          ...headers,
+          ...(refreshedToken ? { Authorization: refreshedToken } : {}),
+        },
+      });
+    } catch {
+      logout();
+      window.dispatchEvent(new Event("auth:session-expired"));
+      return response;
+    }
   });
 };
 

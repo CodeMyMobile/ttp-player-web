@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import AuthDrawer from "../components/auth/AuthDrawer";
 
@@ -58,6 +58,17 @@ export const AuthDrawerProvider = ({ children }) => {
       return { ...current, isOpen: false };
     });
   }, []);
+
+  useEffect(() => {
+    const promptForSignIn = () => {
+      openAuth({
+        mode: "signin",
+        reason: "Your session ended. Sign in to continue.",
+      });
+    };
+    window.addEventListener("auth:session-expired", promptForSignIn);
+    return () => window.removeEventListener("auth:session-expired", promptForSignIn);
+  }, [openAuth]);
 
   const value = useMemo(() => ({ ...state, openAuth, closeAuth }), [state, openAuth, closeAuth]);
 
