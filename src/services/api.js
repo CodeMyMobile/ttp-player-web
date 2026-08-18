@@ -1,6 +1,6 @@
 import { buildApiUrl } from "../api/config";
 import { getStoredAuthToken, normalizeAuthToken } from "./authToken";
-import { logout, refreshSession } from "./auth";
+import { refreshSession } from "./auth";
 
 const api = (path, options = {}) => {
   const {
@@ -73,8 +73,9 @@ const api = (path, options = {}) => {
         },
       });
     } catch {
-      logout();
-      window.dispatchEvent(new Event("auth:session-expired"));
+      // Refresh failed — don't wipe the session. Return the original 401
+      // response so the caller can handle it, same as before the
+      // refresh-and-retry mechanism was added.
       return response;
     }
   });
