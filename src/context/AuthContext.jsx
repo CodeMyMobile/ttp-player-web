@@ -56,8 +56,8 @@ export const AuthProvider = ({ children }) => {
         try {
           await refreshSession();
         } catch {
-          logoutService();
-          window.dispatchEvent(new Event("auth:session-expired"));
+          // Refresh unavailable — don't wipe the session.
+          // The caller will see a 401 on the next request and can handle it.
         }
       }
 
@@ -86,7 +86,6 @@ export const AuthProvider = ({ children }) => {
       }
       const token = getStoredAuthToken();
       const validToken = token && !isExpiredJwt(token);
-      if (token && !validToken) logoutService();
       setIsAuthenticated(Boolean(validToken));
       setUser(validToken ? getStoredUser() : null);
     };

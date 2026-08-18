@@ -23,6 +23,8 @@ export interface RequestOptions<TBody = unknown> {
   rawBody?: boolean;
 }
 
+// Session-cleanup helper kept for future use; currently unused because
+// we no longer wipe the session on a failed refresh.
 const endExpiredSession = () => {
   logout();
   window.dispatchEvent(new Event("auth:session-expired"));
@@ -154,7 +156,9 @@ async function performRequest<TResponse = unknown, TBody = unknown>(
           true,
         );
       } catch {
-        endExpiredSession();
+        // Refresh failed — don't wipe the session. Let the original 401
+        // propagate so the caller can handle it, same as before the
+        // refresh-and-retry mechanism was added.
       }
     }
     let errorPayload: unknown;
