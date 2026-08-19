@@ -24,6 +24,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { getStoredAuthToken } from "../services/authToken";
+import { usableAvatar } from "../utils/avatar";
 import {
   extractNotificationList,
   getNotificationCount,
@@ -85,7 +86,14 @@ const AppNav = ({
     initials: identity.initials,
     avatarUrl: identity.avatarUrl,
   });
-  const { displayName, initials, avatarUrl } = authNavState;
+  const { displayName, initials, avatarUrl: rawAvatarUrl } = authNavState;
+  // A bucket-root URL is a non-empty string but not a picture; without this the
+  // truthy check below renders a broken image instead of the initials.
+  const resolvedAvatarUrl = usableAvatar(rawAvatarUrl);
+  // Covers the other half: a well-formed URL whose object is missing or expired.
+  // Keyed by URL so a later, working one still gets a chance.
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState(null);
+  const avatarUrl = resolvedAvatarUrl && resolvedAvatarUrl !== failedAvatarUrl ? resolvedAvatarUrl : null;
   const location = useLocation();
   const navigate = useNavigate();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
@@ -388,7 +396,15 @@ const AppNav = ({
                 onClick={() => setUserMenuOpen((open) => !open)}
               >
                 <span className={`app-nav__avatar${avatarUrl ? " has-image" : ""}`}>
-                  {avatarUrl ? <img src={avatarUrl} alt={`${displayName} profile`} /> : initials}
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={`${displayName} profile`}
+                      onError={() => setFailedAvatarUrl(avatarUrl)}
+                    />
+                  ) : (
+                    initials
+                  )}
                 </span>
                 <span className="app-nav__user-copy">
                   <strong>{firstName}</strong>
