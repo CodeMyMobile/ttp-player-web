@@ -7,5 +7,7 @@ const source = readFileSync(new URL("./AuthContext.jsx", import.meta.url), "utf8
 test("auth provider reacts when authToken changes in storage", () => {
   assert.match(source, /addEventListener\("storage"/);
   assert.match(source, /event\?\.key === "authToken"/);
-  assert.match(source, /setIsAuthenticated\(Boolean\(token\)\)/);
+  // The stored token alone is no longer enough — the sync path gates on the
+  // token still being valid, so an expired one does not read as signed in.
+  assert.match(source, /setIsAuthenticated\(Boolean\(validToken\)\)/);
 });
