@@ -2,6 +2,7 @@ import { useState } from "react";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { ActionGrid } from "../components/home/ActionGrid";
+import { ActivityFeed } from "../components/home/ActivityFeed";
 import { AlertStack } from "../components/home/AlertStack";
 import { InviteCard } from "../components/home/InviteCard";
 import { StatusTiles } from "../components/home/StatusTiles";
@@ -9,6 +10,7 @@ import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
 import {
   readViewerId,
+  useActivityFeed,
   useHomeAlerts,
   useHomeInvites,
   useLadderStanding,
@@ -56,6 +58,8 @@ export default function HomePage() {
     }
   };
 
+  const { items: feedItems, windowStart, windowEnd, loading: feedLoading } = useActivityFeed();
+
   return (
     <div className="player-home home-v2">
       <AppNav hideMobileNewMatch hideMobileNotifications />
@@ -85,6 +89,13 @@ export default function HomePage() {
         <AlertStack alerts={alerts} />
 
         <ActionGrid isRated={isRated} />
+
+        <ActivityFeed
+          items={feedItems}
+          windowStart={windowStart}
+          windowEnd={windowEnd}
+          loading={feedLoading}
+        />
       </main>
 
       <MobileHomeBottomNav />

@@ -28,6 +28,17 @@ import {
 import { listMyOrders } from "../restringing/restringingService";
 import { listInvites } from "../services/invites";
 import { buildPlayerInviteItems } from "../utils/dashboardInvites";
+
+import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
+import {
+  buildActivityItems,
+  buildCoachActivities,
+  buildExternalLessonActivities,
+  buildMatchActivities,
+  extractCollection,
+  extractLessons,
+  getApiDayKey,
+} from "../utils/activityFeed";
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
 import { useApiRequest } from "./useApiRequest";
@@ -220,4 +231,90 @@ export function useHomeInvites(skip = false) {
   const selection = useMemo(() => selectHomeInvite((data ?? []) as HomeInviteItem[]), [data]);
 
   return { loading, error, refetch, ...selection };
+}
+
+const FEED_WINDOW_DAYS = 7;
+
+const dayKey = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const activityFeedFetcher = async () => {
+  const token = getStoredAuthToken() ?? undefined;
+  const stored = getStoredLocation() ?? DEFAULT_POSITION;
+  const location = { latitude: stored.latitude, longitude: stored.longitude };
+  const radius = getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES;
+  const start = dayKey(0);
+  const end = dayKey(FEED_WINDOW_DAYS - 1);
+
+  // Settled, not all: one dead source should shrink the feed, not blank it.
+  // The same reasoning as the bookings tile — a smaller list beats an error.
+  const [nearby, external] = await Promise.allSettled([
+    getPlayerDiscoverNearby({
+      token,
+      location,
+      radius,
+      // level is deliberately fixed. filters.level is exact string equality on
+      // free text and silently returns nothing on an unrecognised value, which
+      // is why the level control is not built. See the brief's omissions table.
+      filters: { startDate: start, endDate: end, level: "All" },
+      search: "",
+      matchSearch: "",
+      coachesPage: 1,
+      coachesPerPage: 12,
+      lessonsPage: 1,
+      lessonsPerPage: 12,
+      matchesPage: 1,
+      matchesPerPage: 12,
+    }),
+    getPlayerExternalLessons({
+      token,
+      page: 1,
+      perPage: 50,
+      search: "",
+      position: location,
+      filters: { radius, startDate: start, endDate: end },
+    }),
+  ]);
+
+  if (nearby.status !== "fulfilled") {
+    throw nearby.reason instanceof Error ? nearby.reason : new Error("Unable to load nearby activities.");
+  }
+
+  const response = nearby.value as Record<string, unknown>;
+  const items = [
+    ...buildCoachActivities(extractCollection(response?.coaches_availability)),
+    ...buildActivityItems(extractCollection(response?.group_lessons)),
+    ...(external.status === "fulfilled" ? buildExternalLessonActivities(extractLessons(external.value)) : []),
+    ...buildMatchActivities(extractCollection(response?.match_play)),
+  ].sort((a, b) => new Date(a.startTime).valueOf() - new Date(b.startTime).valueOf());
+
+  const searchArea = response?.search_area as Record<string, unknown> | undefined;
+  const windowStart = getApiDayKey(searchArea?.window_start) ?? start;
+  const windowEnd =
+    getApiDayKey(searchArea?.window_end) ?? dayKey(FEED_WINDOW_DAYS - 1);
+
+  return { items, windowStart, windowEnd };
+};
+
+/**
+ * The "Play this week" feed: coach availability, group lessons, external
+ * lessons and matches over a rolling week, unioned and sorted by start.
+ *
+ * Normalisation is shared with the legacy dashboard through utils/activityFeed
+ * so the two screens cannot disagree about the same payload.
+ */
+export function useActivityFeed(skip = false) {
+  const { data, loading, error } = useApiRequest(activityFeedFetcher, NO_PARAMS, { skip });
+
+  return {
+    loading,
+    error,
+    items: data?.items ?? [],
+    windowStart: data?.windowStart ?? null,
+    windowEnd: data?.windowEnd ?? null,
+  };
 }

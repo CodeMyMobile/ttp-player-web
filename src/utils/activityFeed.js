@@ -582,6 +582,36 @@ export const buildMatchActivities = (records = []) =>
     })
     .filter(Boolean);
 
+export const extractCollection = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.data)) return value.data;
+  if (Array.isArray(value.results)) return value.results;
+  if (Array.isArray(value.items)) return value.items;
+  return [];
+};
+
+export const extractLessons = (response) => {
+  if (!response) return [];
+  if (Array.isArray(response.lessons)) return response.lessons;
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.results)) return response.results;
+  if (Array.isArray(response.items)) return response.items;
+  return [];
+};
+
+export const getApiDayKey = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+};
+
+// Bucket a class into the viewer's LOCAL calendar day — the same basis the day
+// strip cells, "Today", and selectedDay use. parseZone preserves the source
+// offset, so formatting it directly buckets classes under their origin-zone
+// date, which can miss every local day cell and render the counts as 0.
+
 // --- view derivations -------------------------------------------------------
 //
 // Lifted out of DashboardPage's useMemos so the chip rows can be tested at all —

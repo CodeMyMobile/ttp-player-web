@@ -470,3 +470,263 @@
   transform: none;
   box-shadow: inset 0 0 0 1px #e2e8f0;
 }
+
+/* --- activity feed -------------------------------------------------------- */
+
+.home-v2 .home-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.home-v2 .home-feed__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-v2 .home-feed__heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-feed__window {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.home-v2 .home-feed__status {
+  margin: 0;
+  padding: 20px 0;
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Both chip rows scroll horizontally rather than wrapping — a week of days
+   never fits at 360px, and wrapping would push the cards off screen. */
+.home-v2 .home-feed__days,
+.home-v2 .home-feed__types {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-v2 .home-feed__days::-webkit-scrollbar,
+.home-v2 .home-feed__types::-webkit-scrollbar {
+  display: none;
+}
+
+.home-v2 .home-feed__day {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #475569;
+  cursor: pointer;
+}
+
+.home-v2 .home-feed__day--on {
+  background: #8b5cf6;
+  box-shadow: inset 0 0 0 1px #8b5cf6;
+  color: #fff;
+}
+
+.home-v2 .home-feed__day-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.home-v2 .home-feed__day-date {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-v2 .home-feed__day-count {
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-v2 .home-feed__day--on .home-feed__day-count {
+  background: rgb(255 255 255 / 20%);
+  color: #fff;
+}
+
+.home-v2 .home-feed__type-chip {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.home-v2 .home-feed__type-chip--on {
+  background: #0f172a;
+  box-shadow: inset 0 0 0 1px #0f172a;
+  color: #fff;
+}
+
+.home-v2 .home-feed__type-count {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-v2 .home-feed__type-chip--on .home-feed__type-count {
+  color: rgb(255 255 255 / 60%);
+}
+
+.home-v2 .home-feed__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The stripe carries the type at a glance, so the row reads before the label
+   does. Colours match the type chips used elsewhere in the redesign. */
+.home-v2 .home-feed__card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 12px 12px 8px;
+  border-radius: 12px;
+  border-left: 4px solid #cbd5e1;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.home-v2 .home-feed__card--private { border-left-color: #8b5cf6; }
+.home-v2 .home-feed__card--group { border-left-color: #0ea5e9; }
+.home-v2 .home-feed__card--external { border-left-color: #64748b; }
+.home-v2 .home-feed__card--match { border-left-color: #f59e0b; }
+
+.home-v2 .home-feed__avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.home-v2 .home-feed__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-v2 .home-feed__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.home-v2 .home-feed__type {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+.home-v2 .home-feed__card--group .home-feed__type { color: #0284c7; }
+.home-v2 .home-feed__card--external .home-feed__type { color: #475569; }
+.home-v2 .home-feed__card--match .home-feed__type { color: #b45309; }
+
+.home-v2 .home-feed__title,
+.home-v2 .home-feed__when,
+.home-v2 .home-feed__where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-feed__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-feed__when {
+  font-size: 13px;
+  color: #475569;
+}
+
+.home-v2 .home-feed__where {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.home-v2 .home-feed__tail {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+}
+
+.home-v2 .home-feed__price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-v2 .home-feed__cta {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.home-v2 .home-feed__more {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #7c3aed;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
