@@ -8,6 +8,7 @@ import {
   buildExternalLessonActivities,
   buildMatchActivities,
   filterActivities,
+  itemsWithinWindow,
   matchesActivityTypeFilter,
   typeCounts,
 } from "./activityFeed";
@@ -141,4 +142,48 @@ test("every builder tolerates junk input rather than throwing", () => {
     assert.deepEqual(build([]), []);
     assert.deepEqual(build(), []);
   }
+});
+
+// --- window bounding --------------------------------------------------------
+
+test('"all" means all of this week, not everything the API returned', () => {
+  // A session dated before the window is invisible under every day chip; without
+  // the bound it still shows under All, and the counts stop summing.
+  const items = [
+    { id: "yesterday", dayKey: "2026-08-18", type: "group" },
+    { id: "today", dayKey: "2026-08-19", type: "group" },
+    { id: "friday", dayKey: "2026-08-21", type: "match" },
+  ];
+  const win = { windowStart: "2026-08-19", windowEnd: "2026-08-25" };
+
+  const bounded = itemsWithinWindow({ items, ...win });
+  assert.deepEqual(bounded.map((i) => i.id), ["today", "friday"]);
+
+  const tabs = buildDayTabs({ items: bounded, ...win, now: "2026-08-19" });
+  assert.equal(tabs[0].count, 2);
+  assert.equal(tabs.slice(1).reduce((n, t) => n + t.count, 0), tabs[0].count);
+});
+
+test("a session after the window is dropped too, not just a stale one", () => {
+  const items = [
+    { id: "inside", dayKey: "2026-08-20", type: "match" },
+    { id: "next-month", dayKey: "2026-09-20", type: "match" },
+  ];
+  const bounded = itemsWithinWindow({ items, windowStart: "2026-08-19", windowEnd: "2026-08-25" });
+
+  assert.deepEqual(bounded.map((i) => i.id), ["inside"]);
+});
+
+test("no window means no bound, so the legacy dashboard is unaffected", () => {
+  const items = [{ id: "a", dayKey: "2020-01-01", type: "match" }];
+
+  assert.equal(itemsWithinWindow({ items, windowStart: null, windowEnd: null }).length, 1);
+  assert.equal(itemsWithinWindow({ items }).length, 1);
+});
+
+test("an item with no dayKey is dropped rather than assumed to be in range", () => {
+  const items = [{ id: "no-day", type: "match" }, { id: "ok", dayKey: "2026-08-20", type: "match" }];
+  const bounded = itemsWithinWindow({ items, windowStart: "2026-08-19", windowEnd: "2026-08-25" });
+
+  assert.deepEqual(bounded.map((i) => i.id), ["ok"]);
 });

@@ -293,9 +293,14 @@ const activityFeedFetcher = async () => {
   ].sort((a, b) => new Date(a.startTime).valueOf() - new Date(b.startTime).valueOf());
 
   const searchArea = response?.search_area as Record<string, unknown> | undefined;
-  const windowStart = getApiDayKey(searchArea?.window_start) ?? start;
-  const windowEnd =
-    getApiDayKey(searchArea?.window_end) ?? dayKey(FEED_WINDOW_DAYS - 1);
+  // Never earlier than today. The API has been seen returning a window that
+  // opens yesterday, and "Play this week" must not offer a session that has
+  // already happened — string comparison is safe here because both are
+  // YYYY-MM-DD.
+  const apiStart = getApiDayKey(searchArea?.window_start);
+  const windowStart = apiStart && apiStart > start ? apiStart : start;
+  const apiEnd = getApiDayKey(searchArea?.window_end);
+  const windowEnd = apiEnd && apiEnd >= windowStart ? apiEnd : dayKey(FEED_WINDOW_DAYS - 1);
 
   return { items, windowStart, windowEnd };
 };

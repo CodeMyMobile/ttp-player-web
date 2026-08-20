@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
-import { buildDayTabs, filterActivities, typeCounts } from "../../utils/activityFeed";
+import {
+  buildDayTabs,
+  filterActivities,
+  itemsWithinWindow,
+  typeCounts,
+} from "../../utils/activityFeed";
 import { ActivityCard } from "./ActivityCard";
 import type { FeedItem } from "../../utils/homeFeedLabels";
 
@@ -36,14 +41,21 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
   const [selectedType, setSelectedType] = useState<string>("all");
   const [expanded, setExpanded] = useState(false);
 
-  const dayTabs = useMemo(
-    () => (windowStart && windowEnd ? buildDayTabs({ items, windowStart, windowEnd }) : []),
+  // Bounded once, up front, so the chips and the list can never disagree about
+  // what "this week" contains.
+  const weekItems = useMemo(
+    () => itemsWithinWindow({ items, windowStart, windowEnd }),
     [items, windowStart, windowEnd],
   );
-  const counts = useMemo(() => typeCounts({ items, selectedDay }), [items, selectedDay]);
+
+  const dayTabs = useMemo(
+    () => (windowStart && windowEnd ? buildDayTabs({ items: weekItems, windowStart, windowEnd }) : []),
+    [weekItems, windowStart, windowEnd],
+  );
+  const counts = useMemo(() => typeCounts({ items: weekItems, selectedDay }), [weekItems, selectedDay]);
   const visible = useMemo(
-    () => filterActivities({ items, selectedDay, selectedType }),
-    [items, selectedDay, selectedType],
+    () => filterActivities({ items: weekItems, selectedDay, selectedType }),
+    [weekItems, selectedDay, selectedType],
   );
 
   const shown = expanded ? visible : visible.slice(0, PREVIEW_COUNT);
@@ -52,7 +64,7 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
 
   // Nothing to show and nothing on the way — render no section at all rather
   // than a heading over an empty box.
-  if (!loading && !items.length) return null;
+  if (!loading && !weekItems.length) return null;
 
   return (
     <section className="home-feed">

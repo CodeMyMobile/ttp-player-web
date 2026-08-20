@@ -682,3 +682,23 @@ export const typeCounts = ({ items = [], selectedDay }) => {
     match: sameDay.filter((item) => item.type === "match").length,
   };
 };
+
+/**
+ * Items whose day falls inside [windowStart, windowEnd].
+ *
+ * "All" means all of this week, not everything the API happened to return. The
+ * sources can hand back a session dated outside the requested range — a coach
+ * slot carries its own slot.date, which is trusted ahead of the computed one —
+ * and without this bound such an item is invisible under every day chip yet
+ * still shows under All, so the day counts no longer sum to the All count.
+ *
+ * Added rather than folded into filterActivities so the legacy dashboard, which
+ * shares these functions, keeps the behaviour it has today.
+ */
+export const itemsWithinWindow = ({ items = [], windowStart, windowEnd }) => {
+  if (!windowStart || !windowEnd) return items;
+  return items.filter(
+    (item) =>
+      typeof item?.dayKey === "string" && item.dayKey >= windowStart && item.dayKey <= windowEnd,
+  );
+};
