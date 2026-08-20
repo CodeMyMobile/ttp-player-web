@@ -1,4 +1,5 @@
-import { Play } from "lucide-react";
+import { ChevronRight, Dumbbell, Play } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { TipVideo } from "../../utils/tipOfDay";
 
 interface OffCourtProps {
@@ -6,21 +7,20 @@ interface OffCourtProps {
 }
 
 /**
- * "Off court" — the day's coaching video.
+ * "Off court" — the day's coaching video, and the 7-day training plan.
  *
- * The mockups pair this with a "7-day training plan" row, which is not built:
- * that page does not exist yet, and a row that goes nowhere is worse than no
- * row. Once it does, it joins this card and becomes the degraded state that
- * video-unavailable.html draws — until then, no tip means no section.
+ * The training plan row is unconditional; the video comes and goes with the
+ * playlist. That is exactly the degraded state video-unavailable.html draws: no
+ * tip leaves the plan row alone rather than removing the whole section, so the
+ * card never disappears because a third party's API was slow.
  */
 export function OffCourt({ tip }: OffCourtProps) {
-  if (!tip) return null;
-
   return (
     <section className="home-offcourt">
       <h2 className="home-offcourt__heading">Off court</h2>
 
       <div className="home-offcourt__card">
+        {tip ? (
         <a
           className="home-offcourt__row"
           href={`https://www.youtube.com/watch?v=${tip.videoId}`}
@@ -43,6 +43,18 @@ export function OffCourt({ tip }: OffCourtProps) {
             {tip.channel ? <span className="home-offcourt__channel">{tip.channel}</span> : null}
           </span>
         </a>
+        ) : null}
+
+        <Link className="home-offcourt__plan" to="/training-plan">
+          <span className="home-offcourt__plan-icon" aria-hidden="true">
+            <Dumbbell size={16} />
+          </span>
+          <span className="home-offcourt__plan-copy">
+            <span className="home-offcourt__plan-title">7-day training plan</span>
+            <span className="home-offcourt__plan-sub">Strength and mobility, no gym needed</span>
+          </span>
+          <ChevronRight className="home-offcourt__plan-chevron" size={16} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );

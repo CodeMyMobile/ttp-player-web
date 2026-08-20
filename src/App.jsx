@@ -48,6 +48,7 @@ import LeaguesPage from "./pages/LeaguesPage";
 import LeagueDetailPage from "./pages/LeagueDetailPage";
 import LeagueDashboardPage from "./features/leagueDashboard/LeagueDashboardPage";
 import MatchBrowserPage from "./pages/MatchBrowserPage";
+import TrainingPlanPage from "./pages/TrainingPlanPage";
 import PostAvailabilityPage from "./pages/PostAvailabilityPage";
 import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
 import CreditsPage from "./pages/CreditsPage";
@@ -569,6 +570,10 @@ const AppRoutes = () => (
     <Route
       path="/find-coaches"
       element={<FindCoaches />}
+    />
+    <Route
+      path="/training-plan"
+      element={<TrainingPlanPage />}
     />
     <Route
       path="/restring"

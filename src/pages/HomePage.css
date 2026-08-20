@@ -659,6 +659,62 @@
   white-space: nowrap;
 }
 
+.home-v2 .home-offcourt__plan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Divider only when the video row is above it, never over the first row. */
+.home-v2 .home-offcourt__row + .home-offcourt__plan {
+  border-top: 1px solid #f1f5f9;
+}
+
+.home-v2 .home-offcourt__plan-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.home-v2 .home-offcourt__plan-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-v2 .home-offcourt__plan-title,
+.home-v2 .home-offcourt__plan-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-v2 .home-offcourt__plan-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-offcourt__plan-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.home-v2 .home-offcourt__plan-chevron {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+
 /* --- activity feed -------------------------------------------------------- */
 
 .home-v2 .home-feed {
