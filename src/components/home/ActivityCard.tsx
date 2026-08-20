@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ExternalLink, Swords, UserRound, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { usableAvatar } from "../../utils/avatar";
 import {
   feedCtaLabel,
   feedInitials,
@@ -41,11 +42,17 @@ export function ActivityCard({ item }: ActivityCardProps) {
   const initials = feedInitials(item.avatar);
   const Icon = TYPE_ICONS[type] ?? UserRound;
 
-  // External lessons carry a logo_url or image_url that is often missing or
-  // dead, and a failed <img> leaves a broken-image glyph rather than falling
-  // back. Tracked per card so one bad URL cannot suppress a good one elsewhere.
+  // Two ways an avatar fails here, and they need different guards.
+  //
+  // usableAvatar rejects a bucket root — "https://….amazonaws.com/" with no key
+  // — before it ever reaches an <img>, so nothing is requested and the icon
+  // shows immediately rather than after a failed load.
+  //
+  // onError covers the rest: a well-formed URL whose object is missing or
+  // expired, which only announces itself when the request comes back. Tracked
+  // per card so one bad URL cannot suppress a good one on another row.
   const [imageFailed, setImageFailed] = useState(false);
-  const rawUrl = typeof item.avatarUrl === "string" && item.avatarUrl.trim() ? item.avatarUrl : null;
+  const rawUrl = usableAvatar(item.avatarUrl);
   const avatarUrl = imageFailed ? null : rawUrl;
 
   return (
