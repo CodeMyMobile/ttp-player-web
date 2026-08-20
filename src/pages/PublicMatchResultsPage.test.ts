@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import {
+  buildChallengeState,
   buildRankingsUrl,
   buildReverseGeocodeUrl,
-  buildChallengeState,
   decorateRankings,
+  findViewer,
   formatCoordinatesLabel,
   getSuggestedRankings,
   labelFromReverseGeocode,
+  orderLadder,
   resolveCourtFilterSelection,
 } from "./PublicMatchResultsPage";
 
@@ -101,4 +103,59 @@ test("court filter clears location when selected court is outside radius", () =>
   assert.equal(result.clearLocation, true);
   assert.equal(result.nearLat, 34.0001);
   assert.equal(result.nearLng, -118.4501);
+});
+
+// --- ladder ordering and identity -------------------------------------------
+
+const row = (id, name, rating, apiRank) => ({
+  user_id: id, full_name: name, current_rating: rating, rank: apiRank,
+  matches_played: 3, wins: 2, losses: 1, rating_change: 0,
+  is_provisional: false, is_estimate: false, ratingNumber: rating,
+});
+
+test("the ladder is ordered by rating, not by the API's rank", () => {
+  // The API assigns rank after re-sorting by distance, so under geo scoping it
+  // is proximity order. Rank here deliberately disagrees with rating — if the
+  // fixture agreed, the assertion would prove nothing.
+  const byProximity = [
+    row(1, "Ana", 4.1, 1),
+    row(2, "Sam", 6.2, 2),
+    row(3, "Dan", 5.0, 3),
+    row(4, "You", 3.8, 4),
+  ];
+
+  const ordered = orderLadder(byProximity);
+
+  assert.deepEqual(ordered.map((r) => r.full_name), ["Sam", "Dan", "Ana", "You"]);
+  assert.deepEqual(ordered.map((r) => r.ladderPosition), [1, 2, 3, 4]);
+});
+
+test("equal ratings keep the order they arrived in", () => {
+  const ordered = orderLadder([row(1, "First", 5.0, 9), row(2, "Second", 5.0, 1)]);
+
+  assert.deepEqual(ordered.map((r) => r.full_name), ["First", "Second"]);
+});
+
+test("unrated players sort last rather than being dropped from the ladder", () => {
+  const ordered = orderLadder([row(1, "Unrated", 0, 1), row(2, "Rated", 4.5, 2)]);
+
+  assert.deepEqual(ordered.map((r) => r.full_name), ["Rated", "Unrated"]);
+  assert.equal(ordered.length, 2, "the ladder lists everyone");
+});
+
+test("the viewer is found by id, not by position", () => {
+  const ladder = orderLadder([row(1, "Ana", 4.1, 1), row(7, "You", 3.8, 4)]);
+
+  assert.equal(findViewer(ladder, 7)?.full_name, "You");
+  assert.equal(findViewer(ladder, "7")?.full_name, "You", "ids arrive as strings too");
+});
+
+test("nobody is highlighted when the viewer is not in the list", () => {
+  // The regression: this used to fall back to decorated[3], so a logged-out
+  // visitor was shown a stranger badged "you".
+  const ladder = orderLadder([row(1, "Ana", 4.1, 1), row(2, "Sam", 6.2, 2), row(3, "Dan", 5.0, 3), row(4, "Bo", 3.8, 4)]);
+
+  assert.equal(findViewer(ladder, null), null, "logged out");
+  assert.equal(findViewer(ladder, 999), null, "outside the radius");
+  assert.equal(findViewer([], 7), null, "empty ladder");
 });

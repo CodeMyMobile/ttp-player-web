@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { readViewerId } from "../hooks/useHomeStatus";
+import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
 import Autocomplete from "react-google-autocomplete";
 import {
@@ -65,6 +68,8 @@ export type Ranking = {
 };
 
 export type DecoratedRanking = Ranking & {
+  /** Position after sorting by rating — not the API's proximity `rank`. */
+  ladderPosition?: number;
   initials: string;
   ratingNumber: number;
   ratingLabel: string;
@@ -276,7 +281,36 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         distanceLabel: formatDistance(distanceMiles),
       };
     })
-    .sort((a, b) => Number(a.rank) - Number(b.rank));
+    .sort(() => 0);
+
+/**
+ * Ladder order, and the position printed beside each player.
+ *
+ * The API's `rank` is assigned after it re-sorts by distance, so under the geo
+ * scoping this page uses it is proximity order — "#1" meant nearest, not best.
+ * Ordering by current_rating here, and numbering from that order, is what makes
+ * the column mean what it says.
+ *
+ * sortByRatingDesc is shared with the home tile's position so the two cannot
+ * disagree about where a player sits.
+ */
+export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
+  sortByRatingDesc(rankings).map((ranking, index) => ({ ...ranking, ladderPosition: index + 1 }));
+
+/**
+ * Which row is the signed-in player, or null.
+ *
+ * Null highlights nobody. Previously this fell back to decorated[3] — the fourth
+ * row — so a logged-out visitor, or a player outside the radius, was shown a
+ * stranger badged "you" and every "from you" delta was measured from them.
+ */
+export const findViewer = (
+  rankings: DecoratedRanking[],
+  viewerId: number | null,
+): DecoratedRanking | null => {
+  if (viewerId == null) return null;
+  return rankings.find((ranking) => Number(ranking.user_id) === Number(viewerId)) ?? null;
+};
 
 export const getSuggestedRankings = (
   rankings: DecoratedRanking[],
@@ -287,7 +321,7 @@ export const getSuggestedRankings = (
   return rankings
     .filter((ranking) => String(ranking.user_id) !== String(viewer.user_id))
     .map((ranking) => ({ ranking, delta: Math.abs(ranking.ratingNumber - viewer.ratingNumber) }))
-    .sort((a, b) => a.delta - b.delta || Number(a.ranking.rank) - Number(b.ranking.rank))
+    .sort((a, b) => a.delta - b.delta || Number(a.ranking.ladderPosition ?? a.ranking.rank) - Number(b.ranking.ladderPosition ?? b.ranking.rank))
     .slice(0, limit)
     .map(({ ranking }) => ranking);
 };
@@ -338,6 +372,8 @@ export default function PublicMatchResultsPage() {
   const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
   const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const viewerId = useMemo(() => readViewerId(user), [user]);
   const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState("");
 
@@ -483,11 +519,9 @@ export default function PublicMatchResultsPage() {
     };
   }, [nearLat, nearLng, radiusMiles]);
 
-  const decorated = useMemo(() => decorateRankings(rankings), [rankings]);
-  const viewer = useMemo(
-    () => decorated.find((ranking) => String(ranking.user_id) === selectedId) ?? decorated[3] ?? decorated[0] ?? null,
-    [decorated, selectedId],
-  );
+  const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
+  // The signed-in player, or nobody. Not a list position — see findViewer.
+  const viewer = useMemo(() => findViewer(decorated, viewerId), [decorated, viewerId]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -572,7 +606,7 @@ export default function PublicMatchResultsPage() {
               </div>
               {viewer ? (
                 <div className="ml-auto hidden items-center gap-2 sm:flex">
-                  <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">Viewing rank #{viewer.rank}</span>
+                  <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">Your position #{viewer.ladderPosition ?? viewer.rank}</span>
                   <Avatar ranking={viewer} />
                 </div>
               ) : null}
@@ -695,7 +729,7 @@ export default function PublicMatchResultsPage() {
                       <Avatar ranking={ranking} />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-black">{ranking.full_name}</div>
-                        <div className="text-xs font-semibold text-slate-400">#{ranking.rank} · TRP {ranking.ratingLabel}</div>
+                        <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
                       </div>
                     </div>
                     <div className="mt-3 text-xs font-bold text-violet-700">
@@ -856,7 +890,7 @@ function LadderRow({
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
-      <RankValue rank={ranking.rank} />
+      <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
       <span className="flex min-w-0 items-center gap-3">
         <Avatar ranking={ranking} />
         <span className="min-w-0">
@@ -914,7 +948,7 @@ function MobileRankingCard({
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
       <div className="flex items-center gap-3">
-        <RankValue rank={ranking.rank} />
+        <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
         <Avatar ranking={ranking} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -974,7 +1008,7 @@ function ProfilePanel({
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-lg font-black">{ranking.full_name}</h2>
           <p className="text-sm font-semibold text-slate-400">
-            Rank #{ranking.rank} · {ranking.distanceLabel ? `${ranking.distanceLabel} away` : ranking.courtArea}
+            Rank #{ranking.ladderPosition ?? ranking.rank} · {ranking.distanceLabel ? `${ranking.distanceLabel} away` : ranking.courtArea}
           </p>
         </div>
       </div>
