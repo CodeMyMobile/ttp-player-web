@@ -4,7 +4,7 @@ import { fetchPlayerCoaches, requestCoachPlayer, type PlayerCoachRoster } from "
 
 export type CoachRosterStatus = "unknown" | "not_requested" | "pending" | "accepted";
 
-const normalizeStatus = (entry?: PlayerCoachRoster | null): CoachRosterStatus => {
+export const normalizeStatus = (entry?: PlayerCoachRoster | null): CoachRosterStatus => {
   if (!entry) {
     return "not_requested";
   }
@@ -38,7 +38,7 @@ const normalizeStatus = (entry?: PlayerCoachRoster | null): CoachRosterStatus =>
   return "not_requested";
 };
 
-const getComparableCoachIds = (entry?: PlayerCoachRoster | null) => {
+export const getComparableCoachIds = (entry?: PlayerCoachRoster | null) => {
   if (!entry) {
     return [];
   }

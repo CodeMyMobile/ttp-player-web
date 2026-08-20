@@ -58,7 +58,13 @@ export default function HomePage() {
     }
   };
 
-  const { items: feedItems, windowStart, windowEnd, loading: feedLoading } = useActivityFeed();
+  const {
+    items: feedItems,
+    windowStart,
+    windowEnd,
+    myCoachIds,
+    loading: feedLoading,
+  } = useActivityFeed();
 
   return (
     <div className="player-home home-v2">
@@ -94,6 +100,7 @@ export default function HomePage() {
           items={feedItems}
           windowStart={windowStart}
           windowEnd={windowEnd}
+          myCoachIds={myCoachIds}
           loading={feedLoading}
         />
       </main>

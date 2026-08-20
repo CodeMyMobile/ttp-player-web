@@ -573,6 +573,46 @@
   color: #fff;
 }
 
+/* The slot the mockups reserve to the left of the type chips, with the same
+   hairline divider. */
+.home-v2 .home-feed__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-v2 .home-feed__filters .home-feed__types {
+  min-width: 0;
+  flex: 1;
+}
+
+.home-v2 .home-feed__filters-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: #cbd5e1;
+}
+
+.home-v2 .home-feed__mine {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.home-v2 .home-feed__mine--on {
+  background: #ede9fe;
+  box-shadow: inset 0 0 0 1px #8b5cf6;
+  color: #6d28d9;
+}
+
 .home-v2 .home-feed__type-chip {
   display: flex;
   flex-shrink: 0;

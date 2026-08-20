@@ -30,6 +30,8 @@ import { listInvites } from "../services/invites";
 import { buildPlayerInviteItems } from "../utils/dashboardInvites";
 
 import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
+import { fetchPlayerCoaches } from "../api/playerCoaches";
+import { getComparableCoachIds, normalizeStatus } from "./useCoachRoster";
 import {
   buildActivityItems,
   buildCoachActivities,
@@ -266,7 +268,7 @@ const activityFeedFetcher = async () => {
 
   // Settled, not all: one dead source should shrink the feed, not blank it.
   // The same reasoning as the bookings tile — a smaller list beats an error.
-  const [nearby, external] = await Promise.allSettled([
+  const [nearby, external, roster] = await Promise.allSettled([
     getPlayerDiscoverNearby({
       token,
       location,
@@ -292,6 +294,9 @@ const activityFeedFetcher = async () => {
       position: location,
       filters: { radius, startDate: start, endDate: end },
     }),
+    // Powers the "My coaches" filter. Settled like the rest: if it fails the
+    // chip simply does not appear, rather than the feed breaking.
+    fetchPlayerCoaches({ token, perPage: 100, page: 1 }),
   ]);
 
   if (nearby.status !== "fulfilled") {
@@ -316,7 +321,16 @@ const activityFeedFetcher = async () => {
   const apiEnd = getApiDayKey(searchArea?.window_end);
   const windowEnd = apiEnd && apiEnd >= windowStart ? apiEnd : dayKey(FEED_WINDOW_DAYS - 1);
 
-  return { items, windowStart, windowEnd };
+  // Accepted coaches only — a pending request is not yet "my coach".
+  const myCoachIds =
+    roster.status === "fulfilled" && Array.isArray(roster.value)
+      ? roster.value
+          .filter((entry) => normalizeStatus(entry) === "accepted")
+          .flatMap((entry) => getComparableCoachIds(entry))
+          .filter((id): id is number => typeof id === "number" && Number.isFinite(id))
+      : [];
+
+  return { items, windowStart, windowEnd, myCoachIds };
 };
 
 /**
@@ -335,5 +349,6 @@ export function useActivityFeed(skip = false) {
     items: data?.items ?? [],
     windowStart: data?.windowStart ?? null,
     windowEnd: data?.windowEnd ?? null,
+    myCoachIds: data?.myCoachIds ?? [],
   };
 }

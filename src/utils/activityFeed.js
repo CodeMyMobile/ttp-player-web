@@ -367,6 +367,10 @@ export const buildActivityItems = (lessons = []) =>
       const type = resolveLessonKind(lesson);
       const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
       const coachName = pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name);
+      // Probed so the "My coaches" filter can attribute a lesson. Null when the
+      // payload carries no id, in which case the lesson simply does not match —
+      // better than guessing from the coach's name.
+      const lessonCoachId = parseNumber(lesson.coach_id, lesson.coachId, lesson?.coach?.id);
       const title =
         pickString(
           lesson.title,
@@ -427,6 +431,7 @@ export const buildActivityItems = (lessons = []) =>
         location,
         secondaryMeta,
         coachName,
+        coachId: lessonCoachId,
         rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
         status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
@@ -765,4 +770,24 @@ export const collapseCoachAvailability = (items = []) => {
   }
 
   return out;
+};
+
+/**
+ * Sessions attributable to one of the player's own coaches.
+ *
+ * An item only matches when it carries a coach id we can compare — coach
+ * availability always does, a lesson does when the payload includes one.
+ * Anything unattributable is excluded rather than assumed to be a match, so the
+ * filter never claims a session is with your coach when we cannot tell.
+ */
+export const filterToMyCoaches = (items = [], coachIds = []) => {
+  const ids = new Set(
+    (Array.isArray(coachIds) ? coachIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id)),
+  );
+  if (!ids.size) return [];
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => item?.coachId != null && ids.has(Number(item.coachId)),
+  );
 };

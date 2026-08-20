@@ -9,6 +9,7 @@ import {
   buildExternalLessonActivities,
   buildMatchActivities,
   filterActivities,
+  filterToMyCoaches,
   itemsWithinWindow,
   matchesActivityTypeFilter,
   typeCounts,
@@ -276,4 +277,40 @@ test("collapsing does not mutate the caller's items", () => {
 
   assert.equal(input[0].slotCount, undefined);
   assert.equal(input.length, 2);
+});
+
+// --- my coaches filter ------------------------------------------------------
+
+test("only sessions attributable to one of my coaches survive the filter", () => {
+  const items = [
+    { id: "mine-avail", coachId: 7, type: "private" },
+    { id: "mine-lesson", coachId: 9, type: "group" },
+    { id: "someone-else", coachId: 42, type: "private" },
+    { id: "unattributed", type: "group" },
+  ];
+
+  const mine = filterToMyCoaches(items, [7, 9]);
+  assert.deepEqual(mine.map((i) => i.id), ["mine-avail", "mine-lesson"]);
+});
+
+test("an unattributable session is excluded, never assumed to be a match", () => {
+  // We cannot tell whose lesson it is, so claiming it is with your coach would
+  // be worse than leaving it out.
+  const items = [{ id: "no-coach", type: "group" }, { id: "null-coach", coachId: null, type: "group" }];
+
+  assert.deepEqual(filterToMyCoaches(items, [7]), []);
+});
+
+test("ids compare across string and number, since the sources disagree", () => {
+  const items = [{ id: "a", coachId: "7" }, { id: "b", coachId: 8 }];
+
+  assert.deepEqual(filterToMyCoaches(items, ["7", 8]).map((i) => i.id), ["a", "b"]);
+});
+
+test("no coaches means the filter yields nothing, which is why it is not offered", () => {
+  const items = [{ id: "a", coachId: 7 }];
+
+  assert.deepEqual(filterToMyCoaches(items, []), []);
+  assert.deepEqual(filterToMyCoaches(items), []);
+  assert.deepEqual(filterToMyCoaches(items, [null, undefined, "x"]), []);
 });

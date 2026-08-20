@@ -3,6 +3,7 @@ import {
   buildDayTabs,
   collapseCoachAvailability,
   filterActivities,
+  filterToMyCoaches,
   itemsWithinWindow,
   typeCounts,
 } from "../../utils/activityFeed";
@@ -13,6 +14,8 @@ interface ActivityFeedProps {
   items: FeedItem[];
   windowStart: string | null;
   windowEnd: string | null;
+  /** Accepted coaches. Empty means the "My coaches" chip is not offered. */
+  myCoachIds?: number[];
   loading?: boolean;
 }
 
@@ -37,18 +40,33 @@ const TYPE_CHIPS = [
  * filters.level is exact string equality on free text and silently returns
  * nothing on an unrecognised value — see the omissions table in the build brief.
  */
-export function ActivityFeed({ items, windowStart, windowEnd, loading = false }: ActivityFeedProps) {
+export function ActivityFeed({
+  items,
+  windowStart,
+  windowEnd,
+  myCoachIds = [],
+  loading = false,
+}: ActivityFeedProps) {
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [mineOnly, setMineOnly] = useState(false);
   const [expanded, setExpanded] = useState(false);
+
+  // Offered only to players who have coaches. A filter that can only ever empty
+  // the feed is worse than no filter.
+  const canFilterByCoach = myCoachIds.length > 0;
 
   // Bounded once, up front, so the chips and the list can never disagree about
   // what "this week" contains.
   const weekItems = useMemo(
     // Collapse first, so the chip counts describe the cards on screen rather
     // than the slots behind them.
-    () => collapseCoachAvailability(itemsWithinWindow({ items, windowStart, windowEnd })),
-    [items, windowStart, windowEnd],
+    () => {
+      const inWindow = itemsWithinWindow({ items, windowStart, windowEnd });
+      const scoped = mineOnly && canFilterByCoach ? filterToMyCoaches(inWindow, myCoachIds) : inWindow;
+      return collapseCoachAvailability(scoped);
+    },
+    [items, windowStart, windowEnd, mineOnly, canFilterByCoach, myCoachIds],
   );
 
   const dayTabs = useMemo(
@@ -100,7 +118,25 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
             ))}
           </div>
 
-          <div className="home-feed__types" role="tablist" aria-label="Session types">
+          <div className="home-feed__filters">
+            {canFilterByCoach ? (
+              <>
+                <button
+                  type="button"
+                  aria-pressed={mineOnly}
+                  className={`home-feed__mine${mineOnly ? " home-feed__mine--on" : ""}`}
+                  onClick={() => {
+                    setMineOnly((on) => !on);
+                    setExpanded(false);
+                  }}
+                >
+                  My coaches
+                </button>
+                <span className="home-feed__filters-divider" aria-hidden="true" />
+              </>
+            ) : null}
+
+            <div className="home-feed__types" role="tablist" aria-label="Session types">
             {TYPE_CHIPS.map((chip) => (
               <button
                 key={chip.key}
@@ -117,6 +153,7 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
                 <span className="home-feed__type-count">{counts[chip.key as keyof typeof counts]}</span>
               </button>
             ))}
+            </div>
           </div>
 
           {shown.length ? (
@@ -126,7 +163,11 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
               ))}
             </div>
           ) : (
-            <p className="home-feed__status">Nothing on this day. Try another.</p>
+            <p className="home-feed__status">
+              {mineOnly
+                ? "Nothing with your coaches on this day."
+                : "Nothing on this day. Try another."}
+            </p>
           )}
 
           {/* Expands in place: the mockup's button has no destination, and no
