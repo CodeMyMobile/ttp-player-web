@@ -27,13 +27,24 @@ const rankings = [
   { rank: 4, user_id: 1390, full_name: "Michael Joaquin", current_rating: 7.180547, calculated_ntrp: 4.5, calculated_utr: 8.27, wins: 2, losses: 1, matches_played: 3, rating_change: 0.18, is_estimate: false, is_provisional: true },
 ];
 
-test("decorateRankings adds deterministic seeded court and availability metadata", () => {
+test("decorateRankings is deterministic and invents no availability", () => {
   const first = decorateRankings(rankings);
   const second = decorateRankings(rankings);
 
   assert.equal(first[0].primaryCourt, second[0].primaryCourt);
   assert.equal(first[2].initials, "KK");
-  assert.ok(first[2].availability.length > 0);
+  // The old side panel showed an "availability" picked from a hardcoded list by
+  // hashing the player record. Nobody told us when these players are free, so
+  // the field is gone rather than guessed.
+  assert.ok(!("availability" in first[0]));
+});
+
+test("a challenge carries no invented availability", () => {
+  const [ranking] = decorateRankings(rankings);
+  const { connectIntent } = buildChallengeState(ranking);
+
+  assert.deepEqual(connectIntent.suggestedAvailability, []);
+  assert.equal(connectIntent.invitee.name, ranking.full_name);
 });
 
 test("getSuggestedRankings picks closest non-viewer levels first", () => {

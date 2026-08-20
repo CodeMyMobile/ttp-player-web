@@ -9,7 +9,6 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart3,
-  Clock,
   MapPin,
   Search,
   ShieldCheck,
@@ -76,8 +75,6 @@ export type DecoratedRanking = Ranking & {
   ntrpLabel: string;
   utrLabel: string;
   primaryCourt: string;
-  courtArea: string;
-  availability: string[];
   avatarClass: string;
   avatarToneClass: string;
   distanceMiles: number | null;
@@ -108,15 +105,6 @@ const WEST_LA_COURTS = [
   { name: "Stoner Park", area: "Sawtelle" },
   { name: "Mar Vista Courts", area: "Mar Vista" },
   { name: "Santa Monica Tennis Center", area: "Santa Monica" },
-];
-
-const AVAILABILITY = [
-  "Weekday evenings",
-  "Weekend mornings",
-  "Tue/Thu evenings",
-  "Lunch hits",
-  "Flexible weekends",
-  "Early mornings",
 ];
 
 const AVATAR_CLASSES = [
@@ -258,7 +246,6 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
       const fallbackCourt = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
       const backendCourt = Array.isArray(ranking.court_locations) ? ranking.court_locations[0] : null;
       const primaryCourt = ranking.primary_court || backendCourt?.location || fallbackCourt.name;
-      const courtArea = ranking.court_area || backendCourt?.area || fallbackCourt.area;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
       const distanceMiles = toNumber(ranking.distance_miles);
@@ -270,11 +257,6 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         ntrpLabel: estimateNtrp(ranking),
         utrLabel: estimateUtr(ranking),
         primaryCourt,
-        courtArea,
-        availability: [
-          AVAILABILITY[seed % AVAILABILITY.length],
-          AVAILABILITY[(seed + 2) % AVAILABILITY.length],
-        ],
         avatarClass: avatar[0],
         avatarToneClass: avatar[1],
         distanceMiles,
@@ -338,7 +320,7 @@ export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent:
       level: `TRP ${ranking.ratingLabel}`,
     },
     senderLevel: "TRP",
-    suggestedAvailability: ranking.availability,
+    suggestedAvailability: [],
     preferredCourt: ranking.primaryCourt,
     source: "match-results-ladder",
     senderName: "West LA Ladder",
@@ -375,7 +357,6 @@ export default function PublicMatchResultsPage() {
   const [nearLat, setNearLat] = useState<number | null>(() => storedLocation?.latitude ?? null);
   const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
   const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user } = useAuth();
   const viewerIdentities = useMemo(() => {
     // The fetched player profile carries the identity the rankings use; the thin
@@ -519,7 +500,6 @@ export default function PublicMatchResultsPage() {
         if (!alive) return;
         const next = Array.isArray(data?.rankings) ? data.rankings : [];
         setRankings(next);
-        setSelectedId(String(next.find((row: Ranking) => /michael joaquin/i.test(row.full_name))?.user_id ?? next[3]?.user_id ?? next[0]?.user_id ?? ""));
       })
       .catch((err) => {
         if (!alive) return;
@@ -554,11 +534,6 @@ export default function PublicMatchResultsPage() {
     matches: Math.round(decorated.reduce((sum, ranking) => sum + Number(ranking.wins || 0), 0)),
     topRating: decorated[0]?.ratingLabel ?? "-",
   }), [decorated]);
-
-  const selected = useMemo(
-    () => decorated.find((ranking) => String(ranking.user_id) === selectedId) ?? viewer,
-    [decorated, selectedId, viewer],
-  );
 
   const selectedPlayedCourt = useMemo(
     () => playedCourts.find((court) => String(court.id) === selectedCourtId) ?? null,
@@ -606,9 +581,13 @@ export default function PublicMatchResultsPage() {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
   };
 
+  const openProfile = (ranking: DecoratedRanking) => {
+    navigate(`/players/${ranking.user_id}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-5">
+      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
         <div className="min-w-0">
           {/* Above the list so it is the first thing on mobile, where the
               profile panel sits below the ladder entirely. */}
@@ -735,8 +714,8 @@ export default function PublicMatchResultsPage() {
                     tabIndex={0}
                     key={ranking.user_id}
                     className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    onClick={() => setSelectedId(String(ranking.user_id))}
-                    onKeyDown={(event) => clickOnKeyboard(event, () => setSelectedId(String(ranking.user_id)))}
+                    onClick={() => openProfile(ranking)}
+                    onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
                     <div className="flex items-center gap-3">
                       <Avatar ranking={ranking} />
@@ -802,9 +781,8 @@ export default function PublicMatchResultsPage() {
                     <LadderRow
                       key={ranking.user_id}
                       ranking={ranking}
-                      selected={String(ranking.user_id) === String(selected?.user_id)}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
-                      onSelect={() => setSelectedId(String(ranking.user_id))}
+                      onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
                   ))}
@@ -815,7 +793,7 @@ export default function PublicMatchResultsPage() {
                       key={ranking.user_id}
                       ranking={ranking}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
-                      onSelect={() => setSelectedId(String(ranking.user_id))}
+                      onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
                   ))}
@@ -827,10 +805,6 @@ export default function PublicMatchResultsPage() {
             )}
           </section>
         </div>
-
-        <aside className="mt-5 lg:sticky lg:top-5 lg:mt-0 lg:self-start">
-          <ProfilePanel ranking={selected} viewer={viewer} onChallenge={selected ? () => openChallenge(selected) : undefined} />
-        </aside>
       </main>
     </div>
   );
@@ -839,9 +813,10 @@ export default function PublicMatchResultsPage() {
 /**
  * The signed-in player's own standing.
  *
- * Separate from ProfilePanel, which shows whoever was last tapped — that is its
- * job, but it meant the most prominent thing on the page was a stranger, and on
- * mobile it sits below the ladder so there was nothing about you at all.
+ * This replaced a side panel that showed whoever was last tapped: it duplicated
+ * the row it came from, its one unique field (availability) was invented from a
+ * hash of the player record, and it meant the most prominent thing on the page
+ * was a stranger. Tapping a row now opens that player's profile instead.
  *
  * Renders only when the viewer is actually in the list. No card is better than a
  * card about someone else.
@@ -928,13 +903,11 @@ function Change({ value }: { value: unknown }) {
 
 function LadderRow({
   ranking,
-  selected,
   viewer,
   onSelect,
   onChallenge,
 }: {
   ranking: DecoratedRanking;
-  selected: boolean;
   viewer: boolean;
   onSelect: () => void;
   onChallenge: () => void;
@@ -943,9 +916,7 @@ function LadderRow({
     <div
       role="button"
       tabIndex={0}
-      className={`grid w-full grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] items-center px-4 py-3 text-left transition ${
-        selected ? "bg-violet-50" : "hover:bg-[#faf9fe]"
-      }`}
+      className="grid w-full grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] items-center px-4 py-3 text-left transition hover:bg-[#faf9fe]"
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
@@ -1041,90 +1012,3 @@ function MobileRankingCard({
   );
 }
 
-function ProfilePanel({
-  ranking,
-  viewer,
-  onChallenge,
-}: {
-  ranking?: DecoratedRanking | null;
-  viewer?: DecoratedRanking | null;
-  onChallenge?: () => void;
-}) {
-  if (!ranking) {
-    return (
-      <section className="rounded-2xl bg-white p-5 text-sm font-bold text-slate-400 shadow-sm">
-        Select a player.
-      </section>
-    );
-  }
-  const isViewer = String(ranking.user_id) === String(viewer?.user_id);
-  const delta = viewer ? ranking.ratingNumber - viewer.ratingNumber : null;
-
-  return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <Avatar ranking={ranking} />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-black">{ranking.full_name}</h2>
-          <p className="text-sm font-semibold text-slate-400">
-            Rank #{ranking.ladderPosition ?? ranking.rank} · {ranking.distanceLabel ? `${ranking.distanceLabel} away` : ranking.courtArea}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <Metric label="Rating" value={ranking.ratingLabel} tone="violet" />
-        <Metric label="NTRP" value={ranking.ntrpLabel} tone="green" />
-        <Metric label="UTR" value={ranking.utrLabel} tone="blue" />
-        <Metric label="Record" value={`${ranking.wins}-${ranking.losses}`} tone="gray" />
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <ProfileChip icon={<MapPin size={13} />}>{ranking.primaryCourt}</ProfileChip>
-        {ranking.availability.map((item) => (
-          <ProfileChip key={item} icon={<Clock size={13} />}>{item}</ProfileChip>
-        ))}
-      </div>
-
-      {delta !== null && !isViewer ? (
-        <div className="mt-4 rounded-xl bg-violet-50 p-3 text-sm font-bold text-violet-800">
-          {Math.abs(delta).toFixed(3)} {delta >= 0 ? "above" : "below"} your rating.
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        disabled={isViewer || !onChallenge}
-        onClick={onChallenge}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <Swords size={16} />
-        Challenge
-      </button>
-    </section>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: string; tone: "violet" | "green" | "blue" | "gray" }) {
-  const classes = {
-    violet: "bg-violet-50 text-violet-800",
-    green: "bg-emerald-50 text-emerald-800",
-    blue: "bg-sky-50 text-sky-800",
-    gray: "bg-slate-100 text-slate-800",
-  };
-  return (
-    <div className={`rounded-xl p-3 ${classes[tone]}`}>
-      <div className="text-[10px] font-black uppercase tracking-[0.12em] opacity-70">{label}</div>
-      <div className="mt-1 text-xl font-black tabular-nums">{value}</div>
-    </div>
-  );
-}
-
-function ProfileChip({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#f4f2fb] px-3 py-1.5 text-xs font-bold text-slate-500">
-      {icon}
-      {children}
-    </span>
-  );
-}
