@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   bookingMetaLabel,
   groupLessonsToBookings,
+  isLocalToday,
   lessonsToBookings,
   matchesToBookings,
   nextBookingLabel,
@@ -213,4 +214,47 @@ test("one known part renders alone, without a dangling separator", () => {
     "Penmar",
   );
   assert.equal(bookingMetaLabel(null), null);
+});
+
+// --- group lesson times are venue wall clocks -------------------------------
+
+test("a group lesson's stored Z is a wall clock, not an instant", () => {
+  // Verified against production: a 9am class comes back as this exact string.
+  const [booking] = groupLessonsToBookings(
+    [{ id: 1, startDateTime: "2026-08-20T09:00:00.000Z", title: "Cardio", locationName: "Penmar" }],
+    () => true,
+  );
+
+  const at = new Date(booking.startsAt);
+  assert.equal(at.getHours(), 9, "9am at the venue must read as 9am locally");
+  assert.equal(at.getDate(), 20);
+});
+
+test("an evening class stays on its own day instead of crossing midnight", () => {
+  // The serious half of the bug: honouring the Z pushed a 7pm class into the
+  // next calendar day, so it vanished from the today row and reappeared in the
+  // small hours of tomorrow.
+  const [booking] = groupLessonsToBookings(
+    [{ id: 2, startDateTime: "2026-08-20T19:00:00.000Z" }],
+    () => true,
+  );
+
+  const at = new Date(booking.startsAt);
+  assert.equal(at.getDate(), 20, "must not roll into the 21st");
+  assert.equal(at.getHours(), 19);
+});
+
+test("the same class is today when it is today, whatever the viewer's zone", () => {
+  const today = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}T23:30:00.000Z`;
+
+  const [booking] = groupLessonsToBookings([{ id: 3, startDateTime: stamp }], () => true);
+
+  assert.ok(isLocalToday(booking.startsAt, today.getTime()), "a late class is still today");
+});
+
+test("an unreadable group lesson start is still dropped", () => {
+  assert.deepEqual(groupLessonsToBookings([{ id: 4, startDateTime: "nonsense" }], () => true), []);
+  assert.deepEqual(groupLessonsToBookings([{ id: 5 }], () => true), []);
 });
