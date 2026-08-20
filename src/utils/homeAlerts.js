@@ -1,6 +1,7 @@
 import moment from "moment";
 
 import { normalizeMatchRecord } from "../api/matches";
+import { usableAvatar } from "./avatar";
 
 // Home-screen Alerts model. Discriminated union: "invitation" | "match_needs_players".
 // Every alert normalizes to { id, type, leadingVisual, title, metaLines[], deadlineAt, open() }
@@ -19,20 +20,6 @@ export function alertUrgency(deadlineAt, now = Date.now()) {
   const tone = hours <= 24 ? "red" : hours <= 48 ? "amber" : "neutral";
   const label = hours >= 48 ? `${Math.round(hours / 24)}d left` : `${Math.max(1, Math.round(hours))}h left`;
   return { tone, label };
-}
-
-// An avatar URL is only usable if it points at an actual file/key — the backend
-// sometimes returns just the bucket root ("https://…amazonaws.com/"), which renders
-// a broken image; treat that as null so the initials fallback shows instead.
-export function usableAvatar(url) {
-  if (typeof url !== "string" || !url.trim()) return null;
-  try {
-    const parsed = new URL(url);
-    const lastSegment = parsed.pathname.split("/").filter(Boolean).pop();
-    return lastSegment ? url : null;
-  } catch {
-    return url; // relative/non-URL string — leave as-is
-  }
 }
 
 // Map an already-normalized dashboard invite item → an "invitation" alert.

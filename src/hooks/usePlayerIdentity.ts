@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { getPersonalDetails } from "../services/auth.js";
 
 const FALLBACK_EMAIL = "player@matchplay.app";
 const PLAYER_PERSONAL_DETAILS_KEY = "playerPersonalDetails";
@@ -81,10 +82,47 @@ const getAvatarFromIdentity = (user: unknown): string | null => {
   return null;
 };
 
+/**
+ * One fetch per page load, shared by every mounted consumer.
+ *
+ * login() stores the token and the login response but never the player's
+ * profile, and getPersonalDetails is the only thing that writes the
+ * playerPersonalDetails key this hook reads. Nothing in the app called it, so
+ * profile_picture was permanently undefined and the header could only ever
+ * render initials — the photo was on the server the whole time.
+ */
+let personalDetailsRequest: Promise<unknown> | null = null;
+
+const loadPersonalDetails = () => {
+  if (!personalDetailsRequest) {
+    // Failures are swallowed on purpose: a missing profile fetch must not break
+    // the header, it just leaves the initials showing as before.
+    personalDetailsRequest = getPersonalDetails().catch(() => null);
+  }
+  return personalDetailsRequest;
+};
+
 const usePlayerIdentity = () => {
-  const auth = useAuth() as { user?: unknown } | undefined;
+  const auth = useAuth() as { user?: unknown; isAuthenticated?: boolean } | undefined;
   const user = auth?.user;
-  const personalDetails = useMemo(() => readStoredPersonalDetails(), [user]);
+  const isAuthenticated = Boolean(auth?.isAuthenticated);
+
+  // Seeded from the cache so there is no flash of initials for a returning
+  // player, then refreshed once the request lands.
+  const [personalDetails, setPersonalDetails] = useState(() => readStoredPersonalDetails());
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    let active = true;
+    loadPersonalDetails().then(() => {
+      if (active) setPersonalDetails(readStoredPersonalDetails());
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, user]);
   const identity = useMemo(
     () => ({ ...((user && typeof user === "object") ? user as Record<string, unknown> : {}), ...(personalDetails ?? {}) }),
     [personalDetails, user],
