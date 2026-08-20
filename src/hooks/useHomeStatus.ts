@@ -235,6 +235,20 @@ export function useHomeInvites(skip = false) {
 
 const FEED_WINDOW_DAYS = 7;
 
+/**
+ * Per-source page size for the feed.
+ *
+ * The legacy dashboard asks for 12 of each, which is a page size for a screen
+ * showing one day. This feed covers a rolling week, and the mockups show
+ * Lessons 31 / Groups 14 / Matches 14 in a single week — so 12 silently drops
+ * most of the lessons and makes the "See all N this week" count wrong as well
+ * as the list short.
+ *
+ * The count rendered is always the number of items actually held, never a
+ * pagination total, so the feed cannot claim more than it can show.
+ */
+const FEED_PER_SOURCE = 50;
+
 const dayKey = (offsetDays = 0) => {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
@@ -264,16 +278,16 @@ const activityFeedFetcher = async () => {
       search: "",
       matchSearch: "",
       coachesPage: 1,
-      coachesPerPage: 12,
+      coachesPerPage: FEED_PER_SOURCE,
       lessonsPage: 1,
-      lessonsPerPage: 12,
+      lessonsPerPage: FEED_PER_SOURCE,
       matchesPage: 1,
-      matchesPerPage: 12,
+      matchesPerPage: FEED_PER_SOURCE,
     }),
     getPlayerExternalLessons({
       token,
       page: 1,
-      perPage: 50,
+      perPage: FEED_PER_SOURCE,
       search: "",
       position: location,
       filters: { radius, startDate: start, endDate: end },
