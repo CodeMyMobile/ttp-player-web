@@ -7,6 +7,8 @@
 // league match becomes a booking here once it is arranged as an actual match,
 // which comes through the matches source.
 
+import { parseFloatingLocal } from "./floatingTime";
+
 export type BookingKind = "lesson" | "group" | "match";
 
 export interface WeekBooking {
@@ -201,7 +203,17 @@ export const groupLessonsToBookings = (
   holdsSpot: (lesson: unknown) => boolean,
 ): WeekBooking[] =>
   (Array.isArray(lessons) ? lessons : []).flatMap((lesson) => {
-    const startsAt = toEpoch(lesson?.startDateTime);
+    // startDateTime here is the raw start_date_time, which is a venue wall
+    // clock stamped Z rather than a real instant — verified against production:
+    // a 9am class comes back as "2026-08-20T09:00:00.000Z". Reading it with
+    // toEpoch honours that fictional Z, which moved the tile by the venue's
+    // offset and pushed evening classes into the following day entirely.
+    //
+    // Only this source is treated as floating. The 1:1 lesson and match
+    // sources still use toEpoch, because their payloads have not been seen and
+    // assuming they match would risk breaking two that may be correct.
+    const floating = parseFloatingLocal(lesson?.startDateTime);
+    const startsAt = floating ? floating.getTime() : toEpoch(lesson?.startDateTime);
     if (startsAt === null) return [];
     if (!holdsSpot(lesson)) return [];
     // title and locationName are both declared on the mapped GroupLesson.
