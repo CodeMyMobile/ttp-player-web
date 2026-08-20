@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   feedCtaLabel,
   feedDayLabel,
+  feedInitials,
   feedMetaLabel,
   feedPriceLabel,
   feedTimeLabel,
@@ -81,4 +82,26 @@ test("an unknown price is omitted, never shown as Free", () => {
   assert.equal(feedPriceLabel(undefined), null);
   assert.equal(feedPriceLabel("25"), null);
   assert.equal(feedPriceLabel(NaN), null);
+});
+
+test("emoji badges are not treated as initials", () => {
+  // The builders put a coach's initials here for private lessons but an emoji
+  // badge for every other type. Rendering "↗" in an avatar circle is the
+  // legacy card's placeholder, not something the mockups draw.
+  assert.equal(feedInitials("JC"), "JC");
+  assert.equal(feedInitials("j"), "J");
+  assert.equal(feedInitials("MDX"), "MDX");
+  assert.equal(feedInitials("👥"), null);
+  assert.equal(feedInitials("🏆"), null);
+  assert.equal(feedInitials("↗"), null);
+  assert.equal(feedInitials("🎾"), null);
+});
+
+test("anything that is not plainly initials falls through to the type icon", () => {
+  assert.equal(feedInitials(""), null);
+  assert.equal(feedInitials("   "), null);
+  assert.equal(feedInitials(null), null);
+  assert.equal(feedInitials(undefined), null);
+  assert.equal(feedInitials("Coach John"), null);
+  assert.equal(feedInitials(42), null);
 });

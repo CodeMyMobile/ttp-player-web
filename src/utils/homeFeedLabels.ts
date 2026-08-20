@@ -96,3 +96,18 @@ export const feedPriceLabel = (price: unknown): string | null => {
   if (price <= 0) return "Free";
   return `$${Number.isInteger(price) ? price : price.toFixed(2)}`;
 };
+
+/**
+ * Initials only when they are genuinely initials.
+ *
+ * The builders put a coach's initials here for private lessons but an emoji
+ * badge ("👥", "🏆", "↗") for everything else — a placeholder from the legacy
+ * card, not something the mockups draw. Anything that is not one to three
+ * letters is treated as no initials, so the card falls through to its type icon
+ * instead of rendering an arrow glyph in a circle.
+ */
+export const feedInitials = (avatar: unknown): string | null => {
+  const value = text(avatar);
+  if (!value) return null;
+  return /^[A-Za-z]{1,3}$/.test(value) ? value.toUpperCase() : null;
+};

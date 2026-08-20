@@ -1,12 +1,25 @@
+import { useState } from "react";
+import { ExternalLink, Swords, UserRound, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   feedCtaLabel,
+  feedInitials,
   feedMetaLabel,
   feedPriceLabel,
   feedTimeLabel,
   feedTypeLabel,
   type FeedItem,
 } from "../../utils/homeFeedLabels";
+
+/** Matches the mockups, which draw an icon rather than a glyph, and the action
+ *  grid's lucide family. */
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  private: UserRound,
+  group: Users,
+  external: ExternalLink,
+  match: Swords,
+};
 
 interface ActivityCardProps {
   item: FeedItem;
@@ -25,13 +38,26 @@ export function ActivityCard({ item }: ActivityCardProps) {
   const meta = feedMetaLabel(item);
   const price = feedPriceLabel(item.price);
   const type = String(item.type ?? "");
-  const initials = typeof item.avatar === "string" ? item.avatar : null;
-  const avatarUrl = typeof item.avatarUrl === "string" ? item.avatarUrl : null;
+  const initials = feedInitials(item.avatar);
+  const Icon = TYPE_ICONS[type] ?? UserRound;
+
+  // External lessons carry a logo_url or image_url that is often missing or
+  // dead, and a failed <img> leaves a broken-image glyph rather than falling
+  // back. Tracked per card so one bad URL cannot suppress a good one elsewhere.
+  const [imageFailed, setImageFailed] = useState(false);
+  const rawUrl = typeof item.avatarUrl === "string" && item.avatarUrl.trim() ? item.avatarUrl : null;
+  const avatarUrl = imageFailed ? null : rawUrl;
 
   return (
     <article className={`home-feed__card home-feed__card--${type || "other"}`}>
       <span className="home-feed__avatar" aria-hidden="true">
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" onError={() => setImageFailed(true)} />
+        ) : initials ? (
+          <span>{initials}</span>
+        ) : (
+          <Icon size={22} strokeWidth={1.75} />
+        )}
       </span>
 
       <span className="home-feed__body">
