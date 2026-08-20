@@ -4,23 +4,26 @@
 
 # Feature flags pinned for the build. Vite inlines import.meta.env.VITE_* at
 # build time, so this must live in the build environment (a redeploy is required
-# after changes). Global so deploy previews mirror production's create flow.
+# after changes — re-running an existing build will not pick up a change here).
+#
 # VITE_MULTI_MATCH=true renders the multi-match creation modal
 # (MultiMatchCreatorFlow) instead of the legacy single-match flow.
-[build.environment]
-  VITE_MULTI_MATCH = "true"
-
-# Deploy previews only — NOT production, and not branch deploys. The home
-# redesign ships one PR at a time behind this flag, so production must keep
-# rendering DashboardPage until the sequence is finished and that is a deliberate
-# call. Putting VITE_HOME_V2 under [build.environment] above would turn it on
-# everywhere and defeat the flag.
 #
-# The value must be one of "1", "true", "on" or "yes" — src/utils/featureFlags.ts
+# VITE_HOME_V2=true renders the redesigned home page instead of DashboardPage
+# (App.jsx). It was preview-only while the sequence was built; now that every
+# section the mockups draw has shipped, it is on everywhere.
+#
+# To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
+# structurally identical to the old home — DashboardPage was never modified for
+# the redesign — so there is nothing to undo beyond the flag itself.
+#
+# Values must be one of "1", "true", "on" or "yes" — src/utils/featureFlags.ts
 # matches those exactly. "TRUE", "enabled" and any other string read as off, and
 # an off flag is indistinguishable from an unset one.
-[context.deploy-preview.environment]
+[build.environment]
+  VITE_MULTI_MATCH = "true"
   VITE_HOME_V2 = "true"
+
 
 # Permanent (301) redirects from the long-form legal URLs to the canonical
 # short URLs. These MUST come before the SPA catch-all below — Netlify applies
