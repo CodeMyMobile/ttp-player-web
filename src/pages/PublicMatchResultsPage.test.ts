@@ -39,6 +39,27 @@ test("decorateRankings is deterministic and invents no availability", () => {
   assert.ok(!("availability" in first[0]));
 });
 
+test("decorateRankings prefers a real photo and falls back to initials", () => {
+  // The rankings endpoint sends no image field today, so every row here is
+  // hypothetical — the point is that whichever name the backend picks works,
+  // and that a half-formed URL falls back rather than rendering broken.
+  const base = { rank: 1, current_rating: 4.2, rating_change: 0, matches_played: 3, wins: 2, losses: 1, is_provisional: false, is_estimate: false };
+  const [none, real, bucket, blank, later] = decorateRankings([
+    { ...base, user_id: 1, full_name: "No Photo" },
+    { ...base, user_id: 2, full_name: "Real Photo", profile_picture: "https://tennisplan.s3.amazonaws.com/players/2.jpg" },
+    { ...base, user_id: 3, full_name: "Bucket Root", profile_image: "https://tennisplan.s3.amazonaws.com/" },
+    { ...base, user_id: 4, full_name: "Blank Field", avatar_url: "   " },
+    { ...base, user_id: 5, full_name: "Later Field", image: "https://tennisplan.s3.amazonaws.com/", avatarUrl: "https://cdn.example.com/a/5.png" },
+  ] as never);
+
+  assert.equal(none.photoUrl, null);
+  assert.equal(real.photoUrl, "https://tennisplan.s3.amazonaws.com/players/2.jpg");
+  assert.equal(bucket.photoUrl, null, "a bare bucket root is not a photo");
+  assert.equal(blank.photoUrl, null);
+  assert.equal(later.photoUrl, "https://cdn.example.com/a/5.png", "keeps looking past an unusable field");
+  assert.equal(none.initials, "NP", "initials stay available as the fallback");
+});
+
 test("a challenge carries no invented availability", () => {
   const [ranking] = decorateRankings(rankings);
   const { connectIntent } = buildChallengeState(ranking);

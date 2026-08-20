@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { usableAvatar } from "../utils/avatar";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
@@ -77,6 +79,7 @@ export type DecoratedRanking = Ranking & {
   primaryCourt: string;
   avatarClass: string;
   avatarToneClass: string;
+  photoUrl: string | null;
   distanceMiles: number | null;
   distanceLabel: string | null;
 };
@@ -115,6 +118,44 @@ const AVATAR_CLASSES = [
   ["bg-amber-100", "text-amber-700"],
   ["bg-indigo-100", "text-indigo-700"],
 ];
+
+/**
+ * A photo for this player, if the API ever sends one.
+ *
+ * Verified 2026-08-20 against the live endpoint: not one of the 1223 ranking
+ * rows carries an image field, so today this is null for everybody and the
+ * initials avatar shows instead. The names below are the ones the rest of the
+ * app already accepts (api/matches.ts, hooks/usePlayerIdentity), so whichever
+ * the backend settles on will light up without another change here.
+ *
+ * The signed-in player is the exception — the app already holds their photo
+ * from their own profile, and the call sites pass it in.
+ */
+const PHOTO_FIELDS = [
+  "profile_picture",
+  "profile_image",
+  "profileImage",
+  "image",
+  "image_url",
+  "imageUrl",
+  "avatar_url",
+  "avatarUrl",
+  "photo",
+  "photoUrl",
+  "picture",
+] as const;
+
+const photoFromRanking = (ranking: Ranking): string | null => {
+  const record = ranking as unknown as Record<string, unknown>;
+  for (const field of PHOTO_FIELDS) {
+    const value = record[field];
+    // usableAvatar rejects a bare bucket root, which would render as a broken
+    // image rather than falling back to the initials that were already there.
+    const usable = typeof value === "string" ? usableAvatar(value) : null;
+    if (usable) return usable;
+  }
+  return null;
+};
 
 const toNumber = (value: unknown): number | null => {
   const parsed = Number(value);
@@ -259,6 +300,7 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         primaryCourt,
         avatarClass: avatar[0],
         avatarToneClass: avatar[1],
+        photoUrl: photoFromRanking(ranking),
         distanceMiles,
         distanceLabel: formatDistance(distanceMiles),
       };
@@ -347,6 +389,7 @@ const radiusOptions = [5, 10, 25, 50];
 
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
+  const { avatarUrl: viewerPhotoUrl } = usePlayerIdentity();
   const storedLocation = getStoredLocation();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -585,13 +628,22 @@ export default function PublicMatchResultsPage() {
     navigate(`/players/${ranking.user_id}`);
   };
 
+  /**
+   * The rankings endpoint sends no photo, so the only real picture available on
+   * this page is the signed-in player's, which the app already holds from their
+   * profile. Everyone else falls through to whatever the row carries (null
+   * today) and then to initials.
+   */
+  const photoFor = (ranking: DecoratedRanking) =>
+    (String(ranking.user_id) === String(viewer?.user_id) ? usableAvatar(viewerPhotoUrl) : null) ??
+    ranking.photoUrl;
+
   return (
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
       <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
         <div className="min-w-0">
-          {/* Above the list so it is the first thing on mobile, where the
-              profile panel sits below the ladder entirely. */}
-          <ViewerCard ranking={viewer} />
+          {/* Above the list so your own standing is the first thing on the page. */}
+          <ViewerCard ranking={viewer} photoUrl={viewer ? photoFor(viewer) : null} />
 
           <header className="rounded-2xl bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
@@ -718,7 +770,7 @@ export default function PublicMatchResultsPage() {
                     onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar ranking={ranking} />
+                      <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-black">{ranking.full_name}</div>
                         <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
@@ -782,6 +834,7 @@ export default function PublicMatchResultsPage() {
                       key={ranking.user_id}
                       ranking={ranking}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
+                      photoUrl={photoFor(ranking)}
                       onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
@@ -793,6 +846,7 @@ export default function PublicMatchResultsPage() {
                       key={ranking.user_id}
                       ranking={ranking}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
+                      photoUrl={photoFor(ranking)}
                       onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
@@ -821,15 +875,28 @@ export default function PublicMatchResultsPage() {
  * Renders only when the viewer is actually in the list. No card is better than a
  * card about someone else.
  */
-function ViewerCard({ ranking }: { ranking: DecoratedRanking | null }) {
+function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; photoUrl?: string | null }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
   if (!ranking) return null;
+
+  const src = photoUrl ?? ranking.photoUrl;
 
   return (
     <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20 text-sm font-black">
-          {ranking.initials}
-        </div>
+        {src && !photoFailed ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            onError={() => setPhotoFailed(true)}
+            className="h-11 w-11 shrink-0 rounded-xl object-cover"
+          />
+        ) : (
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20 text-sm font-black">
+            {ranking.initials}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
           <p className="truncate text-lg font-black leading-tight">
@@ -867,7 +934,30 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
   );
 }
 
-function Avatar({ ranking }: { ranking: DecoratedRanking }) {
+/**
+ * The player's photo when there is one, their initials when there is not.
+ *
+ * `photoUrl` overrides what the ranking row carries — that is how the signed-in
+ * player's own picture gets in, since the rankings endpoint sends none. A photo
+ * that fails to load falls back to the initials rather than leaving a broken
+ * image, the same guard AppNav uses.
+ */
+function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const src = photoUrl ?? ranking.photoUrl;
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-10 w-10 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+
   return (
     <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black ${ranking.avatarClass} ${ranking.avatarToneClass}`}>
       {ranking.initials}
@@ -904,11 +994,13 @@ function Change({ value }: { value: unknown }) {
 function LadderRow({
   ranking,
   viewer,
+  photoUrl,
   onSelect,
   onChallenge,
 }: {
   ranking: DecoratedRanking;
   viewer: boolean;
+  photoUrl?: string | null;
   onSelect: () => void;
   onChallenge: () => void;
 }) {
@@ -922,7 +1014,7 @@ function LadderRow({
     >
       <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
       <span className="flex min-w-0 items-center gap-3">
-        <Avatar ranking={ranking} />
+        <Avatar ranking={ranking} photoUrl={photoUrl} />
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-black">{ranking.full_name}</span>
@@ -961,11 +1053,13 @@ function LadderRow({
 function MobileRankingCard({
   ranking,
   viewer,
+  photoUrl,
   onSelect,
   onChallenge,
 }: {
   ranking: DecoratedRanking;
   viewer: boolean;
+  photoUrl?: string | null;
   onSelect: () => void;
   onChallenge: () => void;
 }) {
@@ -979,7 +1073,7 @@ function MobileRankingCard({
     >
       <div className="flex items-center gap-3">
         <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
-        <Avatar ranking={ranking} />
+        <Avatar ranking={ranking} photoUrl={photoUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-black">{ranking.full_name}</span>
