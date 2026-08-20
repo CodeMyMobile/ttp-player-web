@@ -42,6 +42,7 @@ import {
   shortLocationLabel,
   storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
+  USER_LOCATION_REQUEST_EVENT,
 } from "../utils/userLocation";
 import { getAuthNavState } from "../utils/authNavState";
 import "./AppNav.css";
@@ -170,12 +171,18 @@ const AppNav = ({
 
     syncLocationState();
 
+    // Another surface asking for the picker — the feed's prompt when no
+    // location has been set.
+    const openOnRequest = () => setLocationOpen(true);
+
     window.addEventListener("storage", syncLocationState);
     window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationState);
+    window.addEventListener(USER_LOCATION_REQUEST_EVENT, openOnRequest);
 
     return () => {
       window.removeEventListener("storage", syncLocationState);
       window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationState);
+      window.removeEventListener(USER_LOCATION_REQUEST_EVENT, openOnRequest);
     };
   }, []);
 

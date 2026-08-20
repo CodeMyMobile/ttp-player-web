@@ -6,6 +6,16 @@ const USER_LOCATION_RADIUS_STORAGE_KEY = "player:web:user-location-radius";
 const USER_LOCATION_AREA_STORAGE_KEY = "player:web:user-location-area";
 export const USER_LOCATION_CHANGED_EVENT = "player:web:user-location-changed";
 
+// Lets a surface elsewhere on the page open the header's location picker. The
+// picker's state belongs to AppNav, and threading a setter through the tree for
+// one prompt would be worse than a message.
+export const USER_LOCATION_REQUEST_EVENT = "player:web:user-location-request";
+
+export const requestLocationPicker = () => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(USER_LOCATION_REQUEST_EVENT));
+};
+
 // West LA (Sawtelle). Used only until the player picks a location, and every
 // geo-scoped surface falls back to it — the feed, group lessons, find players
 // and the coach search.
@@ -28,6 +38,16 @@ export const DEFAULT_POSITION: Coordinates = DEFAULT_COORDINATES_VALUE;
 // stored. getStoredLocationRadius() still returns null when unset; callers fall
 // back to this constant so the default can't drift across pages.
 export const DEFAULT_RADIUS_MILES = 10;
+
+/**
+ * Whether the player has actually chosen a location.
+ *
+ * Distinct from getStoredLocation() ?? DEFAULT_POSITION, which every geo-scoped
+ * surface uses: that quietly substitutes West LA, so an empty result cannot be
+ * told apart from "we do not know where you are". This is how a caller asks
+ * which of those it is looking at.
+ */
+export const hasStoredLocation = (): boolean => getStoredLocation() !== null;
 
 export const getStoredLocation = (): Coordinates | null => {
   try {
