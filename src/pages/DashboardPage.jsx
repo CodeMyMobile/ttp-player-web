@@ -47,6 +47,7 @@ import {
   formatStatusLabel,
   getTypeConfig,
   isFutureNearbyActivity,
+  itemsWithinWindow,
   parseDate,
   parseNearbyDate,
   parseNearbyMoment,
@@ -428,9 +429,13 @@ const DashboardPage = () => {
     };
   }, [activityFilterEnd, activityFilterStart, dashboardInviteIdentity, locationPosition, searchRadius, user]);
 
-  const dayTabs = useMemo(
+  // Bounded once, up front. "All" has to mean all of this window, not
+  // everything the API happened to return — a session dated outside it is
+  // invisible under every day tab yet still counted and listed under All, so
+  // the day counts stop summing to the All count.
+  const weekActivities = useMemo(
     () =>
-      buildDayTabs({
+      itemsWithinWindow({
         items: activityState.items,
         windowStart: activityWindowStart,
         windowEnd: activityWindowEnd,
@@ -438,14 +443,24 @@ const DashboardPage = () => {
     [activityState.items, activityWindowEnd, activityWindowStart],
   );
 
+  const dayTabs = useMemo(
+    () =>
+      buildDayTabs({
+        items: weekActivities,
+        windowStart: activityWindowStart,
+        windowEnd: activityWindowEnd,
+      }),
+    [weekActivities, activityWindowEnd, activityWindowStart],
+  );
+
   const filteredActivities = useMemo(
-    () => filterActivities({ items: activityState.items, selectedDay, selectedType }),
-    [activityState.items, selectedDay, selectedType],
+    () => filterActivities({ items: weekActivities, selectedDay, selectedType }),
+    [weekActivities, selectedDay, selectedType],
   );
 
   const counts = useMemo(
-    () => typeCounts({ items: activityState.items, selectedDay }),
-    [activityState.items, selectedDay],
+    () => typeCounts({ items: weekActivities, selectedDay }),
+    [weekActivities, selectedDay],
   );
 
   const selectedDayLabel =
@@ -467,7 +482,7 @@ const DashboardPage = () => {
   const welcomeHeadline = `Hi ${firstName} 👋`;
   const welcomeSubtitle = hasSchedule
     ? `You have ${scheduleItems.length} session${scheduleItems.length === 1 ? "" : "s"} this week`
-    : `${activityState.items.length} nearby option${activityState.items.length === 1 ? "" : "s"} across lessons, groups, and matches`;
+    : `${weekActivities.length} nearby option${weekActivities.length === 1 ? "" : "s"} across lessons, groups, and matches`;
 
   const onOpenActivity = (activity) => {
     if (!activity.destination) return;
