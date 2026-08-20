@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
+import { buildViewerIdentities } from "../utils/leagueSeason";
 import {
   buildChallengeState,
   buildRankingsUrl,
@@ -146,8 +147,22 @@ test("unrated players sort last rather than being dropped from the ladder", () =
 test("the viewer is found by id, not by position", () => {
   const ladder = orderLadder([row(1, "Ana", 4.1, 1), row(7, "You", 3.8, 4)]);
 
-  assert.equal(findViewer(ladder, 7)?.full_name, "You");
-  assert.equal(findViewer(ladder, "7")?.full_name, "You", "ids arrive as strings too");
+  assert.equal(findViewer(ladder, buildViewerIdentities({ id: 7 }, null))?.full_name, "You");
+  assert.equal(
+    findViewer(ladder, buildViewerIdentities({ id: "7" }, null))?.full_name,
+    "You",
+    "ids arrive as strings too",
+  );
+});
+
+test("the viewer is found by name when the id spaces differ", () => {
+  // The account id and the ranking's user_id are different id-spaces, so an
+  // id-only compare silently finds nobody — which is what an absent card looked
+  // like.
+  const ladder = orderLadder([row(1, "Ana Ruiz", 4.1, 1), row(482, "Paul Cochrane", 3.8, 2)]);
+  const identities = buildViewerIdentities({ id: 9999, full_name: "Paul Cochrane" }, null);
+
+  assert.equal(findViewer(ladder, identities)?.full_name, "Paul Cochrane");
 });
 
 test("nobody is highlighted when the viewer is not in the list", () => {
@@ -155,7 +170,7 @@ test("nobody is highlighted when the viewer is not in the list", () => {
   // visitor was shown a stranger badged "you".
   const ladder = orderLadder([row(1, "Ana", 4.1, 1), row(2, "Sam", 6.2, 2), row(3, "Dan", 5.0, 3), row(4, "Bo", 3.8, 4)]);
 
-  assert.equal(findViewer(ladder, null), null, "logged out");
-  assert.equal(findViewer(ladder, 999), null, "outside the radius");
-  assert.equal(findViewer([], 7), null, "empty ladder");
+  assert.equal(findViewer(ladder, buildViewerIdentities(null, null)), null, "logged out");
+  assert.equal(findViewer(ladder, buildViewerIdentities({ id: 999 }, null)), null, "outside the radius");
+  assert.equal(findViewer([], buildViewerIdentities({ id: 7 }, null)), null, "empty ladder");
 });

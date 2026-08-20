@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { readViewerId } from "../hooks/useHomeStatus";
+import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
 import Autocomplete from "react-google-autocomplete";
@@ -303,13 +303,17 @@ export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
  * Null highlights nobody. Previously this fell back to decorated[3] — the fourth
  * row — so a logged-out visitor, or a player outside the radius, was shown a
  * stranger badged "you" and every "from you" delta was measured from them.
+ *
+ * Matched on id OR name, not id alone: the account id and the ranking's user_id
+ * are different id-spaces, so comparing only ids silently finds nobody. That is
+ * the same trap buildViewerIdentities was written for on the leagues page.
  */
 export const findViewer = (
   rankings: DecoratedRanking[],
-  viewerId: number | null,
+  identities: Set<string>,
 ): DecoratedRanking | null => {
-  if (viewerId == null) return null;
-  return rankings.find((ranking) => Number(ranking.user_id) === Number(viewerId)) ?? null;
+  if (!identities?.size) return null;
+  return rankings.find((ranking) => matchesViewer(identities, ranking.user_id, ranking.full_name)) ?? null;
 };
 
 export const getSuggestedRankings = (
@@ -373,7 +377,18 @@ export default function PublicMatchResultsPage() {
   const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user } = useAuth();
-  const viewerId = useMemo(() => readViewerId(user), [user]);
+  const viewerIdentities = useMemo(() => {
+    // The fetched player profile carries the identity the rankings use; the thin
+    // auth user often does not.
+    let profile = null;
+    try {
+      const raw = window.localStorage.getItem("playerPersonalDetails");
+      profile = raw ? JSON.parse(raw) : null;
+    } catch {
+      profile = null;
+    }
+    return buildViewerIdentities(user, profile);
+  }, [user]);
   const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState("");
 
@@ -521,7 +536,7 @@ export default function PublicMatchResultsPage() {
 
   const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
   // The signed-in player, or nobody. Not a list position — see findViewer.
-  const viewer = useMemo(() => findViewer(decorated, viewerId), [decorated, viewerId]);
+  const viewer = useMemo(() => findViewer(decorated, viewerIdentities), [decorated, viewerIdentities]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
