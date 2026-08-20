@@ -8,6 +8,7 @@ import {
   typeCounts,
 } from "../../utils/activityFeed";
 import { ActivityCard } from "./ActivityCard";
+import { hasStoredLocation, requestLocationPicker } from "../../utils/userLocation";
 import type { FeedItem } from "../../utils/homeFeedLabels";
 
 interface ActivityFeedProps {
@@ -83,9 +84,31 @@ export function ActivityFeed({
   const hidden = visible.length - shown.length;
   const windowLabel = dayTabs[0]?.fullDate ?? null;
 
-  // Nothing to show and nothing on the way — render no section at all rather
-  // than a heading over an empty box.
-  if (!loading && !weekItems.length) return null;
+  // An empty feed has two very different causes, and until now they looked the
+  // same: there is genuinely nothing nearby, or we have no idea where the player
+  // is and have been searching a default. Only the second is worth interrupting
+  // for, and it is the one a first-time player always hits.
+  const locationUnknown = !hasStoredLocation();
+
+  if (!loading && !weekItems.length) {
+    if (!locationUnknown) return null;
+
+    return (
+      <section className="home-feed">
+        <header className="home-feed__head">
+          <h2 className="home-feed__heading">Play this week</h2>
+        </header>
+        <div className="home-feed__prompt">
+          <p className="home-feed__prompt-copy">
+            Set your location to see coaches, group lessons and matches near you.
+          </p>
+          <button type="button" className="home-feed__prompt-cta" onClick={requestLocationPicker}>
+            Set location
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="home-feed">
