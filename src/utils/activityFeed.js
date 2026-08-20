@@ -324,6 +324,12 @@ export const buildCoachActivities = (records = []) =>
             avatarUrl: pickString(record.profile_picture, coach?.profile_picture, coach?.avatarUrl),
             avatarBadge: "🎾",
             destination: coachId != null ? `/coaches/${coachId}` : null,
+            // Marks this as one open slot on a coach's diary rather than a
+            // bookable listing. buildActivityItems can also produce type
+            // "private" for a 1:1 lesson, so the type alone cannot tell them
+            // apart. Ignored by the legacy dashboard.
+            source: "coach_availability",
+            coachId,
           };
         })
         .filter(Boolean);
@@ -361,6 +367,10 @@ export const buildActivityItems = (lessons = []) =>
       const type = resolveLessonKind(lesson);
       const lessonId = lesson.id ?? lesson.lesson_id ?? lesson.lessonId ?? lesson.booking_id ?? lesson.uuid ?? null;
       const coachName = pickString(lesson.full_name, lesson.coach_name, lesson.coachName, lesson?.coach?.name);
+      // Probed so the "My coaches" filter can attribute a lesson. Null when the
+      // payload carries no id, in which case the lesson simply does not match —
+      // better than guessing from the coach's name.
+      const lessonCoachId = parseNumber(lesson.coach_id, lesson.coachId, lesson?.coach?.id);
       const title =
         pickString(
           lesson.title,
@@ -421,6 +431,7 @@ export const buildActivityItems = (lessons = []) =>
         location,
         secondaryMeta,
         coachName,
+        coachId: lessonCoachId,
         rating,
         price: parseNumber(lesson.price_per_person, lesson.group_price_per_person, lesson.price, lesson.lesson_price),
         status: formatStatusLabel(lesson.payment_status ?? lesson.paymentStatus ?? lesson.status ?? lesson.booking_status ?? lesson.lesson_status),
@@ -582,6 +593,36 @@ export const buildMatchActivities = (records = []) =>
     })
     .filter(Boolean);
 
+export const extractCollection = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.data)) return value.data;
+  if (Array.isArray(value.results)) return value.results;
+  if (Array.isArray(value.items)) return value.items;
+  return [];
+};
+
+export const extractLessons = (response) => {
+  if (!response) return [];
+  if (Array.isArray(response.lessons)) return response.lessons;
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.results)) return response.results;
+  if (Array.isArray(response.items)) return response.items;
+  return [];
+};
+
+export const getApiDayKey = (value) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+};
+
+// Bucket a class into the viewer's LOCAL calendar day — the same basis the day
+// strip cells, "Today", and selectedDay use. parseZone preserves the source
+// offset, so formatting it directly buckets classes under their origin-zone
+// date, which can miss every local day cell and render the counts as 0.
+
 // --- view derivations -------------------------------------------------------
 //
 // Lifted out of DashboardPage's useMemos so the chip rows can be tested at all —
@@ -651,4 +692,102 @@ export const typeCounts = ({ items = [], selectedDay }) => {
     group: sameDay.filter((item) => item.type === "group" || item.type === "external").length,
     match: sameDay.filter((item) => item.type === "match").length,
   };
+};
+
+/**
+ * Items whose day falls inside [windowStart, windowEnd].
+ *
+ * "All" means all of this week, not everything the API happened to return. The
+ * sources can hand back a session dated outside the requested range — a coach
+ * slot carries its own slot.date, which is trusted ahead of the computed one —
+ * and without this bound such an item is invisible under every day chip yet
+ * still shows under All, so the day counts no longer sum to the All count.
+ *
+ * Added rather than folded into filterActivities so the legacy dashboard, which
+ * shares these functions, keeps the behaviour it has today.
+ */
+export const itemsWithinWindow = ({ items = [], windowStart, windowEnd }) => {
+  if (!windowStart || !windowEnd) return items;
+  return items.filter(
+    (item) =>
+      typeof item?.dayKey === "string" && item.dayKey >= windowStart && item.dayKey <= windowEnd,
+  );
+};
+
+/**
+ * Collapses a coach's open slots into one card per coach per day.
+ *
+ * Availability is continuous where everything else in the feed is a discrete
+ * event: a coach free 9-5 emits eight cards that differ only by time, so
+ * lessons drown out group lessons and matches no matter how few coaches there
+ * are. One card per coach per day keeps the sources comparable, and the slots
+ * are still there behind it on the coach's own page.
+ *
+ * Only items marked source: "coach_availability" are touched. Everything else
+ * passes through untouched and in order.
+ */
+export const collapseCoachAvailability = (items = []) => {
+  const groups = new Map();
+  const out = [];
+
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item) continue;
+    if (item.source !== "coach_availability" || item.coachId == null || !item.dayKey) {
+      out.push(item);
+      continue;
+    }
+
+    const key = `${item.coachId}|${item.dayKey}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      const seed = { ...item, slotCount: 1 };
+      groups.set(key, seed);
+      out.push(seed);
+      continue;
+    }
+
+    existing.slotCount += 1;
+
+    // Keep the earliest slot as the one on show, so "from 9:00 AM" is true.
+    const earlier =
+      new Date(item.startTime).valueOf() < new Date(existing.startTime).valueOf();
+    if (earlier) {
+      existing.startTime = item.startTime;
+      existing.time = item.time;
+    }
+
+    // A price is only stated outright when every slot agrees; otherwise it
+    // becomes a "from", so the card never quotes a figure the player might not
+    // be able to book at.
+    const a = typeof existing.price === "number" ? existing.price : null;
+    const b = typeof item.price === "number" ? item.price : null;
+    if (a !== null && b !== null && a !== b) {
+      existing.price = Math.min(a, b);
+      existing.priceFrom = true;
+    } else if (a === null && b !== null) {
+      existing.price = b;
+    }
+  }
+
+  return out;
+};
+
+/**
+ * Sessions attributable to one of the player's own coaches.
+ *
+ * An item only matches when it carries a coach id we can compare — coach
+ * availability always does, a lesson does when the payload includes one.
+ * Anything unattributable is excluded rather than assumed to be a match, so the
+ * filter never claims a session is with your coach when we cannot tell.
+ */
+export const filterToMyCoaches = (items = [], coachIds = []) => {
+  const ids = new Set(
+    (Array.isArray(coachIds) ? coachIds : [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id)),
+  );
+  if (!ids.size) return [];
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => item?.coachId != null && ids.has(Number(item.coachId)),
+  );
 };

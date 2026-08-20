@@ -5,9 +5,12 @@ import {
   buildActivityItems,
   buildCoachActivities,
   buildDayTabs,
+  collapseCoachAvailability,
   buildExternalLessonActivities,
   buildMatchActivities,
   filterActivities,
+  filterToMyCoaches,
+  itemsWithinWindow,
   matchesActivityTypeFilter,
   typeCounts,
 } from "./activityFeed";
@@ -141,4 +144,173 @@ test("every builder tolerates junk input rather than throwing", () => {
     assert.deepEqual(build([]), []);
     assert.deepEqual(build(), []);
   }
+});
+
+// --- window bounding --------------------------------------------------------
+
+test('"all" means all of this week, not everything the API returned', () => {
+  // A session dated before the window is invisible under every day chip; without
+  // the bound it still shows under All, and the counts stop summing.
+  const items = [
+    { id: "yesterday", dayKey: "2026-08-18", type: "group" },
+    { id: "today", dayKey: "2026-08-19", type: "group" },
+    { id: "friday", dayKey: "2026-08-21", type: "match" },
+  ];
+  const win = { windowStart: "2026-08-19", windowEnd: "2026-08-25" };
+
+  const bounded = itemsWithinWindow({ items, ...win });
+  assert.deepEqual(bounded.map((i) => i.id), ["today", "friday"]);
+
+  const tabs = buildDayTabs({ items: bounded, ...win, now: "2026-08-19" });
+  assert.equal(tabs[0].count, 2);
+  assert.equal(tabs.slice(1).reduce((n, t) => n + t.count, 0), tabs[0].count);
+});
+
+test("a session after the window is dropped too, not just a stale one", () => {
+  const items = [
+    { id: "inside", dayKey: "2026-08-20", type: "match" },
+    { id: "next-month", dayKey: "2026-09-20", type: "match" },
+  ];
+  const bounded = itemsWithinWindow({ items, windowStart: "2026-08-19", windowEnd: "2026-08-25" });
+
+  assert.deepEqual(bounded.map((i) => i.id), ["inside"]);
+});
+
+test("no window means no bound, so the legacy dashboard is unaffected", () => {
+  const items = [{ id: "a", dayKey: "2020-01-01", type: "match" }];
+
+  assert.equal(itemsWithinWindow({ items, windowStart: null, windowEnd: null }).length, 1);
+  assert.equal(itemsWithinWindow({ items }).length, 1);
+});
+
+test("an item with no dayKey is dropped rather than assumed to be in range", () => {
+  const items = [{ id: "no-day", type: "match" }, { id: "ok", dayKey: "2026-08-20", type: "match" }];
+  const bounded = itemsWithinWindow({ items, windowStart: "2026-08-19", windowEnd: "2026-08-25" });
+
+  assert.deepEqual(bounded.map((i) => i.id), ["ok"]);
+});
+
+// --- coach availability collapse --------------------------------------------
+
+const slot = (coachId, dayKey, time, startTime, price = 100) => ({
+  id: `${coachId}-${startTime}`,
+  source: "coach_availability",
+  type: "private",
+  coachId,
+  dayKey,
+  time,
+  startTime,
+  price,
+  title: `Coach ${coachId}`,
+});
+
+test("a coach's slots collapse to one card per coach per day", () => {
+  const collapsed = collapseCoachAvailability([
+    slot(1, "2026-08-21", "10:00 AM", "2026-08-21T17:00:00Z"),
+    slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z"),
+    slot(1, "2026-08-21", "11:00 AM", "2026-08-21T18:00:00Z"),
+    slot(1, "2026-08-22", "9:00 AM", "2026-08-22T16:00:00Z"),
+    slot(2, "2026-08-21", "8:00 AM", "2026-08-21T15:00:00Z"),
+  ]);
+
+  assert.equal(collapsed.length, 3); // coach1/Fri, coach1/Sat, coach2/Fri
+  const friday = collapsed.find((i) => i.coachId === 1 && i.dayKey === "2026-08-21");
+  assert.equal(friday.slotCount, 3);
+});
+
+test("the earliest slot is the one shown, whatever order they arrive in", () => {
+  const [card] = collapseCoachAvailability([
+    slot(1, "2026-08-21", "3:00 PM", "2026-08-21T22:00:00Z"),
+    slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z"),
+  ]);
+
+  // "4 slots from 9:00 AM" has to be true, so the earliest must win.
+  assert.equal(card.time, "9:00 AM");
+  assert.equal(card.startTime, "2026-08-21T16:00:00Z");
+});
+
+test("a price is only quoted outright when every slot agrees", () => {
+  const [same] = collapseCoachAvailability([
+    slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z", 100),
+    slot(1, "2026-08-21", "10:00 AM", "2026-08-21T17:00:00Z", 100),
+  ]);
+  assert.equal(same.price, 100);
+  assert.ok(!same.priceFrom);
+
+  const [mixed] = collapseCoachAvailability([
+    slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z", 120),
+    slot(1, "2026-08-21", "10:00 AM", "2026-08-21T17:00:00Z", 80),
+  ]);
+  assert.equal(mixed.price, 80, "shows the lowest, so the figure is always bookable");
+  assert.equal(mixed.priceFrom, true);
+});
+
+test("everything that is not coach availability passes through untouched", () => {
+  const others = [
+    { id: "g", type: "group", dayKey: "2026-08-21" },
+    { id: "m", type: "match", dayKey: "2026-08-21" },
+    // A 1:1 listing from the lessons endpoint is also type "private" — it must
+    // not be collapsed with a coach's diary.
+    { id: "listing", type: "private", dayKey: "2026-08-21" },
+  ];
+  const collapsed = collapseCoachAvailability(others);
+
+  assert.deepEqual(collapsed.map((i) => i.id), ["g", "m", "listing"]);
+  assert.ok(collapsed.every((i) => i.slotCount === undefined));
+});
+
+test("coach availability with no coach id is left alone rather than merged blindly", () => {
+  const items = [
+    { ...slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z"), coachId: null },
+    { ...slot(1, "2026-08-21", "10:00 AM", "2026-08-21T17:00:00Z"), coachId: null },
+  ];
+
+  assert.equal(collapseCoachAvailability(items).length, 2);
+});
+
+test("collapsing does not mutate the caller's items", () => {
+  const input = [
+    slot(1, "2026-08-21", "9:00 AM", "2026-08-21T16:00:00Z"),
+    slot(1, "2026-08-21", "10:00 AM", "2026-08-21T17:00:00Z"),
+  ];
+  collapseCoachAvailability(input);
+
+  assert.equal(input[0].slotCount, undefined);
+  assert.equal(input.length, 2);
+});
+
+// --- my coaches filter ------------------------------------------------------
+
+test("only sessions attributable to one of my coaches survive the filter", () => {
+  const items = [
+    { id: "mine-avail", coachId: 7, type: "private" },
+    { id: "mine-lesson", coachId: 9, type: "group" },
+    { id: "someone-else", coachId: 42, type: "private" },
+    { id: "unattributed", type: "group" },
+  ];
+
+  const mine = filterToMyCoaches(items, [7, 9]);
+  assert.deepEqual(mine.map((i) => i.id), ["mine-avail", "mine-lesson"]);
+});
+
+test("an unattributable session is excluded, never assumed to be a match", () => {
+  // We cannot tell whose lesson it is, so claiming it is with your coach would
+  // be worse than leaving it out.
+  const items = [{ id: "no-coach", type: "group" }, { id: "null-coach", coachId: null, type: "group" }];
+
+  assert.deepEqual(filterToMyCoaches(items, [7]), []);
+});
+
+test("ids compare across string and number, since the sources disagree", () => {
+  const items = [{ id: "a", coachId: "7" }, { id: "b", coachId: 8 }];
+
+  assert.deepEqual(filterToMyCoaches(items, ["7", 8]).map((i) => i.id), ["a", "b"]);
+});
+
+test("no coaches means the filter yields nothing, which is why it is not offered", () => {
+  const items = [{ id: "a", coachId: 7 }];
+
+  assert.deepEqual(filterToMyCoaches(items, []), []);
+  assert.deepEqual(filterToMyCoaches(items), []);
+  assert.deepEqual(filterToMyCoaches(items, [null, undefined, "x"]), []);
 });

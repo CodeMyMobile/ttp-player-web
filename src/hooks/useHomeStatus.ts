@@ -28,6 +28,19 @@ import {
 import { listMyOrders } from "../restringing/restringingService";
 import { listInvites } from "../services/invites";
 import { buildPlayerInviteItems } from "../utils/dashboardInvites";
+
+import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
+import { fetchPlayerCoaches } from "../api/playerCoaches";
+import { getComparableCoachIds, normalizeStatus } from "./useCoachRoster";
+import {
+  buildActivityItems,
+  buildCoachActivities,
+  buildExternalLessonActivities,
+  buildMatchActivities,
+  extractCollection,
+  extractLessons,
+  getApiDayKey,
+} from "../utils/activityFeed";
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
 import { useApiRequest } from "./useApiRequest";
@@ -220,4 +233,122 @@ export function useHomeInvites(skip = false) {
   const selection = useMemo(() => selectHomeInvite((data ?? []) as HomeInviteItem[]), [data]);
 
   return { loading, error, refetch, ...selection };
+}
+
+const FEED_WINDOW_DAYS = 7;
+
+/**
+ * Per-source page size for the feed.
+ *
+ * The legacy dashboard asks for 12 of each, which is a page size for a screen
+ * showing one day. This feed covers a rolling week, and the mockups show
+ * Lessons 31 / Groups 14 / Matches 14 in a single week — so 12 silently drops
+ * most of the lessons and makes the "See all N this week" count wrong as well
+ * as the list short.
+ *
+ * The count rendered is always the number of items actually held, never a
+ * pagination total, so the feed cannot claim more than it can show.
+ */
+const FEED_PER_SOURCE = 50;
+
+const dayKey = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const activityFeedFetcher = async () => {
+  const token = getStoredAuthToken() ?? undefined;
+  const stored = getStoredLocation() ?? DEFAULT_POSITION;
+  const location = { latitude: stored.latitude, longitude: stored.longitude };
+  const radius = getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES;
+  const start = dayKey(0);
+  const end = dayKey(FEED_WINDOW_DAYS - 1);
+
+  // Settled, not all: one dead source should shrink the feed, not blank it.
+  // The same reasoning as the bookings tile — a smaller list beats an error.
+  const [nearby, external, roster] = await Promise.allSettled([
+    getPlayerDiscoverNearby({
+      token,
+      location,
+      radius,
+      // level is deliberately fixed. filters.level is exact string equality on
+      // free text and silently returns nothing on an unrecognised value, which
+      // is why the level control is not built. See the brief's omissions table.
+      filters: { startDate: start, endDate: end, level: "All" },
+      search: "",
+      matchSearch: "",
+      coachesPage: 1,
+      coachesPerPage: FEED_PER_SOURCE,
+      lessonsPage: 1,
+      lessonsPerPage: FEED_PER_SOURCE,
+      matchesPage: 1,
+      matchesPerPage: FEED_PER_SOURCE,
+    }),
+    getPlayerExternalLessons({
+      token,
+      page: 1,
+      perPage: FEED_PER_SOURCE,
+      search: "",
+      position: location,
+      filters: { radius, startDate: start, endDate: end },
+    }),
+    // Powers the "My coaches" filter. Settled like the rest: if it fails the
+    // chip simply does not appear, rather than the feed breaking.
+    fetchPlayerCoaches({ token, perPage: 100, page: 1 }),
+  ]);
+
+  if (nearby.status !== "fulfilled") {
+    throw nearby.reason instanceof Error ? nearby.reason : new Error("Unable to load nearby activities.");
+  }
+
+  const response = nearby.value as Record<string, unknown>;
+  const items = [
+    ...buildCoachActivities(extractCollection(response?.coaches_availability)),
+    ...buildActivityItems(extractCollection(response?.group_lessons)),
+    ...(external.status === "fulfilled" ? buildExternalLessonActivities(extractLessons(external.value)) : []),
+    ...buildMatchActivities(extractCollection(response?.match_play)),
+  ].sort((a, b) => new Date(a.startTime).valueOf() - new Date(b.startTime).valueOf());
+
+  const searchArea = response?.search_area as Record<string, unknown> | undefined;
+  // Never earlier than today. The API has been seen returning a window that
+  // opens yesterday, and "Play this week" must not offer a session that has
+  // already happened — string comparison is safe here because both are
+  // YYYY-MM-DD.
+  const apiStart = getApiDayKey(searchArea?.window_start);
+  const windowStart = apiStart && apiStart > start ? apiStart : start;
+  const apiEnd = getApiDayKey(searchArea?.window_end);
+  const windowEnd = apiEnd && apiEnd >= windowStart ? apiEnd : dayKey(FEED_WINDOW_DAYS - 1);
+
+  // Accepted coaches only — a pending request is not yet "my coach".
+  const myCoachIds =
+    roster.status === "fulfilled" && Array.isArray(roster.value)
+      ? roster.value
+          .filter((entry) => normalizeStatus(entry) === "accepted")
+          .flatMap((entry) => getComparableCoachIds(entry))
+          .filter((id): id is number => typeof id === "number" && Number.isFinite(id))
+      : [];
+
+  return { items, windowStart, windowEnd, myCoachIds };
+};
+
+/**
+ * The "Play this week" feed: coach availability, group lessons, external
+ * lessons and matches over a rolling week, unioned and sorted by start.
+ *
+ * Normalisation is shared with the legacy dashboard through utils/activityFeed
+ * so the two screens cannot disagree about the same payload.
+ */
+export function useActivityFeed(skip = false) {
+  const { data, loading, error } = useApiRequest(activityFeedFetcher, NO_PARAMS, { skip });
+
+  return {
+    loading,
+    error,
+    items: data?.items ?? [],
+    windowStart: data?.windowStart ?? null,
+    windowEnd: data?.windowEnd ?? null,
+    myCoachIds: data?.myCoachIds ?? [],
+  };
 }
