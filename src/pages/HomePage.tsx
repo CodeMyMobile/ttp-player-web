@@ -5,11 +5,13 @@ import { ActionGrid } from "../components/home/ActionGrid";
 import { ActivityFeed } from "../components/home/ActivityFeed";
 import { AlertStack } from "../components/home/AlertStack";
 import { InviteCard } from "../components/home/InviteCard";
+import { SeasonModule } from "../components/home/SeasonModule";
 import { StatusTiles } from "../components/home/StatusTiles";
 import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
 import {
   readViewerId,
+  useActiveSeasons,
   useActivityFeed,
   useHomeAlerts,
   useHomeInvites,
@@ -65,6 +67,7 @@ export default function HomePage() {
     myCoachIds,
     loading: feedLoading,
   } = useActivityFeed();
+  const { seasons } = useActiveSeasons(user);
 
   return (
     <div className="player-home home-v2">
@@ -96,6 +99,10 @@ export default function HomePage() {
 
         <ActionGrid isRated={isRated} />
 
+        {/* Season, then the feed. Every mockup puts "Play this week" last;
+            off court (PR 8) will sit between these two when it lands. */}
+        <SeasonModule seasons={seasons} />
+
         <ActivityFeed
           items={feedItems}
           windowStart={windowStart}
@@ -103,6 +110,8 @@ export default function HomePage() {
           myCoachIds={myCoachIds}
           loading={feedLoading}
         />
+
+
       </main>
 
       <MobileHomeBottomNav />

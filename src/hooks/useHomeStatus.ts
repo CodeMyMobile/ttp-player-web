@@ -31,6 +31,15 @@ import { buildPlayerInviteItems } from "../utils/dashboardInvites";
 
 import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
 import { fetchPlayerCoaches } from "../api/playerCoaches";
+import { listMyLeagues, getLeagueResultOpponents } from "../api/leagues";
+import {
+  activeSeasons,
+  buildViewerIdentities,
+  fetchSeasonEnrichment,
+  opponentNames,
+  weeksRemaining,
+  type SeasonEnrichment,
+} from "../utils/leagueSeason";
 import { getComparableCoachIds, normalizeStatus } from "./useCoachRoster";
 import {
   buildActivityItems,
@@ -351,4 +360,65 @@ export function useActivityFeed(skip = false) {
     windowEnd: data?.windowEnd ?? null,
     myCoachIds: data?.myCoachIds ?? [],
   };
+}
+
+
+export interface HomeSeason {
+  id: string;
+  name: string;
+  endDate: string | null;
+  weeksLeft: number | null;
+  enrichment: SeasonEnrichment;
+  /** "Sam, Dan, Priya", or null when there is nobody left to play. */
+  stillToPlay: string | null;
+}
+
+const seasonsFetcher = async (params: { user: unknown }) => {
+  const token = getStoredAuthToken() ?? undefined;
+  const list = await listMyLeagues({ token });
+  const mine = list?.sections?.mine ?? [];
+  const running = activeSeasons(mine);
+  if (!running.length) return [] as HomeSeason[];
+
+  const identities = buildViewerIdentities(params.user, null);
+
+  // Settled per season: one league failing shrinks the module rather than
+  // blanking it, the same rule the rest of the page follows.
+  const built = await Promise.allSettled(
+    running.map(async (league) => {
+      const [enrichment, opponents] = await Promise.all([
+        fetchSeasonEnrichment({ leagueId: league.id, token, viewerIdentities: identities }),
+        getLeagueResultOpponents({ leagueId: league.id, token })
+          .then((r) => r?.opponents ?? [])
+          .catch(() => []),
+      ]);
+
+      const endDate = (league.end_date || league.deadline || null) as string | null;
+      return {
+        id: String(league.id),
+        name: String(league.name ?? "").trim(),
+        endDate,
+        weeksLeft: weeksRemaining(endDate),
+        enrichment,
+        stillToPlay: opponentNames(opponents),
+      } satisfies HomeSeason;
+    }),
+  );
+
+  return built
+    .filter((r): r is PromiseFulfilledResult<HomeSeason> => r.status === "fulfilled")
+    .map((r) => r.value);
+};
+
+/**
+ * The player's running seasons, nearest deadline first.
+ *
+ * Progress comes from utils/leagueSeason, shared with the leagues page, so the
+ * two screens can never disagree about how far through a season someone is.
+ */
+export function useActiveSeasons(user: unknown, skip = false) {
+  const params = useMemo(() => ({ user }), [user]);
+  const { data, loading, error } = useApiRequest(seasonsFetcher, params, { skip });
+
+  return { loading, error, seasons: data ?? [] };
 }
