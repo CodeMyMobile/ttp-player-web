@@ -1,16 +1,21 @@
+import { useState } from "react";
 import AppNav from "../components/AppNav";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { ActionGrid } from "../components/home/ActionGrid";
 import { AlertStack } from "../components/home/AlertStack";
+import { InviteCard } from "../components/home/InviteCard";
 import { StatusTiles } from "../components/home/StatusTiles";
 import { TodayRow } from "../components/home/TodayRow";
 import { useAuth } from "../context/AuthContext";
 import {
   readViewerId,
   useHomeAlerts,
+  useHomeInvites,
   useLadderStanding,
   useWeekBookings,
 } from "../hooks/useHomeStatus";
+import { acceptInvite, rejectInvite } from "../services/invites";
+import type { HomeInviteItem } from "../utils/homeInvite";
 import "./HomePage.css";
 
 /**
@@ -30,6 +35,26 @@ export default function HomePage() {
   // standing weekly lesson has real bookings and needs to see them.
   const { count, nextLabel, today } = useWeekBookings();
   const { alerts } = useHomeAlerts();
+  const { invite, remaining, refetch: refetchInvites } = useHomeInvites();
+
+  const [inviteBusy, setInviteBusy] = useState(false);
+
+  // Both actions refetch rather than removing the card locally: the next invite
+  // has to slide into the slot, and the count behind it has to be right. An
+  // optimistic removal would have to guess both.
+  const respond = async (
+    action: (token: string) => Promise<unknown>,
+    item: HomeInviteItem,
+  ) => {
+    if (!item.token || inviteBusy) return;
+    setInviteBusy(true);
+    try {
+      await action(item.token);
+      await refetchInvites();
+    } finally {
+      setInviteBusy(false);
+    }
+  };
 
   return (
     <div className="player-home home-v2">
@@ -44,11 +69,18 @@ export default function HomePage() {
           nextBookingLabel={nextLabel}
         />
 
-        {/* Order is the mockups' order: tiles, today row, alerts, grid. The
-            invite card belongs between the row and the stack and lands in
-            PR 5. Each section renders nothing when it has nothing, so the grid
-            moves up rather than a gap opening. */}
+        {/* The mockups' order: tiles, today row, invite card, alerts, grid.
+            Each section renders nothing when it has nothing, so the grid moves
+            up rather than a gap opening. */}
         <TodayRow booking={today} />
+
+        <InviteCard
+          invite={invite}
+          remaining={remaining}
+          busy={inviteBusy}
+          onAccept={(item) => respond(acceptInvite, item)}
+          onDecline={(item) => respond(rejectInvite, item)}
+        />
 
         <AlertStack alerts={alerts} />
 
