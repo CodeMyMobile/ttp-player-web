@@ -41,6 +41,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import { DEFAULT_POSITION, getStoredLocation } from "../utils/userLocation";
 import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
 import { buildGroupLessonShareUrl } from "../utils/shareLinks";
+import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
 
@@ -938,8 +939,14 @@ const GroupLessonDetailsPage = () => {
       : spotsRemaining <= 2
         ? "is-limited"
         : "is-open";
-  const lessonStartMoment = lesson.startDateTime ? moment.utc(lesson.startDateTime) : null;
-  const isCancellationWindowClosed = Boolean(lessonStartMoment?.isValid() && lessonStartMoment.diff(moment.utc(), "hours", true) < 24);
+  // startDateTime is a venue wall clock stamped Z, not a real instant, so it
+  // cannot be subtracted from now directly — moment.utc().diff() applied the
+  // fictional offset and shortened the window by seven hours in Pacific summer,
+  // telling a player 25 hours out that cancellation had already closed.
+  const hoursUntilLesson = hoursUntilFloating(lesson.startDateTime);
+  // Unreadable start means we do not know, and we must not close the window on
+  // a guess — that costs the player a refund they are entitled to.
+  const isCancellationWindowClosed = hoursUntilLesson !== null && hoursUntilLesson < 24;
   const whatToBring = lesson.highlights?.length ? lesson.highlights : ["Racket", "Water", "Tennis shoes"];
   const heroBandLabel = lesson.startDateTime
     ? `${moment.utc(lesson.startDateTime).format("dddd").toUpperCase()} · ${moment
