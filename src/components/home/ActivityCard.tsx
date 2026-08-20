@@ -36,7 +36,7 @@ interface ActivityCardProps {
 export function ActivityCard({ item }: ActivityCardProps) {
   const time = feedTimeLabel(item);
   const meta = feedMetaLabel(item);
-  const price = feedPriceLabel(item.price);
+  const price = feedPriceLabel(item.price, Boolean(item.priceFrom));
   const type = String(item.type ?? "");
   const initials = feedInitials(item.avatar);
   const Icon = TYPE_ICONS[type] ?? UserRound;

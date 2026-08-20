@@ -324,6 +324,12 @@ export const buildCoachActivities = (records = []) =>
             avatarUrl: pickString(record.profile_picture, coach?.profile_picture, coach?.avatarUrl),
             avatarBadge: "🎾",
             destination: coachId != null ? `/coaches/${coachId}` : null,
+            // Marks this as one open slot on a coach's diary rather than a
+            // bookable listing. buildActivityItems can also produce type
+            // "private" for a 1:1 lesson, so the type alone cannot tell them
+            // apart. Ignored by the legacy dashboard.
+            source: "coach_availability",
+            coachId,
           };
         })
         .filter(Boolean);
@@ -701,4 +707,62 @@ export const itemsWithinWindow = ({ items = [], windowStart, windowEnd }) => {
     (item) =>
       typeof item?.dayKey === "string" && item.dayKey >= windowStart && item.dayKey <= windowEnd,
   );
+};
+
+/**
+ * Collapses a coach's open slots into one card per coach per day.
+ *
+ * Availability is continuous where everything else in the feed is a discrete
+ * event: a coach free 9-5 emits eight cards that differ only by time, so
+ * lessons drown out group lessons and matches no matter how few coaches there
+ * are. One card per coach per day keeps the sources comparable, and the slots
+ * are still there behind it on the coach's own page.
+ *
+ * Only items marked source: "coach_availability" are touched. Everything else
+ * passes through untouched and in order.
+ */
+export const collapseCoachAvailability = (items = []) => {
+  const groups = new Map();
+  const out = [];
+
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item) continue;
+    if (item.source !== "coach_availability" || item.coachId == null || !item.dayKey) {
+      out.push(item);
+      continue;
+    }
+
+    const key = `${item.coachId}|${item.dayKey}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      const seed = { ...item, slotCount: 1 };
+      groups.set(key, seed);
+      out.push(seed);
+      continue;
+    }
+
+    existing.slotCount += 1;
+
+    // Keep the earliest slot as the one on show, so "from 9:00 AM" is true.
+    const earlier =
+      new Date(item.startTime).valueOf() < new Date(existing.startTime).valueOf();
+    if (earlier) {
+      existing.startTime = item.startTime;
+      existing.time = item.time;
+    }
+
+    // A price is only stated outright when every slot agrees; otherwise it
+    // becomes a "from", so the card never quotes a figure the player might not
+    // be able to book at.
+    const a = typeof existing.price === "number" ? existing.price : null;
+    const b = typeof item.price === "number" ? item.price : null;
+    if (a !== null && b !== null && a !== b) {
+      existing.price = Math.min(a, b);
+      existing.priceFrom = true;
+    } else if (a === null && b !== null) {
+      existing.price = b;
+    }
+  }
+
+  return out;
 };

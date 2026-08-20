@@ -17,6 +17,10 @@ export interface FeedItem {
   /** Distance, e.g. "7.7 mi" — and for group lessons, the coach name too. */
   secondaryMeta?: string | null;
   price?: number | null;
+  /** Set when a collapsed card's slots disagree on price. */
+  priceFrom?: boolean;
+  /** How many open slots this card stands for. */
+  slotCount?: number;
   destination?: string | null;
   [key: string]: unknown;
 }
@@ -70,10 +74,17 @@ export const feedDayLabel = (dayKey: unknown, now: Date = new Date()): string | 
   return new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short" }).format(date);
 };
 
-/** "Today · 12:00 PM", or whichever half we actually have. */
+/**
+ * "Today · 12:00 PM", or for a coach with several open slots that day,
+ * "Today · 4 slots from 9:00 AM". Falls back to whichever half exists.
+ */
 export const feedTimeLabel = (item: FeedItem | null, now: Date = new Date()): string | null => {
-  const parts = [feedDayLabel(item?.dayKey, now), text(item?.time)].filter(
-    (part): part is string => part !== null,
+  const time = text(item?.time);
+  const slots = typeof item?.slotCount === "number" ? item.slotCount : 1;
+  const clock = time && slots > 1 ? `${slots} slots from ${time}` : time;
+
+  const parts = [feedDayLabel(item?.dayKey, now), clock].filter(
+    (part): part is string => part !== null && part !== undefined,
   );
   return parts.length ? parts.join(" · ") : null;
 };
@@ -91,10 +102,13 @@ export const feedMetaLabel = (item: FeedItem | null): string | null => {
  * know — an unknown price must not render as "Free". This is the zero-versus-null
  * rule that has already caused two bugs on this screen.
  */
-export const feedPriceLabel = (price: unknown): string | null => {
+export const feedPriceLabel = (price: unknown, from = false): string | null => {
   if (typeof price !== "number" || !Number.isFinite(price)) return null;
   if (price <= 0) return "Free";
-  return `$${Number.isInteger(price) ? price : price.toFixed(2)}`;
+  const amount = `$${Number.isInteger(price) ? price : price.toFixed(2)}`;
+  // A collapsed coach card covers slots that may not share a price, so it says
+  // "From $80" rather than quoting a figure the player might not be able to book.
+  return from ? `From ${amount}` : amount;
 };
 
 /**

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   buildDayTabs,
+  collapseCoachAvailability,
   filterActivities,
   itemsWithinWindow,
   typeCounts,
@@ -44,7 +45,9 @@ export function ActivityFeed({ items, windowStart, windowEnd, loading = false }:
   // Bounded once, up front, so the chips and the list can never disagree about
   // what "this week" contains.
   const weekItems = useMemo(
-    () => itemsWithinWindow({ items, windowStart, windowEnd }),
+    // Collapse first, so the chip counts describe the cards on screen rather
+    // than the slots behind them.
+    () => collapseCoachAvailability(itemsWithinWindow({ items, windowStart, windowEnd })),
     [items, windowStart, windowEnd],
   );
 
