@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import { usableAvatar } from "../utils/avatar";
+import { fetchPlayerPhoto } from "../api/playerPhotos";
+import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
+import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
 import Autocomplete from "react-google-autocomplete";
 import {
@@ -6,7 +12,6 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart3,
-  Clock,
   MapPin,
   Search,
   ShieldCheck,
@@ -65,16 +70,17 @@ export type Ranking = {
 };
 
 export type DecoratedRanking = Ranking & {
+  /** Position after sorting by rating — not the API's proximity `rank`. */
+  ladderPosition?: number;
   initials: string;
   ratingNumber: number;
   ratingLabel: string;
   ntrpLabel: string;
   utrLabel: string;
   primaryCourt: string;
-  courtArea: string;
-  availability: string[];
   avatarClass: string;
   avatarToneClass: string;
+  photoUrl: string | null;
   distanceMiles: number | null;
   distanceLabel: string | null;
 };
@@ -105,15 +111,6 @@ const WEST_LA_COURTS = [
   { name: "Santa Monica Tennis Center", area: "Santa Monica" },
 ];
 
-const AVAILABILITY = [
-  "Weekday evenings",
-  "Weekend mornings",
-  "Tue/Thu evenings",
-  "Lunch hits",
-  "Flexible weekends",
-  "Early mornings",
-];
-
 const AVATAR_CLASSES = [
   ["bg-violet-100", "text-violet-700"],
   ["bg-emerald-100", "text-emerald-700"],
@@ -122,6 +119,44 @@ const AVATAR_CLASSES = [
   ["bg-amber-100", "text-amber-700"],
   ["bg-indigo-100", "text-indigo-700"],
 ];
+
+/**
+ * A photo for this player, if the API ever sends one.
+ *
+ * Verified 2026-08-20 against the live endpoint: not one of the 1223 ranking
+ * rows carries an image field, so today this is null for everybody and the
+ * initials avatar shows instead. The names below are the ones the rest of the
+ * app already accepts (api/matches.ts, hooks/usePlayerIdentity), so whichever
+ * the backend settles on will light up without another change here.
+ *
+ * The signed-in player is the exception — the app already holds their photo
+ * from their own profile, and the call sites pass it in.
+ */
+const PHOTO_FIELDS = [
+  "profile_picture",
+  "profile_image",
+  "profileImage",
+  "image",
+  "image_url",
+  "imageUrl",
+  "avatar_url",
+  "avatarUrl",
+  "photo",
+  "photoUrl",
+  "picture",
+] as const;
+
+const photoFromRanking = (ranking: Ranking): string | null => {
+  const record = ranking as unknown as Record<string, unknown>;
+  for (const field of PHOTO_FIELDS) {
+    const value = record[field];
+    // usableAvatar rejects a bare bucket root, which would render as a broken
+    // image rather than falling back to the initials that were already there.
+    const usable = typeof value === "string" ? usableAvatar(value) : null;
+    if (usable) return usable;
+  }
+  return null;
+};
 
 const toNumber = (value: unknown): number | null => {
   const parsed = Number(value);
@@ -253,7 +288,6 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
       const fallbackCourt = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
       const backendCourt = Array.isArray(ranking.court_locations) ? ranking.court_locations[0] : null;
       const primaryCourt = ranking.primary_court || backendCourt?.location || fallbackCourt.name;
-      const courtArea = ranking.court_area || backendCourt?.area || fallbackCourt.area;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
       const distanceMiles = toNumber(ranking.distance_miles);
@@ -265,18 +299,47 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
         ntrpLabel: estimateNtrp(ranking),
         utrLabel: estimateUtr(ranking),
         primaryCourt,
-        courtArea,
-        availability: [
-          AVAILABILITY[seed % AVAILABILITY.length],
-          AVAILABILITY[(seed + 2) % AVAILABILITY.length],
-        ],
         avatarClass: avatar[0],
         avatarToneClass: avatar[1],
+        photoUrl: photoFromRanking(ranking),
         distanceMiles,
         distanceLabel: formatDistance(distanceMiles),
       };
     })
-    .sort((a, b) => Number(a.rank) - Number(b.rank));
+    .sort(() => 0);
+
+/**
+ * Ladder order, and the position printed beside each player.
+ *
+ * The API's `rank` is assigned after it re-sorts by distance, so under the geo
+ * scoping this page uses it is proximity order — "#1" meant nearest, not best.
+ * Ordering by current_rating here, and numbering from that order, is what makes
+ * the column mean what it says.
+ *
+ * sortByRatingDesc is shared with the home tile's position so the two cannot
+ * disagree about where a player sits.
+ */
+export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
+  sortByRatingDesc(rankings).map((ranking, index) => ({ ...ranking, ladderPosition: index + 1 }));
+
+/**
+ * Which row is the signed-in player, or null.
+ *
+ * Null highlights nobody. Previously this fell back to decorated[3] — the fourth
+ * row — so a logged-out visitor, or a player outside the radius, was shown a
+ * stranger badged "you" and every "from you" delta was measured from them.
+ *
+ * Matched on id OR name, not id alone: the account id and the ranking's user_id
+ * are different id-spaces, so comparing only ids silently finds nobody. That is
+ * the same trap buildViewerIdentities was written for on the leagues page.
+ */
+export const findViewer = (
+  rankings: DecoratedRanking[],
+  identities: Set<string>,
+): DecoratedRanking | null => {
+  if (!identities?.size) return null;
+  return rankings.find((ranking) => matchesViewer(identities, ranking.user_id, ranking.full_name)) ?? null;
+};
 
 export const getSuggestedRankings = (
   rankings: DecoratedRanking[],
@@ -287,7 +350,7 @@ export const getSuggestedRankings = (
   return rankings
     .filter((ranking) => String(ranking.user_id) !== String(viewer.user_id))
     .map((ranking) => ({ ranking, delta: Math.abs(ranking.ratingNumber - viewer.ratingNumber) }))
-    .sort((a, b) => a.delta - b.delta || Number(a.ranking.rank) - Number(b.ranking.rank))
+    .sort((a, b) => a.delta - b.delta || Number(a.ranking.ladderPosition ?? a.ranking.rank) - Number(b.ranking.ladderPosition ?? b.ranking.rank))
     .slice(0, limit)
     .map(({ ranking }) => ranking);
 };
@@ -300,7 +363,7 @@ export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent:
       level: `TRP ${ranking.ratingLabel}`,
     },
     senderLevel: "TRP",
-    suggestedAvailability: ranking.availability,
+    suggestedAvailability: [],
     preferredCourt: ranking.primaryCourt,
     source: "match-results-ladder",
     senderName: "West LA Ladder",
@@ -327,6 +390,7 @@ const radiusOptions = [5, 10, 25, 50];
 
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
+  const { avatarUrl: viewerPhotoUrl } = usePlayerIdentity();
   const storedLocation = getStoredLocation();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -337,7 +401,19 @@ export default function PublicMatchResultsPage() {
   const [nearLat, setNearLat] = useState<number | null>(() => storedLocation?.latitude ?? null);
   const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
   const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const viewerIdentities = useMemo(() => {
+    // The fetched player profile carries the identity the rankings use; the thin
+    // auth user often does not.
+    let profile = null;
+    try {
+      const raw = window.localStorage.getItem("playerPersonalDetails");
+      profile = raw ? JSON.parse(raw) : null;
+    } catch {
+      profile = null;
+    }
+    return buildViewerIdentities(user, profile);
+  }, [user]);
   const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
   const [selectedCourtId, setSelectedCourtId] = useState("");
 
@@ -468,7 +544,6 @@ export default function PublicMatchResultsPage() {
         if (!alive) return;
         const next = Array.isArray(data?.rankings) ? data.rankings : [];
         setRankings(next);
-        setSelectedId(String(next.find((row: Ranking) => /michael joaquin/i.test(row.full_name))?.user_id ?? next[3]?.user_id ?? next[0]?.user_id ?? ""));
       })
       .catch((err) => {
         if (!alive) return;
@@ -483,11 +558,9 @@ export default function PublicMatchResultsPage() {
     };
   }, [nearLat, nearLng, radiusMiles]);
 
-  const decorated = useMemo(() => decorateRankings(rankings), [rankings]);
-  const viewer = useMemo(
-    () => decorated.find((ranking) => String(ranking.user_id) === selectedId) ?? decorated[3] ?? decorated[0] ?? null,
-    [decorated, selectedId],
-  );
+  const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
+  // The signed-in player, or nobody. Not a list position — see findViewer.
+  const viewer = useMemo(() => findViewer(decorated, viewerIdentities), [decorated, viewerIdentities]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -505,11 +578,6 @@ export default function PublicMatchResultsPage() {
     matches: Math.round(decorated.reduce((sum, ranking) => sum + Number(ranking.wins || 0), 0)),
     topRating: decorated[0]?.ratingLabel ?? "-",
   }), [decorated]);
-
-  const selected = useMemo(
-    () => decorated.find((ranking) => String(ranking.user_id) === selectedId) ?? viewer,
-    [decorated, selectedId, viewer],
-  );
 
   const selectedPlayedCourt = useMemo(
     () => playedCourts.find((court) => String(court.id) === selectedCourtId) ?? null,
@@ -557,10 +625,27 @@ export default function PublicMatchResultsPage() {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
   };
 
+  const openProfile = (ranking: DecoratedRanking) => {
+    navigate(`/players/${ranking.user_id}`);
+  };
+
+  /**
+   * The rankings endpoint sends no photo, so the only real picture available on
+   * this page is the signed-in player's, which the app already holds from their
+   * profile. Everyone else falls through to whatever the row carries (null
+   * today) and then to initials.
+   */
+  const photoFor = (ranking: DecoratedRanking) =>
+    (String(ranking.user_id) === String(viewer?.user_id) ? usableAvatar(viewerPhotoUrl) : null) ??
+    ranking.photoUrl;
+
   return (
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
-      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-5">
+      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
         <div className="min-w-0">
+          {/* Above the list so your own standing is the first thing on the page. */}
+          <ViewerCard ranking={viewer} photoUrl={viewer ? photoFor(viewer) : null} />
+
           <header className="rounded-2xl bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500 text-white">
@@ -570,12 +655,6 @@ export default function PublicMatchResultsPage() {
                 <h1 className="text-xl font-black tracking-tight">West LA Ladder</h1>
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Public player rankings</p>
               </div>
-              {viewer ? (
-                <div className="ml-auto hidden items-center gap-2 sm:flex">
-                  <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">Viewing rank #{viewer.rank}</span>
-                  <Avatar ranking={viewer} />
-                </div>
-              ) : null}
             </div>
           </header>
 
@@ -688,14 +767,14 @@ export default function PublicMatchResultsPage() {
                     tabIndex={0}
                     key={ranking.user_id}
                     className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    onClick={() => setSelectedId(String(ranking.user_id))}
-                    onKeyDown={(event) => clickOnKeyboard(event, () => setSelectedId(String(ranking.user_id)))}
+                    onClick={() => openProfile(ranking)}
+                    onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar ranking={ranking} />
+                      <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-black">{ranking.full_name}</div>
-                        <div className="text-xs font-semibold text-slate-400">#{ranking.rank} · TRP {ranking.ratingLabel}</div>
+                        <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
                       </div>
                     </div>
                     <div className="mt-3 text-xs font-bold text-violet-700">
@@ -755,9 +834,9 @@ export default function PublicMatchResultsPage() {
                     <LadderRow
                       key={ranking.user_id}
                       ranking={ranking}
-                      selected={String(ranking.user_id) === String(selected?.user_id)}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
-                      onSelect={() => setSelectedId(String(ranking.user_id))}
+                      photoUrl={photoFor(ranking)}
+                      onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
                   ))}
@@ -768,7 +847,8 @@ export default function PublicMatchResultsPage() {
                       key={ranking.user_id}
                       ranking={ranking}
                       viewer={String(ranking.user_id) === String(viewer?.user_id)}
-                      onSelect={() => setSelectedId(String(ranking.user_id))}
+                      photoUrl={photoFor(ranking)}
+                      onSelect={() => openProfile(ranking)}
                       onChallenge={() => openChallenge(ranking)}
                     />
                   ))}
@@ -780,11 +860,69 @@ export default function PublicMatchResultsPage() {
             )}
           </section>
         </div>
-
-        <aside className="mt-5 lg:sticky lg:top-5 lg:mt-0 lg:self-start">
-          <ProfilePanel ranking={selected} viewer={viewer} onChallenge={selected ? () => openChallenge(selected) : undefined} />
-        </aside>
       </main>
+    </div>
+  );
+}
+
+/**
+ * The signed-in player's own standing.
+ *
+ * This replaced a side panel that showed whoever was last tapped: it duplicated
+ * the row it came from, its one unique field (availability) was invented from a
+ * hash of the player record, and it meant the most prominent thing on the page
+ * was a stranger. Tapping a row now opens that player's profile instead.
+ *
+ * Renders only when the viewer is actually in the list. No card is better than a
+ * card about someone else.
+ */
+function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; photoUrl?: string | null }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const known = photoUrl ?? ranking?.photoUrl ?? null;
+  const { ref, photo } = useLazyPlayerPhoto(ranking?.user_id ?? "", Boolean(known) || !ranking);
+  if (!ranking) return null;
+
+  const src = photoFailed ? null : known ?? photo;
+
+  return (
+    <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
+      <div className="flex items-center gap-3">
+        <span ref={ref} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
+          {src ? (
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              onError={() => setPhotoFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            ranking.initials
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
+          <p className="truncate text-lg font-black leading-tight">
+            #{ranking.ladderPosition ?? ranking.rank} · {ranking.full_name}
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
+        <ViewerStat label="Rating" value={ranking.ratingLabel} />
+        <ViewerStat label="NTRP" value={ranking.ntrpLabel} />
+        <ViewerStat label="UTR" value={ranking.utrLabel} />
+        <ViewerStat label="Record" value={`${ranking.wins}-${ranking.losses}`} />
+      </dl>
+    </section>
+  );
+}
+
+function ViewerStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white/10 px-1 py-2">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-violet-200">{label}</dt>
+      <dd className="mt-0.5 text-sm font-black tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -799,10 +937,82 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
   );
 }
 
-function Avatar({ ranking }: { ranking: DecoratedRanking }) {
+/**
+ * A player's photo, fetched once the row is close to the viewport.
+ *
+ * The rankings response carries no image, so each face costs a request to
+ * `/public/players/:id`. Fetching 1223 of those on load would be absurd, so a
+ * row asks only when it is about to be seen; api/playerPhotos caches per id and
+ * caps how many are in flight. `skip` covers the cases where we already have
+ * the answer — the signed-in player's own photo, or a field the backend may
+ * one day include in the rankings payload.
+ */
+function useLazyPlayerPhoto(userId: number | string, skip: boolean) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (skip) return undefined;
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === "undefined") return undefined;
+
+    let alive = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        fetchPlayerPhoto(userId).then((url) => {
+          if (alive && url) setPhoto(url);
+        });
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(node);
+    return () => {
+      alive = false;
+      observer.disconnect();
+    };
+  }, [skip, userId]);
+
+  return { ref, photo };
+}
+
+/**
+ * The player's photo when there is one, their initials when there is not.
+ *
+ * `photoUrl` overrides what the row carries — that is how the signed-in
+ * player's own picture gets in without a request. A photo that fails to load
+ * falls back to the initials rather than leaving a broken image, the same guard
+ * AppNav uses.
+ *
+ * The wrapper span is what the observer watches, so it has to render in both
+ * states; it carries the initials colours only when no photo is showing.
+ */
+function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const known = photoUrl ?? ranking.photoUrl;
+  const { ref, photo } = useLazyPlayerPhoto(ranking.user_id, Boolean(known));
+  const src = failed ? null : known ?? photo;
+
   return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black ${ranking.avatarClass} ${ranking.avatarToneClass}`}>
-      {ranking.initials}
+    <span
+      ref={ref}
+      className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
+        src ? "bg-slate-100" : `${ranking.avatarClass} ${ranking.avatarToneClass}`
+      }`}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        ranking.initials
+      )}
     </span>
   );
 }
@@ -835,14 +1045,14 @@ function Change({ value }: { value: unknown }) {
 
 function LadderRow({
   ranking,
-  selected,
   viewer,
+  photoUrl,
   onSelect,
   onChallenge,
 }: {
   ranking: DecoratedRanking;
-  selected: boolean;
   viewer: boolean;
+  photoUrl?: string | null;
   onSelect: () => void;
   onChallenge: () => void;
 }) {
@@ -850,15 +1060,13 @@ function LadderRow({
     <div
       role="button"
       tabIndex={0}
-      className={`grid w-full grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] items-center px-4 py-3 text-left transition ${
-        selected ? "bg-violet-50" : "hover:bg-[#faf9fe]"
-      }`}
+      className="grid w-full grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] items-center px-4 py-3 text-left transition hover:bg-[#faf9fe]"
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
-      <RankValue rank={ranking.rank} />
+      <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
       <span className="flex min-w-0 items-center gap-3">
-        <Avatar ranking={ranking} />
+        <Avatar ranking={ranking} photoUrl={photoUrl} />
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <span className="truncate text-sm font-black">{ranking.full_name}</span>
@@ -897,11 +1105,13 @@ function LadderRow({
 function MobileRankingCard({
   ranking,
   viewer,
+  photoUrl,
   onSelect,
   onChallenge,
 }: {
   ranking: DecoratedRanking;
   viewer: boolean;
+  photoUrl?: string | null;
   onSelect: () => void;
   onChallenge: () => void;
 }) {
@@ -914,8 +1124,8 @@ function MobileRankingCard({
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
       <div className="flex items-center gap-3">
-        <RankValue rank={ranking.rank} />
-        <Avatar ranking={ranking} />
+        <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
+        <Avatar ranking={ranking} photoUrl={photoUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-black">{ranking.full_name}</span>
@@ -948,90 +1158,3 @@ function MobileRankingCard({
   );
 }
 
-function ProfilePanel({
-  ranking,
-  viewer,
-  onChallenge,
-}: {
-  ranking?: DecoratedRanking | null;
-  viewer?: DecoratedRanking | null;
-  onChallenge?: () => void;
-}) {
-  if (!ranking) {
-    return (
-      <section className="rounded-2xl bg-white p-5 text-sm font-bold text-slate-400 shadow-sm">
-        Select a player.
-      </section>
-    );
-  }
-  const isViewer = String(ranking.user_id) === String(viewer?.user_id);
-  const delta = viewer ? ranking.ratingNumber - viewer.ratingNumber : null;
-
-  return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <Avatar ranking={ranking} />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-black">{ranking.full_name}</h2>
-          <p className="text-sm font-semibold text-slate-400">
-            Rank #{ranking.rank} · {ranking.distanceLabel ? `${ranking.distanceLabel} away` : ranking.courtArea}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <Metric label="Rating" value={ranking.ratingLabel} tone="violet" />
-        <Metric label="NTRP" value={ranking.ntrpLabel} tone="green" />
-        <Metric label="UTR" value={ranking.utrLabel} tone="blue" />
-        <Metric label="Record" value={`${ranking.wins}-${ranking.losses}`} tone="gray" />
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <ProfileChip icon={<MapPin size={13} />}>{ranking.primaryCourt}</ProfileChip>
-        {ranking.availability.map((item) => (
-          <ProfileChip key={item} icon={<Clock size={13} />}>{item}</ProfileChip>
-        ))}
-      </div>
-
-      {delta !== null && !isViewer ? (
-        <div className="mt-4 rounded-xl bg-violet-50 p-3 text-sm font-bold text-violet-800">
-          {Math.abs(delta).toFixed(3)} {delta >= 0 ? "above" : "below"} your rating.
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        disabled={isViewer || !onChallenge}
-        onClick={onChallenge}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <Swords size={16} />
-        Challenge
-      </button>
-    </section>
-  );
-}
-
-function Metric({ label, value, tone }: { label: string; value: string; tone: "violet" | "green" | "blue" | "gray" }) {
-  const classes = {
-    violet: "bg-violet-50 text-violet-800",
-    green: "bg-emerald-50 text-emerald-800",
-    blue: "bg-sky-50 text-sky-800",
-    gray: "bg-slate-100 text-slate-800",
-  };
-  return (
-    <div className={`rounded-xl p-3 ${classes[tone]}`}>
-      <div className="text-[10px] font-black uppercase tracking-[0.12em] opacity-70">{label}</div>
-      <div className="mt-1 text-xl font-black tabular-nums">{value}</div>
-    </div>
-  );
-}
-
-function ProfileChip({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#f4f2fb] px-3 py-1.5 text-xs font-bold text-slate-500">
-      {icon}
-      {children}
-    </span>
-  );
-}

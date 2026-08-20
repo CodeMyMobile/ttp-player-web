@@ -60,7 +60,7 @@ const userMenuItems = [
   { label: "Player profile", to: "/settings/profile", icon: UserRound },
   { label: "Player match profile", to: "/settings/match-profile", icon: Target },
   { label: "Log result", to: "/log-result", icon: Trophy },
-  { label: "Match results", to: "/match-results", icon: Trophy },
+  { label: "Ladder", to: "/ladder", icon: Trophy },
   { label: "Payment methods", to: "/settings/payment-methods", icon: CreditCard },
   { label: "Blocked users", to: "/settings/blocked-users", icon: ShieldX },
 ];

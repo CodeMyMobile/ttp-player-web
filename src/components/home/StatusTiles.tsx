@@ -37,7 +37,7 @@ export function StatusTiles({
   return (
     <section className="home-tiles">
       {left === "rating" ? (
-        <Link className="home-tile home-tile--rating" to="/match-results">
+        <Link className="home-tile home-tile--rating" to="/ladder">
           <span className="home-tile__label">
             Tennis Plan Rating
             <Info size={12} aria-hidden="true" />

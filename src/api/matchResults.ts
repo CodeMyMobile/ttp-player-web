@@ -84,6 +84,29 @@ const ratingOf = (row: RankingRow) => {
  * Re-sorting by current_rating here is the workaround. Ties keep the API's
  * relative order, so equal ratings resolve consistently between renders.
  */
+/**
+ * Ladder order: highest current_rating first, ties keeping the API's relative
+ * order so equal ratings resolve the same way between renders.
+ *
+ * Exported because the ladder page needs the same ordering as the home tile's
+ * position. Two sorts over the same rows would eventually disagree, and a
+ * player told they are 3rd on one screen and 5th on another has no way to know
+ * which is true.
+ *
+ * Unrated rows sort last rather than being dropped — the tile ranks among
+ * players with evidence, but the ladder lists everyone.
+ */
+export const sortByRatingDesc = <T extends RankingRow>(rankings: T[]): T[] =>
+  (Array.isArray(rankings) ? rankings : [])
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const left = ratingOf(a.row);
+      const right = ratingOf(b.row);
+      const diff = (right ?? Number.NEGATIVE_INFINITY) - (left ?? Number.NEGATIVE_INFINITY);
+      return Number.isNaN(diff) ? a.index - b.index : diff || a.index - b.index;
+    })
+    .map((entry) => entry.row);
+
 export const rankedPosition = (rankings: RankingRow[], userId: number | null | undefined) => {
   if (!Array.isArray(rankings) || userId == null) return null;
 
@@ -91,13 +114,7 @@ export const rankedPosition = (rankings: RankingRow[], userId: number | null | u
   // numerically a no-op today — zero-rated rows sort below every real rating —
   // but it keeps "3rd nearby" meaning third among people who have played.
   const rated = rankings.filter((row) => hasPlayed(row) && ratingOf(row) !== null);
-  const ordered = rated
-    .map((row, index) => ({ row, index }))
-    .sort((a, b) => {
-      const diff = (ratingOf(b.row) as number) - (ratingOf(a.row) as number);
-      return diff || a.index - b.index;
-    })
-    .map((entry) => entry.row);
+  const ordered = sortByRatingDesc(rated);
 
   const position = ordered.findIndex((row) => Number(row.user_id) === Number(userId));
   return position === -1 ? null : position + 1;

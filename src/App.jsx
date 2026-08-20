@@ -25,6 +25,7 @@ import CreateMatchPublishConfirmationPage from "./pages/CreateMatchPublishConfir
 import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
+import MainLayout from "./components/MainLayout";
 import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
@@ -353,13 +354,22 @@ const AppRoutes = () => (
       path="/restringing/claim"
       element={<RestringingClaimPage />}
     />
+    {/* The page is the ladder and always was — its own h1 says so. The old
+        path stays as a redirect so existing links and bookmarks survive. */}
     <Route
       path="/match-results"
-      element={<PublicMatchResultsPage />}
+      element={<Navigate to="/ladder" replace />}
     />
+    {/* Wrapped here rather than inside the page: the page module is imported by
+        its own unit tests, and MainLayout pulls in AppNav.css, which the node
+        test runner cannot load. Chrome belongs to the route either way. */}
     <Route
       path="/ladder"
-      element={<PublicMatchResultsPage />}
+      element={(
+        <MainLayout mobileChrome="home">
+          <PublicMatchResultsPage />
+        </MainLayout>
+      )}
     />
     <Route
       path="/"
