@@ -65,7 +65,11 @@ export function SeasonModule({ seasons }: SeasonModuleProps) {
               <p className="home-season__meta">{meta.join(" · ")}</p>
             ) : null}
 
-            <Link className="home-season__cta" to={`/leagues/${season.id}/match-browser`}>
+            {/* The league dashboard rather than the match browser: arranging a
+                match starts from seeing where the season stands, and the
+                dashboard is where the standing, fixtures and the arrange flow
+                all live. */}
+            <Link className="home-season__cta" to={`/leagues/${season.id}/dashboard`}>
               Arrange next match
             </Link>
           </article>
