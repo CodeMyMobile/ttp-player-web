@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { usableAvatar } from "../utils/avatar";
+import { fetchPlayerPhoto } from "../api/playerPhotos";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
@@ -877,26 +878,28 @@ export default function PublicMatchResultsPage() {
  */
 function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; photoUrl?: string | null }) {
   const [photoFailed, setPhotoFailed] = useState(false);
+  const known = photoUrl ?? ranking?.photoUrl ?? null;
+  const { ref, photo } = useLazyPlayerPhoto(ranking?.user_id ?? "", Boolean(known) || !ranking);
   if (!ranking) return null;
 
-  const src = photoUrl ?? ranking.photoUrl;
+  const src = photoFailed ? null : known ?? photo;
 
   return (
     <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
       <div className="flex items-center gap-3">
-        {src && !photoFailed ? (
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            onError={() => setPhotoFailed(true)}
-            className="h-11 w-11 shrink-0 rounded-xl object-cover"
-          />
-        ) : (
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20 text-sm font-black">
-            {ranking.initials}
-          </div>
-        )}
+        <span ref={ref} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
+          {src ? (
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              onError={() => setPhotoFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            ranking.initials
+          )}
+        </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
           <p className="truncate text-lg font-black leading-tight">
@@ -935,32 +938,81 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
 }
 
 /**
+ * A player's photo, fetched once the row is close to the viewport.
+ *
+ * The rankings response carries no image, so each face costs a request to
+ * `/public/players/:id`. Fetching 1223 of those on load would be absurd, so a
+ * row asks only when it is about to be seen; api/playerPhotos caches per id and
+ * caps how many are in flight. `skip` covers the cases where we already have
+ * the answer — the signed-in player's own photo, or a field the backend may
+ * one day include in the rankings payload.
+ */
+function useLazyPlayerPhoto(userId: number | string, skip: boolean) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (skip) return undefined;
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === "undefined") return undefined;
+
+    let alive = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        fetchPlayerPhoto(userId).then((url) => {
+          if (alive && url) setPhoto(url);
+        });
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(node);
+    return () => {
+      alive = false;
+      observer.disconnect();
+    };
+  }, [skip, userId]);
+
+  return { ref, photo };
+}
+
+/**
  * The player's photo when there is one, their initials when there is not.
  *
- * `photoUrl` overrides what the ranking row carries — that is how the signed-in
- * player's own picture gets in, since the rankings endpoint sends none. A photo
- * that fails to load falls back to the initials rather than leaving a broken
- * image, the same guard AppNav uses.
+ * `photoUrl` overrides what the row carries — that is how the signed-in
+ * player's own picture gets in without a request. A photo that fails to load
+ * falls back to the initials rather than leaving a broken image, the same guard
+ * AppNav uses.
+ *
+ * The wrapper span is what the observer watches, so it has to render in both
+ * states; it carries the initials colours only when no photo is showing.
  */
 function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: string | null }) {
   const [failed, setFailed] = useState(false);
-  const src = photoUrl ?? ranking.photoUrl;
-
-  if (src && !failed) {
-    return (
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        onError={() => setFailed(true)}
-        className="h-10 w-10 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
+  const known = photoUrl ?? ranking.photoUrl;
+  const { ref, photo } = useLazyPlayerPhoto(ranking.user_id, Boolean(known));
+  const src = failed ? null : known ?? photo;
 
   return (
-    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black ${ranking.avatarClass} ${ranking.avatarToneClass}`}>
-      {ranking.initials}
+    <span
+      ref={ref}
+      className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
+        src ? "bg-slate-100" : `${ranking.avatarClass} ${ranking.avatarToneClass}`
+      }`}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        ranking.initials
+      )}
     </span>
   );
 }
