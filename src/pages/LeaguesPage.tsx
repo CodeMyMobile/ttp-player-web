@@ -15,7 +15,15 @@ import {
   type LeagueSections,
   type LeagueStanding,
 } from "../api/leagues";
-import { computeSeasonProgress, weeksRemaining } from "../utils/leagueSeason";
+import {
+  buildViewerIdentities,
+  computeSeasonProgress,
+  fetchSeasonEnrichment,
+  isPastLeague,
+  matchesViewer,
+  weeksRemaining,
+  type SeasonEnrichment,
+} from "../utils/leagueSeason";
 import { resolveLeagueNextAction } from "../utils/leagueNextAction";
 import { rankMedal, ordinal } from "../utils/leagueMedal";
 import { leaguePhoto } from "../utils/leaguePhoto";
@@ -103,7 +111,6 @@ const getApiErrorMessage = (error: unknown) => {
   return apiError.data?.error || apiError.message || "We couldn't load your profile for league join.";
 };
 
-
 const getEmptyCopy = ({
   filter,
   availableFilter,
@@ -160,27 +167,6 @@ const normalizeSections = (sections?: LeagueSections | null): LeagueSections => 
 // and lingers among active leagues. Treat a league as past when its season has
 // clearly ended (a finished-ish status, or an end date before today) so we can
 // surface it under Past seasons instead. Remove once the backend categorizes these.
-const FINISHED_LEAGUE_STATUSES = new Set([
-  "finished",
-  "completed",
-  "complete",
-  "ended",
-  "closed",
-  "archived",
-  "past",
-]);
-
-const isPastLeague = (league: League): boolean => {
-  const status = String(league.status ?? "").trim().toLowerCase();
-  if (FINISHED_LEAGUE_STATUSES.has(status)) return true;
-  const end = league.end_date || league.deadline;
-  if (!end) return false;
-  const endTime = new Date(end).getTime();
-  if (!Number.isFinite(endTime)) return false;
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  return endTime < startOfToday.getTime();
-};
 
 const SectionEmptyState = ({
   title,
@@ -195,7 +181,6 @@ const SectionEmptyState = ({
     <p>{body}</p>
   </div>
 );
-
 
 const LoadingSkeleton = () => (
   <div className="leagues-page__grid" aria-hidden="true">
@@ -214,52 +199,7 @@ const LoadingSkeleton = () => (
 // ───────────────────────── Stage 2b: redesigned browse cards ─────────────────────────
 // Per-enrolled-league data that loads asynchronously AFTER the card is on screen, so the
 // page never blocks on N standings/fixtures requests. Undefined = not fetched yet.
-type MineEnrichment = {
-  loading: boolean;
-  error?: boolean;
-  rank?: number | null; // viewer's standing rank
-  total?: number | null; // total players in the standings
-  matchesPlayed?: number; // viewer's fixtures with a score (a result has been logged)
-  matchesTotal?: number; // viewer's scheduled fixtures (round-robin: players − 1 fallback)
-  wins?: number;
-  losses?: number;
-  preSeason?: boolean; // no standings yet → league hasn't started
-};
-
-const normalizeIdentity = (value: unknown) => String(value ?? "").trim().toLowerCase();
-
-// The account id (user.id) and the league player_id are different id-spaces, so a single-id
-// compare misses the viewer's own row. Match by id OR name OR email — mirrors useLeagueDashboard.
-const buildViewerIdentities = (
-  user: unknown,
-  player?: PlayerPersonalDetails | null,
-): Set<string> => {
-  const u = (user ?? {}) as Record<string, unknown> & { profile?: Record<string, unknown> };
-  const uProfile = (u.profile ?? {}) as Record<string, unknown>;
-  const userId = u.id ?? u.user_id ?? u.player_id ?? uProfile.id ?? uProfile.user_id;
-  return new Set(
-    [
-      normalizeIdentity(userId),
-      normalizeIdentity(u.email),
-      normalizeIdentity(uProfile.email),
-      normalizeIdentity(u.full_name),
-      normalizeIdentity(uProfile.full_name),
-      normalizeIdentity(u.name),
-      // The fetched player profile is the reliable league-player identity (user_id matches
-      // standings.player_id; full_name matches standings.full_name).
-      normalizeIdentity(player?.user_id),
-      normalizeIdentity(player?.id),
-      normalizeIdentity(player?.full_name),
-      normalizeIdentity(player?.email),
-    ].filter(Boolean),
-  );
-};
-
-const matchesViewer = (identities: Set<string>, ...candidates: unknown[]): boolean =>
-  candidates
-    .map(normalizeIdentity)
-    .filter(Boolean)
-    .some((identity) => identities.has(identity));
+type MineEnrichment = SeasonEnrichment;
 
 const levelChipLabel = (league: League): string => {
   const band = typeof league.skill_band === "string" ? league.skill_band.trim() : "";
@@ -872,54 +812,17 @@ const LeaguesPage = () => {
     sections.mine.forEach(async (league) => {
       const id = String(league.id);
       try {
-        // Standings gives rank/record; fixtures gives the viewer's real matches. Standings
-        // matches_played is 0 until results are aggregated (rank is rating-seeded), so we
-        // count played/total from the viewer's fixtures instead — a fixture with a score
-        // has been played. Fixtures failing (e.g. 404 = none) must not sink the card.
-        const [standingsRes, fixturesRes] = await Promise.all([
-          getLeagueStandings({ leagueId: league.id, token, signal: controller.signal }),
-          getLeagueFixtures({ leagueId: league.id, token, mine: true, signal: controller.signal }).catch(
-            () => ({ fixtures: [] as LeagueFixture[] }),
-          ),
-        ]);
+        // Standings gives rank/record; fixtures gives the viewer's real matches. Both the
+        // fetch and the arithmetic now live in utils/leagueSeason so the home season module
+        // counts this season exactly as this card does.
+        const enrichment = await fetchSeasonEnrichment({
+          leagueId: league.id,
+          token,
+          signal: controller.signal,
+          viewerIdentities,
+        });
         if (controller.signal.aborted) return;
-        const standings: LeagueStanding[] = standingsRes.standings ?? [];
-        const total = standings.length;
-        const mineRow = standings.find((row) =>
-          matchesViewer(viewerIdentities, row.player_id, row.full_name),
-        );
-        // Filter to the viewer's own fixtures client-side too — robust even if the backend
-        // ignores mine:true and returns the whole league's fixtures.
-        const myFixtures = (fixturesRes.fixtures ?? []).filter((fixture) =>
-          matchesViewer(
-            viewerIdentities,
-            fixture.player1_id,
-            fixture.player1_name,
-            fixture.player2_id,
-            fixture.player2_name,
-          ),
-        );
-        const hasScore = (fixture: LeagueFixture) =>
-          typeof fixture.score === "string" && fixture.score.trim() !== "";
-        // Prefer the real scheduled count; fall back to round-robin (players − 1) if the
-        // fixtures list is empty but standings exist.
-        const matchesTotal = myFixtures.length || Math.max(0, total - 1);
-        const matchesPlayed = myFixtures.length
-          ? myFixtures.filter(hasScore).length
-          : Number(mineRow?.matches_played ?? 0);
-        setMineEnrichment((current) => ({
-          ...current,
-          [id]: {
-            loading: false,
-            preSeason: total === 0,
-            rank: mineRow?.rank ?? null,
-            total: total || null,
-            matchesPlayed,
-            matchesTotal,
-            wins: mineRow ? Number(mineRow.wins) : undefined,
-            losses: mineRow ? Number(mineRow.losses) : undefined,
-          },
-        }));
+        setMineEnrichment((current) => ({ ...current, [id]: enrichment }));
       } catch {
         if (controller.signal.aborted) return;
         setMineEnrichment((current) => ({ ...current, [id]: { loading: false, error: true } }));
