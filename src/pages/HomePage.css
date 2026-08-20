@@ -545,6 +545,120 @@
   text-decoration: none;
 }
 
+/* --- off court ------------------------------------------------------------ */
+
+.home-v2 .home-offcourt {
+  margin-top: 24px;
+}
+
+.home-v2 .home-offcourt__heading {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.home-v2 .home-offcourt__card {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.home-v2 .home-offcourt__row {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-v2 .home-offcourt__thumb {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 6px;
+  /* Dark ground so the play badge reads before the thumbnail loads, and if it
+     never does. */
+  background: #1e293b;
+}
+
+.home-v2 .home-offcourt__thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-v2 .home-offcourt__play {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 90%);
+  color: #0f172a;
+}
+
+.home-v2 .home-offcourt__duration {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 70%);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-v2 .home-offcourt__copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-v2 .home-offcourt__eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+
+/* Two lines, then clamp — titles on this playlist run long and a third line
+   pushes the card taller than the thumbnail. */
+.home-v2 .home-offcourt__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-top: 1px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.home-v2 .home-offcourt__channel {
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* --- activity feed -------------------------------------------------------- */
 
 .home-v2 .home-feed {

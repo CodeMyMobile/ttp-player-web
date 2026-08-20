@@ -5,6 +5,7 @@ import { ActionGrid } from "../components/home/ActionGrid";
 import { ActivityFeed } from "../components/home/ActivityFeed";
 import { AlertStack } from "../components/home/AlertStack";
 import { InviteCard } from "../components/home/InviteCard";
+import { OffCourt } from "../components/home/OffCourt";
 import { SeasonModule } from "../components/home/SeasonModule";
 import { StatusTiles } from "../components/home/StatusTiles";
 import { TodayRow } from "../components/home/TodayRow";
@@ -12,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import {
   readViewerId,
   useActiveSeasons,
+  useTipOfDay,
   useActivityFeed,
   useHomeAlerts,
   useHomeInvites,
@@ -68,6 +70,7 @@ export default function HomePage() {
     loading: feedLoading,
   } = useActivityFeed();
   const { seasons } = useActiveSeasons(user);
+  const { tip } = useTipOfDay();
 
   return (
     <div className="player-home home-v2">
@@ -102,6 +105,8 @@ export default function HomePage() {
         {/* Season, then the feed. Every mockup puts "Play this week" last;
             off court (PR 8) will sit between these two when it lands. */}
         <SeasonModule seasons={seasons} />
+
+        <OffCourt tip={tip} />
 
         <ActivityFeed
           items={feedItems}

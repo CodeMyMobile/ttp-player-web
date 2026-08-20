@@ -32,6 +32,8 @@ import { buildPlayerInviteItems } from "../utils/dashboardInvites";
 import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
 import { fetchPlayerCoaches } from "../api/playerCoaches";
 import { listMyLeagues, getLeagueResultOpponents } from "../api/leagues";
+import { fetchTipVideos, hasYouTubeKey } from "../api/youtube";
+import { pickTipOfDay, readCachedTips, writeCachedTips, type TipVideo } from "../utils/tipOfDay";
 import {
   activeSeasons,
   buildViewerIdentities,
@@ -421,4 +423,29 @@ export function useActiveSeasons(user: unknown, skip = false) {
   const { data, loading, error } = useApiRequest(seasonsFetcher, params, { skip });
 
   return { loading, error, seasons: data ?? [] };
+}
+
+
+const tipFetcher = async (): Promise<TipVideo[]> => {
+  // The tip cannot change before midnight, so a second call today would spend
+  // quota for an answer we already have.
+  const cached = readCachedTips();
+  if (cached) return cached;
+
+  const videos = await fetchTipVideos();
+  if (videos.length) writeCachedTips(videos);
+  return videos;
+};
+
+/**
+ * The day's coaching video, or null.
+ *
+ * Skipped entirely without a YouTube key, so the section is simply absent rather
+ * than failing — which is also how this ships safely before the variable is set.
+ */
+export function useTipOfDay(skip = false) {
+  const { data, loading } = useApiRequest(tipFetcher, NO_PARAMS, { skip: skip || !hasYouTubeKey() });
+  const tip = useMemo(() => pickTipOfDay(data ?? []), [data]);
+
+  return { loading, tip };
 }
