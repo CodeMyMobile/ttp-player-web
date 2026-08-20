@@ -595,6 +595,10 @@ export default function PublicMatchResultsPage() {
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_330px] lg:gap-5">
         <div className="min-w-0">
+          {/* Above the list so it is the first thing on mobile, where the
+              profile panel sits below the ladder entirely. */}
+          <ViewerCard ranking={viewer} />
+
           <header className="rounded-2xl bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500 text-white">
@@ -604,12 +608,6 @@ export default function PublicMatchResultsPage() {
                 <h1 className="text-xl font-black tracking-tight">West LA Ladder</h1>
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Public player rankings</p>
               </div>
-              {viewer ? (
-                <div className="ml-auto hidden items-center gap-2 sm:flex">
-                  <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">Your position #{viewer.ladderPosition ?? viewer.rank}</span>
-                  <Avatar ranking={viewer} />
-                </div>
-              ) : null}
             </div>
           </header>
 
@@ -819,6 +817,52 @@ export default function PublicMatchResultsPage() {
           <ProfilePanel ranking={selected} viewer={viewer} onChallenge={selected ? () => openChallenge(selected) : undefined} />
         </aside>
       </main>
+    </div>
+  );
+}
+
+/**
+ * The signed-in player's own standing.
+ *
+ * Separate from ProfilePanel, which shows whoever was last tapped — that is its
+ * job, but it meant the most prominent thing on the page was a stranger, and on
+ * mobile it sits below the ladder so there was nothing about you at all.
+ *
+ * Renders only when the viewer is actually in the list. No card is better than a
+ * card about someone else.
+ */
+function ViewerCard({ ranking }: { ranking: DecoratedRanking | null }) {
+  if (!ranking) return null;
+
+  return (
+    <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/20 text-sm font-black">
+          {ranking.initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
+          <p className="truncate text-lg font-black leading-tight">
+            #{ranking.ladderPosition ?? ranking.rank} · {ranking.full_name}
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
+        <ViewerStat label="Rating" value={ranking.ratingLabel} />
+        <ViewerStat label="NTRP" value={ranking.ntrpLabel} />
+        <ViewerStat label="UTR" value={ranking.utrLabel} />
+        <ViewerStat label="Record" value={`${ranking.wins}-${ranking.losses}`} />
+      </dl>
+    </section>
+  );
+}
+
+function ViewerStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white/10 px-1 py-2">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-violet-200">{label}</dt>
+      <dd className="mt-0.5 text-sm font-black tabular-nums">{value}</dd>
     </div>
   );
 }
