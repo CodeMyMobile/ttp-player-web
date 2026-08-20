@@ -1,0 +1,45 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { DEFAULT_POSITION, DEFAULT_RADIUS_MILES } from "./userLocation";
+
+const EARTH_MILES = 3958.8;
+const toRad = (deg) => (deg * Math.PI) / 180;
+
+const milesBetween = (a, b) => {
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_MILES * Math.asin(Math.sqrt(h));
+};
+
+// The areas the product actually serves, as drawn in docs/home-states.
+const SERVED = {
+  "Penmar Recreation Center": { latitude: 33.9975, longitude: -118.4637 },
+  "Mar Vista": { latitude: 34.0028, longitude: -118.431 },
+  "Santa Monica": { latitude: 34.0195, longitude: -118.4912 },
+  Westwood: { latitude: 34.0635, longitude: -118.4455 },
+  "Culver City": { latitude: 34.0211, longitude: -118.3965 },
+  Brentwood: { latitude: 34.052, longitude: -118.476 },
+  "Playa Vista": { latitude: 33.9764, longitude: -118.425 },
+};
+
+test("the default location puts every served area inside the default radius", () => {
+  // The regression this guards: the default was Downtown LA, which left all of
+  // these outside the radius, so a player who had not set a location saw an
+  // empty feed with no explanation.
+  for (const [name, coords] of Object.entries(SERVED)) {
+    const miles = milesBetween(DEFAULT_POSITION, coords);
+    assert.ok(
+      miles <= DEFAULT_RADIUS_MILES,
+      `${name} is ${miles.toFixed(1)}mi from the default, outside the ${DEFAULT_RADIUS_MILES}mi radius`,
+    );
+  }
+});
+
+test("the default sits in West LA, not somewhere a coordinate typo could land", () => {
+  assert.ok(DEFAULT_POSITION.latitude > 33.9 && DEFAULT_POSITION.latitude < 34.2);
+  assert.ok(DEFAULT_POSITION.longitude > -118.6 && DEFAULT_POSITION.longitude < -118.3);
+});

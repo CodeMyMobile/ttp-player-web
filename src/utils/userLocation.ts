@@ -6,7 +6,20 @@ const USER_LOCATION_RADIUS_STORAGE_KEY = "player:web:user-location-radius";
 const USER_LOCATION_AREA_STORAGE_KEY = "player:web:user-location-area";
 export const USER_LOCATION_CHANGED_EVENT = "player:web:user-location-changed";
 
-const DEFAULT_COORDINATES_VALUE: Coordinates = { latitude: 34.0549076, longitude: -118.242643 };
+// West LA (Sawtelle). Used only until the player picks a location, and every
+// geo-scoped surface falls back to it — the feed, group lessons, find players
+// and the coach search.
+//
+// This was Downtown LA, which put every venue the product actually serves
+// outside the 10-mile default radius: Mar Vista 11.4mi, Westwood 11.6mi,
+// Penmar 13.3mi, Santa Monica 14.4mi. A new player with no location set saw an
+// empty page and no reason why. Sawtelle is the tighter centre of the area in
+// the mockups — the furthest of those venues is 4.5mi from here.
+//
+// The trade is that Downtown is now outside the default radius (11.7mi). That
+// is the right way round: someone there sets their location and gets real
+// results, rather than everyone else starting empty.
+const DEFAULT_COORDINATES_VALUE: Coordinates = { latitude: 34.0395, longitude: -118.4455 };
 
 export const DEFAULT_COORDINATES: Coordinates = DEFAULT_COORDINATES_VALUE;
 export const DEFAULT_POSITION: Coordinates = DEFAULT_COORDINATES_VALUE;
