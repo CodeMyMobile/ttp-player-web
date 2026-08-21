@@ -140,13 +140,22 @@ const PHOTO_FIELDS = [
   "picture",
 ] as const;
 
+const AVATAR_BUCKET_URL = "https://ttp-avatars-production.s3.amazonaws.com/";
+
+const resolveRankingPhotoUrl = (value: string): string | null => {
+  const usable = usableAvatar(value);
+  if (!usable) return null;
+  if (/^https?:\/\//i.test(usable) || usable.startsWith("/")) return usable;
+  return `${AVATAR_BUCKET_URL}${encodeURIComponent(usable)}`;
+};
+
 const photoFromRanking = (ranking: Ranking): string | null => {
   const record = ranking as unknown as Record<string, unknown>;
   for (const field of PHOTO_FIELDS) {
     const value = record[field];
     // usableAvatar rejects a bare bucket root, which would render as a broken
     // image rather than falling back to the initials that were already there.
-    const usable = typeof value === "string" ? usableAvatar(value) : null;
+    const usable = typeof value === "string" ? resolveRankingPhotoUrl(value) : null;
     if (usable) return usable;
   }
   return null;
