@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restring — string-first flow (mobile + desktop)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#f3f4f8; --card:#fff; --ink:#0f172a; --ink2:#64748b; --ink3:#94a3b8;
+  --line:#e6e8ef; --violet:#7c3aed; --violet2:#a855f7;
+  --vsoft:#f5f1ff; --vline:#ddd0fb;
+  --amber-bg:#fff8ea; --amber-line:#f2ddb0; --amber-ink:#8a6100;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#dfe2ec;color:var(--ink)}
+
+.stage{display:flex;gap:22px;align-items:flex-start;justify-content:center;padding:22px 18px 8px}
+@media (max-width:1380px){.stage{flex-direction:column;align-items:center}}
+
+.framewrap{display:flex;flex-direction:column;gap:8px}
+.framelabel{font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:#7c8598;padding-left:4px}
+
+/* ---------- frames ---------- */
+.frame{background:var(--canvas);overflow:hidden;display:flex;flex-direction:column;position:relative;
+  box-shadow:0 18px 46px rgba(15,23,42,.16);border:1px solid #cfd4e2}
+.m .frame,.frame.m{width:390px;height:812px;border-radius:34px}
+.frame.d{width:940px;height:812px;border-radius:14px}
+
+.body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.frame.m .body{padding:14px 16px 34px}
+.frame.d .body{padding:0}
+.dwrap{max-width:760px;margin:0 auto;padding:26px 28px 60px}
+.dwrap.wide{max-width:1000px}
+
+/* ---------- mobile chrome ---------- */
+.mnav{flex:none;background:#fff;border-bottom:1px solid var(--line);padding:11px 6px;
+  display:flex;align-items:center;gap:2px;position:relative}
+.mnav-btn{width:38px;height:38px;border:none;background:none;cursor:pointer;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;border-radius:11px;flex:none}
+.mnav-btn.x{color:var(--ink3)}
+.mnav-t{flex:1;text-align:center;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.mprog{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--line)}
+.mprog i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--violet2));transition:width .25s}
+.tabbar{flex:none;background:#fff;border-top:1px solid var(--line);display:flex;align-items:flex-end;padding:7px 4px 16px}
+.tab{flex:1;background:none;border:none;cursor:pointer;font:inherit;display:flex;flex-direction:column;
+  align-items:center;gap:3px;color:var(--ink3);padding:4px 2px}
+.tab svg{width:21px;height:21px}
+.tab span{font-size:10px;font-weight:700}
+.tab.on{color:var(--violet)}
+.fabslot{flex:none;width:74px;display:flex;justify-content:center}
+.fab{width:52px;height:52px;border-radius:50%;border:none;color:#fff;cursor:pointer;margin-bottom:6px;
+  background:linear-gradient(150deg,var(--violet),var(--violet2));box-shadow:0 6px 16px rgba(124,58,237,.38),0 0 0 4px #fff;
+  display:flex;align-items:center;justify-content:center}
+
+/* ---------- desktop chrome ---------- */
+.dnav{flex:none;background:#fff;border-bottom:1px solid var(--line);padding:11px 20px;
+  display:flex;align-items:center;gap:8px}
+.dlogo{width:32px;height:32px;border-radius:10px;background:linear-gradient(160deg,#b9f04a,#8fd613);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.dmark{font-size:15px;font-weight:800;letter-spacing:-.3px;margin-right:14px}
+.dmark span{color:var(--violet)}
+.dlink{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--ink2);
+  padding:7px 11px;border-radius:10px;background:none;border:none;cursor:pointer;font-family:inherit}
+.dlink.on{color:var(--violet);background:var(--vsoft)}
+.dspacer{flex:1}
+.dchip{display:flex;align-items:center;gap:6px;background:var(--canvas);border-radius:999px;
+  padding:8px 13px;font-size:13px;font-weight:600;color:var(--ink2)}
+.dcta{background:linear-gradient(120deg,var(--violet),var(--violet2));color:#fff;border:none;cursor:pointer;
+  border-radius:11px;padding:9px 15px;font:inherit;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.davatar{display:flex;align-items:center;gap:8px;background:var(--canvas);border-radius:999px;padding:5px 12px 5px 5px}
+.davatar i{width:28px;height:28px;border-radius:50%;background:linear-gradient(140deg,#c4b5fd,#7c3aed);flex:none}
+.davatar div{font-size:12px;font-weight:700;line-height:1.2}
+.davatar small{display:block;font-size:10.5px;color:var(--ink2);font-weight:600}
+
+.dcrumb{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.dback{display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:inherit;
+  font-size:13.5px;font-weight:700;color:var(--ink2);padding:6px 10px 6px 4px;border-radius:9px}
+.dback:hover{background:#fff;color:var(--ink)}
+.dsteps{display:flex;align-items:center;gap:7px}
+.dstep{width:26px;height:4px;border-radius:2px;background:var(--line)}
+.dstep.on{background:linear-gradient(90deg,var(--violet),var(--violet2))}
+.dstep.done{background:var(--vline)}
+
+/* ---------- type ---------- */
+h1{margin:0 0 6px;letter-spacing:-1px;line-height:1.1}
+.frame.m h1{font-size:27px;font-weight:800}
+.frame.d h1{font-size:34px;font-weight:800}
+.sub{margin:0 0 20px;color:var(--ink2);line-height:1.45}
+.frame.m .sub{font-size:14.5px}
+.frame.d .sub{font-size:16px}
+h2{font-size:12px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--ink3);margin:24px 0 10px}
+.hint{font-size:12.5px;color:var(--ink3);margin:8px 0 0;line-height:1.45}
+
+/* ---------- cards / options ---------- */
+.card{background:var(--card);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.opt{width:100%;text-align:left;font:inherit;cursor:pointer;background:var(--card);border:1px solid transparent;
+  border-radius:var(--r);padding:15px 16px;margin-bottom:11px;display:flex;align-items:center;gap:13px;
+  box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.opt:hover{border-color:var(--vline)}
+.opt.hero{background:var(--vsoft);border-color:var(--vline)}
+.oico{width:36px;height:36px;flex:none;border-radius:11px;background:var(--canvas);display:flex;align-items:center;
+  justify-content:center;color:var(--violet)}
+.opt.hero .oico{background:#fff}
+.otxt{flex:1;min-width:0}
+.ot{font-size:15.5px;font-weight:700;line-height:1.25}
+.os{font-size:13px;color:var(--ink2);margin-top:2px;line-height:1.35}
+.oarw{color:var(--ink3);flex:none}
+.oprice{font-size:15.5px;font-weight:800;flex:none;margin-left:10px}
+
+/* ---------- search layout ---------- */
+.searchbar{position:relative;margin-bottom:14px}
+.sinput{width:100%;font:inherit;font-size:15.5px;font-weight:600;padding:14px 14px 14px 42px;border-radius:13px;
+  border:1px solid var(--line);background:#fff;color:var(--ink)}
+.sinput::placeholder{color:var(--ink3);font-weight:500}
+.sinput:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px var(--vsoft)}
+.sico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink3)}
+
+.slayout{display:block}
+.frame.d .slayout{display:grid;grid-template-columns:212px 1fr;gap:28px;align-items:start}
+
+.filtbox{margin-bottom:16px}
+.filtlabel{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+.filtlist{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.filtlist::-webkit-scrollbar{display:none}
+.frame.d .filtlist{flex-direction:column;overflow:visible;gap:2px}
+.chip{font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;border:1px solid var(--line);
+  border-radius:999px;padding:8px 13px;color:var(--ink);flex:none;white-space:nowrap}
+.chip.on{background:var(--vsoft);border-color:var(--violet);color:var(--violet)}
+.chip:disabled{opacity:.35;cursor:not-allowed}
+.frame.d .chip{border-radius:9px;border-color:transparent;background:none;text-align:left;padding:9px 11px;
+  display:flex;justify-content:space-between;gap:10px;width:100%}
+.frame.d .chip:hover{background:#fff}
+.frame.d .chip.on{background:var(--vsoft);border-color:var(--vline)}
+.chipn{font-size:11px;font-weight:700;color:var(--ink3)}
+.frame.m .chipn{display:none}
+.frame.d .chip.on .chipn{color:var(--violet)}
+.frame.m .filtbox{margin-bottom:10px}
+.frame.m .filtlabel{display:inline-block;margin-right:8px}
+
+.reshead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 10px;
+  font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3)}
+.clear{font:inherit;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:none;
+  border:none;color:var(--violet);cursor:pointer;padding:0}
+
+.res{width:100%;text-align:left;font:inherit;cursor:pointer;background:#fff;border:1px solid var(--line);
+  border-radius:13px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.res:hover{border-color:var(--violet)}
+.restxt{flex:1;min-width:0}
+.rest{font-size:14.5px;font-weight:700}
+.rest mark{background:#ece0ff;color:inherit;border-radius:3px;padding:0 1px}
+.resm{font-size:12px;color:var(--ink2);margin-top:3px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.tag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;background:var(--canvas);
+  color:var(--ink2);border-radius:999px;padding:3px 7px}
+.tag.stock{background:#eefaf1;color:#1a7f43}
+.resp{font-size:14.5px;font-weight:800;flex:none}
+
+/* family cards */
+.fgrid{display:grid;gap:10px}
+.frame.d .fgrid{grid-template-columns:1fr 1fr}
+.fam{text-align:left;font:inherit;cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:14px 15px;display:block;width:100%}
+.fam:hover{border-color:var(--violet)}
+.famtop{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.famn{font-size:15px;font-weight:800;letter-spacing:-.2px}
+.famp{font-size:15px;font-weight:800;flex:none}
+.famex{font-size:12.5px;color:var(--ink2);margin-top:5px;line-height:1.45}
+.fambadge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  margin-top:8px;background:#eefaf1;color:#1a7f43;border-radius:999px;padding:3px 8px}
+.fambadge.none{background:var(--canvas);color:var(--ink3)}
+
+.note{background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:14px;padding:13px 15px;margin-bottom:12px}
+.notet{font-size:14px;font-weight:700;color:var(--amber-ink)}
+.notes{font-size:12.5px;color:var(--amber-ink);opacity:.9;margin-top:4px;line-height:1.45}
+
+/* controls */
+.field{width:100%;font:inherit;font-size:15px;font-weight:600;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--line);background:#fff;color:var(--ink)}
+.field::placeholder{color:var(--ink3);font-weight:500}
+.field:focus{outline:none;border-color:var(--violet)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.stepper{display:flex;align-items:center;justify-content:center;gap:16px}
+.sbtn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:21px;
+  color:var(--ink2);cursor:pointer;line-height:1}
+.sval{text-align:center;min-width:80px}
+.svn{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1}
+.svu{font-size:11.5px;color:var(--ink2);margin-top:3px}
+.check{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13.5px;font-weight:600;padding:3px 0}
+.check input{width:18px;height:18px;accent-color:var(--violet)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.tile{font:inherit;font-size:18px;font-weight:800;cursor:pointer;background:#fff;border:1px solid var(--line);
+  border-radius:12px;padding:12px 0;color:var(--ink)}
+.tile.on{background:var(--vsoft);border-color:var(--violet);color:var(--violet)}
+
+.cta{width:100%;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer;border:none;border-radius:14px;
+  padding:15px;color:#fff;background:linear-gradient(120deg,var(--violet),var(--violet2));
+  box-shadow:0 5px 14px rgba(124,58,237,.26);margin-top:6px}
+.cta:disabled{background:var(--line);color:var(--ink3);box-shadow:none;cursor:not-allowed}
+.cta.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.frame.d .cta{width:auto;min-width:240px;padding:14px 28px}
+.frame.d .cta.full{width:100%}
+
+.row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.row:last-child{border-bottom:none}
+.row dt{color:var(--ink2);flex:none}
+.row dd{margin:0;font-weight:700;text-align:right}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding-top:13px;margin-top:4px;border-top:2px solid var(--ink)}
+.total b{font-size:25px;font-weight:800;letter-spacing:-.5px}
+
+.vgrid{display:grid;gap:11px}
+.frame.d .vgrid{grid-template-columns:1fr 1fr}
+.vn{font-size:17px;font-weight:800}
+.vm{font-size:13px;color:var(--ink2);margin-top:4px;display:flex;align-items:center;gap:5px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;background:#eefaf1;
+  color:#1a7f43;border-radius:999px;padding:5px 10px;margin:10px 0 0}
+.badge.warn{background:var(--amber-bg);color:var(--amber-ink)}
+.vacts{display:flex;gap:7px;margin-top:9px}
+.proflink{width:100%;margin-top:10px;background:none;border:none;cursor:pointer;font:inherit;font-size:13px;
+  font-weight:700;color:var(--violet);padding:8px 0 2px;display:flex;align-items:center;justify-content:center;gap:6px}
+.proflink:hover{text-decoration:underline}
+.phero{height:120px;border-radius:16px;background:linear-gradient(120deg,#eef0fb,#e9f7ec);
+  display:flex;align-items:center;justify-content:center;font-size:42px}
+.frame.d .phero{height:170px}
+.vacts button{flex:1;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;background:#fff;
+  border:1px solid var(--line);border-radius:11px;padding:10px 6px;display:flex;align-items:center;justify-content:center;gap:6px}
+
+/* notes strip */
+.strip{max-width:1380px;margin:6px auto 40px;padding:0 18px;font-size:13px;line-height:1.6;color:#3d4759}
+.stripin{background:#fff;border:1px solid #cfd4e2;border-radius:14px;padding:18px 22px}
+.strip h3{margin:0 0 8px;font-size:14px}
+.strip h4{margin:16px 0 6px;font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:#8b93a7}
+.strip ul{margin:0;padding-left:18px}
+.strip li{margin-bottom:6px}
+.strip code{background:#f1f2f7;border-radius:4px;padding:1px 5px;font-size:12px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media (max-width:800px){.cols{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="framewrap">
+    <div class="framelabel">Mobile · 390</div>
+    <div class="frame m" id="fm"></div>
+  </div>
+  <div class="framewrap">
+    <div class="framelabel">Desktop · 940</div>
+    <div class="frame d" id="fd"></div>
+  </div>
+</div>
+
+<div class="strip"><div class="stripin">
+<h3>String-first restring — search first, families as the fallback</h3>
+<div class="cols">
+<div>
+<h4>Try these</h4>
+<ul>
+  <li>Reach <b>Your stringer</b>, then <b>View full profile</b>.</li>
+  <li>The profile carries a live <b>Order here</b> — it's a decision surface, not a dead end.</li>
+  <li>Open the profile for <b>Westside Racquet Club</b> — a stringer not yet taking orders.</li>
+  <li><b>Help me choose</b> → answer <i>injury</i> + <i>spin</i> for the honest override.</li>
+</ul>
+</div>
+<div>
+<h4>The profile screen</h4>
+<ul>
+  <li><b>It answers "should I trust this shop"</b> — reviews, years stringing, hours, turnaround, drop-off terms.</li>
+  <li><b>Full stock list and the full price ladder</b>, which is where a curious player can see the whole range without going back into the flow.</li>
+  <li><b>Order here stays on it</b>, carrying the price for the string already chosen, so viewing a profile never costs you your place.</li>
+  <li>Back returns to the stringer list, not the start of the flow.</li>
+</ul></div>
+</div>
+</div></div>
+
+<script>
+/* ---------------- data ---------------- */
+const TIERS = {
+  own:         {label:'Restringing only',                    price:29.99, mat:null},
+  'syn gut':   {label:'Synthetic Gut',                       price:39.99, mat:'syn gut',
+                ex:['Prince Synthetic Gut','Head Syn Gut','Gamma Synthetic Gut'], blurb:'Reliable all-rounder'},
+  'std multi': {label:'Standard Multifilament',              price:44.99, mat:'multi',
+                ex:['Head MLT','Prince Premier Touch','Gamma Live Wire'], blurb:'Comfort and power'},
+  'std poly':  {label:'Standard Polyester',                  price:44.99, mat:'poly',
+                ex:['Solinco Mach 10','Head Lynx','Signum Pro Poly Plasma'], blurb:'Spin and durability'},
+  'prem multi':{label:'Premium Multifilament',               price:49.99, mat:'multi',
+                ex:['Tecnifibre NRG2','Wilson Sensation','Babolat Xcel'], blurb:'Top comfort and feel'},
+  'prem poly': {label:'Premium Polyester',                   price:49.99, mat:'poly',
+                ex:['Luxilon ALU Power','Solinco Hyper-G','Babolat RPM Blast'], blurb:'Tour-level spin'},
+  'poly/multi':{label:'Poly / Multi Hybrid',                 price:54.99, mat:'hybrid',
+                ex:['Head Gravity','Hyper-G / X-Natural'], blurb:'Spin with softer crosses'},
+  'gut/poly':  {label:'Gut / Poly Hybrid',                   price:74.99, mat:'hybrid',
+                ex:["Wilson Champion's Choice",'Babolat VS / RPM'], blurb:'Tour hybrid setup'},
+  'nat gut':   {label:'Natural Gut',                         price:89.99, mat:'nat gut',
+                ex:['Babolat VS Touch','Wilson Natural Gut'], blurb:'Best feel available'}
+};
+const TIER_KEYS = ['syn gut','std multi','std poly','prem multi','prem poly','poly/multi','gut/poly','nat gut'];
+
+/* The Tennis Garage's real stock — deliberately thin */
+const STOCK = [
+  {brand:'Head',    name:'Lynx',      cat:'std poly',  gauges:[17]},
+  {brand:'Head',    name:'Lynx Tour', cat:'std poly',  gauges:[16,17]},
+  {brand:'Solinco', name:'Mach 10',   cat:'std poly',  gauges:[17]},
+  {brand:'Head',    name:'MLT',       cat:'std multi', gauges:[16]},
+  {brand:'Head',    name:'Syn Gut',   cat:'syn gut',   gauges:[16]}
+];
+
+const MATS = [
+  {id:'all',    label:'All'},
+  {id:'poly',   label:'Polyester'},
+  {id:'multi',  label:'Multifilament'},
+  {id:'syn gut',label:'Synthetic gut'},
+  {id:'nat gut',label:'Natural gut'},
+  {id:'hybrid', label:'Hybrid'}
+];
+
+const VENDORS = [
+  {name:'The Tennis Garage', addr:'12625 Westminster Ave, Los Angeles, CA 90066', dist:'1.2 mi',
+   turn:'1 day turnaround', live:true, rating:null, reviews:0, since:'2024',
+   hours:'Mon–Sat, 9am–6pm', phone:'(310) 555-0142',
+   bio:'We are passionate about helping tennis players of all levels access top-quality equipment without breaking the bank. From rackets and strings to shoes and apparel, everything you need to elevate your game.'},
+  {name:'Westside Racquet Club', addr:'11800 Olympic Blvd, Los Angeles, CA 90064', dist:'2.8 mi',
+   turn:'2 day turnaround', live:false, rating:4.8, reviews:24, since:'2019',
+   hours:'Daily, 7am–9pm', phone:'(310) 555-0198',
+   bio:'Full-service pro shop attached to a twelve-court club. Same-day stringing available for members.'}
+];
+
+const LAST = {stringIdx:1, gauge:17, tension:54, when:'6 weeks ago', vendor:'The Tennis Garage'};
+
+/* ---------------- state ---------------- */
+const S = {
+  screen:'home', mode:null,
+  string:null,        // a stocked catalog row
+  family:null,        // a tier key chosen directly
+  requested:'',       // free-text string request when ordering a family
+  gauge:null, tension:54, split:false, mainsT:54, crossesT:50,
+  ownMains:'', ownCrosses:'', hybrid:false,
+  count:1, model:'', notes:'',
+  query:'', mat:'all', fam:'all', vendor:0, profileOf:0, returning:true, from:null,
+  g:{arm:null,level:null,breaks:null,pri:null}
+};
+
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => '$'+n.toFixed(2);
+const gl = g => g===15.5?'15L':g===16.5?'16L':g===17.5?'17L':String(g);
+const tierKey = () => S.mode==='own' ? 'own' : (S.string ? S.string.cat : S.family);
+const price = () => TIERS[tierKey()].price;
+const total = () => price()*S.count;
+const stockIn = k => STOCK.filter(x=>x.cat===k).length;
+
+const FLOW = {mode:1, search:2, families:2, own:2, g1:1, g2:1, g3:1, g4:1, gres:2, vendor:3, profile:3, setup:4, rackets:5, review:6};
+const TITLES = {home:'Restring', mode:'New order', search:'Choose a string', families:'Order by family', own:'Your string',
+  g1:'Help me choose', g2:'Help me choose', g3:'Help me choose', g4:'Help me choose', gres:'Your match',
+  profile:'Stringer profile',
+  vendor:'Choose a stringer', setup:'Your setup', rackets:'Your rackets', review:'Review & pay', done:'Order placed'};
+const BACK = {mode:'home', search:'mode', families:()=>S.from==='gres'?'gres':'search', own:'mode',
+  g1:'home', g2:'g1', g3:'g2', g4:'g3', gres:'g4',
+  vendor:()=>S.mode==='own'?'own':(S.from==='gres'?'gres':(S.family?'families':'search')),
+  profile:'vendor', setup:'vendor',
+  rackets:()=>S.mode==='own'?'vendor':'setup', review:'rackets'};
+
+/* ---------------- icons ---------------- */
+const I = {
+  arw:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  chev:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>',
+  x:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  sea:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+  tgt:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
+  bulb:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>',
+  list:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+  spool:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg>',
+  bag:'<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 7h12l-1 14H7L6 7z"/><path d="M9 7V5a3 3 0 016 0v2"/></svg>',
+  pin:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  ok:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>',
+  ph:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.2a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>',
+  msg:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 01-9 8.4 8.9 8.9 0 01-3.9-.9L3 20.5l1.5-4.6A8.4 8.4 0 1121 11.5z"/></svg>'
+};
+
+/* ---------------- screens (shared markup) ---------------- */
+function home(){
+  const st = STOCK[LAST.stringIdx];
+  const ro = S.returning ? `
+    <div class="card" style="border:1px solid var(--vline);background:linear-gradient(170deg,#fbf9ff,#fff 60%)">
+      <div style="font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--violet)">Last order · ${LAST.when}</div>
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.4px;margin-top:5px">${esc(st.brand+' '+st.name)}</div>
+      <div style="font-size:13px;color:var(--ink2);margin-top:3px">${gl(LAST.gauge)} gauge · ${LAST.tension} lbs · ${esc(LAST.vendor)}</div>
+      <button class="cta full" data-reorder="1" style="margin-top:13px">Order again · ${money(TIERS[st.cat].price)}</button>
+    </div>` : '';
+  return `
+  <h1>Restring my racket</h1>
+  <p class="sub">Fresh strings, from a stringer near you.</p>
+  ${ro}
+  ${S.returning?'<h2>Something different</h2>':''}
+  <button class="opt" data-go="mode">
+    <div class="oico">${I.tgt}</div>
+    <div class="otxt"><div class="ot">I know what I want</div><div class="os">Search for your string by name.</div></div>
+    <div class="oarw">${I.arw}</div></button>
+  <button class="opt${S.returning?'':' hero'}" data-guided="1">
+    <div class="oico">${I.bulb}</div>
+    <div class="otxt"><div class="ot">Help me choose a string</div><div class="os">4 quick questions.</div></div>
+    <div class="oarw">${I.arw}</div></button>
+  <button class="opt" data-go="orders">
+    <div class="oico">${I.list}</div>
+    <div class="otxt"><div class="ot">My orders (4)</div><div class="os">Track status and cancel before drop-off.</div></div>
+    <div class="oarw">${I.arw}</div></button>`;
+}
+
+function mode(){
+  return `
+  <h1>Whose string?</h1>
+  <p class="sub">This sets the price, so we ask it first.</p>
+  <button class="opt" data-mode="supplied">
+    <div class="oico">${I.spool}</div>
+    <div class="otxt"><div class="ot">My stringer supplies it</div><div class="os">Search their stock, or pick a string family.</div></div>
+    <div class="oarw">${I.arw}</div></button>
+  <button class="opt" data-mode="own">
+    <div class="oico">${I.bag}</div>
+    <div class="otxt"><div class="ot">I'll bring my own string</div><div class="os">Labour only. Hybrids welcome.</div></div>
+    <div class="oprice">${money(29.99)}</div></button>
+  <p class="hint">Supplied strings run ${money(39.99)}–${money(89.99)} depending on the family you pick.</p>`;
+}
+
+function matchStock(q){
+  const t=q.trim().toLowerCase(); if(!t) return [];
+  return STOCK.filter(x=>(x.brand+' '+x.name).toLowerCase().includes(t));
+}
+function mark(text,q){
+  const t=q.trim(); if(!t) return esc(text);
+  const i=text.toLowerCase().indexOf(t.toLowerCase()); if(i<0) return esc(text);
+  return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+t.length))+'</mark>'+esc(text.slice(i+t.length));
+}
+const QS = [
+  {id:'arm', n:1, q:'Any arm or elbow trouble?',
+   why:'This matters more than anything else — the wrong string can make elbow pain worse.',
+   a:[['none','No problems'],['sore','Occasional soreness'],['injury','Recovering from an injury']]},
+  {id:'level', n:2, q:'How would you describe your game?',
+   why:'Stiff strings need a full, fast swing to work. They punish shorter ones.',
+   a:[['new','Still learning'],['inter','Solid rally player'],['adv','Competitive / league']]},
+  {id:'breaks', n:3, q:'How often do you break strings?',
+   why:'Frequent breakage points to durability; rare breakage opens up softer, livelier strings.',
+   a:[['often','Every few weeks'],['some','Every few months'],['rare','Rarely or never']]},
+  {id:'pri', n:4, q:'What do you most want from a restring?',
+   why:'The tiebreaker once comfort and durability are accounted for.',
+   a:[['spin','Spin and control'],['comfort','Comfort and power'],['feel','Feel and touch'],['dura','Maximum durability']]}
+];
+
+const SCORE = {
+  arm:{
+    none:  {'std poly':1,'prem poly':1},
+    sore:  {'std multi':2,'prem multi':2,'nat gut':2,'syn gut':1,'std poly':-3,'prem poly':-3,'poly/multi':1},
+    injury:{'std multi':3,'prem multi':3,'nat gut':3,'syn gut':2,'std poly':-6,'prem poly':-6,'poly/multi':-1,'gut/poly':-2}
+  },
+  level:{
+    new:  {'syn gut':3,'std multi':2,'std poly':-2,'prem poly':-2,'prem multi':-1,'nat gut':-2,'gut/poly':-3,'poly/multi':-1},
+    inter:{'std poly':1,'std multi':1,'prem poly':1,'prem multi':1},
+    adv:  {'prem poly':2,'prem multi':1,'gut/poly':2,'poly/multi':1,'syn gut':-2}
+  },
+  breaks:{
+    often:{'std poly':3,'prem poly':3,'poly/multi':2,'syn gut':-2,'std multi':-2,'prem multi':-2,'nat gut':-3},
+    some: {},
+    rare: {'std multi':2,'prem multi':2,'nat gut':2,'syn gut':1,'std poly':-1,'prem poly':-1}
+  },
+  pri:{
+    spin:   {'std poly':3,'prem poly':3,'poly/multi':2},
+    comfort:{'std multi':3,'prem multi':3,'nat gut':2,'syn gut':1},
+    feel:   {'nat gut':3,'gut/poly':2,'prem multi':1},
+    dura:   {'std poly':3,'prem poly':3,'syn gut':1,'nat gut':-3,'poly/multi':1}
+  }
+};
+
+function rank(){
+  const sc={}; TIER_KEYS.forEach(k=>sc[k]=0);
+  Object.keys(S.g).forEach(dim=>{
+    const ans=S.g[dim]; if(!ans) return;
+    const m=SCORE[dim][ans]||{};
+    Object.keys(m).forEach(k=>{ if(k in sc) sc[k]+=m[k]; });
+  });
+  /* stocked families break ties upward — a real string beats a request */
+  TIER_KEYS.forEach(k=>{ if(stockIn(k)>0) sc[k]+=0.5; });
+  return TIER_KEYS.slice().sort((a,b)=>sc[b]-sc[a]);
+}
+
+function reasons(top){
+  const r=[], g=S.g, t=TIERS[top], soft=['std multi','prem multi','nat gut','syn gut'].includes(top);
+  if(g.arm==='injury') r.push(soft?'Soft on the arm while you recover.':'Chosen despite your arm history — read the caution below.');
+  else if(g.arm==='sore') r.push(soft?'Gentler on the elbow than a full polyester bed.':'Firmer than we\u2019d normally suggest for a sore arm.');
+  if(g.level==='new') r.push('Forgiving at your swing speed.');
+  if(g.level==='adv' && t.mat==='poly') r.push('Rewards a full, fast swing.');
+  if(g.breaks==='often') r.push(t.mat==='poly'||t.mat==='hybrid'?'Holds up to frequent breakage.':'You break strings often — expect to restring sooner with this one.');
+  if(g.breaks==='rare') r.push('You rarely break strings, so you can enjoy a livelier bed.');
+  if(g.pri==='spin'&&t.mat==='poly') r.push('Textured, low-powered — good for heavy spin.');
+  if(g.pri==='comfort'&&soft) r.push('Cushioned feel with easy depth.');
+  if(g.pri==='feel'&&(top==='nat gut'||top==='gut/poly')) r.push('The best touch and tension maintenance available.');
+  return r.slice(0,3);
+}
+
+function conflict(){
+  const g=S.g;
+  if((g.arm==='injury'||g.arm==='sore') && (g.pri==='spin'||g.pri==='dura')) return {
+    t:'We steered away from polyester',
+    s:`You asked for ${g.pri==='spin'?'spin and control':'maximum durability'}, which usually points to polyester. With ${g.arm==='injury'?'an injury you\u2019re recovering from':'a sore arm'} that\u2019s the wrong trade. A softer bed, restrung a little more often, is the safer way to get there.`
+  };
+  if(g.level==='new' && g.pri==='spin') return {
+    t:'Spin comes from the swing first',
+    s:'Polyester only produces spin at high racquet-head speed. At your stage a softer string will give you more of everything, including spin.'
+  };
+  return null;
+}
+
+function famsFor(mat){ return TIER_KEYS.filter(k => mat==='all' || TIERS[k].mat===mat); }
+
+function search(){
+  const q=S.query, typed=q.trim().length>0;
+
+  /* filter chips are families that actually have stock — never a dead tap */
+  const stockedFams = TIER_KEYS.filter(k=>stockIn(k)>0);
+  const pool = STOCK.filter(x=>S.fam==='all'||x.cat===S.fam);
+  const hits = typed ? pool.filter(x=>(x.brand+' '+x.name).toLowerCase().includes(q.trim().toLowerCase())) : pool;
+  const wide = typed ? STOCK.filter(x=>(x.brand+' '+x.name).toLowerCase().includes(q.trim().toLowerCase())) : [];
+  const filtered = S.fam!=='all';
+
+  const searchbar = `
+    <div class="searchbar">
+      <span class="sico">${I.sea}</span>
+      <input class="sinput" id="q" placeholder="Search Hyper-G, Lynx Tour, RPM Blast…" value="${esc(S.query)}" autocomplete="off">
+    </div>`;
+
+  const filters = `
+    <div class="filtbox">
+      <div class="filtlabel">Family</div>
+      <div class="filtlist">
+        <button class="chip${S.fam==='all'?' on':''}" data-fam-filter="all">All<span class="chipn">${STOCK.length}</span></button>
+        ${stockedFams.map(k=>`<button class="chip${S.fam===k?' on':''}" data-fam-filter="${k}">${TIERS[k].label}<span class="chipn">${stockIn(k)}</span></button>`).join('')}
+      </div>
+      <p class="hint" style="margin-top:9px">Showing families your stringers stock. More available by request.</p>
+    </div>`;
+
+  const rows = hits.map(x=>`
+    <button class="res" data-pick="${STOCK.indexOf(x)}">
+      <div class="restxt">
+        <div class="rest">${typed?mark(x.brand+' '+x.name,q):esc(x.brand+' '+x.name)}</div>
+        <div class="resm"><span>${TIERS[x.cat].label} · ${x.gauges.map(gl).join(' · ')} gauge</span></div>
+      </div>
+      <div class="resp">${money(TIERS[x.cat].price)}</div>
+    </button>`).join('');
+
+  let body='';
+
+  if(hits.length){
+    body += `<div class="reshead"><span>${typed?hits.length+' match'+(hits.length>1?'es':''):'In stock at stringers near you'}</span>${filtered?'<button class="clear" data-clear="1">Clear</button>':''}</div>${rows}`;
+  } else if(typed && wide.length){
+    body += `
+      <div class="note">
+        <div class="notet">Not in ${TIERS[S.fam].label}</div>
+        <div class="notes">${wide.length} match${wide.length>1?'es':''} in other families.</div>
+      </div>
+      <button class="cta ghost full" data-clear="1">Show all families</button>`;
+  } else if(typed){
+    const guess = TIER_KEYS.find(k=>TIERS[k].ex&&TIERS[k].ex.some(e=>e.toLowerCase().includes(q.trim().toLowerCase())));
+    body += `
+      <div class="note">
+        <div class="notet">No stringer near you stocks “${esc(q.trim())}”</div>
+        <div class="notes">${guess
+          ? `It's a ${TIERS[guess].label.toLowerCase()}. Order that family and request it by name — your stringer confirms at drop-off.`
+          : `Order the closest family and request it by name, or bring your own set.`}</div>
+      </div>
+      ${guess?`<button class="cta full" data-fam="${guess}" data-req="${esc(q.trim())}">Request ${esc(q.trim())} · ${money(TIERS[guess].price)}</button>`:''}
+      <button class="cta ghost full" data-go="families" data-req="${esc(q.trim())}" style="margin-top:9px">Browse all families</button>
+      <button class="cta ghost full" data-mode="own" style="margin-top:9px">Bring my own set · ${money(29.99)}</button>`;
+  } else {
+    body += `<div class="note"><div class="notet">Nothing stocked here</div>
+      <div class="notes">Try another family, or order by request.</div></div>
+      <button class="cta ghost full" data-clear="1">Show all</button>`;
+  }
+
+  body += `
+    <button class="opt" data-go="families" style="margin-top:18px">
+      <div class="oico">${I.spool}</div>
+      <div class="otxt"><div class="ot">Don't see your string?</div>
+        <div class="os">Order by family and request it by name.</div></div>
+      <div class="oarw">${I.arw}</div>
+    </button>`;
+
+  return `
+  <h1>Which string?</h1>
+  <p class="sub">Search by name, or pick from what's stocked nearby.</p>
+  ${searchbar}
+  <div class="slayout">
+    <div>${filters}</div>
+    <div>${body}</div>
+  </div>`;
+}
+
+function families(){
+  const fams = famsFor(S.mat);
+  return `
+  <h1>Order by family</h1>
+  <p class="sub">Pick the type you play. Your stringer sources a string in that family${S.requested?' — we\u2019ll pass on your request for '+esc(S.requested):''}.</p>
+  ${S.requested?`<div class="note"><div class="notet">Requesting ${esc(S.requested)}</div>
+    <div class="notes">Pick the family it belongs to. If your stringer can\u2019t source it, you\u2019ll choose another string in the same family at no extra cost.</div></div>`:''}
+  <div class="fgrid">
+  ${fams.map(k=>{
+    const t=TIERS[k], n=stockIn(k);
+    return `<button class="fam" data-fam="${k}">
+      <div class="famtop"><span class="famn">${t.label}</span><span class="famp">${money(t.price)}</span></div>
+      <div class="famex">e.g. ${t.ex.map(esc).join(', ')}</div>
+      <span class="fambadge${n?'':' none'}">${n?n+' in stock nearby':'By request'}</span>
+    </button>`;
+  }).join('')}
+  </div>
+  <p class="hint">Exact string confirmed with your stringer at drop-off. Price is set by the family.</p>`;
+}
+
+function question(idx){
+  const Q=QS[idx];
+  return `
+  <p class="hint" style="margin:0 0 6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--violet)">Question ${Q.n} of 4</p>
+  <h1>${Q.q}</h1>
+  <p class="sub">${Q.why}</p>
+  ${Q.a.map(([v,label])=>`
+    <button class="opt" data-ans="${Q.id}" data-val="${v}">
+      <div class="otxt"><div class="ot">${label}</div></div>
+      <div class="oarw">${I.arw}</div>
+    </button>`).join('')}
+  ${idx>0?`<p class="hint">You can change any answer with Back.</p>`:''}`;
+}
+function g1(){ return question(0); }
+function g2(){ return question(1); }
+function g3(){ return question(2); }
+function g4(){ return question(3); }
+
+function gres(){
+  const order=rank(), top=order[0], alt=order[1];
+  const t=TIERS[top], a=TIERS[alt];
+  const inStock=STOCK.filter(x=>x.cat===top);
+  const c=conflict();
+  return `
+  <h1>Your match</h1>
+  <p class="sub">Based on your four answers.</p>
+
+  <div class="card" style="border:1px solid var(--vline);background:linear-gradient(170deg,#fbf9ff,#fff 60%)">
+    <div style="font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--violet)">Best fit</div>
+    <div class="famtop" style="margin-top:6px"><span class="famn" style="font-size:19px">${t.label}</span><span class="famp" style="font-size:19px">${money(t.price)}</span></div>
+    <ul style="margin:11px 0 0;padding-left:17px;font-size:13.5px;color:var(--ink2);line-height:1.6">
+      ${reasons(top).map(r=>`<li>${r}</li>`).join('')}
+    </ul>
+  </div>
+
+  ${c?`<div class="note"><div class="notet">${c.t}</div><div class="notes">${c.s}</div></div>`:''}
+
+  ${inStock.length?`
+    <h2>In stock in this family</h2>
+    ${inStock.map(x=>`
+      <button class="res" data-pick="${STOCK.indexOf(x)}">
+        <div class="restxt"><div class="rest">${esc(x.brand+' '+x.name)}</div>
+          <div class="resm"><span>${x.gauges.map(gl).join(' · ')} gauge</span></div></div>
+        <div class="resp">${money(TIERS[x.cat].price)}</div>
+      </button>`).join('')}
+    <button class="cta ghost full" data-fam="${top}" style="margin-top:4px">Any ${t.label.toLowerCase()} · ${money(t.price)}</button>
+  `:`
+    <button class="cta full" data-fam="${top}">Order ${t.label} · ${money(t.price)}</button>
+    <p class="hint">Nothing in this family is stocked nearby — your stringer sources it and confirms at drop-off.</p>
+  `}
+
+  <h2>Also worth a look</h2>
+  <button class="fam" data-fam="${alt}">
+    <div class="famtop"><span class="famn">${a.label}</span><span class="famp">${money(a.price)}</span></div>
+    <div class="famex">e.g. ${a.ex.map(esc).join(', ')}</div>
+    <span class="fambadge${stockIn(alt)?'':' none'}">${stockIn(alt)?stockIn(alt)+' in stock nearby':'By request'}</span>
+  </button>
+
+  <button class="opt" data-go="families" style="margin-top:14px">
+    <div class="oico">${I.spool}</div>
+    <div class="otxt"><div class="ot">See all families</div><div class="os">Compare the full range and prices.</div></div>
+    <div class="oarw">${I.arw}</div>
+  </button>
+  <button class="cta ghost full" data-restart="1" style="margin-top:10px">Start the questions over</button>`;
+}
+
+function own(){
+  const ready = S.hybrid ? (S.ownMains.trim()&&S.ownCrosses.trim()) : S.ownMains.trim();
+  return `
+  <h1>Your string</h1>
+  <p class="sub">Restringing only · ${money(29.99)} per racket. Bring your set to drop-off.</p>
+  <div class="card"><label class="check"><input type="checkbox" id="hyb" ${S.hybrid?'checked':''}> Hybrid — different mains and crosses</label></div>
+  <h2>${S.hybrid?'Mains':'Brand and model'}</h2>
+  <input class="field" id="mains" placeholder="Solinco Hyper-G 17" value="${esc(S.ownMains)}">
+  ${S.hybrid?`<h2>Crosses</h2><input class="field" id="crosses" placeholder="Wilson Natural Gut 16" value="${esc(S.ownCrosses)}">`:''}
+  <p class="hint">Your stringer confirms the set at drop-off.</p>
+  <button class="cta" data-go="vendor" ${ready?'':'disabled'}>${ready?'Choose your stringer':'Add your string to continue'}</button>`;
+}
+
+function vendor(){
+  const supplied = S.mode!=='own';
+  const carries = supplied && S.string;
+  const line = S.mode==='own' ? 'Restringing only'
+    : S.string ? esc(S.string.brand+' '+S.string.name)
+    : (S.requested ? esc(S.requested)+' · '+TIERS[S.family].label : TIERS[S.family].label);
+  return `
+  <h1>Your stringer</h1>
+  <p class="sub">${line} · ${money(price())}</p>
+  <div class="vgrid">
+  ${VENDORS.map((v,i)=>`
+    <div class="card">
+      <div class="vn">${esc(v.name)}</div>
+      <div class="vm">${I.pin} ${v.dist} · ${esc(v.addr)}</div>
+      ${v.live
+        ? `<div class="badge${carries?'':' warn'}">${carries?I.ok+' Carries this string · '+v.turn:v.turn}</div>
+           <button class="cta full" data-vendor="${i}" style="margin-top:11px">Order here</button>
+           <div class="vacts"><button>${I.ph} Call</button><button>${I.msg} Message</button></div>
+           <button class="proflink" data-profile="${i}">View full profile ${I.arw}</button>`
+        : `<div class="badge warn">Not taking orders yet</div>
+           <button class="proflink" data-profile="${i}">View full profile ${I.arw}</button>`}
+    </div>`).join('')}
+  </div>
+  ${!carries&&supplied?`<p class="hint">Your stringer confirms availability of the exact string at drop-off. If they can't source it, you can swap within the same family at no extra cost.</p>`:''}`;
+}
+
+function profile(){
+  const v=VENDORS[S.profileOf];
+  const supplied=S.mode!=='own';
+  const stocked=STOCK;
+  return `
+  <div class="phero">🎾</div>
+  <h1 style="margin-top:16px">${esc(v.name)}</h1>
+  <div class="vm" style="margin-bottom:4px">${I.pin} ${v.dist} · ${esc(v.addr)}</div>
+  <div class="vm">${v.rating?'★ '+v.rating+' ('+v.reviews+' Google reviews)':'New on The Tennis Plan'} · Stringing since ${v.since}</div>
+  <p class="sub" style="margin-top:14px">${esc(v.bio)}</p>
+
+  <div class="card">
+    <dl style="margin:0">
+      <div class="row"><dt>Turnaround</dt><dd>${v.turn}</dd></div>
+      <div class="row"><dt>Hours</dt><dd>${esc(v.hours)}</dd></div>
+      <div class="row"><dt>Phone</dt><dd>${esc(v.phone)}</dd></div>
+      <div class="row"><dt>Drop-off</dt><dd>In person, no appointment</dd></div>
+    </dl>
+  </div>
+
+  <h2>Strings in stock</h2>
+  ${stocked.map(x=>`
+    <div class="res" style="cursor:default">
+      <div class="restxt"><div class="rest">${esc(x.brand+' '+x.name)}</div>
+        <div class="resm"><span>${TIERS[x.cat].label} · ${x.gauges.map(gl).join(' · ')} gauge</span></div></div>
+      <div class="resp">${money(TIERS[x.cat].price)}</div>
+    </div>`).join('')}
+  <p class="hint">Other families available by request — confirmed at drop-off.</p>
+
+  <h2>Pricing</h2>
+  <div class="card"><dl style="margin:0">
+    ${['own'].concat(TIER_KEYS).map(k=>`<div class="row"><dt>${TIERS[k].label}</dt><dd>${money(TIERS[k].price)}</dd></div>`).join('')}
+  </dl></div>
+
+  ${v.live?`<button class="cta full" data-vendor="${S.profileOf}" style="margin-top:16px">Order here${supplied?' · '+money(price()):''}</button>`
+          :`<div class="badge warn" style="margin-top:16px">Not taking orders yet</div>`}
+  <div class="vacts" style="margin-top:9px"><button>${I.ph} Call</button><button>${I.msg} Message</button></div>`;
+}
+
+function setup(){
+  const known = !!S.string;
+  const gauges = known ? S.string.gauges : [15.5,16,16.5,17,17.5,18];
+  const ready = S.gauge!==null;
+  const label = known ? esc(S.string.brand+' '+S.string.name)
+    : (S.requested?esc(S.requested)+' · ':'')+TIERS[S.family].label;
+  return `
+  <h1>Your setup</h1>
+  <p class="sub">${label}</p>
+  <div class="card">
+    <h2 style="margin-top:0">Gauge</h2>
+    <div class="chips">
+      ${[15.5,16,16.5,17,17.5,18].map(g=>{
+        const ok = gauges.includes(g);
+        return `<button class="chip${S.gauge===g?' on':''}" data-g="${g}" ${ok?'':'disabled'}>${gl(g)}</button>`;
+      }).join('')}
+    </div>
+    <p class="hint">${known?'Only gauges this stringer stocks in your string are selectable.':'Availability confirmed at drop-off.'}</p>
+
+    <h2>Tension</h2>
+    ${S.split?`
+      <p class="hint" style="text-align:center;margin:0 0 4px">Mains</p>
+      <div class="stepper"><button class="sbtn" data-t="m-">−</button><div class="sval"><div class="svn">${S.mainsT}</div><div class="svu">lbs</div></div><button class="sbtn" data-t="m+">+</button></div>
+      <p class="hint" style="text-align:center;margin:14px 0 4px">Crosses</p>
+      <div class="stepper"><button class="sbtn" data-t="c-">−</button><div class="sval"><div class="svn">${S.crossesT}</div><div class="svu">lbs</div></div><button class="sbtn" data-t="c+">+</button></div>
+    `:`
+      <div class="stepper"><button class="sbtn" data-t="-">−</button>
+        <div class="sval"><div class="svn">${S.tension}</div><div class="svu">lbs · ${(S.tension*0.4536).toFixed(1)} kg</div></div>
+        <button class="sbtn" data-t="+">+</button></div>`}
+    <div style="margin-top:13px"><label class="check"><input type="checkbox" id="split" ${S.split?'checked':''}> Different mains / crosses tension</label></div>
+  </div>
+  <button class="cta" data-go="rackets" ${ready?'':'disabled'}>${ready?'Continue':'Pick a gauge to continue'}</button>`;
+}
+
+function rackets(){
+  return `
+  <h1>Your rackets</h1>
+  <p class="sub">${money(price())} each</p>
+  <div class="card">
+    <h2 style="margin-top:0">How many?</h2>
+    <div class="tiles">${[1,2,3,4].map(n=>`<button class="tile${S.count===n?' on':''}" data-c="${n}">${n}</button>`).join('')}</div>
+    <h2>Make &amp; model</h2>
+    <input class="field" id="model" placeholder="Babolat Pure Aero 2023" value="${esc(S.model)}">
+    <h2>Notes for your stringer</h2>
+    <input class="field" id="notes" placeholder="Logo stencil, loose grip…" value="${esc(S.notes)}">
+  </div>
+  <button class="cta" data-go="review">Review &amp; pay · ${money(total())}</button>`;
+}
+
+function review(){
+  const t = TIERS[tierKey()];
+  const stringLine = S.mode==='own'
+    ? (S.hybrid?esc(S.ownMains)+' / '+esc(S.ownCrosses):esc(S.ownMains))
+    : S.string ? esc(S.string.brand+' '+S.string.name)
+    : (S.requested?esc(S.requested):'Stringer\u2019s choice');
+  const confirmNeeded = S.mode!=='own' && !S.string;
+  return `
+  <h1>Review &amp; pay</h1>
+  <p class="sub">Prepaid. Cancel free before drop-off.</p>
+  <div class="card">
+    <dl style="margin:0">
+      <div class="row"><dt>Service</dt><dd>${t.label} · ${money(t.price)}</dd></div>
+      <div class="row"><dt>${confirmNeeded?'String requested':'String'}</dt><dd>${stringLine}</dd></div>
+      ${S.gauge!==null?`<div class="row"><dt>Gauge</dt><dd>${gl(S.gauge)}</dd></div>`:''}
+      <div class="row"><dt>Tension</dt><dd>${S.split?S.mainsT+' / '+S.crossesT:S.tension} lbs</dd></div>
+      <div class="row"><dt>Rackets</dt><dd>${S.count}</dd></div>
+      <div class="row"><dt>Stringer</dt><dd>${esc(VENDORS[S.vendor].name)}</dd></div>
+      ${S.model?`<div class="row"><dt>Racket</dt><dd>${esc(S.model)}</dd></div>`:''}
+    </dl>
+    <div class="total"><span style="font-size:14px;font-weight:700">Total</span><b>${money(total())}</b></div>
+  </div>
+  ${confirmNeeded?`<div class="note"><div class="notet">Exact string confirmed at drop-off</div>
+    <div class="notes">You're paying for ${t.label.toLowerCase()}. If your stringer can't source ${S.requested?esc(S.requested):'your preference'}, you'll pick another string in the same family at no extra cost.</div></div>`:''}
+  <button class="cta" data-go="done">Pay ${money(total())}</button>`;
+}
+
+function guided(){ return `<h1>Not built here</h1><p class="sub">This prototype covers the “I know what I want” branch.</p><button class="cta ghost" data-go="home">Back</button>`; }
+function orders(){ return `<h1>My orders</h1><p class="sub">Not part of this prototype.</p><button class="cta ghost" data-go="home">Back</button>`; }
+function done(){ return `
+  <div style="text-align:center;padding-top:40px">
+    <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(140deg,var(--violet),var(--violet2));display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:#fff">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <h1 style="text-align:center">Paid</h1>
+    <p class="sub" style="text-align:center">${esc(VENDORS[S.vendor].name)} has your order.</p>
+    <button class="cta ghost" data-go="home">Start over</button>
+  </div>`; }
+
+const VIEWS={home,mode,search,families,g1,g2,g3,g4,gres,own,vendor,profile,setup,rackets,review,guided,orders,done};
+
+/* ---------------- chrome + render ---------------- */
+function mobileChrome(inner){
+  const isRoot = ['home','orders'].includes(S.screen);
+  const step = FLOW[S.screen];
+  return `
+  <div class="mnav">
+    <button class="mnav-btn" data-back="1">${I.chev}</button>
+    <div class="mnav-t">${TITLES[S.screen]||''}</div>
+    ${step?`<button class="mnav-btn x" data-exit="1">${I.x}</button>`:`<div style="width:38px"></div>`}
+    ${step?`<div class="mprog"><i style="width:${step/6*100}%"></i></div>`:''}
+  </div>
+  <div class="body">${inner}</div>
+  ${isRoot?`<nav class="tabbar">
+    <button class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 21v-7h6v7"/></svg><span>Home</span></button>
+    <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.4"/><path d="M2 20c0-3.3 3.1-5 7-5s7 1.7 7 5"/></svg><span>Coaches</span></button>
+    <div class="fabslot"><button class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M12 5v14M5 12h14"/></svg></button></div>
+    <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3h8v5a4 4 0 01-8 0z"/><path d="M12 12v4M8.5 21h7l-1-3h-5z"/></svg><span>Leagues</span></button>
+    <button class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Schedule</span></button>
+  </nav>`:''}`;
+}
+
+function desktopChrome(inner){
+  const step = FLOW[S.screen];
+  const wide = S.screen==='search'||S.screen==='families';
+  const crumb = S.screen==='home' ? '' : `
+    <div class="dcrumb">
+      <button class="dback" data-back="1">${I.chev} Back</button>
+      ${step?`<div class="dsteps">${[1,2,3,4,5,6].map(n=>`<i class="dstep${n===step?' on':n<step?' done':''}"></i>`).join('')}</div>`:''}
+    </div>`;
+  return `
+  <div class="dnav">
+    <div class="dlogo">🎾</div><div class="dmark">The Tennis <span>Plan</span></div>
+    <button class="dlink"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg> Home</button>
+    <button class="dlink"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2 20c0-3.2 3-4.8 7-4.8s7 1.6 7 4.8"/></svg> My Coaches</button>
+    <button class="dlink"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Schedule</button>
+    <button class="dlink on">${I.spool} Restring</button>
+    <div class="dspacer"></div>
+    <div class="dchip">${I.pin} Los Angeles</div>
+    <button class="dcta">+ New match</button>
+    <div class="davatar"><i></i><div>Paul<small>NTRP 4.5</small></div></div>
+  </div>
+  <div class="body"><div class="dwrap${wide?' wide':''}">${crumb}${inner}</div></div>`;
+}
+
+function render(){
+  const inner = VIEWS[S.screen]();
+  document.getElementById('fm').innerHTML = mobileChrome(inner);
+  document.getElementById('fd').innerHTML = desktopChrome(inner);
+  document.querySelectorAll('.body').forEach(b=>b.scrollTop=scrollKeep);
+  const q = document.querySelector('#fm #q');
+  if(q && focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); }
+}
+let scrollKeep=0, focusQ=false;
+function go(s){ S.screen=s; scrollKeep=0; focusQ=false; render(); }
+
+/* ---------------- events ---------------- */
+document.body.addEventListener('input', e=>{
+  const t=e.target;
+  if(t.id==='q'){
+    S.query=t.value; focusQ=true;
+    const c=t.selectionStart; render();
+    const n=document.querySelector('#fm #q'); if(n) n.setSelectionRange(c,c);
+    return;
+  }
+  if(t.id==='mains') S.ownMains=t.value;
+  if(t.id==='crosses') S.ownCrosses=t.value;
+  if(t.id==='model') S.model=t.value;
+  if(t.id==='notes') S.notes=t.value;
+  if(t.id==='mains'||t.id==='crosses'){
+    const ready=S.hybrid?(S.ownMains.trim()&&S.ownCrosses.trim()):S.ownMains.trim();
+    document.querySelectorAll('[data-go="vendor"]').forEach(b=>{
+      b.disabled=!ready; b.textContent=ready?'Choose your stringer':'Add your string to continue';
+    });
+  }
+});
+
+document.body.addEventListener('change', e=>{
+  if(e.target.id==='hyb'){ S.hybrid=e.target.checked; render(); }
+  if(e.target.id==='split'){ S.split=e.target.checked; render(); }
+});
+
+document.body.addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const d=b.dataset;
+
+  if(d.back){ const t=BACK[S.screen]; if(t) go(typeof t==='function'?t():t); return; }
+  if(d.guided){ S.g={arm:null,level:null,breaks:null,pri:null}; S.mode='supplied'; S.from=null; go('g1'); return; }
+  if(d.restart){ S.g={arm:null,level:null,breaks:null,pri:null}; go('g1'); return; }
+  if(d.ans){
+    S.g[d.ans]=d.val;
+    const i=QS.findIndex(x=>x.id===d.ans);
+    go(i<3?('g'+(i+2)):'gres'); return;
+  }
+  if(d.exit){ go('home'); return; }
+  if(d.go){
+    if(d.go==='families' && S.screen==='gres') S.from='gres';
+    if(d.go==='families' && d.req) S.requested=d.req;
+    if(d.go==='families' && !d.req && !S.requested) S.requested='';
+    go(d.go); return;
+  }
+
+  if(d.mode){
+    S.mode=d.mode; S.string=null; S.family=null; S.requested=''; S.gauge=null; S.fam='all'; S.query=''; S.from=null;
+    go(S.mode==='own'?'own':'search'); return;
+  }
+  if(d.reorder){
+    const st=STOCK[LAST.stringIdx];
+    S.mode='supplied'; S.string=st; S.family=null; S.requested='';
+    S.gauge=LAST.gauge; S.tension=LAST.tension; S.split=false; S.count=1; S.vendor=0;
+    go('review'); return;
+  }
+  if(d.pick!==undefined){
+    if(S.screen==='gres') S.from='gres';
+    S.string=STOCK[+d.pick]; S.family=null; S.requested='';
+    S.gauge = S.string.gauges.length===1 ? S.string.gauges[0] : null;
+    go('vendor'); return;
+  }
+  if(d.fam){
+    if(S.screen==='gres') S.from='gres';
+    S.family=d.fam; S.string=null; S.requested=d.req||'';
+    S.gauge=null;
+    if(TIERS[d.fam].mat==='hybrid'){ S.split=true; S.mainsT=54; S.crossesT=50; }
+    go('vendor'); return;
+  }
+  if(d.profile!==undefined){ S.profileOf=+d.profile; go('profile'); return; }
+  if(d.vendor!==undefined){ S.vendor=+d.vendor; go(S.mode==='own'?'rackets':'setup'); return; }
+  if(d.famFilter){ S.fam=d.famFilter; scrollKeep=0; render(); return; }
+  if(d.mat){ S.mat=d.mat; scrollKeep=0; render(); return; }
+  if(d.clear){ S.fam='all'; S.mat='all'; render(); return; }
+  if(d.g){ S.gauge=+d.g; render(); return; }
+  if(d.c){ S.count=+d.c; render(); return; }
+  if(d.t){
+    const k=d.t;
+    if(k==='+') S.tension=Math.min(70,S.tension+1);
+    if(k==='-') S.tension=Math.max(35,S.tension-1);
+    if(k==='m+') S.mainsT=Math.min(70,S.mainsT+1);
+    if(k==='m-') S.mainsT=Math.max(35,S.mainsT-1);
+    if(k==='c+') S.crossesT=Math.min(70,S.crossesT+1);
+    if(k==='c-') S.crossesT=Math.max(35,S.crossesT-1);
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
