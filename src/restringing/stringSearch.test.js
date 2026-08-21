@@ -50,6 +50,27 @@ test("a row is priced by its family tier, never by its own null price", () => {
   assert.equal(hyperG.tierId, 6);
 });
 
+test("the merged catalog shape works, not just the raw endpoint shape", () => {
+  // mergeTierCatalogs restamps `category` as `string_category` and it is that
+  // merged array the screen holds — reading only `category` would leave the
+  // search permanently empty while every test on raw rows still passed.
+  const merged = CATALOG.map(({ category, ...row }) => ({
+    ...row,
+    string_category: category,
+    tier_id: 6,
+    price_cents: 4999,
+    material: "poly",
+  }));
+
+  const decorated = decorateCatalog(merged, TIERS, strict);
+  assert.equal(decorated.length, CATALOG.length);
+  assert.equal(decorated[0].familyKey, "prem_poly");
+
+  const result = buildSearchView({ catalog: merged, tiers: TIERS, query: "hyper", options: strict });
+  assert.equal(result.mode, "results");
+  assert.deepEqual(result.results.map((r) => r.title), ["Solinco Hyper-G"]);
+});
+
 test("a row whose family cannot be priced is dropped, not shown at a guess", () => {
   const rogue = [...CATALOG, { id: 99, brand: "Ghost", name: "Unknown", category: "kevlar", gauges: ["16"] }];
 

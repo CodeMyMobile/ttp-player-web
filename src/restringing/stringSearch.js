@@ -67,7 +67,11 @@ export function decorateCatalog(catalog = [], tiers = [], options = {}) {
 
   return (Array.isArray(catalog) ? catalog : [])
     .map((row) => {
-      const family = byKey.get(row?.category);
+      // Two shapes reach here. The raw endpoint returns `category`;
+      // mergeTierCatalogs restamps it as `string_category` (falling back to the
+      // tier it was fetched under), and that merged shape is what the screen
+      // holds. Reading only one of them silently empties the whole catalog.
+      const family = byKey.get(row?.string_category ?? row?.category);
       if (!family) return null;
       return {
         ...row,

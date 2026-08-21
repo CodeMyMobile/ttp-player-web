@@ -25,11 +25,9 @@ import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
-  brandsForMaterial,
   buildCheckoutItems,
   categoryLabel,
   deriveTier,
-  filterCatalog,
   formatMoneyCents,
   GAUGES,
   highlightMatch,
@@ -41,6 +39,11 @@ import {
   paymentStatusLabel,
   recommendStringCategory,
 } from "./playerFlow.js";
+import {
+  ALL_FAMILIES,
+  buildFamilyRequest,
+  buildSearchView,
+} from "./stringSearch.js";
 import {
   assembleVendorCatalog,
   cancelOrder,
@@ -88,15 +91,6 @@ const clean = (value) => String(value || "").trim();
 const isOwnTier = (tier) => tier && tier.string_category === null;
 
 // Material filter buckets (must match materialFromCategory's output ids).
-const MATERIALS = [
-  { id: "all", label: "All" },
-  { id: "poly", label: "Poly" },
-  { id: "multi", label: "Multi" },
-  { id: "syn gut", label: "Syn gut" },
-  { id: "nat gut", label: "Natural gut" },
-  { id: "hybrid", label: "Hybrid" },
-];
-
 const rowGauges = (row) => (Array.isArray(row.gauges) ? row.gauges : row.gauge != null && row.gauge !== "" ? [row.gauge] : []);
 
 const wholeLbs = (value) => (Number.isFinite(Number(value)) ? String(Math.round(Number(value))) : "");
@@ -241,8 +235,7 @@ export default function RestringingPlayerFlow() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchMaterial, setSearchMaterial] = useState("all");
-  const [searchBrand, setSearchBrand] = useState("all");
+  const [searchFamily, setSearchFamily] = useState(ALL_FAMILIES);
   const catalogLoadStarted = useRef(false); // load-once guard (a ref, so it can't re-trigger the effect)
   const [ownString, setOwnString] = useState("");
   const [gauge, setGauge] = useState("16");
@@ -432,10 +425,10 @@ export default function RestringingPlayerFlow() {
   useEffect(() => {
     if (screen !== "search") return undefined;
     const q = searchQuery.trim();
-    if (q.length < 3 || filterCatalog(searchCatalog, { query: searchQuery }).length) return undefined;
+    if (q.length < 3 || buildSearchView({ catalog: searchCatalog, tiers, query: searchQuery }).results.length) return undefined;
     const timer = setTimeout(() => { /* captureSearchMiss(q) — no-op until endpoint exists */ }, 700);
     return () => clearTimeout(timer);
-  }, [screen, searchQuery, searchCatalog]);
+  }, [screen, searchQuery, searchCatalog, tiers]);
 
   useEffect(() => {
     if (!tier || !selectedVendor) return;
@@ -748,23 +741,38 @@ export default function RestringingPlayerFlow() {
     setTierId(null); // supplied: tier is derived once a string is picked in search
     setStringId("");
     setSearchQuery("");
-    setSearchMaterial("all");
-    setSearchBrand("all");
+    setSearchFamily(ALL_FAMILIES);
     go("search");
   };
 
-  const changeMaterial = (mat) => {
-    setSearchMaterial(mat);
-    // Keep the brand valid within the new material so the two filters never
-    // intersect to nothing on a tap.
-    if (searchBrand !== "all" && !brandsForMaterial(searchCatalog, mat).includes(searchBrand)) {
-      setSearchBrand("all");
-    }
+  // Chips are families, not materials: the family is what sets the price, so it
+  // is the more useful cut. Only families with something listed get a chip, so
+  // a tap can never land on an empty list and there is nothing to reconcile.
+  const clearFilters = () => setSearchFamily(ALL_FAMILIES);
+
+  /**
+   * Order a family, with whatever the player typed recorded as the string they
+   * want. The tier is what gets bought; the request is confirmed with the
+   * stringer at drop-off, which is what the copy says.
+   */
+  /**
+   * The families screen, carrying whatever was typed so the ladder can offer it
+   * as the string request rather than losing it on the way.
+   */
+  const browseFamilies = (query) => {
+    setOtherString(clean(query));
+    setStringId(clean(query) ? "other" : "");
+    go("tier");
   };
 
-  const clearFilters = () => {
-    setSearchMaterial("all");
-    setSearchBrand("all");
+  const requestFamily = (familyKey, query) => {
+    const request = buildFamilyRequest({ familyKey, query, tiers });
+    if (!request) return;
+    setTierId(request.tierId);
+    setStringId("other");
+    setOtherString(request.customStringText || "");
+    setServiceMode("supplied");
+    go("config");
   };
 
   const pickString = (row) => {
@@ -811,8 +819,7 @@ export default function RestringingPlayerFlow() {
     setServiceMode("supplied");
     setTierId(null);
     setStringId("");
-    setSearchMaterial("all");
-    setSearchBrand("all");
+    setSearchFamily(ALL_FAMILIES);
     setSearchPrefill(`${item.string_brand || ""} ${catalogued}`.trim());
     go("search");
   };
@@ -933,20 +940,26 @@ export default function RestringingPlayerFlow() {
 
         {/* Placeholders — built in the next increments (string search, own-string, stringer directory). */}
         {screen === "search" ? (() => {
-          const rows = searchCatalog;
-          const query = searchQuery.trim();
-          const results = filterCatalog(rows, { query: searchQuery, material: searchMaterial, brand: searchBrand });
-          const wide = query ? filterCatalog(rows, { query: searchQuery }) : [];
-          const brandPool = brandsForMaterial(rows, searchMaterial);
-          const hasFilter = searchMaterial !== "all" || searchBrand !== "all";
-          const filterBits = [
-            searchBrand !== "all" ? searchBrand : "",
-            searchMaterial !== "all" ? MATERIALS.find((m) => m.id === searchMaterial)?.label.toLowerCase() : "",
-          ].filter(Boolean).join(" ");
-          const countLine = query
-            ? results.length ? `${results.length} match${results.length > 1 ? "es" : ""}` : "No matches"
-            : hasFilter ? `${results.length} in ${filterBits}` : `${rows.length} stocked near you`;
+          const view = buildSearchView({
+            catalog: searchCatalog,
+            tiers,
+            query: searchQuery,
+            family: searchFamily,
+          });
           const ownCta = `Bring my own set${ownPriceCents ? ` · ${formatMoneyCents(ownPriceCents)}` : ""}`;
+          const activeChip = view.chips.find((chip) => chip.key === view.activeFamily);
+          // Resolved once so the button can show the family's real price and the
+          // handler cannot disagree with the label the player just read.
+          const missRequest = view.requestFamily
+            ? buildFamilyRequest({ familyKey: view.requestFamily, query: view.query, tiers })
+            : null;
+          const countLine = view.query
+            ? view.results.length
+              ? `${view.results.length} match${view.results.length > 1 ? "es" : ""}`
+              : "No matches"
+            : activeChip
+              ? `${view.results.length} in ${activeChip.label.toLowerCase()}`
+              : `${view.totalListed} listed near you`;
           return (
             <>
               <div className="rsg-search-controls">
@@ -958,42 +971,24 @@ export default function RestringingPlayerFlow() {
                   autoComplete="off"
                   aria-label="Search strings by brand or name"
                 />
-                <div className="rsg-frow">
-                  <span className="rsg-flabel">Material</span>
-                  <div className="rsg-ftrack">
-                    {MATERIALS.map((m) => {
-                      const count = m.id === "all" ? rows.length : rows.filter((r) => r.material === m.id).length;
-                      return (
-                        <button key={m.id} type="button" className={`rsg-chip${searchMaterial === m.id ? " is-active" : ""}`} aria-pressed={searchMaterial === m.id} disabled={!count} onClick={() => changeMaterial(m.id)}>{m.label}</button>
-                      );
-                    })}
+                {view.chips.length ? (
+                  <div className="rsg-frow">
+                    <span className="rsg-flabel">Family</span>
+                    <div className="rsg-ftrack">
+                      <button type="button" className={`rsg-chip${view.activeFamily === ALL_FAMILIES ? " is-active" : ""}`} aria-pressed={view.activeFamily === ALL_FAMILIES} onClick={clearFilters}>All<span className="rsg-chip-n">{view.totalListed}</span></button>
+                      {view.chips.map((chip) => (
+                        <button key={chip.key} type="button" className={`rsg-chip${view.activeFamily === chip.key ? " is-active" : ""}`} aria-pressed={view.activeFamily === chip.key} onClick={() => setSearchFamily(chip.key)}>{chip.label}<span className="rsg-chip-n">{chip.count}</span></button>
+                      ))}
+                    </div>
+                    <p className="rsg-hint">Families your stringers list. More available by request.</p>
                   </div>
-                </div>
-                <div className="rsg-frow">
-                  <span className="rsg-flabel">Brand</span>
-                  <div className="rsg-ftrack">
-                    <button type="button" className={`rsg-chip${searchBrand === "all" ? " is-active" : ""}`} aria-pressed={searchBrand === "all"} onClick={() => setSearchBrand("all")}>All</button>
-                    {brandPool.map((b) => (
-                      <button key={b} type="button" className={`rsg-chip${searchBrand === b ? " is-active" : ""}`} aria-pressed={searchBrand === b} onClick={() => setSearchBrand(b)}>{b}</button>
-                    ))}
-                  </div>
-                </div>
+                ) : null}
               </div>
 
               <div className="rsg-reshead">
                 <span>{searchLoading ? "Loading strings…" : searchError ? "Couldn’t load strings" : countLine}</span>
-                {hasFilter && !searchLoading && !searchError ? <button type="button" className="rsg-clear" onClick={clearFilters}>Clear filters</button> : null}
+                {view.activeFamily !== ALL_FAMILIES && !searchLoading && !searchError ? <button type="button" className="rsg-clear" onClick={clearFilters}>Clear</button> : null}
               </div>
-
-              {import.meta.env.DEV ? (
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", margin: "0 2px 10px", wordBreak: "break-word" }}>
-                  dev · {searchLoading
-                    ? "loading…"
-                    : searchError
-                      ? `error: ${searchError}`
-                      : `${searchCatalog.length} strings · ${searchCatalog.filter((r) => Array.isArray(r.gauges) || (r.gauge != null && r.gauge !== "")).length} w/ gauges · ${searchCatalog.filter((r) => r.mains != null || r.crosses != null).length} hybrid-comp · keys: ${Object.keys(searchCatalog[0] || {}).join(",") || "—"}`}
-                </div>
-              ) : null}
 
               {searchLoading ? null : searchError ? (
                 <div className="rsg-miss">
@@ -1001,56 +996,68 @@ export default function RestringingPlayerFlow() {
                   <div className="rsg-miss-s">{searchError}</div>
                   <button type="button" className="rsg-secondary" onClick={retrySearchCatalog}>Try again</button>
                 </div>
-              ) : results.length ? (
-                <div className="rsg-stack">
-                  {results.map((row) => {
-                    const label = `${row.brand || ""} ${row.name || ""}`.trim();
-                    const gauges = rowGauges(row);
-                    const meta = isHybridCategory(row.string_category)
-                      ? `${clean(row.mains)} / ${clean(row.crosses)}`.replace(/^ \/ | \/ $/g, "").trim()
-                      : gauges.length ? `${gauges.join(" · ")} gauge` : "";
-                    return (
-                      <button key={row.id} type="button" className="rsg-res" onClick={() => pickString(row)}>
-                        <div className="rsg-res-txt">
-                          <div className="rsg-res-t">
-                            {query
-                              ? highlightMatch(label, query).map((part, i) => (part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>))
-                              : label}
-                          </div>
-                          <div className="rsg-res-m">
-                            <span className="rsg-tag">{categoryLabel(row.string_category)}</span>
-                            {meta ? <span className="rsg-res-meta">{meta}</span> : null}
-                          </div>
-                        </div>
-                        {Number.isFinite(Number(row.price_cents)) ? <div className="rsg-res-p">{formatMoneyCents(row.price_cents)}</div> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : query && wide.length ? (
-                <div className="rsg-miss">
-                  <div className="rsg-miss-t">Not in {filterBits}</div>
-                  <div className="rsg-miss-s">{wide.length} match{wide.length > 1 ? "es" : ""} outside these filters.</div>
-                  <button type="button" className="rsg-secondary" onClick={clearFilters}>Clear filters</button>
-                </div>
-              ) : query ? (
-                <div className="rsg-miss">
-                  <div className="rsg-miss-t">No stringer near you stocks &ldquo;{query}&rdquo;</div>
-                  <div className="rsg-miss-s">Bring a set with you and pay for labor only. We&apos;ve noted the request for your local stringers.</div>
-                  <button type="button" className="rsg-primary" onClick={() => chooseMode("own")}>{ownCta}</button>
-                </div>
-              ) : hasFilter ? (
-                <div className="rsg-miss">
-                  <div className="rsg-miss-t">Nothing stocked in {filterBits}</div>
-                  <div className="rsg-miss-s">Try another filter, or bring your own set.</div>
-                  <button type="button" className="rsg-secondary" onClick={clearFilters}>Clear filters</button>
-                </div>
               ) : (
-                <div className="rsg-miss">
-                  <div className="rsg-miss-t">No strings stocked here yet</div>
-                  <div className="rsg-miss-s">Bring your own set and pay for labor only.</div>
-                  <button type="button" className="rsg-primary" onClick={() => chooseMode("own")}>{ownCta}</button>
-                </div>
+                <>
+                  {view.results.length ? (
+                    <div className="rsg-stack">
+                      {view.results.map((row) => (
+                        <button key={row.id} type="button" className="rsg-res" onClick={() => pickString(row)}>
+                          <div className="rsg-res-txt">
+                            <div className="rsg-res-t">
+                              {view.query
+                                ? highlightMatch(row.title, view.query).map((part, i) => (part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>))
+                                : row.title}
+                            </div>
+                            <div className="rsg-res-m">
+                              <span className="rsg-tag">{row.familyLabel}</span>
+                              {row.gauges.length ? <span className="rsg-res-meta">{row.gauges.join(" · ")} gauge</span> : null}
+                            </div>
+                          </div>
+                          <div className="rsg-res-p">{formatMoneyCents(row.priceCents)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : view.mode === "elsewhere" ? (
+                    <div className="rsg-miss">
+                      <div className="rsg-miss-t">Not in {activeChip?.label.toLowerCase() || "this family"}</div>
+                      <div className="rsg-miss-s">{view.elsewhereCount} match{view.elsewhereCount > 1 ? "es" : ""} in other families.</div>
+                      <button type="button" className="rsg-secondary" onClick={clearFilters}>Show all families</button>
+                    </div>
+                  ) : view.query ? (
+                    <div className="rsg-miss">
+                      <div className="rsg-miss-t">No stringer near you lists &ldquo;{view.query}&rdquo;</div>
+                      <div className="rsg-miss-s">
+                        {missRequest
+                          ? `It's a ${missRequest.familyLabel.toLowerCase()}. Order that family and request it by name — your stringer confirms at drop-off.`
+                          : "Order the closest family and request it by name, or bring your own set."}
+                      </div>
+                      {missRequest ? (
+                        <button type="button" className="rsg-primary" onClick={() => requestFamily(missRequest.familyKey, view.query)}>
+                          Request {view.query} · {formatMoneyCents(missRequest.priceCents)}
+                        </button>
+                      ) : null}
+                      <button type="button" className="rsg-secondary" onClick={() => browseFamilies(view.requestQuery)}>Browse all families</button>
+                      <button type="button" className="rsg-secondary" onClick={() => chooseMode("own")}>{ownCta}</button>
+                    </div>
+                  ) : (
+                    <div className="rsg-miss">
+                      <div className="rsg-miss-t">No strings listed here yet</div>
+                      <div className="rsg-miss-s">Order by family and request the string you want, or bring your own set.</div>
+                      <button type="button" className="rsg-primary" onClick={() => browseFamilies("")}>Browse all families</button>
+                      <button type="button" className="rsg-secondary" onClick={() => chooseMode("own")}>{ownCta}</button>
+                    </div>
+                  )}
+
+                  {/* Permanent, in every state: the way out carries whatever was
+                      typed through to the families screen as the request. */}
+                  <button type="button" className="rsg-spool" onClick={() => browseFamilies(view.requestQuery)}>
+                    <span className="rsg-spool-txt">
+                      <b>Don&apos;t see your string?</b>
+                      <small>Order by family and request it by name.</small>
+                    </span>
+                    <ArrowRight size={18} />
+                  </button>
+                </>
               )}
             </>
           );
@@ -1424,6 +1431,13 @@ export default function RestringingPlayerFlow() {
         .rsg-res-meta{color:#6b7280;font-size:13px}
         .rsg-res-p{flex:none;font-weight:900;font-size:16px;white-space:nowrap}
         .rsg-miss{border:1px dashed #d6d9e0;border-radius:16px;padding:18px;text-align:center;background:#fff}
+        .rsg-chip-n{margin-left:6px;font-size:11px;font-weight:900;color:#8b5cf6}
+        .rsg-chip.is-active .rsg-chip-n{color:inherit;opacity:.75}
+        .rsg-hint{margin:9px 0 0;font-size:12px;font-weight:600;color:#6b7280}
+        .rsg-spool{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:14px;border:1px dashed #d6d9e0;border-radius:16px;background:#fff;text-align:left;color:#111827}
+        .rsg-spool-txt{flex:1;min-width:0;display:block}
+        .rsg-spool-txt b{display:block;font-size:14px;font-weight:900}
+        .rsg-spool-txt small{display:block;margin-top:2px;font-size:12px;font-weight:600;color:#6b7280}
         .rsg-miss-t{font-weight:900;font-size:16px}.rsg-miss-s{color:#6b7280;margin:6px 0 12px}
         .rsg-primary{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:15px;padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:900;box-shadow:0 10px 24px rgba(124,58,237,.22);margin-top:12px}.rsg-primary:disabled,.rsg-secondary:disabled{opacity:.55}
         .rsg-stack{display:grid;gap:12px}.rsg-option{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:14px 15px;font-weight:800}.rsg-progress{height:8px;border-radius:999px;background:#ede9fe;margin-bottom:16px;overflow:hidden}.rsg-progress span{display:block;height:100%;background:#7c3aed}
