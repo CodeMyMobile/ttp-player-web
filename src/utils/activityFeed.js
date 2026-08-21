@@ -297,6 +297,7 @@ export const buildCoachActivities = (records = []) =>
             slot.from && slot.to
               ? `Available ${formatClockTime(slot.from) ?? slot.from} – ${formatClockTime(slot.to) ?? slot.to}`
               : null;
+          const timeLabel = formatClockTime(slot.from);
 
           return {
             id: `coach-${coachId ?? "unknown"}-${index}-${startAt.toISOString()}`,
@@ -305,7 +306,7 @@ export const buildCoachActivities = (records = []) =>
             label: "Private Lesson",
             typeClassName: "lesson",
             title: formatCoachTitle({ ...record, coach }),
-            time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
+            time: timeLabel ?? (zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A")),
             dayKey: slot.date || toLocalDayKey(zonedStart, startAt),
             startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
             location,

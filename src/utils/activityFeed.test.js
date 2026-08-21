@@ -146,6 +146,29 @@ test("every builder tolerates junk input rather than throwing", () => {
   }
 });
 
+test("coach availability shows the venue wall-clock time, not the UTC instant", () => {
+  const [item] = buildCoachActivities([
+    {
+      coach_id: 26,
+      coach_name: "Paul Cochrane",
+      availability: [
+        {
+          day: "FRIDAY",
+          date: "2026-08-28",
+          from: "09:00:00",
+          to: "10:00:00",
+          start_date_time: "2026-08-28T16:00:00.000Z",
+          end_date_time: "2026-08-28T17:00:00.000Z",
+        },
+      ],
+    },
+  ]);
+
+  assert.equal(item.time, "9 AM");
+  assert.equal(item.dayKey, "2026-08-28");
+  assert.equal(item.startTime, "2026-08-28T16:00:00.000Z");
+});
+
 // --- window bounding --------------------------------------------------------
 
 test('"all" means all of this week, not everything the API returned', () => {
