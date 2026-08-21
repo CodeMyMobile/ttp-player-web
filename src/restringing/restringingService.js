@@ -31,9 +31,17 @@ export async function assembleVendorCatalog({ vendorId, tiers = [] }) {
     stringTiers.map((tier) =>
       listVendorStrings({ vendorId, serviceTierId: tier.id })
         .then((data) => ({ tier, catalog: (data && data.catalog) || [] }))
-        .catch(() => ({ tier, catalog: [] })),
+        .catch((err) => ({ tier, catalog: [], error: err })),
     ),
   );
+  if (import.meta.env.DEV) {
+    // Dev-only: per-tier breakdown — shows whether each catalog fetch returned rows or errored.
+    console.log(
+      `%c[restring] catalog vendor ${vendorId} · ${stringTiers.length} string tiers →`,
+      "color:#7c3aed;font-weight:700",
+      tierCatalogs.map((tc) => `t${tc.tier.id}/${tc.tier.string_category}:${tc.catalog.length}${tc.error ? `!(${tc.error.status || "err"})` : ""}`).join("  "),
+    );
+  }
   return mergeTierCatalogs(tierCatalogs);
 }
 

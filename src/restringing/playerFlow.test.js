@@ -10,6 +10,7 @@ import {
   highlightMatch,
   isHybridCategory,
   lbsToKg,
+  loadCatalog,
   materialFromCategory,
   mergeTierCatalogs,
   normalizePaymentMethods,
@@ -202,6 +203,30 @@ test("deriveTier finds the tier whose category matches the string", () => {
   ];
   assert.equal(deriveTier("prem_poly", tiers)?.id, 6);
   assert.equal(deriveTier("nope", tiers), null);
+});
+
+// The search-catalog load must ALWAYS resolve so the loading flag can never get
+// stuck — covering the three paths: data, empty, and total failure.
+test("loadCatalog resolves with data (never hangs)", async () => {
+  const result = await loadCatalog(async () => [{ id: 1 }, { id: 2 }]);
+  assert.deepEqual(result, { catalog: [{ id: 1 }, { id: 2 }], error: null });
+});
+
+test("loadCatalog resolves empty without an error", async () => {
+  const result = await loadCatalog(async () => []);
+  assert.deepEqual(result, { catalog: [], error: null });
+});
+
+test("loadCatalog swallows a rejection into an error result and never throws", async () => {
+  let rejected = false;
+  const result = await loadCatalog(async () => {
+    throw new Error("all tiers failed");
+  }).catch(() => {
+    rejected = true;
+    return null;
+  });
+  assert.equal(rejected, false); // the promise resolves — loading is guaranteed to clear
+  assert.deepEqual(result, { catalog: [], error: "all tiers failed" });
 });
 
 test("resolveReorderString exact-matches by id then brand+name, never fuzzy", () => {

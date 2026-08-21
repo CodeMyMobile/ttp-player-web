@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -6,31 +6,43 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronLeft,
+  ClipboardList,
   CreditCard,
+  Lightbulb,
   MapPin,
   MessageCircle,
   Minus,
+  Package,
   Phone,
   Plus,
   RefreshCw,
+  ShoppingBag,
   Star,
+  Target,
   X,
 } from "lucide-react";
 import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
+  brandsForMaterial,
   buildCheckoutItems,
   categoryLabel,
+  deriveTier,
+  filterCatalog,
   formatMoneyCents,
   GAUGES,
+  highlightMatch,
+  isHybridCategory,
   lbsToKg,
+  loadCatalog,
   normalizePaymentMethods,
   orderStatusLabel,
   paymentStatusLabel,
   recommendStringCategory,
 } from "./playerFlow.js";
 import {
+  assembleVendorCatalog,
   cancelOrder,
   captureVendorLead,
   createCheckoutOrder,
@@ -74,6 +86,34 @@ const tierSub = (tier) => ({
 
 const clean = (value) => String(value || "").trim();
 const isOwnTier = (tier) => tier && tier.string_category === null;
+
+// Material filter buckets (must match materialFromCategory's output ids).
+const MATERIALS = [
+  { id: "all", label: "All" },
+  { id: "poly", label: "Poly" },
+  { id: "multi", label: "Multi" },
+  { id: "syn gut", label: "Syn gut" },
+  { id: "nat gut", label: "Natural gut" },
+  { id: "hybrid", label: "Hybrid" },
+];
+
+const rowGauges = (row) => (Array.isArray(row.gauges) ? row.gauges : row.gauge != null && row.gauge !== "" ? [row.gauge] : []);
+
+const wholeLbs = (value) => (Number.isFinite(Number(value)) ? String(Math.round(Number(value))) : "");
+
+const relativeWhen = (value) => {
+  if (!value) return "";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return "";
+  const days = Math.max(0, Math.round((Date.now() - then) / 86400000));
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.round(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks > 1 ? "s" : ""} ago`;
+  const months = Math.max(1, Math.round(days / 30));
+  return `${months} month${months > 1 ? "s" : ""} ago`;
+};
 
 // Chrome model: section screens keep the app bottom nav; order-flow screens hide it
 // and get an X + a 6-step progress bar. The app header never appears inside restringing.
@@ -193,6 +233,17 @@ export default function RestringingPlayerFlow() {
   const [tierId, setTierId] = useState(null);
   const [stringId, setStringId] = useState("");
   const [otherString, setOtherString] = useState("");
+  const [, setServiceMode] = useState(null); // "supplied" | "own" — asked first so results can price
+  const [searchPrefill, setSearchPrefill] = useState(""); // seeds the string search (reorder / miss recovery)
+  // String-first search: one merged catalog (all string tiers for the vendor), assembled
+  // once and filtered client-side per keystroke.
+  const [searchCatalog, setSearchCatalog] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMaterial, setSearchMaterial] = useState("all");
+  const [searchBrand, setSearchBrand] = useState("all");
+  const catalogLoadStarted = useRef(false); // load-once guard (a ref, so it can't re-trigger the effect)
   const [ownString, setOwnString] = useState("");
   const [gauge, setGauge] = useState("16");
   const [tension, setTension] = useState(54);
@@ -314,6 +365,78 @@ export default function RestringingPlayerFlow() {
     void refreshPaymentMethods();
   }, [refreshPaymentMethods]);
 
+  // Reset scroll on every screen change so a screen never opens mid-content
+  // (the sticky nav header stays pinned regardless).
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [screen]);
+
+  // Assemble the merged catalog once. loadCatalog ALWAYS resolves, so setSearchLoading(false)
+  // is guaranteed to run. The load-once guard is a ref (not state) so setting the loading flag
+  // can't re-trigger this effect and cancel its own resolution (the original hang). No
+  // mounted-ref guard: React 19 no-ops setState after unmount, and a mounted ref breaks under
+  // StrictMode's mount/unmount/remount — which was leaving loading stuck at "loading…".
+  const loadSearchCatalog = useCallback(() => {
+    const vendor = allVendors[0] || vendors[0] || null;
+    if (!vendor || !tiers.length) return;
+    catalogLoadStarted.current = true;
+    setSearchLoading(true);
+    setSearchError("");
+    loadCatalog(() => assembleVendorCatalog({ vendorId: vendor.id, tiers })).then((result) => {
+      setSearchCatalog(result.catalog);
+      setSearchError(result.error || "");
+      setSearchLoading(false);
+      if (import.meta.env.DEV) {
+        const sample = result.catalog[0] || {};
+        // Dev-only: answers the live row-shape question (count / gauges / hybrid comp).
+        // console.log (not .debug) so it isn't hidden by Chrome's Verbose filter.
+        console.log(`%c[restring] assembled ${result.catalog.length} strings`, "color:#7c3aed;font-weight:700", {
+          error: result.error,
+          sampleRow: sample,
+          sampleKeys: Object.keys(sample),
+          withGauges: result.catalog.filter((r) => Array.isArray(r.gauges) || (r.gauge != null && r.gauge !== "")).length,
+          withHybridComposition: result.catalog.filter((r) => r.mains != null || r.crosses != null).length,
+        });
+        // Dev-only: compare against the BARE catalog (no service_tier_id). If this returns
+        // strings while the per-tier calls didn't, the strings aren't tier-scoped and the
+        // per-tier assembly is the bug (should fetch bare + derive category from the row).
+        listVendorStrings({ vendorId: vendor.id })
+          .then((data) => {
+            const bare = (data && data.catalog) || [];
+            console.log(`%c[restring] BARE catalog (no service_tier_id): ${bare.length}`, "color:#c026d3;font-weight:700", { sampleRow: bare[0] || null });
+          })
+          .catch((err) => console.log("[restring] BARE catalog error", err?.status || err));
+      }
+    });
+  }, [allVendors, vendors, tiers]);
+
+  useEffect(() => {
+    if (screen === "search" && !catalogLoadStarted.current) loadSearchCatalog();
+  }, [screen, loadSearchCatalog]);
+
+  const retrySearchCatalog = () => {
+    catalogLoadStarted.current = false;
+    loadSearchCatalog();
+  };
+
+  // Seed the search box from a reorder / miss prefill the first time search opens.
+  useEffect(() => {
+    if (screen === "search" && searchPrefill) {
+      setSearchQuery(searchPrefill);
+      setSearchPrefill("");
+    }
+  }, [screen, searchPrefill]);
+
+  // Demand signal for strings no stringer stocks. The logging endpoint does not
+  // exist yet, so this is a debounced no-op until the backend adds it.
+  useEffect(() => {
+    if (screen !== "search") return undefined;
+    const q = searchQuery.trim();
+    if (q.length < 3 || filterCatalog(searchCatalog, { query: searchQuery }).length) return undefined;
+    const timer = setTimeout(() => { /* captureSearchMiss(q) — no-op until endpoint exists */ }, 700);
+    return () => clearTimeout(timer);
+  }, [screen, searchQuery, searchCatalog]);
+
   useEffect(() => {
     if (!tier || !selectedVendor) return;
     let cancelled = false;
@@ -322,7 +445,13 @@ export default function RestringingPlayerFlow() {
         if (cancelled) return;
         const rows = data.catalog || [];
         setCatalog(rows);
-        setStringId(rows[0]?.id ? String(rows[0].id) : "other");
+        // Keep a string already chosen in the string-first search if it's valid here;
+        // otherwise default to the first row (or free-text "other").
+        setStringId((current) =>
+          current && rows.some((row) => String(row.id) === String(current))
+            ? current
+            : rows[0]?.id ? String(rows[0].id) : "other",
+        );
       })
       .catch(() => {
         if (!cancelled) setCatalog([]);
@@ -579,6 +708,115 @@ export default function RestringingPlayerFlow() {
     back();
   };
 
+  // Reorder card: the player's most recent order (returning = there is one).
+  const lastOrder = orders[0] || null;
+  const lastOrderItem = lastOrder ? (lastOrder.items || [])[0] || null : null;
+  const isReturning = Boolean(lastOrder && lastOrderItem);
+  // Own-string orders have no catalog string_name — present them as such and skip
+  // any catalog re-resolution (handleReorder routes them straight to the own screen).
+  const isOwnLastOrder = Boolean(lastOrderItem && !clean(lastOrderItem.string_name));
+  const lastOwnText = clean(lastOrderItem?.own_string_text || lastOrderItem?.custom_string_text);
+  const reorderName = !lastOrderItem
+    ? ""
+    : isOwnLastOrder
+      ? `Your own string${lastOwnText ? ` · ${lastOwnText}` : ""}`
+      : `${lastOrderItem.string_brand || ""} ${lastOrderItem.string_name}`.trim();
+  const reorderTension = !lastOrderItem
+    ? ""
+    : lastOrderItem.tension_lbs_crosses && Number(lastOrderItem.tension_lbs_crosses) !== Number(lastOrderItem.tension_lbs_mains)
+      ? `${wholeLbs(lastOrderItem.tension_lbs_mains)}/${wholeLbs(lastOrderItem.tension_lbs_crosses)}`
+      : wholeLbs(lastOrderItem.tension_lbs_mains);
+  const reorderUnitCents = lastOrder
+    ? Math.round(Number(lastOrder.total_cents || 0) / Math.max(1, (lastOrder.items || []).length))
+    : 0;
+  const suppliedPrices = tiers.filter((t) => t.string_category).map((t) => Number(t.price_cents)).filter(Number.isFinite);
+  const minSuppliedCents = suppliedPrices.length ? Math.min(...suppliedPrices) : 0;
+  const ownPriceCents = Number(tiers.find(isOwnTier)?.price_cents) || 0;
+
+  const chooseMode = (mode) => {
+    setServiceMode(mode);
+    setSearchPrefill("");
+    if (mode === "own") {
+      const ownTier = tiers.find(isOwnTier);
+      setTierId(ownTier?.id ?? null);
+      setStringId("");
+      setOwnString("");
+      setAdviceRequested(false);
+      go("own");
+      return;
+    }
+    setTierId(null); // supplied: tier is derived once a string is picked in search
+    setStringId("");
+    setSearchQuery("");
+    setSearchMaterial("all");
+    setSearchBrand("all");
+    go("search");
+  };
+
+  const changeMaterial = (mat) => {
+    setSearchMaterial(mat);
+    // Keep the brand valid within the new material so the two filters never
+    // intersect to nothing on a tap.
+    if (searchBrand !== "all" && !brandsForMaterial(searchCatalog, mat).includes(searchBrand)) {
+      setSearchBrand("all");
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchMaterial("all");
+    setSearchBrand("all");
+  };
+
+  const pickString = (row) => {
+    setStringId(String(row.id));
+    setTierId(deriveTier(row.string_category, tiers)?.id ?? null);
+    if (isHybridCategory(row.string_category)) {
+      setSplitTension(true); // hybrids default to split tension
+      setCrosses((current) => (current && current !== tension ? current : Math.max(40, tension - 4)));
+    } else {
+      const gauges = rowGauges(row);
+      if (gauges.length === 1) setGauge(String(gauges[0])); // auto-select the only gauge
+    }
+    go("vendor");
+  };
+
+  // "Order again": carry the past setup into the flow and resume prefilled. Catalogued
+  // strings resume in search (never a dead card); own-string orders resume in own.
+  // The exact-match straight-to-checkout (2-tap) path lands with the search step and
+  // needs vendor_id/string_id on the order so we don't re-pick the vendor.
+  const handleReorder = (order) => {
+    const item = (order?.items || [])[0];
+    if (!item) return;
+    if (item.gauge) setGauge(String(item.gauge));
+    if (item.tension_lbs_mains) setTension(Number(item.tension_lbs_mains));
+    if (item.tension_lbs_crosses && Number(item.tension_lbs_crosses) !== Number(item.tension_lbs_mains)) {
+      setSplitTension(true);
+      setCrosses(Number(item.tension_lbs_crosses));
+    } else {
+      setSplitTension(false);
+    }
+    setQuantity(1);
+    setSetupMode("");
+    setAdviceRequested(false);
+    setRacketMakeModel(item.racket_make_model || "");
+    const catalogued = clean(item.string_name);
+    if (!catalogued) {
+      setServiceMode("own");
+      const ownTier = tiers.find(isOwnTier);
+      setTierId(ownTier?.id ?? null);
+      setOwnString(item.own_string_text || item.custom_string_text || "");
+      go("own");
+      return;
+    }
+    setServiceMode("supplied");
+    setTierId(null);
+    setStringId("");
+    setSearchMaterial("all");
+    setSearchBrand("all");
+    setSearchPrefill(`${item.string_brand || ""} ${catalogued}`.trim());
+    go("search");
+  };
+
   return (
     <div className="dashboard-page restring-page">
       <header className="rsg-nav">
@@ -626,24 +864,209 @@ export default function RestringingPlayerFlow() {
               <h1>Restring my racket</h1>
               <p>Fresh strings, from a stringer near you.</p>
             </section>
-            <button type="button" className="rsg-choice" onClick={() => go("tier")}>
-              <span className="rsg-emoji">🎯</span>
-              <span><b>I know what I want</b><small>Pick a service and string.</small></span>
-              <ArrowRight size={20} />
+
+            {isReturning ? (
+              <section className="rsg-card rsg-reorder">
+                <div className="rsg-eyebrow">
+                  Last order{relativeWhen(lastOrder.created_at || lastOrder.placed_at) ? ` · ${relativeWhen(lastOrder.created_at || lastOrder.placed_at)}` : ""}
+                </div>
+                <div className="rsg-reorder-name">{reorderName}</div>
+                <div className="rsg-reorder-spec">
+                  {lastOrderItem.gauge ? `${lastOrderItem.gauge} gauge · ` : ""}
+                  {reorderTension ? `${reorderTension} lbs · ` : ""}
+                  {lastOrder.vendor_name || "your stringer"}
+                </div>
+                <button type="button" className="rsg-primary" onClick={() => handleReorder(lastOrder)}>
+                  Order again{reorderUnitCents ? ` · ${formatMoneyCents(reorderUnitCents)}` : ""}
+                </button>
+                <button type="button" className="rsg-link" onClick={() => go("orders")}>
+                  View all orders ({orders.length})
+                </button>
+              </section>
+            ) : null}
+
+            {isReturning ? <h2 className="rsg-divider">Something different</h2> : null}
+
+            <button type="button" className="rsg-choice" onClick={() => go("mode")}>
+              <span className="rsg-choice-ico"><Target size={22} /></span>
+              <span className="rsg-choice-txt"><b>I know what I want</b><small>Search for your string by name.</small></span>
+              <ArrowRight size={20} className="rsg-choice-arrow" />
             </button>
-            <button type="button" className="rsg-choice rsg-choice-hot" onClick={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}>
-              <span className="rsg-emoji">💡</span>
-              <span><b>Help me choose a string</b><small>4 quick questions.</small></span>
-              <ArrowRight size={20} />
+            <button type="button" className={`rsg-choice${isReturning ? "" : " rsg-choice-hot"}`} onClick={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}>
+              <span className="rsg-choice-ico"><Lightbulb size={22} /></span>
+              <span className="rsg-choice-txt"><b>Help me choose a string</b><small>4 quick questions.</small></span>
+              <ArrowRight size={20} className="rsg-choice-arrow" />
             </button>
-            {orders.length ? (
+            <button type="button" className="rsg-choice" onClick={() => go("stringers")}>
+              <span className="rsg-choice-ico"><MapPin size={22} /></span>
+              <span className="rsg-choice-txt"><b>Find a stringer</b><small>See who&apos;s near you.</small></span>
+              <ArrowRight size={20} className="rsg-choice-arrow" />
+            </button>
+            {!isReturning ? (
               <button type="button" className="rsg-choice" onClick={() => go("orders")}>
-                <span className="rsg-emoji">📋</span>
-                <span><b>My orders ({orders.length})</b><small>Track status and cancel before drop-off.</small></span>
-                <ArrowRight size={20} />
+                <span className="rsg-choice-ico"><ClipboardList size={22} /></span>
+                <span className="rsg-choice-txt"><b>My orders</b><small>Track status and cancel before drop-off.</small></span>
+                <ArrowRight size={20} className="rsg-choice-arrow" />
               </button>
             ) : null}
           </>
+        ) : null}
+
+        {screen === "mode" ? (
+          <>
+            <section className="rsg-hero compact">
+              <h1>Whose string?</h1>
+              <p>This changes the price, so we ask it first.</p>
+            </section>
+            <button type="button" className="rsg-choice" onClick={() => chooseMode("supplied")}>
+              <span className="rsg-choice-ico"><Package size={22} /></span>
+              <span className="rsg-choice-txt"><b>My stringer supplies it</b><small>Pick from what they stock.</small></span>
+              {minSuppliedCents ? <span className="rsg-choice-price">From {formatMoneyCents(minSuppliedCents)}</span> : <ArrowRight size={20} className="rsg-choice-arrow" />}
+            </button>
+            <button type="button" className="rsg-choice" onClick={() => chooseMode("own")}>
+              <span className="rsg-choice-ico"><ShoppingBag size={22} /></span>
+              <span className="rsg-choice-txt"><b>I&apos;ll bring my own string</b><small>Labor only. Hybrids welcome.</small></span>
+              {ownPriceCents ? <span className="rsg-choice-price">{formatMoneyCents(ownPriceCents)}</span> : <ArrowRight size={20} className="rsg-choice-arrow" />}
+            </button>
+          </>
+        ) : null}
+
+        {/* Placeholders — built in the next increments (string search, own-string, stringer directory). */}
+        {screen === "search" ? (() => {
+          const rows = searchCatalog;
+          const query = searchQuery.trim();
+          const results = filterCatalog(rows, { query: searchQuery, material: searchMaterial, brand: searchBrand });
+          const wide = query ? filterCatalog(rows, { query: searchQuery }) : [];
+          const brandPool = brandsForMaterial(rows, searchMaterial);
+          const hasFilter = searchMaterial !== "all" || searchBrand !== "all";
+          const filterBits = [
+            searchBrand !== "all" ? searchBrand : "",
+            searchMaterial !== "all" ? MATERIALS.find((m) => m.id === searchMaterial)?.label.toLowerCase() : "",
+          ].filter(Boolean).join(" ");
+          const countLine = query
+            ? results.length ? `${results.length} match${results.length > 1 ? "es" : ""}` : "No matches"
+            : hasFilter ? `${results.length} in ${filterBits}` : `${rows.length} stocked near you`;
+          const ownCta = `Bring my own set${ownPriceCents ? ` · ${formatMoneyCents(ownPriceCents)}` : ""}`;
+          return (
+            <>
+              <div className="rsg-search-controls">
+                <input
+                  className="rsg-search-input"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Hyper-G, Champion's Choice, RPM…"
+                  autoComplete="off"
+                  aria-label="Search strings by brand or name"
+                />
+                <div className="rsg-frow">
+                  <span className="rsg-flabel">Material</span>
+                  <div className="rsg-ftrack">
+                    {MATERIALS.map((m) => {
+                      const count = m.id === "all" ? rows.length : rows.filter((r) => r.material === m.id).length;
+                      return (
+                        <button key={m.id} type="button" className={`rsg-chip${searchMaterial === m.id ? " is-active" : ""}`} aria-pressed={searchMaterial === m.id} disabled={!count} onClick={() => changeMaterial(m.id)}>{m.label}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="rsg-frow">
+                  <span className="rsg-flabel">Brand</span>
+                  <div className="rsg-ftrack">
+                    <button type="button" className={`rsg-chip${searchBrand === "all" ? " is-active" : ""}`} aria-pressed={searchBrand === "all"} onClick={() => setSearchBrand("all")}>All</button>
+                    {brandPool.map((b) => (
+                      <button key={b} type="button" className={`rsg-chip${searchBrand === b ? " is-active" : ""}`} aria-pressed={searchBrand === b} onClick={() => setSearchBrand(b)}>{b}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rsg-reshead">
+                <span>{searchLoading ? "Loading strings…" : searchError ? "Couldn’t load strings" : countLine}</span>
+                {hasFilter && !searchLoading && !searchError ? <button type="button" className="rsg-clear" onClick={clearFilters}>Clear filters</button> : null}
+              </div>
+
+              {import.meta.env.DEV ? (
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed", margin: "0 2px 10px", wordBreak: "break-word" }}>
+                  dev · {searchLoading
+                    ? "loading…"
+                    : searchError
+                      ? `error: ${searchError}`
+                      : `${searchCatalog.length} strings · ${searchCatalog.filter((r) => Array.isArray(r.gauges) || (r.gauge != null && r.gauge !== "")).length} w/ gauges · ${searchCatalog.filter((r) => r.mains != null || r.crosses != null).length} hybrid-comp · keys: ${Object.keys(searchCatalog[0] || {}).join(",") || "—"}`}
+                </div>
+              ) : null}
+
+              {searchLoading ? null : searchError ? (
+                <div className="rsg-miss">
+                  <div className="rsg-miss-t">Couldn&apos;t load strings</div>
+                  <div className="rsg-miss-s">{searchError}</div>
+                  <button type="button" className="rsg-secondary" onClick={retrySearchCatalog}>Try again</button>
+                </div>
+              ) : results.length ? (
+                <div className="rsg-stack">
+                  {results.map((row) => {
+                    const label = `${row.brand || ""} ${row.name || ""}`.trim();
+                    const gauges = rowGauges(row);
+                    const meta = isHybridCategory(row.string_category)
+                      ? `${clean(row.mains)} / ${clean(row.crosses)}`.replace(/^ \/ | \/ $/g, "").trim()
+                      : gauges.length ? `${gauges.join(" · ")} gauge` : "";
+                    return (
+                      <button key={row.id} type="button" className="rsg-res" onClick={() => pickString(row)}>
+                        <div className="rsg-res-txt">
+                          <div className="rsg-res-t">
+                            {query
+                              ? highlightMatch(label, query).map((part, i) => (part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>))
+                              : label}
+                          </div>
+                          <div className="rsg-res-m">
+                            <span className="rsg-tag">{categoryLabel(row.string_category)}</span>
+                            {meta ? <span className="rsg-res-meta">{meta}</span> : null}
+                          </div>
+                        </div>
+                        {Number.isFinite(Number(row.price_cents)) ? <div className="rsg-res-p">{formatMoneyCents(row.price_cents)}</div> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : query && wide.length ? (
+                <div className="rsg-miss">
+                  <div className="rsg-miss-t">Not in {filterBits}</div>
+                  <div className="rsg-miss-s">{wide.length} match{wide.length > 1 ? "es" : ""} outside these filters.</div>
+                  <button type="button" className="rsg-secondary" onClick={clearFilters}>Clear filters</button>
+                </div>
+              ) : query ? (
+                <div className="rsg-miss">
+                  <div className="rsg-miss-t">No stringer near you stocks &ldquo;{query}&rdquo;</div>
+                  <div className="rsg-miss-s">Bring a set with you and pay for labor only. We&apos;ve noted the request for your local stringers.</div>
+                  <button type="button" className="rsg-primary" onClick={() => chooseMode("own")}>{ownCta}</button>
+                </div>
+              ) : hasFilter ? (
+                <div className="rsg-miss">
+                  <div className="rsg-miss-t">Nothing stocked in {filterBits}</div>
+                  <div className="rsg-miss-s">Try another filter, or bring your own set.</div>
+                  <button type="button" className="rsg-secondary" onClick={clearFilters}>Clear filters</button>
+                </div>
+              ) : (
+                <div className="rsg-miss">
+                  <div className="rsg-miss-t">No strings stocked here yet</div>
+                  <div className="rsg-miss-s">Bring your own set and pay for labor only.</div>
+                  <button type="button" className="rsg-primary" onClick={() => chooseMode("own")}>{ownCta}</button>
+                </div>
+              )}
+            </>
+          );
+        })() : null}
+        {screen === "own" ? (
+          <section className="rsg-card">
+            <h2>Your string</h2>
+            {clean(ownString) ? <p>Prefilled: <b>{ownString}</b></p> : null}
+            <p>Bring-your-own entry (brand/model, hybrid) arrives next.</p>
+          </section>
+        ) : null}
+        {screen === "stringers" ? (
+          <section className="rsg-card">
+            <h2>Find a stringer</h2>
+            <p>The stringer directory arrives in a later step.</p>
+          </section>
         ) : null}
 
         {screen === "wizard" ? (
@@ -967,17 +1390,41 @@ export default function RestringingPlayerFlow() {
         .rsg-nav-bar{max-width:760px;margin:0 auto;display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px;height:52px;padding:0 12px}
         .rsg-nav-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;border:0;background:transparent;color:#111827;cursor:pointer}
         .rsg-nav-btn:not(.rsg-nav-spacer):hover{background:#eceef2}
+        .rsg-nav-btn:focus{outline:none}
         .rsg-nav-btn:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
         .rsg-nav-spacer{background:transparent;cursor:default}
         .rsg-nav-title{text-align:center;font-weight:900;font-size:16px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rsg-nav-prog{height:3px;background:#ede9fe;overflow:hidden}
-        .rsg-nav-prog span{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .25s ease}
+        .rsg-nav-prog{height:4px;background:#e3dcf7;overflow:hidden}
+        .rsg-nav-prog span{display:block;height:100%;min-width:18px;border-radius:0 4px 4px 0;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .25s ease}
         @media (prefers-reduced-motion:reduce){.rsg-nav-prog span{transition:none}}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
         .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}
         .rsg-card,.rsg-choice,.rsg-tier{background:white;border:1px solid #edf0f4;border-radius:20px;box-shadow:0 1px 2px rgba(17,24,39,.05),0 10px 28px rgba(17,24,39,.06);padding:18px;margin-bottom:14px}
-        .rsg-choice,.rsg-tier{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left}.rsg-choice b,.rsg-tier b{display:block;font-size:18px}.rsg-choice small,.rsg-tier small{display:block;color:#6b7280}.rsg-choice-hot{border-color:#dac7ff;background:#faf7ff}.rsg-emoji{font-size:30px;margin-right:10px}
+        .rsg-choice,.rsg-tier{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left}.rsg-choice b,.rsg-tier b{display:block;font-size:18px}.rsg-choice small,.rsg-tier small{display:block;color:#6b7280}.rsg-choice-hot{border-color:#dac7ff;background:#faf7ff}.rsg-choice-ico{flex:none;width:34px;display:inline-flex;align-items:center;justify-content:center;color:#6d28d9;margin-right:10px}.rsg-choice-txt{flex:1;min-width:0}.rsg-choice-arrow{flex:none;color:#9ca3af}.rsg-choice-price{flex:none;margin-left:12px;font-weight:900;font-size:16px;color:#111827;white-space:nowrap}
+        .rsg-reorder{border-color:#dac7ff}.rsg-eyebrow{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:#6d28d9}.rsg-reorder-name{font-size:22px;font-weight:900;margin:6px 0 2px}.rsg-reorder-spec{color:#6b7280;margin-bottom:4px}
+        .rsg-divider{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin:8px 2px 12px;display:flex;align-items:center;gap:10px}.rsg-divider::after{content:"";flex:1;height:1px;background:#e5e7eb}
+        .rsg-search-controls{position:sticky;top:56px;z-index:10;background:#f4f5f7;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin-bottom:12px;box-shadow:0 1px 2px rgba(17,24,39,.05)}
+        .rsg-search-input{width:100%;border:1px solid #e5e7eb;border-radius:12px;padding:12px 13px;font-size:15px;background:#fff}
+        .rsg-frow{display:flex;align-items:center;gap:10px;margin-top:10px}
+        .rsg-flabel{flex:none;width:62px;font-size:12px;font-weight:900;color:#6b7280;text-transform:uppercase;letter-spacing:.03em}
+        .rsg-ftrack{flex:1;min-width:0;display:flex;gap:7px;overflow-x:auto;padding:0 14px 2px 0;scrollbar-width:none;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent)}
+        .rsg-ftrack::-webkit-scrollbar{display:none}
+        .rsg-chip{flex:none;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:7px 12px;font-weight:800;font-size:13px;white-space:nowrap;color:#111827}
+        .rsg-chip.is-active{border-color:#7c3aed;background:#ede9fe;color:#6d28d9}
+        .rsg-chip:disabled{opacity:.4}
+        .rsg-chip:focus-visible,.rsg-res:focus-visible,.rsg-clear:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+        .rsg-reshead{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px;font-weight:800;color:#6b7280;font-size:13px}
+        .rsg-clear{border:0;background:transparent;color:#6d28d9;font-weight:900;font-size:13px}
+        .rsg-res{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;border:1px solid #edf0f4;background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(17,24,39,.05)}
+        .rsg-res-txt{flex:1;min-width:0}
+        .rsg-res-t{font-weight:900;font-size:16px}.rsg-res-t mark{background:#fde68a;color:inherit;border-radius:3px;padding:0 1px}
+        .rsg-res-m{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+        .rsg-tag{display:inline-flex;border-radius:999px;background:#f1eafe;color:#6d28d9;padding:3px 9px;font-weight:800;font-size:12px}
+        .rsg-res-meta{color:#6b7280;font-size:13px}
+        .rsg-res-p{flex:none;font-weight:900;font-size:16px;white-space:nowrap}
+        .rsg-miss{border:1px dashed #d6d9e0;border-radius:16px;padding:18px;text-align:center;background:#fff}
+        .rsg-miss-t{font-weight:900;font-size:16px}.rsg-miss-s{color:#6b7280;margin:6px 0 12px}
         .rsg-primary{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:15px;padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:900;box-shadow:0 10px 24px rgba(124,58,237,.22);margin-top:12px}.rsg-primary:disabled,.rsg-secondary:disabled{opacity:.55}
         .rsg-stack{display:grid;gap:12px}.rsg-option{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:14px 15px;font-weight:800}.rsg-progress{height:8px;border-radius:999px;background:#ede9fe;margin-bottom:16px;overflow:hidden}.rsg-progress span{display:block;height:100%;background:#7c3aed}
         .rsg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin:10px 0}.rsg-tile,.rsg-stat{min-height:78px;border:1px solid #e5e7eb;background:#fff;border-radius:16px;padding:12px;text-align:center}.rsg-tile.is-active,.rsg-tier.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-tile b,.rsg-stat b{display:block;font-size:22px}.rsg-tile small,.rsg-stat span,.rsg-stat small{display:block;color:#6b7280;font-size:12px}

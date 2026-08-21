@@ -297,3 +297,15 @@ export function resolveReorderString(orderItem, catalog = []) {
     cleanText(row.name).toLowerCase() === name,
   ) || null;
 }
+
+// Run a catalog-assembly and ALWAYS resolve to { catalog, error } — never reject.
+// This is the guarantee the loading flag relies on: whatever `assemble` does
+// (returns rows, returns nothing, or throws), the caller's finally always runs.
+export async function loadCatalog(assemble) {
+  try {
+    const rows = await assemble();
+    return { catalog: Array.isArray(rows) ? rows : [], error: null };
+  } catch (err) {
+    return { catalog: [], error: (err && err.message) || "Could not load strings." };
+  }
+}
