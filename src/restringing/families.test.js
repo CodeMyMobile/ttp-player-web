@@ -30,6 +30,51 @@ const LIVE_TIERS = [
 const strict = { strict: true };
 const lenient = { strict: false };
 
+/**
+ * Eight families, plus tier 1 (bring your own) which is not a family. If the
+ * API grows, renames or drops a tier, these numbers stop matching and the drift
+ * guard below fails — which is the point.
+ */
+const EXPECTED_FAMILIES = 8;
+const EXPECTED_BYO_TIERS = 1;
+
+test("drift guard: every live tier resolves to exactly one known family", () => {
+  const claimedBy = new Map();
+  const unresolved = [];
+  let byoCount = 0;
+
+  LIVE_TIERS.forEach((tier) => {
+    if (isByoTier(tier)) {
+      byoCount += 1;
+      return;
+    }
+
+    const key = familyForTier(tier, strict);
+    if (!key) {
+      unresolved.push(`${tier.id} "${tier.name}"`);
+      return;
+    }
+
+    assert.ok(FAMILY_KEYS.includes(key), `tier ${tier.id} resolved to unknown family "${key}"`);
+    assert.equal(
+      claimedBy.has(key),
+      false,
+      `family "${key}" is claimed by tier ${claimedBy.get(key)} and tier ${tier.id}`,
+    );
+    claimedBy.set(key, tier.id);
+  });
+
+  assert.deepEqual(unresolved, [], "every non-BYO tier must resolve to a family");
+  assert.equal(byoCount, EXPECTED_BYO_TIERS, "exactly one bring-your-own tier");
+  assert.equal(claimedBy.size, EXPECTED_FAMILIES, "one tier per family, no family left unclaimed");
+
+  // The three views of the same number must agree: what the module declares,
+  // what the fixture resolves to, and what the ladder actually renders.
+  assert.equal(FAMILY_KEYS.length, EXPECTED_FAMILIES);
+  assert.equal(buildFamilyLadder(LIVE_TIERS, strict).families.length, EXPECTED_FAMILIES);
+  assert.equal(LIVE_TIERS.length, EXPECTED_FAMILIES + EXPECTED_BYO_TIERS);
+});
+
 test("all eight families resolve from the live payload", () => {
   const { families, problems } = buildFamilyLadder(LIVE_TIERS, strict);
 
