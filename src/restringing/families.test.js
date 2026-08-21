@@ -7,13 +7,13 @@ import {
   familyForTier,
   isByoTier,
   requestOnlyFamilies,
-  stockBearingTiers,
+  tiersWithCatalog,
 } from "./families";
 
 /**
- * The live /restringing/service-tiers payload, copied verbatim on 2026-08-20.
- * Tiers 7-9 really do carry string_category: null in production — that is the
- * case this module exists to survive, so the fixture must not "fix" it.
+ * The live /restringing/service-tiers payload, copied verbatim on 2026-08-21,
+ * after ttp-api de27adb set the hybrid categories. This is what production
+ * returns now, so it is what the drift guard pins.
  */
 const LIVE_TIERS = [
   { id: 1, name: "Restringing Only (player supplies string)", price_cents: 2999, string_category: null },
@@ -22,10 +22,22 @@ const LIVE_TIERS = [
   { id: 5, name: "Restringing + Standard Polyester", price_cents: 4499, string_category: "std_poly" },
   { id: 4, name: "Restringing + Premium Multifilament", price_cents: 4999, string_category: "prem_multi" },
   { id: 6, name: "Restringing + Premium Polyester", price_cents: 4999, string_category: "prem_poly" },
-  { id: 7, name: "Restring + Poly / Multi Hybrid", price_cents: 4999, string_category: null },
-  { id: 8, name: "Restring + Natural Gut Hybrid", price_cents: 6999, string_category: null },
-  { id: 9, name: "Restring + Natural Gut", price_cents: 8999, string_category: null },
+  { id: 7, name: "Restring + Poly / Multi Hybrid", price_cents: 4999, string_category: "poly_multi" },
+  { id: 8, name: "Restring + Natural Gut Hybrid", price_cents: 6999, string_category: "gut_poly" },
+  { id: 9, name: "Restring + Natural Gut", price_cents: 8999, string_category: "nat_gut" },
 ];
+
+/**
+ * The same payload BEFORE the enum landed, when tiers 7-9 carried
+ * string_category: null. Environments that have not run the migration still
+ * return this, and NAME_TO_FAMILY still exists to handle it — so it stays
+ * covered until that fallback is deleted.
+ */
+const LEGACY_TIERS = LIVE_TIERS.map((tier) =>
+  ["poly_multi", "gut_poly", "nat_gut"].includes(tier.string_category)
+    ? { ...tier, string_category: null }
+    : tier,
+);
 
 const strict = { strict: true };
 const lenient = { strict: false };
@@ -83,10 +95,18 @@ test("all eight families resolve from the live payload", () => {
   assert.deepEqual(problems, []);
 });
 
-test("the three uncategorised tiers resolve by name, not by id", () => {
+test("production resolves the hybrid families by their category enum", () => {
   assert.equal(familyForTier(LIVE_TIERS[6], strict), "poly_multi");
   assert.equal(familyForTier(LIVE_TIERS[7], strict), "gut_poly");
   assert.equal(familyForTier(LIVE_TIERS[8], strict), "nat_gut");
+});
+
+test("legacy: an uncategorised tier still resolves by name, not by id", () => {
+  // Until every environment has run ttp-api de27adb.
+  assert.equal(familyForTier(LEGACY_TIERS[6], strict), "poly_multi");
+  assert.equal(familyForTier(LEGACY_TIERS[7], strict), "gut_poly");
+  assert.equal(familyForTier(LEGACY_TIERS[8], strict), "nat_gut");
+  assert.deepEqual(buildFamilyLadder(LEGACY_TIERS, strict).families.map((f) => f.key), FAMILY_KEYS);
 });
 
 test("ids are never used to resolve a family", () => {
@@ -181,19 +201,28 @@ test("the ladder is ordered cheapest family first and holds that order", () => {
   assert.deepEqual(families.map((f) => f.key), FAMILY_KEYS);
 });
 
-test("only tiers with a real category may be asked for stock", () => {
-  // Guard, not tidying: the catalog endpoint applies NO category filter when
-  // string_category is null, so asking for tier 7 returns the vendor's entire
-  // stock labelled poly/multi. See families.js → stockBearingTiers.
-  const stockable = stockBearingTiers(LIVE_TIERS);
+test("every family tier is searchable, and bring-your-own never is", () => {
+  const searchable = tiersWithCatalog(LIVE_TIERS);
 
-  assert.deepEqual(stockable.map((t) => t.id), [2, 3, 5, 4, 6]);
-  assert.ok(!stockable.some((t) => t.string_category === null));
-  assert.ok(!stockable.some((t) => t.id === 1), "BYO must never be asked for a catalog either");
+  assert.equal(searchable.length, 8, "all eight families carry a catalog now");
+  assert.ok(!searchable.some((t) => t.id === 1), "BYO has no catalog by definition");
 });
 
-test("the uncategorised families are orderable by request but carry no stock", () => {
-  const requestOnly = requestOnlyFamilies(LIVE_TIERS, strict);
+test("legacy: an uncategorised tier is not asked for a catalog", () => {
+  // It would have returned the vendor's entire catalog relabelled as that
+  // family before ttp-api de27adb; the client refuses to ask regardless.
+  const searchable = tiersWithCatalog(LEGACY_TIERS);
+
+  assert.deepEqual(searchable.map((t) => t.id), [2, 3, 5, 4, 6]);
+  assert.ok(!searchable.some((t) => t.string_category === null));
+});
+
+test("nothing is request-only in production now that every family has a category", () => {
+  assert.deepEqual(requestOnlyFamilies(LIVE_TIERS, strict), []);
+});
+
+test("legacy: uncategorised families stay orderable by request", () => {
+  const requestOnly = requestOnlyFamilies(LEGACY_TIERS, strict);
 
   assert.deepEqual(requestOnly.map((f) => f.key), ["poly_multi", "gut_poly", "nat_gut"]);
   requestOnly.forEach((family) => assert.ok(family.priceCents > 0, "still priced, still orderable"));
@@ -205,7 +234,7 @@ test("empty, malformed and missing inputs degrade instead of throwing", () => {
   assert.deepEqual(buildFamilyLadder(undefined, lenient).families, []);
   assert.deepEqual(buildFamilyLadder([null, undefined, "nope", 7], lenient).families, []);
   assert.equal(familyForTier(null, lenient), null);
-  assert.equal(stockBearingTiers(null).length, 0);
+  assert.equal(tiersWithCatalog(null).length, 0);
 });
 
 test("tier names match regardless of case and stray whitespace", () => {

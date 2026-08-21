@@ -22,12 +22,14 @@
  * Same for two tiers claiming one family: we cannot tell which price is right,
  * so nobody sees that family.
  *
- * ## Pending backend work
+ * ## The name fallback is now legacy
  *
- * Tiers 7, 8 and 9 (poly/multi, gut/poly, natural gut) exist in production with
- * live prices but carry `string_category: null` — the same value tier 1 (player
- * supplies string) uses. Until the backend enum lands they resolve by name.
- * The enum values this file expects are exactly the keys in FAMILY_KEYS.
+ * Tiers 7, 8 and 9 shipped with `string_category: null` — the same value tier 1
+ * (player supplies string) uses — so they were resolved by name instead. The
+ * backend enum landed 2026-08-21 (ttp-api de27adb) and production now returns
+ * poly_multi / gut_poly / nat_gut, so the name path is dead in production. It is
+ * kept only until every environment has run that migration, then NAME_TO_FAMILY
+ * and its tests can go.
  */
 
 /** Order matters: this is the ladder as shown, cheapest family first. */
@@ -232,28 +234,39 @@ export function buildFamilyLadder(tiers = [], { strict = isDev() } = {}) {
 }
 
 /**
- * The tiers that may be asked for stock.
+ * The tiers whose catalog is safe to request.
  *
- * Only tiers carrying a real `string_category` — and this is a guard, not a
- * tidy-up. `GET /restringing/vendors/:id/catalog?service_tier_id=N` reads the
- * tier's `string_category` and, when it is null, applies **no category filter
- * at all** (ttp-api routes/restringing_public.js → models/restringing_catalog.js
- * `if (category !== null)`). So asking for tier 7's catalog today returns the
- * vendor's ENTIRE stock labelled as poly/multi hybrid.
+ * Only tiers carrying a recognised `string_category`. This began as a guard
+ * against a real bug: the catalog endpoint read the tier's `string_category`
+ * and, when it was null, applied no category filter at all — so asking for
+ * tier 7 returned the vendor's ENTIRE catalog relabelled as poly/multi hybrid.
+ * That was fixed server-side on 2026-08-21 (ttp-api de27adb now returns an
+ * empty catalog for a null-category tier).
  *
- * That is invisible while the catalog is empty and wrong the moment real
- * inventory lands. Until the backend sets the enum, these families are
- * orderable by request but contribute no stock.
+ * It stays for two reasons: it skips requests that cannot return anything
+ * (tier 1 is bring-your-own, so it has no catalog by definition), and it still
+ * refuses a tier whose category we do not recognise, which is the case a future
+ * enum value would land in.
+ *
+ * Note this is not a stock check. Nothing tracks inventory — every listed
+ * string is always available, and `in_stock` / `gauges_stocked` describe what a
+ * vendor will do rather than what is on a shelf.
  */
-export function stockBearingTiers(tiers = []) {
+export function tiersWithCatalog(tiers = []) {
   return (Array.isArray(tiers) ? tiers : []).filter(
     (tier) => tier && typeof tier.string_category === "string" && isFamilyKey(tier.string_category),
   );
 }
 
-/** Families that can be ordered but cannot show stock yet, for messaging. */
+/**
+ * Families that are orderable but have no catalog to search — request-only.
+ *
+ * Empty in production now that every family carries a category. It stays
+ * because an environment that has not run the enum migration still needs the
+ * three hybrid families to be orderable rather than absent.
+ */
 export function requestOnlyFamilies(tiers = [], options = {}) {
   const { families } = buildFamilyLadder(tiers, options);
-  const stocked = new Set(stockBearingTiers(tiers).map((tier) => tier.string_category));
-  return families.filter((family) => !stocked.has(family.key));
+  const searchable = new Set(tiersWithCatalog(tiers).map((tier) => tier.string_category));
+  return families.filter((family) => !searchable.has(family.key));
 }
