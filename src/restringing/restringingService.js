@@ -1,5 +1,6 @@
 import api, { unwrap } from "../services/api.js";
 import { mergeTierCatalogs } from "./playerFlow.js";
+import { stockBearingTiers } from "./families.js";
 
 const qs = (params) => {
   const query = new URLSearchParams();
@@ -25,8 +26,13 @@ export const listVendorStrings = ({ vendorId, serviceTierId }) =>
 // String-first needs one flat catalog, but the API is scoped per service tier.
 // Fetch each string tier's catalog ONCE and merge — the caller caches the result
 // and filters it client-side per keystroke (never re-fetches while typing).
+//
+// stockBearingTiers is doing real work here, not tidying: the catalog endpoint
+// applies no category filter when a tier's string_category is null, so asking
+// for the poly/multi, gut/poly or natural gut tiers would return the vendor's
+// entire stock relabelled as that family. See families.js for the trace.
 export async function assembleVendorCatalog({ vendorId, tiers = [] }) {
-  const stringTiers = (tiers || []).filter((tier) => tier && tier.string_category);
+  const stringTiers = stockBearingTiers(tiers);
   const tierCatalogs = await Promise.all(
     stringTiers.map((tier) =>
       listVendorStrings({ vendorId, serviceTierId: tier.id })
