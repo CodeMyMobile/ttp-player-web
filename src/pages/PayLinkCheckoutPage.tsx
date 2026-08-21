@@ -41,6 +41,10 @@ const demoSummary = (hasAccount: boolean): RestringingPayLinkSummary => ({
     payment_status: "unpaid",
     fulfillment_status: "pending",
     subtotal_cents: 2999,
+    discount_label: null,
+    discount_type: null,
+    discount_value: null,
+    discount_amount_cents: 0,
     tax_cents: 0,
     total_cents: 2999,
     items: [{
@@ -522,6 +526,22 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             </div>
           ))}
         </div>
+        <div className="pay-link-total">
+          <span>Subtotal</span>
+          <strong>{formatPayLinkMoney(summary.order.subtotal_cents)}</strong>
+        </div>
+        {(summary.order.discount_amount_cents || 0) > 0 ? (
+          <div className="pay-link-total">
+            <span>{summary.order.discount_label || "Discount"}</span>
+            <strong>-{formatPayLinkMoney(summary.order.discount_amount_cents || 0)}</strong>
+          </div>
+        ) : null}
+        {summary.order.tax_cents ? (
+          <div className="pay-link-total">
+            <span>Tax</span>
+            <strong>{formatPayLinkMoney(summary.order.tax_cents)}</strong>
+          </div>
+        ) : null}
         <div className="pay-link-total">
           <span>Total</span>
           <strong>{formatPayLinkMoney(summary.order.total_cents)}</strong>
