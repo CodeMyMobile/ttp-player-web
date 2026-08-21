@@ -867,15 +867,14 @@ export default function PublicMatchResultsPage() {
 function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; photoUrl?: string | null }) {
   const [photoFailed, setPhotoFailed] = useState(false);
   const known = photoUrl ?? ranking?.photoUrl ?? null;
-  const { ref, photo } = useLazyPlayerPhoto(ranking?.user_id ?? "", Boolean(known) || !ranking);
   if (!ranking) return null;
 
-  const src = photoFailed ? null : known ?? photo;
+  const src = photoFailed ? null : known;
 
   return (
     <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
       <div className="flex items-center gap-3">
-        <span ref={ref} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
+        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
           {src ? (
             <img
               src={src}
