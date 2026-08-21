@@ -3,6 +3,7 @@ import { request } from "./http";
 export interface RankingRow {
   user_id: number;
   full_name?: string | null;
+  profile_picture?: string | null;
   current_rating?: number | string | null;
   matches_played?: number | null;
   is_provisional?: boolean;

@@ -40,9 +40,8 @@ test("decorateRankings is deterministic and invents no availability", () => {
 });
 
 test("decorateRankings prefers a real photo and falls back to initials", () => {
-  // The rankings endpoint sends no image field today, so every row here is
-  // hypothetical — the point is that whichever name the backend picks works,
-  // and that a half-formed URL falls back rather than rendering broken.
+  // The backend sends profile_picture, but the helper still tolerates alternate
+  // names and rejects half-formed URLs rather than rendering broken images.
   const base = { rank: 1, current_rating: 4.2, rating_change: 0, matches_played: 3, wins: 2, losses: 1, is_provisional: false, is_estimate: false };
   const [none, real, bucket, blank, later] = decorateRankings([
     { ...base, user_id: 1, full_name: "No Photo" },

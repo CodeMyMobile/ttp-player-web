@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { usableAvatar } from "../utils/avatar";
-import { fetchPlayerPhoto } from "../api/playerPhotos";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +39,7 @@ export type Ranking = {
   rank: number;
   user_id: number | string;
   full_name: string;
+  profile_picture?: string | null;
   current_rating: number | string | null;
   starting_rating?: number | string | null;
   previous_rating?: number | string | null;
@@ -121,13 +121,7 @@ const AVATAR_CLASSES = [
 ];
 
 /**
- * A photo for this player, if the API ever sends one.
- *
- * Verified 2026-08-20 against the live endpoint: not one of the 1223 ranking
- * rows carries an image field, so today this is null for everybody and the
- * initials avatar shows instead. The names below are the ones the rest of the
- * app already accepts (api/matches.ts, hooks/usePlayerIdentity), so whichever
- * the backend settles on will light up without another change here.
+ * A photo for this player from the rankings row.
  *
  * The signed-in player is the exception — the app already holds their photo
  * from their own profile, and the call sites pass it in.
@@ -629,12 +623,6 @@ export default function PublicMatchResultsPage() {
     navigate(`/players/${ranking.user_id}`);
   };
 
-  /**
-   * The rankings endpoint sends no photo, so the only real picture available on
-   * this page is the signed-in player's, which the app already holds from their
-   * profile. Everyone else falls through to whatever the row carries (null
-   * today) and then to initials.
-   */
   const photoFor = (ranking: DecoratedRanking) =>
     (String(ranking.user_id) === String(viewer?.user_id) ? usableAvatar(viewerPhotoUrl) : null) ??
     ranking.photoUrl;
@@ -938,47 +926,6 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
 }
 
 /**
- * A player's photo, fetched once the row is close to the viewport.
- *
- * The rankings response carries no image, so each face costs a request to
- * `/public/players/:id`. Fetching 1223 of those on load would be absurd, so a
- * row asks only when it is about to be seen; api/playerPhotos caches per id and
- * caps how many are in flight. `skip` covers the cases where we already have
- * the answer — the signed-in player's own photo, or a field the backend may
- * one day include in the rankings payload.
- */
-function useLazyPlayerPhoto(userId: number | string, skip: boolean) {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (skip) return undefined;
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === "undefined") return undefined;
-
-    let alive = true;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        fetchPlayerPhoto(userId).then((url) => {
-          if (alive && url) setPhoto(url);
-        });
-      },
-      { rootMargin: "200px" },
-    );
-
-    observer.observe(node);
-    return () => {
-      alive = false;
-      observer.disconnect();
-    };
-  }, [skip, userId]);
-
-  return { ref, photo };
-}
-
-/**
  * The player's photo when there is one, their initials when there is not.
  *
  * `photoUrl` overrides what the row carries — that is how the signed-in
@@ -986,18 +933,15 @@ function useLazyPlayerPhoto(userId: number | string, skip: boolean) {
  * falls back to the initials rather than leaving a broken image, the same guard
  * AppNav uses.
  *
- * The wrapper span is what the observer watches, so it has to render in both
- * states; it carries the initials colours only when no photo is showing.
+ * The wrapper carries the initials colours only when no photo is showing.
  */
 function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: string | null }) {
   const [failed, setFailed] = useState(false);
   const known = photoUrl ?? ranking.photoUrl;
-  const { ref, photo } = useLazyPlayerPhoto(ranking.user_id, Boolean(known));
-  const src = failed ? null : known ?? photo;
+  const src = failed ? null : known;
 
   return (
     <span
-      ref={ref}
       className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
         src ? "bg-slate-100" : `${ranking.avatarClass} ${ranking.avatarToneClass}`
       }`}
@@ -1157,4 +1101,3 @@ function MobileRankingCard({
     </div>
   );
 }
-
