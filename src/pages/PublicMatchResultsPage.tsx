@@ -369,12 +369,36 @@ export const ratingGap = (ranking: DecoratedRanking, viewer: DecoratedRanking | 
 
 export const rowMeta = (ranking: DecoratedRanking) => {
   const played = Number(ranking.matches_played || 0) > 0;
+  // Home court is deliberately absent. It was the first token when a player had
+  // one and missing when they did not, so the line started differently row to
+  // row and a long court name ("Mar Vista Recreation Center") ate everything
+  // after it. It belongs on the player profile. Every row now reads the same
+  // fields in the same order.
   return [
-    ranking.primaryCourt,
     `NTRP ${ranking.ntrpLabel}`,
     `UTR ${ranking.utrLabel}`,
     played ? recordLabel(ranking) : "Provisional",
-  ].filter(Boolean).join(" · ");
+  ].join(" · ");
+};
+
+/** The ladder has no name in the API, so this is the one we show. */
+const LADDER_NAME = "West LA Ladder";
+
+/**
+ * The header title: a name, never a placeholder.
+ *
+ * AppNav stores the literal string "Current location" as the label when it uses
+ * geolocation (AppNav.jsx:239), so the stored label is sometimes a placeholder
+ * rather than a place. Showing it put a label where a value belongs — the same
+ * problem as the old truncated "Current lo…" pill.
+ *
+ * A place the player actually picked wins; otherwise the ladder's own name.
+ */
+const PLACEHOLDER_LABELS = new Set(["current location", "choose location", ""]);
+
+export const resolveLadderTitle = (label = getStoredLocationLabel()) => {
+  const clean = String(label || "").trim();
+  return PLACEHOLDER_LABELS.has(clean.toLowerCase()) ? LADDER_NAME : clean;
 };
 
 export const recordLabel = (ranking: { wins?: unknown; losses?: unknown }) =>
@@ -504,10 +528,10 @@ export default function PublicMatchResultsPage() {
   // Reads the label only — nothing here resolves coordinates or asks for
   // permission. The listener is what makes the title follow a selection made in
   // AppNav's picker, which is a sibling of the bar this page hides.
-  const [ladderTitle, setLadderTitle] = useState(() => getStoredLocationLabel() || "West LA Ladder");
+  const [ladderTitle, setLadderTitle] = useState(resolveLadderTitle);
 
   useEffect(() => {
-    const syncTitle = () => setLadderTitle(getStoredLocationLabel() || "West LA Ladder");
+    const syncTitle = () => setLadderTitle(resolveLadderTitle());
     window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
     return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
   }, []);
@@ -570,18 +594,6 @@ export default function PublicMatchResultsPage() {
             </span>
           </header>
 
-          <div className="ladder-searchstrip lg:hidden">
-            <label className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3">
-              <Search size={16} className="shrink-0 text-slate-400" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search player"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-              />
-            </label>
-          </div>
-
           {/* Above the list so your own standing is the first thing on the page. */}
           <ViewerCard ranking={viewer} photoUrl={viewer ? photoFor(viewer) : null} />
 
@@ -616,37 +628,39 @@ export default function PublicMatchResultsPage() {
                     role="button"
                     tabIndex={0}
                     key={ranking.user_id}
-                    className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md lg:border-0 lg:p-4"
+                    className="rounded-[14px] border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:border-0 lg:p-4 lg:shadow-sm"
                     onClick={() => openProfile(ranking)}
                     onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
-                    <div className="flex items-center gap-3">
-                      <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-black">{ranking.full_name}</div>
-                        <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
-                      </div>
+                    {/* Stacked, not avatar-beside-name: the card's job is to
+                        identify a person, and the horizontal arrangement left so
+                        little room that names truncated to "Connor…". */}
+                    <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
+                    <div className="mt-2 truncate text-sm font-bold">{ranking.full_name}</div>
+                    <div className="text-xs font-semibold text-slate-400">
+                      #{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}
                     </div>
                     {(() => {
                       // Nothing previously said which way the gap ran, so no
                       // card told you which challenge would gain you a place.
+                      // The rank is on the line above, so it is not repeated.
                       const gap = ratingGap(ranking, viewer);
                       if (!gap) return <div className="mt-1 text-xs text-slate-500">Top ladder player</div>;
                       return (
                         <div className={`mt-1 text-xs font-semibold ${gap.above ? "text-violet-700" : "text-slate-500"}`}>
-                          {gap.above ? "\u25B2" : "\u25BC"} #{gap.position} · {gap.delta} {gap.above ? "up" : "down"}
+                          {gap.above ? "\u25B2" : "\u25BC"} {gap.delta} {gap.above ? "up" : "down"}
                         </div>
                       );
                     })()}
                     <button
                       type="button"
-                      className="mt-2.5 inline-flex min-h-[34px] w-full items-center justify-center gap-2 rounded-[10px] bg-violet-600 px-3 py-1.5 text-sm font-bold text-white"
+                      className="mt-2.5 inline-flex min-h-[34px] w-full items-center justify-center gap-1.5 rounded-[10px] bg-violet-600 px-2.5 py-1.5 text-[13px] font-bold text-white"
                       onClick={(event) => {
                         event.stopPropagation();
                         openChallenge(ranking);
                       }}
                     >
-                      <Swords size={15} />
+                      <Swords size={14} />
                       Challenge
                     </button>
                   </div>
@@ -655,8 +669,24 @@ export default function PublicMatchResultsPage() {
             </>
           ) : null}
 
+          {/* Directly above the list it filters. Under the header it read as
+              global app search, with no visible list beneath it once scrolled. */}
+          <div className="ladder-searchstrip lg:hidden">
+            <label className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3">
+              <Search size={16} className="shrink-0 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search player"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+            </label>
+          </div>
+
           <section className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Mobile starts at row 1: the page header already names the ladder,
+                so a card header here spent ~90px on one word. */}
+            <div className="hidden flex-col gap-3 border-b border-slate-100 p-4 lg:flex lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-2">
                 <BarChart3 size={18} className="text-violet-600" />
                 <h2 className="text-base font-black">Ladder</h2>
@@ -746,7 +776,9 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
       {/* Purple is the accent, not the surface. It was a full-bleed purple block,
           which left the solid purple Challenge buttons with nothing to stand out
           against. The rank tile keeps the colour; the card does not. */}
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-violet-600 text-sm font-black tabular-nums text-white">
+      {/* Pale, not solid: this is a label, not a button, and a fourth purple
+          block would undo the point of calming the screen down. */}
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-violet-50 text-sm font-black tabular-nums text-violet-700">
         {ranking.ladderPosition ?? ranking.rank}
       </span>
 
@@ -773,6 +805,13 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
         </span>
         <span className="mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
           NTRP {ranking.ntrpLabel} · UTR {ranking.utrLabel} · {recordLabel(ranking)}
+          {/* Without this, a 0W-0L record beside a 7.000 rating reads as a bug
+              rather than as a rating nothing has tested yet. */}
+          {Number(ranking.matches_played || 0) > 0 ? null : (
+            <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-slate-600">
+              Provisional
+            </span>
+          )}
         </span>
       </span>
     </section>
@@ -796,7 +835,7 @@ function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: s
 
   return (
     <span
-      className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
+      className={`grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
         src ? "bg-slate-100" : `${ranking.avatarClass} ${ranking.avatarToneClass}`
       }`}
     >
@@ -919,7 +958,7 @@ function MobileRankingCard({
     <div
       role="button"
       tabIndex={0}
-      className="flex min-h-[66px] w-full items-center gap-2.5 px-3 py-2.5 text-left"
+      className="flex min-h-[66px] w-full items-center gap-2 px-3 py-2.5 text-left"
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
@@ -939,14 +978,14 @@ function MobileRankingCard({
         </span>
         {/* Always renders, so rows stay a uniform height. A player with no
             result shows their standing rather than collapsing the line. */}
-        <span className="mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
+        <span className="ladder-meta mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
           {rowMeta(ranking)}
         </span>
       </span>
       {viewer ? null : (
         <button
           type="button"
-          className="min-h-[32px] shrink-0 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700"
+          className="min-h-[32px] shrink-0 rounded-[10px] border border-violet-500 bg-transparent px-2.5 py-1.5 text-xs font-bold text-violet-700"
           onClick={(event) => {
             event.stopPropagation();
             onChallenge();

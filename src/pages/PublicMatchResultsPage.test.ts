@@ -14,6 +14,8 @@ import {
   onlyRatedPlayers,
   orderLadder,
   resolveCourtFilterSelection,
+  resolveLadderTitle,
+  rowMeta,
 } from "./PublicMatchResultsPage";
 
 test("estimate badge follows is_estimate, not provisional K status", () => {
@@ -294,4 +296,35 @@ test("a self-rated player who has never played still appears", () => {
 test("onlyRatedPlayers tolerates malformed input", () => {
   assert.deepEqual(onlyRatedPlayers([] as never), []);
   assert.deepEqual(onlyRatedPlayers(null as never), []);
+});
+
+
+test("the header shows a name, never a placeholder", () => {
+  // AppNav stores the literal "Current location" as the label when it uses
+  // geolocation (AppNav.jsx:239), so the stored label is sometimes a
+  // placeholder. Showing it put a label where a value belongs.
+  assert.equal(resolveLadderTitle("Current location"), "West LA Ladder");
+  assert.equal(resolveLadderTitle("  CURRENT LOCATION "), "West LA Ladder");
+  assert.equal(resolveLadderTitle(""), "West LA Ladder");
+  assert.equal(resolveLadderTitle(null), "West LA Ladder");
+});
+
+test("a place the player actually picked becomes the title", () => {
+  assert.equal(resolveLadderTitle("Venice Beach"), "Venice Beach");
+  assert.equal(resolveLadderTitle("  Santa Monica  "), "Santa Monica");
+});
+
+test("every row's meta line starts with the same field and never omits a token", () => {
+  const rows = decorateRankings([
+    { user_id: 1, full_name: "Has Court", current_rating: 7, primary_court: "Mar Vista Recreation Center", matches_played: 3, wins: 2, losses: 1 },
+    { user_id: 2, full_name: "No Court", current_rating: 6, matches_played: 3, wins: 2, losses: 1 },
+    { user_id: 3, full_name: "Never Played", current_rating: 5 },
+  ] as never);
+
+  const metas = rows.map(rowMeta);
+  metas.forEach((meta) => assert.ok(meta.startsWith("NTRP "), `meta must start with NTRP: ${meta}`));
+  assert.ok(!metas.some((m) => m.includes("Recreation Center")), "home court belongs on the profile, not the row");
+  assert.equal(metas[0].split(" · ").length, 3, "always three tokens, so heights stay uniform");
+  assert.ok(metas[2].endsWith("Provisional"), "no record shows a status rather than 0W-0L");
+  assert.ok(metas[1].endsWith("2W-1L"), "records read as records, not set scores");
 });

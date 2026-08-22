@@ -3740,7 +3740,8 @@ button.secondary-link {
     gap: 10px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    padding: 0 14px 2px;
+    padding: 0 0 2px 14px;
+    scroll-padding-inline: 14px;
     scrollbar-width: none;
   }
 
@@ -3752,5 +3753,24 @@ button.secondary-link {
     flex: none;
     width: 148px;
     scroll-snap-align: start;
+  }
+
+  /* A real trailing element, not padding-right: flex scroll containers drop
+     trailing padding in several engines, which sliced the last card flush
+     against the viewport edge at the end of the scroll. */
+  /* The row's fixed chrome — rank, avatar, Challenge button, gaps and padding —
+     costs 194px, so at 375px the meta line has ~181px and the three-token line
+     needs a little more. A single step down at the narrowest widths keeps all
+     three metrics rather than dropping UTR to make room. */
+  @media (max-width: 380px) {
+    .ladder-meta {
+      font-size: 11px;
+    }
+  }
+
+  .ladder-rail::after {
+    content: "";
+    flex: none;
+    width: 14px;
   }
 }
