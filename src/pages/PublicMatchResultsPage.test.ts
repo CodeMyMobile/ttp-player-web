@@ -11,6 +11,7 @@ import {
   formatCoordinatesLabel,
   getSuggestedRankings,
   labelFromReverseGeocode,
+  onlyRatedPlayers,
   orderLadder,
   resolveCourtFilterSelection,
 } from "./PublicMatchResultsPage";
@@ -257,4 +258,40 @@ test("the ladder request is unscoped now that the filters are gone", () => {
   const url = buildRankingsUrl();
   assert.ok(!url.includes("near_lat"), "no location filter");
   assert.ok(!url.includes("radius_miles"), "no radius filter");
+});
+
+test("players with no rating are kept off the ladder", () => {
+  // 1159 of 1231 carry current_rating exactly 0, with no self-rated seed —
+  // neither played nor self-assessed. They made the ladder 94% padding.
+  const rows = decorateRankings([
+    { user_id: 1, full_name: "Rated Player", current_rating: 7.2 },
+    { user_id: 2, full_name: "Zero Rating", current_rating: 0 },
+    { user_id: 3, full_name: "Null Rating", current_rating: null },
+    // Production shape for a self-rated player: the backend copies the seed into
+    // current_rating, so they arrive rated. (decorateRankings' `?? self_rated_seed`
+    // fallback is unreachable when current_rating is 0 — toNumber(0) is 0, not
+    // null, so ?? never fires. Harmless today because nothing sends that shape.)
+    { user_id: 4, full_name: "Seeded Player", current_rating: 4.5, self_rated_seed: 4.5 },
+  ] as never);
+
+  const ladder = orderLadder(onlyRatedPlayers(rows));
+
+  assert.deepEqual(ladder.map((r) => r.full_name), ["Rated Player", "Seeded Player"]);
+  assert.deepEqual(ladder.map((r) => r.ladderPosition), [1, 2], "positions run 1..n with no gaps");
+});
+
+test("a self-rated player who has never played still appears", () => {
+  // All ten of these have rating === self_rated_seed and carry an estimate
+  // badge, so the number is honestly labelled rather than hidden.
+  const [seeded] = orderLadder(onlyRatedPlayers(decorateRankings([
+    { user_id: 6, full_name: "Paul Cochrane", current_rating: 7, self_rated_seed: 7, matches_played: 0, is_estimate: true },
+  ] as never)));
+
+  assert.equal(seeded.ladderPosition, 1);
+  assert.equal(seeded.ratingLabel, "7.000");
+});
+
+test("onlyRatedPlayers tolerates malformed input", () => {
+  assert.deepEqual(onlyRatedPlayers([] as never), []);
+  assert.deepEqual(onlyRatedPlayers(null as never), []);
 });

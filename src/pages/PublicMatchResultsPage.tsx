@@ -6,16 +6,13 @@ import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
   BarChart3,
   MapPin,
   Search,
-  ShieldCheck,
   Swords,
   Trophy,
-  Users,
 } from "lucide-react";
 
 import { buildApiUrl } from "../api/config";
@@ -324,6 +321,21 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
  * sortByRatingDesc is shared with the home tile's position so the two cannot
  * disagree about where a player sits.
  */
+/**
+ * Only players with a rating belong on a ladder.
+ *
+ * 1159 of 1231 players carry current_rating exactly 0 — not missing, and with no
+ * self-rated seed either, so they have neither played nor told us how they play.
+ * They sorted to the bottom and made the ladder 94% padding.
+ *
+ * The 10 who are rated without having played keep their place: their rating is
+ * their own self-rating, which the row already marks with an estimate badge.
+ *
+ * Filtered before ordering so positions run 1..n with no gaps.
+ */
+export const onlyRatedPlayers = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
+  (Array.isArray(rankings) ? rankings : []).filter((ranking) => Number(ranking.ratingNumber) > 0);
+
 export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
   sortByRatingDesc(rankings).map((ranking, index) => ({ ...ranking, ladderPosition: index + 1 }));
 
@@ -442,7 +454,7 @@ export default function PublicMatchResultsPage() {
     };
   }, []);
 
-  const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
+  const decorated = useMemo(() => orderLadder(onlyRatedPlayers(decorateRankings(rankings))), [rankings]);
   // The signed-in player, or nobody. Not a list position — see findViewer.
   const viewer = useMemo(() => findViewer(decorated, viewerIdentities), [decorated, viewerIdentities]);
 
@@ -455,13 +467,6 @@ export default function PublicMatchResultsPage() {
   }, [decorated, search]);
 
   const suggestions = useMemo(() => getSuggestedRankings(decorated, viewer, 3), [decorated, viewer]);
-
-  const stats = useMemo(() => ({
-    players: decorated.length,
-    active: decorated.filter((ranking) => Number(ranking.matches_played || 0) > 0).length,
-    matches: Math.round(decorated.reduce((sum, ranking) => sum + Number(ranking.wins || 0), 0)),
-    topRating: decorated[0]?.ratingLabel ?? "-",
-  }), [decorated]);
 
   const openChallenge = (ranking: DecoratedRanking) => {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
@@ -494,12 +499,6 @@ export default function PublicMatchResultsPage() {
             </div>
           </header>
 
-          <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatCard label="Players" value={stats.players} icon={<Users size={16} />} />
-            <StatCard label="Active" value={stats.active} icon={<Activity size={16} />} />
-            <StatCard label="Results" value={stats.matches} icon={<ShieldCheck size={16} />} />
-            <StatCard label="Top TRP" value={stats.topRating} icon={<BarChart3 size={16} />} />
-          </section>
 
           {/* The location, court and radius filters were removed on 2026-08-22.
               They scoped the list through player_locations, which only 214 of
@@ -675,16 +674,6 @@ function ViewerStat({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl bg-white/10 px-1 py-2">
       <dt className="text-[10px] font-bold uppercase tracking-wide text-violet-200">{label}</dt>
       <dd className="mt-0.5 text-sm font-black tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between text-violet-600">{icon}</div>
-      <div className="mt-2 text-2xl font-black">{value}</div>
-      <div className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{label}</div>
     </div>
   );
 }
