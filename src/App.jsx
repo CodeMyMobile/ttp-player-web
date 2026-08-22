@@ -366,7 +366,7 @@ const AppRoutes = () => (
     <Route
       path="/ladder"
       element={(
-        <MainLayout mobileChrome="home">
+        <MainLayout mobileChrome="home" pageClassName="ladder-page">
           <PublicMatchResultsPage />
         </MainLayout>
       )}

@@ -4,9 +4,16 @@ import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { usableAvatar } from "../utils/avatar";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
+import {
+  getStoredLocationLabel,
+  requestLocationPicker,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowDown,
+  Bell,
+  ChevronDown,
   ArrowUp,
   BarChart3,
   MapPin,
@@ -336,6 +343,43 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
 export const onlyRatedPlayers = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
   (Array.isArray(rankings) ? rankings : []).filter((ranking) => Number(ranking.ratingNumber) > 0);
 
+/** "2W-1L", never "2-1" — the bare form reads as a set score. */
+/**
+ * The row's second line, which must never be empty or rows jump height.
+ *
+ * Home court is dropped when we have none rather than invented — 1017 of 1231
+ * players have no location on file. A player with no result shows "Provisional"
+ * instead of "0W-0L", which reads as a record they do not have.
+ */
+/**
+ * How far a suggested player is from you, and in which direction.
+ *
+ * Returns null when there is no viewer to compare against — the card then says
+ * what it can rather than inventing a gap.
+ */
+export const ratingGap = (ranking: DecoratedRanking, viewer: DecoratedRanking | null) => {
+  if (!viewer) return null;
+  const delta = ranking.ratingNumber - viewer.ratingNumber;
+  return {
+    above: delta > 0,
+    delta: Math.abs(delta).toFixed(3),
+    position: ranking.ladderPosition ?? ranking.rank,
+  };
+};
+
+export const rowMeta = (ranking: DecoratedRanking) => {
+  const played = Number(ranking.matches_played || 0) > 0;
+  return [
+    ranking.primaryCourt,
+    `NTRP ${ranking.ntrpLabel}`,
+    `UTR ${ranking.utrLabel}`,
+    played ? recordLabel(ranking) : "Provisional",
+  ].filter(Boolean).join(" · ");
+};
+
+export const recordLabel = (ranking: { wins?: unknown; losses?: unknown }) =>
+  `${Number(ranking.wins || 0)}W-${Number(ranking.losses || 0)}L`;
+
 export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
   sortByRatingDesc(rankings).map((ranking, index) => ({ ...ranking, ladderPosition: index + 1 }));
 
@@ -454,6 +498,20 @@ export default function PublicMatchResultsPage() {
     };
   }, []);
 
+  // Shown as-is from the location the app already resolved; the header caps its
+  // width in CSS and ellipsizes rather than pre-truncating the value.
+  //
+  // Reads the label only — nothing here resolves coordinates or asks for
+  // permission. The listener is what makes the title follow a selection made in
+  // AppNav's picker, which is a sibling of the bar this page hides.
+  const [ladderTitle, setLadderTitle] = useState(() => getStoredLocationLabel() || "West LA Ladder");
+
+  useEffect(() => {
+    const syncTitle = () => setLadderTitle(getStoredLocationLabel() || "West LA Ladder");
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
+  }, []);
+
   const decorated = useMemo(() => orderLadder(onlyRatedPlayers(decorateRankings(rankings))), [rankings]);
   // The signed-in player, or nobody. Not a list position — see findViewer.
   const viewer = useMemo(() => findViewer(decorated, viewerIdentities), [decorated, viewerIdentities]);
@@ -482,12 +540,52 @@ export default function PublicMatchResultsPage() {
 
   return (
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
-      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
+      <main className="ladder-scroll mx-auto max-w-4xl px-4 py-5 sm:px-6">
         <div className="min-w-0">
+          {/* Mobile chrome: one 52px header in place of the brand bar and the
+              ladder title card, which together cost ~180px before any content.
+              The chevron opens AppNav's existing location picker via
+              requestLocationPicker() — the picker itself is untouched. */}
+          <header className="ladder-head lg:hidden">
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-1 text-[17px] font-bold tracking-[-0.02em]"
+              onClick={() => requestLocationPicker()}
+            >
+              <span className="truncate">{ladderTitle}</span>
+              <ChevronDown size={18} className="shrink-0 text-slate-400" />
+            </button>
+            <span className="ml-auto flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="grid h-9 w-9 place-items-center rounded-full text-slate-500"
+                onClick={() => navigate("/notifications")}
+              >
+                <Bell size={20} />
+              </button>
+              {viewer ? (
+                <Avatar ranking={viewer} photoUrl={photoFor(viewer)} />
+              ) : null}
+            </span>
+          </header>
+
+          <div className="ladder-searchstrip lg:hidden">
+            <label className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3">
+              <Search size={16} className="shrink-0 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search player"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+            </label>
+          </div>
+
           {/* Above the list so your own standing is the first thing on the page. */}
           <ViewerCard ranking={viewer} photoUrl={viewer ? photoFor(viewer) : null} />
 
-          <header className="rounded-2xl bg-white p-4 shadow-sm">
+          <header className="hidden rounded-2xl bg-white p-4 shadow-sm lg:block">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500 text-white">
                 <Trophy size={22} />
@@ -512,13 +610,13 @@ export default function PublicMatchResultsPage() {
           {suggestions.length ? (
             <>
               <div className="mx-1 mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-400">Suggested for you</div>
-              <section className="mt-2 grid gap-3 md:grid-cols-3">
+              <section className="ladder-rail mt-2 lg:grid lg:gap-3 lg:grid-cols-3">
                 {suggestions.map((ranking) => (
                   <div
                     role="button"
                     tabIndex={0}
                     key={ranking.user_id}
-                    className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md lg:border-0 lg:p-4"
                     onClick={() => openProfile(ranking)}
                     onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
@@ -529,12 +627,20 @@ export default function PublicMatchResultsPage() {
                         <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
                       </div>
                     </div>
-                    <div className="mt-3 text-xs font-bold text-violet-700">
-                      {viewer ? `${Math.abs(ranking.ratingNumber - viewer.ratingNumber).toFixed(3)} from you` : "Top ladder player"}
-                    </div>
+                    {(() => {
+                      // Nothing previously said which way the gap ran, so no
+                      // card told you which challenge would gain you a place.
+                      const gap = ratingGap(ranking, viewer);
+                      if (!gap) return <div className="mt-1 text-xs text-slate-500">Top ladder player</div>;
+                      return (
+                        <div className={`mt-1 text-xs font-semibold ${gap.above ? "text-violet-700" : "text-slate-500"}`}>
+                          {gap.above ? "\u25B2" : "\u25BC"} #{gap.position} · {gap.delta} {gap.above ? "up" : "down"}
+                        </div>
+                      );
+                    })()}
                     <button
                       type="button"
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-black text-white"
+                      className="mt-2.5 inline-flex min-h-[34px] w-full items-center justify-center gap-2 rounded-[10px] bg-violet-600 px-3 py-1.5 text-sm font-bold text-white"
                       onClick={(event) => {
                         event.stopPropagation();
                         openChallenge(ranking);
@@ -555,7 +661,7 @@ export default function PublicMatchResultsPage() {
                 <BarChart3 size={18} className="text-violet-600" />
                 <h2 className="text-base font-black">Ladder</h2>
               </div>
-              <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 focus-within:border-violet-400 sm:w-64">
+              <label className="hidden min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 focus-within:border-violet-400 lg:flex lg:w-64">
                 <Search size={16} className="text-slate-400" />
                 <input
                   value={search}
@@ -576,7 +682,7 @@ export default function PublicMatchResultsPage() {
                   <div className="grid grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                     <span>#</span>
                     <span>Player</span>
-                    <span className="text-center">Rating</span>
+                    <span className="text-center">TRP</span>
                     <span className="text-center">NTRP</span>
                     <span className="text-center">UTR</span>
                     <span className="text-center">W-L</span>
@@ -636,45 +742,40 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
   const src = photoFailed ? null : known;
 
   return (
-    <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
-          {src ? (
-            <img
-              src={src}
-              alt=""
-              loading="lazy"
-              onError={() => setPhotoFailed(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            ranking.initials
-          )}
+    <section className="mx-3.5 mt-2.5 flex items-center gap-3 rounded-[14px] border border-slate-200 bg-white p-3 lg:mx-0 lg:mt-0 lg:mb-4">
+      {/* Purple is the accent, not the surface. It was a full-bleed purple block,
+          which left the solid purple Challenge buttons with nothing to stand out
+          against. The rank tile keeps the colour; the card does not. */}
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-violet-600 text-sm font-black tabular-nums text-white">
+        {ranking.ladderPosition ?? ranking.rank}
+      </span>
+
+      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100 text-xs font-black text-slate-500">
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            onError={() => setPhotoFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          ranking.initials
+        )}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className="truncate text-sm font-bold">{ranking.full_name}</span>
+          <span className="ml-auto shrink-0 text-[13px] font-bold tabular-nums text-violet-700">
+            {ranking.ratingLabel}
+          </span>
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
-          <p className="truncate text-lg font-black leading-tight">
-            #{ranking.ladderPosition ?? ranking.rank} · {ranking.full_name}
-          </p>
-        </div>
-      </div>
-
-      <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
-        <ViewerStat label="Rating" value={ranking.ratingLabel} />
-        <ViewerStat label="NTRP" value={ranking.ntrpLabel} />
-        <ViewerStat label="UTR" value={ranking.utrLabel} />
-        <ViewerStat label="Record" value={`${ranking.wins}-${ranking.losses}`} />
-      </dl>
+        <span className="mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
+          NTRP {ranking.ntrpLabel} · UTR {ranking.utrLabel} · {recordLabel(ranking)}
+        </span>
+      </span>
     </section>
-  );
-}
-
-function ViewerStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white/10 px-1 py-2">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-violet-200">{label}</dt>
-      <dd className="mt-0.5 text-sm font-black tabular-nums">{value}</dd>
-    </div>
   );
 }
 
@@ -724,7 +825,9 @@ function Badge({ children, tone = "violet" }: { children: React.ReactNode; tone?
     violet: "bg-violet-50 text-violet-700",
     green: "bg-emerald-50 text-emerald-700",
     blue: "bg-sky-50 text-sky-700",
-    gray: "bg-slate-100 text-slate-500",
+    // slate-500 on slate-100 measured 4.34:1 — below AA. slate-600 is 6.92:1.
+    // Foreground only; the background tint is unchanged.
+    gray: "bg-slate-100 text-slate-600",
   };
   return <span className={`rounded-lg px-2.5 py-1 text-xs font-black tabular-nums ${classes[tone]}`}>{children}</span>;
 }
@@ -776,10 +879,10 @@ function LadderRow({
           </span>
         </span>
       </span>
-      <span className="text-center"><Badge>{ranking.ratingLabel}</Badge></span>
+      <span className="text-center"><Badge>TRP {ranking.ratingLabel}</Badge></span>
       <span className="text-center"><Badge tone="green">{ranking.ntrpLabel}</Badge></span>
       <span className="text-center"><Badge tone="blue">{ranking.utrLabel}</Badge></span>
-      <span className="text-center text-sm font-black tabular-nums">{ranking.wins}-{ranking.losses}</span>
+      <span className="text-center text-sm font-black tabular-nums">{recordLabel(ranking)}</span>
       <span className="text-right">
         {viewer ? <Change value={ranking.rating_change} /> : (
           <button
@@ -816,41 +919,42 @@ function MobileRankingCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full p-4 text-left"
+      className="flex min-h-[66px] w-full items-center gap-2.5 px-3 py-2.5 text-left"
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
-      <div className="flex items-center gap-3">
-        <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
-        <Avatar ranking={ranking} photoUrl={photoUrl} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-black">{ranking.full_name}</span>
-            {viewer ? <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-black text-white">you</span> : null}
-          </div>
-          <div className="mt-0.5 text-xs font-semibold text-slate-400">
-            {[ranking.distanceLabel, ranking.primaryCourt].filter(Boolean).join(" · ")}
-          </div>
-        </div>
-        <Badge>{ranking.ratingLabel}</Badge>
-      </div>
-      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-        <Badge tone="green">NTRP {ranking.ntrpLabel}</Badge>
-        <Badge tone="blue">UTR {ranking.utrLabel}</Badge>
-        <Badge tone="gray">{ranking.wins}-{ranking.losses}</Badge>
-        {viewer ? <Change value={ranking.rating_change} /> : (
-          <button
-            type="button"
-            className="rounded-lg bg-violet-600 px-2 py-1 text-xs font-black text-white"
-            onClick={(event) => {
-              event.stopPropagation();
-              onChallenge();
-            }}
-          >
-            Challenge
-          </button>
-        )}
-      </div>
+      <span className="w-5 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-400">
+        {ranking.ladderPosition ?? ranking.rank}
+      </span>
+      <Avatar ranking={ranking} photoUrl={photoUrl} />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className="truncate text-sm font-bold">{ranking.full_name}</span>
+          {viewer ? (
+            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.05em] text-violet-700">You</span>
+          ) : null}
+          <span className="ml-auto shrink-0 text-[13px] font-bold tabular-nums text-violet-700">
+            {ranking.ratingLabel}
+          </span>
+        </span>
+        {/* Always renders, so rows stay a uniform height. A player with no
+            result shows their standing rather than collapsing the line. */}
+        <span className="mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
+          {rowMeta(ranking)}
+        </span>
+      </span>
+      {viewer ? null : (
+        <button
+          type="button"
+          className="min-h-[32px] shrink-0 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700"
+          onClick={(event) => {
+            event.stopPropagation();
+            onChallenge();
+          }}
+        >
+          Challenge
+        </button>
+      )}
     </div>
   );
 }
