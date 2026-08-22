@@ -1133,6 +1133,339 @@ const FIGURES = {
   ),
 };
 
+/* ============================================================
+   ANIMATED VARIANTS
+
+   A handful of exercises hinge on something a still drawing
+   can't show — a path, a tempo, or a thing that deliberately
+   does NOT move. Those get an animated variant here, keyed by
+   the same name as the static figure.
+
+   Everything else stays static on purpose. Animation is only
+   worth it where the motion carries the meaning.
+
+   Poses must keep limb lengths equal across keyframes or the
+   figure visibly stretches mid-rep.
+   ============================================================ */
+
+function An({ attr, values, keyTimes, dur }) {
+  return (
+    <animate
+      attributeName={attr}
+      values={values}
+      keyTimes={keyTimes}
+      dur={dur}
+      repeatCount="indefinite"
+    />
+  );
+}
+
+const K5 = "0; 0.42; 0.54; 0.94; 1";
+const KT = "0; 0.35; 0.55; 0.8; 1";
+const KW = "0; 0.25; 0.5; 0.75; 1";
+const KF = "0; 0.15; 0.45; 0.85; 1";
+const KX = "0; 0.30; 0.38; 0.80; 0.88; 1";
+
+const ANIMATED = {
+  /* ---- Med ball throw: hips lead, arms follow, ball goes ---- */
+  medBall: (
+    <>
+      <line {...gr} x1="8" y1="140" x2="150" y2="140" />
+      <line {...gr} x1="150" y1="16" x2="150" y2="140" />
+      <text {...tx} x="120" y="30">WALL</text>
+      <path {...s} d="M50 96 L44 118 L42 140" />
+      <path {...s} d="M68 96 L76 118 L78 140" />
+      <path {...s} d="M49 134 L57 140 L68 140" />
+      <line {...s} x1="70" y1="140" x2="90" y2="140" />
+      <g>
+        <path {...s} d="M48 96 L70 96" />
+        <animateTransform attributeName="transform" type="rotate"
+          values="0 59 96; -6 59 96; 10 59 96; 10 59 96; 0 59 96"
+          keyTimes={KT} dur="2.6s" repeatCount="indefinite" />
+      </g>
+      <path {...s} d="M59 44 L59 96" />
+      <circle {...s} cx="59" cy="34" r="10" />
+      <path {...s} d="M43 58 L75 58" />
+      <path {...s} d="M43 58 L24 54">
+        <An attr="d" dur="2.6s" keyTimes={KT}
+          values="M43 58 L24 54; M43 58 L20 56; M43 58 L84 56; M43 58 L88 58; M43 58 L24 54" />
+      </path>
+      <path {...s} d="M75 58 L32 50">
+        <An attr="d" dur="2.6s" keyTimes={KT}
+          values="M75 58 L32 50; M75 58 L28 52; M75 58 L92 52; M75 58 L96 54; M75 58 L32 50" />
+      </path>
+      <circle {...fl} cx="24" cy="50" r="10">
+        <An attr="cx" dur="2.6s" keyTimes="0; 0.35; 0.55; 0.72; 1" values="24; 20; 94; 146; 24" />
+        <An attr="cy" dur="2.6s" keyTimes="0; 0.35; 0.55; 0.72; 1" values="50; 52; 54; 58; 50" />
+        <An attr="opacity" dur="2.6s" keyTimes="0; 0.35; 0.62; 0.74; 0.9; 1" values="1; 1; 1; 0; 0; 1" />
+      </circle>
+      <text {...ta} x="8" y="26">HIPS FIRST</text>
+      <text {...tx} x="8" y="154">FEET STAY PLANTED</text>
+    </>
+  ),
+
+  /* ---- Split squat: front shin stays put, everything above travels ---- */
+  splitSquat: (
+    <>
+      <line {...gr} x1="10" y1="128" x2="160" y2="128" />
+      <rect {...bl} x="116" y="100" width="46" height="28" rx="2" />
+      <line {...da} x1="46" y1="92" x2="46" y2="130" />
+      <path {...s} d="M106 90 L126 100">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M106 90 L126 100; M104 112 L126 100; M104 112 L126 100; M106 90 L126 100; M106 90 L126 100" />
+      </path>
+      <path {...s} d="M76 64 L106 90">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M76 64 L106 90; M88 76 L104 112; M88 76 L104 112; M76 64 L106 90; M76 64 L106 90" />
+      </path>
+      <path {...s} d="M64 96 L76 64">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M64 96 L76 64; M58 94 L88 76; M58 94 L88 76; M64 96 L76 64; M64 96 L76 64" />
+      </path>
+      <path {...s} d="M56 128 L64 96">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M56 128 L64 96; M56 128 L58 94; M56 128 L58 94; M56 128 L64 96; M56 128 L64 96" />
+      </path>
+      <line {...s} x1="44" y1="128" x2="68" y2="128" />
+      <path {...s} d="M76 64 L74 32">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M76 64 L74 32; M88 76 L86 44; M88 76 L86 44; M76 64 L74 32; M76 64 L74 32" />
+      </path>
+      <circle {...s} cx="72" cy="21" r="8">
+        <An attr="cx" dur="3.4s" keyTimes={K5} values="72; 84; 84; 72; 72" />
+        <An attr="cy" dur="3.4s" keyTimes={K5} values="21; 33; 33; 21; 21" />
+      </circle>
+      <path {...s} d="M74 32 L66 58">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M74 32 L66 58; M86 44 L78 70; M86 44 L78 70; M74 32 L66 58; M74 32 L66 58" />
+      </path>
+      <rect {...fl} x="58" y="58" width="16" height="7" rx="1.5">
+        <An attr="x" dur="3.4s" keyTimes={K5} values="58; 70; 70; 58; 58" />
+        <An attr="y" dur="3.4s" keyTimes={K5} values="58; 70; 70; 58; 58" />
+      </rect>
+      <text {...ta} x="6" y="28">SHIN STAYS</text>
+      <text {...ta} x="6" y="40">VERTICAL</text>
+      <text {...tx} x="8" y="146">BACK FOOT STAYS PUT</text>
+    </>
+  ),
+
+  /* ---- Static lunge: both feet planted for the whole rep ---- */
+  staticLunge: (
+    <>
+      <line {...gr} x1="8" y1="140" x2="162" y2="140" />
+      <line {...s} x1="104" y1="140" x2="124" y2="140" />
+      <path {...s} d="M49 134 L57 140 L68 140" />
+      <line {...da} x1="132" y1="84" x2="132" y2="126" />
+      <path {...ar} d="M126 92 L132 84 L138 92 M126 118 L132 126 L138 118" />
+      <path {...s} d="M56 114 L49 134">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M56 114 L49 134; M70 132 L49 134; M70 132 L49 134; M56 114 L49 134; M56 114 L49 134" />
+      </path>
+      <path {...s} d="M75 90 L56 114">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M75 90 L56 114; M80 102 L70 132; M80 102 L70 132; M75 90 L56 114; M75 90 L56 114" />
+      </path>
+      <path {...s} d="M75 90 L94 114">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M75 90 L94 114; M80 102 L110 110; M80 102 L110 110; M75 90 L94 114; M75 90 L94 114" />
+      </path>
+      <path {...s} d="M94 114 L110 140">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M94 114 L110 140; M110 110 L110 140; M110 110 L110 140; M94 114 L110 140; M94 114 L110 140" />
+      </path>
+      <path {...s} d="M75 90 L73 56">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M75 90 L73 56; M80 102 L78 68; M80 102 L78 68; M75 90 L73 56; M75 90 L73 56" />
+      </path>
+      <circle {...s} cx="71" cy="45" r="10">
+        <An attr="cx" dur="3.4s" keyTimes={K5} values="71; 76; 76; 71; 71" />
+        <An attr="cy" dur="3.4s" keyTimes={K5} values="45; 57; 57; 45; 45" />
+      </circle>
+      <path {...s} d="M74 64 L69 88">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M74 64 L69 88; M79 76 L74 100; M79 76 L74 100; M74 64 L69 88; M74 64 L69 88" />
+      </path>
+      <path {...s} d="M74 64 L80 87">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M74 64 L80 87; M79 76 L85 99; M79 76 L85 99; M74 64 L80 87; M74 64 L80 87" />
+      </path>
+      <text {...ta} x="6" y="28">STRAIGHT DOWN,</text>
+      <text {...ta} x="6" y="40">NOT FORWARDS</text>
+      <text {...tx} x="8" y="154">BOTH FEET STAY PUT</text>
+      <text {...tx} x="8" y="168">UP ON THE BACK TOES</text>
+    </>
+  ),
+};
+
+/* ---- Hinge vs squat: the whole point is the difference in path ---- */
+ANIMATED.hinge = (
+  <>
+    <line {...gr} x1="8" y1="132" x2="138" y2="132" />
+    <line {...s} x1="40" y1="132" x2="62" y2="132" />
+    <path {...s} d="M50 132 L52 104">
+      <An attr="d" dur="3.4s" keyTimes={K5}
+        values="M50 132 L52 104; M50 132 L54 104; M50 132 L54 104; M50 132 L52 104; M50 132 L52 104" />
+    </path>
+    <path {...s} d="M52 104 L54 74">
+      <An attr="d" dur="3.4s" keyTimes={K5}
+        values="M52 104 L54 74; M54 104 L32 84; M54 104 L32 84; M52 104 L54 74; M52 104 L54 74" />
+    </path>
+    <path {...s} d="M54 74 L56 40">
+      <An attr="d" dur="3.4s" keyTimes={K5}
+        values="M54 74 L56 40; M32 84 L66 80; M32 84 L66 80; M54 74 L56 40; M54 74 L56 40" />
+    </path>
+    <circle {...s} cx="56" cy="29" r="9">
+      <An attr="cx" dur="3.4s" keyTimes={K5} values="56; 76; 76; 56; 56" />
+      <An attr="cy" dur="3.4s" keyTimes={K5} values="29; 76; 76; 29; 29" />
+    </circle>
+    <path {...s} d="M56 46 L58 72">
+      <An attr="d" dur="3.4s" keyTimes={K5}
+        values="M56 46 L58 72; M64 81 L66 109; M64 81 L66 109; M56 46 L58 72; M56 46 L58 72" />
+    </path>
+    <rect {...fl} x="50" y="70" width="16" height="7" rx="1.5">
+      <An attr="x" dur="3.4s" keyTimes={K5} values="50; 58; 58; 50; 50" />
+      <An attr="y" dur="3.4s" keyTimes={K5} values="70; 107; 107; 70; 70" />
+    </rect>
+    <path {...ar} d="M44 100 L22 100 M30 94 L22 100 L30 106" />
+    <text {...ta} x="6" y="118">HIPS</text>
+    <text {...ta} x="6" y="130">BACK</text>
+    <text {...tx} x="8" y="152">HINGE — DO THIS</text>
+
+    <line stroke={GRD} strokeWidth="1.4" strokeDasharray="4 5" x1="150" y1="18" x2="150" y2="146" />
+
+    <line {...gr} x1="164" y1="132" x2="292" y2="132" />
+    <g opacity="0.45">
+      <line {...s} x1="190" y1="132" x2="212" y2="132" />
+      <path {...s} d="M200 132 L202 104">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M200 132 L202 104; M200 132 L214 108; M200 132 L214 108; M200 132 L202 104; M200 132 L202 104" />
+      </path>
+      <path {...s} d="M202 104 L204 74">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M202 104 L204 74; M214 108 L186 102; M214 108 L186 102; M202 104 L204 74; M202 104 L204 74" />
+      </path>
+      <path {...s} d="M204 74 L206 40">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M204 74 L206 40; M186 102 L198 70; M186 102 L198 70; M204 74 L206 40; M204 74 L206 40" />
+      </path>
+      <circle {...s} cx="206" cy="29" r="9">
+        <An attr="cx" dur="3.4s" keyTimes={K5} values="206; 200; 200; 206; 206" />
+        <An attr="cy" dur="3.4s" keyTimes={K5} values="29; 59; 59; 29; 29" />
+      </circle>
+      <path {...s} d="M206 46 L208 72">
+        <An attr="d" dur="3.4s" keyTimes={K5}
+          values="M206 46 L208 72; M196 74 L198 102; M196 74 L198 102; M206 46 L208 72; M206 46 L208 72" />
+      </path>
+    </g>
+    <path {...ar} d="M252 76 L252 104 M246 96 L252 104 L258 96" />
+    <text {...ta} x="240" y="56">HIPS</text>
+    <text {...ta} x="240" y="68">DOWN</text>
+    <text {...tx} x="166" y="152">SQUAT — NOT THIS</text>
+  </>
+);
+
+/* ---- Lateral band walk: the band never goes slack ---- */
+ANIMATED.bandWalk = (
+  <>
+    <line {...gr} x1="8" y1="132" x2="182" y2="132" />
+    <path {...s} d="M74 88 L71 110 L68 132">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M74 88 L71 110 L68 132; M84 88 L71 110 L68 132; M94 88 L91 110 L88 132; M84 88 L71 110 L68 132; M74 88 L71 110 L68 132" />
+    </path>
+    <path {...s} d="M96 88 L99 110 L102 132">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M96 88 L99 110 L102 132; M106 88 L119 110 L122 132; M116 88 L119 110 L122 132; M106 88 L119 110 L122 132; M96 88 L99 110 L102 132" />
+    </path>
+    <line {...s} x1="60" y1="132" x2="76" y2="132">
+      <An attr="x1" dur="3.2s" keyTimes={KW} values="60; 60; 80; 60; 60" />
+      <An attr="x2" dur="3.2s" keyTimes={KW} values="76; 76; 96; 76; 76" />
+    </line>
+    <line {...s} x1="94" y1="132" x2="110" y2="132">
+      <An attr="x1" dur="3.2s" keyTimes={KW} values="94; 114; 114; 114; 94" />
+      <An attr="x2" dur="3.2s" keyTimes={KW} values="110; 130; 130; 130; 110" />
+    </line>
+    <line {...ac} x1="68" y1="123" x2="102" y2="123">
+      <An attr="x1" dur="3.2s" keyTimes={KW} values="68; 68; 88; 68; 68" />
+      <An attr="x2" dur="3.2s" keyTimes={KW} values="102; 122; 122; 122; 102" />
+    </line>
+    <path {...s} d="M74 88 L96 88">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M74 88 L96 88; M84 88 L106 88; M94 88 L116 88; M84 88 L106 88; M74 88 L96 88" />
+    </path>
+    <path {...s} d="M85 52 L85 88">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M85 52 L85 88; M95 52 L95 88; M105 52 L105 88; M95 52 L95 88; M85 52 L85 88" />
+    </path>
+    <path {...s} d="M70 62 L100 62">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M70 62 L100 62; M80 62 L110 62; M90 62 L120 62; M80 62 L110 62; M70 62 L100 62" />
+    </path>
+    <path {...s} d="M70 62 L64 90">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M70 62 L64 90; M80 62 L74 90; M90 62 L84 90; M80 62 L74 90; M70 62 L64 90" />
+    </path>
+    <path {...s} d="M100 62 L106 90">
+      <An attr="d" dur="3.2s" keyTimes={KW}
+        values="M100 62 L106 90; M110 62 L116 90; M120 62 L126 90; M110 62 L116 90; M100 62 L106 90" />
+    </path>
+    <circle {...s} cx="85" cy="42" r="10">
+      <An attr="cx" dur="3.2s" keyTimes={KW} values="85; 95; 105; 95; 85" />
+    </circle>
+    <text {...ta} x="6" y="18">TOES POINT FORWARD</text>
+    <text {...ta} x="6" y="150">BAND NEVER GOES SLACK</text>
+  </>
+);
+
+/* ---- Hip flexor: only the pelvis moves, and that IS the exercise ---- */
+ANIMATED.hipFlexor = (
+  <>
+    <line {...gr} x1="8" y1="136" x2="182" y2="136" />
+    <line {...s} x1="112" y1="136" x2="136" y2="136" />
+    <path {...s} d="M124 136 L120 100" />
+    <path {...s} d="M52 136 L28 132" />
+    <path {...s} d="M120 100 L90 92">
+      <An attr="d" dur="4s" keyTimes={KF}
+        values="M120 100 L90 92; M120 100 L90 92; M120 100 L83 95; M120 100 L83 95; M120 100 L90 92" />
+    </path>
+    <path {...s} d="M90 92 L52 136">
+      <An attr="d" dur="4s" keyTimes={KF}
+        values="M90 92 L52 136; M90 92 L52 136; M83 95 L52 136; M83 95 L52 136; M90 92 L52 136" />
+    </path>
+    <path {...s} d="M90 92 C 101 78, 90 62, 85 52">
+      <An attr="d" dur="4s" keyTimes={KF}
+        values="M90 92 C 101 78, 90 62, 85 52; M90 92 C 101 78, 90 62, 85 52; M83 95 C 79 80, 84 66, 85 52; M83 95 C 79 80, 84 66, 85 52; M90 92 C 101 78, 90 62, 85 52" />
+    </path>
+    <circle {...s} cx="83" cy="41" r="10" />
+    <path {...s} d="M85 56 L71 82" />
+    <path {...ar} d="M68 112 A 13 13 0 0 1 79 103 M73 99 L79 103 L75 110" />
+    <text {...ta} x="6" y="128">TUCK</text>
+    <path {...ac} d="M92 106 A 16 16 0 0 1 102 95" opacity="0">
+      <An attr="opacity" dur="4s" keyTimes={KX} values="0; 0; 1; 1; 0; 0" />
+    </path>
+    <text {...ta} x="108" y="86" opacity="0">
+      FELT HERE
+      <An attr="opacity" dur="4s" keyTimes={KX} values="0; 0; 1; 1; 0; 0" />
+    </text>
+    <text {...tx} x="8" y="156" opacity="1">
+      ARCHED — NO STRETCH
+      <An attr="opacity" dur="4s" keyTimes={KX} values="1; 1; 0; 0; 1; 1" />
+    </text>
+    <text {...ta} x="8" y="156" opacity="0">
+      TUCKED — STRETCH
+      <An attr="opacity" dur="4s" keyTimes={KX} values="0; 0; 1; 1; 0; 0" />
+    </text>
+  </>
+);
+
+const VIEWBOX_ANIM = {
+  medBall: "0 0 170 158",
+  splitSquat: "0 0 170 150",
+  staticLunge: "0 0 170 180",
+  hinge: "0 0 300 156",
+  bandWalk: "0 0 190 154",
+  hipFlexor: "0 0 190 160",
+};
+
 /* Most figures sit on a 170 x 148 grid. A few need a wider frame
    because they show two views side by side. */
 const VIEWBOX = {
@@ -1164,15 +1497,31 @@ const VIEWBOX = {
   hipFlexor: "0 0 170 160",
 };
 
-function Figure({ name, className = "" }) {
+/* Respect the OS-level reduced-motion setting: fall back to the static figure. */
+function usePrefersReducedMotion() {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduce(mq.matches);
+    sync();
+    mq.addEventListener ? mq.addEventListener("change", sync) : mq.addListener(sync);
+    return () =>
+      mq.removeEventListener ? mq.removeEventListener("change", sync) : mq.removeListener(sync);
+  }, []);
+  return reduce;
+}
+
+function Figure({ name, className = "", animate = false }) {
+  const reduce = usePrefersReducedMotion();
+  const moving = animate && !reduce && !!ANIMATED[name];
+  const box = moving
+    ? VIEWBOX_ANIM[name] || VIEWBOX[name] || "0 0 170 148"
+    : VIEWBOX[name] || "0 0 170 148";
+
   return (
-    <svg
-      viewBox={VIEWBOX[name] || "0 0 170 148"}
-      className={className}
-      role="img"
-      aria-hidden="true"
-    >
-      {FIGURES[name]}
+    <svg viewBox={box} className={className} role="img" aria-hidden="true">
+      {moving ? ANIMATED[name] : FIGURES[name]}
     </svg>
   );
 }
@@ -1635,7 +1984,7 @@ function ExerciseCard({ ex, open, onToggle }) {
             </div>
           )}
           <div className="rounded-xl bg-slate-50 p-2 mb-3">
-            <Figure name={view.fig} className="w-full h-auto" />
+            <Figure name={view.fig} className="w-full h-auto" animate />
           </div>
           <p className="text-sm text-slate-600 leading-relaxed">{view.body}</p>
           <div className="mt-3 rounded-xl bg-violet-50 p-3">
