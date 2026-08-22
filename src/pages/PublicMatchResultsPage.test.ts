@@ -207,3 +207,54 @@ test("nobody is highlighted when the viewer is not in the list", () => {
   assert.equal(findViewer(ladder, buildViewerIdentities({ id: 999 }, null)), null, "outside the radius");
   assert.equal(findViewer([], buildViewerIdentities({ id: 7 }, null)), null, "empty ladder");
 });
+
+/**
+ * Both halves of a ladder row's "0.0 mi · Mar Vista Courts" were invented for
+ * players we know nothing about. Verified against production on 2026-08-22:
+ * 1017 of 1231 players have neither primary_court nor court_locations, and
+ * distance_miles is null for every player once the radius filter is gone.
+ */
+test("a player with no court on file gets no court, not a hashed one", () => {
+  const rows = [
+    { user_id: 1393, full_name: "Josh Berenbaum", current_rating: 7.33, primary_court: null, court_locations: [] },
+    { user_id: 1386, full_name: "Kevin Kurstin", current_rating: 7.24, primary_court: null, court_locations: null },
+  ] as never;
+
+  decorateRankings(rows).forEach((row) => {
+    assert.equal(row.primaryCourt, null, `${row.full_name} must not be assigned a court`);
+  });
+});
+
+test("a real court is still shown, from either field", () => {
+  const rows = [
+    { user_id: 6, full_name: "Paul Cochrane", current_rating: 7, primary_court: "Penmar Recreation Center" },
+    { user_id: 1290, full_name: "Szu Lee", current_rating: 8.19, court_locations: [{ location: "Mar Vista Recreation Center" }] },
+  ] as never;
+
+  const [paul, szu] = decorateRankings(rows);
+  assert.equal(paul.primaryCourt, "Penmar Recreation Center");
+  assert.equal(szu.primaryCourt, "Mar Vista Recreation Center");
+});
+
+test("an unknown distance is absent, not zero", () => {
+  // Number(null) === 0 and 0 is finite, so the old guard let a missing distance
+  // through and every row read "0.0 mi".
+  const rows = [
+    { user_id: 1, full_name: "No Distance", current_rating: 5 },
+    { user_id: 2, full_name: "Null Distance", current_rating: 5, distance_miles: null },
+    { user_id: 3, full_name: "Empty Distance", current_rating: 5, distance_miles: "" },
+    { user_id: 4, full_name: "Real Distance", current_rating: 5, distance_miles: 2.4 },
+  ] as never;
+
+  const [none, nul, empty, real] = decorateRankings(rows);
+  assert.equal(none.distanceLabel, null);
+  assert.equal(nul.distanceLabel, null);
+  assert.equal(empty.distanceLabel, null);
+  assert.equal(real.distanceLabel, "2.4 mi", "a real distance still renders");
+});
+
+test("the ladder request is unscoped now that the filters are gone", () => {
+  const url = buildRankingsUrl();
+  assert.ok(!url.includes("near_lat"), "no location filter");
+  assert.ok(!url.includes("radius_miles"), "no radius filter");
+});

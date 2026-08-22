@@ -5,7 +5,6 @@ import { usableAvatar } from "../utils/avatar";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
 import { useNavigate } from "react-router-dom";
-import Autocomplete from "react-google-autocomplete";
 import {
   Activity,
   ArrowDown,
@@ -20,20 +19,9 @@ import {
 } from "lucide-react";
 
 import { buildApiUrl } from "../api/config";
-import api, { unwrap } from "../services/api";
 import type { ConnectIntent } from "../types/matchPlay";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
-import {
-  DEFAULT_RADIUS_MILES,
-  getStoredLocation,
-  getStoredLocationLabel,
-  getStoredLocationRadius,
-  storeLocation,
-  storeLocationLabel,
-  storeLocationRadius,
-  USER_LOCATION_CHANGED_EVENT,
-} from "../utils/userLocation";
 
 export type Ranking = {
   rank: number;
@@ -77,7 +65,7 @@ export type DecoratedRanking = Ranking & {
   ratingLabel: string;
   ntrpLabel: string;
   utrLabel: string;
-  primaryCourt: string;
+  primaryCourt: string | null;
   avatarClass: string;
   avatarToneClass: string;
   photoUrl: string | null;
@@ -101,15 +89,6 @@ export type PlayedCourt = {
   longitude?: number | string | null;
   matches_played?: number | string | null;
 };
-
-const WEST_LA_COURTS = [
-  { name: "Cheviot Hills", area: "Rancho Park" },
-  { name: "Westwood Rec", area: "Westwood" },
-  { name: "Penmar Recreation Center", area: "Venice" },
-  { name: "Stoner Park", area: "Sawtelle" },
-  { name: "Mar Vista Courts", area: "Mar Vista" },
-  { name: "Santa Monica Tennis Center", area: "Santa Monica" },
-];
 
 const AVATAR_CLASSES = [
   ["bg-violet-100", "text-violet-700"],
@@ -186,6 +165,9 @@ const formatRating = (value: unknown, digits = 3, fallback = "-") => {
 };
 
 const formatDistance = (value: unknown) => {
+  // Guard before toNumber: Number(null) is 0 and 0 is finite, so toNumber lets a
+  // missing distance through as zero and every row read "0.0 mi".
+  if (value === null || value === undefined || value === "") return null;
   const parsed = toNumber(value);
   if (parsed === null) return null;
   if (parsed < 10) return `${parsed.toFixed(1)} mi`;
@@ -234,6 +216,15 @@ export const calculateDistanceMiles = (from: Coordinates, to: Coordinates) => {
   return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+/**
+ * Kept, but currently unwired.
+ *
+ * The location, court and radius filters were removed on 2026-08-22 because
+ * they scoped the ladder through `player_locations`, which only 214 of 1231
+ * players have a row in. These helpers and their tests stay so the filters can
+ * come back cheaply once a player's location can be derived from the matches
+ * they have played. Nothing on the page calls this today.
+ */
 export const resolveCourtFilterSelection = ({
   court,
   location,
@@ -288,12 +279,23 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
   rankings
     .map((ranking) => {
       const seed = stableSeed(ranking);
-      const fallbackCourt = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
       const backendCourt = Array.isArray(ranking.court_locations) ? ranking.court_locations[0] : null;
-      const primaryCourt = ranking.primary_court || backendCourt?.location || fallbackCourt.name;
+      // A court we were told about, or none. This used to fall back to one of
+      // six West LA courts picked by hashing the player's id and name, so
+      // Josh Berenbaum — who has no court on file — was shown at "Mar Vista
+      // Courts" on every load. 1017 of 1231 players have no location recorded,
+      // so that fallback was inventing a home court for 83% of the ladder.
+      const primaryCourt = ranking.primary_court || backendCourt?.location || null;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
-      const distanceMiles = toNumber(ranking.distance_miles);
+      // toNumber alone is not enough: Number(null) is 0 and 0 is finite, so an
+      // unknown distance became 0 and rendered as "0.0 mi" on every row. Nothing
+      // sends a distance now that the radius filter is gone.
+      const rawDistance = ranking.distance_miles;
+      const distanceMiles =
+        rawDistance === null || rawDistance === undefined || rawDistance === ""
+          ? null
+          : toNumber(rawDistance);
       return {
         ...ranking,
         initials: initials(ranking.full_name),
@@ -394,16 +396,10 @@ const radiusOptions = [5, 10, 25, 50];
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
   const { avatarUrl: viewerPhotoUrl } = usePlayerIdentity();
-  const storedLocation = getStoredLocation();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState(() => getStoredLocationLabel() || "");
-  const [locationKey, setLocationKey] = useState(0);
-  const [nearLat, setNearLat] = useState<number | null>(() => storedLocation?.latitude ?? null);
-  const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
-  const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const { user } = useAuth();
   const viewerIdentities = useMemo(() => {
     // The fetched player profile carries the identity the rankings use; the thin
@@ -417,127 +413,12 @@ export default function PublicMatchResultsPage() {
     }
     return buildViewerIdentities(user, profile);
   }, [user]);
-  const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
-  const [selectedCourtId, setSelectedCourtId] = useState("");
-
-  const applyLocation = ({ label, latitude, longitude, persist = false }: {
-    label: string;
-    latitude: number;
-    longitude: number;
-    persist?: boolean;
-  }) => {
-    setLocationSearch(label);
-    setNearLat(latitude);
-    setNearLng(longitude);
-    setSelectedCourtId("");
-    setLocationKey((key) => key + 1);
-    if (persist) {
-      storeLocation({ latitude, longitude });
-      storeLocationLabel(label);
-    }
-  };
-
-  const clearLocationState = () => {
-    setLocationSearch("");
-    setLocationKey((key) => key + 1);
-  };
-
-  useEffect(() => {
-    const syncStoredLocation = () => {
-      const nextLocation = getStoredLocation();
-      const nextRadius = getStoredLocationRadius();
-      if (nextRadius !== null) setRadiusMiles(nextRadius);
-      if (!nextLocation) return;
-
-      applyLocation({
-        label: getStoredLocationLabel() || "Current location",
-        latitude: nextLocation.latitude,
-        longitude: nextLocation.longitude,
-      });
-    };
-
-    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
-    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
-  }, []);
-
-  useEffect(() => {
-    if (storedLocation || typeof navigator === "undefined" || !navigator.geolocation) {
-      return;
-    }
-
-    let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled) return;
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-        applyLocation({ label: "Current location", latitude, longitude, persist: true });
-      },
-      () => undefined,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (nearLat === null || nearLng === null) return;
-    if (selectedCourtId) return;
-    if (locationSearch && locationSearch !== "Current location") return;
-
-    const coords = { latitude: nearLat, longitude: nearLng };
-    const fallback = formatCoordinatesLabel(coords);
-    let cancelled = false;
-    const controller = new AbortController();
-
-    fetch(buildReverseGeocodeUrl(coords), {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const label = labelFromReverseGeocode(data, fallback);
-        setLocationSearch(label);
-        setLocationKey((key) => key + 1);
-        storeLocationLabel(label);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLocationSearch(fallback);
-        setLocationKey((key) => key + 1);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [locationSearch, nearLat, nearLng, selectedCourtId]);
-
-  useEffect(() => {
-    let alive = true;
-    unwrap(api("/match-results/my-courts"))
-      .then((data) => {
-        if (!alive) return;
-        setPlayedCourts(Array.isArray(data?.courts) ? data.courts : []);
-      })
-      .catch(() => {
-        if (alive) setPlayedCourts([]);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError(null);
-    fetch(buildRankingsUrl({ nearLat, nearLng, radiusMiles }))
+    fetch(buildRankingsUrl())
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error || "Failed to load rankings");
@@ -559,7 +440,7 @@ export default function PublicMatchResultsPage() {
     return () => {
       alive = false;
     };
-  }, [nearLat, nearLng, radiusMiles]);
+  }, []);
 
   const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
   // The signed-in player, or nobody. Not a list position — see findViewer.
@@ -581,48 +462,6 @@ export default function PublicMatchResultsPage() {
     matches: Math.round(decorated.reduce((sum, ranking) => sum + Number(ranking.wins || 0), 0)),
     topRating: decorated[0]?.ratingLabel ?? "-",
   }), [decorated]);
-
-  const selectedPlayedCourt = useMemo(
-    () => playedCourts.find((court) => String(court.id) === selectedCourtId) ?? null,
-    [playedCourts, selectedCourtId],
-  );
-
-  const activeFilterLabel = selectedPlayedCourt
-    ? selectedPlayedCourt.name
-    : locationSearch;
-
-  const handlePlayedCourtChange = (courtId: string) => {
-    setSelectedCourtId(courtId);
-    if (!courtId) {
-      const stored = getStoredLocation();
-      if (stored) {
-        applyLocation({
-          label: getStoredLocationLabel() || "Current location",
-          latitude: stored.latitude,
-          longitude: stored.longitude,
-        });
-      } else {
-        setNearLat(null);
-        setNearLng(null);
-      }
-      return;
-    }
-
-    const court = playedCourts.find((item) => String(item.id) === courtId);
-    if (!court) return;
-    const stored = getStoredLocation();
-    const currentLocation = locationSearch && stored
-      ? { latitude: stored.latitude, longitude: stored.longitude }
-      : null;
-    const result = resolveCourtFilterSelection({
-      court,
-      location: currentLocation,
-      radiusMiles,
-    });
-    if (result.clearLocation) clearLocationState();
-    setNearLat(result.nearLat);
-    setNearLng(result.nearLng);
-  };
 
   const openChallenge = (ranking: DecoratedRanking) => {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
@@ -662,97 +501,14 @@ export default function PublicMatchResultsPage() {
             <StatCard label="Top TRP" value={stats.topRating} icon={<BarChart3 size={16} />} />
           </section>
 
-          <section className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_130px_auto] md:items-end">
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Location</span>
-                <Autocomplete
-                  key={`ladder-location-${locationKey}`}
-                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                  placeholder="Search city, address, or court"
-                  defaultValue={locationSearch}
-                  onChange={(event) => {
-                    setLocationSearch((event.target as HTMLInputElement).value);
-                    setNearLat(null);
-                    setNearLng(null);
-                    setSelectedCourtId("");
-                  }}
-                  onPlaceSelected={(place) => {
-                    const lat = place?.geometry?.location?.lat?.();
-                    const lng = place?.geometry?.location?.lng?.();
-                    const label = place?.formatted_address || place?.name || "";
-                    if (typeof lat === "number" && Number.isFinite(lat) && typeof lng === "number" && Number.isFinite(lng)) {
-                      applyLocation({ label, latitude: lat, longitude: lng, persist: true });
-                    } else {
-                      setLocationSearch(label);
-                      setNearLat(null);
-                      setNearLng(null);
-                    }
-                  }}
-                  options={{
-                    types: ["geocode", "establishment"],
-                    fields: ["formatted_address", "geometry", "name", "address_components"],
-                    componentRestrictions: { country: "us" },
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Courts you've played at</span>
-                <select
-                  value={selectedCourtId}
-                  onChange={(event) => handlePlayedCourtChange(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                >
-                  <option value="">No court filter</option>
-                  {playedCourts.map((court) => {
-                    const hasCoords = toFiniteCoordinate(court.latitude) !== null && toFiniteCoordinate(court.longitude) !== null;
-                    return (
-                      <option key={court.id} value={court.id} disabled={!hasCoords}>
-                        {[court.name, court.area].filter(Boolean).join(" - ")}
-                        {hasCoords ? "" : " (no location)"}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Radius</span>
-                <select
-                  value={radiusMiles}
-                  onChange={(event) => {
-                    const nextRadius = Number(event.target.value);
-                    setRadiusMiles(nextRadius);
-                    storeLocationRadius(nextRadius);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                >
-                  {radiusOptions.map((option) => (
-                    <option key={option} value={option}>{option} mi</option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
-                onClick={() => {
-                  setLocationSearch("");
-                  setNearLat(null);
-                  setNearLng(null);
-                  setRadiusMiles(10);
-                  setSelectedCourtId("");
-                  setLocationKey((key) => key + 1);
-                }}
-              >
-                Reset
-              </button>
-            </div>
-            {nearLat !== null && nearLng !== null ? (
-              <div className="mt-2 text-xs font-bold text-slate-400">
-                Showing players within {radiusMiles} mi of {activeFilterLabel || "selected location"}.
-              </div>
-            ) : null}
-          </section>
+          {/* The location, court and radius filters were removed on 2026-08-22.
+              They scoped the list through player_locations, which only 214 of
+              1231 players have a row in — so a filter silently dropped 83% of
+              the ladder, including six of the top eight, on the basis of a
+              location nobody had recorded rather than distance. Everyone
+              currently ranked is local to West LA, so the filters bought little
+              and cost a lot. They come back when a player's location can be
+              derived from the matches they have actually played. */}
 
           {suggestions.length ? (
             <>
@@ -1027,7 +783,7 @@ function LadderRow({
           </span>
           <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-slate-400">
             <MapPin size={12} />
-            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
+            {[ranking.distanceLabel, ranking.primaryCourt].filter(Boolean).join(" · ")}
           </span>
         </span>
       </span>
@@ -1084,7 +840,7 @@ function MobileRankingCard({
             {viewer ? <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-black text-white">you</span> : null}
           </div>
           <div className="mt-0.5 text-xs font-semibold text-slate-400">
-            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
+            {[ranking.distanceLabel, ranking.primaryCourt].filter(Boolean).join(" · ")}
           </div>
         </div>
         <Badge>{ranking.ratingLabel}</Badge>
