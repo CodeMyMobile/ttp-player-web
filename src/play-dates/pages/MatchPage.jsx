@@ -72,6 +72,10 @@ const MatchPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [matchData, setMatchData] = useState(null);
+  // The modal produces a message for every refusal — full match, invite-only,
+  // archived, a 403 from the API. This was `() => {}`, so all of them were
+  // discarded and a refused tap looked like a dead button.
+  const [toast, setToast] = useState(null);
   const currentUser = useMemo(() => buildMatchesUser(user), [user]);
 
   const fetchMatchDetails = useCallback(async (matchId, options = {}) => {
@@ -129,6 +133,18 @@ const MatchPage = () => {
     }
     navigate("/matches");
   }, [location.state, navigate]);
+
+  const showToast = useCallback((message, tone = "info") => {
+    const text = typeof message === "string" ? message.trim() : "";
+    if (!text) return;
+    setToast({ text, tone });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const handleRequireSignIn = useCallback(() => {
     navigate("/login", { state: { from: location } });
@@ -191,6 +207,20 @@ const MatchPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-100">
+      {toast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-x-4 top-4 z-[60] mx-auto max-w-md rounded-xl px-4 py-3 text-sm font-semibold shadow-lg"
+          style={{
+            background: toast.tone === "error" ? "#FEF2F2" : "#FFFFFF",
+            color: toast.tone === "error" ? "#B42318" : "#1F2937",
+            border: `1px solid ${toast.tone === "error" ? "#FDA29B" : "#E4E7EC"}`,
+          }}
+        >
+          {toast.text}
+        </div>
+      ) : null}
       <MatchDetailsModal
         isOpen={Boolean(matchData?.match)}
         matchData={matchData}
@@ -200,7 +230,7 @@ const MatchPage = () => {
         onMatchRefresh={handleMatchRefresh}
         onReloadMatch={handleReloadMatch}
         onUpdateMatch={setMatchData}
-        onToast={() => {}}
+        onToast={showToast}
         formatDateTime={formatDateTime}
         onManageInvites={handleManageInvites}
       />

@@ -2253,7 +2253,11 @@ const MatchDetailsModal = ({
 
   const handleDeclineInvite = async () => {
     if (!viewerInviteToken) return;
-    if (!currentUser) {
+    // `currentUser` comes from buildMatchesUser, which always returns an object
+    // — logged out it is { id: null, type: 2, … }. Testing the object caught
+    // nobody, so the sign-in redirect below was unreachable and a signed-out
+    // player's tap fell through to an API call that 403s.
+    if (!currentUser?.id) {
       onRequireSignIn?.();
       return;
     }
@@ -2330,7 +2334,11 @@ const MatchDetailsModal = ({
 
   const handleJoin = async () => {
     if (!match?.id) return;
-    if (!currentUser) {
+    // `currentUser` comes from buildMatchesUser, which always returns an object
+    // — logged out it is { id: null, type: 2, … }. Testing the object caught
+    // nobody, so the sign-in redirect below was unreachable and a signed-out
+    // player's tap fell through to an API call that 403s.
+    if (!currentUser?.id) {
       onRequireSignIn?.();
       return;
     }
@@ -2425,7 +2433,11 @@ const MatchDetailsModal = ({
 
   const handleLeaveMatch = async () => {
     if (!match?.id) return;
-    if (!currentUser) {
+    // `currentUser` comes from buildMatchesUser, which always returns an object
+    // — logged out it is { id: null, type: 2, … }. Testing the object caught
+    // nobody, so the sign-in redirect below was unreachable and a signed-out
+    // player's tap fell through to an API call that 403s.
+    if (!currentUser?.id) {
       onRequireSignIn?.();
       return;
     }
