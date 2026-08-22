@@ -4,36 +4,28 @@ import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import { usableAvatar } from "../utils/avatar";
 import { buildViewerIdentities, matchesViewer } from "../utils/leagueSeason";
 import { sortByRatingDesc } from "../api/matchResults";
-import { useNavigate } from "react-router-dom";
-import Autocomplete from "react-google-autocomplete";
 import {
-  Activity,
+  getStoredLocationLabel,
+  requestLocationPicker,
+  USER_LOCATION_CHANGED_EVENT,
+} from "../utils/userLocation";
+import { useNavigate } from "react-router-dom";
+import {
   ArrowDown,
+  Bell,
+  ChevronDown,
   ArrowUp,
   BarChart3,
   MapPin,
   Search,
-  ShieldCheck,
   Swords,
   Trophy,
-  Users,
 } from "lucide-react";
 
 import { buildApiUrl } from "../api/config";
-import api, { unwrap } from "../services/api";
 import type { ConnectIntent } from "../types/matchPlay";
 import { shouldShowEstimateBadge } from "../utils/ratingBadges";
 import { deriveNtrp, deriveUtr } from "../utils/ratingConversions";
-import {
-  DEFAULT_RADIUS_MILES,
-  getStoredLocation,
-  getStoredLocationLabel,
-  getStoredLocationRadius,
-  storeLocation,
-  storeLocationLabel,
-  storeLocationRadius,
-  USER_LOCATION_CHANGED_EVENT,
-} from "../utils/userLocation";
 
 export type Ranking = {
   rank: number;
@@ -77,7 +69,7 @@ export type DecoratedRanking = Ranking & {
   ratingLabel: string;
   ntrpLabel: string;
   utrLabel: string;
-  primaryCourt: string;
+  primaryCourt: string | null;
   avatarClass: string;
   avatarToneClass: string;
   photoUrl: string | null;
@@ -101,15 +93,6 @@ export type PlayedCourt = {
   longitude?: number | string | null;
   matches_played?: number | string | null;
 };
-
-const WEST_LA_COURTS = [
-  { name: "Cheviot Hills", area: "Rancho Park" },
-  { name: "Westwood Rec", area: "Westwood" },
-  { name: "Penmar Recreation Center", area: "Venice" },
-  { name: "Stoner Park", area: "Sawtelle" },
-  { name: "Mar Vista Courts", area: "Mar Vista" },
-  { name: "Santa Monica Tennis Center", area: "Santa Monica" },
-];
 
 const AVATAR_CLASSES = [
   ["bg-violet-100", "text-violet-700"],
@@ -186,6 +169,9 @@ const formatRating = (value: unknown, digits = 3, fallback = "-") => {
 };
 
 const formatDistance = (value: unknown) => {
+  // Guard before toNumber: Number(null) is 0 and 0 is finite, so toNumber lets a
+  // missing distance through as zero and every row read "0.0 mi".
+  if (value === null || value === undefined || value === "") return null;
   const parsed = toNumber(value);
   if (parsed === null) return null;
   if (parsed < 10) return `${parsed.toFixed(1)} mi`;
@@ -234,6 +220,15 @@ export const calculateDistanceMiles = (from: Coordinates, to: Coordinates) => {
   return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+/**
+ * Kept, but currently unwired.
+ *
+ * The location, court and radius filters were removed on 2026-08-22 because
+ * they scoped the ladder through `player_locations`, which only 214 of 1231
+ * players have a row in. These helpers and their tests stay so the filters can
+ * come back cheaply once a player's location can be derived from the matches
+ * they have played. Nothing on the page calls this today.
+ */
 export const resolveCourtFilterSelection = ({
   court,
   location,
@@ -288,12 +283,23 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
   rankings
     .map((ranking) => {
       const seed = stableSeed(ranking);
-      const fallbackCourt = WEST_LA_COURTS[seed % WEST_LA_COURTS.length];
       const backendCourt = Array.isArray(ranking.court_locations) ? ranking.court_locations[0] : null;
-      const primaryCourt = ranking.primary_court || backendCourt?.location || fallbackCourt.name;
+      // A court we were told about, or none. This used to fall back to one of
+      // six West LA courts picked by hashing the player's id and name, so
+      // Josh Berenbaum — who has no court on file — was shown at "Mar Vista
+      // Courts" on every load. 1017 of 1231 players have no location recorded,
+      // so that fallback was inventing a home court for 83% of the ladder.
+      const primaryCourt = ranking.primary_court || backendCourt?.location || null;
       const avatar = AVATAR_CLASSES[seed % AVATAR_CLASSES.length];
       const ratingNumber = toNumber(ranking.current_rating) ?? toNumber(ranking.self_rated_seed) ?? 0;
-      const distanceMiles = toNumber(ranking.distance_miles);
+      // toNumber alone is not enough: Number(null) is 0 and 0 is finite, so an
+      // unknown distance became 0 and rendered as "0.0 mi" on every row. Nothing
+      // sends a distance now that the radius filter is gone.
+      const rawDistance = ranking.distance_miles;
+      const distanceMiles =
+        rawDistance === null || rawDistance === undefined || rawDistance === ""
+          ? null
+          : toNumber(rawDistance);
       return {
         ...ranking,
         initials: initials(ranking.full_name),
@@ -322,6 +328,82 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
  * sortByRatingDesc is shared with the home tile's position so the two cannot
  * disagree about where a player sits.
  */
+/**
+ * Only players with a rating belong on a ladder.
+ *
+ * 1159 of 1231 players carry current_rating exactly 0 — not missing, and with no
+ * self-rated seed either, so they have neither played nor told us how they play.
+ * They sorted to the bottom and made the ladder 94% padding.
+ *
+ * The 10 who are rated without having played keep their place: their rating is
+ * their own self-rating, which the row already marks with an estimate badge.
+ *
+ * Filtered before ordering so positions run 1..n with no gaps.
+ */
+export const onlyRatedPlayers = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
+  (Array.isArray(rankings) ? rankings : []).filter((ranking) => Number(ranking.ratingNumber) > 0);
+
+/** "2W-1L", never "2-1" — the bare form reads as a set score. */
+/**
+ * The row's second line, which must never be empty or rows jump height.
+ *
+ * Home court is dropped when we have none rather than invented — 1017 of 1231
+ * players have no location on file. A player with no result shows "Provisional"
+ * instead of "0W-0L", which reads as a record they do not have.
+ */
+/**
+ * How far a suggested player is from you, and in which direction.
+ *
+ * Returns null when there is no viewer to compare against — the card then says
+ * what it can rather than inventing a gap.
+ */
+export const ratingGap = (ranking: DecoratedRanking, viewer: DecoratedRanking | null) => {
+  if (!viewer) return null;
+  const delta = ranking.ratingNumber - viewer.ratingNumber;
+  return {
+    above: delta > 0,
+    delta: Math.abs(delta).toFixed(3),
+    position: ranking.ladderPosition ?? ranking.rank,
+  };
+};
+
+export const rowMeta = (ranking: DecoratedRanking) => {
+  const played = Number(ranking.matches_played || 0) > 0;
+  // Home court is deliberately absent. It was the first token when a player had
+  // one and missing when they did not, so the line started differently row to
+  // row and a long court name ("Mar Vista Recreation Center") ate everything
+  // after it. It belongs on the player profile. Every row now reads the same
+  // fields in the same order.
+  return [
+    `NTRP ${ranking.ntrpLabel}`,
+    `UTR ${ranking.utrLabel}`,
+    played ? recordLabel(ranking) : "Provisional",
+  ].join(" · ");
+};
+
+/** The ladder has no name in the API, so this is the one we show. */
+const LADDER_NAME = "West LA Ladder";
+
+/**
+ * The header title: a name, never a placeholder.
+ *
+ * AppNav stores the literal string "Current location" as the label when it uses
+ * geolocation (AppNav.jsx:239), so the stored label is sometimes a placeholder
+ * rather than a place. Showing it put a label where a value belongs — the same
+ * problem as the old truncated "Current lo…" pill.
+ *
+ * A place the player actually picked wins; otherwise the ladder's own name.
+ */
+const PLACEHOLDER_LABELS = new Set(["current location", "choose location", ""]);
+
+export const resolveLadderTitle = (label = getStoredLocationLabel()) => {
+  const clean = String(label || "").trim();
+  return PLACEHOLDER_LABELS.has(clean.toLowerCase()) ? LADDER_NAME : clean;
+};
+
+export const recordLabel = (ranking: { wins?: unknown; losses?: unknown }) =>
+  `${Number(ranking.wins || 0)}W-${Number(ranking.losses || 0)}L`;
+
 export const orderLadder = (rankings: DecoratedRanking[]): DecoratedRanking[] =>
   sortByRatingDesc(rankings).map((ranking, index) => ({ ...ranking, ladderPosition: index + 1 }));
 
@@ -394,16 +476,10 @@ const radiusOptions = [5, 10, 25, 50];
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
   const { avatarUrl: viewerPhotoUrl } = usePlayerIdentity();
-  const storedLocation = getStoredLocation();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [locationSearch, setLocationSearch] = useState(() => getStoredLocationLabel() || "");
-  const [locationKey, setLocationKey] = useState(0);
-  const [nearLat, setNearLat] = useState<number | null>(() => storedLocation?.latitude ?? null);
-  const [nearLng, setNearLng] = useState<number | null>(() => storedLocation?.longitude ?? null);
-  const [radiusMiles, setRadiusMiles] = useState(() => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const { user } = useAuth();
   const viewerIdentities = useMemo(() => {
     // The fetched player profile carries the identity the rankings use; the thin
@@ -417,127 +493,12 @@ export default function PublicMatchResultsPage() {
     }
     return buildViewerIdentities(user, profile);
   }, [user]);
-  const [playedCourts, setPlayedCourts] = useState<PlayedCourt[]>([]);
-  const [selectedCourtId, setSelectedCourtId] = useState("");
-
-  const applyLocation = ({ label, latitude, longitude, persist = false }: {
-    label: string;
-    latitude: number;
-    longitude: number;
-    persist?: boolean;
-  }) => {
-    setLocationSearch(label);
-    setNearLat(latitude);
-    setNearLng(longitude);
-    setSelectedCourtId("");
-    setLocationKey((key) => key + 1);
-    if (persist) {
-      storeLocation({ latitude, longitude });
-      storeLocationLabel(label);
-    }
-  };
-
-  const clearLocationState = () => {
-    setLocationSearch("");
-    setLocationKey((key) => key + 1);
-  };
-
-  useEffect(() => {
-    const syncStoredLocation = () => {
-      const nextLocation = getStoredLocation();
-      const nextRadius = getStoredLocationRadius();
-      if (nextRadius !== null) setRadiusMiles(nextRadius);
-      if (!nextLocation) return;
-
-      applyLocation({
-        label: getStoredLocationLabel() || "Current location",
-        latitude: nextLocation.latitude,
-        longitude: nextLocation.longitude,
-      });
-    };
-
-    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
-    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncStoredLocation);
-  }, []);
-
-  useEffect(() => {
-    if (storedLocation || typeof navigator === "undefined" || !navigator.geolocation) {
-      return;
-    }
-
-    let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled) return;
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-        applyLocation({ label: "Current location", latitude, longitude, persist: true });
-      },
-      () => undefined,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (nearLat === null || nearLng === null) return;
-    if (selectedCourtId) return;
-    if (locationSearch && locationSearch !== "Current location") return;
-
-    const coords = { latitude: nearLat, longitude: nearLng };
-    const fallback = formatCoordinatesLabel(coords);
-    let cancelled = false;
-    const controller = new AbortController();
-
-    fetch(buildReverseGeocodeUrl(coords), {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const label = labelFromReverseGeocode(data, fallback);
-        setLocationSearch(label);
-        setLocationKey((key) => key + 1);
-        storeLocationLabel(label);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLocationSearch(fallback);
-        setLocationKey((key) => key + 1);
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [locationSearch, nearLat, nearLng, selectedCourtId]);
-
-  useEffect(() => {
-    let alive = true;
-    unwrap(api("/match-results/my-courts"))
-      .then((data) => {
-        if (!alive) return;
-        setPlayedCourts(Array.isArray(data?.courts) ? data.courts : []);
-      })
-      .catch(() => {
-        if (alive) setPlayedCourts([]);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError(null);
-    fetch(buildRankingsUrl({ nearLat, nearLng, radiusMiles }))
+    fetch(buildRankingsUrl())
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error || "Failed to load rankings");
@@ -559,9 +520,23 @@ export default function PublicMatchResultsPage() {
     return () => {
       alive = false;
     };
-  }, [nearLat, nearLng, radiusMiles]);
+  }, []);
 
-  const decorated = useMemo(() => orderLadder(decorateRankings(rankings)), [rankings]);
+  // Shown as-is from the location the app already resolved; the header caps its
+  // width in CSS and ellipsizes rather than pre-truncating the value.
+  //
+  // Reads the label only — nothing here resolves coordinates or asks for
+  // permission. The listener is what makes the title follow a selection made in
+  // AppNav's picker, which is a sibling of the bar this page hides.
+  const [ladderTitle, setLadderTitle] = useState(resolveLadderTitle);
+
+  useEffect(() => {
+    const syncTitle = () => setLadderTitle(resolveLadderTitle());
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, syncTitle);
+  }, []);
+
+  const decorated = useMemo(() => orderLadder(onlyRatedPlayers(decorateRankings(rankings))), [rankings]);
   // The signed-in player, or nobody. Not a list position — see findViewer.
   const viewer = useMemo(() => findViewer(decorated, viewerIdentities), [decorated, viewerIdentities]);
 
@@ -574,55 +549,6 @@ export default function PublicMatchResultsPage() {
   }, [decorated, search]);
 
   const suggestions = useMemo(() => getSuggestedRankings(decorated, viewer, 3), [decorated, viewer]);
-
-  const stats = useMemo(() => ({
-    players: decorated.length,
-    active: decorated.filter((ranking) => Number(ranking.matches_played || 0) > 0).length,
-    matches: Math.round(decorated.reduce((sum, ranking) => sum + Number(ranking.wins || 0), 0)),
-    topRating: decorated[0]?.ratingLabel ?? "-",
-  }), [decorated]);
-
-  const selectedPlayedCourt = useMemo(
-    () => playedCourts.find((court) => String(court.id) === selectedCourtId) ?? null,
-    [playedCourts, selectedCourtId],
-  );
-
-  const activeFilterLabel = selectedPlayedCourt
-    ? selectedPlayedCourt.name
-    : locationSearch;
-
-  const handlePlayedCourtChange = (courtId: string) => {
-    setSelectedCourtId(courtId);
-    if (!courtId) {
-      const stored = getStoredLocation();
-      if (stored) {
-        applyLocation({
-          label: getStoredLocationLabel() || "Current location",
-          latitude: stored.latitude,
-          longitude: stored.longitude,
-        });
-      } else {
-        setNearLat(null);
-        setNearLng(null);
-      }
-      return;
-    }
-
-    const court = playedCourts.find((item) => String(item.id) === courtId);
-    if (!court) return;
-    const stored = getStoredLocation();
-    const currentLocation = locationSearch && stored
-      ? { latitude: stored.latitude, longitude: stored.longitude }
-      : null;
-    const result = resolveCourtFilterSelection({
-      court,
-      location: currentLocation,
-      radiusMiles,
-    });
-    if (result.clearLocation) clearLocationState();
-    setNearLat(result.nearLat);
-    setNearLng(result.nearLng);
-  };
 
   const openChallenge = (ranking: DecoratedRanking) => {
     navigate("/matches/create", { state: buildChallengeState(ranking) });
@@ -638,12 +564,40 @@ export default function PublicMatchResultsPage() {
 
   return (
     <div className="min-h-screen bg-[#f4f2fb] text-[#1f2033]">
-      <main className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
+      <main className="ladder-scroll mx-auto max-w-4xl px-4 py-5 sm:px-6">
         <div className="min-w-0">
+          {/* Mobile chrome: one 52px header in place of the brand bar and the
+              ladder title card, which together cost ~180px before any content.
+              The chevron opens AppNav's existing location picker via
+              requestLocationPicker() — the picker itself is untouched. */}
+          <header className="ladder-head lg:hidden">
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-1 text-[17px] font-bold tracking-[-0.02em]"
+              onClick={() => requestLocationPicker()}
+            >
+              <span className="truncate">{ladderTitle}</span>
+              <ChevronDown size={18} className="shrink-0 text-slate-400" />
+            </button>
+            <span className="ml-auto flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="grid h-9 w-9 place-items-center rounded-full text-slate-500"
+                onClick={() => navigate("/notifications")}
+              >
+                <Bell size={20} />
+              </button>
+              {viewer ? (
+                <Avatar ranking={viewer} photoUrl={photoFor(viewer)} />
+              ) : null}
+            </span>
+          </header>
+
           {/* Above the list so your own standing is the first thing on the page. */}
           <ViewerCard ranking={viewer} photoUrl={viewer ? photoFor(viewer) : null} />
 
-          <header className="rounded-2xl bg-white p-4 shadow-sm">
+          <header className="hidden rounded-2xl bg-white p-4 shadow-sm lg:block">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500 text-white">
                 <Trophy size={22} />
@@ -655,137 +609,58 @@ export default function PublicMatchResultsPage() {
             </div>
           </header>
 
-          <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatCard label="Players" value={stats.players} icon={<Users size={16} />} />
-            <StatCard label="Active" value={stats.active} icon={<Activity size={16} />} />
-            <StatCard label="Results" value={stats.matches} icon={<ShieldCheck size={16} />} />
-            <StatCard label="Top TRP" value={stats.topRating} icon={<BarChart3 size={16} />} />
-          </section>
 
-          <section className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_130px_auto] md:items-end">
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Location</span>
-                <Autocomplete
-                  key={`ladder-location-${locationKey}`}
-                  apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
-                  placeholder="Search city, address, or court"
-                  defaultValue={locationSearch}
-                  onChange={(event) => {
-                    setLocationSearch((event.target as HTMLInputElement).value);
-                    setNearLat(null);
-                    setNearLng(null);
-                    setSelectedCourtId("");
-                  }}
-                  onPlaceSelected={(place) => {
-                    const lat = place?.geometry?.location?.lat?.();
-                    const lng = place?.geometry?.location?.lng?.();
-                    const label = place?.formatted_address || place?.name || "";
-                    if (typeof lat === "number" && Number.isFinite(lat) && typeof lng === "number" && Number.isFinite(lng)) {
-                      applyLocation({ label, latitude: lat, longitude: lng, persist: true });
-                    } else {
-                      setLocationSearch(label);
-                      setNearLat(null);
-                      setNearLng(null);
-                    }
-                  }}
-                  options={{
-                    types: ["geocode", "establishment"],
-                    fields: ["formatted_address", "geometry", "name", "address_components"],
-                    componentRestrictions: { country: "us" },
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Courts you've played at</span>
-                <select
-                  value={selectedCourtId}
-                  onChange={(event) => handlePlayedCourtChange(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                >
-                  <option value="">No court filter</option>
-                  {playedCourts.map((court) => {
-                    const hasCoords = toFiniteCoordinate(court.latitude) !== null && toFiniteCoordinate(court.longitude) !== null;
-                    return (
-                      <option key={court.id} value={court.id} disabled={!hasCoords}>
-                        {[court.name, court.area].filter(Boolean).join(" - ")}
-                        {hasCoords ? "" : " (no location)"}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Radius</span>
-                <select
-                  value={radiusMiles}
-                  onChange={(event) => {
-                    const nextRadius = Number(event.target.value);
-                    setRadiusMiles(nextRadius);
-                    storeLocationRadius(nextRadius);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none transition focus:border-violet-400"
-                >
-                  {radiusOptions.map((option) => (
-                    <option key={option} value={option}>{option} mi</option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-500 transition hover:border-violet-300 hover:text-violet-700"
-                onClick={() => {
-                  setLocationSearch("");
-                  setNearLat(null);
-                  setNearLng(null);
-                  setRadiusMiles(10);
-                  setSelectedCourtId("");
-                  setLocationKey((key) => key + 1);
-                }}
-              >
-                Reset
-              </button>
-            </div>
-            {nearLat !== null && nearLng !== null ? (
-              <div className="mt-2 text-xs font-bold text-slate-400">
-                Showing players within {radiusMiles} mi of {activeFilterLabel || "selected location"}.
-              </div>
-            ) : null}
-          </section>
+          {/* The location, court and radius filters were removed on 2026-08-22.
+              They scoped the list through player_locations, which only 214 of
+              1231 players have a row in — so a filter silently dropped 83% of
+              the ladder, including six of the top eight, on the basis of a
+              location nobody had recorded rather than distance. Everyone
+              currently ranked is local to West LA, so the filters bought little
+              and cost a lot. They come back when a player's location can be
+              derived from the matches they have actually played. */}
 
           {suggestions.length ? (
             <>
               <div className="mx-1 mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-400">Suggested for you</div>
-              <section className="mt-2 grid gap-3 md:grid-cols-3">
+              <section className="ladder-rail mt-2 lg:grid lg:gap-3 lg:grid-cols-3">
                 {suggestions.map((ranking) => (
                   <div
                     role="button"
                     tabIndex={0}
                     key={ranking.user_id}
-                    className="rounded-2xl bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="rounded-[14px] border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:border-0 lg:p-4 lg:shadow-sm"
                     onClick={() => openProfile(ranking)}
                     onKeyDown={(event) => clickOnKeyboard(event, () => openProfile(ranking))}
                   >
-                    <div className="flex items-center gap-3">
-                      <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-black">{ranking.full_name}</div>
-                        <div className="text-xs font-semibold text-slate-400">#{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}</div>
-                      </div>
+                    {/* Stacked, not avatar-beside-name: the card's job is to
+                        identify a person, and the horizontal arrangement left so
+                        little room that names truncated to "Connor…". */}
+                    <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
+                    <div className="mt-2 truncate text-sm font-bold">{ranking.full_name}</div>
+                    <div className="text-xs font-semibold text-slate-400">
+                      #{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}
                     </div>
-                    <div className="mt-3 text-xs font-bold text-violet-700">
-                      {viewer ? `${Math.abs(ranking.ratingNumber - viewer.ratingNumber).toFixed(3)} from you` : "Top ladder player"}
-                    </div>
+                    {(() => {
+                      // Nothing previously said which way the gap ran, so no
+                      // card told you which challenge would gain you a place.
+                      // The rank is on the line above, so it is not repeated.
+                      const gap = ratingGap(ranking, viewer);
+                      if (!gap) return <div className="mt-1 text-xs text-slate-500">Top ladder player</div>;
+                      return (
+                        <div className={`mt-1 text-xs font-semibold ${gap.above ? "text-violet-700" : "text-slate-500"}`}>
+                          {gap.above ? "\u25B2" : "\u25BC"} {gap.delta} {gap.above ? "up" : "down"}
+                        </div>
+                      );
+                    })()}
                     <button
                       type="button"
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-black text-white"
+                      className="mt-2.5 inline-flex min-h-[34px] w-full items-center justify-center gap-1.5 rounded-[10px] bg-violet-600 px-2.5 py-1.5 text-[13px] font-bold text-white"
                       onClick={(event) => {
                         event.stopPropagation();
                         openChallenge(ranking);
                       }}
                     >
-                      <Swords size={15} />
+                      <Swords size={14} />
                       Challenge
                     </button>
                   </div>
@@ -794,13 +669,29 @@ export default function PublicMatchResultsPage() {
             </>
           ) : null}
 
+          {/* Directly above the list it filters. Under the header it read as
+              global app search, with no visible list beneath it once scrolled. */}
+          <div className="ladder-searchstrip lg:hidden">
+            <label className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3">
+              <Search size={16} className="shrink-0 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search player"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+            </label>
+          </div>
+
           <section className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Mobile starts at row 1: the page header already names the ladder,
+                so a card header here spent ~90px on one word. */}
+            <div className="hidden flex-col gap-3 border-b border-slate-100 p-4 lg:flex lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-2">
                 <BarChart3 size={18} className="text-violet-600" />
                 <h2 className="text-base font-black">Ladder</h2>
               </div>
-              <label className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 focus-within:border-violet-400 sm:w-64">
+              <label className="hidden min-w-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 focus-within:border-violet-400 lg:flex lg:w-64">
                 <Search size={16} className="text-slate-400" />
                 <input
                   value={search}
@@ -821,7 +712,7 @@ export default function PublicMatchResultsPage() {
                   <div className="grid grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                     <span>#</span>
                     <span>Player</span>
-                    <span className="text-center">Rating</span>
+                    <span className="text-center">TRP</span>
                     <span className="text-center">NTRP</span>
                     <span className="text-center">UTR</span>
                     <span className="text-center">W-L</span>
@@ -881,55 +772,49 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
   const src = photoFailed ? null : known;
 
   return (
-    <section className="mb-4 rounded-2xl bg-violet-600 p-4 text-white shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-white/20 text-sm font-black">
-          {src ? (
-            <img
-              src={src}
-              alt=""
-              loading="lazy"
-              onError={() => setPhotoFailed(true)}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            ranking.initials
+    <section className="mx-3.5 mt-2.5 flex items-center gap-3 rounded-[14px] border border-slate-200 bg-white p-3 lg:mx-0 lg:mt-0 lg:mb-4">
+      {/* Purple is the accent, not the surface. It was a full-bleed purple block,
+          which left the solid purple Challenge buttons with nothing to stand out
+          against. The rank tile keeps the colour; the card does not. */}
+      {/* Pale, not solid: this is a label, not a button, and a fourth purple
+          block would undo the point of calming the screen down. */}
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-violet-50 text-sm font-black tabular-nums text-violet-700">
+        {ranking.ladderPosition ?? ranking.rank}
+      </span>
+
+      <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100 text-xs font-black text-slate-500">
+        {src ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            onError={() => setPhotoFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          ranking.initials
+        )}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className="truncate text-sm font-bold">{ranking.full_name}</span>
+          <span className="ml-auto shrink-0 text-[13px] font-bold tabular-nums text-violet-700">
+            {ranking.ratingLabel}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
+          NTRP {ranking.ntrpLabel} · UTR {ranking.utrLabel} · {recordLabel(ranking)}
+          {/* Without this, a 0W-0L record beside a 7.000 rating reads as a bug
+              rather than as a rating nothing has tested yet. */}
+          {Number(ranking.matches_played || 0) > 0 ? null : (
+            <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-slate-600">
+              Provisional
+            </span>
           )}
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-violet-200">Your position</p>
-          <p className="truncate text-lg font-black leading-tight">
-            #{ranking.ladderPosition ?? ranking.rank} · {ranking.full_name}
-          </p>
-        </div>
-      </div>
-
-      <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
-        <ViewerStat label="Rating" value={ranking.ratingLabel} />
-        <ViewerStat label="NTRP" value={ranking.ntrpLabel} />
-        <ViewerStat label="UTR" value={ranking.utrLabel} />
-        <ViewerStat label="Record" value={`${ranking.wins}-${ranking.losses}`} />
-      </dl>
+      </span>
     </section>
-  );
-}
-
-function ViewerStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white/10 px-1 py-2">
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-violet-200">{label}</dt>
-      <dd className="mt-0.5 text-sm font-black tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between text-violet-600">{icon}</div>
-      <div className="mt-2 text-2xl font-black">{value}</div>
-      <div className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{label}</div>
-    </div>
   );
 }
 
@@ -950,7 +835,7 @@ function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: s
 
   return (
     <span
-      className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
+      className={`grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full text-xs font-black ${
         src ? "bg-slate-100" : `${ranking.avatarClass} ${ranking.avatarToneClass}`
       }`}
     >
@@ -979,7 +864,9 @@ function Badge({ children, tone = "violet" }: { children: React.ReactNode; tone?
     violet: "bg-violet-50 text-violet-700",
     green: "bg-emerald-50 text-emerald-700",
     blue: "bg-sky-50 text-sky-700",
-    gray: "bg-slate-100 text-slate-500",
+    // slate-500 on slate-100 measured 4.34:1 — below AA. slate-600 is 6.92:1.
+    // Foreground only; the background tint is unchanged.
+    gray: "bg-slate-100 text-slate-600",
   };
   return <span className={`rounded-lg px-2.5 py-1 text-xs font-black tabular-nums ${classes[tone]}`}>{children}</span>;
 }
@@ -1027,14 +914,14 @@ function LadderRow({
           </span>
           <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-slate-400">
             <MapPin size={12} />
-            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
+            {[ranking.distanceLabel, ranking.primaryCourt].filter(Boolean).join(" · ")}
           </span>
         </span>
       </span>
-      <span className="text-center"><Badge>{ranking.ratingLabel}</Badge></span>
+      <span className="text-center"><Badge>TRP {ranking.ratingLabel}</Badge></span>
       <span className="text-center"><Badge tone="green">{ranking.ntrpLabel}</Badge></span>
       <span className="text-center"><Badge tone="blue">{ranking.utrLabel}</Badge></span>
-      <span className="text-center text-sm font-black tabular-nums">{ranking.wins}-{ranking.losses}</span>
+      <span className="text-center text-sm font-black tabular-nums">{recordLabel(ranking)}</span>
       <span className="text-right">
         {viewer ? <Change value={ranking.rating_change} /> : (
           <button
@@ -1071,41 +958,42 @@ function MobileRankingCard({
     <div
       role="button"
       tabIndex={0}
-      className="w-full p-4 text-left"
+      className="flex min-h-[66px] w-full items-center gap-2 px-3 py-2.5 text-left"
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
-      <div className="flex items-center gap-3">
-        <RankValue rank={ranking.ladderPosition ?? ranking.rank} />
-        <Avatar ranking={ranking} photoUrl={photoUrl} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-black">{ranking.full_name}</span>
-            {viewer ? <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-black text-white">you</span> : null}
-          </div>
-          <div className="mt-0.5 text-xs font-semibold text-slate-400">
-            {ranking.distanceLabel ? `${ranking.distanceLabel} · ${ranking.primaryCourt}` : ranking.primaryCourt}
-          </div>
-        </div>
-        <Badge>{ranking.ratingLabel}</Badge>
-      </div>
-      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-        <Badge tone="green">NTRP {ranking.ntrpLabel}</Badge>
-        <Badge tone="blue">UTR {ranking.utrLabel}</Badge>
-        <Badge tone="gray">{ranking.wins}-{ranking.losses}</Badge>
-        {viewer ? <Change value={ranking.rating_change} /> : (
-          <button
-            type="button"
-            className="rounded-lg bg-violet-600 px-2 py-1 text-xs font-black text-white"
-            onClick={(event) => {
-              event.stopPropagation();
-              onChallenge();
-            }}
-          >
-            Challenge
-          </button>
-        )}
-      </div>
+      <span className="w-5 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-400">
+        {ranking.ladderPosition ?? ranking.rank}
+      </span>
+      <Avatar ranking={ranking} photoUrl={photoUrl} />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className="truncate text-sm font-bold">{ranking.full_name}</span>
+          {viewer ? (
+            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.05em] text-violet-700">You</span>
+          ) : null}
+          <span className="ml-auto shrink-0 text-[13px] font-bold tabular-nums text-violet-700">
+            {ranking.ratingLabel}
+          </span>
+        </span>
+        {/* Always renders, so rows stay a uniform height. A player with no
+            result shows their standing rather than collapsing the line. */}
+        <span className="ladder-meta mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
+          {rowMeta(ranking)}
+        </span>
+      </span>
+      {viewer ? null : (
+        <button
+          type="button"
+          className="min-h-[32px] shrink-0 rounded-[10px] border border-violet-500 bg-transparent px-2.5 py-1.5 text-xs font-bold text-violet-700"
+          onClick={(event) => {
+            event.stopPropagation();
+            onChallenge();
+          }}
+        >
+          Challenge
+        </button>
+      )}
     </div>
   );
 }

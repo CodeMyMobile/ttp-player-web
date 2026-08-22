@@ -11,8 +11,11 @@ import {
   formatCoordinatesLabel,
   getSuggestedRankings,
   labelFromReverseGeocode,
+  onlyRatedPlayers,
   orderLadder,
   resolveCourtFilterSelection,
+  resolveLadderTitle,
+  rowMeta,
 } from "./PublicMatchResultsPage";
 
 test("estimate badge follows is_estimate, not provisional K status", () => {
@@ -206,4 +209,122 @@ test("nobody is highlighted when the viewer is not in the list", () => {
   assert.equal(findViewer(ladder, buildViewerIdentities(null, null)), null, "logged out");
   assert.equal(findViewer(ladder, buildViewerIdentities({ id: 999 }, null)), null, "outside the radius");
   assert.equal(findViewer([], buildViewerIdentities({ id: 7 }, null)), null, "empty ladder");
+});
+
+/**
+ * Both halves of a ladder row's "0.0 mi · Mar Vista Courts" were invented for
+ * players we know nothing about. Verified against production on 2026-08-22:
+ * 1017 of 1231 players have neither primary_court nor court_locations, and
+ * distance_miles is null for every player once the radius filter is gone.
+ */
+test("a player with no court on file gets no court, not a hashed one", () => {
+  const rows = [
+    { user_id: 1393, full_name: "Josh Berenbaum", current_rating: 7.33, primary_court: null, court_locations: [] },
+    { user_id: 1386, full_name: "Kevin Kurstin", current_rating: 7.24, primary_court: null, court_locations: null },
+  ] as never;
+
+  decorateRankings(rows).forEach((row) => {
+    assert.equal(row.primaryCourt, null, `${row.full_name} must not be assigned a court`);
+  });
+});
+
+test("a real court is still shown, from either field", () => {
+  const rows = [
+    { user_id: 6, full_name: "Paul Cochrane", current_rating: 7, primary_court: "Penmar Recreation Center" },
+    { user_id: 1290, full_name: "Szu Lee", current_rating: 8.19, court_locations: [{ location: "Mar Vista Recreation Center" }] },
+  ] as never;
+
+  const [paul, szu] = decorateRankings(rows);
+  assert.equal(paul.primaryCourt, "Penmar Recreation Center");
+  assert.equal(szu.primaryCourt, "Mar Vista Recreation Center");
+});
+
+test("an unknown distance is absent, not zero", () => {
+  // Number(null) === 0 and 0 is finite, so the old guard let a missing distance
+  // through and every row read "0.0 mi".
+  const rows = [
+    { user_id: 1, full_name: "No Distance", current_rating: 5 },
+    { user_id: 2, full_name: "Null Distance", current_rating: 5, distance_miles: null },
+    { user_id: 3, full_name: "Empty Distance", current_rating: 5, distance_miles: "" },
+    { user_id: 4, full_name: "Real Distance", current_rating: 5, distance_miles: 2.4 },
+  ] as never;
+
+  const [none, nul, empty, real] = decorateRankings(rows);
+  assert.equal(none.distanceLabel, null);
+  assert.equal(nul.distanceLabel, null);
+  assert.equal(empty.distanceLabel, null);
+  assert.equal(real.distanceLabel, "2.4 mi", "a real distance still renders");
+});
+
+test("the ladder request is unscoped now that the filters are gone", () => {
+  const url = buildRankingsUrl();
+  assert.ok(!url.includes("near_lat"), "no location filter");
+  assert.ok(!url.includes("radius_miles"), "no radius filter");
+});
+
+test("players with no rating are kept off the ladder", () => {
+  // 1159 of 1231 carry current_rating exactly 0, with no self-rated seed —
+  // neither played nor self-assessed. They made the ladder 94% padding.
+  const rows = decorateRankings([
+    { user_id: 1, full_name: "Rated Player", current_rating: 7.2 },
+    { user_id: 2, full_name: "Zero Rating", current_rating: 0 },
+    { user_id: 3, full_name: "Null Rating", current_rating: null },
+    // Production shape for a self-rated player: the backend copies the seed into
+    // current_rating, so they arrive rated. (decorateRankings' `?? self_rated_seed`
+    // fallback is unreachable when current_rating is 0 — toNumber(0) is 0, not
+    // null, so ?? never fires. Harmless today because nothing sends that shape.)
+    { user_id: 4, full_name: "Seeded Player", current_rating: 4.5, self_rated_seed: 4.5 },
+  ] as never);
+
+  const ladder = orderLadder(onlyRatedPlayers(rows));
+
+  assert.deepEqual(ladder.map((r) => r.full_name), ["Rated Player", "Seeded Player"]);
+  assert.deepEqual(ladder.map((r) => r.ladderPosition), [1, 2], "positions run 1..n with no gaps");
+});
+
+test("a self-rated player who has never played still appears", () => {
+  // All ten of these have rating === self_rated_seed and carry an estimate
+  // badge, so the number is honestly labelled rather than hidden.
+  const [seeded] = orderLadder(onlyRatedPlayers(decorateRankings([
+    { user_id: 6, full_name: "Paul Cochrane", current_rating: 7, self_rated_seed: 7, matches_played: 0, is_estimate: true },
+  ] as never)));
+
+  assert.equal(seeded.ladderPosition, 1);
+  assert.equal(seeded.ratingLabel, "7.000");
+});
+
+test("onlyRatedPlayers tolerates malformed input", () => {
+  assert.deepEqual(onlyRatedPlayers([] as never), []);
+  assert.deepEqual(onlyRatedPlayers(null as never), []);
+});
+
+
+test("the header shows a name, never a placeholder", () => {
+  // AppNav stores the literal "Current location" as the label when it uses
+  // geolocation (AppNav.jsx:239), so the stored label is sometimes a
+  // placeholder. Showing it put a label where a value belongs.
+  assert.equal(resolveLadderTitle("Current location"), "West LA Ladder");
+  assert.equal(resolveLadderTitle("  CURRENT LOCATION "), "West LA Ladder");
+  assert.equal(resolveLadderTitle(""), "West LA Ladder");
+  assert.equal(resolveLadderTitle(null), "West LA Ladder");
+});
+
+test("a place the player actually picked becomes the title", () => {
+  assert.equal(resolveLadderTitle("Venice Beach"), "Venice Beach");
+  assert.equal(resolveLadderTitle("  Santa Monica  "), "Santa Monica");
+});
+
+test("every row's meta line starts with the same field and never omits a token", () => {
+  const rows = decorateRankings([
+    { user_id: 1, full_name: "Has Court", current_rating: 7, primary_court: "Mar Vista Recreation Center", matches_played: 3, wins: 2, losses: 1 },
+    { user_id: 2, full_name: "No Court", current_rating: 6, matches_played: 3, wins: 2, losses: 1 },
+    { user_id: 3, full_name: "Never Played", current_rating: 5 },
+  ] as never);
+
+  const metas = rows.map(rowMeta);
+  metas.forEach((meta) => assert.ok(meta.startsWith("NTRP "), `meta must start with NTRP: ${meta}`));
+  assert.ok(!metas.some((m) => m.includes("Recreation Center")), "home court belongs on the profile, not the row");
+  assert.equal(metas[0].split(" · ").length, 3, "always three tokens, so heights stay uniform");
+  assert.ok(metas[2].endsWith("Provisional"), "no record shows a status rather than 0W-0L");
+  assert.ok(metas[1].endsWith("2W-1L"), "records read as records, not set scores");
 });
