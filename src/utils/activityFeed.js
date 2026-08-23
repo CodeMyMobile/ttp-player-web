@@ -135,6 +135,23 @@ export const parseNearbyMoment = (...values) => {
 };
 
 /**
+ * The key the feed is ordered by: the wall clock the player will read.
+ *
+ * startTime cannot do this job. It is an ISO instant, and the four sources do
+ * not agree on what an instant means — a floating group lesson serialises its
+ * literal digits while a converted match serialises a real UTC time, so sorting
+ * on it puts every converted item seven hours late. A 3pm lesson lands after a
+ * 6pm one, which reads as the list being grouped by type rather than by time.
+ *
+ * Both parsers can produce the local clock: parseZone's digits ARE the local
+ * clock for a floating value, and a converted moment formats to local. One
+ * basis for all four, and "YYYY-MM-DDTHH:mm" sorts chronologically as a plain
+ * string.
+ */
+export const localSortKey = (zonedStart, fallbackDate) =>
+  (zonedStart || moment(fallbackDate)).format("YYYY-MM-DDTHH:mm");
+
+/**
  * Reads a value as an ACTUAL point in time, in the viewer's zone.
  *
  * Plain moment() is right for the two remaining shapes, for opposite reasons:
@@ -343,6 +360,7 @@ export const buildCoachActivities = (records = []) =>
             time: timeLabel ?? (zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A")),
             dayKey: slot.date || toLocalDayKey(zonedStart, startAt),
             startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
+            sortAt: localSortKey(zonedStart, startAt),
             location,
             secondaryMeta: distanceLabel,
             availabilityText,
@@ -463,6 +481,7 @@ export const buildActivityItems = (lessons = []) =>
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
         dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
+        sortAt: localSortKey(zonedStart, startAt),
         location,
         secondaryMeta,
         coachName,
@@ -544,6 +563,7 @@ export const buildExternalLessonActivities = (lessons = []) =>
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
         dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
+        sortAt: localSortKey(zonedStart, startAt),
         location,
         secondaryMeta: providerName,
         rating: null,
@@ -613,6 +633,7 @@ export const buildMatchActivities = (records = []) =>
         time: zonedStart ? zonedStart.format("h:mm A") : moment(startAt).format("h:mm A"),
         dayKey: toLocalDayKey(zonedStart, startAt),
         startTime: zonedStart ? zonedStart.toISOString() : startAt.toISOString(),
+        sortAt: localSortKey(zonedStart, startAt),
         location: formatDisplayLocation(normalizedMatch.location || "Location TBD"),
         secondaryMeta: normalizedMatch.level?.summary || normalizedMatch.distance || null,
         rating: null,
@@ -788,6 +809,7 @@ export const collapseCoachAvailability = (items = []) => {
       new Date(item.startTime).valueOf() < new Date(existing.startTime).valueOf();
     if (earlier) {
       existing.startTime = item.startTime;
+      existing.sortAt = item.sortAt;
       existing.time = item.time;
     }
 

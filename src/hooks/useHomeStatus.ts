@@ -346,7 +346,13 @@ const activityFeedFetcher = async () => {
     ...buildActivityItems(extractCollection(response?.group_lessons)),
     ...(external.status === "fulfilled" ? buildExternalLessonActivities(extractLessons(external.value)) : []),
     ...buildMatchActivities(extractCollection(response?.match_play)),
-  ].sort((a, b) => new Date(a.startTime).valueOf() - new Date(b.startTime).valueOf());
+    // Ordered by the clock the player reads, not by startTime. startTime is an
+    // ISO instant, and the four sources disagree on what an instant means: a
+    // floating group lesson serialises its literal digits, a converted match
+    // serialises real UTC. Sorting on it put converted items seven hours late,
+    // so a 3pm lesson landed below a 6pm one and the list looked grouped by
+    // type. sortAt is the local wall clock from every source.
+  ].sort((a, b) => String(a.sortAt ?? a.startTime).localeCompare(String(b.sortAt ?? b.startTime)));
 
   const searchArea = response?.search_area as Record<string, unknown> | undefined;
   // Never earlier than today. The API has been seen returning a window that
