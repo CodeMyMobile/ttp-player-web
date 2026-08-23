@@ -85,7 +85,7 @@ test("buildChallengeState opens private match creation with ranking context", ()
   const state = buildChallengeState(opponent);
 
   assert.equal(state.connectIntent.invitee.id, "1290");
-  assert.equal(state.connectIntent.invitee.level, "TRP 8.110");
+  assert.equal(state.connectIntent.invitee.level, "TPR 8.110");
   assert.equal(state.connectIntent.source, "match-results-ladder");
 });
 
@@ -323,7 +323,10 @@ test("every row's meta line starts with the same field and never omits a token",
   const metas = rows.map(rowMeta);
   metas.forEach((meta) => assert.ok(meta.startsWith("NTRP "), `meta must start with NTRP: ${meta}`));
   assert.ok(!metas.some((m) => m.includes("Recreation Center")), "home court belongs on the profile, not the row");
-  assert.equal(metas[0].split(" · ").length, 3, "always three tokens, so heights stay uniform");
-  assert.ok(metas[2].endsWith("Provisional"), "no record shows a status rather than 0W-0L");
+  assert.equal(metas[0].split(" · ").length, 3, "metrics plus a record when one exists");
+  // A player with no result carries the Est. flag as an element beside the
+  // metrics, not as text — it has to be tappable to explain itself.
+  assert.equal(metas[2].split(" · ").length, 2, "no record token when nothing has been played");
+  assert.ok(/^NTRP [\d.]+ · UTR [\d.]+$/.test(metas[2]), `metrics only: ${metas[2]}`);
   assert.ok(metas[1].endsWith("2W-1L"), "records read as records, not set scores");
 });

@@ -331,7 +331,7 @@ const buildDashboard = (
     const pid = String(player.player_id);
     const record = recordByPlayer.get(pid) ?? { wins: 0, losses: 0 };
     // Prefer a real value (backend-calculated, then player-entered); estimate from
-    // TRP only as a fallback — same logic as the public match-results page.
+    // TPR only as a fallback — same logic as the public match-results page.
     const ntrpConv = deriveNtrp(player.calculated_ntrp ?? player.usta_rating, player.current_rating, player.rating_gender);
     const utrConv = deriveUtr(player.calculated_utr ?? player.uta_rating, player.current_rating);
     return {

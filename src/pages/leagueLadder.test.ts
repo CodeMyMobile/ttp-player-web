@@ -60,7 +60,7 @@ const standings = [
   { player_id: 210, wins: 0, losses: 0 },
 ];
 
-test("buildLeagueLadderRows ranks players with TRP or self-entered ratings", () => {
+test("buildLeagueLadderRows ranks players with TPR or self-entered ratings", () => {
   const rows = buildLeagueLadderRows({ players, standings, viewerId: 4 });
 
   assert.deepEqual(rows.map((row) => row.playerId), ["3", "4", "5", "210"]);
@@ -92,5 +92,5 @@ test("buildLeagueChallengeState opens private match creation with opponent conte
   assert.equal(state.connectIntent.invitee.name, "Kevin Kurstin");
   assert.equal(state.connectIntent.source, "league-ladder");
   assert.equal(state.connectIntent.preferredCourt, "Westwood Rec");
-  assert.equal(state.connectIntent.senderLevel, "TRP 7.191");
+  assert.equal(state.connectIntent.senderLevel, "TPR 7.191");
 });

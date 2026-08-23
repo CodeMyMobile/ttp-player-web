@@ -277,7 +277,7 @@
 .lgd .look-row:last-of-type{margin-bottom:0}
 .lgd .look-row .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .lgd .look-row .nm{font-weight:600;font-size:14px}
-.lgd .tag-trp{background:var(--violet-soft);color:var(--violet);font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:6px}
+.lgd .tag-tpr{background:var(--violet-soft);color:var(--violet);font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:6px}
 .lgd .tag-wl{color:var(--ink-2);font-size:12.5px;font-weight:500}
 .lgd .tag-ok{display:inline-flex;align-items:center;gap:4px;background:var(--green-bg);color:var(--green);
   font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:6px}

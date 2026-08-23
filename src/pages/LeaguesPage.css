@@ -1006,13 +1006,13 @@
   cursor: not-allowed;
 }
 
-/* Players tab: left-align + tight (TRP now formatted to 3 decimals) */
+/* Players tab: left-align + tight (TPR now formatted to 3 decimals) */
 .league-table--players th,
 .league-table--players td {
   text-align: left;
 }
 
-/* Players tab: TRP chip next to the name */
+/* Players tab: TPR chip next to the name */
 .league-player-name {
   display: inline-flex;
   align-items: center;
@@ -1020,7 +1020,7 @@
   gap: 8px;
 }
 
-.league-player-trp {
+.league-player-tpr {
   font-style: normal;
   font-size: 11px;
   font-weight: 700;
@@ -1030,7 +1030,7 @@
   padding: 2px 7px;
 }
 
-/* Results: one line per player (name + TRP + W-L), then score/date */
+/* Results: one line per player (name + TPR + W-L), then score/date */
 .league-result-line {
   display: flex;
   align-items: center;
@@ -1079,7 +1079,7 @@
   background: #059669;
 }
 
-.league-result-trp {
+.league-result-tpr {
   font-style: normal;
   font-size: 11px;
   font-weight: 700;

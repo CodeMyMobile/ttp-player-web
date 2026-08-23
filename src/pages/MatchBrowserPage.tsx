@@ -217,7 +217,7 @@ const MatchBrowserPage = () => {
                     >
                       <span className="recommended-match-card__badge">{available ? "Matches your time" : "Full"}</span>
                       <strong>{suggestion.player_name || "League player"}</strong>
-                      {suggestion.player_skill ? <span className="recommended-match-card__rating">TRP {suggestion.player_skill}</span> : null}
+                      {suggestion.player_skill ? <span className="recommended-match-card__rating">TPR {suggestion.player_skill}</span> : null}
                       <span className="recommended-match-card__time">
                         {formatDate(suggestion.match_date, suggestion.timezone)} · {formatTime(suggestion.match_time, suggestion.timezone)}
                       </span>
@@ -261,7 +261,7 @@ const MatchBrowserPage = () => {
                             {need.player_name || "League player"}
                             {!available ? <em className="league-full-badge">Full</em> : null}
                           </strong>
-                          {need.player_skill ? <span>TRP {need.player_skill}</span> : null}
+                          {need.player_skill ? <span>TPR {need.player_skill}</span> : null}
                           <small>
                             {formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}
                             {" · "}{location}

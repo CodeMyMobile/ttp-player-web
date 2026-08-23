@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowDown,
   Bell,
+  Flag,
   ChevronDown,
   ArrowUp,
   BarChart3,
@@ -377,8 +378,8 @@ export const rowMeta = (ranking: DecoratedRanking) => {
   return [
     `NTRP ${ranking.ntrpLabel}`,
     `UTR ${ranking.utrLabel}`,
-    played ? recordLabel(ranking) : "Provisional",
-  ].join(" · ");
+    played ? recordLabel(ranking) : null,
+  ].filter(Boolean).join(" · ");
 };
 
 /** The ladder has no name in the API, so this is the one we show. */
@@ -442,9 +443,9 @@ export const buildChallengeState = (ranking: DecoratedRanking): { connectIntent:
     invitee: {
       id: String(ranking.user_id),
       name: ranking.full_name,
-      level: `TRP ${ranking.ratingLabel}`,
+      level: `TPR ${ranking.ratingLabel}`,
     },
-    senderLevel: "TRP",
+    senderLevel: "TPR",
     suggestedAvailability: [],
     preferredCourt: ranking.primaryCourt,
     source: "match-results-ladder",
@@ -633,12 +634,13 @@ export default function PublicMatchResultsPage() {
                         identify a person, and the horizontal arrangement left so
                         little room that names truncated to "Connor…". */}
                     <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
-                    {/* Wraps rather than truncating: the card's whole job is to
-                        name a person, and "Benjamin M…" does not. Two lines are
-                        reserved so every card stays the same height. */}
-                    <div className="mt-2 min-h-[2.5rem] text-sm font-bold leading-tight">{ranking.full_name}</div>
+                    {/* Wraps rather than truncating — a card exists to name a
+                        person. It previously reserved two lines' height, which
+                        left an empty band under every one-line name. The rail
+                        stretches its cards to match, so they still line up. */}
+                    <div className="mt-2 text-sm font-bold leading-tight">{ranking.full_name}</div>
                     <div className="text-xs font-semibold text-slate-400">
-                      #{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}
+                      #{ranking.ladderPosition ?? ranking.rank} · TPR {ranking.ratingLabel}
                     </div>
                     {(() => {
                       // Nothing previously said which way the gap ran, so no
@@ -712,7 +714,7 @@ export default function PublicMatchResultsPage() {
                   <div className="grid grid-cols-[54px_minmax(0,1fr)_92px_82px_82px_80px_100px] border-b border-slate-100 px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                     <span>#</span>
                     <span>Player</span>
-                    <span className="text-center">TRP</span>
+                    <span className="text-center">TPR</span>
                     <span className="text-center">NTRP</span>
                     <span className="text-center">UTR</span>
                     <span className="text-center">W-L</span>
@@ -808,9 +810,7 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
           {/* Without this, a 0W-0L record beside a 7.000 rating reads as a bug
               rather than as a rating nothing has tested yet. */}
           {Number(ranking.matches_played || 0) > 0 ? null : (
-            <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
-              Provisional
-            </span>
+            <EstimateFlag />
           )}
         </span>
       </span>
@@ -857,6 +857,49 @@ function Avatar({ ranking, photoUrl }: { ranking: DecoratedRanking; photoUrl?: s
 function RankValue({ rank }: { rank: number }) {
   const tone = rank === 1 ? "text-amber-700" : rank === 2 ? "text-slate-500" : rank === 3 ? "text-orange-700" : "text-slate-400";
   return <span className={`font-black tabular-nums ${tone}`}>#{rank}</span>;
+}
+
+/**
+ * "Est." is an abbreviation with no obvious meaning, so it has to be able to
+ * explain itself rather than sit there decoratively.
+ *
+ * The visible pill stays small; the tap target is padded out to 44px, which is
+ * why the button carries negative margin — it must not change the row's height
+ * or push the text it sits beside.
+ */
+const ESTIMATE_EXPLANATION = "Estimated rating — play 3 matches to set your rating.";
+
+function EstimateFlag() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label={ESTIMATE_EXPLANATION}
+        aria-expanded={open}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((current) => !current);
+        }}
+        onBlur={() => setOpen(false)}
+        className="-my-3 ml-1.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-1"
+      >
+        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+          <Flag size={11} aria-hidden="true" />
+          Est.
+        </span>
+      </button>
+      {open ? (
+        <span
+          role="tooltip"
+          className="absolute bottom-full left-0 z-30 mb-1 w-56 rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-semibold leading-snug text-white shadow-lg"
+        >
+          {ESTIMATE_EXPLANATION}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 function Badge({ children, tone = "violet" }: { children: React.ReactNode; tone?: "violet" | "green" | "blue" | "gray" }) {
@@ -918,7 +961,7 @@ function LadderRow({
           </span>
         </span>
       </span>
-      <span className="text-center"><Badge>TRP {ranking.ratingLabel}</Badge></span>
+      <span className="text-center"><Badge>TPR {ranking.ratingLabel}</Badge></span>
       <span className="text-center"><Badge tone="green">{ranking.ntrpLabel}</Badge></span>
       <span className="text-center"><Badge tone="blue">{ranking.utrLabel}</Badge></span>
       <span className="text-center text-sm font-black tabular-nums">{recordLabel(ranking)}</span>
@@ -958,7 +1001,7 @@ function MobileRankingCard({
     <div
       role="button"
       tabIndex={0}
-      className="flex min-h-[66px] w-full items-center gap-2 px-3 py-2.5 text-left"
+      className={`flex min-h-[66px] w-full items-center gap-2 px-3 py-2.5 text-left${viewer ? " ladder-row-you" : ""}`}
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
@@ -980,8 +1023,9 @@ function MobileRankingCard({
         </span>
         {/* Always renders, so rows stay a uniform height. A player with no
             result shows their standing rather than collapsing the line. */}
-        <span className="ladder-meta mt-0.5 block truncate text-xs leading-[1.35] text-slate-500">
-          {rowMeta(ranking)}
+        <span className="ladder-meta mt-0.5 flex items-center text-xs leading-[1.35] text-slate-500">
+          <span className="truncate">{rowMeta(ranking)}</span>
+          {Number(ranking.matches_played || 0) > 0 ? null : <EstimateFlag />}
         </span>
       </span>
       {/* Your row has no Challenge button, and without a spacer the rating slid

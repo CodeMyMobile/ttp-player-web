@@ -191,7 +191,7 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
               <div className="pinfo">
                 <div className="nm">{player.name}</div>
                 <div className="rt">
-                  TRP {player.rating.toFixed(1)}
+                  TPR {player.rating.toFixed(1)}
                   {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
                   {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : ""}
                   {" · "}
