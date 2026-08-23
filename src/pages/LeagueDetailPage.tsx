@@ -84,7 +84,7 @@ const displayValue = (value: unknown) => {
   return String(value);
 };
 
-const formatTrp = (value: unknown) => {
+const formatTpr = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(3) : null;
 };
@@ -650,7 +650,7 @@ const LeagueDetailPage = () => {
       return resultSort === "newest" ? bDate - aDate : aDate - bDate;
     });
   }, [results, resultFilter, resultSort, userId]);
-  // W-L record lookup (from standings) + TRP lookup (from players) by player id —
+  // W-L record lookup (from standings) + TPR lookup (from players) by player id —
   // fixtures/suggestions don't carry win/loss or rating.
   const standingsByPlayer = useMemo(() => {
     const map = new Map<string, { wins: number; losses: number }>();
@@ -679,7 +679,7 @@ const LeagueDetailPage = () => {
       ? futureSuggestions.map((s) => ({
           key: `s-${s.id}`, id: s.id, type: "suggestion" as const,
           name: s.player_name || "League player",
-          trp: formatTrp(s.player_skill),
+          tpr: formatTpr(s.player_skill),
           when: `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}`,
           location: s.match_location || null,
           playerId: s.suggested_player_id,
@@ -689,7 +689,7 @@ const LeagueDetailPage = () => {
       : futureNeeds.map((n) => ({
           key: `n-${n.id}`, id: n.id, type: "need" as const,
           name: n.player_name || "League player",
-          trp: formatTrp(n.player_skill),
+          tpr: formatTpr(n.player_skill),
           when: `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}`,
           location: n.match_location || n.location || n.location_text || null,
           playerId: n.player_id ?? n.host_id,
@@ -1124,7 +1124,7 @@ const LeagueDetailPage = () => {
                     >
                       <span className="league-browser-preview__player">
                         <strong>{item.name}</strong>
-                        {item.trp ? <em className="league-browser-preview__rating">TRP {item.trp}</em> : null}
+                        {item.tpr ? <em className="league-browser-preview__rating">TPR {item.tpr}</em> : null}
                         {record ? <em className="league-browser-preview__record">W-L {record.wins}-{record.losses}</em> : null}
                         {!item.available ? (
                           <em className="league-full-badge">Full</em>
@@ -1257,7 +1257,7 @@ const LeagueDetailPage = () => {
               <span>Opponent:</span>
               <strong>{selectedSuggestion.player_name || "League player"}</strong>
               <p>
-                {selectedSuggestion.player_skill ? `TRP ${selectedSuggestion.player_skill}` : "League player"}
+                {selectedSuggestion.player_skill ? `TPR ${selectedSuggestion.player_skill}` : "League player"}
                 {selectedSuggestion.has_played_before ? " · Played before" : ""}
               </p>
             </section>
@@ -1397,7 +1397,7 @@ const LeagueDetailPage = () => {
                         <span className="league-ladder__avatar">{row.initials}</span>
                         <span>
                           <strong>{row.name}</strong>
-                          <em>#{row.rank} · TRP {row.ratingLabel}</em>
+                          <em>#{row.rank} · TPR {row.ratingLabel}</em>
                         </span>
                       </button>
                       <p>{row.suggestionReason || (row.courtLabels[0] ? `Plays ${row.courtLabels[0]}` : "Close ladder opponent")}</p>
@@ -1491,7 +1491,7 @@ const LeagueDetailPage = () => {
                     <span className="league-ladder__avatar league-ladder__avatar--lg">{selectedLadderPlayer.initials}</span>
                     <div>
                       <h2>{selectedLadderPlayer.name}</h2>
-                      <p>Rank #{selectedLadderPlayer.rank} · TRP {selectedLadderPlayer.ratingLabel}</p>
+                      <p>Rank #{selectedLadderPlayer.rank} · TPR {selectedLadderPlayer.ratingLabel}</p>
                     </div>
                   </div>
                   <div className="league-ladder-profile__stats">

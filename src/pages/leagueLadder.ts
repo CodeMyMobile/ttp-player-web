@@ -8,7 +8,7 @@ export interface LeagueLadderRow {
   rank: number;
   rating: number;
   ratingLabel: string;
-  ratingType: "TRP" | "NTRP" | "UTR";
+  ratingType: "TPR" | "NTRP" | "UTR";
   ntrpLabel: string;
   utrLabel: string;
   recordLabel: string;
@@ -36,8 +36,8 @@ const formatFixed = (value: unknown, digits: number) => {
 };
 
 const displayRating = (player: LeaguePlayer) => {
-  const trp = numeric(player.current_rating);
-  if (trp !== null) return { rating: trp, ratingType: "TRP" as const, ratingLabel: trp.toFixed(3) };
+  const tpr = numeric(player.current_rating);
+  if (tpr !== null) return { rating: tpr, ratingType: "TPR" as const, ratingLabel: tpr.toFixed(3) };
   const ntrp = numeric(player.calculated_ntrp ?? player.usta_rating);
   if (ntrp !== null) return { rating: ntrp, ratingType: "NTRP" as const, ratingLabel: ntrp.toFixed(1) };
   const utr = numeric(player.calculated_utr ?? player.uta_rating);
@@ -149,7 +149,7 @@ export const buildSuggestedChallengeRows = (
       const delta = row.rating - viewer.rating;
       return {
         ...row,
-        suggestionReason: `${Math.abs(delta).toFixed(row.ratingType === "TRP" && viewer.ratingType === "TRP" ? 3 : 1)} ${delta >= 0 ? "above" : "below"} you`,
+        suggestionReason: `${Math.abs(delta).toFixed(row.ratingType === "TPR" && viewer.ratingType === "TPR" ? 3 : 1)} ${delta >= 0 ? "above" : "below"} you`,
       };
     })
     .sort((a, b) => Math.abs(a.rating - viewer.rating) - Math.abs(b.rating - viewer.rating))

@@ -3703,12 +3703,20 @@ button.secondary-link {
   /* Edge to edge: the header blur and the rows run full width, and each inner
      block carries its own 14px gutter instead. */
   .ladder-page .ladder-scroll {
+    scrollbar-width: none;
     max-width: none;
     padding-top: 0;
     /* Longhands, not the `padding` shorthand: this block comes after the one
        that sets padding-bottom, and the shorthand silently reset it to 0. */
     padding-left: 0;
     padding-right: 0;
+  }
+
+  /* Whatever the title holds, it stops short of the bell rather than running
+     under it. */
+  .ladder-head > button {
+    max-width: calc(100% - 96px);
+    min-width: 0;
   }
 
   .ladder-head {
@@ -3735,17 +3743,46 @@ button.secondary-link {
     background: #f5f5f9;
   }
 
+  /* Emphasis, not a different component: same height, same columns. The 3px
+     accent is paid for out of the row's left padding so content does not shift
+     relative to every other row. */
+  .ladder-row-you {
+    background: #F5F3FF;
+    border-left: 3px solid #7C3AED;
+    padding-left: 9px;
+  }
+
   .ladder-rail {
     display: flex;
     gap: 10px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    padding: 0 0 2px 14px;
+    /* Trailing gutter matches the leading one so the last card ends cleanly at
+       the end of the scroll rather than flush against the viewport edge. */
+    padding: 0 14px 2px;
     scroll-padding-inline: 14px;
+    scrollbar-width: none;
+    /* padding-right handles the end of the scroll. This handles the rest of it:
+       at 375px a 148px card always leaves a partial third card, and without the
+       fade the viewport slices straight through a name. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .ladder-rail::-webkit-scrollbar,
+  .ladder-page .ladder-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The page scrolls the document, so hiding the bar on .ladder-page did
+     nothing — the rule has to reach html/body. :has keeps it to this route. */
+  html:has(.ladder-page),
+  body:has(.ladder-page) {
     scrollbar-width: none;
   }
 
-  .ladder-rail::-webkit-scrollbar {
+  html:has(.ladder-page)::-webkit-scrollbar,
+  body:has(.ladder-page)::-webkit-scrollbar {
     display: none;
   }
 

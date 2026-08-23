@@ -211,7 +211,7 @@ const AvailabilityReviewPage = () => {
           ) : (
             <div className="players-looking__list">
               {suggestions.map((s) => {
-                const trp = toNumber(s.player_skill);
+                const tpr = toNumber(s.player_skill);
                 const dist = toNumber(s.distance_miles);
                 return (
                   <div key={s.id} className="players-looking__item">
@@ -220,7 +220,7 @@ const AvailabilityReviewPage = () => {
                         {s.player_name || "League player"}
                         {!isLeagueSlotAvailable(s) ? <em className="league-full-badge">Full</em> : null}
                       </h4>
-                      {Number.isFinite(trp) ? <div className="players-looking__rating">TRP: {trp.toFixed(3)}</div> : null}
+                      {Number.isFinite(tpr) ? <div className="players-looking__rating">TPR: {tpr.toFixed(3)}</div> : null}
                       <div className="players-looking__meta">
                         <strong>
                           {formatDateForDisplay(s.match_date ?? "")} · {formatTimeForDisplay(s.match_time ?? "")}
@@ -248,13 +248,13 @@ const AvailabilityReviewPage = () => {
             <div className="availability-invite__list">
               {players.map((player) => {
                 const checked = selectedIds.some((x) => String(x) === String(player.player_id));
-                const trp = toNumber(player.current_rating);
+                const tpr = toNumber(player.current_rating);
                 return (
                   <label className="league-need-invitee" key={player.player_id}>
                     <input type="checkbox" checked={checked} onChange={() => togglePlayer(player.player_id)} />
                     <span>
                       {player.full_name || `Player ${player.player_id}`}
-                      {Number.isFinite(trp) ? ` · TRP ${trp.toFixed(3)}` : ""}
+                      {Number.isFinite(tpr) ? ` · TPR ${tpr.toFixed(3)}` : ""}
                     </span>
                   </label>
                 );

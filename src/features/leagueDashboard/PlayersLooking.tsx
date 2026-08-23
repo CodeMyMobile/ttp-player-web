@@ -1,5 +1,5 @@
 // "Players looking for matches" card — players wanting times similar to yours,
-// with TRP, W–L, a "still needs to play" chip, and when/where. Includes the
+// with TPR, W–L, a "still needs to play" chip, and when/where. Includes the
 // "Need a match" CTA and "See all" link.
 
 import Icon from "./Icon";
@@ -35,7 +35,7 @@ const PlayersLooking = ({ looking, onNeedMatch, onSeeAll }: PlayersLookingProps)
                 Matches you
               </span>
             ) : null}
-            <span className="tag-trp">TRP {player.rating.toFixed(3)}</span>
+            <span className="tag-tpr">TPR {player.rating.toFixed(3)}</span>
             <span className="tag-wl">
               W–L {player.wins}–{player.losses}
             </span>

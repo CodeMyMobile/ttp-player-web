@@ -76,15 +76,15 @@ export interface RosterPlayer {
   playerId: string;
   name: string;
   initials: string;
-  /** The Tennis Plan rating (TRP). */
+  /** The Tennis Plan rating (TPR). */
   rating: number;
-  /** NTRP conversion display value (backend-calculated/entered, or estimated from TRP); null when none. */
+  /** NTRP conversion display value (backend-calculated/entered, or estimated from TPR); null when none. */
   ntrp?: string | null;
-  /** True when `ntrp` was estimated from the TRP rather than a real rating. */
+  /** True when `ntrp` was estimated from the TPR rather than a real rating. */
   ntrpEstimated?: boolean;
   /** UTR conversion display value; null when none. */
   utr?: string | null;
-  /** True when `utr` was estimated from the TRP rather than a real rating. */
+  /** True when `utr` was estimated from the TPR rather than a real rating. */
   utrEstimated?: boolean;
   wins: number;
   losses: number;
