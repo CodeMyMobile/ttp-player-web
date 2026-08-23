@@ -385,21 +385,18 @@ export const rowMeta = (ranking: DecoratedRanking) => {
 const LADDER_NAME = "West LA Ladder";
 
 /**
- * The header title: a name, never a placeholder.
+ * The header title.
  *
- * AppNav stores the literal string "Current location" as the label when it uses
- * geolocation (AppNav.jsx:239), so the stored label is sometimes a placeholder
- * rather than a place. Showing it put a label where a value belongs — the same
- * problem as the old truncated "Current lo…" pill.
+ * This substituted the resolved location name when one was stored, which put a
+ * place where a competition's name belongs. There is no ladder identity to read:
+ * /match-results/rankings returns no ladder id or name, and `rating_leagues` is
+ * null on all 1231 rows. The app's one named-competition model is `League`
+ * (src/api/leagues.ts), which this page does not use.
  *
- * A place the player actually picked wins; otherwise the ladder's own name.
+ * So the name below is hardcoded, pending a decision on where ladder identity
+ * should live. It is deliberately not derived from anything.
  */
-const PLACEHOLDER_LABELS = new Set(["current location", "choose location", ""]);
-
-export const resolveLadderTitle = (label = getStoredLocationLabel()) => {
-  const clean = String(label || "").trim();
-  return PLACEHOLDER_LABELS.has(clean.toLowerCase()) ? LADDER_NAME : clean;
-};
+export const resolveLadderTitle = () => LADDER_NAME;
 
 export const recordLabel = (ranking: { wins?: unknown; losses?: unknown }) =>
   `${Number(ranking.wins || 0)}W-${Number(ranking.losses || 0)}L`;
@@ -636,7 +633,10 @@ export default function PublicMatchResultsPage() {
                         identify a person, and the horizontal arrangement left so
                         little room that names truncated to "Connor…". */}
                     <Avatar ranking={ranking} photoUrl={photoFor(ranking)} />
-                    <div className="mt-2 truncate text-sm font-bold">{ranking.full_name}</div>
+                    {/* Wraps rather than truncating: the card's whole job is to
+                        name a person, and "Benjamin M…" does not. Two lines are
+                        reserved so every card stays the same height. */}
+                    <div className="mt-2 min-h-[2.5rem] text-sm font-bold leading-tight">{ranking.full_name}</div>
                     <div className="text-xs font-semibold text-slate-400">
                       #{ranking.ladderPosition ?? ranking.rank} · TRP {ranking.ratingLabel}
                     </div>
@@ -808,7 +808,7 @@ function ViewerCard({ ranking, photoUrl }: { ranking: DecoratedRanking | null; p
           {/* Without this, a 0W-0L record beside a 7.000 rating reads as a bug
               rather than as a rating nothing has tested yet. */}
           {Number(ranking.matches_played || 0) > 0 ? null : (
-            <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-slate-600">
+            <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
               Provisional
             </span>
           )}
@@ -962,7 +962,9 @@ function MobileRankingCard({
       onClick={onSelect}
       onKeyDown={(event) => clickOnKeyboard(event, onSelect)}
     >
-      <span className="w-5 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-400">
+      {/* slate-400 measured 2.56:1 on white — far below AA. slate-500 is 4.76:1.
+          Colour only; size and weight unchanged. */}
+      <span className="w-5 shrink-0 text-right text-[13px] font-bold tabular-nums text-slate-500">
         {ranking.ladderPosition ?? ranking.rank}
       </span>
       <Avatar ranking={ranking} photoUrl={photoUrl} />
@@ -982,18 +984,24 @@ function MobileRankingCard({
           {rowMeta(ranking)}
         </span>
       </span>
-      {viewer ? null : (
-        <button
-          type="button"
-          className="min-h-[32px] shrink-0 rounded-[10px] border border-violet-500 bg-transparent px-2.5 py-1.5 text-xs font-bold text-violet-700"
-          onClick={(event) => {
-            event.stopPropagation();
-            onChallenge();
-          }}
-        >
-          Challenge
-        </button>
-      )}
+      {/* Your row has no Challenge button, and without a spacer the rating slid
+          to the container edge and broke the one column the eye actually scans.
+          A spacer, not a disabled button — a disabled button invites a tap that
+          does nothing. */}
+      <span className="flex w-[78px] shrink-0 justify-end" aria-hidden={viewer}>
+        {viewer ? null : (
+          <button
+            type="button"
+            className="min-h-[32px] w-full rounded-[10px] border border-violet-500 bg-transparent px-1.5 py-1.5 text-[11px] font-bold text-violet-700"
+            onClick={(event) => {
+              event.stopPropagation();
+              onChallenge();
+            }}
+          >
+            Challenge
+          </button>
+        )}
+      </span>
     </div>
   );
 }

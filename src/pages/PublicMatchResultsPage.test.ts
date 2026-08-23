@@ -299,19 +299,18 @@ test("onlyRatedPlayers tolerates malformed input", () => {
 });
 
 
-test("the header shows a name, never a placeholder", () => {
-  // AppNav stores the literal "Current location" as the label when it uses
-  // geolocation (AppNav.jsx:239), so the stored label is sometimes a
-  // placeholder. Showing it put a label where a value belongs.
-  assert.equal(resolveLadderTitle("Current location"), "West LA Ladder");
-  assert.equal(resolveLadderTitle("  CURRENT LOCATION "), "West LA Ladder");
-  assert.equal(resolveLadderTitle(""), "West LA Ladder");
-  assert.equal(resolveLadderTitle(null), "West LA Ladder");
-});
+test("the header names the ladder, and never substitutes a location", () => {
+  // It used to show the resolved location when one was stored, which put a
+  // place where a competition's name belongs — "Los Angeles, California, US".
+  // There is no ladder identity to read: /match-results/rankings returns no
+  // ladder id or name and rating_leagues is null on all 1231 rows, so the name
+  // is hardcoded pending a decision on where ladder identity should live.
+  assert.equal(resolveLadderTitle(), "West LA Ladder");
 
-test("a place the player actually picked becomes the title", () => {
-  assert.equal(resolveLadderTitle("Venice Beach"), "Venice Beach");
-  assert.equal(resolveLadderTitle("  Santa Monica  "), "Santa Monica");
+  // Whatever is stored as a location, the title does not follow it.
+  ["Venice Beach", "Los Angeles, California, US", "Current location", "", null].forEach((label) => {
+    assert.equal(resolveLadderTitle(label as never), "West LA Ladder");
+  });
 });
 
 test("every row's meta line starts with the same field and never omits a token", () => {

@@ -3703,12 +3703,20 @@ button.secondary-link {
   /* Edge to edge: the header blur and the rows run full width, and each inner
      block carries its own 14px gutter instead. */
   .ladder-page .ladder-scroll {
+    scrollbar-width: none;
     max-width: none;
     padding-top: 0;
     /* Longhands, not the `padding` shorthand: this block comes after the one
        that sets padding-bottom, and the shorthand silently reset it to 0. */
     padding-left: 0;
     padding-right: 0;
+  }
+
+  /* Whatever the title holds, it stops short of the bell rather than running
+     under it. */
+  .ladder-head > button {
+    max-width: calc(100% - 96px);
+    min-width: 0;
   }
 
   .ladder-head {
@@ -3740,12 +3748,23 @@ button.secondary-link {
     gap: 10px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    padding: 0 0 2px 14px;
+    /* Trailing gutter matches the leading one so the last card ends cleanly at
+       the end of the scroll rather than flush against the viewport edge. */
+    padding: 0 14px 2px;
     scroll-padding-inline: 14px;
     scrollbar-width: none;
   }
 
-  .ladder-rail::-webkit-scrollbar {
+  .ladder-rail::-webkit-scrollbar,
+  .ladder-page .ladder-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ladder-page {
+    scrollbar-width: none;
+  }
+
+  .ladder-page::-webkit-scrollbar {
     display: none;
   }
 
