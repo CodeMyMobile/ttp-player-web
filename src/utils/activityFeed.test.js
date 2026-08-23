@@ -1,3 +1,4 @@
+import moment from "moment";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -12,6 +13,8 @@ import {
   filterToMyCoaches,
   itemsWithinWindow,
   matchesActivityTypeFilter,
+  parseActualMoment,
+  parseNearbyMoment,
   typeCounts,
 } from "./activityFeed";
 
@@ -336,4 +339,54 @@ test("no coaches means the filter yields nothing, which is why it is not offered
   assert.deepEqual(filterToMyCoaches(items, []), []);
   assert.deepEqual(filterToMyCoaches(items), []);
   assert.deepEqual(filterToMyCoaches(items, [null, undefined, "x"]), []);
+});
+
+/**
+ * The feed reads four different shapes out of one field name, and one reader
+ * cannot be right for all of them.
+ *
+ *   group lessons      "2026-08-28T09:00:00.000Z"   fictional Z — a venue clock
+ *   external lessons   "2026-08-23T15:00:00"        no marker  — a local clock
+ *   matches            "2026-08-22T23:00:00.000Z"   real Z     — a real instant
+ *
+ * parseZone was used for all three. It got the last two wrong in opposite
+ * directions, so both are pinned here.
+ */
+test("an external lesson later today is not discarded as already past", () => {
+  // Reported at 11:45 local: a 3pm lesson was missing from the Today tab.
+  // parseZone read the bare timestamp as 15:00 UTC — 8am local — so the feed's
+  // future check dropped it.
+  const at1145 = moment("2026-08-23T11:45:00");
+  const start = parseActualMoment("2026-08-23T15:00:00");
+
+  assert.equal(start.format("h:mm A"), "3:00 PM", "a bare timestamp is a local clock");
+  assert.equal(start.isSameOrAfter(at1145, "minute"), true, "still upcoming at 11:45");
+
+  // What the old reader did, kept so the regression is visible.
+  const viaParseZone = moment.parseZone("2026-08-23T15:00:00");
+  assert.equal(viaParseZone.utcOffset(), 0, "parseZone assigns offset 0 to a bare value");
+  assert.equal(moment(viaParseZone.toDate()).isSameOrAfter(at1145, "minute"), false, "which is why it vanished");
+});
+
+test("a match shows the time it actually starts", () => {
+  // Match 174: stored 23:00Z, genuinely 4:00 PM — the share card agrees.
+  const start = parseActualMoment("2026-08-22T23:00:00.000Z");
+
+  assert.equal(start.format("h:mm A"), "4:00 PM");
+  assert.equal(start.format("YYYY-MM-DD"), "2026-08-22", "and on the right day");
+  assert.equal(moment.parseZone("2026-08-22T23:00:00.000Z").format("h:mm A"), "11:00 PM", "the old reading");
+});
+
+test("group lessons keep the floating reading, which was already right", () => {
+  // A 9am class comes back as 09:00Z and must stay 9am, not convert to 2am.
+  const start = parseNearbyMoment("2026-08-28T09:00:00.000Z");
+
+  assert.equal(start.format("h:mm A"), "9:00 AM");
+  assert.equal(start.format("YYYY-MM-DD"), "2026-08-28");
+});
+
+test("parseActualMoment falls through empties and rejects nonsense", () => {
+  assert.equal(parseActualMoment(null, undefined, "", "2026-08-23T15:00:00").format("h:mm A"), "3:00 PM");
+  assert.equal(parseActualMoment(), null);
+  assert.equal(parseActualMoment("not a date"), null);
 });
