@@ -116,10 +116,44 @@ export const parseNearbyDate = (...values) => {
   return null;
 };
 
+/**
+ * Reads a value as a FLOATING wall clock: whatever offset it carries is kept,
+ * so the digits are shown as written.
+ *
+ * Right for group lessons, whose start_date_time is a venue clock stamped with
+ * a fictional Z — "2026-08-28T09:00:00.000Z" means nine in the morning at the
+ * court. Wrong for anything whose timestamp means what it says; see
+ * parseActualMoment.
+ */
 export const parseNearbyMoment = (...values) => {
   for (const value of values) {
     if (!value) continue;
     const parsed = moment.parseZone(value);
+    if (parsed.isValid()) return parsed;
+  }
+  return null;
+};
+
+/**
+ * Reads a value as an ACTUAL point in time, in the viewer's zone.
+ *
+ * Plain moment() is right for the two remaining shapes, for opposite reasons:
+ *
+ *   external lessons  "2026-08-23T15:00:00"        no marker → a local clock
+ *   matches           "2026-08-22T23:00:00.000Z"   real Z    → a real instant
+ *
+ * parseZone got both wrong. On the bare string it assigned offset 0, so a 3pm
+ * external lesson became 15:00 UTC — 8am local — and the feed's
+ * isFutureNearbyActivity check then discarded it as already past. The window
+ * narrowed as the day went on: nothing dropped at breakfast, most of the day
+ * gone by noon, everything gone by evening, which made it look intermittent
+ * rather than broken. On a match it printed the stamped digits, so a 4pm match
+ * read as 11:00 PM.
+ */
+export const parseActualMoment = (...values) => {
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = moment(value);
     if (parsed.isValid()) return parsed;
   }
   return null;
@@ -462,7 +496,7 @@ export const buildExternalLessonActivities = (lessons = []) =>
       const externalUrl = pickString(metadata.externalUrl);
       if (!externalUrl) return null;
 
-      const zonedStart = parseNearbyMoment(
+      const zonedStart = parseActualMoment(
         lesson.startTime ??
           lesson.start_time ??
           lesson.start_at ??
@@ -530,7 +564,7 @@ export const buildExternalLessonActivities = (lessons = []) =>
 export const buildMatchActivities = (records = []) =>
   records
     .map((record) => {
-      const zonedStart = parseNearbyMoment(
+      const zonedStart = parseActualMoment(
         record.match_date_time,
         record.start_date_time,
         record.start_time,
