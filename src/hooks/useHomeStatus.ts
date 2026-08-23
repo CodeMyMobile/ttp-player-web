@@ -37,6 +37,7 @@ import { pickTipOfDay, readCachedTips, writeCachedTips, type TipVideo } from "..
 import {
   activeSeasons,
   buildViewerIdentities,
+  matchesViewer,
   fetchSeasonEnrichment,
   opponentNames,
   weeksRemaining,
@@ -117,8 +118,22 @@ export function useLadderStanding(viewerId: number | null) {
   };
 }
 
+/** The stored identity, read the same way the ladder reads it. */
+const readStoredJson = (key: string) => {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 const bookingsFetcher = async (): Promise<WeekBooking[]> => {
   const token = getStoredAuthToken() ?? undefined;
+  const viewerIdentities = buildViewerIdentities(
+    readStoredJson("user"),
+    readStoredJson("playerPersonalDetails"),
+  );
   const stored = getStoredLocation() ?? DEFAULT_POSITION;
 
   // Settled, not all — one failing source should degrade the count, not blank
@@ -147,16 +162,27 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
     bookings.push(
       ...groupLessonsToBookings(mapped.lessons, (lesson) => {
         const players = (lesson as { groupPlayers?: unknown[] })?.groupPlayers;
-        return Array.isArray(players)
-          ? players.some((player) => {
-              const record = player as Record<string, unknown>;
-              return holdsGroupSpot(
-                record.status as number,
-                record.paymentStatus as number,
-                record.paymentMethod as string,
-              );
-            })
-          : false;
+        if (!Array.isArray(players)) return false;
+        // The spot has to be YOURS. This asked whether *anyone* on the lesson
+        // held a spot, and the source is /player/upcoming_group_lessons — the
+        // nearby list, not your bookings — so every popular class in your area
+        // counted as one of your bookings. Three lessons you had never seen
+        // read as "3 booked".
+        //
+        // Matched on id, name or email rather than id alone, for the same
+        // reason the ladder does: the participant's player_id and the account
+        // user id are not always the same number.
+        return players.some((player) => {
+          const record = player as Record<string, unknown>;
+          if (!matchesViewer(viewerIdentities, record.playerId, record.participantId, record.email, record.name)) {
+            return false;
+          }
+          return holdsGroupSpot(
+            record.status as number,
+            record.paymentStatus as number,
+            record.paymentMethod as string,
+          );
+        });
       }),
     );
   }
