@@ -36,6 +36,18 @@ const getStoredRefreshToken = () => {
   }
 };
 
+export const isSessionTokenPayloadValid = (token) => {
+  const jwt = String(token || "").trim().split(/\s+/).pop();
+  if (!jwt) return false;
+
+  try {
+    const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return Array.isArray(payload?.data) && payload.data.length > 0;
+  } catch {
+    return false;
+  }
+};
+
 let refreshInFlight = null;
 
 /**
@@ -47,6 +59,14 @@ const requestSessionRefresh = async () => {
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) {
     const error = new Error("Missing refresh token");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!isSessionTokenPayloadValid(refreshToken)) {
+    clearStoredSession();
+    window.dispatchEvent(new Event("auth:session-expired"));
+    const error = new Error("Invalid refresh token");
     error.status = 401;
     throw error;
   }
@@ -72,6 +92,17 @@ const requestSessionRefresh = async () => {
     );
     error.status = response.status;
     error.data = data;
+    throw error;
+  }
+
+  if (
+    !isSessionTokenPayloadValid(data?.access_token) ||
+    !isSessionTokenPayloadValid(data?.refresh_token)
+  ) {
+    clearStoredSession();
+    window.dispatchEvent(new Event("auth:session-expired"));
+    const error = new Error("Refresh response contained invalid tokens");
+    error.status = 401;
     throw error;
   }
 
