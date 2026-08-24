@@ -57,9 +57,11 @@ const refreshAccessToken = async () => {
   if (!refreshToken) return null;
 
   const response = await fetch(`${API_URL}/auth/refresh-token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: buildAuthHeader(refreshToken) ?? "",
+    },
   });
 
   if (!response.ok) {

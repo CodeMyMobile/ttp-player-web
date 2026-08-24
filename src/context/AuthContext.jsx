@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   forgotPassword as forgotPasswordService,
+  isSessionTokenPayloadValid,
   login as loginService,
   logout as logoutService,
   refreshSession,
@@ -52,7 +53,9 @@ export const AuthProvider = ({ children }) => {
 
     const initializeSession = async () => {
       const token = getStoredAuthToken();
-      if (token && isExpiredJwt(token)) {
+      if (token && !isSessionTokenPayloadValid(token)) {
+        logoutService();
+      } else if (token && isExpiredJwt(token)) {
         try {
           await refreshSession();
         } catch {
