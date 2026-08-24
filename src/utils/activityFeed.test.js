@@ -10,6 +10,7 @@ import {
   buildExternalLessonActivities,
   buildMatchActivities,
   filterActivities,
+  floatingInstant,
   filterToMyCoaches,
   itemsWithinWindow,
   matchesActivityTypeFilter,
@@ -429,4 +430,33 @@ test("sorting on startTime is what put a 6pm slot above a 3pm lesson", () => {
 test("localSortKey falls back to the raw date when no parsed moment exists", () => {
   const key = localSortKey(null, new Date("2026-08-24T15:00:00"));
   assert.match(key, /^2026-08-24T\d{2}:\d{2}$/);
+});
+
+test("a floating lesson is upcoming until its real start, not seven hours before", () => {
+  // Lesson 2650: start_date_time "2026-08-24T09:00:00.000Z" means 9:00 AM at
+  // the court. zonedStart.toDate() applies the fictional Z and lands on 2:00 AM,
+  // so the feed dropped it three hours before the player even looked — while
+  // /group-lessons still listed it, because that page never does the arithmetic.
+  const raw = "2026-08-24T09:00:00.000Z";
+  const startAt = floatingInstant(raw, parseNearbyMoment(raw));
+
+  assert.equal(moment(startAt).format("h:mm A"), "9:00 AM");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T05:30:00"), "minute"), true, "5:30am: still to come");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T08:59:00"), "minute"), true, "a minute before: still to come");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T09:30:00"), "minute"), false, "half an hour after: gone");
+
+  // What the old reading did, kept so the regression stays visible.
+  const old = parseNearbyMoment(raw).toDate();
+  assert.equal(moment(old).format("h:mm A"), "2:00 AM");
+  assert.equal(moment(old).isSameOrAfter(moment("2026-08-24T05:30:00"), "minute"), false);
+});
+
+test("floatingInstant falls back rather than inventing a time", () => {
+  assert.equal(floatingInstant(null, null), null);
+  assert.equal(floatingInstant("nonsense", null), null);
+  // With no readable digits it defers to the parsed moment, if there is one.
+  assert.equal(
+    moment(floatingInstant(undefined, parseNearbyMoment("2026-08-24T09:00:00.000Z"))).format("h:mm A"),
+    "2:00 AM",
+  );
 });

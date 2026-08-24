@@ -9,6 +9,7 @@
 
 import moment from "moment";
 import { normalizeMatchRecord } from "../api/matches";
+import { parseFloatingLocal } from "./floatingTime";
 
 export const pickString = (...values) => {
   for (const value of values) {
@@ -133,6 +134,21 @@ export const parseNearbyMoment = (...values) => {
   }
   return null;
 };
+
+/**
+ * The instant a FLOATING value actually falls on, for comparing against now.
+ *
+ * parseZone gives the right digits to display, but .toDate() applies the
+ * fictional Z, so a 9am class becomes 2am and looks three hours past at 5:30am.
+ * Every group lesson was therefore dropped from the feed seven hours before it
+ * started — long enough that a morning class was gone before anyone woke up,
+ * while the same class still showed correctly on /group-lessons.
+ *
+ * Reads the digits and builds a local Date from them, which is what
+ * parseFloatingLocal exists for.
+ */
+export const floatingInstant = (value, zonedStart) =>
+  parseFloatingLocal(value) ?? zonedStart?.toDate() ?? null;
 
 /**
  * The key the feed is ordered by: the wall clock the player will read.
@@ -328,7 +344,12 @@ export const buildCoachActivities = (records = []) =>
               slot.start_at,
               slot.date_time,
             );
-          const startAt = zonedStart?.toDate() || buildDateFromAvailability(slot.day, slot.from);
+          // Same fictional-Z problem as group lessons: on a UTC API process a
+          // 6pm slot is stored 18:00Z, so toDate() reads it as 11am local and
+          // the future check below would drop it from late morning.
+          const startAt =
+            floatingInstant(slot.start_date_time, zonedStart) ||
+            buildDateFromAvailability(slot.day, slot.from);
 
           if (!startAt) return null;
           if (!isFutureNearbyActivity(startAt)) return null;
@@ -405,15 +426,18 @@ export const buildActivityItems = (lessons = []) =>
           lesson.starts_at ??
           lesson.start_date_time,
       );
-      const startAt = zonedStart?.toDate() ?? parseDate(
+      const rawStart =
         lesson.startTime ??
-          lesson.start_time ??
-          lesson.start_at ??
-          lesson.start ??
-          lesson.startDate ??
-          lesson.starts_at ??
-          lesson.start_date_time,
-      );
+        lesson.start_time ??
+        lesson.start_at ??
+        lesson.start ??
+        lesson.startDate ??
+        lesson.starts_at ??
+        lesson.start_date_time;
+      // A group lesson's Z is fictional, so zonedStart.toDate() lands seven
+      // hours early: a 9am class reads as 2am and the check below dropped it
+      // from the feed at 2am, while /group-lessons still showed it correctly.
+      const startAt = floatingInstant(rawStart, zonedStart) ?? parseDate(rawStart);
       if (!startAt) return null;
       if (!isFutureNearbyActivity(startAt)) return null;
 
