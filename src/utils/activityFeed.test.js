@@ -10,9 +10,11 @@ import {
   buildExternalLessonActivities,
   buildMatchActivities,
   filterActivities,
+  floatingInstant,
   filterToMyCoaches,
   itemsWithinWindow,
   matchesActivityTypeFilter,
+  localSortKey,
   parseActualMoment,
   parseNearbyMoment,
   typeCounts,
@@ -389,4 +391,72 @@ test("parseActualMoment falls through empties and rejects nonsense", () => {
   assert.equal(parseActualMoment(null, undefined, "", "2026-08-23T15:00:00").format("h:mm A"), "3:00 PM");
   assert.equal(parseActualMoment(), null);
   assert.equal(parseActualMoment("not a date"), null);
+});
+
+test("the feed orders by the clock the player reads, across all four sources", () => {
+  // Reported: a 6pm private slot appearing above a morning group lesson, which
+  // reads as the list being grouped by type. Cause: startTime is an ISO instant
+  // and the sources disagree on what an instant means, so converted items
+  // (external lessons, matches) sorted seven hours late.
+  const keys = [
+    { what: "group 7:00 AM", key: localSortKey(parseNearbyMoment("2026-08-24T07:00:00.000Z")) },
+    { what: "private 6:00 PM", key: localSortKey(parseNearbyMoment("2026-08-24T18:00:00.000Z")) },
+    { what: "external 3:00 PM", key: localSortKey(parseActualMoment("2026-08-24T15:00:00")) },
+    { what: "match 4:00 PM", key: localSortKey(parseActualMoment("2026-08-24T23:00:00.000Z")) },
+  ];
+
+  const ordered = [...keys].sort((a, b) => a.key.localeCompare(b.key)).map((k) => k.what);
+  assert.deepEqual(ordered, [
+    "group 7:00 AM",
+    "external 3:00 PM",
+    "match 4:00 PM",
+    "private 6:00 PM",
+  ]);
+});
+
+test("sorting on startTime is what put a 6pm slot above a 3pm lesson", () => {
+  // Kept so the regression is visible rather than described.
+  const sixPmSlot = parseNearbyMoment("2026-08-24T18:00:00.000Z").toISOString();
+  const threePmExternal = parseActualMoment("2026-08-24T15:00:00").toISOString();
+
+  assert.ok(sixPmSlot < threePmExternal, "the old key ordered them wrongly");
+  assert.ok(
+    localSortKey(parseNearbyMoment("2026-08-24T18:00:00.000Z")) >
+      localSortKey(parseActualMoment("2026-08-24T15:00:00")),
+    "the new key orders them correctly",
+  );
+});
+
+test("localSortKey falls back to the raw date when no parsed moment exists", () => {
+  const key = localSortKey(null, new Date("2026-08-24T15:00:00"));
+  assert.match(key, /^2026-08-24T\d{2}:\d{2}$/);
+});
+
+test("a floating lesson is upcoming until its real start, not seven hours before", () => {
+  // Lesson 2650: start_date_time "2026-08-24T09:00:00.000Z" means 9:00 AM at
+  // the court. zonedStart.toDate() applies the fictional Z and lands on 2:00 AM,
+  // so the feed dropped it three hours before the player even looked — while
+  // /group-lessons still listed it, because that page never does the arithmetic.
+  const raw = "2026-08-24T09:00:00.000Z";
+  const startAt = floatingInstant(raw, parseNearbyMoment(raw));
+
+  assert.equal(moment(startAt).format("h:mm A"), "9:00 AM");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T05:30:00"), "minute"), true, "5:30am: still to come");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T08:59:00"), "minute"), true, "a minute before: still to come");
+  assert.equal(moment(startAt).isSameOrAfter(moment("2026-08-24T09:30:00"), "minute"), false, "half an hour after: gone");
+
+  // What the old reading did, kept so the regression stays visible.
+  const old = parseNearbyMoment(raw).toDate();
+  assert.equal(moment(old).format("h:mm A"), "2:00 AM");
+  assert.equal(moment(old).isSameOrAfter(moment("2026-08-24T05:30:00"), "minute"), false);
+});
+
+test("floatingInstant falls back rather than inventing a time", () => {
+  assert.equal(floatingInstant(null, null), null);
+  assert.equal(floatingInstant("nonsense", null), null);
+  // With no readable digits it defers to the parsed moment, if there is one.
+  assert.equal(
+    moment(floatingInstant(undefined, parseNearbyMoment("2026-08-24T09:00:00.000Z"))).format("h:mm A"),
+    "2:00 AM",
+  );
 });
