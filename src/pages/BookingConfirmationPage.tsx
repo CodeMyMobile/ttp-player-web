@@ -840,17 +840,18 @@ const BookingConfirmationPage = () => {
     extractNumericLessonId(selectedSlot?.id) ??
     extractNumericLessonId(slotId);
   const isOpenGroupLesson = Boolean(groupLessonId || groupLesson || isProfileGroupLesson);
-  const isCoachCreatedSemiPrivateLesson = !isOpenGroupLesson && isProfileSemiPrivate;
+  const isCoachCreatedSemiPrivateLesson =
+    !isOpenGroupLesson && isProfileSemiPrivate && Boolean(numericSourceLessonId);
   const isCoachCreatedPrivateLesson =
     !isOpenGroupLesson &&
     !isProfileSemiPrivate &&
     selectedSlot?.lessonType === "private" &&
     Boolean(numericSourceLessonId);
-  const isPlayerRequestedPrivateLesson =
+  const isPlayerRequestedCreditLesson =
     !isOpenGroupLesson &&
     !isCoachCreatedSemiPrivateLesson &&
     !isCoachCreatedPrivateLesson &&
-    selectedSlot?.lessonType === "private";
+    (selectedSlot?.lessonType === "private" || selectedSlot?.lessonType === "semi");
   const requiresPlayerSideCreditConfirm =
     isOpenGroupLesson || isCoachCreatedPrivateLesson || isCoachCreatedSemiPrivateLesson;
   const isInstantlyConfirmed = requiresPlayerSideCreditConfirm;
@@ -1405,7 +1406,7 @@ const BookingConfirmationPage = () => {
     [authToken, groupLesson, groupLessonId, numericSourceLessonId, selectedSlot?.id, slotId],
   );
 
-  const requestPrivatePayOnCourt = useCallback(async () => {
+  const requestPrivateLessonWithPayment = useCallback(async (paymentMethod: "pay_on_court" | "credits") => {
     if (!authToken) {
       throw new Error("Sign in to request this lesson.");
     }
@@ -1421,7 +1422,10 @@ const BookingConfirmationPage = () => {
     const end = start.clone().add(durationMinutes, "minutes");
     const profileLocation = groupLessonCoachProfile?.locations?.[0];
     const rawLocationId = profileLocation?.id ?? (groupLessonCoachProfile as Record<string, unknown> | null)?.location_id;
-    const locationId = Number(rawLocationId);
+    const locationId = rawLocationId == null ? null : Number(rawLocationId);
+    if (!Number.isInteger(locationId) || locationId <= 0) {
+      throw new Error("Missing lesson location details for this request.");
+    }
 
     const lesson = await requestPrivateLesson({
       token: authToken,
@@ -1430,10 +1434,11 @@ const BookingConfirmationPage = () => {
       endDateTime: end.toISOString(),
       startDateTimeTz: start.toISOString(),
       endDateTimeTz: end.toISOString(),
-      locationId: Number.isFinite(locationId) ? locationId : 0,
+      locationId,
+      lessonTypeId: selectedSlot.lessonType === "semi" ? 2 : 1,
       court: 0,
       status: "PENDING",
-      paymentMethod: "pay_on_court",
+      paymentMethod,
     });
     const lessonId = extractNumericLessonId(lesson.id ?? lesson.lesson_id ?? lesson.lesson?.id);
     if (!lessonId) {
@@ -1442,24 +1447,39 @@ const BookingConfirmationPage = () => {
     return lessonId;
   }, [authToken, groupLessonCoachProfile, resolvedCoachId, selectedDate, selectedSlot]);
 
+  const requestPrivatePayOnCourt = useCallback(
+    () => requestPrivateLessonWithPayment("pay_on_court"),
+    [requestPrivateLessonWithPayment],
+  );
+
+  const requestPrivateCreditLesson = useCallback(
+    () => requestPrivateLessonWithPayment("credits"),
+    [requestPrivateLessonWithPayment],
+  );
+
+  const requestPrivateCreditLessonRef = useRef(requestPrivateCreditLesson);
+  useEffect(() => {
+    requestPrivateCreditLessonRef.current = requestPrivateCreditLesson;
+  }, [requestPrivateCreditLesson]);
+
   const privateCreditLessonRequestRef = useRef<(() => Promise<number>) | null>(null);
 
   const ensurePrivateCreditLessonId = useCallback(async () => {
     let createPrivateCreditLesson = privateCreditLessonRequestRef.current;
     if (!createPrivateCreditLesson) {
-      createPrivateCreditLesson = createSingleFlightRequest(requestPrivatePayOnCourt);
+      createPrivateCreditLesson = createSingleFlightRequest(() => requestPrivateCreditLessonRef.current());
       privateCreditLessonRequestRef.current = createPrivateCreditLesson;
     }
     const lessonId = await ensureCreditLessonId({
       existingLessonId: getCreditLessonId(),
-      isPlayerRequestedPrivateLesson,
+      isPlayerRequestedPrivateLesson: isPlayerRequestedCreditLesson,
       createPrivateLesson: createPrivateCreditLesson,
     });
     if (lessonId && lessonId !== createdCreditLessonId) {
       setCreatedCreditLessonId(lessonId);
     }
     return lessonId;
-  }, [createdCreditLessonId, getCreditLessonId, isPlayerRequestedPrivateLesson, requestPrivatePayOnCourt]);
+  }, [createdCreditLessonId, getCreditLessonId, isPlayerRequestedCreditLesson, requestPrivateCreditLesson]);
 
   const completeCreditBookingSuccess = useCallback(async () => {
     setPendingCreditConfirm(null);

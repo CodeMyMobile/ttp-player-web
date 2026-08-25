@@ -276,6 +276,7 @@ export interface RequestPrivateLessonParams {
   startDateTimeTz: string;
   endDateTimeTz: string;
   locationId: number;
+  lessonTypeId?: number;
   court?: number | string | null;
   status?: string;
   paymentMethodId?: string;
@@ -308,6 +309,7 @@ export const requestPrivateLesson = ({
   startDateTimeTz,
   endDateTimeTz,
   locationId,
+  lessonTypeId,
   court = 0,
   status = "PENDING",
   paymentMethodId,
@@ -324,10 +326,13 @@ export const requestPrivateLesson = ({
       start_date_time_tz: startDateTimeTz,
       end_date_time_tz: endDateTimeTz,
       location_id: locationId,
+      ...(lessonTypeId ? { lessontype_id: lessonTypeId } : {}),
       court,
       status,
       ...(isPayOnCourt(paymentMethod)
         ? { payment_method: "pay_on_court" }
+        : paymentMethod === "credits"
+          ? { payment_method: "credits" }
         : paymentMethodId
           ? { payment_method_id: paymentMethodId }
           : {}),
