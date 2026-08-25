@@ -61,6 +61,7 @@ import {
   getGroupLessonCheckoutButtonLabel,
   isGroupLessonCheckoutDisabled,
 } from "../utils/groupLessonCancellation";
+import { createSingleFlightRequest, ensureCreditLessonId } from "../utils/creditLessonBooking";
 import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
 
 import "./BookingConfirmationPage.css";
@@ -545,6 +546,7 @@ const BookingConfirmationPage = () => {
   const [isConsumingCredits, setIsConsumingCredits] = useState(false);
   const [consumeError, setConsumeError] = useState<string | null>(null);
   const [pendingCreditConfirm, setPendingCreditConfirm] = useState<PendingCreditConfirm | null>(null);
+  const [createdCreditLessonId, setCreatedCreditLessonId] = useState<number | undefined>();
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [groupLesson, setGroupLesson] = useState<GroupLesson | null>(null);
   const [groupLessonLoading, setGroupLessonLoading] = useState(false);
@@ -832,6 +834,7 @@ const BookingConfirmationPage = () => {
     ]);
   const numericSourceLessonId = extractNumericLessonId(sourceLessonId);
   const materializedCreditLessonId =
+    createdCreditLessonId ??
     getMaterializedGroupLessonId(groupLesson, groupLessonId) ??
     numericSourceLessonId ??
     extractNumericLessonId(selectedSlot?.id) ??
@@ -1420,7 +1423,7 @@ const BookingConfirmationPage = () => {
     const rawLocationId = profileLocation?.id ?? (groupLessonCoachProfile as Record<string, unknown> | null)?.location_id;
     const locationId = Number(rawLocationId);
 
-    await requestPrivateLesson({
+    const lesson = await requestPrivateLesson({
       token: authToken,
       coachId: resolvedCoachId,
       startDateTime: start.toISOString(),
@@ -1432,7 +1435,31 @@ const BookingConfirmationPage = () => {
       status: "PENDING",
       paymentMethod: "pay_on_court",
     });
+    const lessonId = extractNumericLessonId(lesson.id ?? lesson.lesson_id ?? lesson.lesson?.id);
+    if (!lessonId) {
+      throw new Error("The lesson request was created without a numeric lesson ID.");
+    }
+    return lessonId;
   }, [authToken, groupLessonCoachProfile, resolvedCoachId, selectedDate, selectedSlot]);
+
+  const privateCreditLessonRequestRef = useRef<(() => Promise<number>) | null>(null);
+
+  const ensurePrivateCreditLessonId = useCallback(async () => {
+    let createPrivateCreditLesson = privateCreditLessonRequestRef.current;
+    if (!createPrivateCreditLesson) {
+      createPrivateCreditLesson = createSingleFlightRequest(requestPrivatePayOnCourt);
+      privateCreditLessonRequestRef.current = createPrivateCreditLesson;
+    }
+    const lessonId = await ensureCreditLessonId({
+      existingLessonId: getCreditLessonId(),
+      isPlayerRequestedPrivateLesson,
+      createPrivateLesson: createPrivateCreditLesson,
+    });
+    if (lessonId && lessonId !== createdCreditLessonId) {
+      setCreatedCreditLessonId(lessonId);
+    }
+    return lessonId;
+  }, [createdCreditLessonId, getCreditLessonId, isPlayerRequestedPrivateLesson, requestPrivatePayOnCourt]);
 
   const completeCreditBookingSuccess = useCallback(async () => {
     setPendingCreditConfirm(null);
@@ -1473,7 +1500,7 @@ const BookingConfirmationPage = () => {
   }, [confirmReservedCreditLesson, pendingCreditConfirm]);
 
   const consumeCreditsForLesson = useCallback(
-    async (purchaseId?: number | string) => {
+    async (purchaseId?: number | string, lessonIdOverride?: number) => {
       if (!authToken) {
         throw new Error("Sign in to use credits.");
       }
@@ -1481,7 +1508,7 @@ const BookingConfirmationPage = () => {
         throw new Error("Missing lesson details for credits.");
       }
 
-      const numericLessonId = getCreditLessonId();
+      const numericLessonId = lessonIdOverride ?? getCreditLessonId();
       if (!numericLessonId) {
         throw new Error("We need a numeric lesson ID to reserve credits.");
       }
@@ -1673,7 +1700,8 @@ const BookingConfirmationPage = () => {
       setIsConsumingCredits(true);
       try {
         const bestPurchase = eligibleCredits[0];
-        await consumeCreditsForLesson(bestPurchase?.id);
+        const creditLessonId = await ensurePrivateCreditLessonId();
+        await consumeCreditsForLesson(bestPurchase?.id, creditLessonId);
       } catch (err) {
         if (pendingCreditConfirm || (err instanceof Error && err.message.includes("Credit reserved"))) {
           setConsumeError(getPackageChargeFailureMessage(err) || "Credit reserved, but lesson confirmation failed. Please retry.");
@@ -2140,7 +2168,15 @@ const BookingConfirmationPage = () => {
       return;
     }
 
-    if (!getCreditLessonId()) {
+    let creditLessonId: number | undefined;
+    try {
+      creditLessonId = await ensurePrivateCreditLessonId();
+    } catch (err) {
+      setPackagePurchaseError(err instanceof Error ? err.message : "Couldn't create this lesson request.");
+      setIsPurchasingPackage(false);
+      return;
+    }
+    if (!creditLessonId) {
       setPackagePurchaseError("We need a numeric lesson ID to apply credits to this lesson.");
       setIsPurchasingPackage(false);
       return;
@@ -2212,7 +2248,7 @@ const BookingConfirmationPage = () => {
       setPaymentMethod("credits");
       setIsCreditsPackageOpen(false);
       setHasAutoSelectedCredits(true);
-      await consumeCreditsForLesson(purchaseResponse.purchase?.id);
+      await consumeCreditsForLesson(purchaseResponse.purchase?.id, creditLessonId);
       const [refreshedCredits, refreshedBalance] = await Promise.allSettled([
         fetchPackageCredits({
           token: authToken,
