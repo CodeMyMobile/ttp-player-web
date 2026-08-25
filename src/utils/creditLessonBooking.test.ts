@@ -54,3 +54,18 @@ test("shares one private lesson request between concurrent credit attempts", asy
   assert.equal(await secondAttempt, 912);
   assert.equal(requestCount, 1);
 });
+
+test("permits a retry after a failed request", async () => {
+  let requestCount = 0;
+  const request = createSingleFlightRequest(async () => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      throw new Error("Missing lesson location details for this request.");
+    }
+    return 912;
+  });
+
+  await assert.rejects(request(), /Missing lesson location details/);
+  assert.equal(await request(), 912);
+  assert.equal(requestCount, 2);
+});
