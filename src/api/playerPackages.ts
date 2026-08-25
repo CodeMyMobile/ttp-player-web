@@ -104,6 +104,7 @@ export interface PurchaseCoachPackageParams {
   token: string;
   packageId: number | string;
   paymentMethodId: string;
+  idempotencyKey?: string;
 }
 
 export const isReservedPackagePurchase = (purchase?: PackagePurchase | null) =>
@@ -174,15 +175,63 @@ export const fetchPackageCreditsBalance = ({ token, coachId, lessonType, signal 
     },
   });
 
-export const purchaseCoachPackage = ({ token, packageId, paymentMethodId }: PurchaseCoachPackageParams) =>
-  request<PurchasePackageResponse>(`/player/packages/${packageId}/reserve`, {
-    method: "POST",
-    token,
-    authScheme: "Token",
-    body: {
-      payment_method_id: paymentMethodId,
-    },
-  });
+const packageCheckoutStorageKey = (packageId: number | string, paymentMethodId: string) =>
+  `package-checkout:${packageId}:${paymentMethodId}`;
+
+const createCheckoutIdempotencyKey = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+const getCheckoutIdempotencyKey = (packageId: number | string, paymentMethodId: string) => {
+  const storageKey = packageCheckoutStorageKey(packageId, paymentMethodId);
+  try {
+    const existing = window.sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const created = createCheckoutIdempotencyKey();
+    window.sessionStorage.setItem(storageKey, created);
+    return created;
+  } catch {
+    return createCheckoutIdempotencyKey();
+  }
+};
+
+const clearCheckoutIdempotencyKey = (packageId: number | string, paymentMethodId: string) => {
+  try {
+    window.sessionStorage.removeItem(packageCheckoutStorageKey(packageId, paymentMethodId));
+  } catch {
+    // A storage failure only affects retry convenience; it must not block checkout.
+  }
+};
+
+export const purchaseCoachPackage = async ({
+  token,
+  packageId,
+  paymentMethodId,
+  idempotencyKey,
+}: PurchaseCoachPackageParams) => {
+  const checkoutIdempotencyKey =
+    idempotencyKey || getCheckoutIdempotencyKey(packageId, paymentMethodId);
+  try {
+    const response = await request<PurchasePackageResponse>(`/player/packages/${packageId}/reserve`, {
+      method: "POST",
+      token,
+      authScheme: "Token",
+      body: {
+        payment_method_id: paymentMethodId,
+        idempotency_key: checkoutIdempotencyKey,
+      },
+    });
+    clearCheckoutIdempotencyKey(packageId, paymentMethodId);
+    return response;
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status;
+    if (status === 402 || status === 409) {
+      clearCheckoutIdempotencyKey(packageId, paymentMethodId);
+    }
+    throw error;
+  }
+};
 
 export const reserveCoachPackage = purchaseCoachPackage;
 
