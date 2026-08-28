@@ -40,12 +40,6 @@
   status = 301
   force = true
 
-# Link crawlers must reach the Edge Function before the SPA fallback so it can
-# render coach, lesson, and match Open Graph metadata from the entity ID.
-[[edge_functions]]
-  function = "share"
-  path = "/public/share/*"
-
 # SPA fallback. This does NOT override real files, so the statically generated
 # /privacy/ and /terms/ pages (dist/privacy/index.html, dist/terms/index.html)
 # are served directly rather than falling through to the app shell.
