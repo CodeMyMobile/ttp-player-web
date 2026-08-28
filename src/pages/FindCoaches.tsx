@@ -88,7 +88,7 @@ type CoachCardModel = Coach & {
 const DEFAULT_RADIUS = 10;
 
 const shareCoach = async (id: string | number, name: string) => {
-  const url = `${window.location.origin}/#/coaches/${id}`;
+  const url = `${window.location.origin}/s/coach/${id}`;
   if (navigator.share) return navigator.share({ title: `Coach ${name}`, url });
   await navigator.clipboard?.writeText(url);
 };
