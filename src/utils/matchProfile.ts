@@ -94,7 +94,7 @@ export const sanitizeMatchProfile = (value: unknown): StoredMatchProfile | null 
   }
 
   const record = value as Record<string, unknown>;
-  const level = typeof record.level === "string" && record.level.trim().length > 0 ? record.level.trim() : "3.0";
+  const level = typeof record.level === "string" && record.level.trim().length > 0 ? record.level.trim() : null;
   const about = typeof record.about === "string" ? record.about.trim() : "";
   const gender = typeof record.gender === "string" ? record.gender.trim() : "";
   const localCourts = typeof record.localCourts === "string" ? record.localCourts.trim() : "";
@@ -152,7 +152,7 @@ export const buildMatchProfileFromSurvey = (
 
   const profile: StoredMatchProfile = {
     about: fallback?.about ?? "",
-    level: fallback?.level ?? "3.0",
+    level: fallback?.level ?? null,
     playStyles: fallback?.playStyles ?? [],
     gender: fallback?.gender ?? "",
     localCourts: fallback?.localCourts ?? "",

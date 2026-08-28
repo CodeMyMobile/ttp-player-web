@@ -21,7 +21,8 @@ import "./MatchProfileModal.css";
 
 export type MatchProfileDetails = {
   about: string;
-  level: string;
+  /** null when the player has not answered the level question. Never default this. */
+  level: string | null;
   playStyles: string[];
   gender: string;
   localCourts: string;
@@ -266,7 +267,7 @@ const buildMatchProfileDetails = (
 ): MatchProfileDetails => {
   const profile: MatchProfileDetails = {
     about: fallback?.about ?? "",
-    level: fallback?.level ?? "3.0",
+    level: fallback?.level ?? null,
     playStyles: fallback?.playStyles ?? [],
     gender: fallback?.gender ?? "",
     localCourts: fallback?.localCourts ?? "",

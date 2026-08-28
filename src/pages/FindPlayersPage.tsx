@@ -178,7 +178,8 @@ const useIsMobile = (breakpoint = 768) => {
 
 type ProfileQuickViewUser = {
   name: string;
-  ntrp: string;
+  /** null when the player has no rating. Render nothing rather than a placeholder. */
+  ntrp: string | null;
   initials?: string;
   tagline?: string;
   bio?: string;
@@ -261,7 +262,7 @@ const MyProfileQuickView = ({ user, onEdit }: MyProfileQuickViewProps) => {
         <div className="fp-profile-summary__identity">
           <h2>{user.name}</h2>
           <div className="fp-profile-summary__badges">
-            <span className="fp-pill fp-pill--purple">NTRP {user.ntrp}</span>
+            {user.ntrp ? <span className="fp-pill fp-pill--purple">NTRP {user.ntrp}</span> : null}
             {isVerified ? <span className="fp-pill fp-pill--green">Verified</span> : null}
           </div>
         </div>
@@ -1215,7 +1216,7 @@ const FindPlayersPage = () => {
     return {
       name,
       initials: toInitials(name),
-      ntrp: matchProfile.level ?? "3.0",
+      ntrp: matchProfile.level,
       tagline: matchProfile.about || "Add a quick bio to help players get to know you.",
       bio: matchProfile.about,
       availability: (matchProfile.availability ?? []).map((slot) => toCanonicalAvailability(slot)),
@@ -1265,11 +1266,15 @@ const FindPlayersPage = () => {
 
       const trimmedDisplayName = displayName.trim();
       const senderName = trimmedDisplayName.length ? trimmedDisplayName : "TTP Player";
-      const senderLevel = matchProfile?.level ?? "3.0";
+      const senderLevel = matchProfile?.level ?? null;
       const preferredTimes = formatAvailabilityList(matchProfile?.availability ?? []);
+      // Without a rating we say nothing about level rather than claiming one.
+      const selfIntro = senderLevel
+        ? `My name is ${senderName} and I'm a ${senderLevel} player looking to hit ${preferredTimes}`
+        : `My name is ${senderName} and I'm looking to hit ${preferredTimes}`;
       const message =
-        `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. My name is ${senderName} and I'm a ${senderLevel} ` +
-        `player looking to hit ${preferredTimes} at one of our local courts. You can check out my profile here: ${profileShareUrl}. ` +
+        `Hi ${nextPlayer.name}, I found you on the Tennis Plan App. ${selfIntro} at one of our local courts. ` +
+        `You can check out my profile here: ${profileShareUrl}. ` +
         "Let me know if you'd like to hit sometime.";
 
       window.location.assign(buildSmsUrl(recipientPhone, message));
@@ -1296,7 +1301,7 @@ const FindPlayersPage = () => {
           level: nextPlayer.level,
         },
         senderName: displayName.trim() || "You",
-        senderLevel: matchProfile.level,
+        senderLevel: matchProfile.level ?? undefined,
         suggestedAvailability: [...(matchProfile.availability ?? [])],
         preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
         source: "find-players",
