@@ -88,7 +88,7 @@ type CoachCardModel = Coach & {
 const DEFAULT_RADIUS = 10;
 
 const shareCoach = async (id: string | number, name: string) => {
-  const url = `${window.location.origin}/player/coach/profile/${id}`;
+  const url = `https://app.thetennisplan.com/#/coaches/${id}`;
   if (navigator.share) return navigator.share({ title: `Coach ${name}`, url });
   await navigator.clipboard?.writeText(url);
 };
