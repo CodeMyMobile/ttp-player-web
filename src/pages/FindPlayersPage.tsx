@@ -34,6 +34,13 @@ import {
   type Coordinates,
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import {
+  ANALYTICS_EVENTS,
+  RANKING_VERSION_NONE,
+  VENUE_MATCH_LABEL,
+  track,
+} from "../utils/analytics";
+import { levelNumber, nearLevelRange, rankableLevelOptions } from "../utils/levelScope";
 import type { ConnectIntent } from "../types/matchPlay";
 import {
   buildMatchProfileFromSurvey,
@@ -67,6 +74,74 @@ const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Socia
 const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const normalize = (value: string) => value.trim().toLowerCase();
+
+type PlayerFilters = {
+  searchTerm: string;
+  level: string;
+  gender: string;
+  playType: string;
+  availability: string;
+  verifiedOnly: boolean;
+};
+
+const DEFAULT_PLAYER_FILTERS: PlayerFilters = {
+  searchTerm: "",
+  level: levelOptions[0],
+  gender: genderOptions[0],
+  playType: playTypeOptions[0],
+  availability: availabilityOptions[0],
+  verifiedOnly: false,
+};
+
+// Module level and pure so the same rules can be applied speculatively — see countMatching.
+const playerMatchesFilters = (player: DirectoryPlayer, filters: PlayerFilters) => {
+  const normalizedTerm = normalize(filters.searchTerm);
+  const matchesSearch =
+    !normalizedTerm ||
+    [
+      player.name,
+      player.location,
+      player.bio,
+      player.lookingFor,
+      ...player.availability,
+      ...player.matchPreferences,
+      ...player.localCourts,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedTerm);
+
+  const matchesLevel =
+    filters.level === levelOptions[0] ||
+    (filters.level === "4.5+"
+      ? Number.parseFloat(player.level) >= 4.5
+      : player.level === filters.level);
+
+  const matchesGender =
+    filters.gender === genderOptions[0] || normalize(player.gender) === normalize(filters.gender);
+
+  const matchesPlayType =
+    filters.playType === playTypeOptions[0] ||
+    player.matchPreferences.some((preference) => normalize(preference).includes(normalize(filters.playType)));
+
+  const matchesAvailability =
+    filters.availability === availabilityOptions[0] ||
+    player.availability.some(
+      (slot) => normalize(toCanonicalAvailability(slot)) === normalize(filters.availability),
+    );
+
+  const matchesVerification = !filters.verifiedOnly || player.verified;
+
+  return (
+    matchesSearch && matchesLevel && matchesGender && matchesPlayType && matchesAvailability && matchesVerification
+  );
+};
+
+const countActiveFilters = (filters: PlayerFilters, radius: string) =>
+  (Object.keys(DEFAULT_PLAYER_FILTERS) as Array<keyof PlayerFilters>).filter(
+    (key) => filters[key] !== DEFAULT_PLAYER_FILTERS[key],
+  ).length + (radius === radiusOptions[1] ? 0 : 1);
+
 
 const parseRadius = (radius: string) => {
   if (radius === "All") {
@@ -1232,19 +1307,44 @@ const FindPlayersPage = () => {
   }, []);
 
   const openConnectModalForPlayer = useCallback(
-    (player: DirectoryPlayer) => {
+    (player: DirectoryPlayer, position?: number) => {
+      // Fires on intent, whether or not the profile gate then intercepts.
+      track(ANALYTICS_EVENTS.connectClicked, {
+        position: typeof position === "number" ? position + 1 : null,
+        resultCount: filteredPlayers.length,
+        rankingVersion: RANKING_VERSION_NONE,
+        inRange: nearRange.length > 0 ? nearRange.includes(player.level) : null,
+        viewerTier,
+        targetConfirmed: Boolean(player.verified),
+        targetConfirmationCount: player.verificationCount ?? 0,
+        targetHasPhoto: Boolean(player.profileImageUrl),
+        sameCourt: player.localCourts.some((court) => viewerCourts.includes(normalize(court))),
+        venueMatch: VENUE_MATCH_LABEL,
+      });
+
       if (!hasCompletedMatchProfile) {
         if (!playerToken) {
           requireSignIn();
           return;
         }
-        setProfileModalOpen(true);
+        trackPromptShown("connect_gate");
+        openProfileModal("connect_gate");
         return;
       }
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [hasCompletedMatchProfile, playerToken, requireSignIn],
+    [
+      filteredPlayers.length,
+      hasCompletedMatchProfile,
+      nearRange,
+      openProfileModal,
+      playerToken,
+      requireSignIn,
+      trackPromptShown,
+      viewerCourts,
+      viewerTier,
+    ],
   );
 
   const handleShareIntro = useCallback(
@@ -1313,34 +1413,125 @@ const FindPlayersPage = () => {
     [closeConnectModal, displayName, matchProfile, navigate, playerToken, requireSignIn],
   );
 
+  const shownPrompts = useRef<Set<string>>(new Set());
+  const viewedFired = useRef(false);
+  const pendingFilterEvent = useRef<{ filter: string; value: string; before: number } | null>(null);
+  const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
+
+  const activeFilterCount = useMemo(
+    () => countActiveFilters(activeFilters, selectedRadius),
+    [activeFilters, selectedRadius],
+  );
+
+  // Once per page view, not per render.
+  useEffect(() => {
+    if (status !== "ready" || viewedFired.current) return;
+    viewedFired.current = true;
+    track(ANALYTICS_EVENTS.findPlayersViewed, {
+      viewerTier,
+      resultCount: filteredPlayers.length,
+      filtersActive: activeFilterCount,
+      rankingVersion: RANKING_VERSION_NONE,
+    });
+  }, [status, viewerTier, filteredPlayers.length, activeFilterCount]);
+
+  // Distance and search are resolved server-side, so their "after" count is only known
+  // once new results land. Park the event and flush it when they do.
+  useEffect(() => {
+    const pending = pendingFilterEvent.current;
+    if (!pending || status !== "ready") return;
+    pendingFilterEvent.current = null;
+    track(ANALYTICS_EVENTS.filtersApplied, {
+      filter: pending.filter,
+      value: pending.value,
+      resultCountBefore: pending.before,
+      resultCountAfter: filteredPlayers.length,
+    });
+  }, [status, filteredPlayers.length]);
+
+  // The header CTA and the setup banners are persistently visible, so impressions are
+  // recorded once per page view — per-render would drown every other event.
+  useEffect(() => {
+    if (status !== "ready") return;
+    trackPromptShown("header_cta");
+    if (hasIncompleteMatchProfile && matchProfileCheckLoaded) {
+      trackPromptShown("setup_banner_incomplete");
+    }
+    if (!hasProfile && mode !== "error" && !hasIncompleteMatchProfile) {
+      trackPromptShown("setup_banner_none");
+    }
+  }, [status, mode, hasProfile, hasIncompleteMatchProfile, matchProfileCheckLoaded, trackPromptShown]);
+
+  const trackClientFilter = useCallback(
+    (filter: string, value: string, overrides: Partial<PlayerFilters>) => {
+      track(ANALYTICS_EVENTS.filtersApplied, {
+        filter,
+        value,
+        resultCountBefore: filteredPlayers.length,
+        resultCountAfter: countMatching(overrides),
+      });
+    },
+    [filteredPlayers.length, countMatching],
+  );
+
+  const trackPromptShown = useCallback(
+    (trigger: string) => {
+      if (shownPrompts.current.has(trigger)) return;
+      shownPrompts.current.add(trigger);
+      track(ANALYTICS_EVENTS.profilePromptShown, { trigger, viewerTier });
+    },
+    [viewerTier],
+  );
+
+  const openProfileModal = useCallback(
+    (trigger: string) => {
+      setPromptTrigger(trigger);
+      track(ANALYTICS_EVENTS.profilePromptClicked, { trigger, viewerTier });
+      setProfileModalOpen(true);
+    },
+    [viewerTier],
+  );
+
   const handleSearch = () => {
+    // Whether a query was entered, never the query text itself.
+    pendingFilterEvent.current = {
+      filter: "search",
+      value: String(Boolean(normalize(searchTerm))),
+      before: filteredPlayers.length,
+    };
     setAppliedSearchTerm(normalize(searchTerm));
     setMode("normal");
   };
 
   const handleRadiusChange = (radius: string) => {
+    pendingFilterEvent.current = { filter: "distance", value: radius, before: filteredPlayers.length };
     setSelectedRadius(radius);
     setAppliedRadius(radius);
     setMode("normal");
   };
 
   const handleLevelChange = (level: string) => {
+    trackClientFilter("level", level, { level: level });
     setSelectedLevel(level);
   };
 
   const handleGenderChange = (gender: string) => {
+    trackClientFilter("gender", gender, { gender: gender });
     setSelectedGender(gender);
   };
 
   const handlePlayTypeChange = (playType: string) => {
+    trackClientFilter("style", playType, { playType: playType });
     setSelectedPlayType(playType);
   };
 
   const handleAvailabilityChange = (availability: string) => {
+    trackClientFilter("when", availability, { availability: availability });
     setSelectedAvailability(availability);
   };
 
   const handleVerifiedToggle = (next: boolean) => {
+    trackClientFilter("confirmed", String(next), { verifiedOnly: next });
     setVerifiedOnly(next);
   };
 
@@ -1357,67 +1548,56 @@ const FindPlayersPage = () => {
     setMode("normal");
   };
 
-  const filteredPlayers = useMemo(() => {
-    if (mode !== "normal") {
-      return [];
-    }
+  const activeFilters: PlayerFilters = useMemo(
+    () => ({
+      searchTerm: appliedSearchTerm,
+      level: selectedLevel,
+      gender: selectedGender,
+      playType: selectedPlayType,
+      availability: selectedAvailability,
+      verifiedOnly,
+    }),
+    [appliedSearchTerm, selectedLevel, selectedGender, selectedPlayType, selectedAvailability, verifiedOnly],
+  );
 
-    const normalizedTerm = normalize(appliedSearchTerm);
+  const viewerTier = useMemo(() => {
+    if (!playerToken) return "signed_out";
+    // Relies on level being null when absent rather than defaulted to "3.0".
+    return matchProfile?.level ? "member" : "no_level";
+  }, [playerToken, matchProfile]);
 
-    return players.filter((player) => {
-      const matchesSearch = (() => {
-        if (!normalizedTerm) {
-          return true;
-        }
-        const haystack = [
-          player.name,
-          player.location,
-          player.bio,
-          player.lookingFor,
-          ...player.availability,
-          ...player.matchPreferences,
-          ...player.localCourts,
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(normalizedTerm);
-      })();
+  // The viewer's position on the page's own level ladder. levelNumber is used only to
+  // find which rung they are on; the range itself is ordinal.
+  const viewerLadderLevel = useMemo(() => {
+    const value = levelNumber(matchProfile?.level ?? null);
+    if (value === null) return null;
+    return rankableLevelOptions(levelOptions).find((option) => levelNumber(option) === value) ?? null;
+  }, [matchProfile]);
 
-      const matchesLevel =
-        selectedLevel === "All levels" ||
-        (selectedLevel === "4.5+"
-          ? Number.parseFloat(player.level) >= 4.5
-          : player.level === selectedLevel);
+  const nearRange = useMemo(
+    () => nearLevelRange(rankableLevelOptions(levelOptions), viewerLadderLevel),
+    [viewerLadderLevel],
+  );
 
-      const matchesGender =
-        selectedGender === "All genders" || normalize(player.gender) === normalize(selectedGender);
+  const viewerCourts = useMemo(
+    () => toCourtList(matchProfile?.localCourts).map(normalize),
+    [matchProfile],
+  );
 
-      const matchesPlayType =
-        selectedPlayType === "All play types" ||
-        player.matchPreferences.some((preference) =>
-          normalize(preference).includes(normalize(selectedPlayType)),
-        );
+  const filteredPlayers = useMemo(
+    () => (mode === "normal" ? players.filter((player) => playerMatchesFilters(player, activeFilters)) : []),
+    [mode, players, activeFilters],
+  );
 
-      const matchesAvailability =
-        selectedAvailability === "All availability" ||
-        player.availability.some(
-          (slot) => normalize(toCanonicalAvailability(slot)) === normalize(selectedAvailability),
-        );
-
-      const matchesVerification = !verifiedOnly || player.verified;
-
-      return matchesSearch && matchesLevel && matchesGender && matchesPlayType && matchesAvailability && matchesVerification;
-    });
-  }, [
-    mode,
-    appliedSearchTerm,
-    players,
-    selectedGender,
-    selectedLevel,
-    selectedPlayType,
-    selectedAvailability,
-    verifiedOnly,
-  ]);
+  // Same predicate, run against a hypothetical filter set, so an analytics event can
+  // report the result count a change WILL produce without duplicating the rules.
+  const countMatching = useCallback(
+    (overrides: Partial<PlayerFilters>) =>
+      mode === "normal"
+        ? players.filter((player) => playerMatchesFilters(player, { ...activeFilters, ...overrides })).length
+        : 0,
+    [mode, players, activeFilters],
+  );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
@@ -1452,7 +1632,7 @@ const FindPlayersPage = () => {
               <button
                 type="button"
                 className="fc-button fc-button--secondary"
-                onClick={() => setProfileModalOpen(true)}
+                onClick={() => openProfileModal("header_cta")}
               >
                 {hasCompletedMatchProfile ? "Edit match profile" : "Create match profile"}
               </button>
@@ -1462,7 +1642,7 @@ const FindPlayersPage = () => {
           {hasProfile && profileQuickViewUser ? (
             <MyProfileQuickView
               user={profileQuickViewUser}
-              onEdit={() => setProfileModalOpen(true)}
+              onEdit={() => openProfileModal("profile_row_edit")}
             />
           ) : null}
 
@@ -1472,7 +1652,7 @@ const FindPlayersPage = () => {
                 <h2>Add your match profile</h2>
                 <p>Share your level, availability and courts so players can find you too.</p>
               </div>
-              <button type="button" onClick={() => setProfileModalOpen(true)}>
+              <button type="button" onClick={() => openProfileModal("setup_banner_incomplete")}>
                 Set up
               </button>
             </section>
@@ -1504,7 +1684,7 @@ const FindPlayersPage = () => {
                 <h2>Add your match profile</h2>
                 <p>Share your level, availability and courts so players can find you too.</p>
               </div>
-              <button type="button" onClick={() => setProfileModalOpen(true)}>
+              <button type="button" onClick={() => openProfileModal("setup_banner_none")}>
                 Set up
               </button>
             </section>
@@ -1666,12 +1846,12 @@ const FindPlayersPage = () => {
 
           {shouldShowResults && (
             <div className="players-results-grid">
-              {filteredPlayers.map((player) => (
+              {filteredPlayers.map((player, index) => (
                 <PlayerCard
                   key={player.id}
                   player={player}
                   canConnect={hasCompletedMatchProfile}
-                  onConnect={openConnectModalForPlayer}
+                  onConnect={(nextPlayer) => openConnectModalForPlayer(nextPlayer as DirectoryPlayer, index)}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {
                       state: { player: nextPlayer as DirectoryPlayer },
@@ -1718,6 +1898,8 @@ const FindPlayersPage = () => {
           setHasIncompleteMatchProfile(false);
           setMatchProfileCheckLoaded(true);
           storeMatchProfile(normalizedProfile);
+          track(ANALYTICS_EVENTS.matchProfileCompleted, { trigger: promptTrigger });
+          setPromptTrigger(null);
           setProfileModalOpen(false);
           window.alert(
             "Your match profile is live! You agree to share your contact details with other members and accept our terms. You can remove yourself from player matching anytime in settings.",
