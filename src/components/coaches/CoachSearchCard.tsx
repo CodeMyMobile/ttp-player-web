@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin } from "lucide-react";
+import { MapPin, Share2 } from "lucide-react";
 
 import CoachTrustMark from "./CoachTrustMark";
 import CoachCredibilityLine from "./CoachCredibilityLine";
@@ -38,6 +38,7 @@ export interface CoachSearchCardProps {
   profileState?: unknown;
   /** Invoked when "Book a lesson" is pressed. */
   onBook?: () => void;
+  onShare?: () => void;
 }
 
 const CoachSearchCard = ({
@@ -57,6 +58,7 @@ const CoachSearchCard = ({
   profileTo,
   profileState,
   onBook,
+  onShare,
 }: CoachSearchCardProps) => {
   const specialties = (tags ?? []).filter(Boolean);
 
@@ -115,6 +117,7 @@ const CoachSearchCard = ({
       </div>
 
       <div className="csc-actions">
+        {onShare ? <button type="button" className="csc-btn csc-btn--ghost" onClick={onShare}><Share2 size={15} /> Share</button> : null}
         <Link to={profileTo} state={profileState} className="csc-btn csc-btn--ghost">
           View profile
         </Link>

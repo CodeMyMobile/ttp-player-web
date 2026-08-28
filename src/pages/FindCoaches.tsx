@@ -87,6 +87,12 @@ type CoachCardModel = Coach & {
 
 const DEFAULT_RADIUS = 10;
 
+const shareCoach = async (id: string | number, name: string) => {
+  const url = `${window.location.origin}/player/coach/profile/${id}`;
+  if (navigator.share) return navigator.share({ title: `Coach ${name}`, url });
+  await navigator.clipboard?.writeText(url);
+};
+
 // Radius is the one real server-side attribute filter (see COACH_SEARCH_API_FINDINGS.md).
 // Presented as a compact "Within N mi" selector; changing it refetches via handleRadiusChange.
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
@@ -1433,6 +1439,7 @@ const FindCoaches = () => {
                               })
                           : promptSignUp
                       }
+                      onShare={() => shareCoach(coach.id, coach.name)}
                     />
                   );
                 })}
