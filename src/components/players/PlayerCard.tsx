@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isMeaningfulBio } from "../../utils/suggestedPlayer";
 import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
@@ -42,13 +43,10 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     }
   };
 
-  const bio = useMemo(() => {
-    if (typeof player.bio === "string" && player.bio.trim()) {
-      return player.bio.trim();
-    }
-
-    return "";
-  }, [player.bio]);
+  const bio = useMemo(
+    () => (isMeaningfulBio(player.bio) ? String(player.bio).trim() : ""),
+    [player.bio],
+  );
 
   const localCourts = useMemo(() => {
     const fallback = [player.favoriteCourt].filter(

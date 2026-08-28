@@ -40,6 +40,22 @@ export const toInitials = (name: string): string => {
   return `${segments[0][0]}${segments[segments.length - 1][0]}`.toUpperCase();
 };
 
+// Bios people type to get past a required field. A single token is never a bio, and
+// these turn up verbatim in the data.
+const JUNK_BIO = /^(nil|null|none|na|n\/a|nada|test|testing|asdf|qwerty|abc|xyz|\.|-|\?)+$/i;
+
+/**
+ * Whether a bio is worth giving space to. Empty, single-token and filler answers all
+ * collapse, so the card shows nothing instead of reserving a line for "Nil".
+ */
+export const isMeaningfulBio = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const text = value.trim();
+  if (text.length === 0) return false;
+  if (JUNK_BIO.test(text.replace(/\s+/g, ""))) return false;
+  return /\s/.test(text);
+};
+
 export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlayer => {
   const availability = ensureStringArray(record.availability, toCanonicalAvailability);
   const playerLocations = ensureStringArray(record.playerLocations);
@@ -58,9 +74,9 @@ export const mapSuggestedPlayer = (record: SuggestedPlayerRecord): DirectoryPlay
     return "Other" as const;
   })();
   const courts = courtLocations.length > 0 ? courtLocations : playerLocations;
-  const bio = typeof record.about_me === "string" && record.about_me.trim().length > 0
-    ? record.about_me.trim()
-    : "This player hasn't added a bio yet.";
+  // No placeholder here — an absent bio stays absent so the view layer can collapse
+  // the space rather than reserve it for a sentence nobody wrote.
+  const bio = typeof record.about_me === "string" ? record.about_me.trim() : "";
 
   return {
     id: String(record.userId ?? initialsSource.toLowerCase()),
