@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { handleImageTransformError, sizedImageUrl } from "../../utils/playerImage";
+import { isMeaningfulBio } from "../../utils/suggestedPlayer";
 import { CheckCircle2, MapPin } from "lucide-react";
 import type { Player } from "../../data/mockPlayers";
 
@@ -42,13 +44,10 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     }
   };
 
-  const bio = useMemo(() => {
-    if (typeof player.bio === "string" && player.bio.trim()) {
-      return player.bio.trim();
-    }
-
-    return "";
-  }, [player.bio]);
+  const bio = useMemo(
+    () => (isMeaningfulBio(player.bio) ? String(player.bio).trim() : ""),
+    [player.bio],
+  );
 
   const localCourts = useMemo(() => {
     const fallback = [player.favoriteCourt].filter(
@@ -69,7 +68,8 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
               {shouldDisplayProfileImage ? (
                 <img
                   className="fp-card__avatar-image"
-                  src={player.profileImageUrl}
+                  src={sizedImageUrl(player.profileImageUrl, { size: 48 })}
+                  onError={(event) => handleImageTransformError(event, player.profileImageUrl)}
                   alt={`${player.name}'s profile picture`}
                   loading="lazy"
                   decoding="async"

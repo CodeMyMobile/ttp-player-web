@@ -505,9 +505,13 @@ const PlayerProfilePage = () => {
       return;
     }
 
-    const senderLevel = matchProfile.level ?? "3.0";
+    const senderLevel = matchProfile.level ?? null;
     const preferredTimes = matchProfile.availability?.length ? matchProfile.availability.join(", ") : "soon";
-    const message = `Hi ${player.name}, I found you on The Tennis Plan. I'm a ${senderLevel} player looking to hit ${preferredTimes}. Let me know if you'd like to connect.`;
+    // Without a rating we say nothing about level rather than claiming one.
+    const selfIntro = senderLevel
+      ? `I'm a ${senderLevel} player looking to hit ${preferredTimes}`
+      : `I'm looking to hit ${preferredTimes}`;
+    const message = `Hi ${player.name}, I found you on The Tennis Plan. ${selfIntro}. Let me know if you'd like to connect.`;
 
     closeConnectModal();
     window.location.assign(buildSmsUrl(recipientPhone, message));
@@ -531,7 +535,7 @@ const PlayerProfilePage = () => {
         level: player.level,
       },
       senderName: "You",
-      senderLevel: matchProfile.level,
+      senderLevel: matchProfile.level ?? undefined,
       suggestedAvailability: [...(matchProfile.availability ?? [])],
       preferredCourt: matchProfile.localCourts?.trim() ? matchProfile.localCourts.trim() : null,
       source: "find-players",
