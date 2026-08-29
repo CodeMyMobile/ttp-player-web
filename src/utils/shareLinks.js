@@ -24,6 +24,25 @@ export function isSupportedShareType(type) {
   return Object.prototype.hasOwnProperty.call(SHARE_TYPE_TO_APP_ROUTE, type);
 }
 
+/**
+ * Which share types are allowed into search results.
+ *
+ * The test is value, not risk. A commercial shopfront benefits from being found —
+ * that is the point of the page, and for a coach it is their living. Transient
+ * logistics about identifiable people does not: nobody searches for a singles match
+ * on a particular date, so the search value is zero while the disclosure is not, and
+ * indexed pages persist — a year of match shares becomes a browsable record of when
+ * and where a group plays.
+ *
+ * Allow-list, not a deny-list: a share type added later is NOT indexed until someone
+ * makes that call deliberately.
+ */
+const INDEXABLE_SHARE_TYPES = new Set(["coach", "group-lessons"]);
+
+export function isIndexableShareType(type) {
+  return INDEXABLE_SHARE_TYPES.has(type);
+}
+
 export function buildGatewayShareUrl(type, id, options = {}) {
   const shareId = normalizeShareId(id);
   if (!isSupportedShareType(type) || !shareId) return "";

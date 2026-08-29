@@ -7,6 +7,22 @@
     <title>The Tennis Plan</title>
     <meta name="description" content="Book coaches, join group lessons, and play matches across West LA." />
 
+    <!--
+      The app is not indexed. Every client route is served from this one file (the SPA
+      rewrite) and routing is hash-based, so a single meta here covers every route by
+      construction — there is no per-route header to match, because the server never sees
+      the route. Find Players in particular is a directory of members who did not ask to
+      be public.
+
+      Deliberately NOT paired with a robots.txt Disallow: a crawler must be able to fetch
+      a page to read this tag, and a Disallow would leave URLs indexable from inbound
+      links while hiding the directive that removes them.
+
+      This does not affect /s/* — the share gateway edge function renders its own HTML.
+      Marketing pages belong on a separate path or property.
+    -->
+    <meta name="robots" content="noindex, follow" />
+
     <!-- Open Graph -->
     <meta property="og:title" content="The Tennis Plan" />
     <meta property="og:description" content="Book coaches, join group lessons, and play matches across West LA." />

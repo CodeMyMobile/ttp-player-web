@@ -6,6 +6,7 @@ import {
   buildCoachShareUrl,
   buildGroupLessonShareUrl,
   buildMatchShareUrl,
+  isIndexableShareType,
   parseSharePath,
   venueNameFromAddress,
 } from "./shareLinks.js";
@@ -88,4 +89,19 @@ test("venueNameFromAddress handles empty and non-string input", () => {
   assert.equal(venueNameFromAddress(null), "");
   assert.equal(venueNameFromAddress(undefined), "");
   assert.equal(venueNameFromAddress("   "), "");
+});
+
+test("only commercial shopfront share types are indexable", () => {
+  assert.equal(isIndexableShareType("coach"), true);
+  assert.equal(isIndexableShareType("group-lessons"), true);
+  // Transient logistics about identifiable people: zero search value, non-zero disclosure.
+  assert.equal(isIndexableShareType("match"), false);
+});
+
+test("share types are not indexable until someone decides they are", () => {
+  // Allow-list, so a type added later is safe by default.
+  assert.equal(isIndexableShareType("player"), false);
+  assert.equal(isIndexableShareType("league"), false);
+  assert.equal(isIndexableShareType(""), false);
+  assert.equal(isIndexableShareType(undefined), false);
 });

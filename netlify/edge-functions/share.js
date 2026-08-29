@@ -1,6 +1,7 @@
 import {
   buildAppRedirectUrl,
   buildGatewayShareUrl,
+  isIndexableShareType,
   parseSharePath,
   venueNameFromAddress,
 } from "../../src/utils/shareLinks.js";
@@ -48,7 +49,7 @@ async function loadShareData(type, id) {
   }
 }
 
-function renderSharePage({ title, description, image, gatewayUrl, appUrl }) {
+function renderSharePage({ title, description, image, gatewayUrl, appUrl, indexable }) {
   const safeTitle = escapeHtmlAttribute(title);
   const safeDescription = escapeHtmlAttribute(description);
   const safeImage = escapeHtmlAttribute(image);
@@ -58,7 +59,9 @@ function renderSharePage({ title, description, image, gatewayUrl, appUrl }) {
   return `<!doctype html><html><head>
 <meta charset="utf-8">
 <title>${safeTitle}</title>
-<meta name="description" content="${safeDescription}">
+<meta name="description" content="${safeDescription}">${
+  indexable ? "" : '\n<meta name="robots" content="noindex, follow">'
+}
 <meta property="og:type" content="website">
 <meta property="og:title" content="${safeTitle}">
 <meta property="og:description" content="${safeDescription}">
@@ -108,7 +111,9 @@ export default async (request) => {
   // name before it reaches a crawler or a link preview.
   const description = ok ? shareDescription(type, data.description) : DEFAULT_DESCRIPTION;
 
+  const indexable = isIndexableShareType(type);
   const html = renderSharePage({
+    indexable,
     title: ok ? data.title : DEFAULT_TITLE,
     description,
     image: (ok && data.image) || defaultImage,
@@ -120,6 +125,10 @@ export default async (request) => {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "public, s-maxage=300",
+      // Header as well as the meta tag: the page is a redirect shim, so a crawler may
+      // never parse the body. Link previews are unaffected — a crawler still fetches
+      // the page and reads the OG tags, it just does not index the URL.
+      ...(indexable ? {} : { "x-robots-tag": "noindex, follow" }),
     },
   });
 };
