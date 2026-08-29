@@ -1,7 +1,7 @@
 /// <reference types="google.maps" />
 
 import Autocomplete from "react-google-autocomplete";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import MainLayout from "../components/MainLayout";
@@ -1310,6 +1310,63 @@ const FindPlayersPage = () => {
 
   // Identical properties on connect_clicked and connect_sent, so the two are directly
   // comparable and the gap between them reads as the gate's conversion rate.
+  // These sit above their consumers on purpose. `filteredPlayers` is read inside
+  // useCallback/useEffect DEPENDENCY ARRAYS below, and a dependency array is evaluated
+  // during render — so declaring it later throws
+  // "Cannot access 'filteredPlayers' before initialization" and the page renders
+  // nothing at all. The build cannot catch it: there is no TypeScript compiler here and
+  // a temporal dead zone violation is a runtime error.
+  const activeFilters: PlayerFilters = useMemo(
+    () => ({
+      searchTerm: appliedSearchTerm,
+      level: selectedLevel,
+      gender: selectedGender,
+      playType: selectedPlayType,
+      availability: selectedAvailability,
+      verifiedOnly,
+    }),
+    [appliedSearchTerm, selectedLevel, selectedGender, selectedPlayType, selectedAvailability, verifiedOnly],
+  );
+
+  const viewerTier = useMemo(() => {
+    if (!playerToken) return "signed_out";
+    // Relies on level being null when absent rather than defaulted to "3.0".
+    return matchProfile?.level ? "member" : "no_level";
+  }, [playerToken, matchProfile]);
+
+  // The viewer's position on the page's own level ladder. levelNumber is used only to
+  // find which rung they are on; the range itself is ordinal.
+  const viewerLadderLevel = useMemo(() => {
+    const value = levelNumber(matchProfile?.level ?? null);
+    if (value === null) return null;
+    return rankableLevelOptions(levelOptions).find((option) => levelNumber(option) === value) ?? null;
+  }, [matchProfile]);
+
+  const nearRange = useMemo(
+    () => nearLevelRange(rankableLevelOptions(levelOptions), viewerLadderLevel),
+    [viewerLadderLevel],
+  );
+
+  const viewerCourts = useMemo(
+    () => toCourtList(matchProfile?.localCourts).map(normalize),
+    [matchProfile],
+  );
+
+  const filteredPlayers = useMemo(
+    () => (mode === "normal" ? players.filter((player) => playerMatchesFilters(player, activeFilters)) : []),
+    [mode, players, activeFilters],
+  );
+
+  // Same predicate, run against a hypothetical filter set, so an analytics event can
+  // report the result count a change WILL produce without duplicating the rules.
+  const countMatching = useCallback(
+    (overrides: Partial<PlayerFilters>) =>
+      mode === "normal"
+        ? players.filter((player) => playerMatchesFilters(player, { ...activeFilters, ...overrides })).length
+        : 0,
+    [mode, players, activeFilters],
+  );
+
   const buildConnectProps = useCallback(
     (player: DirectoryPlayer, position: number | null) => ({
       position: typeof position === "number" ? position + 1 : null,
@@ -1324,6 +1381,23 @@ const FindPlayersPage = () => {
       venueMatch: VENUE_MATCH_LABEL,
     }),
     [filteredPlayers.length, nearRange, viewerCourts, viewerTier],
+  );
+
+  const trackPromptShown = useCallback(
+    (trigger: string) => {
+      if (shownPrompts.current.has(trigger)) return;
+      shownPrompts.current.add(trigger);
+      track(ANALYTICS_EVENTS.profilePromptShown, { trigger, viewerTier });
+    },
+    [viewerTier],
+  );
+  const openProfileModal = useCallback(
+    (trigger: string) => {
+      setPromptTrigger(trigger);
+      track(ANALYTICS_EVENTS.profilePromptClicked, { trigger, viewerTier });
+      setProfileModalOpen(true);
+    },
+    [viewerTier],
   );
 
   const openConnectModalForPlayer = useCallback(
@@ -1476,23 +1550,7 @@ const FindPlayersPage = () => {
     [filteredPlayers.length, countMatching],
   );
 
-  const trackPromptShown = useCallback(
-    (trigger: string) => {
-      if (shownPrompts.current.has(trigger)) return;
-      shownPrompts.current.add(trigger);
-      track(ANALYTICS_EVENTS.profilePromptShown, { trigger, viewerTier });
-    },
-    [viewerTier],
-  );
 
-  const openProfileModal = useCallback(
-    (trigger: string) => {
-      setPromptTrigger(trigger);
-      track(ANALYTICS_EVENTS.profilePromptClicked, { trigger, viewerTier });
-      setProfileModalOpen(true);
-    },
-    [viewerTier],
-  );
 
   const handleSearch = () => {
     // Whether a query was entered, never the query text itself.
@@ -1549,57 +1607,6 @@ const FindPlayersPage = () => {
     setVerifiedOnly(false);
     setMode("normal");
   };
-
-  const activeFilters: PlayerFilters = useMemo(
-    () => ({
-      searchTerm: appliedSearchTerm,
-      level: selectedLevel,
-      gender: selectedGender,
-      playType: selectedPlayType,
-      availability: selectedAvailability,
-      verifiedOnly,
-    }),
-    [appliedSearchTerm, selectedLevel, selectedGender, selectedPlayType, selectedAvailability, verifiedOnly],
-  );
-
-  const viewerTier = useMemo(() => {
-    if (!playerToken) return "signed_out";
-    // Relies on level being null when absent rather than defaulted to "3.0".
-    return matchProfile?.level ? "member" : "no_level";
-  }, [playerToken, matchProfile]);
-
-  // The viewer's position on the page's own level ladder. levelNumber is used only to
-  // find which rung they are on; the range itself is ordinal.
-  const viewerLadderLevel = useMemo(() => {
-    const value = levelNumber(matchProfile?.level ?? null);
-    if (value === null) return null;
-    return rankableLevelOptions(levelOptions).find((option) => levelNumber(option) === value) ?? null;
-  }, [matchProfile]);
-
-  const nearRange = useMemo(
-    () => nearLevelRange(rankableLevelOptions(levelOptions), viewerLadderLevel),
-    [viewerLadderLevel],
-  );
-
-  const viewerCourts = useMemo(
-    () => toCourtList(matchProfile?.localCourts).map(normalize),
-    [matchProfile],
-  );
-
-  const filteredPlayers = useMemo(
-    () => (mode === "normal" ? players.filter((player) => playerMatchesFilters(player, activeFilters)) : []),
-    [mode, players, activeFilters],
-  );
-
-  // Same predicate, run against a hypothetical filter set, so an analytics event can
-  // report the result count a change WILL produce without duplicating the rules.
-  const countMatching = useCallback(
-    (overrides: Partial<PlayerFilters>) =>
-      mode === "normal"
-        ? players.filter((player) => playerMatchesFilters(player, { ...activeFilters, ...overrides })).length
-        : 0,
-    [mode, players, activeFilters],
-  );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
