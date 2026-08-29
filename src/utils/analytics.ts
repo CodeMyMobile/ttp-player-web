@@ -37,6 +37,7 @@ export const ANALYTICS_EVENTS = {
   profilePromptShown: "profile_prompt_shown",
   profilePromptClicked: "profile_prompt_clicked",
   matchProfileCompleted: "match_profile_completed",
+  explainerOpened: "explainer_opened",
 } as const;
 
 /** Constant until a ranking exists. Becomes "v1" without the schema changing. */

@@ -1356,3 +1356,136 @@
   letter-spacing: 0.02em;
   color: var(--fc-color-accent-ink);
 }
+
+/* ------------------------------------------------------------- explainers */
+
+.fp-explain__entry {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.fp-explain__mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border-radius: 999px;
+  /* The untick entry keeps the same footprint, so the two rows line up and the
+     presence or absence of the mark is the only difference. */
+  border: 1px dashed var(--fc-color-border);
+}
+
+.fp-explain__mark--tick {
+  border: 0;
+  background: var(--fc-color-good);
+  color: var(--fc-color-on-accent);
+}
+
+.fp-explain__heading {
+  margin: 0 0 3px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-explain__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-explain__caveat {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--fc-color-surface-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-explain__factors {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-explain__factors strong {
+  color: var(--fc-color-text-primary);
+  font-weight: 650;
+}
+
+/* The strip sits after the first card, not before it — it explains something the
+   reader has just seen rather than pre-empting it. */
+.fp-tick-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--fc-color-border);
+  border-radius: 12px;
+  background: var(--fc-color-surface-muted);
+  font-size: 13px;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-tick-strip__open {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 650;
+  color: var(--fc-color-accent-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.fp-tick-strip__dismiss {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fc-color-icon);
+  cursor: pointer;
+}
+
+.fp-why-these {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--fc-color-accent-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* The tick on a card is a button once it explains itself. */
+.fp-card__photo-tick,
+.fp-card__rating-tick {
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.fp-card__photo-tick:disabled,
+.fp-card__rating-tick:disabled {
+  cursor: default;
+}

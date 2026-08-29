@@ -2,7 +2,7 @@
 
 import Autocomplete from "react-google-autocomplete";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
@@ -41,6 +41,7 @@ import {
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import PlayersFilterSheet from "../components/players/PlayersFilterSheet";
+import { ChoosingExplainerSheet, TickExplainerSheet } from "../components/players/ExplainerSheets";
 import CuratedStamp from "../components/CuratedStamp";
 import { isCurated, rankPlayers } from "../utils/playerRanking";
 import {
@@ -1545,6 +1546,38 @@ const FindPlayersPage = () => {
     filtersButtonRef.current?.focus();
   }, [draftFilters, appliedFilters, filteredPlayers.length]);
 
+  const [openExplainer, setOpenExplainer] = useState<null | "tick" | "choosing">(null);
+
+  // Dismissal persists per player: someone who has read it once should not be asked
+  // again on every visit. Keyed by viewer so a shared device does not inherit it.
+  const stripKey = useMemo(() => `player:web:tick-strip-dismissed:${readViewerId(user) ?? "anon"}`, [user]);
+  const [stripDismissed, setStripDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(stripKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const dismissStrip = useCallback(() => {
+    setStripDismissed(true);
+    try {
+      localStorage.setItem(stripKey, "1");
+    } catch {
+      // A refusal to persist is not a reason to keep showing it this session.
+    }
+  }, [stripKey]);
+
+  const openExplainerFrom = useCallback(
+    (which: "tick" | "choosing", source: "strip" | "card_tick" | "why") => {
+      // The only way to learn whether the strip earns its space or whether every open
+      // comes from a tick — which decides whether the strip should survive at all.
+      track(ANALYTICS_EVENTS.explainerOpened, { explainer: which, source, viewerTier });
+      setOpenExplainer(which);
+    },
+    [viewerTier],
+  );
+
   const clearOneFilter = useCallback(
     (key: FilterKey) => {
       trackClientFilter(String(key), "cleared", {});
@@ -1814,10 +1847,19 @@ const FindPlayersPage = () => {
           ) : status === "ready" && mode === "normal" ? (
             <div className="fp-result-bar">
               {curated ? (
-                <CuratedStamp
-                  subject="players"
-                  basis={`${orderedPlayers.length} nearby, ordered by shared courts, overlapping times and closeness of level.`}
-                />
+                <>
+                  <CuratedStamp
+                    subject="players"
+                    basis={`${orderedPlayers.length} nearby, ordered by shared courts, overlapping times and closeness of level.`}
+                  />
+                  <button
+                    type="button"
+                    className="fp-why-these"
+                    onClick={() => openExplainerFrom("choosing", "why")}
+                  >
+                    Why these?
+                  </button>
+                </>
               ) : (
                 <span>
                   {orderedPlayers.length} {orderedPlayers.length === 1 ? "player" : "players"} nearby
@@ -1987,9 +2029,10 @@ const FindPlayersPage = () => {
           {shouldShowResults && (
             <div className="players-results-grid">
               {orderedPlayers.map((player, index) => (
+                <Fragment key={player.id}>
                 <PlayerCard
-                  key={player.id}
                   topPick={curated && index === 0}
+                  onExplainTick={() => openExplainerFrom("tick", "card_tick")}
                   player={player}
                   canConnect={hasCompletedMatchProfile}
                   viewer={cardViewer}
@@ -2000,6 +2043,30 @@ const FindPlayersPage = () => {
                     });
                   }}
                 />
+
+                {/* After the first card, not before it: it explains a mark the reader
+                    has just seen. Stands down while the prompt header is showing —
+                    one ask per screen. */}
+                {index === 0 && !stripDismissed && !needsLevelPrompt ? (
+                  <div className="fp-tick-strip">
+                    <button
+                      type="button"
+                      className="fp-tick-strip__open"
+                      onClick={() => openExplainerFrom("tick", "strip")}
+                    >
+                      What does the ✓ next to a rating mean?
+                    </button>
+                    <button
+                      type="button"
+                      className="fp-tick-strip__dismiss"
+                      aria-label="Dismiss this explanation"
+                      onClick={dismissStrip}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : null}
+                </Fragment>
               ))}
             </div>
           )}
@@ -2064,6 +2131,24 @@ const FindPlayersPage = () => {
         onEditProfile={() => {
           setSheetOpen(false);
           openProfileModal("filter_sheet");
+        }}
+      />
+
+      <TickExplainerSheet
+        isOpen={openExplainer === "tick"}
+        onDismiss={() => setOpenExplainer(null)}
+        onConfirmMyLevel={() => {
+          setOpenExplainer(null);
+          navigate("/settings/match-profile");
+        }}
+      />
+
+      <ChoosingExplainerSheet
+        isOpen={openExplainer === "choosing"}
+        onDismiss={() => setOpenExplainer(null)}
+        onEditFilters={() => {
+          setOpenExplainer(null);
+          openSheet();
         }}
       />
 

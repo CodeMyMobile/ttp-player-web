@@ -35,9 +35,11 @@ type PlayerCardProps = {
   viewer?: CardViewer | null;
   /** First card of a genuinely curated list. Only ever true when the stamp shows. */
   topPick?: boolean;
+  /** Any tick on the card opens the explainer. */
+  onExplainTick?: () => void;
 };
 
-const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topPick }: PlayerCardProps) => {
+const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topPick, onExplainTick }: PlayerCardProps) => {
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
@@ -115,9 +117,15 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topP
           )}
 
           {player.verified ? (
-            <span className="fp-card__photo-tick" aria-hidden="true">
-              <Check size={12} strokeWidth={3} />
-            </span>
+            <button
+              type="button"
+              className="fp-card__photo-tick"
+              aria-label="What the confirmed-rating tick means"
+              onClick={onExplainTick}
+              disabled={!onExplainTick}
+            >
+              <Check size={12} strokeWidth={3} aria-hidden="true" />
+            </button>
           ) : null}
         </div>
 
@@ -133,9 +141,15 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topP
           <p className="fp-card__rating">
             {player.verified ? (
               <>
-                <span className="fp-card__rating-tick" aria-hidden="true">
-                  <Check size={12} strokeWidth={3} />
-                </span>
+                <button
+                  type="button"
+                  className="fp-card__rating-tick"
+                  aria-label="What the confirmed-rating tick means"
+                  onClick={onExplainTick}
+                  disabled={!onExplainTick}
+                >
+                  <Check size={12} strokeWidth={3} aria-hidden="true" />
+                </button>
                 <strong>NTRP {player.level}</strong>
                 <span className="fp-card__rating-note">
                   confirmed by {player.verificationCount || 3} players

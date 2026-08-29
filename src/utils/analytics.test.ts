@@ -62,5 +62,6 @@ test("event names are the agreed strings", () => {
     profilePromptShown: "profile_prompt_shown",
     profilePromptClicked: "profile_prompt_clicked",
     matchProfileCompleted: "match_profile_completed",
+    explainerOpened: "explainer_opened",
   });
 });
