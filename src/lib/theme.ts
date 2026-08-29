@@ -34,9 +34,9 @@ export const warmPalette = {
    * field (.fc-filter__search-icon in players.css), which sits beside a labelled input
    * and carries no meaning on its own.
    *
-   * Three small label selectors used to paint text in this rung at 2.40:1 —
-   * .fp-card__section-label, .fp-profile-summary__label and .fc-filter__label. If a
-   * label needs a quieter colour, reach for `muted` (4.64:1), not this.
+   * Small label selectors used to paint text in this rung at 2.40:1 —
+   * .fp-card__section-label and .fc-filter__label. If a label needs a quieter colour,
+   * reach for `muted` (4.64:1), not this.
    */
   faint: "#A2939F",
 

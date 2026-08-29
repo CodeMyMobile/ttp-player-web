@@ -24,6 +24,9 @@ type PlayersFilterSheetProps = {
   /** Discard the draft — scrim, Escape and the close button all land here. */
   onDismiss: () => void;
   onReset: () => void;
+  /** Leaves the sheet and edits the viewer's own profile — a different class of
+   *  action from narrowing a list, so it sits apart from the filter groups. */
+  onEditProfile?: () => void;
 };
 
 const FOCUSABLE =
@@ -40,6 +43,7 @@ const PlayersFilterSheet = ({
   onApply,
   onDismiss,
   onReset,
+  onEditProfile,
 }: PlayersFilterSheetProps) => {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -166,6 +170,15 @@ const PlayersFilterSheet = ({
               <span>Confirmed ratings only</span>
             </label>
           </div>
+
+          {onEditProfile ? (
+            // Below every filter group and outside the sticky footer: it changes the
+            // viewer's own data rather than the list, and must not compete with Apply.
+            <button type="button" className="fp-sheet__profile-link" onClick={onEditProfile}>
+              Edit my match profile
+              <span aria-hidden="true">&rarr;</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="fp-sheet__foot">

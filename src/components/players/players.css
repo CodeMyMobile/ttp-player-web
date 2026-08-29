@@ -411,51 +411,12 @@
   gap: 12px;
 }
 
-.fp-profile-summary,
-.fp-profile-setup {
-  background: var(--fc-color-surface);
-  border: 1px solid var(--fc-color-border);
-  border-radius: 14px;
-}
 
-.fp-profile-summary {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 14px 20px;
-}
 
-.fp-profile-summary__primary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
 
-.fp-profile-summary__primary img,
-.fp-profile-summary__primary [role="img"] {
-  box-shadow: none !important;
-}
 
-.fp-profile-summary__identity {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
 
-.fp-profile-summary__identity h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--fc-color-text-primary);
-}
 
-.fp-profile-summary__badges,
-.fp-profile-summary__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
 
 .fp-pill {
   display: inline-flex;
@@ -478,54 +439,11 @@
   color: var(--fc-color-good);
 }
 
-.fp-profile-summary__divider {
-  width: 1px;
-  height: 36px;
-  background: var(--fc-color-border);
-  flex-shrink: 0;
-}
 
-.fp-profile-summary__group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
 
-.fp-profile-summary__group--courts {
-  flex: 1;
-}
 
-.fp-profile-summary__label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--fc-color-text-secondary);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
 
-.fp-profile-summary__group p {
-  margin: 0;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--fc-color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-.fp-profile-summary__edit {
-  flex-shrink: 0;
-  padding: 7px 16px;
-  border-radius: 9px;
-  background: var(--fc-color-line-soft);
-  color: var(--fc-color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  border: 1.5px solid var(--fc-color-border);
-  cursor: pointer;
-  font-family: inherit;
-}
 
 .fp-profile-setup {
   display: flex;
@@ -779,39 +697,11 @@
     display: none;
   }
 
-  .fp-profile-summary {
-    position: relative;
-    align-items: stretch;
-    flex-direction: column;
-    gap: 0;
-    padding: 0;
-    overflow: hidden;
-  }
 
-  .fp-profile-summary__primary {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--fc-color-surface-muted);
-  }
 
-  .fp-profile-summary__divider {
-    display: none;
-  }
 
-  .fp-profile-summary__group {
-    align-items: flex-start;
-    padding: 10px 14px 0;
-  }
 
-  .fp-profile-summary__group--courts {
-    padding-bottom: 10px;
-  }
 
-  .fp-profile-summary__edit {
-    position: absolute;
-    top: 12px;
-    right: 14px;
-    padding: 6px 12px;
-  }
 
   .fp-profile-setup {
     margin: 0;
@@ -1396,4 +1286,23 @@
 
 @media (max-width: 768px) {
   .fp-desktop-filters { display: none; }
+}
+
+/* A quiet, full-width row at the foot of the sheet body. Deliberately not a
+   filled button: it must read as a way out of the sheet, not a second Apply. */
+.fp-sheet__profile-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px 14px;
+  border: 1px solid var(--fc-color-border);
+  border-radius: 12px;
+  background: var(--fc-color-surface-muted);
+  color: var(--fc-color-accent-ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
 }

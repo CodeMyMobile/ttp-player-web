@@ -277,20 +277,6 @@ const useIsMobile = (breakpoint = 768) => {
   return isMobile;
 };
 
-type ProfileQuickViewUser = {
-  name: string;
-  /** null when the player has no rating. Render nothing rather than a placeholder. */
-  ntrp: string | null;
-  initials?: string;
-  tagline?: string;
-  bio?: string;
-  availability?: string[];
-  courts?: string[];
-  photo?: string;
-  avatarUrl?: string;
-  isVerified?: boolean;
-  verificationCount?: number;
-};
 
 type BestMatchPlayer = DirectoryPlayer & {
   matchScore: number;
@@ -346,56 +332,7 @@ const renderAvatar = (
   );
 };
 
-type MyProfileQuickViewProps = {
-  user: ProfileQuickViewUser;
-  onEdit: () => void;
-};
 
-const MyProfileQuickView = ({ user, onEdit }: MyProfileQuickViewProps) => {
-  const isVerified = user?.isVerified ?? false;
-  const initials = user.initials || toInitials(user.name);
-  const availability = user.availability?.length ? user.availability : ["Add availability"];
-  const courts = user.courts?.length ? user.courts : ["Add local courts"];
-
-  return (
-    <section className="fp-profile-summary" aria-label="Your match profile">
-      <div className="fp-profile-summary__primary">
-        {renderAvatar(user.photo || user.avatarUrl, initials, user.name, "42px", "0")}
-        <div className="fp-profile-summary__identity">
-          <h2>{user.name}</h2>
-          <div className="fp-profile-summary__badges">
-            {user.ntrp ? <span className="fp-pill fp-pill--purple">NTRP {user.ntrp}</span> : null}
-            {isVerified ? <span className="fp-pill fp-pill--green">Verified</span> : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="fp-profile-summary__divider" aria-hidden="true" />
-
-      <div className="fp-profile-summary__group">
-        <span className="fp-profile-summary__label">Available</span>
-        <div className="fp-profile-summary__chips">
-          {availability.slice(0, 3).map((slot) => (
-            <span className="fp-card__availability-chip" key={slot}>
-              {slot}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="fp-profile-summary__divider" aria-hidden="true" />
-
-      <div className="fp-profile-summary__group fp-profile-summary__group--courts">
-        <span className="fp-profile-summary__label">Courts</span>
-        <p>{courts.slice(0, 2).join(" · ")}</p>
-      </div>
-
-      <button type="button" className="fp-profile-summary__edit" onClick={onEdit}>
-        Edit
-      </button>
-    </section>
-  );
-};
 
 type BestMatchCTAProps = {
   onClick: () => void;
@@ -1337,24 +1274,6 @@ const FindPlayersPage = () => {
     return `${origin}${normalizedPath}#/settings/match-profile`;
   }, []);
 
-  const profileQuickViewUser = useMemo(() => {
-    if (!matchProfile) {
-      return null;
-    }
-    const trimmedName = displayName.trim();
-    const name = trimmedName.length ? trimmedName : "TTP Player";
-    return {
-      name,
-      initials: toInitials(name),
-      ntrp: matchProfile.level,
-      tagline: matchProfile.about || "Add a quick bio to help players get to know you.",
-      bio: matchProfile.about,
-      availability: (matchProfile.availability ?? []).map((slot) => toCanonicalAvailability(slot)),
-      courts: toCourtList(matchProfile.localCourts),
-      isVerified: false,
-      verificationCount: 2,
-    };
-  }, [displayName, matchProfile]);
 
   const closeConnectModal = useCallback(() => {
     setConnectModalOpen(false);
@@ -1578,11 +1497,10 @@ const FindPlayersPage = () => {
     });
   }, [status, filteredPlayers.length]);
 
-  // The header CTA and the setup banners are persistently visible, so impressions are
-  // recorded once per page view — per-render would drown every other event.
+  // The setup banners are persistently visible, so impressions are recorded once per
+  // page view — per-render would drown every other event.
   useEffect(() => {
     if (status !== "ready") return;
-    trackPromptShown("header_cta");
     if (hasIncompleteMatchProfile && matchProfileCheckLoaded) {
       trackPromptShown("setup_banner_incomplete");
     }
@@ -1765,23 +1683,8 @@ const FindPlayersPage = () => {
             title="Find Players"
             description="Connect with local players who match your level and style."
             mobileDescription="Connect with local players by level and style."
-            actionSlot={
-              <button
-                type="button"
-                className="fc-button fc-button--secondary"
-                onClick={() => openProfileModal("header_cta")}
-              >
-                {hasCompletedMatchProfile ? "Edit match profile" : "Create match profile"}
-              </button>
-            }
           />
 
-          {hasProfile && profileQuickViewUser ? (
-            <MyProfileQuickView
-              user={profileQuickViewUser}
-              onEdit={() => openProfileModal("profile_row_edit")}
-            />
-          ) : null}
 
           {hasIncompleteMatchProfile && matchProfileCheckLoaded && (
             <section className="fp-profile-setup" aria-label="Set up your match profile">
@@ -2120,6 +2023,10 @@ const FindPlayersPage = () => {
         onApply={applySheet}
         onDismiss={dismissSheet}
         onReset={() => setDraftFilters(resetToDefaults(SHEET_DEFAULTS))}
+        onEditProfile={() => {
+          setSheetOpen(false);
+          openProfileModal("filter_sheet");
+        }}
       />
 
       <MatchProfileModal
