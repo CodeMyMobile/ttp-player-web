@@ -113,7 +113,7 @@ test("buildSubmitPayload — sets path (you first, mtb decider)", () => {
     sets: [set(6, 4), set(3, 6), set(10, 7, "mtb")],
   });
   assert.deepEqual(payload, {
-    context: "casual",
+    context: "recreational",
     reported_by: "me",
     player_b: "p1",
     played_at: "2026-06-20",
@@ -135,7 +135,7 @@ test("buildSubmitPayload — retired path", () => {
     format: "bo3", dnf: true, dnfWinner: "you", sets: [],
   });
   assert.deepEqual(payload, {
-    context: "casual",
+    context: "recreational",
     reported_by: "me",
     player_b: "p1",
     played_at: "2026-06-20",
