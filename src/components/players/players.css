@@ -967,8 +967,7 @@
   font-size: 24px;
   font-weight: 650;
   letter-spacing: 0.01em;
-  /* Background is set inline from the name; white sits on the muted band at >4.5:1. */
-  color: #ffffff;
+  /* Colours are set inline from the palette tokens; see initialsBackground. */
 }
 
 /* The tick rides the photo rather than sitting in a row of badges. */

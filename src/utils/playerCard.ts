@@ -17,21 +17,27 @@ export type MatchVerdict = {
 };
 
 /**
- * A verdict must never sound more certain than the rating behind it.
+ * A verdict must never sound more certain than the WEAKER of the two ratings behind
+ * it. A comparison is only as good as both sides of it: a self-rated viewer looking at
+ * a confirmed player still has an unchecked guess on their own side, so that verdict
+ * hedges too.
  *
  * Two confidence levels, not one:
- *   target peer-confirmed -> state it plainly     "A step up"
- *   target self-rated     -> hedge it             "Likely a step up"
+ *   both peer-confirmed        -> state it plainly    "A step up"
+ *   either side self-rated     -> hedge it            "Likely a step up"
  *
- * ONLY THE TARGET'S TIER IS AVAILABLE. The viewer's own confirmation status is not:
- * the match profile does not carry one, and /player/verification-level is a stub that
- * returns `level: 'Verified'` for every user. Reading it would make every verdict
- * sound certain — worse than hedging — so it is deliberately not consulted.
+ * Both tiers come from the same field on the same endpoint — `isLevelConfirmed`, which
+ * the API computes as three or more peer verifications. The viewer's own record is
+ * fetched by id through the same call used for any other player.
+ *
+ * /player/verification-level is NOT used and must not be: it is a stub that returns
+ * `level: 'Verified'` for every user, so consulting it would mark everyone confirmed.
  */
 export const matchVerdict = (
   viewerLevel: string | null | undefined,
   targetLevel: string | null | undefined,
   targetConfirmed: boolean,
+  viewerConfirmed: boolean = false,
 ): MatchVerdict | null => {
   const mine = levelNumber(viewerLevel ?? null);
   const theirs = levelNumber(targetLevel ?? null);
@@ -42,7 +48,7 @@ export const matchVerdict = (
   const delta = Number((theirs - mine).toFixed(2));
   const tone: VerdictTone = delta === 0 ? "even" : delta > 0 ? "up" : "down";
 
-  if (targetConfirmed) {
+  if (targetConfirmed && viewerConfirmed) {
     const text = delta === 0 ? "Even match" : delta > 0 ? "A step up" : "A step down";
     return { text, tone, hedged: false };
   }
@@ -124,21 +130,16 @@ export const availabilitySentence = (
 /* ----------------------------------------------------------------- initials */
 
 /**
- * A hue derived from the name, so a person's tile is the same colour every visit and
- * a list of faces has some variety.
+ * The initials tile is MONOCHROME — accent-soft behind accent-ink — and deliberately
+ * not a per-name colour.
  *
- * Held to a muted band — 40% saturation, 58% lightness — so the tiles sit inside the
- * warm palette instead of fighting it.
+ * A name-derived hue was tried and rejected. Held to a muted band it was quiet enough,
+ * but a column of olive, blue, crimson, green and teal reads as a colour code that
+ * encodes nothing. Worse, it collides with the semantic colours a few pixels away: a
+ * green tile beside "A step down", or a crimson one beside "A step up", actively
+ * contradicts the verdict. Monochrome removes a signal that was never real.
+ *
+ * Kept as a function so the decision has somewhere to live.
  */
-export const initialsHue = (name: string | null | undefined): number => {
-  const text = String(name ?? "").trim().toLowerCase();
-  if (!text) return 0;
-  let hash = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    hash = (hash * 31 + text.charCodeAt(i)) % 360;
-  }
-  return hash;
-};
-
-export const initialsBackground = (name: string | null | undefined) =>
-  `hsl(${initialsHue(name)} 40% 58%)`;
+export const initialsBackground = () => "var(--fc-color-accent-light)";
+export const initialsForeground = () => "var(--fc-color-accent-ink)";

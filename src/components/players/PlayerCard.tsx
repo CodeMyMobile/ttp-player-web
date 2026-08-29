@@ -7,6 +7,7 @@ import {
   availabilitySentence,
   courtLine,
   initialsBackground,
+  initialsForeground,
   matchVerdict,
 } from "../../utils/playerCard";
 import type { Player } from "../../data/mockPlayers";
@@ -19,6 +20,9 @@ const PHOTO_SIZE = 72;
 
 export type CardViewer = {
   level: string | null;
+  /** Whether the VIEWER's own rating is peer-confirmed. Defaults to false, so an
+   *  unknown tier hedges rather than overstating. */
+  confirmed: boolean;
   courts: string[];
   availability: string[];
 };
@@ -48,8 +52,14 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer }: Pl
   );
 
   const verdict = useMemo(
-    () => matchVerdict(viewer?.level ?? null, player.level, Boolean(player.verified)),
-    [viewer?.level, player.level, player.verified],
+    () =>
+      matchVerdict(
+        viewer?.level ?? null,
+        player.level,
+        Boolean(player.verified),
+        Boolean(viewer?.confirmed),
+      ),
+    [viewer?.level, viewer?.confirmed, player.level, player.verified],
   );
 
   const court = useMemo(() => {
@@ -89,9 +99,8 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer }: Pl
           ) : (
             <span
               className="fp-card__photo-initials"
-              // Hue from the name, so a person's tile is the same every visit; held to a
-              // muted band so a list of them sits inside the palette.
-              style={{ background: initialsBackground(player.name) }}
+              // Monochrome on purpose — see initialsBackground.
+              style={{ background: initialsBackground(), color: initialsForeground() }}
               aria-hidden="true"
             >
               {player.initials}

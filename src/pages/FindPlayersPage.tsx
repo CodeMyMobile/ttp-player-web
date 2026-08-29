@@ -15,12 +15,14 @@ import StateBanner from "../components/coaches/StateBanner";
 import { colors, typography, warmPalette } from "../lib/theme";
 import {
   getAllSurveyQuestionAnswered,
+  fetchPlayerDetails,
   getPublicSuggestedPlayerCheckLocation,
   getSuggestedPlayerCheckLocation,
 } from "../api/playerHome";
 import { getStoredAuthToken } from "../services/authToken";
 import type { Player } from "../data/mockPlayers";
 import {
+  extractSuggestedPlayer,
   mapSuggestedPlayer,
   toInitials,
   type DirectoryPlayer,
@@ -1626,6 +1628,46 @@ const FindPlayersPage = () => {
     setVerifiedOnly(false);
     setMode("normal");
   };
+
+  // The viewer's OWN confirmation status, read from their own player record — the same
+  // isLevelConfirmed field every other player carries, via the same endpoint. This is
+  // deliberately NOT /player/verification-level, which is a stub returning
+  // `level: 'Verified'` for everyone; trusting it would mark the whole directory
+  // confirmed. Defaults to false, so a failed or pending fetch hedges the verdict
+  // rather than overstating it.
+  const [viewerConfirmed, setViewerConfirmed] = useState(false);
+
+  useEffect(() => {
+    const viewerId = readViewerId(user);
+    if (!playerToken || !viewerId) {
+      setViewerConfirmed(false);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchPlayerDetails({ token: playerToken, userId: viewerId })
+      .then((payload) => {
+        if (cancelled) return;
+        const record = extractSuggestedPlayer(payload);
+        setViewerConfirmed(Boolean(record?.isLevelConfirmed));
+      })
+      .catch(() => {
+        if (!cancelled) setViewerConfirmed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerToken, user]);
+
+  // What the card needs to describe the match as a relationship rather than a list.
+  const cardViewer = useMemo(
+    () => ({
+      level: matchProfile?.level ?? null,
+      confirmed: viewerConfirmed,
+      courts: toCourtList(matchProfile?.localCourts),
+      availability: (matchProfile?.availability ?? []).map((slot) => toCanonicalAvailability(slot)),
+    }),
+    [matchProfile, viewerConfirmed],
+  );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
