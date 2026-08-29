@@ -60,13 +60,18 @@ const IGNORABLE = [
 ];
 
 /**
- * Google Sign-In logs a client-ID error when VITE_GOOGLE_CLIENT_ID is unset, which is
- * the normal state of a local checkout — there is no .env in the repo. Ignored for
- * localhost only, so a genuine Google auth breakage on a preview or in production is
- * still a failure.
+ * Google Sign-In errors on anything that is not a registered origin, and only
+ * app.thetennisplan.com and localhost:5173 are registered in the Google console. A
+ * local checkout has no VITE_GOOGLE_CLIENT_ID at all, and every deploy-preview URL is
+ * a new hostname that will never be on the list.
+ *
+ * So it is ignored on localhost and on previews — where it is a fact about the
+ * environment, not the page — and left fatal in production, where a GSI error would be
+ * a real sign-in outage.
  */
-const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(base);
-if (isLocal) IGNORABLE.push(/GSI_LOGGER/i);
+const isNonProdOrigin =
+  /^https?:\/\/(localhost|127\.0\.0\.1)/.test(base) || /deploy-preview-\d+--/.test(base);
+if (isNonProdOrigin) IGNORABLE.push(/GSI_LOGGER/i);
 
 const browser = await chromium.launch(
   process.env.CI ? { headless: true } : { channel: "chrome", headless: true },
