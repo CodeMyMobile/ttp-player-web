@@ -152,6 +152,12 @@ test("every builder tolerates junk input rather than throwing", () => {
 });
 
 test("coach availability shows the venue wall-clock time, not the UTC instant", () => {
+  // buildCoachActivities drops anything already past, so the fixture date has to be
+  // relative. A hardcoded one passes until the clock goes by it and then fails
+  // forever, which is what happened to the original version of this test.
+  const soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const startZ = `${soon}T16:00:00.000Z`;
+
   const [item] = buildCoachActivities([
     {
       coach_id: 26,
@@ -159,19 +165,21 @@ test("coach availability shows the venue wall-clock time, not the UTC instant", 
       availability: [
         {
           day: "FRIDAY",
-          date: "2026-08-28",
+          date: soon,
           from: "09:00:00",
           to: "10:00:00",
-          start_date_time: "2026-08-28T16:00:00.000Z",
-          end_date_time: "2026-08-28T17:00:00.000Z",
+          start_date_time: startZ,
+          end_date_time: `${soon}T17:00:00.000Z`,
         },
       ],
     },
   ]);
 
+  // All three read from the venue's own fields rather than from a converted instant,
+  // so they hold in any timezone the suite runs in.
   assert.equal(item.time, "9 AM");
-  assert.equal(item.dayKey, "2026-08-28");
-  assert.equal(item.startTime, "2026-08-28T16:00:00.000Z");
+  assert.equal(item.dayKey, soon);
+  assert.equal(item.startTime, startZ);
 });
 
 // --- window bounding --------------------------------------------------------
