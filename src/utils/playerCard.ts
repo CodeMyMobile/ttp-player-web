@@ -61,7 +61,28 @@ export const matchVerdict = (
 
 export type CourtLine = { text: string; isShared: boolean };
 
-const normalizeCourt = (value: string) => value.trim().toLowerCase();
+/**
+ * Venue comparison has no IDs behind it, so it is label matching — the fuzziest data in
+ * the product, while `sameCourt` is the heaviest weight in the ranking. Normalising does
+ * not make it true, but it raises the floor a long way: the common variants of the same
+ * public court differ only in how the suffix is written.
+ *
+ *   "Penmar Recreation Center" / "Penmar Rec Center" / "Penmar Rec" -> "penmar"
+ *
+ * Still a floor, not a truth: two different venues sharing a first word will collide,
+ * and IDs remain the real fix. `venueMatch: "label"` stays in the analytics so the jump
+ * when IDs land is attributable rather than mysterious.
+ */
+const VENUE_NOISE = /\b(recreation|rec|centre|center|complex|park|public|courts?|tennis|club|the)\b/g;
+
+export const normalizeCourt = (value: string) =>
+  String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9&\s]/g, " ")
+    .replace(/&/g, " and ")
+    .replace(VENUE_NOISE, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 /** Just the venue name — the stored value can carry a full street address. */
 export const courtName = (value: string) => {

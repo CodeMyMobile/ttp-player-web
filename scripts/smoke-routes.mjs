@@ -16,7 +16,18 @@
  * Fixtures carry NO absolute dates. A hardcoded date is what expired the
  * coach-availability test — green the morning it was written, red by the evening.
  *
- * Usage:  node scripts/smoke-routes.mjs <base-url>
+ * Usage:
+ *   node scripts/smoke-routes.mjs <base-url>
+ *   node scripts/smoke-routes.mjs <base-url> --measure
+ *
+ * --measure additionally reports the chrome height above the first player card, in the
+ * SIGNED-IN state. It lives here rather than in a separate script so there is one
+ * browser harness to trust and one place to fix if it lies.
+ *
+ * Signed-in measurement only works against localhost. Google Sign-In allows
+ * app.thetennisplan.com and localhost:5173 as origins, and no deploy-preview hostname
+ * will ever be on that list — so a preview can only ever show the signed-out
+ * projection, which is not the state the curated header and ranking live in.
  */
 // playwright-core carries no browsers. Locally it uses the installed Chrome via
 // channel; in CI the workflow installs chromium first.
@@ -112,6 +123,99 @@ for (const route of ROUTES) {
   const clean = errors.length === 0;
 
   results.push({ ...route, ...outcome, mounted, enoughText, clean, errors });
+}
+
+/* ------------------------------------------------------------------- measure */
+
+if (process.argv.includes("--measure")) {
+  const page = await context.newPage();
+
+  // A session and a match profile, seeded rather than signed in: the point is to render
+  // the member state, not to exercise auth. No absolute dates anywhere.
+  await page.addInitScript(() => {
+    localStorage.setItem("authToken", "token smoke-measurement");
+    // Find Players shows a "location required" state without these, and never reaches
+    // the results at all.
+    localStorage.setItem("player:web:user-location", JSON.stringify({ latitude: 34.0, longitude: -118.45 }));
+    localStorage.setItem("player:web:user-location-label", "Venice, CA");
+    localStorage.setItem(
+      "player:web:match-profile",
+      JSON.stringify({
+        about: "Weekend hitter",
+        level: "4.0",
+        playStyles: ["Singles"],
+        gender: "Female",
+        localCourts: "Penmar Recreation Center",
+        availability: ["Weekdays AM", "Weekends"],
+      }),
+    );
+  });
+
+  const roster = Array.from({ length: 12 }, (_, i) => ({
+    userId: 100 + i,
+    full_name: `Player ${i + 1}`,
+    email: `p${i}@example.test`,
+    skillLevel: ["NTRP 4.0", "NTRP 4.5", "NTRP 3.5"][i % 3],
+    availability: ["Weekdays AM", "Weekends"],
+    lookingFor: ["Singles"],
+    gender: i % 2 ? "female" : "male",
+    playerLocations: ["Penmar Recreation Center 1341 Lake St, Venice, CA"],
+    playerCourtLocations: ["Penmar Recreation Center"],
+    about_me: "Been playing since college, looking for weekend hits.",
+    isLevelConfirmed: i % 2 === 0,
+    verifiedLevelCount: i % 2 === 0 ? 5 : 0,
+    profile_picture: "",
+  }));
+
+  // Predicate, not a glob: "**/api/**" also matches Vite's own /src/api/* modules and
+  // would serve the app's JavaScript as JSON.
+  await page.route(
+    (url) => /getchecklocation|\/surveys\/(answered|questions)/.test(url.pathname),
+    (route) =>
+      route.fulfill({
+        json: /getchecklocation/.test(route.request().url()) ? roster : { questions: [] },
+      }),
+  );
+
+  await page.goto(`${base}/#/find-players`, { waitUntil: "load", timeout: 30000 });
+  await page.waitForTimeout(4000);
+
+  const m = await page.evaluate(() => {
+    const card = document.querySelector(".fp-card");
+    const rows = [...document.querySelectorAll(".fp-controls,.fp-chips,.fp-result-bar,.fp-prompt-header")];
+    return {
+      cards: document.querySelectorAll(".fp-card").length,
+      chromeAboveFirstCard: card ? Math.round(card.getBoundingClientRect().top + scrollY) : null,
+      stamp: document.querySelector(".curated-stamp")?.innerText.replace(/\n/g, " | ") ?? null,
+      topPickFlag: document.querySelector(".fp-card__flag")?.innerText ?? null,
+      promptHeader: document.querySelector(".fp-prompt-header") !== null,
+      verdicts: [...document.querySelectorAll(".fp-card__verdict")].slice(0, 3).map((e) => e.innerText),
+      wrapped: rows
+        .filter((r) => {
+          const kids = [...r.children];
+          if (kids.length < 2) return false;
+          return (
+            Math.round(r.getBoundingClientRect().height) >
+            Math.round(Math.max(...kids.map((k) => k.getBoundingClientRect().height))) + 4
+          );
+        })
+        .map((r) => r.className.split(" ")[0]),
+      bodyScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      // Where the chrome height actually goes, so the total can be judged rather than
+      // just met.
+      breakdown: [
+        ".fc-header", ".fp-controls", ".fp-chips", ".fp-result-bar", ".fp-prompt-header",
+      ].reduce((acc, sel) => {
+        const el = document.querySelector(sel);
+        if (el) acc[sel] = Math.round(el.getBoundingClientRect().height);
+        return acc;
+      }, {}),
+    };
+  });
+
+  console.log("\nFold measurement (signed-in, 390x844)\n");
+  for (const [k, v] of Object.entries(m)) console.log(`  ${k}: ${JSON.stringify(v)}`);
+  await page.close();
 }
 
 await browser.close();

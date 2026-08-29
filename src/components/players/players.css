@@ -1306,3 +1306,53 @@
   cursor: pointer;
   text-align: left;
 }
+
+/* Replaces the curated header for a viewer with no level — never stacked on it. */
+.fp-prompt-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--fc-color-accent-border);
+  border-radius: 14px;
+  background: var(--fc-color-accent-light);
+}
+
+.fp-prompt-header__lead {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-prompt-header__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-prompt-header__cta {
+  margin-top: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--fc-color-accent);
+  color: var(--fc-color-on-accent);
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.fp-card.is-top-pick {
+  border-color: var(--fc-color-accent-border);
+}
+
+.fp-card__flag {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fc-color-accent-ink);
+}

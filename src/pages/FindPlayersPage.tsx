@@ -41,6 +41,8 @@ import {
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
 import PlayersFilterSheet from "../components/players/PlayersFilterSheet";
+import CuratedStamp from "../components/CuratedStamp";
+import { isCurated, rankPlayers } from "../utils/playerRanking";
 import {
   activeChips,
   clearFilter,
@@ -1497,17 +1499,6 @@ const FindPlayersPage = () => {
     });
   }, [status, filteredPlayers.length]);
 
-  // The setup banners are persistently visible, so impressions are recorded once per
-  // page view — per-render would drown every other event.
-  useEffect(() => {
-    if (status !== "ready") return;
-    if (hasIncompleteMatchProfile && matchProfileCheckLoaded) {
-      trackPromptShown("setup_banner_incomplete");
-    }
-    if (!hasProfile && mode !== "error" && !hasIncompleteMatchProfile) {
-      trackPromptShown("setup_banner_none");
-    }
-  }, [status, mode, hasProfile, hasIncompleteMatchProfile, matchProfileCheckLoaded, trackPromptShown]);
 
   const trackClientFilter = useCallback(
     (filter: string, value: string, overrides: Partial<PlayerFilters>) => {
@@ -1654,6 +1645,46 @@ const FindPlayersPage = () => {
     [matchProfile, viewerConfirmed],
   );
 
+  // Ranking runs only when there is something personal to rank against. Without a
+  // level the heaviest signal is missing and the order would be arbitrary dressed up
+  // as a recommendation.
+  const rankingRan = Boolean(hasProfile && cardViewer.level);
+
+  const orderedPlayers = useMemo(
+    () => (rankingRan ? rankPlayers(filteredPlayers, cardViewer) : filteredPlayers),
+    [rankingRan, filteredPlayers, cardViewer],
+  );
+
+  const filtersUntouched = useMemo(
+    () => filtersEqual(appliedFilters, SHEET_DEFAULTS) && !appliedSearchTerm,
+    [appliedFilters, appliedSearchTerm],
+  );
+
+  const curated = useMemo(
+    () =>
+      isCurated({
+        hasProfile: Boolean(hasProfile),
+        hasLevel: Boolean(cardViewer.level),
+        filtersUntouched,
+        rankingRan,
+        resultCount: orderedPlayers.length,
+      }),
+    [hasProfile, cardViewer.level, filtersUntouched, rankingRan, orderedPlayers.length],
+  );
+
+  // Shown instead of the curated header, never stacked on it, so it costs no height.
+  const needsLevelPrompt =
+    status === "ready" && mode === "normal" && !cardViewer.level && orderedPlayers.length > 0;
+
+  // The setup banners are persistently visible, so impressions are recorded once per
+  // page view — per-render would drown every other event.
+  useEffect(() => {
+    if (status !== "ready") return;
+    if (needsLevelPrompt) {
+      trackPromptShown("prompt_header");
+    }
+  }, [status, needsLevelPrompt, trackPromptShown]);
+
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredPlayers.length === 0));
@@ -1686,17 +1717,7 @@ const FindPlayersPage = () => {
           />
 
 
-          {hasIncompleteMatchProfile && matchProfileCheckLoaded && (
-            <section className="fp-profile-setup" aria-label="Set up your match profile">
-              <div>
-                <h2>Add your match profile</h2>
-                <p>Share your level, availability and courts so players can find you too.</p>
-              </div>
-              <button type="button" onClick={() => openProfileModal("setup_banner_incomplete")}>
-                Set up
-              </button>
-            </section>
-          )}
+          
 
           {!hasSearchLocation && matchProfileCheckLoaded && !hasIncompleteMatchProfile && (
             <StateBanner
@@ -1718,17 +1739,7 @@ const FindPlayersPage = () => {
             />
           )}
 
-          {!hasProfile && status === "ready" && mode !== "error" && !hasIncompleteMatchProfile && (
-            <section className="fp-profile-setup" aria-label="Set up your match profile">
-              <div>
-                <h2>Add your match profile</h2>
-                <p>Share your level, availability and courts so players can find you too.</p>
-              </div>
-              <button type="button" onClick={() => openProfileModal("setup_banner_none")}>
-                Set up
-              </button>
-            </section>
-          )}
+          
 
           {/* Above the fold, in order: search + Filters, chips, result bar, cards. */}
           <div className="fp-controls">
@@ -1781,11 +1792,37 @@ const FindPlayersPage = () => {
             </div>
           ) : null}
 
-          {status === "ready" && mode === "normal" ? (
+          {needsLevelPrompt ? (
+            // Replaces the curated header rather than stacking on it — and while it is
+            // showing, the tick explainer stands down. One ask per screen.
+            <section className="fp-prompt-header" aria-label="Add your level">
+              <p className="fp-prompt-header__lead">
+                {orderedPlayers.length} {orderedPlayers.length === 1 ? "player" : "players"} within{" "}
+                {appliedFilters.radius}
+              </p>
+              <p className="fp-prompt-header__body">
+                We can&rsquo;t tell which of them are a good hit for you until we know your level.
+              </p>
+              <button
+                type="button"
+                className="fp-prompt-header__cta"
+                onClick={() => openProfileModal("prompt_header")}
+              >
+                Add my level
+              </button>
+            </section>
+          ) : status === "ready" && mode === "normal" ? (
             <div className="fp-result-bar">
-              <span>
-                {filteredPlayers.length} {filteredPlayers.length === 1 ? "player" : "players"} nearby
-              </span>
+              {curated ? (
+                <CuratedStamp
+                  subject="players"
+                  basis={`${orderedPlayers.length} nearby, ordered by shared courts, overlapping times and closeness of level.`}
+                />
+              ) : (
+                <span>
+                  {orderedPlayers.length} {orderedPlayers.length === 1 ? "player" : "players"} nearby
+                </span>
+              )}
             </div>
           ) : null}
 
@@ -1949,9 +1986,10 @@ const FindPlayersPage = () => {
 
           {shouldShowResults && (
             <div className="players-results-grid">
-              {filteredPlayers.map((player, index) => (
+              {orderedPlayers.map((player, index) => (
                 <PlayerCard
                   key={player.id}
+                  topPick={curated && index === 0}
                   player={player}
                   canConnect={hasCompletedMatchProfile}
                   viewer={cardViewer}

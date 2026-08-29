@@ -33,9 +33,11 @@ type PlayerCardProps = {
   onConnect: (player: Player) => void;
   onViewProfile?: (player: Player) => void;
   viewer?: CardViewer | null;
+  /** First card of a genuinely curated list. Only ever true when the stamp shows. */
+  topPick?: boolean;
 };
 
-const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer }: PlayerCardProps) => {
+const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topPick }: PlayerCardProps) => {
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
@@ -75,7 +77,12 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer }: Pl
   );
 
   return (
-    <article className="fc-card fp-card" aria-label={`${player.name}'s match profile`}>
+    <article
+      className={`fc-card fp-card${topPick ? " is-top-pick" : ""}`}
+      aria-label={`${player.name}'s match profile`}
+    >
+      {/* Gated on the same claim as the stamp — never flagged on an unranked list. */}
+      {topPick ? <p className="fp-card__flag">Closest match for you</p> : null}
       <div className="fp-card__top">
         {/* The photo leads. Square, not a small circle sharing a row with the name. */}
         <div className="fp-card__photo">

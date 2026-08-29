@@ -8,6 +8,7 @@ import {
   initialsBackground,
   initialsForeground,
   matchVerdict,
+  normalizeCourt,
 } from "./playerCard";
 
 /* verdict */
@@ -102,12 +103,33 @@ test("no courts means no line rather than an empty one", () => {
   assert.equal(courtLine(["Penmar"], null), null);
 });
 
-test("label matching under-reports rather than over-reports", () => {
-  // Known limitation: no venue IDs. A near-miss must be a false NEGATIVE.
+test("the obvious suffix variants of one venue are collapsed", () => {
+  // sameCourt is the heaviest weight in the ranking and sits on the fuzziest data we
+  // have, so the floor is raised by normalising before comparing. These are the same
+  // public court written three ways.
+  for (const theirs of ["Penmar Rec Center", "Penmar Rec", "PENMAR RECREATION CENTER"]) {
+    assert.equal(
+      courtLine(["Penmar Recreation Center"], [theirs])?.isShared,
+      true,
+      `${theirs} should match`,
+    );
+  }
   assert.equal(
     courtLine(["Cheviot Hills Recreation Center"], ["Cheviot Hills Tennis Center"])?.isShared,
-    false,
+    true,
   );
+});
+
+test("normalisation strips venue nouns, not the identifying word", () => {
+  assert.equal(normalizeCourt("Penmar Recreation Center"), "penmar");
+  assert.equal(normalizeCourt("Riviera Tennis Club"), "riviera");
+  assert.equal(normalizeCourt("  Stoner   Park  "), "stoner");
+});
+
+test("it is still a floor: genuinely different venues do not match", () => {
+  // Raising the floor must not become over-matching. Different names stay different.
+  assert.equal(courtLine(["Penmar Recreation Center"], ["Stoner Park"])?.isShared, false);
+  assert.equal(courtLine(["Riviera Tennis Club"], ["Palisades Tennis Center"])?.isShared, false);
 });
 
 /* availability */

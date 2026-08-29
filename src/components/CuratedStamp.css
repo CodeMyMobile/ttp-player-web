@@ -1,0 +1,24 @@
+/* Deliberately quiet. The mark earns attention by being rare and true, not loud. */
+.curated-stamp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.curated-stamp__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  /* accent-ink, not accent: this is small text. */
+  color: var(--fc-color-accent-ink, #7C3AED);
+}
+
+.curated-stamp__basis {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--fc-color-text-secondary, #776875);
+}
