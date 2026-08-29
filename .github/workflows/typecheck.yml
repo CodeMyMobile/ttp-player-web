@@ -1,0 +1,22 @@
+name: typecheck
+
+# Both faults that took /find-players down in production on 2026-08-29 were TypeScript
+# errors — "used before its declaration" and "cannot find name". The build, the unit
+# tests and the linter were all green while the page rendered nothing. This is the
+# cheapest check that would have caught them, and it covers every file in the repo.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Blocks a commit whose type errors mean a file cannot run.
+# See scripts/typecheck.mjs for what is gated and why.
+# Bypass with `git commit --no-verify` only when you know the check is wrong.
+node scripts/typecheck.mjs || exit 1
