@@ -2,6 +2,7 @@ import {
   buildAppRedirectUrl,
   buildGatewayShareUrl,
   parseSharePath,
+  venueNameFromAddress,
 } from "../../src/utils/shareLinks.js";
 
 const DEFAULT_API_BASE_URL = "https://api.thetennisplan.com/api";
@@ -74,6 +75,18 @@ function renderSharePage({ title, description, image, gatewayUrl, appUrl }) {
 </head><body></body></html>`;
 }
 
+// Coach descriptions arrive as "<address> · book a lesson". Only the address segment
+// needs reducing; other types are passed through untouched.
+function shareDescription(type, raw) {
+  const text = String(raw ?? "");
+  if (type !== "coach" || !text) return text;
+
+  const parts = text.split(" \u00b7 ");
+  const venue = venueNameFromAddress(parts[0]);
+  const rest = parts.slice(1);
+  return [venue, ...rest].filter(Boolean).join(" \u00b7 ");
+}
+
 export default async (request) => {
   const url = new URL(request.url);
   const parsed = parseSharePath(url.pathname);
@@ -90,9 +103,14 @@ export default async (request) => {
   const data = await loadShareData(type, id);
   const ok = data && data.status === "ok";
 
+  // Share previews are public. The API composes coach descriptions from a stored
+  // Google-formatted address, which carries the street line; reduce it to the venue
+  // name before it reaches a crawler or a link preview.
+  const description = ok ? shareDescription(type, data.description) : DEFAULT_DESCRIPTION;
+
   const html = renderSharePage({
     title: ok ? data.title : DEFAULT_TITLE,
-    description: ok ? data.description : DEFAULT_DESCRIPTION,
+    description,
     image: (ok && data.image) || defaultImage,
     gatewayUrl,
     appUrl,

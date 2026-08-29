@@ -52,6 +52,42 @@ export function buildAppRedirectUrl(type, id, options = {}) {
   return `${normalizeOrigin(options.origin)}/#${buildAppHashPath(type, id)}`;
 }
 
+// Street types, used only to confirm that what follows a number really is a street
+// before we treat the number as the start of an address.
+const STREET_TYPE = /\b(st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|way|ln|lane|ct|court|pl|place|pkwy|parkway|hwy|highway|ter|terrace|cir|circle)\b\.?/i;
+
+/**
+ * Reduce a Google-formatted address to the venue name alone.
+ *
+ * Share previews are public, so the street line must not travel with them: it is
+ * harmless for a public rec centre and not harmless at all if someone's stored venue
+ * is their home. There is no structured venue-name column anywhere, so this derives
+ * one — conservatively, returning the input unchanged when it cannot be sure.
+ *
+ *   "Penmar Recreation Center 1341 Lake St, Venice, CA 90291, USA" -> "Penmar Recreation Center"
+ *   "Court 16 Tennis 123 Main St, Los Angeles, CA"                 -> "Court 16 Tennis"
+ *   "1341 Lake St, Venice, CA"                                     -> ""   (address only)
+ */
+export function venueNameFromAddress(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+
+  // Everything past the first comma is city / region / postcode / country.
+  const head = text.split(",")[0].trim();
+
+  // A bare street address with no venue name in front of it: nothing safe to show.
+  if (/^\d/.test(head) && STREET_TYPE.test(head)) return "";
+
+  // Greedy on purpose: cut at the LAST number, so venue names that contain their own
+  // number ("Court 16") survive intact.
+  const match = head.match(/^(.*)\s+\d+[A-Za-z]?\s+(.+)$/);
+  if (match && STREET_TYPE.test(match[2]) && match[1].trim().length > 0) {
+    return match[1].trim();
+  }
+
+  return head;
+}
+
 export function parseSharePath(pathname) {
   if (typeof pathname !== "string") return null;
   const match = pathname.match(/^\/s\/([^/]+)\/([^/?#]+)/);
