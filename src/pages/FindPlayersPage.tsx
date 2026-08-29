@@ -41,6 +41,7 @@ import {
   track,
 } from "../utils/analytics";
 import { levelNumber, nearLevelRange, rankableLevelOptions } from "../utils/levelScope";
+import { handleImageTransformError, sizedImageUrl } from "../utils/playerImage";
 import type { ConnectIntent } from "../types/matchPlay";
 import {
   buildMatchProfileFromSurvey,
@@ -281,7 +282,8 @@ const renderAvatar = (
   if (avatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={sizedImageUrl(avatarUrl, { size: Number.parseInt(size, 10) || 48 })}
+        onError={(event) => handleImageTransformError(event, avatarUrl)}
         alt={label}
         style={{
           width: size,

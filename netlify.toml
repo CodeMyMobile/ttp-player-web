@@ -25,6 +25,12 @@
   VITE_HOME_V2 = "true"
 
 
+# Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
+# ~320KB) and rendered into a 48px slot, so they are resized at the edge instead of
+# shipped whole. Remote sources must be allow-listed here or the transform 404s.
+[images]
+  remote_images = ["https://ttp-avatars-production\\.s3\\.amazonaws\\.com/.*"]
+
 # Permanent (301) redirects from the long-form legal URLs to the canonical
 # short URLs. These MUST come before the SPA catch-all below — Netlify applies
 # redirect rules top-to-bottom, first match wins.
