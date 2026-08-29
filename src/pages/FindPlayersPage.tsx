@@ -1,8 +1,12 @@
 /// <reference types="google.maps" />
 
 import Autocomplete from "react-google-autocomplete";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
+import { useAuth } from "../context/AuthContext";
+import { readViewerId } from "../hooks/useHomeStatus";
 
 import MainLayout from "../components/MainLayout";
 import ResultsHeader from "../components/coaches/ResultsHeader";
@@ -36,6 +40,16 @@ import {
   type Coordinates,
 } from "../utils/userLocation";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
+import PlayersFilterSheet from "../components/players/PlayersFilterSheet";
+import {
+  activeChips,
+  clearFilter,
+  countNonDefault,
+  filtersEqual,
+  resetToDefaults,
+  type FilterKey,
+  type PlayerFilterState,
+} from "../utils/playerFilters";
 import {
   ANALYTICS_EVENTS,
   RANKING_VERSION_NONE,
@@ -77,6 +91,15 @@ const playTypeOptions = ["All play types", "Singles", "Doubles", "Mixed", "Socia
 const availabilityOptions = ["All availability", "Weekdays AM", "Weekday PM", "Weekends"];
 
 const normalize = (value: string) => value.trim().toLowerCase();
+
+const SHEET_DEFAULTS: PlayerFilterState = {
+  radius: radiusOptions[1],
+  level: levelOptions[0],
+  gender: genderOptions[0],
+  playType: playTypeOptions[0],
+  availability: availabilityOptions[0],
+  verifiedOnly: false,
+};
 
 type PlayerFilters = {
   searchTerm: string;
@@ -868,13 +891,21 @@ const FindPlayersPage = () => {
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<string>(radiusOptions[1]);
-  const [appliedRadius, setAppliedRadius] = useState<string>(radiusOptions[1]);
-  const [selectedLevel, setSelectedLevel] = useState<string>(levelOptions[0]);
-  const [selectedGender, setSelectedGender] = useState<string>(genderOptions[0]);
-  const [selectedPlayType, setSelectedPlayType] = useState<string>(playTypeOptions[0]);
-  const [selectedAvailability, setSelectedAvailability] = useState<string>(availabilityOptions[0]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  // Applied is what the results reflect. Draft is what the sheet is editing and
+  // commits nothing until Apply — five of these used to take effect on the tap that
+  // set them, which cannot work behind a sheet that covers the results.
+  const [appliedFilters, setAppliedFilters] = useState<PlayerFilterState>(SHEET_DEFAULTS);
+  const [draftFilters, setDraftFilters] = useState<PlayerFilterState>(SHEET_DEFAULTS);
+  const [isSheetOpen, setSheetOpen] = useState(false);
+  const filtersButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const selectedRadius = appliedFilters.radius;
+  const appliedRadius = appliedFilters.radius;
+  const selectedLevel = appliedFilters.level;
+  const selectedGender = appliedFilters.gender;
+  const selectedPlayType = appliedFilters.playType;
+  const selectedAvailability = appliedFilters.availability;
+  const verifiedOnly = appliedFilters.verifiedOnly;
   const [players, setPlayers] = useState<DirectoryPlayer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
@@ -891,6 +922,7 @@ const FindPlayersPage = () => {
   const hasMatchProfile = Boolean(matchProfile);
   const hasCompletedMatchProfile = hasMatchProfile && matchProfileCheckLoaded && !hasIncompleteMatchProfile;
   const hasProfile = hasCompletedMatchProfile;
+  const { user } = useAuth();
   const { displayName } = usePlayerIdentity();
   const storedLocation = useMemo(() => getStoredLocation(), []);
   const [position, setPosition] = useState<Coordinates | null>(storedLocation);
@@ -1571,6 +1603,47 @@ const FindPlayersPage = () => {
     [filteredPlayers.length, countMatching],
   );
 
+  const chips = useMemo(
+    () =>
+      activeChips(appliedFilters, SHEET_DEFAULTS, {
+        viewerLevel: matchProfile?.level ?? null,
+        nearRange,
+      }),
+    [appliedFilters, matchProfile, nearRange],
+  );
+
+  const openSheet = useCallback(() => {
+    setDraftFilters(appliedFilters);
+    setSheetOpen(true);
+  }, [appliedFilters]);
+
+  // Scrim, Escape and the close button all discard: the draft is thrown away and the
+  // applied state is untouched.
+  const dismissSheet = useCallback(() => {
+    setDraftFilters(appliedFilters);
+    setSheetOpen(false);
+    filtersButtonRef.current?.focus();
+  }, [appliedFilters]);
+
+  const applySheet = useCallback(() => {
+    if (!filtersEqual(draftFilters, appliedFilters)) {
+      const before = filteredPlayers.length;
+      setAppliedFilters(draftFilters);
+      pendingFilterEvent.current = { filter: "sheet", value: "apply", before };
+      if (draftFilters.radius !== appliedFilters.radius) setMode("normal");
+    }
+    setSheetOpen(false);
+    filtersButtonRef.current?.focus();
+  }, [draftFilters, appliedFilters, filteredPlayers.length]);
+
+  const clearOneFilter = useCallback(
+    (key: FilterKey) => {
+      trackClientFilter(String(key), "cleared", {});
+      setAppliedFilters((current) => clearFilter(current, SHEET_DEFAULTS, key));
+      if (key === "radius") setMode("normal");
+    },
+    [trackClientFilter],
+  );
 
 
   const handleSearch = () => {
@@ -1586,48 +1659,42 @@ const FindPlayersPage = () => {
 
   const handleRadiusChange = (radius: string) => {
     pendingFilterEvent.current = { filter: "distance", value: radius, before: filteredPlayers.length };
-    setSelectedRadius(radius);
-    setAppliedRadius(radius);
+    setAppliedFilters((current) => ({ ...current, radius }));
     setMode("normal");
   };
 
   const handleLevelChange = (level: string) => {
     trackClientFilter("level", level, { level: level });
-    setSelectedLevel(level);
+    setAppliedFilters((current) => ({ ...current, level: level }));
   };
 
   const handleGenderChange = (gender: string) => {
     trackClientFilter("gender", gender, { gender: gender });
-    setSelectedGender(gender);
+    setAppliedFilters((current) => ({ ...current, gender: gender }));
   };
 
   const handlePlayTypeChange = (playType: string) => {
     trackClientFilter("style", playType, { playType: playType });
-    setSelectedPlayType(playType);
+    setAppliedFilters((current) => ({ ...current, playType: playType }));
   };
 
   const handleAvailabilityChange = (availability: string) => {
     trackClientFilter("when", availability, { availability: availability });
-    setSelectedAvailability(availability);
+    setAppliedFilters((current) => ({ ...current, availability: availability }));
   };
 
   const handleVerifiedToggle = (next: boolean) => {
     trackClientFilter("confirmed", String(next), { verifiedOnly: next });
-    setVerifiedOnly(next);
+    setAppliedFilters((current) => ({ ...current, verifiedOnly: next }));
   };
 
   const resetFilters = () => {
     setSearchTerm("");
     setAppliedSearchTerm("");
-    setSelectedRadius(radiusOptions[1]);
-    setAppliedRadius(radiusOptions[1]);
-    setSelectedLevel(levelOptions[0]);
-    setSelectedGender(genderOptions[0]);
-    setSelectedPlayType(playTypeOptions[0]);
-    setSelectedAvailability(availabilityOptions[0]);
-    setVerifiedOnly(false);
+    setAppliedFilters(resetToDefaults(SHEET_DEFAULTS));
     setMode("normal");
   };
+;
 
   // The viewer's OWN confirmation status, read from their own player record — the same
   // isLevelConfirmed field every other player carries, via the same endpoint. This is
@@ -1760,6 +1827,67 @@ const FindPlayersPage = () => {
             </section>
           )}
 
+          {/* Above the fold, in order: search + Filters, chips, result bar, cards. */}
+          <div className="fp-controls">
+            <div className="fp-controls__search">
+              <input
+                className="fc-filter__search-input fp-search-input"
+                type="search"
+                value={searchTerm}
+                placeholder="Search players by name"
+                aria-label="Search players by name"
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleSearch();
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="fp-filters-button"
+              ref={filtersButtonRef}
+              aria-haspopup="dialog"
+              aria-expanded={isSheetOpen}
+              onClick={openSheet}
+            >
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="fp-filters-button__count">{activeFilterCount}</span>
+              ) : null}
+            </button>
+          </div>
+
+          {chips.length > 0 ? (
+            <div className="fp-chips" role="list" aria-label="Active filters">
+              {chips.map((chip) => (
+                <span className="fp-chip" role="listitem" key={chip.key}>
+                  {chip.label}
+                  <button
+                    type="button"
+                    className="fp-chip__clear"
+                    aria-label={`Clear ${chip.label}`}
+                    onClick={() => clearOneFilter(chip.key)}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              <button type="button" className="fp-chip fp-chip--add" onClick={openSheet}>
+                + Add filter
+              </button>
+            </div>
+          ) : null}
+
+          {status === "ready" && mode === "normal" ? (
+            <div className="fp-result-bar">
+              <span>
+                {filteredPlayers.length} {filteredPlayers.length === 1 ? "player" : "players"} nearby
+              </span>
+            </div>
+          ) : null}
+
+          {/* Desktop keeps the filters inline — same controls, different container. */}
+          <div className="fp-desktop-filters">
           <PlayersFilterBar
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
@@ -1793,6 +1921,8 @@ const FindPlayersPage = () => {
             verifiedOnly={verifiedOnly}
             onVerifiedOnlyChange={handleVerifiedToggle}
           />
+          </div>
+
 
           {showLocationPicker ? (
             <section className="fp-location-panel" id="player-location-picker" aria-label="Location picker">
@@ -1965,6 +2095,31 @@ const FindPlayersPage = () => {
         }}
         senderAvailability={matchProfile?.availability ?? []}
         senderCourts={matchProfile?.localCourts ?? ""}
+      />
+
+      <PlayersFilterSheet
+        isOpen={isSheetOpen}
+        draft={draftFilters}
+        applied={appliedFilters}
+        defaults={SHEET_DEFAULTS}
+        groups={[
+          { key: "radius", label: "Within", options: radiusOptions },
+          { key: "level", label: "Level", options: levelOptions },
+          { key: "availability", label: "When", options: availabilityOptions },
+          { key: "playType", label: "Style", options: playTypeOptions },
+          { key: "gender", label: "Gender", options: genderOptions },
+        ]}
+        countForDraft={countMatching({
+          level: draftFilters.level,
+          gender: draftFilters.gender,
+          playType: draftFilters.playType,
+          availability: draftFilters.availability,
+          verifiedOnly: draftFilters.verifiedOnly,
+        })}
+        onDraftChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
+        onApply={applySheet}
+        onDismiss={dismissSheet}
+        onReset={() => setDraftFilters(resetToDefaults(SHEET_DEFAULTS))}
       />
 
       <MatchProfileModal

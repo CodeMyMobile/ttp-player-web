@@ -1137,3 +1137,263 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ------------------------------------------------- above-the-fold chrome */
+
+/* Search + Filters share one row; the button never wraps below the field. */
+.fp-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.fp-controls__search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fp-filters-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fp-filters-button__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--fc-color-accent);
+  color: var(--fc-color-on-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Scrolls sideways rather than wrapping — wrapping is where the height went. */
+.fp-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.fp-chips::-webkit-scrollbar { display: none; }
+
+.fp-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--fc-color-accent-border);
+  background: var(--fc-color-accent-light);
+  /* accent-ink: chip labels are small text. */
+  color: var(--fc-color-accent-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fp-chip__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.fp-chip--add {
+  border-style: dashed;
+  border-color: var(--fc-color-border);
+  background: transparent;
+  color: var(--fc-color-text-secondary);
+  cursor: pointer;
+}
+
+.fp-result-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fc-color-text-secondary);
+}
+
+/* ------------------------------------------------------------- the sheet */
+
+.fp-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.fp-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(35, 29, 37, 0.5);
+  cursor: pointer;
+}
+
+.fp-sheet__panel {
+  position: relative;
+  width: min(100%, 36rem);
+  max-height: min(88vh, 44rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--fc-color-surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -24px 64px rgba(60, 40, 50, 0.24);
+}
+
+.fp-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+
+.fp-sheet__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-sheet__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fc-color-surface-muted);
+  color: var(--fc-color-text-muted);
+  cursor: pointer;
+}
+
+.fp-sheet__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.fp-sheet__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fp-sheet__legend {
+  padding: 0 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-color-text-secondary);
+}
+
+.fp-sheet__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fp-sheet__option {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-muted);
+  font-size: 13.5px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.fp-sheet__option.is-selected {
+  border-color: var(--fc-color-accent-border);
+  background: var(--fc-color-accent-light);
+  color: var(--fc-color-accent-ink);
+  font-weight: 650;
+}
+
+.fp-sheet__switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
+  color: var(--fc-color-text-primary);
+  cursor: pointer;
+}
+
+.fp-sheet__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+}
+
+.fp-sheet__reset {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--fc-color-accent-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 2px;
+}
+
+.fp-sheet__apply {
+  flex: 1 1 auto;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--fc-color-accent);
+  color: var(--fc-color-on-accent);
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+/* Sheet is mobile only; desktop keeps the existing inline filter bar. */
+@media (min-width: 769px) {
+  .fp-sheet { display: none; }
+  .fp-filters-button { display: none; }
+}
+
+@media (max-width: 768px) {
+  .fp-desktop-filters { display: none; }
+}
