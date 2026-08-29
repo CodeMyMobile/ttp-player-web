@@ -1,6 +1,6 @@
 .find-players-page {
   min-height: 100vh;
-  background-color: #f8fafc;
+  background-color: var(--fc-color-line-soft);
   display: flex;
   flex-direction: column;
 }
@@ -58,7 +58,7 @@
   border-radius: 14px;
   border: 1px solid rgba(2, 122, 72, 0.24);
   background-color: rgba(2, 122, 72, 0.1);
-  color: #027a48;
+  color: var(--fc-color-good);
   font-weight: 700;
   font-size: 14px;
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -146,8 +146,8 @@
   gap: 0;
   padding: 0;
   border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--fc-color-surface);
+  border: 1px solid var(--fc-color-border);
   box-shadow: none;
   overflow: hidden;
   transition: box-shadow 0.12s ease;
@@ -162,7 +162,7 @@
   flex-direction: column;
   gap: 0;
   padding: 14px 14px 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--fc-color-surface-muted);
 }
 
 .fp-card__identity-block {
@@ -183,8 +183,10 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(140deg, #6b21a8, #4f46e5);
-  color: #f5f3ff;
+  /* Initials fallback: brand purple pair, matching the app's gradient convention.
+     The old purple-800 -> indigo-600 ramp was neither brand colour. */
+  background: linear-gradient(140deg, var(--fc-color-accent), var(--fc-color-accent-ink));
+  color: var(--fc-color-on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,14 +217,14 @@
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0;
-  color: #0f172a;
+  color: var(--fc-color-text-primary);
 }
 
 .fp-card__location {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--fc-color-text-muted);
 }
 
 .fp-card__badges {
@@ -250,14 +252,14 @@
 }
 
 .fp-card__badge--level {
-  background: #ede9fe;
+  background: var(--fc-color-accent-light);
   color: var(--color-primary-dark);
 }
 
 .fp-card__badge--verified {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #15803d;
+  background: var(--fc-color-good-soft);
+  border: 1px solid var(--fc-color-good-line);
+  color: var(--fc-color-good);
 }
 
 .fp-card__badge--verified svg {
@@ -270,7 +272,7 @@
   flex-direction: column;
   gap: 0;
   padding: 12px 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--fc-color-surface-muted);
 }
 
 .fp-card__section {
@@ -287,7 +289,7 @@
   margin: 0;
   font-size: 13px;
   font-weight: 400;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   line-height: 1.55;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -305,13 +307,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #94a3b8;
+  color: var(--fc-color-text-secondary);
 }
 
 .fp-card__section-value {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--fc-color-text-primary);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -328,7 +330,7 @@
   justify-content: center;
   padding: 3px 8px;
   border-radius: 999px;
-  background: #ede9fe;
+  background: var(--fc-color-accent-light);
   border: 0;
   color: var(--color-primary-dark);
   font-size: 11px;
@@ -341,14 +343,14 @@
 .fp-card__availability-empty {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--fc-color-text-muted);
 }
 
 .fp-card__section-value--location {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #1e293b;
+  color: var(--fc-color-text-primary);
 }
 
 .fp-card__location-list {
@@ -361,18 +363,18 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 400;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   line-height: 1.35;
   margin-right: 4px;
 }
 
 .fp-card__location-item svg {
   width: 13px;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
 }
 
 .fp-card__location-item--empty {
-  color: #475569;
+  color: var(--fc-color-text-muted);
 }
 
 .fp-card__actions {
@@ -392,21 +394,21 @@
 }
 
 .fp-card__view-profile {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  color: #64748b;
+  background: var(--fc-color-line-soft);
+  border: 1.5px solid var(--fc-color-border);
+  color: var(--fc-color-text-secondary);
   box-shadow: none;
   flex-grow: 0.65;
 }
 
 .fp-card__view-profile:hover {
-  background: #f1f5f9;
+  background: var(--fc-color-surface-muted);
 }
 
 .fp-card__connect {
   background: var(--color-primary);
   border: none;
-  color: #ffffff;
+  color: var(--fc-color-on-accent);
   box-shadow: none;
   flex-grow: 1.35;
 }
@@ -584,8 +586,8 @@
 
 .fp-profile-summary,
 .fp-profile-setup {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--fc-color-surface);
+  border: 1px solid var(--fc-color-border);
   border-radius: 14px;
 }
 
@@ -618,7 +620,7 @@
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--fc-color-text-primary);
 }
 
 .fp-profile-summary__badges,
@@ -639,20 +641,20 @@
 }
 
 .fp-pill--purple {
-  background: #ede9fe;
+  background: var(--fc-color-accent-light);
   color: var(--color-primary-dark);
 }
 
 .fp-pill--green {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #15803d;
+  background: var(--fc-color-good-soft);
+  border: 1px solid var(--fc-color-good-line);
+  color: var(--fc-color-good);
 }
 
 .fp-profile-summary__divider {
   width: 1px;
   height: 36px;
-  background: #e2e8f0;
+  background: var(--fc-color-border);
   flex-shrink: 0;
 }
 
@@ -670,7 +672,7 @@
 .fp-profile-summary__label {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--fc-color-text-secondary);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -679,7 +681,7 @@
   margin: 0;
   min-width: 0;
   font-size: 12px;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -689,11 +691,11 @@
   flex-shrink: 0;
   padding: 7px 16px;
   border-radius: 9px;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--fc-color-line-soft);
+  color: var(--fc-color-text-secondary);
   font-size: 12px;
   font-weight: 600;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--fc-color-border);
   cursor: pointer;
   font-family: inherit;
 }
@@ -704,7 +706,7 @@
   gap: 14px;
   justify-content: space-between;
   padding: 16px;
-  color: #ffffff;
+  color: var(--fc-color-on-accent);
   border: 0;
   background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
 }
@@ -726,7 +728,7 @@
   flex-shrink: 0;
   padding: 9px 16px;
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--fc-color-surface);
   color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: 700;
@@ -741,8 +743,8 @@
   gap: 12px;
   padding: 14px 20px;
   border-radius: 14px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
   box-shadow: none;
 }
 
@@ -759,11 +761,11 @@
   width: 100%;
   min-height: 44px;
   padding: 11px 14px 11px 40px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--fc-color-border);
   border-radius: 12px;
   font-size: 14px;
-  color: #1e293b;
-  background: #ffffff;
+  color: var(--fc-color-text-primary);
+  background: var(--fc-color-surface);
   outline: none;
 }
 
@@ -776,7 +778,7 @@
   left: 13px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--fc-color-icon);
   pointer-events: none;
 }
 
@@ -786,7 +788,7 @@
   gap: 12px;
   flex-wrap: wrap;
   padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--fc-color-surface-muted);
 }
 
 .fc-filter__row:first-of-type {
@@ -798,7 +800,7 @@
   min-width: 60px;
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--fc-color-text-secondary);
   text-transform: uppercase;
 }
 
@@ -817,24 +819,24 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--fc-color-border);
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   cursor: pointer;
-  background: #ffffff;
+  background: var(--fc-color-surface);
   font-family: inherit;
   white-space: nowrap;
 }
 
 .fc-distance-chip--active {
   border-color: var(--color-primary);
-  background: #ede9fe;
+  background: var(--fc-color-accent-light);
   color: var(--color-primary-dark);
 }
 
 .fc-distance-chip--location {
-  color: #475569;
+  color: var(--fc-color-text-muted);
 }
 
 .fc-filter__more {
@@ -844,11 +846,11 @@
   align-self: flex-start;
   padding: 7px 14px;
   border-radius: 20px;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  background: var(--fc-color-surface);
+  border: 1.5px solid var(--fc-color-border);
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   cursor: pointer;
   font-family: inherit;
 }
@@ -864,7 +866,7 @@
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--fc-color-text-secondary);
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
@@ -889,13 +891,13 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--fc-color-surface);
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
   transition: transform 0.18s ease;
 }
 
 .fp-verified-toggle--active {
-  color: var(--fc-color-accent);
+  color: var(--fc-color-accent-ink);
   background: transparent;
 }
 
@@ -961,7 +963,7 @@
 
   .fp-profile-summary__primary {
     padding: 12px 14px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--fc-color-surface-muted);
   }
 
   .fp-profile-summary__divider {

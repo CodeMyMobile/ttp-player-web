@@ -12,7 +12,7 @@ import PlayerCardSkeleton from "../components/players/PlayerCardSkeleton";
 import MatchProfileModal from "../components/players/MatchProfileModal";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
 import StateBanner from "../components/coaches/StateBanner";
-import { colors, typography } from "../lib/theme";
+import { colors, typography, warmPalette } from "../lib/theme";
 import {
   getAllSurveyQuestionAnswered,
   getPublicSuggestedPlayerCheckLocation,
@@ -1242,30 +1242,49 @@ const FindPlayersPage = () => {
 
   const themeVars = useMemo(
     () => ({
-      "--fc-color-bg": colors.pageBackground,
-      "--fc-color-surface": colors.surface,
-      "--fc-color-text-primary": colors.primaryText,
-      "--fc-color-text-secondary": colors.secondaryText,
-      "--fc-color-text-muted": colors.mutedText,
-      "--fc-color-border": colors.border,
-      "--fc-color-icon": colors.icon,
-      "--fc-color-accent": colors.accentPurple,
-      "--fc-color-accent-light": colors.accentPurpleLight,
-      "--fc-color-accent-border": colors.accentPurpleBorder,
-      "--fc-chip-bg": colors.filterChipBg,
-      "--fc-chip-hover-bg": colors.filterChipHover,
-      "--fc-chip-text": colors.secondaryButtonText,
-      "--fc-color-secondary-border": colors.secondaryButtonBorder,
-      "--fc-color-secondary-text": colors.secondaryButtonText,
-      "--fc-color-secondary-hover": colors.secondaryButtonHover,
-      "--fc-color-success": colors.primarySuccess,
+      // Warm neutrals. The existing --fc-* names are kept so nothing downstream has to
+      // change; only what they resolve to does.
+      "--fc-color-bg": warmPalette.ground,
+      "--fc-color-surface": warmPalette.surface,
+      "--fc-color-text-primary": warmPalette.ink,
+      "--fc-color-text-secondary": warmPalette.muted,
+      "--fc-color-text-muted": warmPalette.inkSecondary,
+      "--fc-color-border": warmPalette.line,
+      "--fc-color-icon": warmPalette.faint,
+      // accent = fills only; accent-ink = every piece of text. See warmPalette.
+      "--fc-color-accent": warmPalette.accent,
+      "--fc-color-accent-ink": warmPalette.accentInk,
+      "--fc-color-accent-light": warmPalette.accentSoft,
+      "--fc-color-accent-border": warmPalette.accentLine,
+      "--fc-color-on-accent": warmPalette.onAccent,
+      "--fc-chip-bg": warmPalette.surfaceMuted,
+      "--fc-chip-hover-bg": warmPalette.lineSoft,
+      "--fc-chip-text": warmPalette.inkSecondary,
+      "--fc-color-panel": warmPalette.panel,
+      "--fc-color-surface-muted": warmPalette.surfaceMuted,
+      "--fc-color-line-soft": warmPalette.lineSoft,
+      "--fc-color-good": warmPalette.good,
+      "--fc-color-good-soft": warmPalette.goodSoft,
+      "--fc-color-good-line": warmPalette.goodLine,
+      "--fc-color-warm": warmPalette.warm,
+      "--fc-color-warm-soft": warmPalette.warmSoft,
+      "--fc-color-secondary-border": warmPalette.line,
+      "--fc-color-secondary-text": warmPalette.inkSecondary,
+      "--fc-color-secondary-hover": warmPalette.lineSoft,
+      // Success reuses the palette's `good`, so the confirmed-rating tick and every
+      // other affirmative mark are one colour.
+      "--fc-color-success": warmPalette.good,
       "--fc-color-success-hover": colors.primarySuccessHover,
+      // Error stays semantic — there is no warm red, and a warmed one would read as a
+      // warning rather than an error.
       "--fc-color-error-bg": colors.errorBg,
       "--fc-color-error-border": colors.errorBorder,
       "--fc-color-error-text": colors.errorText,
-      "--fc-color-empty-icon-bg": colors.emptyIconBg,
-      "--fc-color-skeleton-base": colors.skeletonBase,
-      "--fc-color-skeleton-highlight": colors.skeletonHighlight,
+      // Neutrals warm up with everything else; a cool skeleton against a warm ground
+      // reads as a rendering fault.
+      "--fc-color-empty-icon-bg": warmPalette.surfaceMuted,
+      "--fc-color-skeleton-base": warmPalette.line,
+      "--fc-color-skeleton-highlight": warmPalette.lineSoft,
       "--fc-font-family": typography.fontFamily,
       "--fc-heading-size": typography.heading1.size,
       "--fc-heading-line-height": typography.heading1.lineHeight,
