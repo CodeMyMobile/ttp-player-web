@@ -1308,21 +1308,30 @@ const FindPlayersPage = () => {
     setConnectModalPlayer(null);
   }, []);
 
+  // Identical properties on connect_clicked and connect_sent, so the two are directly
+  // comparable and the gap between them reads as the gate's conversion rate.
+  const buildConnectProps = useCallback(
+    (player: DirectoryPlayer, position: number | null) => ({
+      position: typeof position === "number" ? position + 1 : null,
+      resultCount: filteredPlayers.length,
+      rankingVersion: RANKING_VERSION_NONE,
+      inRange: nearRange.length > 0 ? nearRange.includes(player.level) : null,
+      viewerTier,
+      targetConfirmed: Boolean(player.verified),
+      targetConfirmationCount: player.verificationCount ?? 0,
+      targetHasPhoto: Boolean(player.profileImageUrl),
+      sameCourt: player.localCourts.some((court) => viewerCourts.includes(normalize(court))),
+      venueMatch: VENUE_MATCH_LABEL,
+    }),
+    [filteredPlayers.length, nearRange, viewerCourts, viewerTier],
+  );
+
   const openConnectModalForPlayer = useCallback(
     (player: DirectoryPlayer, position?: number) => {
-      // Fires on intent, whether or not the profile gate then intercepts.
-      track(ANALYTICS_EVENTS.connectClicked, {
-        position: typeof position === "number" ? position + 1 : null,
-        resultCount: filteredPlayers.length,
-        rankingVersion: RANKING_VERSION_NONE,
-        inRange: nearRange.length > 0 ? nearRange.includes(player.level) : null,
-        viewerTier,
-        targetConfirmed: Boolean(player.verified),
-        targetConfirmationCount: player.verificationCount ?? 0,
-        targetHasPhoto: Boolean(player.profileImageUrl),
-        sameCourt: player.localCourts.some((court) => viewerCourts.includes(normalize(court))),
-        venueMatch: VENUE_MATCH_LABEL,
-      });
+      // Intent, not completion — the gate may still intercept, and the player may
+      // close the modal. connect_sent is the completed action.
+      track(ANALYTICS_EVENTS.connectClicked, buildConnectProps(player, position ?? null));
+      setConnectModalPosition(typeof position === "number" ? position : null);
 
       if (!hasCompletedMatchProfile) {
         if (!playerToken) {
@@ -1336,17 +1345,7 @@ const FindPlayersPage = () => {
       setConnectModalPlayer(player);
       setConnectModalOpen(true);
     },
-    [
-      filteredPlayers.length,
-      hasCompletedMatchProfile,
-      nearRange,
-      openProfileModal,
-      playerToken,
-      requireSignIn,
-      trackPromptShown,
-      viewerCourts,
-      viewerTier,
-    ],
+    [buildConnectProps, hasCompletedMatchProfile, openProfileModal, playerToken, requireSignIn, trackPromptShown],
   );
 
   const handleShareIntro = useCallback(
@@ -1419,6 +1418,7 @@ const FindPlayersPage = () => {
   const viewedFired = useRef(false);
   const pendingFilterEvent = useRef<{ filter: string; value: string; before: number } | null>(null);
   const [promptTrigger, setPromptTrigger] = useState<string | null>(null);
+  const [connectModalPosition, setConnectModalPosition] = useState<number | null>(null);
 
   const activeFilterCount = useMemo(
     () => countActiveFilters(activeFilters, selectedRadius),
@@ -1877,12 +1877,20 @@ const FindPlayersPage = () => {
         }
         onShareIntro={() => {
           if (connectModalPlayer) {
+            track(ANALYTICS_EVENTS.connectSent, {
+              ...buildConnectProps(connectModalPlayer, connectModalPosition),
+              method: "sms_intro",
+            });
             closeConnectModal();
             handleShareIntro(connectModalPlayer);
           }
         }}
         onCreateMatch={() => {
           if (connectModalPlayer) {
+            track(ANALYTICS_EVENTS.connectSent, {
+              ...buildConnectProps(connectModalPlayer, connectModalPosition),
+              method: "match_invite",
+            });
             handleCreateMatchPlayIntent(connectModalPlayer);
           }
         }}

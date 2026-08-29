@@ -15,6 +15,12 @@
  * Prefer a version string over a boolean: a boolean that is always false gets deleted by
  * someone tidying up, a version string explains itself.
  *
+ * INTENT vs COMPLETION:
+ * `connect_clicked` is intent — it fires when Connect is tapped, before the profile
+ * gate can intercept and before the player has done anything. `connect_sent` is the
+ * completed action. Both carry identical properties, so the gap between them is the
+ * gate's conversion rate; do not read `connect_clicked` as a count of connections made.
+ *
  * No provider is wired yet, so `track` is a no-op. Call `setAnalyticsProvider` once at
  * startup when one is chosen; nothing at the call sites changes.
  */
@@ -27,6 +33,7 @@ export const ANALYTICS_EVENTS = {
   findPlayersViewed: "find_players_viewed",
   filtersApplied: "filters_applied",
   connectClicked: "connect_clicked",
+  connectSent: "connect_sent",
   profilePromptShown: "profile_prompt_shown",
   profilePromptClicked: "profile_prompt_clicked",
   matchProfileCompleted: "match_profile_completed",

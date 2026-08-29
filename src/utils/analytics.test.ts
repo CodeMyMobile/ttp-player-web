@@ -58,6 +58,7 @@ test("event names are the agreed strings", () => {
     findPlayersViewed: "find_players_viewed",
     filtersApplied: "filters_applied",
     connectClicked: "connect_clicked",
+    connectSent: "connect_sent",
     profilePromptShown: "profile_prompt_shown",
     profilePromptClicked: "profile_prompt_clicked",
     matchProfileCompleted: "match_profile_completed",
