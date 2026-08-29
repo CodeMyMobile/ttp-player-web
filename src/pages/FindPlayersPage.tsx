@@ -1879,6 +1879,7 @@ const FindPlayersPage = () => {
                   key={player.id}
                   player={player}
                   canConnect={hasCompletedMatchProfile}
+                  viewer={cardViewer}
                   onConnect={(nextPlayer) => openConnectModalForPlayer(nextPlayer as DirectoryPlayer, index)}
                   onViewProfile={(nextPlayer) => {
                     navigate(`/players/${nextPlayer.id}`, {

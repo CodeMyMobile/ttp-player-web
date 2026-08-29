@@ -157,52 +157,10 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-.fp-card__header {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 14px 14px 12px;
-  border-bottom: 1px solid var(--fc-color-surface-muted);
-}
 
-.fp-card__identity-block {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
 
-.fp-card__identity-media {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  min-width: 48px;
-}
 
-.fp-card__avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  /* Initials fallback: brand purple pair, matching the app's gradient convention.
-     The old purple-800 -> indigo-600 ramp was neither brand colour. */
-  background: linear-gradient(140deg, var(--fc-color-accent), var(--fc-color-accent-ink));
-  color: var(--fc-color-on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0;
-  box-shadow: none;
-  overflow: hidden;
-}
 
-.fp-card__avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
 
 
 .fp-card__identity {
@@ -227,63 +185,14 @@
   color: var(--fc-color-text-muted);
 }
 
-.fp-card__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
 
-.fp-card__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 9px;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
 
-.fp-card__badge strong {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
 
-.fp-card__badge--level {
-  background: var(--fc-color-accent-light);
-  color: var(--color-primary-dark);
-}
 
-.fp-card__badge--verified {
-  background: var(--fc-color-good-soft);
-  border: 1px solid var(--fc-color-good-line);
-  color: var(--fc-color-good);
-}
 
-.fp-card__badge--verified svg {
-  width: 14px;
-  height: 14px;
-}
 
-.fp-card__sections {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--fc-color-surface-muted);
-}
 
-.fp-card__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
-.fp-card__section--bio {
-  padding-bottom: 9px;
-}
 
 .fp-card__bio {
   margin: 0;
@@ -297,85 +206,16 @@
   overflow: hidden;
 }
 
-.fp-card__section--availability {
-  padding-bottom: 8px;
-}
 
-.fp-card__section-label {
-  display: none;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fc-color-text-secondary);
-}
 
-.fp-card__section-value {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--fc-color-text-primary);
-  line-height: 1.5;
-  word-break: break-word;
-}
 
-.fp-card__availability-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
 
-.fp-card__availability-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--fc-color-accent-light);
-  border: 0;
-  color: var(--color-primary-dark);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1;
-  white-space: nowrap;
-}
 
-.fp-card__availability-empty {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--fc-color-text-muted);
-}
 
-.fp-card__section-value--location {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--fc-color-text-primary);
-}
 
-.fp-card__location-list {
-  display: block;
-}
 
-.fp-card__location-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--fc-color-text-secondary);
-  line-height: 1.35;
-  margin-right: 4px;
-}
 
-.fp-card__location-item svg {
-  width: 13px;
-  color: var(--fc-color-text-secondary);
-}
 
-.fp-card__location-item--empty {
-  color: var(--fc-color-text-muted);
-}
 
 .fp-card__actions {
   display: flex;
@@ -444,11 +284,6 @@
   padding-top: 2px;
 }
 
-.fp-card__badge-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
 .fp-skeleton--avatar {
   width: 72px;
@@ -478,11 +313,6 @@
   width: 112px;
 }
 
-.fp-card__sections--skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
 
 .fp-card__bio-skeleton {
   gap: 10px;
@@ -520,9 +350,6 @@
   border-radius: 9px;
 }
 
-.fp-card__section--skeleton {
-  gap: 14px;
-}
 
 .fp-card__location-skeleton-list {
   display: flex;
@@ -1093,4 +920,221 @@
     justify-content: flex-start;
     padding-top: 0;
   }
+}
+
+
+/* ---------------------------------------------------------------- card v2 */
+
+.fp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--fc-color-surface);
+  border: 1px solid var(--fc-color-border);
+  border-radius: 18px;
+}
+
+.fp-card__top {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+/* The photo leads the card. Square with soft corners, never a small circle. */
+.fp-card__photo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  overflow: visible;
+}
+
+.fp-card__photo-image,
+.fp-card__photo-initials {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.fp-card__photo-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  /* Background is set inline from the name; white sits on the muted band at >4.5:1. */
+  color: #ffffff;
+}
+
+/* The tick rides the photo rather than sitting in a row of badges. */
+.fp-card__photo-tick {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--fc-color-good);
+  color: var(--fc-color-on-accent);
+  border: 2px solid var(--fc-color-surface);
+}
+
+.fp-card__identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fp-card__name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--fc-color-text-primary);
+}
+
+/* The verdict in words, replacing a bare rating chip. */
+.fp-card__verdict {
+  align-self: flex-start;
+  margin: 2px 0 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.fp-card__verdict--even {
+  color: var(--fc-color-good);
+  background: var(--fc-color-good-soft);
+  border-color: var(--fc-color-good-line);
+}
+
+.fp-card__verdict--up,
+.fp-card__verdict--down {
+  color: var(--fc-color-accent-ink);
+  background: var(--fc-color-accent-light);
+  border-color: var(--fc-color-accent-border);
+}
+
+/* A hedged verdict is dashed: the wording is softer and so is the chip. */
+.fp-card__verdict.is-hedged {
+  border-style: dashed;
+  font-weight: 550;
+}
+
+.fp-card__rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--fc-color-text-muted);
+}
+
+.fp-card__rating strong {
+  font-weight: 600;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-card__rating-note {
+  color: var(--fc-color-text-secondary);
+}
+
+.fp-card__rating-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--fc-color-good-soft);
+  color: var(--fc-color-good);
+}
+
+/* Court is the headline, so a shared one is coloured rather than just stated. */
+.fp-card__court {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--fc-color-text-primary);
+}
+
+.fp-card__court.is-shared {
+  color: var(--fc-color-good);
+}
+
+.fp-card__together {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--fc-color-text-muted);
+}
+
+/* Quoted, in a system serif — a person's voice rather than a database column. No
+   webfont: a render-blocking request for one line of text is not worth it. */
+.fp-card__bio {
+  margin: 2px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--fc-color-border);
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--fc-color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fp-card__bio::before { content: "\201C"; }
+.fp-card__bio::after  { content: "\201D"; }
+
+.fp-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* One primary decision, not two. */
+.fp-card__connect {
+  flex: 1 1 auto;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 620;
+  cursor: pointer;
+  background: var(--fc-color-accent);
+  color: var(--fc-color-on-accent);
+}
+
+.fp-card__connect[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.fp-card__view-profile {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--fc-color-border);
+  color: var(--fc-color-text-muted);
+}
+
+.fp-card__view-profile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

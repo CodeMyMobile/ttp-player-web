@@ -1,33 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
+import { Check } from "lucide-react";
+
 import { handleImageTransformError, sizedImageUrl } from "../../utils/playerImage";
 import { isMeaningfulBio } from "../../utils/suggestedPlayer";
-import { CheckCircle2, MapPin } from "lucide-react";
+import {
+  availabilitySentence,
+  courtLine,
+  initialsBackground,
+  matchVerdict,
+} from "../../utils/playerCard";
 import type { Player } from "../../data/mockPlayers";
 
 import "../coaches/coaches.css";
 import "./players.css";
+
+/** The photo slot in CSS pixels. Kept here so the image request cannot drift from it. */
+const PHOTO_SIZE = 72;
+
+export type CardViewer = {
+  level: string | null;
+  courts: string[];
+  availability: string[];
+};
 
 type PlayerCardProps = {
   player: Player;
   canConnect: boolean;
   onConnect: (player: Player) => void;
   onViewProfile?: (player: Player) => void;
+  viewer?: CardViewer | null;
 };
 
-const formatCourtLocation = (court: string) => {
-  const segments = court
-    .split(",")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (segments.length >= 2) {
-    return `${segments[0]}, ${segments[1]}`;
-  }
-
-  return court.trim();
-};
-
-const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCardProps) => {
+const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer }: PlayerCardProps) => {
   const hasProfileImage =
     typeof player.profileImageUrl === "string" && player.profileImageUrl.trim().length > 0;
   const [imageFailedToLoad, setImageFailedToLoad] = useState(false);
@@ -36,139 +40,131 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile }: PlayerCard
     setImageFailedToLoad(false);
   }, [player.profileImageUrl]);
 
-  const shouldDisplayProfileImage = hasProfileImage && !imageFailedToLoad;
-
-  const handleViewProfile = () => {
-    if (onViewProfile) {
-      onViewProfile(player);
-    }
-  };
+  const showPhoto = hasProfileImage && !imageFailedToLoad;
 
   const bio = useMemo(
     () => (isMeaningfulBio(player.bio) ? String(player.bio).trim() : ""),
     [player.bio],
   );
 
-  const localCourts = useMemo(() => {
-    const fallback = [player.favoriteCourt].filter(
-      (value): value is string => typeof value === "string" && value.trim().length > 0,
-    );
+  const verdict = useMemo(
+    () => matchVerdict(viewer?.level ?? null, player.level, Boolean(player.verified)),
+    [viewer?.level, player.level, player.verified],
+  );
 
-    const courts = player.localCourts?.length ? player.localCourts : fallback;
+  const court = useMemo(() => {
+    const courts = player.localCourts?.length
+      ? player.localCourts
+      : [player.favoriteCourt].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+    return courtLine(viewer?.courts, courts);
+  }, [player.localCourts, player.favoriteCourt, viewer?.courts]);
 
-    return courts.map(formatCourtLocation);
-  }, [player.favoriteCourt, player.localCourts]);
+  const together = useMemo(
+    () => availabilitySentence(viewer?.availability, player.availability),
+    [viewer?.availability, player.availability],
+  );
 
   return (
-    <article className="fc-card fp-card" aria-label={`View ${player.name}'s match profile`}>
-      <header className="fp-card__header">
-        <div className="fp-card__identity-block">
-          <div className="fp-card__identity-media">
-            <div className="fp-card__avatar" aria-hidden={shouldDisplayProfileImage ? undefined : true}>
-              {shouldDisplayProfileImage ? (
-                <img
-                  className="fp-card__avatar-image"
-                  src={sizedImageUrl(player.profileImageUrl, { size: 48 })}
-                  onError={(event) => handleImageTransformError(event, player.profileImageUrl)}
-                  alt={`${player.name}'s profile picture`}
-                  loading="lazy"
-                  decoding="async"
-                  onError={() => setImageFailedToLoad(true)}
-                />
-              ) : (
-                player.initials
-              )}
-            </div>
-          </div>
-          <div className="fp-card__identity">
-            <h3 className="fp-card__name">{player.name}</h3>
-            <div
-              className="fp-card__badges"
-              aria-label={`NTRP ${player.level}${player.verified ? ", verified rating" : ""}`}
-            >
-              <span className="fp-card__badge fp-card__badge--level">
-                NTRP <strong>{player.level}</strong>
-              </span>
-              {player.verified ? (
-                <span
-                  className="fp-card__badge fp-card__badge--verified"
-                  aria-label="Verified rating"
-                  title="Verified players have confirmed their identity and NTRP level through community reviews."
-                >
-                  <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
-                  Verified rating
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="fp-card__sections">
-        {bio ? (
-          <section className="fp-card__section fp-card__section--bio" aria-label="Player bio">
-            <p className="fp-card__bio">{bio}</p>
-          </section>
-        ) : null}
-        <section className="fp-card__section fp-card__section--availability" aria-label="Availability">
-          <span className="fp-card__section-label">Availability</span>
-          {player.availability.length ? (
-            <div className="fp-card__availability-chips">
-              {player.availability.map((slot, index) => (
-                <span className="fp-card__availability-chip" key={`${slot}-${index}`}>
-                  {slot}
-                </span>
-              ))}
-            </div>
+    <article className="fc-card fp-card" aria-label={`${player.name}'s match profile`}>
+      <div className="fp-card__top">
+        {/* The photo leads. Square, not a small circle sharing a row with the name. */}
+        <div className="fp-card__photo">
+          {showPhoto ? (
+            <img
+              className="fp-card__photo-image"
+              // 3x the CSS slot: a 72px square needs a 216px asset to stay sharp.
+              src={sizedImageUrl(player.profileImageUrl, { size: PHOTO_SIZE, dpr: 3 })}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              // One handler: a second onError prop would silently replace this one, and
+              // the CDN fallback has to run before we give up on the photo entirely.
+              onError={(event) => {
+                const node = event.currentTarget;
+                const alreadyRetried = node.dataset.imgFallback === "done";
+                handleImageTransformError(event, player.profileImageUrl);
+                if (alreadyRetried) setImageFailedToLoad(true);
+              }}
+            />
           ) : (
-            <span className="fp-card__availability-empty">
-              Share when you're free to help others match faster
+            <span
+              className="fp-card__photo-initials"
+              // Hue from the name, so a person's tile is the same every visit; held to a
+              // muted band so a list of them sits inside the palette.
+              style={{ background: initialsBackground(player.name) }}
+              aria-hidden="true"
+            >
+              {player.initials}
             </span>
           )}
-        </section>
-        <section className="fp-card__section" aria-label="Local courts">
-          <span className="fp-card__section-label">Local courts</span>
-          <div className="fp-card__section-value fp-card__section-value--location">
-            {localCourts.length ? (
-              <div className="fp-card__location-list">
-                {localCourts.map((court, index) => (
-                  <span className="fp-card__location-item" key={`${court}-${index}`}>
-                    <MapPin size={14} aria-hidden="true" />
-                    {court}
-                  </span>
-                ))}
-              </div>
+
+          {player.verified ? (
+            <span className="fp-card__photo-tick" aria-hidden="true">
+              <Check size={12} strokeWidth={3} />
+            </span>
+          ) : null}
+        </div>
+
+        <div className="fp-card__identity">
+          <h3 className="fp-card__name">{player.name}</h3>
+
+          {verdict ? (
+            <p className={`fp-card__verdict fp-card__verdict--${verdict.tone}${verdict.hedged ? " is-hedged" : ""}`}>
+              {verdict.text}
+            </p>
+          ) : null}
+
+          <p className="fp-card__rating">
+            {player.verified ? (
+              <>
+                <span className="fp-card__rating-tick" aria-hidden="true">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+                <strong>NTRP {player.level}</strong>
+                <span className="fp-card__rating-note">
+                  confirmed by {player.verificationCount || 3} players
+                </span>
+              </>
             ) : (
-              <span className="fp-card__location-item fp-card__location-item--empty">
-                <MapPin size={14} aria-hidden="true" />
-                Flexible on courts
-              </span>
+              <>
+                <strong>NTRP {player.level}</strong>
+                <span className="fp-card__rating-note">self-rated</span>
+              </>
             )}
-          </div>
-        </section>
+          </p>
+        </div>
       </div>
+
+      {court ? (
+        <p className={`fp-card__court${court.isShared ? " is-shared" : ""}`}>{court.text}</p>
+      ) : null}
+
+      {together ? <p className="fp-card__together">{together}</p> : null}
+
+      {/* Quoted and set in a serif so it reads as a person's voice, not a column. */}
+      {bio ? <blockquote className="fp-card__bio">{bio}</blockquote> : null}
 
       <div className="fp-card__actions">
         <button
           type="button"
-          className="fc-button fp-card__connect"
+          className="fp-card__connect"
           aria-disabled={canConnect ? undefined : true}
           onClick={() => onConnect(player)}
           title={
             canConnect
               ? `Connect with ${player.name}`
-              : "Create your player match profile to start connecting"
+              : "Create your match profile to start connecting"
           }
         >
           Connect
         </button>
         <button
           type="button"
-          className="fc-button fp-card__view-profile"
-          onClick={handleViewProfile}
+          className="fp-card__view-profile"
+          onClick={() => onViewProfile?.(player)}
           disabled={!onViewProfile}
         >
-          View profile
+          Profile
         </button>
       </div>
     </article>
