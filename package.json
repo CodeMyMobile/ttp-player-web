@@ -11,7 +11,8 @@
     "test": "node --test --import tsx $(find src -name '*.test.js' -o -name '*.test.ts' | sort)",
     "preview": "vite preview",
     "typecheck": "node scripts/typecheck.mjs",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "typecheck:baseline": "node scripts/typecheck.mjs --write-baseline"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^5.3.0",
