@@ -1,0 +1,52 @@
+name: smoke
+
+# On 2026-08-29 /find-players rendered a blank page in production for 106 minutes.
+# The build, the unit tests, the linter and the component harnesses were all green;
+# none of them loads a route. This runs in two places on purpose:
+#
+#   pull_request        against the Netlify deploy preview — catches it before merge
+#   after a deploy      against production — catches the class a PR check cannot,
+#                       where config or environment differs from the preview, and
+#                       fails loudly instead of waiting for someone to look
+on:
+  pull_request:
+  workflow_run:
+    workflows: ["Build and Deploy"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # playwright-core drives a browser but ships none. Chrome is preinstalled on the
+      # runner; installing only chromium keeps this well under a minute.
+      - run: npx playwright install --with-deps chromium
+
+      - name: Resolve target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "url=https://deploy-preview-${{ github.event.number }}--ttp-player-web-prod.netlify.app" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://app.thetennisplan.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A preview is not ready the instant the check starts.
+      - name: Wait for the target to answer
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.target.outputs.url }}/" || true)
+            [ "$code" = "200" ] && echo "ready after ${i} attempts" && exit 0
+            sleep 10
+          done
+          echo "target never returned 200"; exit 1
+
+      - run: node scripts/smoke-routes.mjs "${{ steps.target.outputs.url }}"
