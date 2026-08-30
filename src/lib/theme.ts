@@ -56,6 +56,8 @@ export const warmPalette = {
   // Nudged two points darker than the prototype's #B4531D, which measured 4.45:1 on
   // `ground` and missed AA by 0.05. Hue and saturation are unchanged; only lightness
   // moved, from 0.410 to 0.405. 4.53:1.
+  /** The curated seal, and nothing else. Never carries text — it is a mark. */
+  seal: "#B8D430",
   warm: "#B2521D",
   warmSoft: "#FBEADC",
 };
@@ -100,6 +102,7 @@ export const warmPaletteDark = {
   goodSoft: "#16302A",
   goodLine: "#26513F",
 
+  seal: "#C7E24A",
   warm: "#E0A276",
   warmSoft: "#3A2519",
 };

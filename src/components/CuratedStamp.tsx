@@ -1,5 +1,3 @@
-import { Sparkles } from "lucide-react";
-
 import "./CuratedStamp.css";
 
 /**
@@ -26,7 +24,10 @@ export type CuratedStampProps = {
 const CuratedStamp = ({ subject = "results", basis, className }: CuratedStampProps) => (
   <div className={`curated-stamp${className ? ` ${className}` : ""}`}>
     <p className="curated-stamp__mark">
-      <Sparkles size={14} strokeWidth={2.2} aria-hidden="true" />
+      {/* The seal is the only colour in the mark. A stamp works by being recognisable,
+          not by being seen first — in brand purple, next to purple buttons, it
+          competes for the same attention rather than sitting under it. */}
+      <span className="curated-stamp__seal" aria-hidden="true" />
       <span>Recommended by The Tennis Plan</span>
     </p>
     {basis ? (

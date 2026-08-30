@@ -1240,6 +1240,7 @@ const FindPlayersPage = () => {
       "--fc-color-good": warmPalette.good,
       "--fc-color-good-soft": warmPalette.goodSoft,
       "--fc-color-good-line": warmPalette.goodLine,
+      "--fc-color-seal": warmPalette.seal,
       "--fc-color-warm": warmPalette.warm,
       "--fc-color-warm-soft": warmPalette.warmSoft,
       "--fc-color-secondary-border": warmPalette.line,
@@ -1743,6 +1744,8 @@ const FindPlayersPage = () => {
     <MainLayout mobileChrome="home" desktopChrome="home" hideMobileNewMatch pageClassName="dashboard-page--find-players">
       <div className="find-players-page" style={themeVars}>
         <div className="find-players-page__inner">
+          {/* The app bar already says Find Players and the subtitle restates it.
+              Hidden on mobile, where the space is worth more than the repetition. */}
           <ResultsHeader
             title="Find Players"
             description="Connect with local players who match your level and style."
@@ -1850,7 +1853,9 @@ const FindPlayersPage = () => {
                 <>
                   <CuratedStamp
                     subject="players"
-                    basis={`${orderedPlayers.length} nearby, ordered by shared courts, overlapping times and closeness of level.`}
+                    // No count here: the result line below already carries it, and
+                    // printing it twice is repetition, not emphasis.
+                    basis="Ordered by shared courts, overlapping times and closeness of level."
                   />
                   <button
                     type="button"

@@ -116,17 +116,8 @@ const PlayerCard = ({ player, canConnect, onConnect, onViewProfile, viewer, topP
             </span>
           )}
 
-          {player.verified ? (
-            <button
-              type="button"
-              className="fp-card__photo-tick"
-              aria-label="What the confirmed-rating tick means"
-              onClick={onExplainTick}
-              disabled={!onExplainTick}
-            >
-              <Check size={12} strokeWidth={3} aria-hidden="true" />
-            </button>
-          ) : null}
+          {/* No tick on the photo. One green on the card, and it is the court line —
+              the strongest match signal. The rating tick below still carries the mark. */}
         </div>
 
         <div className="fp-card__identity">

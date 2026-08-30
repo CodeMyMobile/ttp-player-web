@@ -1,4 +1,6 @@
-/* Deliberately quiet. The mark earns attention by being rare and true, not loud. */
+/* Deliberately quiet. The mark earns attention by being rare and true, not loud —
+   and an endorsement in brand purple, beside brand-purple buttons, competes with them
+   instead of sitting under them. The seal is the only colour here. */
 .curated-stamp {
   display: flex;
   flex-direction: column;
@@ -8,12 +10,22 @@
 .curated-stamp__mark {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   margin: 0;
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 650;
-  /* accent-ink, not accent: this is small text. */
-  color: var(--fc-color-accent-ink, #7C3AED);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--fc-color-text-muted, #4A404B);
+}
+
+.curated-stamp__seal {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--fc-color-seal, #B8D430);
 }
 
 .curated-stamp__basis {

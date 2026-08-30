@@ -860,22 +860,6 @@
   /* Colours are set inline from the palette tokens; see initialsBackground. */
 }
 
-/* The tick rides the photo rather than sitting in a row of badges. */
-.fp-card__photo-tick {
-  position: absolute;
-  right: -4px;
-  bottom: -4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--fc-color-good);
-  color: var(--fc-color-on-accent);
-  border: 2px solid var(--fc-color-surface);
-}
-
 .fp-card__identity {
   min-width: 0;
   display: flex;
@@ -902,17 +886,24 @@
   border: 1px solid transparent;
 }
 
+/* Never green. Green is the court line's, and a hedged verdict on a green ground
+   reads as affirmative — which inverts the one thing the hedge exists to do. */
 .fp-card__verdict--even {
-  color: var(--fc-color-good);
-  background: var(--fc-color-good-soft);
-  border-color: var(--fc-color-good-line);
-}
-
-.fp-card__verdict--up,
-.fp-card__verdict--down {
   color: var(--fc-color-accent-ink);
   background: var(--fc-color-accent-light);
   border-color: var(--fc-color-accent-border);
+}
+
+.fp-card__verdict--up {
+  color: var(--fc-color-warm);
+  background: var(--fc-color-warm-soft);
+  border-color: var(--fc-color-warm);
+}
+
+.fp-card__verdict--down {
+  color: var(--fc-color-text-muted);
+  background: var(--fc-color-surface-muted);
+  border-color: var(--fc-color-border);
 }
 
 /* A hedged verdict is dashed: the wording is softer and so is the chip. */
@@ -939,22 +930,23 @@
   color: var(--fc-color-text-secondary);
 }
 
+/* The tick means "checked", not "good" — so it is not green. */
 .fp-card__rating-tick {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: 999px;
-  background: var(--fc-color-good-soft);
-  color: var(--fc-color-good);
+  border: 0;
+  background: transparent;
+  color: var(--fc-color-text-secondary);
 }
 
 /* Court is the headline, so a shared one is coloured rather than just stated. */
 .fp-card__court {
   margin: 2px 0 0;
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 450;
   color: var(--fc-color-text-primary);
 }
 
@@ -1478,14 +1470,23 @@
 }
 
 /* The tick on a card is a button once it explains itself. */
-.fp-card__photo-tick,
 .fp-card__rating-tick {
   cursor: pointer;
   padding: 0;
   font: inherit;
 }
 
-.fp-card__photo-tick:disabled,
 .fp-card__rating-tick:disabled {
   cursor: default;
+}
+
+
+/* The app bar already names the page and the subtitle restates it. On a 390px screen
+   the space is worth more than the repetition; desktop keeps it. */
+@media (max-width: 768px) {
+  /* ResultsHeader takes no className, so this targets its own root. Scoped under
+     .find-players-page so no other page that uses the component is affected. */
+  .find-players-page .fc-header {
+    display: none;
+  }
 }
