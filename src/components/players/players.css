@@ -1490,3 +1490,47 @@
     display: none;
   }
 }
+
+
+/* Mobile page name. The app bar names the product, not the page, and Find Players is
+   not in the bottom nav — without this the screen is unnamed. Roughly 20px against the
+   44px header it replaces. */
+.fp-page-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fc-color-text-primary);
+}
+
+@media (min-width: 769px) {
+  .find-players-page .fp-page-name {
+    display: none;
+  }
+}
+
+/* 6. The search field was fixed-width and clipped its own placeholder at 390px. */
+.fp-search-input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fc-color-border);
+  background: var(--fc-color-surface);
+  color: var(--fc-color-text-primary);
+  font-size: 14px;
+}
+
+/* The strip answers rather than asks: everyone who scrolls past it learns what the
+   mark means, not only the people who tap. */
+.fp-tick-strip__open {
+  font-weight: 450;
+  color: var(--fc-color-text-muted);
+  line-height: 1.4;
+}
+
+.fp-tick-strip__more {
+  font-weight: 650;
+  color: var(--fc-color-accent-ink);
+  white-space: nowrap;
+}

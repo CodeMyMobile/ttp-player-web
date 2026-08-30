@@ -149,10 +149,24 @@ test("three or more overlaps read naturally", () => {
   );
 });
 
-test("no overlap collapses the line instead of announcing it", () => {
-  assert.equal(availabilitySentence(["Weekdays AM"], ["Weekends"]), null);
-  assert.equal(availabilitySentence([], ["Weekends"]), null);
+test("no overlap still shows their times rather than nothing", () => {
+  // The ranking claims shared times matter, so the card has to show times either way —
+  // otherwise it asserts a basis it never displays.
+  assert.equal(availabilitySentence(["Weekdays AM"], ["Weekends"]), "Free weekends");
+  assert.equal(availabilitySentence([], ["Weekends"]), "Free weekends");
+});
+
+test("the line collapses only when there are no times at all", () => {
   assert.equal(availabilitySentence(null, null), null);
+  assert.equal(availabilitySentence(["Weekdays AM"], []), null);
+});
+
+test("a street address never reaches the card", () => {
+  // The endpoint returns whatever the AddressPicker stored. Rendering it would publish
+  // a member's own address to every other member.
+  assert.equal(courtName("3084 Motor Ave, Los Angeles, CA 90034, USA"), "Los Angeles");
+  assert.equal(courtLine([], ["3084 Motor Ave, Los Angeles, CA 90034, USA"])?.text, "Plays at Los Angeles");
+  assert.doesNotMatch(courtName("3084 Motor Ave, Los Angeles, CA"), /Motor Ave|3084/);
 });
 
 /* initials */

@@ -1744,8 +1744,11 @@ const FindPlayersPage = () => {
     <MainLayout mobileChrome="home" desktopChrome="home" hideMobileNewMatch pageClassName="dashboard-page--find-players">
       <div className="find-players-page" style={themeVars}>
         <div className="find-players-page__inner">
-          {/* The app bar already says Find Players and the subtitle restates it.
-              Hidden on mobile, where the space is worth more than the repetition. */}
+          {/* Mobile gets a compact page name and no subtitle. The app bar says
+              "The Tennis Plan", not where you are, and Find Players is not in the bottom
+              nav — so with nothing here the page is unnamed. Desktop keeps the full
+              header. */}
+          <h1 className="fp-page-name">Find Players</h1>
           <ResultsHeader
             title="Find Players"
             description="Connect with local players who match your level and style."
@@ -1865,11 +1868,7 @@ const FindPlayersPage = () => {
                     Why these?
                   </button>
                 </>
-              ) : (
-                <span>
-                  {orderedPlayers.length} {orderedPlayers.length === 1 ? "player" : "players"} nearby
-                </span>
-              )}
+              ) : null}
             </div>
           ) : null}
 
@@ -2059,7 +2058,9 @@ const FindPlayersPage = () => {
                       className="fp-tick-strip__open"
                       onClick={() => openExplainerFrom("tick", "strip")}
                     >
-                      What does the ✓ next to a rating mean?
+                      A ✓ means the level has been checked, by players who&rsquo;ve hit
+                      with them.{" "}
+                      <span className="fp-tick-strip__more">What this means</span>
                     </button>
                     <button
                       type="button"

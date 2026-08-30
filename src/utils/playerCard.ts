@@ -84,11 +84,42 @@ export const normalizeCourt = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Just the venue name — the stored value can carry a full street address. */
+const STREET_TYPE =
+  /\b(st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|way|ln|lane|ct|pl|place|pkwy|parkway|hwy|highway|ter|terrace|cir|circle)\b\.?/i;
+
+/**
+ * A place name, never a street.
+ *
+ * The players endpoint returns whatever the AddressPicker stored, which is a full
+ * Google-formatted address. Some players have a venue in front of it and some have only
+ * their own street — and rendering "Plays at 3084 Motor Ave" publishes a member's
+ * address to every other member.
+ *
+ * So: the venue name when there is one, otherwise the locality. Never the street line.
+ */
 export const courtName = (value: string) => {
-  const head = String(value ?? "").split(",")[0].trim();
-  const match = head.match(/^(.*)\s+\d+[A-Za-z]?\s+\S+/);
-  return match && match[1].trim() ? match[1].trim() : head;
+  const parts = String(value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+
+  const head = parts[0];
+  const bareStreet = /^\d/.test(head) && STREET_TYPE.test(head);
+
+  if (!bareStreet) {
+    // "Penmar Recreation Center 1341 Lake St" -> "Penmar Recreation Center".
+    // Greedy, so a venue whose own name contains a number survives.
+    const withStreet = head.match(/^(.*)\s+\d+[A-Za-z]?\s+(.+)$/);
+    if (withStreet && STREET_TYPE.test(withStreet[2]) && withStreet[1].trim()) {
+      return withStreet[1].trim();
+    }
+    return head;
+  }
+
+  // No venue name at all: fall back to the locality, which is the segment after the
+  // street. Never returns the street itself.
+  return parts[1] ?? "";
 };
 
 /**
@@ -144,8 +175,17 @@ export const availabilitySentence = (
     (lower) => overlap.find((s) => s.toLowerCase() === lower) as string,
   );
 
-  if (unique.length === 0) return null;
-  return `You're both free ${joinNaturally(unique.map((s) => s.toLowerCase()))}`;
+  if (unique.length > 0) {
+    return `You're both free ${joinNaturally(unique.map((s) => s.toLowerCase()))}`;
+  }
+
+  // No overlap is not nothing to say. The ranking claims shared times matter, so the
+  // card has to show times either way — otherwise it asserts a basis it never displays.
+  const theirs = [
+    ...new Set((targetSlots ?? []).map((s) => String(s ?? "").trim()).filter(Boolean)),
+  ];
+  if (theirs.length === 0) return null;
+  return `Free ${joinNaturally(theirs.map((s) => s.toLowerCase()))}`;
 };
 
 /* ----------------------------------------------------------------- initials */
