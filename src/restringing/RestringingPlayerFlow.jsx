@@ -29,6 +29,8 @@ import {
   orderStatusLabel,
   paymentStatusLabel,
   recommendStringCategory,
+  STRING_FIRST_QUESTIONS,
+  normaliseLastOrderPrefill,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -44,6 +46,9 @@ import {
   captureVendorLead,
   createCheckoutOrder,
   getVendorProfile,
+  getRestringingHome,
+  getStringRecommendation,
+  listPublicCatalog,
   listMyOrders,
   listSavedPaymentMethods,
   listServiceTiers,
@@ -58,12 +63,7 @@ const stripePublishableKey =
   "";
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
-const WIZARD_QUESTIONS = [
-  { key: "arm", label: "Arm/elbow/shoulder discomfort?", options: ["Yes", "Sometimes", "No"] },
-  { key: "breaks", label: "How often do you break strings?", options: ["Rarely", "Every couple of months", "Monthly+"] },
-  { key: "priority", label: "What matters most?", options: ["Spin & control", "Power & comfort", "Reliable & affordable"] },
-  { key: "budget", label: "Premium or standard?", options: ["Best performance", "Good value"] },
-];
+const WIZARD_QUESTIONS = STRING_FIRST_QUESTIONS;
 
 const defaultTiers = [
   { id: 1, name: "Restringing Only", price_cents: 2999, string_category: null },
@@ -260,6 +260,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [catalog, setCatalog] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [lastOrder, setLastOrder] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [publicCatalog, setPublicCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -370,6 +373,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         setTiers(tierRows.length ? tierRows : defaultTiers);
         setVendors(vendorRows);
         setAllVendors(vendorRows);
+        if (isAuthenticated) setLastOrder((await getRestringingHome().catch(() => ({ last_order: null }))).last_order || null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -479,19 +483,27 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   }, [crosses, gauge, otherString, ownString, quantity, racketMakeModel, selectedString?.id, setupMode, splitTension, stringId, tension]);
 
-  const selectWizardAnswer = (question, value) => {
+  const selectWizardAnswer = async (question, value) => {
     const nextAnswers = { ...answers, [question.key]: value };
     setAnswers(nextAnswers);
     if (wizardIndex + 1 < WIZARD_QUESTIONS.length) {
       setWizardIndex((index) => index + 1);
       return;
     }
-    const result = recommendStringCategory(nextAnswers);
-    setRecommendation(result);
-    const recommendedTier = tiers.find((item) => item.string_category === result.category);
+    setBusy(true);
+    let result;
+    try {
+      result = await getStringRecommendation(nextAnswers);
+    } catch {
+      result = { recommendation: recommendStringCategory(nextAnswers), reasons: ["We selected a balanced starting point."], warning: null };
+    } finally { setBusy(false); }
+    const selected = result.recommendation || result;
+    const normalized = { category: selected.category, categoryLabel: selected.category_label || selected.categoryLabel || categoryLabel(selected.category), tensionLbs: selected.default_tension_lbs || selected.defaultTensionLbs || 54, rationale: result.reasons?.[0] || result.rationale, warning: result.warning };
+    setRecommendation(normalized);
+    const recommendedTier = tiers.find((item) => item.string_category === normalized.category);
     setTierId(recommendedTier?.id || null);
-    setTension(result.tensionLbs);
-    setCrosses(Math.max(40, result.tensionLbs - 2));
+    setTension(normalized.tensionLbs);
+    setCrosses(Math.max(40, normalized.tensionLbs - 2));
     go("recommendation");
   };
 
@@ -528,6 +540,29 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     } finally {
       setBusy(false);
     }
+  };
+
+  const startSearch = async () => {
+    setBusy(true);
+    try {
+      const data = await listPublicCatalog({ q: searchText || null });
+      setPublicCatalog(data.strings || []);
+      go("search");
+    } catch (err) {
+      setError(err?.data?.detail || "Could not search strings.");
+    } finally { setBusy(false); }
+  };
+
+  const startReorder = () => {
+    const prefill = normaliseLastOrderPrefill(lastOrder);
+    setTierId(prefill.serviceTierId);
+    setStringId(prefill.stringId ? String(prefill.stringId) : "");
+    setGauge(prefill.gauge);
+    setTension(prefill.tension);
+    setCrosses(prefill.crosses);
+    setRacketMakeModel(prefill.racketMakeModel);
+    setOrderNotes(prefill.notes);
+    go("vendor");
   };
 
   const chooseVendor = async (vendor) => {
@@ -715,9 +750,13 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <h1>Restring my racket</h1>
               <p>Fresh strings, from a stringer near you.</p>
             </section>
-            <button type="button" className="rsg-choice" onClick={() => go("tier")}>
+            {lastOrder ? <button type="button" className="rsg-card rsg-choice-hot" onClick={startReorder}>
+              <span><small>LAST ORDER</small><b>{lastOrder.string?.brand} {lastOrder.string?.name}</b><small>{lastOrder.vendor?.name}</small></span>
+              <strong>Order again <ArrowRight size={18} /></strong>
+            </button> : null}
+            <button type="button" className="rsg-choice" onClick={() => { setSearchText(""); setPublicCatalog([]); go("search"); }}>
               <span className="rsg-emoji">🎯</span>
-              <span><b>I know what I want</b><small>Pick a service and string.</small></span>
+              <span><b>I know what I want</b><small>Search for your string by name.</small></span>
               <ArrowRight size={20} />
             </button>
             <button type="button" className="rsg-choice rsg-choice-hot" onClick={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}>
@@ -735,14 +774,22 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           </>
         ) : null}
 
+        {screen === "search" ? <section className="rsg-card">
+          <h1>Find your string</h1><p>Search the strings stocked by local stringers.</p>
+          <div className="rsg-loc"><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Head Lynx Tour" /><button type="button" onClick={startSearch} disabled={busy}>Search</button></div>
+          <div className="rsg-stack">{publicCatalog.map((item) => <button key={item.id} type="button" className="rsg-option" onClick={() => { setStringId(String(item.id)); const found = tiers.find((row) => row.string_category === item.category); setTierId(found?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.vendor_count} stringer{item.vendor_count === 1 ? "" : "s"}</small></span><ArrowRight size={18} /></button>)}</div>
+          {!publicCatalog.length && searchText ? <p>No exact string found. Try the guided match or choose a service family.</p> : null}
+          <button type="button" className="rsg-secondary" onClick={() => go("tier")}>Browse string families</button>
+        </section> : null}
+
         {screen === "wizard" ? (
           <section className="rsg-card">
             <div className="rsg-progress"><span style={{ width: `${(wizardIndex / WIZARD_QUESTIONS.length) * 100}%` }} /></div>
             <h2>{WIZARD_QUESTIONS[wizardIndex].label}</h2>
             <div className="rsg-stack">
-              {WIZARD_QUESTIONS[wizardIndex].options.map((option) => (
-                <button key={option} type="button" className="rsg-option" onClick={() => selectWizardAnswer(WIZARD_QUESTIONS[wizardIndex], option)}>
-                  {option}<ArrowRight size={18} />
+              {WIZARD_QUESTIONS[wizardIndex].options.map(([label, value]) => (
+                <button key={value} type="button" className="rsg-option" onClick={() => selectWizardAnswer(WIZARD_QUESTIONS[wizardIndex], value)}>
+                  {label}<ArrowRight size={18} />
                 </button>
               ))}
             </div>

@@ -2,6 +2,18 @@ export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
 export const vendorImageSrc = (vendor) => String(vendor?.image_url || "").trim();
 
+export const STRING_FIRST_QUESTIONS = [
+  { key: "arm", label: "Any arm or elbow trouble?", options: [["No problems", "none"], ["Occasional soreness", "soreness"], ["Recovering from an injury", "injury"]] },
+  { key: "game", label: "How would you describe your game?", options: [["Still learning", "learning"], ["Solid rally player", "rally"], ["Competitive / league", "competitive"]] },
+  { key: "break_frequency", label: "How often do you break strings?", options: [["Every few weeks", "weeks"], ["Every few months", "months"], ["Rarely or never", "rarely"]] },
+  { key: "preference", label: "What do you most want from a restring?", options: [["Spin and control", "spin_control"], ["Comfort and power", "comfort_power"], ["Feel and touch", "feel_touch"], ["Maximum durability", "durability"]] },
+];
+
+export function normaliseLastOrderPrefill(lastOrder) {
+  const item = lastOrder?.item || {};
+  return { vendorId: lastOrder?.vendor?.id || null, serviceTierId: item.service_tier_id || null, stringId: item.string_id || null, gauge: item.gauge || "16", tension: Number(item.tension_lbs_mains) || 54, crosses: Number(item.tension_lbs_crosses) || Number(item.tension_lbs_mains) || 54, racketMakeModel: item.racket_make_model || "", notes: item.notes || "" };
+}
+
 const normalizeGaugeList = (values) => {
   const rows = Array.isArray(values) ? values : [];
   return [...new Set(rows.map((value) => String(value || "").trim()).filter(Boolean))];
