@@ -17,6 +17,8 @@ import {
   createSelection,
   nextScreenForVendor,
   wizardRecommendationFromAnswers,
+  catalogFamilyFilters,
+  filterCatalogStrings,
 } from "./playerFlow.js";
 
 test("uses only a non-empty vendor image URL for card thumbnails", () => {
@@ -49,6 +51,21 @@ test("completes the guided flow with a recommendation without waiting for the AP
     categoryLabel: "Standard Multifilament",
     tensionLbs: 52,
   });
+});
+
+test("filters stocked strings by family and a case-insensitive name search", () => {
+  const catalog = [
+    { id: 1, brand: "Head", name: "Lynx Tour", category: "std_poly" },
+    { id: 2, brand: "Head", name: "MLT", category: "std_multi" },
+    { id: 3, brand: "Solinco", name: "Mach 10", category: "std_poly" },
+  ];
+
+  assert.deepEqual(catalogFamilyFilters(catalog), [
+    { category: "all", count: 3 },
+    { category: "std_poly", count: 2 },
+    { category: "std_multi", count: 1 },
+  ]);
+  assert.deepEqual(filterCatalogStrings(catalog, { category: "std_poly", query: "head" }).map((item) => item.id), [1]);
 });
 
 test("recognizes vendor-selected preset composition tiers", () => {

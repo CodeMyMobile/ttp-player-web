@@ -13,6 +13,8 @@ import {
   Phone,
   Plus,
   RefreshCw,
+  Search,
+  Layers,
   Star,
 } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
@@ -33,6 +35,8 @@ import {
   requiresVendorLogin,
   nextScreenForVendor,
   wizardRecommendationFromAnswers,
+  catalogFamilyFilters,
+  filterCatalogStrings,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -264,6 +268,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [lastOrder, setLastOrder] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [publicCatalog, setPublicCatalog] = useState([]);
+  const [familyFilter, setFamilyFilter] = useState("all");
   const [selectionMode, setSelectionMode] = useState("supplied");
   const [selectedFamily, setSelectedFamily] = useState(null);
   const [requestedText, setRequestedText] = useState("");
@@ -305,6 +310,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const selectedGaugeOptions = useMemo(
     () => catalogGaugesForString(selectedString),
     [selectedString],
+  );
+  const familyFilters = useMemo(() => catalogFamilyFilters(publicCatalog), [publicCatalog]);
+  const filteredPublicCatalog = useMemo(
+    () => filterCatalogStrings(publicCatalog, { category: familyFilter, query: searchText }),
+    [familyFilter, publicCatalog, searchText],
   );
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
   const totalCents = (Number(tier?.price_cents || 0) * quantity);
@@ -546,22 +556,12 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
-  const startSearch = async () => {
-    setBusy(true);
-    try {
-      const data = await listPublicCatalog({ q: searchText || null });
-      setPublicCatalog(data.strings || []);
-      go("search");
-    } catch (err) {
-      setError(err?.data?.detail || "Could not search strings.");
-    } finally { setBusy(false); }
-  };
-
   const openStockSearch = async () => {
     setBusy(true);
     try {
       const data = await listPublicCatalog();
       setPublicCatalog(data.strings || []);
+      setFamilyFilter("all");
       go("search");
     } catch (err) { setError(err?.data?.detail || "Could not load stocked strings."); }
     finally { setBusy(false); }
@@ -832,12 +832,21 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           <button type="button" className="rsg-primary" disabled={!clean(ownString)} onClick={() => go("vendor")}>Choose your stringer</button>
         </section> : null}
 
-        {screen === "search" ? <section className="rsg-card">
-          <h1>Find your string</h1><p>Search the strings stocked by local stringers.</p>
-          <div className="rsg-loc"><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Head Lynx Tour" /><button type="button" onClick={startSearch} disabled={busy}>Search</button></div>
-          <div className="rsg-stack">{publicCatalog.map((item) => <button key={item.id} type="button" className="rsg-option" onClick={() => { setSelectionMode("supplied"); setStringId(String(item.id)); const found = tiers.find((row) => row.string_category === item.category); setTierId(found?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.gauges?.join(" / ") || "gauges"} · {item.vendor_count} stringer{item.vendor_count === 1 ? "" : "s"}</small></span><ArrowRight size={18} /></button>)}</div>
-          {!publicCatalog.length ? <><p>{searchText ? `No stringer near you stocks “${searchText}”. Request it by family or bring your own set.` : "Search by brand or model, or browse the available string families."}</p>{searchText ? <button type="button" className="rsg-secondary" onClick={() => go("families")}>Request by family</button> : null}<button type="button" className="rsg-secondary" onClick={() => { const ownTier = tiers.find((item) => isOwnTier(item)); setSelectionMode("own"); setTierId(ownTier?.id || null); go("own"); }}>I’ll bring my own string</button></> : null}
-          <button type="button" className="rsg-secondary" onClick={() => go("families")}>Browse all families</button>
+        {screen === "search" ? <section className="rsg-search-screen">
+          <h1>Which string?</h1><p>Search by name, or pick from what&apos;s stocked nearby.</p>
+          <label className="rsg-searchbox"><Search size={19} /><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search Hyper-G, Lynx Tour, RPM Blast…" /></label>
+          <div className="rsg-search-layout">
+            <aside className="rsg-family-filter"><span>Family</span><div>{familyFilters.map(({ category, count }) => <button key={category} type="button" className={familyFilter === category ? "is-active" : ""} onClick={() => setFamilyFilter(category)}>{category === "all" ? "All" : categoryLabel(category)}<b>{count}</b></button>)}</div><p>Showing families your stringers stock. More available by request.</p></aside>
+            <div className="rsg-search-results">
+              <h2>In stock at stringers near you</h2>
+              {filteredPublicCatalog.map((item) => {
+                const matchedTier = tiers.find((row) => row.string_category === item.category);
+                return <button key={item.id} type="button" className="rsg-stock-row" onClick={() => { setSelectionMode("supplied"); setStringId(String(item.id)); setTierId(matchedTier?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.gauges?.join(" · ") || "gauges"} gauge</small></span><strong>{formatMoneyCents(matchedTier?.price_cents)}</strong></button>;
+              })}
+              {!filteredPublicCatalog.length ? <div className="rsg-empty-stock"><b>{searchText ? `No stringer near you stocks “${searchText}”` : "Nothing stocked in this family"}</b><p>Order by family and request it by name, or bring your own set.</p></div> : null}
+              <button type="button" className="rsg-request-row" onClick={() => go("families")}><span><Layers size={21} /><span><b>Don&apos;t see your string?</b><small>Order by family and request it by name.</small></span></span><ArrowRight size={18} /></button>
+            </div>
+          </div>
         </section> : null}
 
         {screen === "families" ? <section className="rsg-card"><h1>Order by family</h1><p>Pick the type you play; your stringer confirms exact availability at drop-off.</p><div className="rsg-stack">{tiers.filter((item) => item.string_category).map((item) => <button key={item.id} type="button" className="rsg-tier" onClick={() => chooseFamily(item.string_category, searchText)}><span><b>{categoryLabel(item.string_category)}</b><small>{searchText ? `Requesting ${searchText}` : tierSub(item)}</small></span><strong>{formatMoneyCents(item.price_cents)}</strong></button>)}</div></section> : null}
@@ -1186,6 +1195,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-choice,.rsg-tier{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left}.rsg-choice b,.rsg-tier b{display:block;font-size:18px}.rsg-choice small,.rsg-tier small{display:block;color:#6b7280}.rsg-choice-hot{border-color:#dac7ff;background:#faf7ff}.rsg-emoji{font-size:30px;margin-right:10px}
         .rsg-primary{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:15px;padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:900;box-shadow:0 10px 24px rgba(124,58,237,.22);margin-top:12px}.rsg-primary:disabled,.rsg-secondary:disabled{opacity:.55}
         .rsg-stack{display:grid;gap:12px}.rsg-option{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:17px 18px;font-weight:800;font-size:17px}.rsg-progress{height:5px;border-radius:999px;background:#ede9fe;margin:-18px -18px 20px;overflow:hidden}.rsg-progress span{display:block;height:100%;background:#9333ea}.rsg-kicker{color:#7c3aed;font-weight:900;letter-spacing:.04em}
+        .rsg-search-screen{max-width:1000px}.rsg-search-screen>h1{font-size:40px;letter-spacing:-1.2px;margin:0 0 6px}.rsg-search-screen>p{font-size:17px;color:#64748b;margin:0 0 22px}.rsg-searchbox{display:flex;align-items:center;gap:12px;border:1px solid #e6e8ef;background:#fff;border-radius:14px;padding:0 15px;margin-bottom:20px;color:#94a3b8}.rsg-searchbox:focus-within{border-color:#7c3aed;box-shadow:0 0 0 3px #f5f1ff}.rsg-searchbox input{min-width:0;flex:1;border:0;outline:0;background:transparent;padding:16px 0;font:600 16px inherit;color:#111827}.rsg-searchbox input::placeholder{color:#94a3b8}.rsg-search-layout{display:grid;grid-template-columns:212px minmax(0,1fr);gap:28px}.rsg-family-filter>span,.rsg-search-results h2{display:block;font-size:11px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;color:#94a3b8;margin:0 0 8px}.rsg-family-filter>div{display:grid;gap:3px}.rsg-family-filter button{width:100%;border:1px solid transparent;background:transparent;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;gap:10px;text-align:left;color:#1e293b;font-weight:800}.rsg-family-filter button:hover{background:#fff}.rsg-family-filter button.is-active{background:#f5f1ff;border-color:#ddd0fb;color:#7c3aed}.rsg-family-filter button b{font-size:12px;color:#94a3b8}.rsg-family-filter button.is-active b{color:#7c3aed}.rsg-family-filter p{font-size:13px;line-height:1.45;color:#94a3b8;margin:16px 0}.rsg-stock-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;text-align:left;border:1px solid #e6e8ef;background:#fff;border-radius:14px;padding:13px 16px;margin-bottom:10px}.rsg-stock-row:hover{border-color:#7c3aed}.rsg-stock-row span{min-width:0}.rsg-stock-row b,.rsg-request-row b{display:block;font-size:16px}.rsg-stock-row small,.rsg-request-row small{display:block;color:#64748b;font-size:13px;margin-top:3px}.rsg-stock-row strong{font-size:16px;white-space:nowrap}.rsg-empty-stock{background:#fff8ea;border:1px solid #f2ddb0;border-radius:14px;padding:14px 16px;margin-bottom:10px;color:#8a6100}.rsg-empty-stock p{font-size:13px;line-height:1.45;margin:4px 0 0}.rsg-request-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;border:0;background:#fff;border-radius:15px;padding:15px 17px;text-align:left;box-shadow:0 1px 2px rgba(17,24,39,.06);margin-top:20px}.rsg-request-row>span{display:flex;align-items:center;gap:13px}.rsg-request-row>span>svg{color:#7c3aed;background:#f5f1ff;border-radius:10px;padding:7px;width:38px;height:38px}
         .rsg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin:10px 0}.rsg-tile,.rsg-stat{min-height:78px;border:1px solid #e5e7eb;background:#fff;border-radius:16px;padding:12px;text-align:center}.rsg-tile.is-active,.rsg-tier.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-tile b,.rsg-stat b{display:block;font-size:22px}.rsg-tile small,.rsg-stat span,.rsg-stat small{display:block;color:#6b7280;font-size:12px}
         .rsg-pill{display:inline-flex;align-items:center;border-radius:999px;background:#ede9fe;color:#6d28d9;padding:6px 10px;font-weight:900;font-size:12px}.rsg-field,.rsg-label{display:block;margin-top:14px;font-weight:900}.rsg-field span{display:block;margin-bottom:6px}.rsg-field input,.rsg-loc input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:13px 12px}.rsg-field small{display:block;color:#6b7280;margin-top:5px}
         .rsg-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.rsg-chips button{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:10px 13px;font-weight:800}.rsg-chips button.is-active{border-color:#7c3aed;background:#ede9fe;color:#6d28d9}
@@ -1193,7 +1203,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor-details{display:flex;align-items:flex-start;gap:12px;min-width:0}.rsg-vendor-img{width:64px;height:64px;flex:0 0 64px;border-radius:14px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}.rsg-vendor-img img{width:100%;height:100%;object-fit:cover}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
-        @media (max-width:640px){.rsg-shell{padding:22px 18px 96px}.rsg-hero h1,.rsg-card h1{font-size:31px}.rsg-card h2{font-size:30px}.rsg-card{border-radius:20px;padding:18px}.rsg-wizard-card{box-shadow:none;border:0;background:transparent;padding:0}.rsg-wizard-card .rsg-progress{margin:0 0 18px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
+        @media (max-width:640px){.rsg-shell{padding:22px 18px 96px}.rsg-hero h1,.rsg-card h1{font-size:31px}.rsg-card h2{font-size:30px}.rsg-card{border-radius:20px;padding:18px}.rsg-wizard-card{box-shadow:none;border:0;background:transparent;padding:0}.rsg-wizard-card .rsg-progress{margin:0 0 18px}.rsg-search-screen>h1{font-size:31px}.rsg-search-screen>p{font-size:16px;margin-bottom:20px}.rsg-search-layout{display:block}.rsg-family-filter{margin-bottom:18px}.rsg-family-filter>div{display:flex;overflow:auto;gap:7px;padding-bottom:2px}.rsg-family-filter button{width:auto;flex:none;border-color:#e6e8ef;border-radius:999px;padding:8px 13px}.rsg-family-filter button b{display:none}.rsg-family-filter p{font-size:13px;margin:10px 0}.rsg-search-results h2{margin-top:18px}.rsg-stock-row{padding:13px 16px}.rsg-stock-row b,.rsg-request-row b{font-size:15px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
       `}</style>
     </div>
   );

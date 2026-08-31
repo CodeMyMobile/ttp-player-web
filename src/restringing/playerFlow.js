@@ -76,6 +76,26 @@ export const categoryLabel = (category) => ({
   prem_poly: "Premium Polyester",
 }[category] || "String");
 
+export function catalogFamilyFilters(catalog = []) {
+  const counts = new Map();
+  catalog.forEach((item) => {
+    const category = cleanText(item?.category);
+    if (category) counts.set(category, (counts.get(category) || 0) + 1);
+  });
+  return [
+    { category: "all", count: catalog.length },
+    ...[...counts.entries()].map(([category, count]) => ({ category, count })),
+  ];
+}
+
+export function filterCatalogStrings(catalog = [], { category = "all", query = "" } = {}) {
+  const needle = cleanText(query).toLowerCase();
+  return catalog.filter((item) => {
+    if (category !== "all" && item?.category !== category) return false;
+    return !needle || `${item?.brand || ""} ${item?.name || ""}`.toLowerCase().includes(needle);
+  });
+}
+
 const PRESET_COMPOSITIONS = new Set([
   "poly_multi_hybrid",
   "natural_gut_hybrid",
