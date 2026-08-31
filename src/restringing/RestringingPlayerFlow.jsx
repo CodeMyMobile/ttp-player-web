@@ -32,6 +32,7 @@ import {
   STRING_FIRST_QUESTIONS,
   normaliseLastOrderPrefill,
   requiresVendorLogin,
+  nextScreenForVendor,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -264,6 +265,9 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [lastOrder, setLastOrder] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [publicCatalog, setPublicCatalog] = useState([]);
+  const [selectionMode, setSelectionMode] = useState("supplied");
+  const [selectedFamily, setSelectedFamily] = useState(null);
+  const [requestedText, setRequestedText] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -448,6 +452,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         if (cancelled) return;
         const rows = data.catalog || [];
         setCatalog(rows);
+        if (selectionMode === "family") return;
         setStringId(rows[0]?.id ? String(rows[0].id) : "other");
         setGauge(defaultGaugeForString(rows[0] || null));
       })
@@ -457,7 +462,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return () => {
       cancelled = true;
     };
-  }, [selectedVendor, tier]);
+  }, [selectedVendor, selectionMode, tier]);
 
   useEffect(() => {
     if (adviceRequested || isPresetCompositionTier(tier)) return;
@@ -554,6 +559,28 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     } finally { setBusy(false); }
   };
 
+  const openStockSearch = async () => {
+    setBusy(true);
+    try {
+      const data = await listPublicCatalog();
+      setPublicCatalog(data.strings || []);
+      go("search");
+    } catch (err) { setError(err?.data?.detail || "Could not load stocked strings."); }
+    finally { setBusy(false); }
+  };
+
+  const chooseFamily = (category, request = "") => {
+    const selectedTier = tiers.find((item) => item.string_category === category);
+    setSelectionMode("family");
+    setSelectedFamily(category);
+    const familyRequest = request || `${categoryLabel(category)} request`;
+    setRequestedText(familyRequest);
+    setStringId("other");
+    setOtherString(familyRequest);
+    setTierId(selectedTier?.id || null);
+    go("vendor");
+  };
+
   const startReorder = () => {
     const prefill = normaliseLastOrderPrefill(lastOrder);
     setTierId(prefill.serviceTierId);
@@ -575,11 +602,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         authDrawer.openAuth({
           mode: "signup",
           reason: "Create an account to place your restringing order and get SMS pickup updates.",
-          onSuccess: () => go("config"),
+          onSuccess: () => go(nextScreenForVendor({ mode: selectionMode })),
         });
         return;
       }
-      go("config");
+      go(nextScreenForVendor({ mode: selectionMode }));
     } finally {
       setBusy(false);
     }
@@ -590,11 +617,11 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       authDrawer.openAuth({
         mode: "signup",
         reason: "Create an account to place your restringing order and get SMS pickup updates.",
-        onSuccess: () => go("config"),
+        onSuccess: () => go(nextScreenForVendor({ mode: selectionMode })),
       });
       return;
     }
-    go("config");
+    go(nextScreenForVendor({ mode: selectionMode }));
   };
 
   const openVendorProfile = async (vendor) => {
@@ -775,7 +802,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <span><small>LAST ORDER</small><b>{lastOrder.string?.brand} {lastOrder.string?.name}</b><small>{lastOrder.vendor?.name}</small></span>
               <strong>Order again <ArrowRight size={18} /></strong>
             </button> : null}
-            <button type="button" className="rsg-choice" onClick={() => { setSearchText(""); setPublicCatalog([]); go("search"); }}>
+            <button type="button" className="rsg-choice" onClick={() => go("mode")}>
               <span className="rsg-emoji">🎯</span>
               <span><b>I know what I want</b><small>Search for your string by name.</small></span>
               <ArrowRight size={20} />
@@ -795,13 +822,27 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           </>
         ) : null}
 
+        {screen === "mode" ? <section className="rsg-card">
+          <h1>Whose string?</h1><p>This sets the price, so we ask it first.</p>
+          <button type="button" className="rsg-option" onClick={() => { setSelectionMode("supplied"); void openStockSearch(); }}><span><b>My stringer supplies it</b><small>Search their stock, or pick a string family.</small></span><ArrowRight size={18} /></button>
+          <button type="button" className="rsg-option" onClick={() => { const ownTier = tiers.find((item) => isOwnTier(item)); setSelectionMode("own"); setTierId(ownTier?.id || null); go("own"); }}><span><b>I’ll bring my own string</b><small>Labour only. Hybrids welcome.</small></span><ArrowRight size={18} /></button>
+        </section> : null}
+
+        {screen === "own" ? <section className="rsg-card">
+          <h1>Your string</h1><p>Bring your set to drop-off.</p>
+          <Field label="Brand and model"><input value={ownString} onChange={(event) => setOwnString(event.target.value)} placeholder="Solinco Hyper-G 17" /></Field>
+          <button type="button" className="rsg-primary" disabled={!clean(ownString)} onClick={() => go("vendor")}>Choose your stringer</button>
+        </section> : null}
+
         {screen === "search" ? <section className="rsg-card">
           <h1>Find your string</h1><p>Search the strings stocked by local stringers.</p>
           <div className="rsg-loc"><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Head Lynx Tour" /><button type="button" onClick={startSearch} disabled={busy}>Search</button></div>
-          <div className="rsg-stack">{publicCatalog.map((item) => <button key={item.id} type="button" className="rsg-option" onClick={() => { setStringId(String(item.id)); const found = tiers.find((row) => row.string_category === item.category); setTierId(found?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.vendor_count} stringer{item.vendor_count === 1 ? "" : "s"}</small></span><ArrowRight size={18} /></button>)}</div>
-          {!publicCatalog.length && searchText ? <p>No exact string found. Try the guided match or choose a service family.</p> : null}
-          <button type="button" className="rsg-secondary" onClick={() => go("tier")}>Browse string families</button>
+          <div className="rsg-stack">{publicCatalog.map((item) => <button key={item.id} type="button" className="rsg-option" onClick={() => { setSelectionMode("supplied"); setStringId(String(item.id)); const found = tiers.find((row) => row.string_category === item.category); setTierId(found?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.gauges?.join(" / ") || "gauges"} · {item.vendor_count} stringer{item.vendor_count === 1 ? "" : "s"}</small></span><ArrowRight size={18} /></button>)}</div>
+          {!publicCatalog.length && searchText ? <><p>{`No stringer near you stocks “${searchText}”. Request it by family or bring your own set.`}</p><button type="button" className="rsg-secondary" onClick={() => go("families")}>Request by family</button></> : null}
+          <button type="button" className="rsg-secondary" onClick={() => go("families")}>Browse all families</button>
         </section> : null}
+
+        {screen === "families" ? <section className="rsg-card"><h1>Order by family</h1><p>Pick the type you play; your stringer confirms exact availability at drop-off.</p><div className="rsg-stack">{tiers.filter((item) => item.string_category).map((item) => <button key={item.id} type="button" className="rsg-tier" onClick={() => chooseFamily(item.string_category, searchText)}><span><b>{categoryLabel(item.string_category)}</b><small>{searchText ? `Requesting ${searchText}` : tierSub(item)}</small></span><strong>{formatMoneyCents(item.price_cents)}</strong></button>)}</div></section> : null}
 
         {screen === "wizard" ? (
           <section className="rsg-card">
@@ -823,13 +864,15 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <span className="rsg-pill">Recommended</span>
               <h1>{recommendation.categoryLabel}</h1>
               <p>{recommendation.rationale}</p>
+              {recommendation.warning ? <p className="rsg-alert">{recommendation.warning}</p> : null}
               <div className="rsg-tiles">
                 <div className="rsg-stat"><span>Tension</span><b>{recommendation.tensionLbs}</b><small>lbs</small></div>
                 <div className="rsg-stat"><span>Category</span><b>{categoryLabel(recommendation.category)}</b><small>editable</small></div>
               </div>
             </section>
-            <button type="button" className="rsg-primary" onClick={() => go("vendor")}>Find my stringer</button>
-            <button type="button" className="rsg-secondary" onClick={() => go("tier")}>See all services instead</button>
+            <button type="button" className="rsg-primary" onClick={() => chooseFamily(recommendation.category)}>Choose this family</button>
+            <button type="button" className="rsg-secondary" onClick={() => go("families")}>See all families</button>
+            <button type="button" className="rsg-secondary" onClick={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}>Start the questions over</button>
           </>
         ) : null}
 
@@ -851,7 +894,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         {screen === "vendor" ? (
           <>
             <section className="rsg-hero compact">
-              <h1>Your local stringer</h1>
+              <h1>Your stringer</h1>
+              <p>{selectionMode === "own" ? "Restringing only" : selectionMode === "family" ? `${requestedText ? `${requestedText} · ` : ""}${categoryLabel(selectedFamily)} — confirmed at drop-off` : selectedStringName || "Select a stocked string"}</p>
               <div className="rsg-loc">
                 <input value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Enter city or area" />
                 <button type="button" onClick={useGeo} disabled={busy}><MapPin size={16} /> Use location</button>

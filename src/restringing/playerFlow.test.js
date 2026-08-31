@@ -14,6 +14,8 @@ import {
   isPresetCompositionTier,
   serviceCompositionLabel,
   requiresVendorLogin,
+  createSelection,
+  nextScreenForVendor,
 } from "./playerFlow.js";
 
 test("uses only a non-empty vendor image URL for card thumbnails", () => {
@@ -25,6 +27,14 @@ test("uses only a non-empty vendor image URL for card thumbnails", () => {
 test("requires authentication when a guest starts ordering with a vendor", () => {
   assert.equal(requiresVendorLogin(false), true);
   assert.equal(requiresVendorLogin(true), false);
+});
+
+test("keeps the reference selection mode through vendor choice", () => {
+  assert.equal(nextScreenForVendor({ mode: "own" }), "rackets");
+  assert.equal(nextScreenForVendor({ mode: "supplied", stringId: 9 }), "setup");
+  assert.deepEqual(createSelection({ mode: "family", family: "std_multi", requestedText: "Lynx Tour" }), {
+    mode: "family", stringId: null, family: "std_multi", requestedText: "Lynx Tour", ownStringText: "",
+  });
 });
 
 test("recognizes vendor-selected preset composition tiers", () => {

@@ -4,6 +4,16 @@ export const vendorImageSrc = (vendor) => String(vendor?.image_url || "").trim()
 
 export const requiresVendorLogin = (isAuthenticated) => !isAuthenticated;
 
+export const createSelection = ({ mode = "supplied", stringId = null, family = null, requestedText = "", ownStringText = "" } = {}) => ({
+  mode,
+  stringId: stringId || null,
+  family: family || null,
+  requestedText: String(requestedText || ""),
+  ownStringText: String(ownStringText || ""),
+});
+
+export const nextScreenForVendor = (selection) => selection?.mode === "own" ? "rackets" : "setup";
+
 export const STRING_FIRST_QUESTIONS = [
   { key: "arm", label: "Any arm or elbow trouble?", options: [["No problems", "none"], ["Occasional soreness", "soreness"], ["Recovering from an injury", "injury"]] },
   { key: "game", label: "How would you describe your game?", options: [["Still learning", "learning"], ["Solid rally player", "rally"], ["Competitive / league", "competitive"]] },
