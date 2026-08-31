@@ -8,6 +8,7 @@ import {
   formatVendorHours,
   getItemSpecs,
   getRestringingPayLink,
+  isRestringingPayLinkPaid,
   isPayLinkDemoMode,
   shouldShowAccountPrompt,
 } from "./restringingPayLinks";
@@ -79,6 +80,11 @@ test("pay-link demo mode is explicit, not implied by local dev", () => {
   assert.equal(isPayLinkDemoMode(""), false);
   assert.equal(isPayLinkDemoMode("?demo=1"), true);
   assert.equal(isPayLinkDemoMode("?demo=0"), false);
+});
+
+test("recognizes a paid pay-link summary", () => {
+  assert.equal(isRestringingPayLinkPaid({ order: { payment_status: "paid" } }), true);
+  assert.equal(isRestringingPayLinkPaid({ order: { payment_status: "unpaid" } }), false);
 });
 
 test("pay-link API uses public endpoints with optional auth", async () => {

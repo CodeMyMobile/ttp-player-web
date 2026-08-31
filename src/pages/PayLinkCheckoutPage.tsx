@@ -11,6 +11,7 @@ import {
   formatVendorHours,
   getItemSpecs,
   getRestringingPayLink,
+  isRestringingPayLinkPaid,
   isPayLinkDemoMode,
   shouldShowAccountPrompt,
   type RestringingPayLinkCheckout,
@@ -296,6 +297,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   const [paid, setPaid] = useState(false);
   const [loading, setLoading] = useState(!demoMode);
   const [error, setError] = useState<string | null>(null);
+  const paymentConfirmed = paid || isRestringingPayLinkPaid(summary);
   const accountLinked = summary?.account_link.status === "linked";
   const hasAuthToken = Boolean(authToken);
 
@@ -346,7 +348,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   }, [authToken, demoMode, hasDemoAccount, token]);
 
   const loadCheckout = useCallback(async () => {
-    if (!token || demoMode || paid) return;
+    if (!token || demoMode || paymentConfirmed || !summary) return;
     setCheckoutLoading(true);
     try {
       setCheckout(await createRestringingPayLinkCheckout(token, authToken, {
@@ -357,7 +359,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     } finally {
       setCheckoutLoading(false);
     }
-  }, [authToken, demoMode, paid, selectedPaymentMethodId, token]);
+  }, [authToken, demoMode, paymentConfirmed, selectedPaymentMethodId, summary, token]);
 
   useEffect(() => {
     void loadSummary();
@@ -434,7 +436,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
     };
   }, [checkout?.client_secret]);
 
-  const accountVisible = summary && shouldShowAccountPrompt(summary.account_link) && !guest && !paid;
+  const accountVisible = summary && shouldShowAccountPrompt(summary.account_link) && !guest && !paymentConfirmed;
   const vendorTel = buildVendorTelHref(summary?.vendor.phone);
   const vendorHoursText = formatVendorHours(summary?.vendor.hours ?? null);
   const firstItem = summary?.order.items[0];
@@ -551,7 +553,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
   };
 
   const renderPayment = () => {
-    if (!summary || paid) return null;
+    if (!summary || paymentConfirmed) return null;
     if (!demoMode && !stripePublishableKey) {
       return (
         <section className="pay-link-card pay-link-panel pay-link-alert" role="alert">
@@ -618,7 +620,7 @@ const PayLinkCheckoutPage = ({ token: tokenProp }: PayLinkCheckoutPageProps) => 
             {error}
           </section>
         ) : summary ? (
-          paid ? (
+          paymentConfirmed ? (
             <>
               <section className="pay-link-card pay-link-panel pay-link-success">
                 <CheckCircle2 size={42} aria-hidden />

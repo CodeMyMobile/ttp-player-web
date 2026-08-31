@@ -51,6 +51,9 @@ export interface RestringingPayLinkSummary {
   account_link: RestringingPayLinkAccount;
 }
 
+export const isRestringingPayLinkPaid = (summary?: Pick<RestringingPayLinkSummary, "order"> | null) =>
+  summary?.order.payment_status === "paid";
+
 export interface RestringingPayLinkCheckout {
   client_secret: string;
   stripe_account_id?: string | null;
