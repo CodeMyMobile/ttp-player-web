@@ -1,5 +1,7 @@
 export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
+export const vendorImageSrc = (vendor) => String(vendor?.image_url || "").trim();
+
 const normalizeGaugeList = (values) => {
   const rows = Array.isArray(values) ? values : [];
   return [...new Set(rows.map((value) => String(value || "").trim()).filter(Boolean))];

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import * as playerFlow from "./playerFlow.js";
 import {
   buildCheckoutItems,
   catalogGaugesForString,
@@ -13,6 +14,12 @@ import {
   isPresetCompositionTier,
   serviceCompositionLabel,
 } from "./playerFlow.js";
+
+test("uses only a non-empty vendor image URL for card thumbnails", () => {
+  assert.equal(playerFlow.vendorImageSrc({ image_url: " https://images.example.test/store.png " }), "https://images.example.test/store.png");
+  assert.equal(playerFlow.vendorImageSrc({ image_url: " " }), "");
+  assert.equal(playerFlow.vendorImageSrc(null), "");
+});
 
 test("recognizes vendor-selected preset composition tiers", () => {
   assert.equal(isPresetCompositionTier({ string_category: null, string_composition: "poly_multi_hybrid" }), true);
