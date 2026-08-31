@@ -13,12 +13,18 @@ import {
   recommendStringCategory,
   isPresetCompositionTier,
   serviceCompositionLabel,
+  requiresVendorLogin,
 } from "./playerFlow.js";
 
 test("uses only a non-empty vendor image URL for card thumbnails", () => {
   assert.equal(playerFlow.vendorImageSrc({ image_url: " https://images.example.test/store.png " }), "https://images.example.test/store.png");
   assert.equal(playerFlow.vendorImageSrc({ image_url: " " }), "");
   assert.equal(playerFlow.vendorImageSrc(null), "");
+});
+
+test("requires authentication when a guest starts ordering with a vendor", () => {
+  assert.equal(requiresVendorLogin(false), true);
+  assert.equal(requiresVendorLogin(true), false);
 });
 
 test("recognizes vendor-selected preset composition tiers", () => {

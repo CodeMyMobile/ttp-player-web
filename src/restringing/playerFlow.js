@@ -2,6 +2,8 @@ export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
 export const vendorImageSrc = (vendor) => String(vendor?.image_url || "").trim();
 
+export const requiresVendorLogin = (isAuthenticated) => !isAuthenticated;
+
 export const STRING_FIRST_QUESTIONS = [
   { key: "arm", label: "Any arm or elbow trouble?", options: [["No problems", "none"], ["Occasional soreness", "soreness"], ["Recovering from an injury", "injury"]] },
   { key: "game", label: "How would you describe your game?", options: [["Still learning", "learning"], ["Solid rally player", "rally"], ["Competitive / league", "competitive"]] },

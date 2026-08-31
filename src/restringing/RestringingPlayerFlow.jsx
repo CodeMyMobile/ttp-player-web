@@ -31,6 +31,7 @@ import {
   recommendStringCategory,
   STRING_FIRST_QUESTIONS,
   normaliseLastOrderPrefill,
+  requiresVendorLogin,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -570,10 +571,30 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     try {
       const profile = await getVendorProfile(vendor.id).catch(() => vendor);
       setSelectedVendor(profile || vendor);
+      if (requiresVendorLogin(isAuthenticated)) {
+        authDrawer.openAuth({
+          mode: "signup",
+          reason: "Create an account to place your restringing order and get SMS pickup updates.",
+          onSuccess: () => go("config"),
+        });
+        return;
+      }
       go("config");
     } finally {
       setBusy(false);
     }
+  };
+
+  const startSelectedVendorOrder = () => {
+    if (requiresVendorLogin(isAuthenticated)) {
+      authDrawer.openAuth({
+        mode: "signup",
+        reason: "Create an account to place your restringing order and get SMS pickup updates.",
+        onSuccess: () => go("config"),
+      });
+      return;
+    }
+    go("config");
   };
 
   const openVendorProfile = async (vendor) => {
@@ -888,7 +909,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <VendorRatingLink vendor={selectedVendor} />
               <p>{selectedVendor.description || "Professional restringing, setup advice, and quick local pickup."}</p>
               <p><MapPin size={15} /> {selectedVendor.address}</p>
-              <button type="button" className="rsg-primary" onClick={() => go("config")}>Order here</button>
+              <button type="button" className="rsg-primary" onClick={startSelectedVendorOrder}>Order here</button>
             </section>
             <section className="rsg-card">
               <h2>Strings in stock</h2>
