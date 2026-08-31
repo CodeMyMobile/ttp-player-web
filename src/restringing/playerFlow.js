@@ -21,6 +21,26 @@ export const STRING_FIRST_QUESTIONS = [
   { key: "preference", label: "What do you most want from a restring?", options: [["Spin and control", "spin_control"], ["Comfort and power", "comfort_power"], ["Feel and touch", "feel_touch"], ["Maximum durability", "durability"]] },
 ];
 
+// The recommendation screen must never wait on network availability. The API
+// may enrich this later, but these four answers are sufficient for a safe
+// starting family and tension.
+export function wizardRecommendationFromAnswers(answers = {}) {
+  const armSensitive = ["soreness", "injury"].includes(answers.arm);
+  const preference = answers.preference;
+  const category = armSensitive
+    ? "std_multi"
+    : preference === "spin_control" || preference === "durability"
+      ? "std_poly"
+      : preference === "feel_touch"
+        ? "prem_multi"
+        : "std_multi";
+  return {
+    category,
+    categoryLabel: categoryLabel(category),
+    tensionLbs: armSensitive ? 52 : category.includes("poly") ? 50 : 54,
+  };
+}
+
 export function normaliseLastOrderPrefill(lastOrder) {
   const item = lastOrder?.item || {};
   return { vendorId: lastOrder?.vendor?.id || null, serviceTierId: item.service_tier_id || null, stringId: item.string_id || null, gauge: item.gauge || "16", tension: Number(item.tension_lbs_mains) || 54, crosses: Number(item.tension_lbs_crosses) || Number(item.tension_lbs_mains) || 54, racketMakeModel: item.racket_make_model || "", notes: item.notes || "" };

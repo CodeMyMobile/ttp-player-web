@@ -16,6 +16,7 @@ import {
   requiresVendorLogin,
   createSelection,
   nextScreenForVendor,
+  wizardRecommendationFromAnswers,
 } from "./playerFlow.js";
 
 test("uses only a non-empty vendor image URL for card thumbnails", () => {
@@ -34,6 +35,19 @@ test("keeps the reference selection mode through vendor choice", () => {
   assert.equal(nextScreenForVendor({ mode: "supplied", stringId: 9 }), "setup");
   assert.deepEqual(createSelection({ mode: "family", family: "std_multi", requestedText: "Lynx Tour" }), {
     mode: "family", stringId: null, family: "std_multi", requestedText: "Lynx Tour", ownStringText: "",
+  });
+});
+
+test("completes the guided flow with a recommendation without waiting for the API", () => {
+  assert.deepEqual(wizardRecommendationFromAnswers({
+    arm: "soreness",
+    game: "learning",
+    break_frequency: "months",
+    preference: "comfort_power",
+  }), {
+    category: "std_multi",
+    categoryLabel: "Standard Multifilament",
+    tensionLbs: 52,
   });
 });
 

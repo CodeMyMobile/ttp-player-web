@@ -28,11 +28,11 @@ import {
   normalizePaymentMethods,
   orderStatusLabel,
   paymentStatusLabel,
-  recommendStringCategory,
   STRING_FIRST_QUESTIONS,
   normaliseLastOrderPrefill,
   requiresVendorLogin,
   nextScreenForVendor,
+  wizardRecommendationFromAnswers,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -49,7 +49,6 @@ import {
   createCheckoutOrder,
   getVendorProfile,
   getRestringingHome,
-  getStringRecommendation,
   listPublicCatalog,
   listMyOrders,
   listSavedPaymentMethods,
@@ -255,7 +254,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const authDrawer = useAuthDrawer();
   const [screen, setScreen] = useState("home");
-  const [history, setHistory] = useState([]);
+  const [, setHistory] = useState([]);
   const [tiers, setTiers] = useState(defaultTiers);
   const [vendors, setVendors] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
@@ -489,22 +488,21 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   }, [crosses, gauge, otherString, ownString, quantity, racketMakeModel, selectedString?.id, setupMode, splitTension, stringId, tension]);
 
-  const selectWizardAnswer = async (question, value) => {
+  const selectWizardAnswer = (question, value) => {
     const nextAnswers = { ...answers, [question.key]: value };
     setAnswers(nextAnswers);
     if (wizardIndex + 1 < WIZARD_QUESTIONS.length) {
       setWizardIndex((index) => index + 1);
       return;
     }
-    setBusy(true);
-    let result;
-    try {
-      result = await getStringRecommendation(nextAnswers);
-    } catch {
-      result = { recommendation: recommendStringCategory(nextAnswers), reasons: ["We selected a balanced starting point."], warning: null };
-    } finally { setBusy(false); }
-    const selected = result.recommendation || result;
-    const normalized = { category: selected.category, categoryLabel: selected.category_label || selected.categoryLabel || categoryLabel(selected.category), tensionLbs: selected.default_tension_lbs || selected.defaultTensionLbs || 54, rationale: result.reasons?.[0] || result.rationale, warning: result.warning };
+    const selected = wizardRecommendationFromAnswers(nextAnswers);
+    const normalized = {
+      ...selected,
+      rationale: selected.category.includes("multi")
+        ? "A softer, more comfortable setup is the best starting point for your answers."
+        : "A durable, controlled setup is the best starting point for your answers.",
+      warning: null,
+    };
     setRecommendation(normalized);
     const recommendedTier = tiers.find((item) => item.string_category === normalized.category);
     setTierId(recommendedTier?.id || null);
@@ -838,16 +836,18 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           <h1>Find your string</h1><p>Search the strings stocked by local stringers.</p>
           <div className="rsg-loc"><input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Head Lynx Tour" /><button type="button" onClick={startSearch} disabled={busy}>Search</button></div>
           <div className="rsg-stack">{publicCatalog.map((item) => <button key={item.id} type="button" className="rsg-option" onClick={() => { setSelectionMode("supplied"); setStringId(String(item.id)); const found = tiers.find((row) => row.string_category === item.category); setTierId(found?.id || null); go("vendor"); }}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.gauges?.join(" / ") || "gauges"} · {item.vendor_count} stringer{item.vendor_count === 1 ? "" : "s"}</small></span><ArrowRight size={18} /></button>)}</div>
-          {!publicCatalog.length && searchText ? <><p>{`No stringer near you stocks “${searchText}”. Request it by family or bring your own set.`}</p><button type="button" className="rsg-secondary" onClick={() => go("families")}>Request by family</button></> : null}
+          {!publicCatalog.length ? <><p>{searchText ? `No stringer near you stocks “${searchText}”. Request it by family or bring your own set.` : "Search by brand or model, or browse the available string families."}</p>{searchText ? <button type="button" className="rsg-secondary" onClick={() => go("families")}>Request by family</button> : null}<button type="button" className="rsg-secondary" onClick={() => { const ownTier = tiers.find((item) => isOwnTier(item)); setSelectionMode("own"); setTierId(ownTier?.id || null); go("own"); }}>I’ll bring my own string</button></> : null}
           <button type="button" className="rsg-secondary" onClick={() => go("families")}>Browse all families</button>
         </section> : null}
 
         {screen === "families" ? <section className="rsg-card"><h1>Order by family</h1><p>Pick the type you play; your stringer confirms exact availability at drop-off.</p><div className="rsg-stack">{tiers.filter((item) => item.string_category).map((item) => <button key={item.id} type="button" className="rsg-tier" onClick={() => chooseFamily(item.string_category, searchText)}><span><b>{categoryLabel(item.string_category)}</b><small>{searchText ? `Requesting ${searchText}` : tierSub(item)}</small></span><strong>{formatMoneyCents(item.price_cents)}</strong></button>)}</div></section> : null}
 
         {screen === "wizard" ? (
-          <section className="rsg-card">
+          <section className="rsg-card rsg-wizard-card">
             <div className="rsg-progress"><span style={{ width: `${(wizardIndex / WIZARD_QUESTIONS.length) * 100}%` }} /></div>
+            <small className="rsg-kicker">QUESTION {wizardIndex + 1} OF {WIZARD_QUESTIONS.length}</small>
             <h2>{WIZARD_QUESTIONS[wizardIndex].label}</h2>
+            <p>{["This matters more than anything else — the wrong string can make elbow pain worse.", "Stiff strings need a full, fast swing to work. They punish shorter ones.", "Frequent breakage points to durability; rare breakage opens up softer, livelier strings.", "The tiebreaker once comfort and durability are accounted for."][wizardIndex]}</p>
             <div className="rsg-stack">
               {WIZARD_QUESTIONS[wizardIndex].options.map(([label, value]) => (
                 <button key={value} type="button" className="rsg-option" onClick={() => selectWizardAnswer(WIZARD_QUESTIONS[wizardIndex], value)}>
@@ -1178,14 +1178,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       </main>
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
-        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}
+        .rsg-shell{max-width:940px;margin:0 auto;padding:32px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
-        .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}
+        .rsg-hero{padding:14px 2px 22px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:40px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-card h2{font-size:34px;line-height:1.08;margin:8px 0}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0;font-size:17px}
         .rsg-card,.rsg-choice,.rsg-tier{background:white;border:1px solid #edf0f4;border-radius:20px;box-shadow:0 1px 2px rgba(17,24,39,.05),0 10px 28px rgba(17,24,39,.06);padding:18px;margin-bottom:14px}
         .rsg-choice,.rsg-tier{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left}.rsg-choice b,.rsg-tier b{display:block;font-size:18px}.rsg-choice small,.rsg-tier small{display:block;color:#6b7280}.rsg-choice-hot{border-color:#dac7ff;background:#faf7ff}.rsg-emoji{font-size:30px;margin-right:10px}
         .rsg-primary{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:15px;padding:14px 16px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:900;box-shadow:0 10px 24px rgba(124,58,237,.22);margin-top:12px}.rsg-primary:disabled,.rsg-secondary:disabled{opacity:.55}
-        .rsg-stack{display:grid;gap:12px}.rsg-option{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:14px 15px;font-weight:800}.rsg-progress{height:8px;border-radius:999px;background:#ede9fe;margin-bottom:16px;overflow:hidden}.rsg-progress span{display:block;height:100%;background:#7c3aed}
+        .rsg-stack{display:grid;gap:12px}.rsg-option{display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb;background:#fff;border-radius:14px;padding:17px 18px;font-weight:800;font-size:17px}.rsg-progress{height:5px;border-radius:999px;background:#ede9fe;margin:-18px -18px 20px;overflow:hidden}.rsg-progress span{display:block;height:100%;background:#9333ea}.rsg-kicker{color:#7c3aed;font-weight:900;letter-spacing:.04em}
         .rsg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin:10px 0}.rsg-tile,.rsg-stat{min-height:78px;border:1px solid #e5e7eb;background:#fff;border-radius:16px;padding:12px;text-align:center}.rsg-tile.is-active,.rsg-tier.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-tile b,.rsg-stat b{display:block;font-size:22px}.rsg-tile small,.rsg-stat span,.rsg-stat small{display:block;color:#6b7280;font-size:12px}
         .rsg-pill{display:inline-flex;align-items:center;border-radius:999px;background:#ede9fe;color:#6d28d9;padding:6px 10px;font-weight:900;font-size:12px}.rsg-field,.rsg-label{display:block;margin-top:14px;font-weight:900}.rsg-field span{display:block;margin-bottom:6px}.rsg-field input,.rsg-loc input{width:100%;border:1px solid #e5e7eb;border-radius:14px;padding:13px 12px}.rsg-field small{display:block;color:#6b7280;margin-top:5px}
         .rsg-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.rsg-chips button{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:10px 13px;font-weight:800}.rsg-chips button.is-active{border-color:#7c3aed;background:#ede9fe;color:#6d28d9}
@@ -1193,7 +1193,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor-details{display:flex;align-items:flex-start;gap:12px;min-width:0}.rsg-vendor-img{width:64px;height:64px;flex:0 0 64px;border-radius:14px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}.rsg-vendor-img img{width:100%;height:100%;object-fit:cover}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
-        @media (max-width:640px){.rsg-shell{padding-inline:12px}.rsg-hero h1,.rsg-card h1{font-size:30px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
+        @media (max-width:640px){.rsg-shell{padding:22px 18px 96px}.rsg-hero h1,.rsg-card h1{font-size:31px}.rsg-card h2{font-size:30px}.rsg-card{border-radius:20px;padding:18px}.rsg-wizard-card{box-shadow:none;border:0;background:transparent;padding:0}.rsg-wizard-card .rsg-progress{margin:0 0 18px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
       `}</style>
     </div>
   );
