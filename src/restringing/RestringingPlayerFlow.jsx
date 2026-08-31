@@ -264,6 +264,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [allVendors, setAllVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [catalog, setCatalog] = useState([]);
+  const [profileCatalog, setProfileCatalog] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lastOrder, setLastOrder] = useState(null);
   const [searchText, setSearchText] = useState("");
@@ -319,6 +320,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const needsOtherString = Boolean(tier && !isOwnTier(tier) && !isPresetCompositionTier(tier) && (stringId === "other" || catalog.length === 0));
   const totalCents = (Number(tier?.price_cents || 0) * quantity);
   const totalLabel = formatMoneyCents(totalCents);
+  const profileTiers = useMemo(() => {
+    const firstOwnTier = tiers.find((item) => isOwnTier(item));
+    return tiers.filter((item) => item.string_category || isPresetCompositionTier(item) || Number(item.id) === Number(firstOwnTier?.id));
+  }, [tiers]);
 
   const go = useCallback((next) => {
     setHistory((items) => [...items, screen]);
@@ -474,6 +479,15 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   }, [selectedVendor, selectionMode, tier]);
 
   useEffect(() => {
+    if (screen !== "profile" || !selectedVendor?.id) return undefined;
+    let cancelled = false;
+    listVendorStrings({ vendorId: selectedVendor.id })
+      .then((data) => { if (!cancelled) setProfileCatalog(data.catalog || []); })
+      .catch(() => { if (!cancelled) setProfileCatalog([]); });
+    return () => { cancelled = true; };
+  }, [screen, selectedVendor]);
+
+  useEffect(() => {
     if (adviceRequested || isPresetCompositionTier(tier)) return;
     setGauge((current) => (
       selectedGaugeOptions.includes(current)
@@ -619,7 +633,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       });
       return;
     }
-    go(nextScreenForVendor({ mode: selectionMode }));
+    go(tier ? nextScreenForVendor({ mode: selectionMode }) : "mode");
   };
 
   const openVendorProfile = async (vendor) => {
@@ -956,17 +970,25 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
 
         {screen === "profile" && selectedVendor ? (
           <>
-            <section className="rsg-card rsg-profile">
+            <section className="rsg-profile-page">
               <div className="rsg-profile-img">{selectedVendor.image_url ? <img src={selectedVendor.image_url} alt="" /> : "🎾"}</div>
               <h1>{selectedVendor.name}</h1>
               <VendorRatingLink vendor={selectedVendor} />
+              <p className="rsg-profile-address"><MapPin size={15} /> {selectedVendor.address || "Address pending"}</p>
               <p>{selectedVendor.description || "Professional restringing, setup advice, and quick local pickup."}</p>
-              <p><MapPin size={15} /> {selectedVendor.address}</p>
-              <button type="button" className="rsg-primary" onClick={startSelectedVendorOrder}>Order here</button>
-            </section>
-            <section className="rsg-card">
+              <div className="rsg-profile-details">
+                <span><b>Turnaround</b><strong>{selectedVendor.turnaround_days || 3} day turnaround</strong></span>
+                <span><b>Hours</b><strong>{typeof selectedVendor.hours === "string" ? selectedVendor.hours : "Hours available on request"}</strong></span>
+                {selectedVendor.public_phone ? <span><b>Phone</b><strong>{selectedVendor.public_phone}</strong></span> : null}
+                <span><b>Drop-off</b><strong>{selectedVendor.collection_details || "Confirm drop-off details with the stringer"}</strong></span>
+              </div>
               <h2>Strings in stock</h2>
-              <p>{catalog.length ? catalog.map((item) => `${item.brand} ${item.name}`).slice(0, 8).join(", ") : "Catalog loads after service selection."}</p>
+              <div className="rsg-profile-stock">{profileCatalog.map((item) => { const itemTier = tiers.find((row) => row.string_category === item.category); return <div key={item.id}><span><b>{item.brand} {item.name}</b><small>{categoryLabel(item.category)} · {item.gauges_stocked?.join(" · ") || item.gauges?.join(" · ") || "gauges"} gauge</small></span><strong>{formatMoneyCents(item.price_cents || itemTier?.price_cents)}</strong></div>; })}{!profileCatalog.length ? <p>Stock is updated by this stringer.</p> : null}</div>
+              <p className="rsg-profile-note">Other families available by request — confirmed at drop-off.</p>
+              <h2>Pricing</h2>
+              <div className="rsg-profile-pricing">{profileTiers.map((item) => <div key={item.id}><span>{item.string_category ? categoryLabel(item.string_category) : isPresetCompositionTier(item) ? serviceCompositionLabel(item.string_composition) : "Restringing only"}</span><strong>{formatMoneyCents(item.price_cents)}</strong></div>)}</div>
+              <button type="button" className="rsg-primary" onClick={startSelectedVendorOrder}>{tier ? `Order here · ${totalLabel}` : "Order here"}</button>
+              <div className="rsg-profile-contact">{selectedVendor.phone_href ? <a href={selectedVendor.phone_href}><Phone size={17} /> Call</a> : null}{selectedVendor.sms_href ? <a href={selectedVendor.sms_href}><MessageCircle size={17} /> Message</a> : null}</div>
             </section>
             <GoogleReviewsBlock vendor={selectedVendor} />
           </>
@@ -1202,6 +1224,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         .rsg-stepper{display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0}.rsg-stepper button{width:42px;height:42px;border-radius:999px;border:1px solid #e5e7eb;background:white}.rsg-stepper div{min-width:92px;text-align:center;border:1px solid #e5e7eb;border-radius:16px;padding:8px}.rsg-stepper b{display:block;font-size:24px}.rsg-stepper small{display:block;color:#6b7280}
         .rsg-check{display:flex;gap:9px;align-items:center;margin-top:12px;font-weight:800}.rsg-actions,.rsg-loc{display:flex;gap:8px;align-items:center}.rsg-actions .rsg-primary{margin-top:0;flex:1}.rsg-link{border:0;background:transparent;color:#6d28d9;font-weight:900;margin-top:10px}.rsg-vendor{display:flex;justify-content:space-between;gap:12px}.rsg-vendor-details{display:flex;align-items:flex-start;gap:12px;min-width:0}.rsg-vendor-img{width:64px;height:64px;flex:0 0 64px;border-radius:14px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden}.rsg-vendor-img img{width:100%;height:100%;object-fit:cover}.rsg-vendor p{display:flex;align-items:center;gap:5px}
         .rsg-profile-img{height:170px;border-radius:18px;background:linear-gradient(135deg,#ede9fe,#dcfce7);display:flex;align-items:center;justify-content:center;font-size:56px;overflow:hidden}.rsg-profile-img img{width:100%;height:100%;object-fit:cover}.rsg-rating-link{display:inline-flex;align-items:baseline;gap:8px;border:0;background:none;padding:0;margin:4px 0;color:#6d28d9;font-weight:800;text-decoration:underline}.rsg-rating-stars{font-weight:900;color:#b8860b}.rsg-reviews-card h2{margin:0}.rsg-reviews-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}.rsg-reviews-score{display:flex;align-items:baseline;gap:8px;color:#6b7280;font-size:13px;font-weight:700}.rsg-reviews-list{display:flex;flex-direction:column}.rsg-google-review{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f1f2f4}.rsg-google-review:last-child{border-bottom:none}.rsg-review-avatar{width:36px;height:36px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;object-fit:cover;flex-shrink:0}.rsg-review-body{flex:1;min-width:0}.rsg-review-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.rsg-review-top strong{font-size:14px}.rsg-review-top span{color:#6b7280;font-size:12.5px}.rsg-review-stars{color:#e0a800;font-size:13px;letter-spacing:1px;margin:1px 0 4px}.rsg-review-stars span{color:#e1e3e8}.rsg-review-body p{font-size:13.5px;color:#374151}.rsg-google-link{font-size:12.5px;font-weight:800;color:#6d28d9;text-decoration:none;margin-top:4px;display:inline-block}.rsg-reviews-foot{display:flex;align-items:center;gap:8px;border-top:1px solid #f1f2f4;padding-top:12px;margin-top:2px;color:#6b7280;font-size:12.5px}.rsg-reviews-foot .rsg-google-link{margin-left:auto;margin-top:0}.rsg-google-logo{font-weight:900;font-size:14px;letter-spacing:0}.rsg-google-logo b{color:#4285f4}.rsg-google-logo i{color:#ea4335;font-style:normal}.rsg-google-logo u{color:#fbbc05;text-decoration:none}.rsg-google-logo i:nth-of-type(2){color:#34a853}.rsg-google-logo s{color:#ea4335;text-decoration:none}
+        .rsg-profile-page{max-width:806px;margin:0 auto}.rsg-profile-page h1{font-size:40px;line-height:1.1;margin:12px 0 2px}.rsg-profile-page h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin:26px 0 10px}.rsg-profile-address{display:flex;align-items:center;gap:6px;font-size:14px!important}.rsg-profile-details,.rsg-profile-pricing{background:#fff;border-radius:17px;padding:13px 18px;box-shadow:0 1px 2px rgba(17,24,39,.05)}.rsg-profile-details span,.rsg-profile-pricing div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #e8ebf0}.rsg-profile-details span:last-child,.rsg-profile-pricing div:last-child{border-bottom:0}.rsg-profile-details b,.rsg-profile-pricing span{color:#64748b;font-weight:600}.rsg-profile-details strong,.rsg-profile-pricing strong{font-size:14px;text-align:right}.rsg-profile-stock{display:grid;gap:9px}.rsg-profile-stock>div{display:flex;justify-content:space-between;gap:16px;background:#fff;border:1px solid #e6e8ef;border-radius:14px;padding:12px 16px}.rsg-profile-stock b{display:block}.rsg-profile-stock small{display:block;color:#64748b;margin-top:3px}.rsg-profile-stock strong{white-space:nowrap}.rsg-profile-note{font-size:13px!important;color:#94a3b8!important}.rsg-profile-contact{display:flex;gap:9px;margin-top:10px}.rsg-profile-contact a{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #e6e8ef;border-radius:12px;padding:11px;color:#111827;background:#fff;text-decoration:none;font-weight:800}
         .rsg-racket{border:1px solid #eef2f7;border-radius:16px;padding:12px}.rsg-summary{display:grid;gap:6px}.rsg-summary span{color:#6b7280}.rsg-summary strong{font-size:24px}.rsg-payment{display:grid;gap:12px}.rsg-pay-methods{display:grid;gap:9px;margin-top:8px}.rsg-pay-method{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:15px;padding:12px}.rsg-pay-method.is-active{border-color:#7c3aed;background:#f5f0ff}.rsg-pay-method span{display:grid;gap:2px}.rsg-pay-method small{color:#6b7280}.rsg-fine{font-size:12px!important;text-align:center}.rsg-alert,.rsg-error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:14px;padding:12px;margin-bottom:12px}.rsg-done{text-align:center}.rsg-done svg{color:#059669;margin:auto}.rsg-steps p{display:flex;gap:10px}.rsg-steps b{display:inline-flex;width:26px;height:26px;border-radius:999px;align-items:center;justify-content:center;background:#ede9fe;color:#6d28d9}.rsg-order-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.rsg-status-pill{display:inline-grid;gap:1px;border-radius:12px;background:#eef2ff;color:#4338ca;padding:6px 10px;font-weight:900;font-size:13px}.rsg-status-pill--payment{background:#ecfdf5;color:#047857}.rsg-status-pill small{color:inherit;opacity:.72;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
         @media (max-width:640px){.rsg-shell{padding:22px 18px 96px}.rsg-hero h1,.rsg-card h1{font-size:31px}.rsg-card h2{font-size:30px}.rsg-card{border-radius:20px;padding:18px}.rsg-wizard-card{box-shadow:none;border:0;background:transparent;padding:0}.rsg-wizard-card .rsg-progress{margin:0 0 18px}.rsg-search-screen>h1{font-size:31px}.rsg-search-screen>p{font-size:16px;margin-bottom:20px}.rsg-search-layout{display:block}.rsg-family-filter{margin-bottom:18px}.rsg-family-filter>div{display:flex;overflow:auto;gap:7px;padding-bottom:2px}.rsg-family-filter button{width:auto;flex:none;border-color:#e6e8ef;border-radius:999px;padding:8px 13px}.rsg-family-filter button b{display:none}.rsg-family-filter p{font-size:13px;margin:10px 0}.rsg-search-results h2{margin-top:18px}.rsg-stock-row{padding:13px 16px}.rsg-stock-row b,.rsg-request-row b{font-size:15px}.rsg-vendor,.rsg-actions,.rsg-loc{align-items:stretch;flex-direction:column}.rsg-icon-btn{width:100%}}
       `}</style>
