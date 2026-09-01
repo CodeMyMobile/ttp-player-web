@@ -6,7 +6,7 @@
 
 **Architecture:** Add an independent static Astro project at `apps/public-site`; it owns its components, styles, copied landing imagery, metadata, crawler files, and Netlify configuration. It never imports the Vite app, React Router, authentication, payment, or any private application code. The existing root deployment continues to serve only `app.thetennisplan.com`.
 
-**Tech Stack:** Astro 7.2.10, `@astrojs/sitemap` 3.7.4, static HTML/CSS, Node 20 test runner, Netlify static hosting.
+**Tech Stack:** Astro 7.2.10, `@astrojs/sitemap` 3.7.4, static HTML/CSS, Node >=22.12.0 test runner, Netlify static hosting.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-astro-public-site-design.md`
 
@@ -48,7 +48,7 @@
 - Create: `apps/public-site/.gitignore`
 
 **Interfaces:**
-- Consumes: Node 20 and npm from the repository development environment.
+- Consumes: Node >=22.12.0 and npm from the repository development environment.
 - Produces: `npm run dev`, `npm run build`, `npm run preview`, `npm run check`, and `npm test` commands scoped to `apps/public-site`.
 
 - [ ] **Step 1: Write the failing build contract test**
