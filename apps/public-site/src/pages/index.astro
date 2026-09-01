@@ -1,0 +1,21 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const title = "Tennis Coaches & Community in West LA | The Tennis Plan";
+const description =
+  "Find certified tennis coaches, players, and flexible leagues in West Los Angeles with The Tennis Plan.";
+const organization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "The Tennis Plan",
+  url: "https://thetennisplan.com/",
+  areaServed: ["Los Angeles", "Santa Monica", "Brentwood", "Culver City", "Venice"],
+};
+---
+<BaseLayout {title} {description}>
+  <main id="main" class="container">
+    <h1>The Tennis Plan</h1>
+    <p>Find your next coach, player, or league in West Los Angeles.</p>
+  </main>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(organization)} />
+</BaseLayout>
