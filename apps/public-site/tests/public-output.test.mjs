@@ -13,6 +13,18 @@ test("build emits homepage SEO metadata from the apex domain", async () => {
   assert.doesNotMatch(head, /app\.thetennisplan\.com/);
 });
 
+test("build emits the public landing content and account boundaries", async () => {
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<h1[^>]*>\s*Find your tennis <span[^>]*>community\.<\/span>\s*<\/h1>/);
+  assert.match(html, /Browse coaches before you sign up/);
+  assert.match(html, /See who's free to play/);
+  assert.match(html, /Track matches and climb/);
+  assert.match(html, /href="\/find-coaches"/);
+  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/login"/);
+  assert.match(html, /alt="/);
+});
+
 test("build emits an apex-domain crawler policy and sitemap", async () => {
   const robots = await readFile(new URL("../dist/robots.txt", import.meta.url), "utf8");
   const sitemap = await readFile(new URL("../dist/sitemap-0.xml", import.meta.url), "utf8");

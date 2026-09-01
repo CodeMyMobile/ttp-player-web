@@ -1,0 +1,26 @@
+---
+const features = [
+  ["▦", "Group lessons", "Join high-energy group liveball and clinics near a coach.", true],
+  ["★", "Lesson packages", "Buy credits once and redeem them across sessions — every booking tracked for you."],
+  ["⌁", "Restring your racket", "Keep your gear match-ready right alongside your lessons and matches."],
+  ["↗", "Results & standings", "Log your match results and follow how your league is shaping up."],
+];
+---
+<section class="landing-section landing-section--tint" aria-labelledby="features-heading">
+  <div class="landing-container">
+    <div class="landing-section__head">
+      <h2 id="features-heading" class="landing-section__title">Everything in one place</h2>
+      <p class="landing-section__lede">From your first lesson to your next league match — one account covers it.</p>
+    </div>
+    <div class="landing-feature-grid">
+      {features.map(([icon, title, body, browse]) => (
+        <article class="landing-feature">
+          <span class="landing-feature__icon" aria-hidden="true">{icon}</span>
+          <h3 class="landing-feature__title">{title}</h3>
+          <p class="landing-feature__body">{body}</p>
+          {browse && <a class="landing-feature__more" href="/find-coaches">Browse — no account needed →</a>}
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
