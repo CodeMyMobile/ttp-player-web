@@ -80,7 +80,8 @@ body {
 
 .landing-trust { border-block: 1px solid #cfeedd; background: #eaf7ef; }
 .landing-trust__inner { padding-block: clamp(40px, 6vw, 56px); text-align: center; }
-.landing-trust__icon { display: inline-grid; width: 56px; height: 56px; margin-bottom: 16px; place-items: center; border-radius: 50%; color: #137a44; background: #cbefda; font-size: 24px; }
+.landing-trust__icon { display: inline-grid; width: 56px; height: 56px; margin-bottom: 16px; place-items: center; border-radius: 50%; color: #137a44; background: #cbefda; }
+.landing-trust__shield { width: 28px; height: 28px; }
 .landing-trust__title { margin: 0 0 10px; color: #0f5c36; font-size: clamp(24px, 3.4vw, 30px); font-weight: 800; }
 .landing-trust__text { max-width: 52ch; margin: 0 auto 22px; color: #2f7a55; font-size: 15.5px; line-height: 1.55; }
 .landing-trust__markers { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }

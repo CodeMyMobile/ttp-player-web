@@ -25,6 +25,14 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /alt="/);
 });
 
+test("build renders a decorative shield-check icon for the coach trust band", async () => {
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<svg[^>]*class="landing-trust__shield"[^>]*aria-hidden="true"[^>]*>/);
+  assert.match(html, /<path[^>]*d="M12 22/);
+  assert.doesNotMatch(html, /landing-trust__icon[^>]*>♜/);
+});
+
 test("build emits an apex-domain crawler policy and sitemap", async () => {
   const robots = await readFile(new URL("../dist/robots.txt", import.meta.url), "utf8");
   const sitemap = await readFile(new URL("../dist/sitemap-0.xml", import.meta.url), "utf8");
