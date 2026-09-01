@@ -1,0 +1,70 @@
+---
+const screens = [
+  {
+    kind: "coach",
+    eyebrow: "Coaching",
+    title: "Browse coaches before you sign up",
+    body: "Representative app screen: explore coaches and rates in the public directory, no account needed.",
+    action: "Browse coaches →",
+  },
+  {
+    kind: "player",
+    eyebrow: "Players",
+    title: "See who's free to play",
+    body: "Representative app screen: players at your level post when they're free — connect and get on court.",
+    action: "Explore coaching →",
+  },
+  {
+    kind: "league",
+    eyebrow: "Leagues",
+    title: "Track matches and climb",
+    body: "Representative app screen: standings, results, and your ladder position all in one place.",
+    action: "Meet the coaches →",
+  },
+];
+---
+<section class="landing-section" aria-labelledby="showcase-heading">
+  <div class="landing-container">
+    <div class="landing-showcase">
+      <div class="sc-head">
+        <span class="sc-head__eyebrow">See it in action</span>
+        <h2 id="showcase-heading">The actual app</h2>
+        <p>The screens you'll use every week — coaching, players, and your league.</p>
+      </div>
+      {screens.map((screen, index) => (
+        <article class:list={["sc-row", { "sc-row--reverse": index === 1 }]}>
+          <figure class="sc-media appshot">
+            <div class:list={["phone", `phone--${screen.kind}`]} aria-label={`${screen.eyebrow} representative application example`}>
+              <div class="phone__status"><span>7:45</span><span>5G ▰</span></div>
+              {screen.kind === "league" ? (
+                <>
+                  <div class="phone__league-title">‹ Summer Flex League 4.5</div>
+                  <div class="phone__tabs">Overview <span>Standings</span> Players</div>
+                  <div class="phone__content"><strong>📈 Standings</strong><p>Representative example only</p><ol><li><b>1</b> Sam Lee <em>5–0</em></li><li><b>2</b> Jesse Brennan <em>3–1</em></li><li><b>3</b> Alex Prior <em>2–3</em></li><li class="phone__you"><b>12</b> You <em>0–0</em></li></ol></div>
+                </>
+              ) : (
+                <>
+                  <div class="phone__appbar">🎾 The Tennis <span>Plan</span></div>
+                  <div class="phone__content">
+                    <strong>{screen.kind === "coach" ? "Find a Coach" : "Players near you"}</strong>
+                    <p>{screen.kind === "coach" ? "Representative coach example" : "Representative player examples"}</p>
+                    <div class="phone__card"><b>{screen.kind === "coach" ? "Elena Duarte" : "Camille Laurent"}</b><span>{screen.kind === "coach" ? "Tennis professional · $140/hour" : "NTRP 4.5 · Weekends"}</span><small>Fictional name — representative application example</small></div>
+                    <div class="phone__card"><b>{screen.kind === "coach" ? "Available sessions" : "Adam Whitfield"}</b><span>{screen.kind === "coach" ? "Mar Vista Recreation Center" : "NTRP 4.0 · Weekdays"}</span><small>Representative application example</small></div>
+                  </div>
+                </>
+              )}
+              <div class="phone__nav">⌂ Home <b>{screen.eyebrow}</b> 🏆 Play</div>
+            </div>
+            <figcaption>Fictional names and representative application example.</figcaption>
+          </figure>
+          <div class="sc-copy">
+            <span class="sc-copy__eyebrow">{screen.eyebrow}</span>
+            <h3 set:html={screen.title}></h3>
+            <p>{screen.body}</p>
+            <a class="sc-lk" href="/find-coaches">{screen.action}</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,61 @@
+---
+const pillars = [
+  {
+    image: "/images/landing/coaching.jpg",
+    alt: "One player guiding another's forehand technique on a clay court.",
+    eyebrow: "Coaching",
+    title: "Learn from certified coaches",
+    body: "Browse coaches by format and rate, book a session, and track every lesson from your account.",
+    meta: "Private · Semi-private · Group sessions",
+    link: "Browse coaches",
+  },
+  {
+    image: "/images/landing/group-lessons.jpg",
+    alt: "A group class warming up together on a tennis court.",
+    eyebrow: "Group lessons",
+    title: "Clinics, liveball, and group classes",
+    body: "Group lessons, clinics, and liveball sessions — browse what's on by date, location, and level, and grab a spot in a couple of taps.",
+    link: "Explore coaching",
+    reverse: true,
+  },
+  {
+    image: "/images/landing/play-partners.jpg",
+    alt: "Two players greeting each other at the net before a match.",
+    eyebrow: "Players",
+    title: "Find your hitting partner",
+    body: "Post when and where you want to play, set your level, and get matched with players looking for a game.",
+    badge: "Verified rating · community-reviewed",
+    link: "Find a coach",
+  },
+  {
+    image: "/images/landing/match-nights.jpg",
+    alt: "Two players in a doubles rally during a daytime match.",
+    eyebrow: "Leagues",
+    title: "Play flexible league matches",
+    body: "Join flex leagues and schedule matches on your own time — then log results and climb the standings.",
+    meta: "Flexible scheduling · Live standings",
+    link: "Meet the coaches",
+    reverse: true,
+  },
+];
+---
+<section class="landing-section" aria-labelledby="pillars-heading">
+  <div class="landing-container">
+    <h2 id="pillars-heading" class="visually-hidden">What you can do on The Tennis Plan</h2>
+    <div class="landing-pillars">
+      {pillars.map((pillar) => (
+        <article class:list={["landing-pillar", { "landing-pillar--reverse": pillar.reverse }]}>
+          <div class="landing-pillar__media"><img src={pillar.image} alt={pillar.alt} loading="lazy" /></div>
+          <div class="landing-pillar__body">
+            <p class="landing-pillar__eyebrow">{pillar.eyebrow}</p>
+            <h3 class="landing-pillar__title">{pillar.title}</h3>
+            <p class="landing-pillar__text">{pillar.body}</p>
+            {pillar.badge && <p class="landing-pillar__badge">✓ {pillar.badge}</p>}
+            {pillar.meta && <p class="landing-pillar__meta">{pillar.meta}</p>}
+            <a class="landing-pillar__link" href="/find-coaches">{pillar.link} <span aria-hidden="true">→</span></a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import FeaturePillars from "../components/FeaturePillars.astro";
+import TrustBand from "../components/TrustBand.astro";
+import FeatureGrid from "../components/FeatureGrid.astro";
+import AppShowcase from "../components/AppShowcase.astro";
+import CommunityCta from "../components/CommunityCta.astro";
+
+const title = "Tennis Coaches & Community in West LA | The Tennis Plan";
+const description =
+  "Find certified tennis coaches, players, and flexible leagues in West Los Angeles with The Tennis Plan.";
+const organization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "The Tennis Plan",
+  url: "https://thetennisplan.com/",
+  areaServed: ["Los Angeles", "Santa Monica", "Brentwood", "Culver City", "Venice"],
+};
+---
+<BaseLayout {title} {description}>
+  <div class="landing">
+    <Header />
+    <main id="main">
+      <Hero />
+      <FeaturePillars />
+      <TrustBand />
+      <FeatureGrid />
+      <AppShowcase />
+      <CommunityCta />
+    </main>
+  </div>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(organization)} />
+</BaseLayout>
