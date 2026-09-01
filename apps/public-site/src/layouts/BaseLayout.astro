@@ -8,7 +8,8 @@ interface Props {
 }
 
 const { title, description, canonicalPath = "/" } = Astro.props;
-const canonical = new URL(canonicalPath, Astro.site).toString();
+const isSiteRelativePath = canonicalPath.startsWith("/") && !canonicalPath.startsWith("//") && !canonicalPath.includes("\\");
+const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).toString();
 ---
 <!doctype html>
 <html lang="en-US">
@@ -16,7 +17,7 @@ const canonical = new URL(canonicalPath, Astro.site).toString();
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="index, follow" />
-    <title set:html={title} />
+    <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta property="og:type" content="website" />

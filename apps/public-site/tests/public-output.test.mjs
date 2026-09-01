@@ -4,7 +4,7 @@ import test from "node:test";
 
 test("build emits homepage SEO metadata from the apex domain", async () => {
   const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
-  assert.match(html, /<title>Tennis Coaches & Community in West LA \| The Tennis Plan<\/title>/);
+  assert.match(html, /<title>Tennis Coaches &amp; Community in West LA \| The Tennis Plan<\/title>/);
   assert.match(html, /name="description" content="Find certified tennis coaches, players, and flexible leagues in West Los Angeles with The Tennis Plan\."/);
   assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/"/);
   assert.match(html, /property="og:url" content="https:\/\/thetennisplan\.com\/"/);
