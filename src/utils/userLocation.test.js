@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DEFAULT_POSITION, DEFAULT_RADIUS_MILES } from "./userLocation";
+import {
+  DEFAULT_POSITION,
+  DEFAULT_RADIUS_MILES,
+  getSearchLocation,
+} from "./userLocation";
 
 const EARTH_MILES = 3958.8;
 const toRad = (deg) => (deg * Math.PI) / 180;
@@ -42,4 +46,32 @@ test("the default location puts every served area inside the default radius", ()
 test("the default sits in West LA, not somewhere a coordinate typo could land", () => {
   assert.ok(DEFAULT_POSITION.latitude > 33.9 && DEFAULT_POSITION.latitude < 34.2);
   assert.ok(DEFAULT_POSITION.longitude > -118.6 && DEFAULT_POSITION.longitude < -118.3);
+});
+
+test("search location prefers a saved player location over the default", () => {
+  const previousLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem(key) {
+      return key === "player:web:user-location"
+        ? JSON.stringify({ latitude: 34.1, longitude: -118.3 })
+        : null;
+    },
+  };
+
+  try {
+    assert.deepEqual(getSearchLocation(), { latitude: 34.1, longitude: -118.3 });
+  } finally {
+    globalThis.localStorage = previousLocalStorage;
+  }
+});
+
+test("search location falls back when the player has not saved a location", () => {
+  const previousLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = { getItem: () => null };
+
+  try {
+    assert.deepEqual(getSearchLocation(), DEFAULT_POSITION);
+  } finally {
+    globalThis.localStorage = previousLocalStorage;
+  }
 });

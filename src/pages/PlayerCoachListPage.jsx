@@ -24,6 +24,7 @@ import api, { unwrap } from "../services/api";
 import { API_BASE_URL } from "../api/config";
 import { useAuth } from "../context/AuthContext";
 import useDebouncedValue from "../hooks/useDebouncedValue";
+import { getSearchLocation } from "../utils/userLocation";
 import "./PlayerCoachListPage.css";
 
 const PER_PAGE = 10;
@@ -1282,8 +1283,16 @@ const PlayerCoachListPage = () => {
   const [filterText, setFilterText] = useState("");
   const [myCoachesFilterText, setMyCoachesFilterText] = useState("");
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
-  const [locationFilter, setLocationFilter] = useState(null);
-  const [userPos, setUserPos] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(() => {
+    const location = getSearchLocation();
+    return {
+      address: "Current location",
+      latitude: location.latitude,
+      longitude: location.longitude,
+      isCurrentLocation: true,
+    };
+  });
+  const [userPos, setUserPos] = useState(() => getSearchLocation());
   const [openFilter, setOpenFilter] = useState(null);
   const [dynamicFilters, setDynamicFilters] = useState([]);
   const [selectedFilters, setSelectedFilters] = useState({});
@@ -1331,7 +1340,7 @@ const PlayerCoachListPage = () => {
           longitude: position.coords.longitude,
         });
         setLocationFilter((prev) =>
-          prev && prev.address
+          prev && prev.address && !prev.isCurrentLocation
             ? prev
             : {
                 address: "Current location",

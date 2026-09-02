@@ -64,6 +64,12 @@ export const getStoredLocation = (): Coordinates | null => {
   }
 };
 
+/**
+ * Location used for geo-scoped searches. A saved player location wins; new
+ * players search from the shared default until they choose one.
+ */
+export const getSearchLocation = (): Coordinates => getStoredLocation() ?? DEFAULT_POSITION;
+
 export const storeLocation = (coords: Coordinates | null) => {
   try {
     if (!coords) {
