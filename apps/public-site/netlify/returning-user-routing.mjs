@@ -1,17 +1,3 @@
-const hasCookie = (cookie, name, value) =>
-  String(cookie || "")
-    .split(";")
-    .some((part) => part.trim() === `${name}=${value}`);
-
-export const shouldRedirectReturningUser = ({ pathname, search, cookie }) => {
-  if (pathname !== "/") return false;
-
-  const searchParams = new URLSearchParams(search || "");
-  if (searchParams.get("stay") === "1") return false;
-
-  return hasCookie(cookie, "tp_returning", "1");
-};
-
 export const withCookieSensitiveHeaders = (sourceHeaders) => {
   const headers = new Headers(sourceHeaders);
   const existingVary = headers.get("vary");

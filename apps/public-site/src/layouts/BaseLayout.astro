@@ -27,4 +27,14 @@ const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).
     <meta property="og:url" content={canonical} />
   </head>
   <body><slot /></body>
+  <script>
+    import { appRedirectUrl } from "../scripts/legacyHashRedirect.mjs";
+
+    const destination = appRedirectUrl({
+      hash: window.location.hash,
+      search: window.location.search,
+      cookie: document.cookie,
+    });
+    if (destination) window.location.replace(destination);
+  </script>
 </html>

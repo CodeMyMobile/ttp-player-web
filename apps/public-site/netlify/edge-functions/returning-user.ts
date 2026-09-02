@@ -1,10 +1,4 @@
-import {
-  shouldRedirectReturningUser,
-  withCookieSensitiveHeaders,
-  withLegacySessionCookieCleanup,
-} from "../returning-user-routing.mjs";
-
-const APP_ROOT_URL = "https://app.thetennisplan.com/#/";
+import { withCookieSensitiveHeaders, withLegacySessionCookieCleanup } from "../returning-user-routing.mjs";
 
 const privateHomepageHeaders = (headers: Headers) =>
   withLegacySessionCookieCleanup(withCookieSensitiveHeaders(headers));
@@ -16,21 +10,7 @@ const withPrivateHomepageHeaders = (response: Response) =>
     headers: privateHomepageHeaders(response.headers),
   });
 
-export default async (request: Request, context: { next: () => Promise<Response> }) => {
-  const url = new URL(request.url);
-  const headers = privateHomepageHeaders(new Headers());
-
-  if (
-    shouldRedirectReturningUser({
-      pathname: url.pathname,
-      search: url.search,
-      cookie: request.headers.get("cookie"),
-    })
-  ) {
-    headers.set("location", APP_ROOT_URL);
-    return new Response(null, { status: 302, headers });
-  }
-
+export default async (_request: Request, context: { next: () => Promise<Response> }) => {
   return withPrivateHomepageHeaders(await context.next());
 };
 
