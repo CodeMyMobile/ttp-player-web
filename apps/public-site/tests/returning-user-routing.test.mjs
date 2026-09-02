@@ -5,7 +5,7 @@ import {
   shouldRedirectReturningUser,
   withLegacySessionCookieCleanup,
   withCookieSensitiveHeaders,
-} from "../netlify/edge-functions/returning-user-routing.mjs";
+} from "../netlify/returning-user-routing.mjs";
 
 test("returning-user routing redirects only a hinted homepage visitor", () => {
   assert.equal(

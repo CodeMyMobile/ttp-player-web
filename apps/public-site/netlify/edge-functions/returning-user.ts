@@ -2,7 +2,7 @@ import {
   shouldRedirectReturningUser,
   withCookieSensitiveHeaders,
   withLegacySessionCookieCleanup,
-} from "./returning-user-routing.mjs";
+} from "../returning-user-routing.mjs";
 
 const APP_ROOT_URL = "https://app.thetennisplan.com/#/";
 
