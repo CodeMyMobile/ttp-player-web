@@ -458,6 +458,20 @@
   .lgd .pl{min-width:0;max-width:140px;gap:6px}
   .lgd .me .who{display:none}
 
+  /* Ladder rows.
+     These three rules used to live in the prefers-reduced-motion block below —
+     an animation preference, not a width one — so on a phone the ladder kept the
+     desktop's five columns. The 1fr name column collapsed to 64px, names
+     truncated to "Federi…" and the ratings line wrapped to five lines. Only
+     users who had switched reduced-motion ON ever saw the intended layout.
+     Rank and avatar shrink; record and Challenge stack under the name. */
+  .lgd .ladder-row{grid-template-columns:38px 30px minmax(0,1fr);gap:9px;padding:12px 14px}
+  .lgd .ladder-row>.rec-w,.lgd .ladder-row>.rec-l,.lgd .ladder-row>.rec-0{grid-column:3;font-size:12px}
+  .lgd .ladder-row>.btn{grid-column:3;width:max-content;min-width:88px;padding:8px 12px}
+  /* The 140px cap above is for the standings TABLE, where columns must stay
+     visible without scrolling. The ladder is not a table and has the width. */
+  .lgd .ladder-player .pl{max-width:none}
+
   /* pending banner: quiet one-line strip, not a card. Keeps a subtle amber
      tint; the button becomes a small inline "View" text affordance. */
   .lgd .banner{flex-wrap:nowrap;gap:8px;padding:8px 12px;border-radius:9px}
@@ -540,9 +554,6 @@
   .lgd .tick-static{display:flex}
   .lgd .tick-track{animation:none}
   .lgd .panel{animation:none}
-  .lgd .ladder-row{grid-template-columns:38px 30px minmax(0,1fr);gap:9px}
-  .lgd .ladder-row>.rec-w,.lgd .ladder-row>.rec-l,.lgd .ladder-row>.rec-0{grid-column:3;font-size:12px}
-  .lgd .ladder-row>.btn{grid-column:3;width:max-content;min-width:88px;padding:8px 12px}
   .lgd .league-menu{animation:none}
 }
 
