@@ -345,15 +345,61 @@
 .lgd .ladder-head h2{margin:2px 0 0;font-size:20px;line-height:1.15}
 .lgd .ladder-head .eyebrow{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
 .lgd .ladder-head>span{font-size:12.5px;font-weight:700;color:var(--violet);background:#f1ecff;border-radius:999px;padding:6px 10px}
+/* One line of context under the header. The ladder and the standings disagree
+   all season by design; this is where that is explained. */
+.lgd .ladder-basis{margin:0;padding:10px 18px 12px;font-size:12px;line-height:1.45;
+  color:var(--ink-3);border-bottom:1px solid var(--line)}
+.lgd .ladder-basis__link{border:0;background:none;padding:0;font:inherit;color:var(--violet);
+  font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
 .lgd .ladder-list{display:flex;flex-direction:column}
-.lgd .ladder-row{display:grid;grid-template-columns:48px 34px minmax(0,1fr) 64px auto;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+/* Target row height ~56px so 6-8 players clear the fold on a 375px screen.
+   The row is NOT a control — no hover, no active, no chevron — because tapping
+   it does nothing; a dead affordance is worse than none. */
+.lgd .ladder-row{display:grid;grid-template-columns:26px 3px minmax(0,1fr) auto 32px;
+  align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line)}
 .lgd .ladder-row:last-child{border-bottom:0}
-.lgd .ladder-rank{font-weight:800;color:var(--violet);font-variant-numeric:tabular-nums}
-.lgd .ladder-player{min-width:0}
-.lgd .ladder-player .pl{display:flex;align-items:center;gap:7px;min-width:0}
-.lgd .ladder-player .pl-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lgd .ladder-row>.btn{padding:8px 13px;font-size:12.5px;min-width:94px}
-.lgd .ladder-row>.btn:disabled{opacity:.45;cursor:not-allowed}
+.lgd .ladder-rank{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums;text-align:right}
+/* The viewer's row. This background did NOT exist before — `.you-row` was styled
+   for the standings preview (.sp-row) and the standings table (tr) but never for
+   .ladder-row, so the ladder's own row carried the class and no accent. Same
+   token as its siblings, so the three surfaces agree. */
+.lgd .ladder-row.you-row{background:var(--violet-softer)}
+.lgd .you-row .ladder-rank{color:var(--violet);font-weight:700}
+
+/* Rating-gap bar. Height is set inline from the division's range; one colour by
+   design. To remove the whole idea: delete this rule and the <span> that uses it. */
+/* One flat colour for every bar — no ramp, so rank is encoded once, by height.
+   NOT --violet-softer as first specced: that token is #F5F3FE, which on a white
+   row is invisible at 3px wide. This is the same single violet at a fixed low
+   opacity, which keeps it quiet without erasing it. */
+.lgd .ladder-bar{width:3px;border-radius:2px;background:var(--violet);opacity:.35;justify-self:center}
+
+.lgd .ladder-player{min-width:0;display:block}
+.lgd .ladder-nm{display:block;font-size:14px;font-weight:600;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lgd .ladder-meta{display:block;font-size:11px;color:var(--ink-3);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* TPR is the number the row is sorted by, so it carries the most weight after
+   the name, with its provenance directly beneath it. */
+.lgd .ladder-tpr{display:block;text-align:right;min-width:52px}
+.lgd .ladder-tpr__n{display:block;font-size:16px;font-weight:500;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.15}
+.lgd .ladder-tpr__st{display:block;font-size:10px;color:var(--ink-3);line-height:1.2}
+
+.lgd .ladder-act{width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.lgd .ladder-challenge{border:1px solid var(--line-2);border-radius:9px;background:#fff;
+  color:var(--ink-3);cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.lgd .ladder-challenge:hover{border-color:var(--violet);color:var(--violet);background:var(--violet-softer)}
+.lgd .ladder-challenge svg{width:16px;height:16px}
+
+/* 320px: the rank and bar columns tighten; the name still truncates rather than
+   wrapping, and the TPR column never leaves the screen. */
+@media (max-width:360px){
+  .lgd .ladder-row{grid-template-columns:20px 3px minmax(0,1fr) auto 30px;gap:8px;padding:9px 10px}
+  .lgd .ladder-tpr{min-width:46px}
+}
 
 /* players grid */
 .lgd .pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
@@ -458,19 +504,10 @@
   .lgd .pl{min-width:0;max-width:140px;gap:6px}
   .lgd .me .who{display:none}
 
-  /* Ladder rows.
-     These three rules used to live in the prefers-reduced-motion block below —
-     an animation preference, not a width one — so on a phone the ladder kept the
-     desktop's five columns. The 1fr name column collapsed to 64px, names
-     truncated to "Federi…" and the ratings line wrapped to five lines. Only
-     users who had switched reduced-motion ON ever saw the intended layout.
-     Rank and avatar shrink; record and Challenge stack under the name. */
-  .lgd .ladder-row{grid-template-columns:38px 30px minmax(0,1fr);gap:9px;padding:12px 14px}
-  .lgd .ladder-row>.rec-w,.lgd .ladder-row>.rec-l,.lgd .ladder-row>.rec-0{grid-column:3;font-size:12px}
-  .lgd .ladder-row>.btn{grid-column:3;width:max-content;min-width:88px;padding:8px 12px}
-  /* The 140px cap above is for the standings TABLE, where columns must stay
-     visible without scrolling. The ladder is not a table and has the width. */
-  .lgd .ladder-player .pl{max-width:none}
+  /* No ladder overrides here any more. The row is a single line at every width
+     by construction (see .ladder-row above), so it needs no mobile reflow — the
+     previous three-column stack would now fight it. The 140px `.pl` cap above
+     stays scoped to the standings TABLE; the ladder no longer uses `.pl`. */
 
   /* pending banner: quiet one-line strip, not a card. Keeps a subtle amber
      tint; the button becomes a small inline "View" text affordance. */

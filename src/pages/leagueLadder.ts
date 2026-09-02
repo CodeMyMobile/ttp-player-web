@@ -16,6 +16,8 @@ export interface LeagueLadderRow {
   losses: number;
   isViewer: boolean;
   ratingBadge: string | null;
+  /** All-platform matches behind the TPR — NOT the league record. Null when absent. */
+  matchesPlayed: number | null;
   ratingSource: string | null;
   ratingDeltaFromViewer: number | null;
   distanceLabel: string | null;
@@ -122,6 +124,7 @@ export const buildLeagueLadderRows = ({
         losses: record.losses,
         isViewer: viewerId != null && String(viewerId) === playerId,
         ratingBadge: ratingBadge(player),
+        matchesPlayed: numeric(player.matches_played),
         ratingSource: normalizeSource(player.rating_source),
         ratingDeltaFromViewer: numeric(player.rating_delta_from_viewer),
         distanceLabel: formatDistance(player.distance_miles),

@@ -24,6 +24,15 @@ import {
   type ContactablePlayer,
 } from "./contactSheet";
 import { isContactSheetEnabled } from "./contactSheetFlag";
+import {
+  gapBarHeight,
+  matchesLabel,
+  ratingRange,
+  ratingStatusLabel,
+  ratingValue,
+  tprLabel,
+  viewerGapLabel,
+} from "./ladderRow";
 import { sizedImageUrl } from "../../utils/playerImage";
 import { usePointerCoarse } from "./usePointerCoarse";
 import type { LeagueData, RosterPlayer, StandingRow, TabKey } from "./types";
@@ -140,6 +149,12 @@ const LeagueTabs = ({
   const pointerCoarse = pointerCoarseProp ?? detectedCoarse;
   const contactSheetEnabled = contactSheetEnabledProp ?? isContactSheetEnabled();
   const leagueName = data.summary.name || "league";
+  // One range for the whole division, so every bar is scaled against the same
+  // span rather than against its own neighbours. `ladder` is optional in
+  // practice — the offline fixtures omit it — and this runs on every tab, not
+  // just the ladder, so it must not assume the array is there.
+  const ladderRows = data.ladder ?? [];
+  const ladderRange = ratingRange(ladderRows.map((row) => row.rating));
 
   return (
   <>
@@ -167,37 +182,81 @@ const LeagueTabs = ({
             <div className="eyebrow">Rated players</div>
             <h2>League ladder</h2>
           </div>
-          <span>{data.ladder.length} rated</span>
+          <span>{ladderRows.length} rated</span>
         </div>
-        {data.ladder.length ? (
+        {/* Ladder order and standings order disagree all season, because TPR is
+            computed across a player's whole platform history. Saying so once here
+            is cheaper than fielding the question every week. */}
+        <p className="ladder-basis">
+          Ranked by TPR across all your matches. Playoff spots come from{" "}
+          <button type="button" className="ladder-basis__link" onClick={() => onTabChange("standings")}>
+            standings
+          </button>
+          .
+        </p>
+        {ladderRows.length ? (
           <div className="ladder-list">
-            {data.ladder.map((row) => (
-              <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
-                <span className="ladder-rank">#{row.rank}</span>
-                <span className="av">{row.initials}</span>
-                <div className="ladder-player">
-                  <div className="pl">
-                    <span className="pl-nm">{row.name}</span>
-                    {row.isViewer ? <span className="you-tag">you</span> : null}
-                  </div>
-                  <div className="rt">
-                    {row.ratingType} {row.ratingLabel}
-                    {row.ntrpLabel !== "-" && row.ratingType !== "NTRP" ? ` · NTRP ${row.ntrpLabel}` : ""}
-                    {row.utrLabel !== "-" && row.ratingType !== "UTR" ? ` · UTR ${row.utrLabel}` : ""}
-                    {row.ratingBadge ? ` · ${row.ratingBadge}` : ""}
-                  </div>
+            {ladderRows.map((row, index) => {
+              const above = index > 0 ? ladderRows[index - 1] : null;
+              const below = index < ladderRows.length - 1 ? ladderRows[index + 1] : null;
+              const gap = row.isViewer
+                ? viewerGapLabel(
+                    { rank: row.rank, rating: row.rating },
+                    above ? { rank: above.rank, rating: above.rating } : null,
+                    below ? { rank: below.rank, rating: below.rating } : null,
+                  )
+                : null;
+              return (
+                <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
+                  {/* The # prefix marks the viewer's own place; everyone else is a
+                      plain number so the column scans as a list, not a set of tags. */}
+                  <span className="ladder-rank">{row.isViewer ? `#${row.rank}` : row.rank}</span>
+                  {/* Rating-gap bar. Height alone encodes the spread — one colour,
+                      because a colour ramp would encode rank a second time and
+                      more weakly. Delete this span and its CSS to remove it. */}
+                  <span
+                    className="ladder-bar"
+                    style={{ height: gapBarHeight(row.rating, ladderRange.min, ladderRange.max) }}
+                    aria-hidden="true"
+                  />
+                  <span className="ladder-player">
+                    <span className="ladder-nm">{row.name}</span>
+                    <span className="ladder-meta">
+                      {gap ?? (
+                        <>
+                          {`NTRP ${ratingValue(row.ntrpLabel)} · UTR ${ratingValue(row.utrLabel)} · `}
+                          {matchesLabel(row.matchesPlayed, row.ratingBadge)}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                  <span className="ladder-tpr">
+                    <span className="ladder-tpr__n">{tprLabel(row.rating)}</span>
+                    {/* Qualifies the TPR, not the self-reported NTRP/UTR: rating_source
+                        keys off matches played, vouches and the seed. Never blank. */}
+                    <span className="ladder-tpr__st">{ratingStatusLabel(row.ratingBadge)}</span>
+                  </span>
+                  {row.isViewer ? (
+                    <span className="ladder-act" />
+                  ) : (
+                    <button
+                      type="button"
+                      className="ladder-act ladder-challenge"
+                      aria-label={`Challenge ${row.name}`}
+                      title={`Challenge ${row.name}`}
+                      onClick={(event) => {
+                        // The row is not a control today, but this stays so the
+                        // button keeps working if one is ever wrapped around it.
+                        event.stopPropagation();
+                        onChallenge?.(row.playerId);
+                      }}
+                    >
+                      <Icon name="swords" />
+                    </button>
+                  )}
                 </div>
-                <span className={recordClass(row.wins, row.losses)}>{row.recordLabel}</span>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={row.isViewer}
-                  onClick={() => onChallenge?.(row.playerId)}
-                >
-                  Challenge
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="list-empty">No rated players yet.</div>
