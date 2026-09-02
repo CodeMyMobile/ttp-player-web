@@ -1,3 +1,5 @@
+import { clearReturningUserHint, setReturningUserHint } from "../../services/returningUserHint";
+
 const collapseRepeatedScheme = (scheme, value) => {
   if (!scheme || !value) return value?.trim() || "";
   const pattern = new RegExp(`^${scheme}\\s+`, "i");
@@ -46,18 +48,23 @@ const buildCookieDomains = () => {
     return [undefined];
   }
 
-  const parts = hostname.split(".").filter(Boolean);
-  if (parts.length <= 1) {
-    return [undefined];
-  }
+  return [undefined];
+};
 
-  const domains = new Set([undefined]);
-  for (let i = 0; i <= parts.length - 2; i += 1) {
-    const candidate = parts.slice(i).join(".");
-    if (!candidate || !candidate.includes(".")) continue;
-    domains.add(`.${candidate}`);
+const buildLegacyCookieDomains = () => {
+  if (!canUseBrowserApis()) return [];
+  const { hostname } = window.location;
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") return [];
+  if (hostname === "[::1]" || isLikelyIpAddress(hostname)) return [];
+
+  const parts = hostname.split(".").filter(Boolean);
+  if (parts.length <= 1) return [];
+
+  const domains = [];
+  for (let index = 0; index <= parts.length - 2; index += 1) {
+    domains.push(`.${parts.slice(index).join(".")}`);
   }
-  return Array.from(domains);
+  return domains;
 };
 
 const secureCookieEnabled = () => {
@@ -206,12 +213,26 @@ export const getStoredAuthToken = (options) => {
 
 export const getStoredRefreshToken = () => getStoredValue("refreshToken");
 
-export const storeAuthToken = (token, options = {}) =>
+export const storeAuthToken = (token, options = {}) => {
+  if (!String(token || "").trim()) return;
   storeValue("authToken", token, options);
+  setReturningUserHint();
+};
 
 export const storeRefreshToken = (token, options = {}) =>
   storeValue("refreshToken", token, options);
 
-export const clearStoredAuthToken = () => clearValue("authToken");
+export const clearStoredAuthToken = () => {
+  clearValue("authToken");
+  clearReturningUserHint();
+};
 
 export const clearStoredRefreshToken = () => clearValue("refreshToken");
+
+export const clearLegacySharedAuthCookies = () => {
+  for (const name of ["authToken", "refreshToken"]) {
+    for (const domain of buildLegacyCookieDomains()) {
+      clearCookieForDomain(name, { domain });
+    }
+  }
+};
