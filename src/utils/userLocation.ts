@@ -49,6 +49,19 @@ export const DEFAULT_RADIUS_MILES = 10;
  */
 export const hasStoredLocation = (): boolean => getStoredLocation() !== null;
 
+/**
+ * Players who already chose a location can continue using it even if browser
+ * permission is unavailable. Everyone else needs the picker when permission
+ * is not already granted.
+ */
+export const shouldPromptForLocationAfterLogin = ({
+  hasSavedLocation,
+  permission,
+}: {
+  hasSavedLocation: boolean;
+  permission: PermissionState | "unavailable";
+}): boolean => !hasSavedLocation && permission !== "granted";
+
 export const getStoredLocation = (): Coordinates | null => {
   try {
     const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);

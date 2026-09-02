@@ -63,6 +63,11 @@ import RestringingClaimPage from "./restringing/RestringingClaimPage";
 import RestringingPlayerFlow from "./restringing/RestringingPlayerFlow";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
+import {
+  hasStoredLocation,
+  requestLocationPicker,
+  shouldPromptForLocationAfterLogin,
+} from "./utils/userLocation";
 import "./App.css";
 
 const playDatesQueryClient = createPlayDatesQueryClient();
@@ -757,6 +762,57 @@ const ScrollToTop = () => {
   return null;
 };
 
+const LocationPermissionGate = () => {
+  const { isAuthenticated } = useAuth();
+  const hasCheckedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasCheckedRef.current = false;
+      return;
+    }
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
+    const openLocationPicker = () => {
+      window.setTimeout(requestLocationPicker, 0);
+    };
+
+    if (!navigator.geolocation || !navigator.permissions?.query) {
+      if (shouldPromptForLocationAfterLogin({ hasSavedLocation: hasStoredLocation(), permission: "unavailable" })) {
+        openLocationPicker();
+      }
+      return;
+    }
+
+    let active = true;
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then(({ state }) => {
+        if (
+          active &&
+          shouldPromptForLocationAfterLogin({ hasSavedLocation: hasStoredLocation(), permission: state })
+        ) {
+          openLocationPicker();
+        }
+      })
+      .catch(() => {
+        if (
+          active &&
+          shouldPromptForLocationAfterLogin({ hasSavedLocation: hasStoredLocation(), permission: "unavailable" })
+        ) {
+          openLocationPicker();
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  return null;
+};
+
 function App() {
   const directPayMatch = typeof window !== "undefined"
     ? window.location.pathname.match(/^\/pay\/([^/?#]+)/)
@@ -773,6 +829,7 @@ function App() {
       <HashRouter>
         <ScrollToTop />
         <AuthDrawerProvider>
+          <LocationPermissionGate />
           <div className="app-shell">
             {directPayMatch ? (
               <PayLinkCheckoutPage token={decodeURIComponent(directPayMatch[1])} />

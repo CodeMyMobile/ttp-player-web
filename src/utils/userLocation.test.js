@@ -6,6 +6,7 @@ import {
   DEFAULT_RADIUS_MILES,
   getSearchLocation,
   locationNameFromReverseGeocode,
+  shouldPromptForLocationAfterLogin,
 } from "./userLocation";
 
 const EARTH_MILES = 3958.8;
@@ -84,4 +85,11 @@ test("reverse geocoding supplies the navbar's city and full location label", () 
     }),
     { area: "Santa Monica", label: "Santa Monica, California, US" },
   );
+});
+
+test("login prompts for location only when no location is saved and permission is not granted", () => {
+  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: true, permission: "denied" }), false);
+  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "granted" }), false);
+  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "prompt" }), true);
+  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "denied" }), true);
 });
