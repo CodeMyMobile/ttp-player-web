@@ -24,6 +24,7 @@ import {
   type ContactablePlayer,
 } from "./contactSheet";
 import { isContactSheetEnabled } from "./contactSheetFlag";
+import { sizedImageUrl } from "../../utils/playerImage";
 import { usePointerCoarse } from "./usePointerCoarse";
 import type { LeagueData, RosterPlayer, StandingRow, TabKey } from "./types";
 
@@ -273,8 +274,10 @@ const LeagueTabs = ({
               Save all contacts
             </button>
           ) : null}
+          {/* Desktop only — on mobile the sticky bottom bar already carries it,
+              and two of the same button on one screen is one too many. */}
           {onNeedMatch ? (
-            <button type="button" className="btn" onClick={onNeedMatch}>
+            <button type="button" className="btn ptab-need-match" onClick={onNeedMatch}>
               Need a match
             </button>
           ) : null}
@@ -296,19 +299,28 @@ const LeagueTabs = ({
 
             return (
               <div className="pcard" key={player.playerId}>
-                <span className={`av${contactable ? "" : " av-muted"}`}>{player.initials}</span>
+                {player.profileImageUrl ? (
+                  <img
+                    className="av av-photo"
+                    src={sizedImageUrl(player.profileImageUrl, { size: 40 })}
+                    alt=""
+                    loading="lazy"
+                    width={40}
+                    height={40}
+                  />
+                ) : (
+                  <span className={`av${contactable ? "" : " av-muted"}`}>{player.initials}</span>
+                )}
                 <span className="pinfo">
                   <span className="nm">{player.name}</span>
+                  {/* All three ratings on one line, on both platforms; the record
+                      gets its own line below so neither has to be dropped. */}
                   <span className="rt">
                     {player.rating === null ? "TPR —" : `TPR ${player.rating.toFixed(1)}`}
-                    {/* NTRP is the derived value; it is the segment that goes when
-                        the row runs out of width at 390px. Hidden by CSS, not
-                        dropped from the markup, so desktop keeps it. */}
-                    {player.ntrp ? (
-                      <span className="rt-ntrp">{` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}`}</span>
-                    ) : null}
+                    {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
                     {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : " · UTR unrated"}
-                    {" · "}
+                  </span>
+                  <span className="rec-line">
                     <span className={recordClass(player.wins, player.losses)}>
                       {player.wins}–{player.losses}
                     </span>
@@ -324,14 +336,14 @@ const LeagueTabs = ({
                   {links && e164 ? (
                     pointerCoarse ? (
                       <>
-                        <a className="chip" href={links.sms} aria-label={`Text ${player.name}`}>
+                        <a className="chan-chip" href={links.sms} aria-label={`Text ${player.name}`}>
                           <Icon name="message-circle" />
                         </a>
-                        <a className="chip" href={links.tel} aria-label={`Call ${player.name}`}>
+                        <a className="chan-chip" href={links.tel} aria-label={`Call ${player.name}`}>
                           <Icon name="phone" />
                         </a>
                         <a
-                          className="chip"
+                          className="chan-chip"
                           href={links.whatsapp}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -346,7 +358,7 @@ const LeagueTabs = ({
                             slots are replaced rather than greyed out. */}
                         <button
                           type="button"
-                          className={`chip${copied ? " chip-done" : ""}`}
+                          className={`chan-chip${copied ? " chan-chip-done" : ""}`}
                           onClick={() => copyNumber(player.playerId, e164)}
                           aria-label={`Copy number for ${player.name}`}
                           title={copied ? "Copied" : "Copy number"}
@@ -354,7 +366,7 @@ const LeagueTabs = ({
                           <Icon name={copied ? "check" : "copy"} />
                         </button>
                         <a
-                          className="chip"
+                          className="chan-chip"
                           href={links.whatsapp}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -365,7 +377,7 @@ const LeagueTabs = ({
                         </a>
                         <button
                           type="button"
-                          className="chip"
+                          className="chan-chip"
                           onClick={() => onProposeMatch?.(player.playerId)}
                           aria-label={`Propose a match with ${player.name}`}
                           title="Propose a match"
@@ -378,7 +390,7 @@ const LeagueTabs = ({
                     /* No consent, or no number: the in-app route is the only one left. */
                     <button
                       type="button"
-                      className="chip"
+                      className="chan-chip"
                       onClick={() => onProposeMatch?.(player.playerId)}
                       aria-label={`Propose a match with ${player.name}`}
                       title="Propose a match"

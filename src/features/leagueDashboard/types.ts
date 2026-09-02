@@ -95,6 +95,15 @@ export interface RosterPlayer {
   /** Raw phone from the members payload, any format. Normalised at the point of use. */
   phone?: string | null;
   /**
+   * Absolute URL to the player's photo.
+   *
+   * NOT YET RETURNED BY THE BACKEND. `pp.profile_picture` exists on
+   * `player_profile` — `models/player_history.js` already selects it, prefixed
+   * with the S3 bucket URL — but `listLeaguePlayers` does not. Until it does
+   * this is undefined and the row falls back to initials.
+   */
+  profileImageUrl?: string | null;
+  /**
    * Per-league opt-in to sharing this number with other players in the division.
    *
    * NOT YET SUPPLIED BY THE BACKEND — see `share_contact` in api/leagues.ts. Until

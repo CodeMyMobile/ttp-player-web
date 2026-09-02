@@ -162,11 +162,44 @@ test("a rated player still shows their rating", () => {
 
 /* desktop actions */
 
-test("the mobile meta line drops NTRP by class, keeping it in the markup for desktop", () => {
-  // Hidden by media query rather than removed, so one render serves both widths.
+test("all three ratings show on both platforms, with the record on its own line", () => {
+  // The record moved to its own line rather than NTRP being dropped, so nothing
+  // has to be hidden at any width.
   const html = renderPlayers(true);
-  assert.ok(html.includes("rt-ntrp"), "NTRP is wrapped for the breakpoint to hide");
-  assert.ok(html.includes("NTRP 4.00"));
+  assert.ok(html.includes("TPR 4.0"));
+  assert.ok(html.includes("NTRP 4.00"), "NTRP is no longer trimmed");
+  assert.ok(html.includes("UTR 8.4"));
+  assert.ok(html.includes("rec-line"), "the record has its own line");
+  assert.ok(!html.includes("rt-ntrp"), "the mobile-only NTRP wrapper is gone");
+});
+
+test("a player with a photo renders it; everyone else keeps initials", () => {
+  const withPhoto: LeagueData = {
+    ...data,
+    roster: [{ ...roster[0], profileImageUrl: "https://example.com/ada.jpg" }, roster[1]],
+  };
+  const html = renderToStaticMarkup(
+    createElement(LeagueTabs, {
+      data: withPhoto,
+      activeTab: "players",
+      onTabChange: () => {},
+      onSchedule: () => {},
+      contactSheetEnabled: true,
+      hideTabBar: true,
+    } as Parameters<typeof LeagueTabs>[0]),
+  );
+  assert.ok(html.includes("av-photo"), "the photo renders");
+  assert.ok(html.includes("example.com/ada.jpg"));
+  // The player without one still gets initials rather than a broken image.
+  assert.ok(html.includes(">BW<"));
+});
+
+test("the contact chips do not reuse the hero's .chip class", () => {
+  // The hero's projected-rank pill is also called .chip; a bare .chip rule here
+  // would restyle it into a 34px square.
+  const html = renderPlayers(true, true);
+  assert.ok(html.includes("chan-chip"));
+  assert.ok(!/class="chip["\s]/.test(html), "no bare .chip on a channel button");
 });
 
 /* channel sets by platform */

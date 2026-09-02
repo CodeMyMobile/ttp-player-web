@@ -353,6 +353,9 @@ const buildDashboard = (
       // does not send share_contact yet, so this stays undefined and the contact
       // sheet renders nothing. See api/leagues.ts.
       shareContact: typeof player.share_contact === "boolean" ? player.share_contact : undefined,
+      profileImageUrl: typeof player.profile_picture === "string" && player.profile_picture.trim()
+        ? player.profile_picture.trim()
+        : null,
     };
   });
 
@@ -597,7 +600,9 @@ const buildDashboard = (
             : "Post your availability to get your first match on the calendar.",
         ctaLabel: nextMove.cta.label,
         // NOTE: truthful — no projected number without a real projection model.
-        projectedChip: "Win your first to get ranked",
+        // States the status, because the sub above already gives the action:
+        // both saying "win your first" read as a stutter.
+        projectedChip: "Unranked until your first result",
         rankStat: "—",
         rankLabel: "Unranked",
         tone: archived ? "gray" : "violet",
