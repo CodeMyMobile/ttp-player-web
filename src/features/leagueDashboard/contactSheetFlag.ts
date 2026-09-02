@@ -1,22 +1,34 @@
-// Feature gate for the league player contact sheet.
+// Kill switch for the league contact actions.
 //
-// OFF until the backend ships a per-membership `share_contact` field.
+// DEFAULT ON. Numbers were already exposed on this screen before this feature:
+// the previous Players tab rendered `href="sms:+1310..."` on every row, so the
+// full number sat in the page source. And joining a division is agreeing to be
+// reachable by the players you are scheduled against. There is nothing here to
+// hold back that was not already out.
 //
-// This is not a rollout flag, it is a correctness gate. Two things are untrue
-// while the field is missing, and both get worse if the sheet is switched on:
+// It stays a switch only so the surface can be turned off quickly without a
+// revert — set VITE_LEAGUE_CONTACT_SHEET=0 (or "false" / "off") and redeploy.
 //
-//   1. `GET /leagues/:id/players` returns every member's phone number to every
-//      signed-in viewer with no opt-in (ttp-api routes/leagues.js:481). Surfacing
-//      those numbers in the UI would publish them, not merely display them.
-//   2. The join-flow consent checkbox has nowhere to persist to, so it would
-//      promise a choice the system cannot honour.
-//
-// Turn this on only once `share_contact` is returned per membership AND the join
-// flow can save it. Set VITE_LEAGUE_CONTACT_SHEET=1 to enable.
+// The join-flow opt-out checkbox is gated SEPARATELY, on isContactOptOutAvailable,
+// because that one genuinely cannot work until the backend can persist
+// `share_contact`. A checkbox that silently discards the user's choice is worse
+// than no checkbox.
 
-const readFlag = (): boolean => {
-  const raw = import.meta.env?.VITE_LEAGUE_CONTACT_SHEET;
+const readFlag = (name: string): string | undefined =>
+  (import.meta.env as Record<string, string | undefined> | undefined)?.[name];
+
+const isDisabled = (value: string | undefined): boolean =>
+  value === "0" || value === "false" || value === "off";
+
+export const isContactSheetEnabled = (): boolean =>
+  !isDisabled(readFlag("VITE_LEAGUE_CONTACT_SHEET"));
+
+/**
+ * The join-flow checkbox letting a player opt OUT of sharing their number.
+ * Off until the members payload carries `share_contact` and the join flow can
+ * save it. Values: "1" or "true".
+ */
+export const isContactOptOutAvailable = (): boolean => {
+  const raw = readFlag("VITE_LEAGUE_CONTACT_OPT_OUT");
   return raw === "1" || raw === "true";
 };
-
-export const isContactSheetEnabled = (): boolean => readFlag();

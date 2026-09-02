@@ -21,12 +21,12 @@ import {
 
 /* consent */
 
-test("consent is opt-in — an absent flag is not a yes", () => {
-  // The backend has not shipped share_contact yet. Until it does, every player
-  // must read as withheld; the opposite default would publish numbers.
-  assert.equal(canShowContact({ phone: "+13105550148" }), false);
-  assert.equal(canShowContact({ phone: "+13105550148", shareContact: false }), false);
+test("consent is opt-out — only an explicit false withholds", () => {
+  // Membership is the consent, and the old Players tab already emitted the
+  // number in an sms: href, so an absent flag shows rather than hides.
+  assert.equal(canShowContact({ phone: "+13105550148" }), true);
   assert.equal(canShowContact({ phone: "+13105550148", shareContact: true }), true);
+  assert.equal(canShowContact({ phone: "+13105550148", shareContact: false }), false);
 });
 
 test("consent without a usable number still shows nothing", () => {

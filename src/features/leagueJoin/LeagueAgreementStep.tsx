@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { FileText } from "lucide-react";
 
 import type { League, LeagueRuleVersion } from "../../api/leagues";
-import { isContactSheetEnabled } from "../leagueDashboard/contactSheetFlag";
+import { isContactOptOutAvailable } from "../leagueDashboard/contactSheetFlag";
 import { getAgreementNudges } from "./paymentState";
 
 export interface LeagueAgreementStepProps {
@@ -33,9 +33,11 @@ const LeagueAgreementStep = ({
   // and the player is opting into a division they chose to join. Still a real
   // choice — unchecking it means no number is ever shown to anyone.
   const [shareContact, setShareContact] = useState(true);
-  // Gated with the sheet itself: while the backend cannot persist this, showing
-  // the checkbox would offer a choice the system silently discards.
-  const contactSharingAvailable = isContactSheetEnabled();
+  // Gated on its own flag: numbers are shown by default (membership is the
+  // consent), so this checkbox exists to let someone opt OUT. It stays hidden
+  // until the backend can persist the choice — offering it sooner would discard
+  // the one answer that matters.
+  const contactSharingAvailable = isContactOptOutAvailable();
   const [nudged, setNudged] = useState(false);
   const rulesVersion = rule?.version ?? league.current_rules_version ?? "v1";
   const nudges = useMemo(

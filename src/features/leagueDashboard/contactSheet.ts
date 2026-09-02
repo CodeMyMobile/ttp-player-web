@@ -13,7 +13,7 @@ export interface ContactablePlayer {
   name: string;
   /** Raw phone as the API sends it — any format. */
   phone?: string | null;
-  /** Per-league opt-in. Undefined means "backend has not told us", which is NOT consent. */
+  /** Per-league opt-OUT. Only an explicit `false` withholds the number. */
   shareContact?: boolean;
   /** TPR — null when the player is unrated. */
   rating?: number | null;
@@ -24,11 +24,21 @@ export interface ContactablePlayer {
 }
 
 /**
- * Consent is opt-IN. `undefined` means the backend has not shipped the field yet,
- * and absence of a "no" is not a "yes" — so it reads as withheld.
+ * Membership IS the consent. Joining a division is agreeing to be reachable by
+ * the players you are scheduled against — and the roster already published these
+ * numbers: before this change the Players tab rendered `href="sms:+1310..."` on
+ * every row, so the number was in the page source whether or not it was visible.
+ *
+ * So this is an opt-OUT. Only an explicit `false` withholds a number.
+ * `undefined` means the backend has not shipped `share_contact` yet — which today
+ * is every player — and those players are shown, matching what production
+ * already does.
+ *
+ * If it ever has to become opt-in, invert this one predicate: every caller,
+ * including the .vcf export and the row itself, routes through it.
  */
 export const canShowContact = (player: Pick<ContactablePlayer, "phone" | "shareContact">): boolean =>
-  player.shareContact === true && Boolean(toE164(player.phone));
+  player.shareContact !== false && Boolean(toE164(player.phone));
 
 /**
  * Normalise to E.164. Assumes US/Canada when no country code is present, which

@@ -78,11 +78,11 @@ test("a withheld number never reaches the DOM, even with the feature on", () => 
   assert.ok(html.includes("Ben Withholder"), "the player is still listed");
 });
 
-test("an absent consent flag is treated as withheld", () => {
-  // undefined is not consent — this is every player until the backend ships the field.
+test("an absent consent flag shows the number — membership is the consent", () => {
+  // This is every player until the backend ships share_contact, and it matches
+  // what production already did: the old row emitted the number in an sms: href.
   const html = renderPlayers(true);
-  assert.ok(!html.includes(UNSET_DIGITS));
-  assert.ok(!html.includes("555-0177"));
+  assert.ok(html.includes("555-0177"), "an unflagged player is reachable");
   assert.ok(html.includes("Cal Unset"));
 });
 
