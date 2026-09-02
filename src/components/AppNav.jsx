@@ -38,6 +38,7 @@ import {
   storeLocationLabel,
   storeLocationArea,
   getStoredLocationArea,
+  locationNameFromReverseGeocode,
   readPlaceArea,
   shortLocationLabel,
   storeLocationRadius,
@@ -52,6 +53,21 @@ const navItems = [
   { label: "My Coaches", to: "/my-coaches", icon: Users },
   { label: "Schedule", to: "/player/calendar", icon: CalendarDays },
 ];
+
+const reverseGeocodeDeviceLocation = async ({ latitude, longitude }) => {
+  try {
+    const query = new URLSearchParams({
+      format: "jsonv2",
+      lat: latitude.toString(),
+      lon: longitude.toString(),
+    });
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${query}`);
+    if (!response.ok) return null;
+    return locationNameFromReverseGeocode(await response.json());
+  } catch {
+    return null;
+  }
+};
 
 const userMenuItems = [
   { label: "Restring Service", to: "/restring", icon: RefreshCw },
@@ -111,6 +127,7 @@ const AppNav = ({
   const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
+  const locationSelectionVersionRef = useRef(0);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   const skillLevel =
     user?.skillLevel ||
@@ -210,6 +227,7 @@ const AppNav = ({
   };
 
   const applyLocationSelection = ({ label, latitude, longitude, area = null }) => {
+    locationSelectionVersionRef.current += 1;
     storeLocation({ latitude, longitude });
     storeLocationLabel(label);
     // The header shows the neighbourhood, not the full address. Geolocation
@@ -233,13 +251,21 @@ const AppNav = ({
     setLocationError("");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
         setIsDetectingLocation(false);
         applyLocationSelection({
           label: "Current location",
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          ...coords,
         });
+
+        const selectionVersion = locationSelectionVersionRef.current;
+        const locationName = await reverseGeocodeDeviceLocation(coords);
+        if (!locationName || locationSelectionVersionRef.current !== selectionVersion) return;
+        applyLocationSelection({ ...coords, ...locationName });
       },
       () => {
         setIsDetectingLocation(false);

@@ -5,6 +5,7 @@ import {
   DEFAULT_POSITION,
   DEFAULT_RADIUS_MILES,
   getSearchLocation,
+  locationNameFromReverseGeocode,
 } from "./userLocation";
 
 const EARTH_MILES = 3958.8;
@@ -74,4 +75,13 @@ test("search location falls back when the player has not saved a location", () =
   } finally {
     globalThis.localStorage = previousLocalStorage;
   }
+});
+
+test("reverse geocoding supplies the navbar's city and full location label", () => {
+  assert.deepEqual(
+    locationNameFromReverseGeocode({
+      address: { city: "Santa Monica", state: "California", country_code: "us" },
+    }),
+    { area: "Santa Monica", label: "Santa Monica, California, US" },
+  );
 });

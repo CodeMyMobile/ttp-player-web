@@ -162,6 +162,35 @@ export const readPlaceArea = (place: unknown): string | null => {
 };
 
 /**
+ * Produces the labels the navbar needs from a reverse-geocoding response.
+ */
+export const locationNameFromReverseGeocode = (
+  payload: unknown,
+): { area: string; label: string } | null => {
+  const address = (payload as { address?: unknown })?.address;
+  if (!address || typeof address !== "object") return null;
+
+  const fields = address as Record<string, unknown>;
+  const locality = ["city", "town", "village", "hamlet", "suburb", "county"]
+    .map((key) => fields[key])
+    .find((value): value is string => typeof value === "string" && value.trim() !== "");
+  if (!locality) return null;
+
+  const region = [fields.state, fields.region].find(
+    (value): value is string => typeof value === "string" && value.trim() !== "",
+  );
+  const countryCode =
+    typeof fields.country_code === "string" && fields.country_code.trim()
+      ? fields.country_code.trim().toUpperCase()
+      : null;
+
+  return {
+    area: locality.trim(),
+    label: [locality.trim(), region?.trim(), countryCode].filter(Boolean).join(", "),
+  };
+};
+
+/**
  * Header fallback for accounts that stored a location before areas were
  * captured: show the first segment of the address rather than the whole thing.
  */
