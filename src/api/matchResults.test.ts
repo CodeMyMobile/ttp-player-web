@@ -122,8 +122,8 @@ test("ordinals read correctly, including the teens", () => {
   ]);
 });
 
-test("the tile says nearby, never a club name", () => {
-  assert.equal(ladderPositionLabel(3), "3rd nearby");
-  assert.equal(ladderPositionLabel(12), "12th nearby");
+test("the tile labels the global ladder position", () => {
+  assert.equal(ladderPositionLabel(3), "3rd on ladder");
+  assert.equal(ladderPositionLabel(12), "12th on ladder");
   assert.equal(ladderPositionLabel(null), null);
 });

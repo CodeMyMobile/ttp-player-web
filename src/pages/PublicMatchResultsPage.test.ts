@@ -102,6 +102,13 @@ test("buildRankingsUrl sends radius search params", () => {
   assert.ok(url.includes("radius_miles=10"));
 });
 
+test("buildRankingsUrl sends pagination params", () => {
+  const url = buildRankingsUrl({ page: 3, pageSize: 100 });
+
+  assert.ok(url.includes("page=3"));
+  assert.ok(url.includes("page_size=100"));
+});
+
 test("decorateRankings formats backend distance when radius search is used", () => {
   const [first] = decorateRankings([
     { ...rankings[0], distance_miles: "4.27" },

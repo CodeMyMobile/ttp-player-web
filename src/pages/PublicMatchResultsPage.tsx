@@ -82,6 +82,8 @@ export type RankingsUrlFilters = {
   nearLat?: number | null;
   nearLng?: number | null;
   radiusMiles?: number | null;
+  page?: number;
+  pageSize?: number;
 };
 
 type Coordinates = { latitude: number; longitude: number };
@@ -253,7 +255,8 @@ export const resolveCourtFilterSelection = ({
   };
 };
 
-export const buildRankingsUrl = ({ nearLat, nearLng, radiusMiles }: RankingsUrlFilters = {}) => {
+export const buildRankingsUrl = (filters: RankingsUrlFilters = {}) => {
+  const { nearLat, nearLng, radiusMiles, page, pageSize } = filters;
   const params = new URLSearchParams();
   if (Number.isFinite(nearLat) && Number.isFinite(nearLng)) {
     params.set("near_lat", String(nearLat));
@@ -261,6 +264,13 @@ export const buildRankingsUrl = ({ nearLat, nearLng, radiusMiles }: RankingsUrlF
     if (Number.isFinite(radiusMiles) && Number(radiusMiles) > 0) {
       params.set("radius_miles", String(radiusMiles));
     }
+  }
+
+  if (Number.isInteger(page) && Number(page) > 0) {
+    params.set("page", String(page));
+  }
+  if (Number.isInteger(pageSize) && Number(pageSize) > 0) {
+    params.set("page_size", String(pageSize));
   }
 
   const query = params.toString();
@@ -470,12 +480,16 @@ const clickOnKeyboard = (event: React.KeyboardEvent, action: () => void) => {
 };
 
 const radiusOptions = [5, 10, 25, 50];
+const RANKINGS_PAGE_SIZE = 100;
 
 export default function PublicMatchResultsPage() {
   const navigate = useNavigate();
   const { avatarUrl: viewerPhotoUrl } = usePlayerIdentity();
   const [rankings, setRankings] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const { user } = useAuth();
@@ -496,7 +510,7 @@ export default function PublicMatchResultsPage() {
     let alive = true;
     setLoading(true);
     setError(null);
-    fetch(buildRankingsUrl())
+    fetch(buildRankingsUrl({ page: 1, pageSize: RANKINGS_PAGE_SIZE }))
       .then(async (response) => {
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error || "Failed to load rankings");
@@ -506,6 +520,8 @@ export default function PublicMatchResultsPage() {
         if (!alive) return;
         const next = Array.isArray(data?.rankings) ? data.rankings : [];
         setRankings(next);
+        setPage(Number(data?.page) || 1);
+        setTotal(Number(data?.total) || next.length);
       })
       .catch((err) => {
         if (!alive) return;
@@ -519,6 +535,24 @@ export default function PublicMatchResultsPage() {
       alive = false;
     };
   }, []);
+
+  const loadMore = async () => {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    try {
+      const response = await fetch(buildRankingsUrl({ page: nextPage, pageSize: RANKINGS_PAGE_SIZE }));
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || "Failed to load rankings");
+      const next = Array.isArray(data?.rankings) ? data.rankings : [];
+      setRankings((current) => [...current, ...next]);
+      setPage(Number(data?.page) || nextPage);
+      setTotal(Number(data?.total) || total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load rankings");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Shown as-is from the location the app already resolved; the header caps its
   // width in CSS and ellipsizes rather than pre-truncating the value.
@@ -745,6 +779,18 @@ export default function PublicMatchResultsPage() {
                 </div>
                 {!filtered.length ? (
                   <div className="p-8 text-center text-sm font-bold text-slate-400">No players match these filters.</div>
+                ) : null}
+                {rankings.length < total ? (
+                  <div className="border-t border-slate-100 p-4 text-center">
+                    <button
+                      type="button"
+                      className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void loadMore()}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "Loading players..." : "Load more players"}
+                    </button>
+                  </div>
                 ) : null}
               </>
             )}
