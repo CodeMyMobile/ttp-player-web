@@ -2,10 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Tennis Plan</title>
     <meta name="description" content="Book coaches, join group lessons, and play matches across West LA." />
+
+    <!--
+      Home-screen and tab icons.
+
+      These MUST be static tags in this file. iOS reads the head of the served
+      HTML before any JavaScript runs, so a link element appended at runtime is
+      invisible to "Add to Home Screen" — the icon silently falls back to a
+      screenshot or a grey tile.
+
+      Note the SPA catch-all in netlify.toml (`/* -> /index.html`, 200) does not
+      override real files, but it does answer requests for files that DO NOT
+      exist with an HTML document and a 200. That is what produced the grey
+      placeholder before: iOS probed /apple-touch-icon.png, got HTML, and could
+      not decode it. If an icon ever disappears from public/, the symptom will
+      be a 200 of text/html rather than an honest 404 — check the content-type,
+      not the status code.
+    -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Standalone (home-screen) behaviour on iOS. -->
+    <meta name="apple-mobile-web-app-title" content="Tennis Plan" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- Modern equivalent; iOS still honours the apple- prefixed one above. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- "default" keeps the status bar legible over the app's light surfaces;
+         black-translucent would let content slide under the clock. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#8B5CF6" />
 
     <!--
       The app is not indexed. Every client route is served from this one file (the SPA
