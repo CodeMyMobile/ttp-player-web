@@ -1,10 +1,7 @@
 import { useMemo } from "react";
 import {
-  fetchRankings,
-  isRatedInRankings,
+  fetchMyRankingSummary,
   ladderPositionLabel,
-  rankedPosition,
-  type RankingRow,
 } from "../api/matchResults";
 import { getPlayerUpcomingLessons } from "../api/player";
 import { fetchUpcomingGroupLessons, holdsGroupSpot, mapUpcomingGroupLessonsResponse } from "../api/groupLessons";
@@ -67,54 +64,26 @@ export const readViewerId = (user: unknown): number | null => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
-const rankingsFetcher = async ({
-  nearLat,
-  nearLng,
-  radiusMiles,
-}: {
-  nearLat: number;
-  nearLng: number;
-  radiusMiles: number;
-}) => {
-  const response = await fetchRankings({
-    token: getStoredAuthToken() ?? undefined,
-    nearLat,
-    nearLng,
-    radiusMiles,
-  });
-  return Array.isArray(response?.rankings) ? response.rankings : ([] as RankingRow[]);
-};
+const rankingSummaryFetcher = () => fetchMyRankingSummary({ token: getStoredAuthToken() ?? undefined });
+const NO_LADDER_PARAMS = {};
 
 /**
- * Rating, nearby ladder position, and the rated gate — one call, three answers.
- * The gate is presence of a rated row here, not survey completion.
+ * Rating, global ladder position, and the rated gate — one small call.
  */
 export function useLadderStanding(viewerId: number | null) {
-  const stored = getStoredLocation() ?? DEFAULT_POSITION;
-  const params = useMemo(
-    () => ({
-      nearLat: stored.latitude,
-      nearLng: stored.longitude,
-      radiusMiles: getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
-    }),
-    [stored.latitude, stored.longitude],
-  );
-
-  const { data, loading, error } = useApiRequest(rankingsFetcher, params, {
+  const { data, loading, error } = useApiRequest(rankingSummaryFetcher, NO_LADDER_PARAMS, {
     skip: viewerId === null,
   });
 
-  const rankings = data ?? [];
-  const viewerRow = rankings.find((row) => Number(row.user_id) === Number(viewerId));
-  const ratingRaw = viewerRow?.current_rating;
+  const ratingRaw = data?.current_rating;
   const rating = ratingRaw == null || ratingRaw === "" ? null : Number(ratingRaw);
 
   return {
     loading,
     error,
-    isRated: isRatedInRankings(rankings, viewerId),
+    isRated: Boolean(data?.ranked),
     rating: rating !== null && Number.isFinite(rating) ? rating : null,
-    positionLabel: ladderPositionLabel(rankedPosition(rankings, viewerId)),
+    positionLabel: ladderPositionLabel(data?.rank ?? null),
   };
 }
 

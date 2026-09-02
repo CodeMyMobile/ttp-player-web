@@ -18,6 +18,17 @@ export interface RankingRow {
 
 export interface RankingsResponse {
   rankings: RankingRow[];
+  page?: number;
+  page_size?: number;
+  total?: number;
+}
+
+export interface RankingSummary {
+  ranked: boolean;
+  rank: number | null;
+  division_size: number;
+  current_rating: number | string | null;
+  matches_played: number | string;
 }
 
 export interface FetchRankingsParams {
@@ -29,6 +40,7 @@ export interface FetchRankingsParams {
 }
 
 const RANKINGS_PATH = "/match-results/rankings";
+const MY_RANKING_PATH = "/match-results/rankings/me";
 
 export const fetchRankings = ({
   token,
@@ -46,6 +58,9 @@ export const fetchRankings = ({
       radius_miles: radiusMiles,
     },
   });
+
+export const fetchMyRankingSummary = ({ token, signal }: Pick<FetchRankingsParams, "token" | "signal"> = {}) =>
+  request<RankingSummary>(MY_RANKING_PATH, { token, signal });
 
 /**
  * Has this player actually played? This — not a non-null rating — is what the
@@ -148,8 +163,7 @@ export const ordinal = (value: number) => {
 };
 
 /**
- * Copy for the rating tile's sub-line. "Nearby" rather than a club name: the
- * ranking is scoped by radius, so we can say who is close, not who plays where.
+ * Copy for the rating tile's sub-line. The summary is global ladder position.
  */
 export const ladderPositionLabel = (position: number | null) =>
-  position === null ? null : `${ordinal(position)} nearby`;
+  position === null ? null : `${ordinal(position)} on ladder`;
