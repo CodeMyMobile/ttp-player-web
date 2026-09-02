@@ -8,6 +8,7 @@ import { AlertCircle, CalendarDays, CheckCircle2, Clock3, Loader2, MapPin, User 
 import { useAuth } from "../context/AuthContext";
 import AddCardForm from "../components/payments/AddCardForm";
 import { getStoredAuthToken } from "../services/authToken";
+import { setReturningUserHint } from "../services/returningUserHint";
 import {
   acceptLessonInvite,
   beginLessonInvite,
@@ -639,6 +640,7 @@ const LessonInvitePage = () => {
     const accessToken = claimResponse.access_token;
     if (accessToken) {
       localStorage.setItem("authToken", accessToken);
+      setReturningUserHint();
     }
     if (claimResponse.refresh_token) {
       localStorage.setItem("refreshToken", claimResponse.refresh_token);

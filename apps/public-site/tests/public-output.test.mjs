@@ -21,7 +21,8 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
   assert.match(html, /href="\/find-coaches"/);
-  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/#\/login"/);
+  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/#\/"/);
+  assert.doesNotMatch(html, /https:\/\/app\.thetennisplan\.com\/#\/login/);
   assert.match(html, /alt="/);
 });
 

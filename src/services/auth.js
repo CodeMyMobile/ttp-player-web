@@ -1,9 +1,10 @@
 import { buildApiUrl } from "../api/config";
 import api, { unwrap } from "./api";
 import { getPhoneDigits } from "./phone";
+import { clearReturningUserHint, setReturningUserHint } from "./returningUserHint";
 import { withSmsConsent } from "./smsConsent";
 
-const clearStoredSession = () => {
+export const clearStoredSession = () => {
   localStorage.removeItem("authToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("authLoginResponse");
@@ -11,9 +12,11 @@ const clearStoredSession = () => {
   localStorage.removeItem("oauthPhoneCapturePending");
   localStorage.removeItem("oauthPhoneCaptureProvider");
   localStorage.removeItem("user");
+  clearReturningUserHint();
 };
 
-const persistAuthSession = (data) => {
+export const persistAuthSession = (data) => {
+  const token = data?.access_token || data?.token;
   if (data?.access_token) {
     localStorage.setItem("authToken", data.access_token);
   }
@@ -25,6 +28,9 @@ const persistAuthSession = (data) => {
   }
   if (data) {
     localStorage.setItem("authLoginResponse", JSON.stringify(data));
+  }
+  if (token) {
+    setReturningUserHint();
   }
 };
 
