@@ -9,8 +9,20 @@
 // W–L colour rule (standings + players): GREEN when wins>losses, RED when
 // losses>wins, neutral otherwise.
 
+import React, { useState } from "react";
+
 import Icon from "./Icon";
-import type { LeagueData, StandingRow, TabKey } from "./types";
+import PlayerContactSheet from "./PlayerContactSheet";
+import {
+  buildVCardFile,
+  canSaveAllContacts,
+  canShowContact,
+  vCardFileName,
+  type ContactablePlayer,
+} from "./contactSheet";
+import { isContactSheetEnabled } from "./contactSheetFlag";
+import { usePointerCoarse } from "./usePointerCoarse";
+import type { LeagueData, RosterPlayer, StandingRow, TabKey } from "./types";
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "ladder", label: "Ladder" },
@@ -56,13 +68,62 @@ interface LeagueTabsProps {
   // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
   // render only the active panel (avoids showing two tab strips).
   hideTabBar?: boolean;
+  /** Opens the match-create flow with this roster player pre-selected. */
+  onProposeMatch?: (playerId: string) => void;
+  /** Desktop primary actions — the mobile sticky bar's pair, in the tab header. */
+  onLogScore?: () => void;
+  onNeedMatch?: () => void;
+  /** Viewer's own name and availability, for the outreach message. */
+  viewerName?: string;
+  viewerAvailability?: string | null;
+  /** Overrides the feature gate. Injected by tests; production reads the flag. */
+  contactSheetEnabled?: boolean;
 }
 
-// A roster player's contact string is a phone or email — link out accordingly.
-const contactHref = (contact: string) =>
-  contact.includes("@") ? `mailto:${contact}` : `sms:${contact.replace(/[^\d+]/g, "")}`;
+/** Roster player as the contact helpers want it — the level label doubles as the vCard suffix. */
+const toContactable = (player: RosterPlayer): ContactablePlayer => ({
+  playerId: player.playerId,
+  name: player.name,
+  phone: player.phone,
+  shareContact: player.shareContact,
+  levelLabel: player.rating === null ? null : player.rating.toFixed(1),
+});
 
-const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hideTabBar }: LeagueTabsProps) => (
+/** Downloads the .vcf entirely client-side — no round trip, no server copy of the roster. */
+const saveAllContacts = (players: RosterPlayer[], leagueName: string) => {
+  const file = buildVCardFile(players.map(toContactable));
+  if (!file) return;
+  const url = URL.createObjectURL(new Blob([file], { type: "text/vcard;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = vCardFileName(leagueName);
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
+const LeagueTabs = ({
+  data,
+  activeTab,
+  onTabChange,
+  onSchedule,
+  onChallenge,
+  hideTabBar,
+  onProposeMatch,
+  onLogScore,
+  onNeedMatch,
+  viewerName,
+  viewerAvailability,
+  contactSheetEnabled: contactSheetEnabledProp,
+}: LeagueTabsProps) => {
+  // One row open at a time — opening a second closes the first.
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const pointerCoarse = usePointerCoarse();
+  const contactSheetEnabled = contactSheetEnabledProp ?? isContactSheetEnabled();
+  const leagueName = data.summary.name || "league";
+
+  return (
   <>
     {hideTabBar ? null : (
       <div className="tabs" role="tablist" aria-label="League detail">
@@ -184,37 +245,90 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
 
     {activeTab === "players" ? (
       <section className="panel">
+        <div className="ptab-head">
+          <div className="ptab-head-actions">
+            {onLogScore ? (
+              <button type="button" className="btn" onClick={onLogScore}>
+                Log a Score
+              </button>
+            ) : null}
+            {onNeedMatch ? (
+              <button type="button" className="btn ghost" onClick={onNeedMatch}>
+                Need a Match
+              </button>
+            ) : null}
+          </div>
+          {contactSheetEnabled && canSaveAllContacts(data.roster.map(toContactable)) ? (
+            <button
+              type="button"
+              className="btn ghost ptab-save-all"
+              onClick={() => saveAllContacts(data.roster, leagueName)}
+            >
+              <Icon name="download" /> Save all contacts
+            </button>
+          ) : null}
+        </div>
         <div className="pg">
-          {data.roster.map((player) => (
-            <div className="pcard" key={player.playerId}>
-              <span className="av">{player.initials}</span>
-              <div className="pinfo">
-                <div className="nm">{player.name}</div>
-                <div className="rt">
-                  TPR {player.rating.toFixed(1)}
-                  {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
-                  {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : ""}
-                  {" · "}
-                  <span className={recordClass(player.wins, player.losses)}>
-                    {player.wins}–{player.losses}
-                  </span>
-                </div>
-              </div>
-              {player.contact ? (
-                <a
-                  className="contact"
-                  aria-label={`Contact ${player.name}`}
-                  href={contactHref(player.contact)}
+          {data.roster.map((player) => {
+            const contactable = contactSheetEnabled && canShowContact(toContactable(player));
+            const expanded = expandedPlayerId === player.playerId;
+            const sheetId = `pcontact-${player.playerId}`;
+            return (
+              <div className={`pcard${expanded ? " open" : ""}`} key={player.playerId}>
+                {/* The whole row is the control, not just a trailing icon. */}
+                <button
+                  type="button"
+                  className="pcard-row"
+                  aria-expanded={expanded}
+                  aria-controls={contactable ? sheetId : undefined}
+                  onClick={() => setExpandedPlayerId(expanded ? null : player.playerId)}
                 >
-                  <Icon name="message-circle" />
-                </a>
-              ) : (
-                <button type="button" className="contact" aria-label={`Contact ${player.name}`} disabled>
-                  <Icon name="message-circle" />
+                  <span className="av">{player.initials}</span>
+                  <span className="pinfo">
+                    <span className="nm">{player.name}</span>
+                    <span className="rt">
+                      {player.rating === null ? "TPR —" : `TPR ${player.rating.toFixed(1)}`}
+                      {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
+                      {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : " · UTR unrated"}
+                      {" · "}
+                      <span className={recordClass(player.wins, player.losses)}>
+                        {player.wins}–{player.losses}
+                      </span>
+                    </span>
+                  </span>
+                  <Icon name={expanded ? "chevron-up" : "chevron-down"} className="pcard-chevron" />
                 </button>
-              )}
-            </div>
-          ))}
+                {expanded ? (
+                  contactable && player.phone ? (
+                    <PlayerContactSheet
+                      id={sheetId}
+                      playerName={player.name}
+                      phone={player.phone}
+                      leagueName={leagueName}
+                      senderName={viewerName || ""}
+                      senderAvailability={viewerAvailability}
+                      pointerCoarse={pointerCoarse}
+                      onProposeMatch={() => onProposeMatch?.(player.playerId)}
+                    />
+                  ) : (
+                    /* No consent, or no number: the in-app route is still open, and
+                       nothing about the number reaches the DOM. */
+                    <div className="pcontact" role="region" aria-label={`Contact ${player.name}`}>
+                      <button
+                        type="button"
+                        className="pcontact-propose"
+                        onClick={() => onProposeMatch?.(player.playerId)}
+                      >
+                        <Icon name="ball-tennis" />
+                        Propose a match in app
+                        <Icon name="arrow-right" className="pcontact-propose-go" />
+                      </button>
+                    </div>
+                  )
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </section>
     ) : null}
@@ -265,6 +379,7 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
       </section>
     ) : null}
   </>
-);
+  );
+};
 
 export default LeagueTabs;

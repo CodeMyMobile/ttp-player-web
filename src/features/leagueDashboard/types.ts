@@ -76,8 +76,9 @@ export interface RosterPlayer {
   playerId: string;
   name: string;
   initials: string;
-  /** The Tennis Plan rating (TPR). */
-  rating: number;
+  /** The Tennis Plan rating (TPR). Null when the player has none — a player with
+   *  no matches is unrated, which is not the same as rated 0.0. */
+  rating: number | null;
   /** NTRP conversion display value (backend-calculated/entered, or estimated from TPR); null when none. */
   ntrp?: string | null;
   /** True when `ntrp` was estimated from the TPR rather than a real rating. */
@@ -91,6 +92,16 @@ export interface RosterPlayer {
   /** Optional contact handle for the quick-action (sms/mailto). Message button
    *  renders regardless; this just gives it a target when present. */
   contact?: string;
+  /** Raw phone from the members payload, any format. Normalised at the point of use. */
+  phone?: string | null;
+  /**
+   * Per-league opt-in to sharing this number with other players in the division.
+   *
+   * NOT YET SUPPLIED BY THE BACKEND — see `share_contact` in api/leagues.ts. Until
+   * it lands this is always undefined, which `canShowContact` treats as withheld,
+   * so no number is rendered. Do not default it to true.
+   */
+  shareContact?: boolean;
 }
 
 export interface ResultRow {

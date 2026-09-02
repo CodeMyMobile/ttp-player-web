@@ -73,6 +73,16 @@ export interface LeaguePlayer {
   }> | null;
   phone?: string | null;
   email?: string | null;
+  /**
+   * Per-league opt-in to sharing the phone number with other players in the division.
+   *
+   * NOT RETURNED BY THE BACKEND TODAY. `GET /leagues/:id/players` selects `pp.phone`
+   * and exposes it to every signed-in viewer (routes/leagues.js:481) with no consent
+   * check of any kind — there is no share_contact column anywhere in ttp-api. Typed
+   * here so the UI can be built and wired the moment the field ships; until then it
+   * is always undefined, and undefined is treated as "withheld", never as consent.
+   */
+  share_contact?: boolean | null;
   membership_status?: string;
   [key: string]: unknown;
 }

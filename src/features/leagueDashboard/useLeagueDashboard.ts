@@ -338,8 +338,9 @@ const buildDashboard = (
       playerId: pid,
       name: player.full_name || `Player ${pid}`,
       initials: initials(player.full_name),
-      // NOTE: rating defaults to 0 when the player has no current_rating (rare).
-      rating: toNumber(player.current_rating) ?? 0,
+      // Unrated stays null rather than collapsing to 0 — "TPR 0.0" reads as a
+      // real, very low rating, when it only ever meant "no matches yet".
+      rating: toNumber(player.current_rating),
       ntrp: ntrpConv.value,
       ntrpEstimated: ntrpConv.estimated,
       utr: utrConv.value,
@@ -347,6 +348,11 @@ const buildDashboard = (
       wins: record.wins,
       losses: record.losses,
       contact: (player.phone || player.email || undefined) as string | undefined,
+      phone: (player.phone ?? null) as string | null,
+      // Consent only — never inferred from the presence of a number. The backend
+      // does not send share_contact yet, so this stays undefined and the contact
+      // sheet renders nothing. See api/leagues.ts.
+      shareContact: typeof player.share_contact === "boolean" ? player.share_contact : undefined,
     };
   });
 

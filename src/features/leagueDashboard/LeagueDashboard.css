@@ -357,17 +357,57 @@
 
 /* players grid */
 .lgd .pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.lgd .pcard{border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:flex;
-  align-items:center;gap:11px;background:#fff}
+.lgd .pcard{border:1px solid var(--line);border-radius:var(--radius);background:#fff;
+  display:flex;flex-direction:column;overflow:hidden;transition:border-color .15s}
+.lgd .pcard.open{border-color:var(--violet)}
+/* The whole row is the control — a bare button reset so it reads as a card, not a button. */
+.lgd .pcard-row{display:flex;align-items:center;gap:11px;width:100%;padding:14px;border:0;
+  background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.lgd .pcard-row:hover{background:var(--violet-softer)}
 .lgd .pcard .av{width:40px;height:40px;border-radius:50%;background:var(--violet-soft);color:var(--violet);
   font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.lgd .pcard .pinfo{flex:1;min-width:0}
-.lgd .pcard .nm{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lgd .pcard .rt{font-size:12px;color:var(--ink-3);margin-top:2px}
-.lgd .pcard .contact{margin-left:auto;flex-shrink:0;width:34px;height:34px;border:1px solid var(--line-2);
-  background:#fff;color:var(--violet);border-radius:9px;display:flex;align-items:center;justify-content:center;
-  font-size:17px;transition:background .15s,border-color .15s}
-.lgd .pcard .contact:hover{background:var(--violet-softer);border-color:var(--violet)}
+.lgd .pcard .pinfo{flex:1;min-width:0;display:block}
+.lgd .pcard .nm{display:block;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lgd .pcard .rt{display:block;font-size:12px;color:var(--ink-3);margin-top:2px}
+.lgd .pcard-chevron{margin-left:auto;flex-shrink:0;color:var(--ink-3);transition:color .15s}
+.lgd .pcard.open .pcard-chevron{color:var(--violet)}
+
+/* Expanded contact sheet */
+.lgd .pcontact{border-top:1px solid var(--line);padding:13px 14px 14px;display:flex;
+  flex-direction:column;gap:11px;background:var(--violet-softer)}
+.lgd .pcontact-num{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+/* Selectable so it can be highlighted by hand as well as copied. */
+.lgd .pcontact-digits{font-size:15px;font-weight:600;letter-spacing:.01em;user-select:all;
+  font-variant-numeric:tabular-nums}
+.lgd .pcontact-copy{margin-left:auto;border:1px solid var(--line-2);background:#fff;color:var(--violet);
+  border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;
+  transition:background .15s,border-color .15s}
+.lgd .pcontact-copy:hover{background:var(--violet-soft);border-color:var(--violet)}
+.lgd .pcontact-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lgd .pcontact-btn{flex:1 1 auto;min-width:96px;display:inline-flex;align-items:center;justify-content:center;
+  gap:6px;border:1px solid var(--line-2);background:#fff;color:var(--ink);border-radius:9px;
+  padding:9px 10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;
+  transition:background .15s,border-color .15s}
+.lgd .pcontact-btn:hover{background:var(--violet-soft);border-color:var(--violet)}
+.lgd .pcontact-btn svg{width:16px;height:16px;flex-shrink:0}
+/* The exact body the deeplinks carry — shown so nobody sends a message unseen. */
+.lgd .pcontact-preview{margin:0;padding:9px 11px;border-radius:8px;background:#fff;
+  border:1px dashed var(--line-2);color:var(--ink-3);font-size:12.5px;line-height:1.5;
+  white-space:pre-wrap}
+.lgd .pcontact-propose{display:flex;align-items:center;gap:8px;width:100%;border:0;
+  background:var(--violet);color:#fff;border-radius:9px;padding:10px 12px;font-size:13px;
+  font-weight:600;cursor:pointer}
+.lgd .pcontact-propose svg{width:16px;height:16px;flex-shrink:0}
+.lgd .pcontact-propose-go{margin-left:auto}
+
+/* Players tab header — desktop gets the primary actions the sticky bar gives mobile. */
+.lgd .ptab-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.lgd .ptab-head-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lgd .ptab-save-all{margin-left:auto;display:inline-flex;align-items:center;gap:7px}
+.lgd .ptab-save-all svg{width:15px;height:15px}
+/* The sticky bar already carries these on mobile — don't show them twice. */
+@media (max-width:560px){.lgd .ptab-head-actions{display:none}
+  .lgd .ptab-save-all{margin-left:0}}
 
 /* result + pending rows */
 .lgd .list-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);
