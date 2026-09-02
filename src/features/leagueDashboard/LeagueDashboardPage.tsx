@@ -254,6 +254,7 @@ const LeagueDashboardPage = () => {
                         onChallenge={goChallenge}
                         onProposeMatch={goProposeMatch}
                         viewerName={viewerName}
+                        onNeedMatch={() => goPostAvailability()}
                         hideTabBar
                       />
                     </div>
@@ -334,8 +335,8 @@ const LeagueDashboardPage = () => {
                     onChallenge={goChallenge}
                     onProposeMatch={goProposeMatch}
                     viewerName={viewerName}
-                    // Desktop has no sticky bar — these are its primary actions.
-                    onLogScore={() => goLogScore()}
+                    // Desktop has no sticky bar. Deliberately no "Log a Score"
+                    // here — nothing on a roster screen implies a finished match.
                     onNeedMatch={() => goPostAvailability()}
                   />
                 </>

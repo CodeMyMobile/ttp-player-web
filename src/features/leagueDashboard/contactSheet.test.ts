@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  AVAILABILITY_SENTENCE,
   buildContactLinks,
   buildContactMessage,
   buildVCard,
@@ -14,6 +13,8 @@ import {
   formatPhoneDisplay,
   toE164,
   toWhatsAppNumber,
+  ratingSuffix,
+  sharedContactCount,
   vCardDisplayName,
   vCardFileName,
 } from "./contactSheet";
@@ -68,30 +69,24 @@ test("whatsapp takes digits only", () => {
 
 /* the message */
 
-test("the message fills every placeholder", () => {
+test("the message fills every placeholder and is one line", () => {
   const message = buildContactMessage({
     recipientName: "Alex Gerszten",
     senderName: "Paul Cochrane",
-    leagueName: "Men's 4.0 Fall Flex 2026",
+    leagueName: "Men's 4.0 fall flex league",
   });
   assert.equal(
     message,
-    "Hi Alex — Paul here from the Men's 4.0 Fall Flex 2026.\nWant to get our match in?",
+    "Hi Alex — Paul here from Men's 4.0 fall flex league. Want to get our match in?",
   );
   assert.ok(!message.includes("{"), "no placeholder may survive");
-});
-
-test("availability is appended only when there is some", () => {
-  const base = { recipientName: "Alex", senderName: "Paul", leagueName: "L" };
-  assert.ok(!buildContactMessage(base).includes(AVAILABILITY_SENTENCE.slice(0, 10)));
-  assert.ok(!buildContactMessage({ ...base, availability: "   " }).endsWith("."));
-  assert.ok(buildContactMessage({ ...base, availability: "weekday evenings" })
-    .endsWith("I'm usually free weekday evenings."));
+  assert.ok(!message.includes("\n"), "the body is a single line");
 });
 
 test("a missing name degrades to something sendable", () => {
   const message = buildContactMessage({ recipientName: "", senderName: "", leagueName: "" });
   assert.ok(message.includes("there"));
+  assert.ok(message.includes("the league"));
   assert.ok(!message.includes("{"));
 });
 
@@ -132,27 +127,48 @@ const player = (over = {}) => ({
   name: "Alex Gerszten",
   phone: "3105550148",
   shareContact: true,
-  levelLabel: "4.0",
+  rating: 6.7,
+  ntrp: "4.00",
+  utr: "8.4",
   ...over,
 });
 
-test("the vCard name keeps the league context", () => {
-  assert.equal(vCardDisplayName(player()), "Alex Gerszten (4.0 flex)");
-  assert.equal(vCardDisplayName(player({ levelLabel: null })), "Alex Gerszten");
+test("the vCard name carries the player's own ratings", () => {
+  assert.equal(ratingSuffix(player()), "TPR 6.7 · NTRP 4.00 · UTR 8.4");
+  assert.equal(vCardDisplayName(player()), "Alex Gerszten (TPR 6.7 · NTRP 4.00 · UTR 8.4)");
 });
 
-test("a vCard block is well formed", () => {
-  const card = buildVCard(player());
+test("unrated values are omitted rather than printed as blanks", () => {
+  assert.equal(vCardDisplayName(player({ rating: null, utr: null })), "Alex Gerszten (NTRP 4.00)");
+  // Nothing to say means no parenthetical at all.
+  assert.equal(
+    vCardDisplayName(player({ rating: null, ntrp: null, utr: null })),
+    "Alex Gerszten",
+  );
+});
+
+test("a vCard block is well formed and carries the league in NOTE", () => {
+  const card = buildVCard(player(), "Men's 4.0 fall flex league");
   assert.ok(card);
   assert.ok(card.startsWith("BEGIN:VCARD\r\nVERSION:3.0"));
-  assert.ok(card.includes("FN:Alex Gerszten (4.0 flex)"));
+  assert.ok(card.includes("FN:Alex Gerszten (TPR 6.7 · NTRP 4.00 · UTR 8.4)"));
   assert.ok(card.includes("TEL;TYPE=CELL:+13105550148"));
+  assert.ok(card.includes("NOTE:Men's 4.0 fall flex league"));
   assert.ok(card.endsWith("END:VCARD"));
+});
+
+test("N sorts by the real name, not by the rating string in FN", () => {
+  const card = buildVCard(player(), "L");
+  assert.ok(card?.includes("N:Gerszten;Alex;;;"));
+});
+
+test("a single-word name still produces a valid N line", () => {
+  assert.ok(buildVCard(player({ name: "Bass" }), "L")?.includes("N:;Bass;;;"));
 });
 
 test("structural characters in a name are escaped", () => {
   // An unescaped semicolon silently truncates the field on import.
-  const card = buildVCard(player({ name: "Smith; Jones, Jr." }));
+  const card = buildVCard(player({ name: "Smith; Jones, Jr." }), "L");
   assert.ok(card?.includes("\\;"));
   assert.ok(card?.includes("\\,"));
 });
@@ -162,7 +178,7 @@ test("the file contains only opted-in players", () => {
     player(),
     player({ playerId: "2", name: "No Consent", shareContact: false }),
     player({ playerId: "3", name: "Bea Ito", phone: "3105550199" }),
-  ]);
+  ], "Men's 4.0 fall flex league");
   assert.ok(file);
   assert.ok(file.includes("Alex Gerszten"));
   assert.ok(file.includes("Bea Ito"));
@@ -176,8 +192,8 @@ test("no contactable players produces no file rather than an empty one", () => {
 });
 
 test("the filename is slugified from the league name", () => {
-  assert.equal(vCardFileName("Men's 4.0 Fall Flex 2026"), "mens-4-0-fall-flex-2026-contacts.vcf");
-  assert.equal(vCardFileName(""), "league-contacts.vcf");
+  assert.equal(vCardFileName("Men's 4.0 Fall Flex 2026"), "mens-4-0-fall-flex-2026.vcf");
+  assert.equal(vCardFileName(""), "league.vcf");
   assert.ok(vCardFileName("A / B \\ C").endsWith(".vcf"));
 });
 
@@ -203,4 +219,9 @@ test("firstName takes the leading token", () => {
   assert.equal(firstName("  Bea   Ito "), "Bea");
   assert.equal(firstName(""), "");
   assert.equal(firstName(null), "");
+});
+
+test("the shared count drives the footnote", () => {
+  const all = [player(), player({ playerId: "2", shareContact: false }), player({ playerId: "3" })];
+  assert.equal(sharedContactCount(all), 2);
 });

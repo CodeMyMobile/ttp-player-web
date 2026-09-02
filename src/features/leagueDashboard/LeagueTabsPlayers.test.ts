@@ -28,6 +28,8 @@ const roster: RosterPlayer[] = [
     losses: 1,
     phone: SHARER_DIGITS,
     shareContact: true,
+    ntrp: "4.00",
+    utr: "8.4",
   },
   {
     playerId: "2",
@@ -53,23 +55,19 @@ const roster: RosterPlayer[] = [
 
 const data: LeagueData = { ...getLeagueData(), roster };
 
-const renderPlayers = (contactSheetEnabled: boolean, expandedPlayer?: string) => {
-  // Rendered statically, so only the collapsed rows appear unless a row is opened
-  // by the component itself; the absence assertions below hold in both states
-  // because a withheld number never reaches the props of any child.
-  void expandedPlayer;
-  return renderToStaticMarkup(
+const renderPlayers = (contactSheetEnabled: boolean, pointerCoarse = false) =>
+  renderToStaticMarkup(
     createElement(LeagueTabs, {
       data,
       activeTab: "players",
       onTabChange: () => {},
       onSchedule: () => {},
       contactSheetEnabled,
+      pointerCoarse,
       viewerName: "Paul Cochrane",
       hideTabBar: true,
     } as Parameters<typeof LeagueTabs>[0]),
   );
-};
 
 /* the guarantee */
 
@@ -105,12 +103,45 @@ test("no sms: or tel: link is emitted for a withheld number", () => {
 
 /* the row itself */
 
-test("every player row is a control, and carries a chevron", () => {
+test("actions sit on the row — nothing expands", () => {
   const html = renderPlayers(true);
-  assert.ok(html.includes("pcard-row"), "the row is the tap target");
-  assert.ok(html.includes('aria-expanded="false"'), "collapsed state is announced");
-  assert.ok(html.includes("pcard-chevron"));
-  assert.ok(!html.includes("message-circle"), "the old icon-only action is gone");
+  assert.ok(!html.includes("aria-expanded"), "no disclosure widget");
+  assert.ok(!html.includes("pcard-chevron"), "no chevron");
+  assert.ok(html.includes("chans"), "channel chips are on the row itself");
+});
+
+test("an opted-out player shows the withheld state, not an empty slot", () => {
+  const html = renderPlayers(true);
+  assert.ok(html.includes("Number not shared"));
+  assert.ok(html.includes("av-muted"), "their avatar is muted");
+  // Only the in-app route remains for them.
+  assert.ok(html.includes("Propose a match with Ben Withholder"));
+  assert.ok(!html.includes("Text Ben Withholder"));
+  assert.ok(!html.includes("Call Ben Withholder"));
+  assert.ok(!html.includes("WhatsApp Ben Withholder"));
+});
+
+test("a sharing player shows their number as a third meta line", () => {
+  const html = renderPlayers(true);
+  assert.ok(html.includes("+1 (310) 555-0148"), "formatted number on the row");
+});
+
+test("the toolbar offers Need a match and never Log a Score", () => {
+  const html = renderToStaticMarkup(
+    createElement(LeagueTabs, {
+      data,
+      activeTab: "players",
+      onTabChange: () => {},
+      onSchedule: () => {},
+      onNeedMatch: () => {},
+      contactSheetEnabled: true,
+      hideTabBar: true,
+    } as Parameters<typeof LeagueTabs>[0]),
+  );
+  assert.ok(html.includes("Need a match"));
+  assert.ok(!html.includes("Log a Score"), "a roster screen implies no finished match");
+  assert.ok(html.includes("3 players"), "the count renders");
+  assert.ok(html.includes("share a number with this division"), "the footnote renders");
 });
 
 /* the sentinel fixes */
@@ -131,20 +162,37 @@ test("a rated player still shows their rating", () => {
 
 /* desktop actions */
 
-test("the desktop header actions render only when wired", () => {
-  const withActions = renderToStaticMarkup(
-    createElement(LeagueTabs, {
-      data,
-      activeTab: "players",
-      onTabChange: () => {},
-      onSchedule: () => {},
-      onLogScore: () => {},
-      onNeedMatch: () => {},
-      hideTabBar: true,
-    } as Parameters<typeof LeagueTabs>[0]),
-  );
-  assert.ok(withActions.includes("Log a Score"));
-  assert.ok(withActions.includes("Need a Match"));
-  // Mobile passes neither, because the sticky bar already carries them.
-  assert.ok(!renderPlayers(true).includes("Log a Score"));
+test("the mobile meta line drops NTRP by class, keeping it in the markup for desktop", () => {
+  // Hidden by media query rather than removed, so one render serves both widths.
+  const html = renderPlayers(true);
+  assert.ok(html.includes("rt-ntrp"), "NTRP is wrapped for the breakpoint to hide");
+  assert.ok(html.includes("NTRP 4.00"));
+});
+
+/* channel sets by platform */
+
+test("touch gets Text, Call and WhatsApp as real links", () => {
+  const html = renderPlayers(true, true);
+  assert.ok(html.includes(`href="sms:+1${SHARER_DIGITS}?body=`), "sms deeplink");
+  assert.ok(html.includes(`href="tel:+1${SHARER_DIGITS}"`), "tel deeplink");
+  assert.ok(html.includes(`wa.me/1${SHARER_DIGITS}`), "whatsapp link");
+  assert.ok(html.includes("Text Ada Sharer"));
+  assert.ok(html.includes("Call Ada Sharer"));
+});
+
+test("desktop replaces the dead links with copy and propose", () => {
+  const html = renderPlayers(true, false);
+  assert.ok(!html.includes('href="sms:'), "sms: does nothing on a fine pointer");
+  assert.ok(!html.includes('href="tel:'), "nor does tel:");
+  assert.ok(html.includes("Copy number for Ada Sharer"));
+  assert.ok(html.includes("Propose a match with Ada Sharer"));
+  assert.ok(html.includes(`wa.me/1${SHARER_DIGITS}`), "wa.me works on desktop, so it stays");
+  assert.ok(!html.includes("disabled"), "no dead control is rendered");
+});
+
+test("the sms body is encoded once and uses ?body=", () => {
+  const html = renderPlayers(true, true);
+  assert.ok(html.includes("?body="), "the & form breaks Android");
+  assert.ok(!html.includes("&amp;body="));
+  assert.ok(!html.includes("%2520"), "no double encoding");
 });

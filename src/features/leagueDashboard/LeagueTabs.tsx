@@ -12,11 +12,14 @@
 import React, { useState } from "react";
 
 import Icon from "./Icon";
-import PlayerContactSheet from "./PlayerContactSheet";
 import {
+  buildContactLinks,
+  buildContactMessage,
   buildVCardFile,
   canSaveAllContacts,
   canShowContact,
+  formatPhoneDisplay,
+  sharedContactCount,
   vCardFileName,
   type ContactablePlayer,
 } from "./contactSheet";
@@ -70,28 +73,32 @@ interface LeagueTabsProps {
   hideTabBar?: boolean;
   /** Opens the match-create flow with this roster player pre-selected. */
   onProposeMatch?: (playerId: string) => void;
-  /** Desktop primary actions — the mobile sticky bar's pair, in the tab header. */
-  onLogScore?: () => void;
+  /** Players tab toolbar action. No log-a-score counterpart: a roster screen
+   *  implies no finished match. */
   onNeedMatch?: () => void;
   /** Viewer's own name and availability, for the outreach message. */
   viewerName?: string;
   viewerAvailability?: string | null;
   /** Overrides the feature gate. Injected by tests; production reads the flag. */
   contactSheetEnabled?: boolean;
+  /** Overrides touch detection. Injected by tests; production reads the media query. */
+  pointerCoarse?: boolean;
 }
 
-/** Roster player as the contact helpers want it — the level label doubles as the vCard suffix. */
+/** Roster player as the contact helpers want it — ratings ride along for the vCard name. */
 const toContactable = (player: RosterPlayer): ContactablePlayer => ({
   playerId: player.playerId,
   name: player.name,
   phone: player.phone,
   shareContact: player.shareContact,
-  levelLabel: player.rating === null ? null : player.rating.toFixed(1),
+  rating: player.rating,
+  ntrp: player.ntrp,
+  utr: player.utr,
 });
 
 /** Downloads the .vcf entirely client-side — no round trip, no server copy of the roster. */
 const saveAllContacts = (players: RosterPlayer[], leagueName: string) => {
-  const file = buildVCardFile(players.map(toContactable));
+  const file = buildVCardFile(players.map(toContactable), leagueName);
   if (!file) return;
   const url = URL.createObjectURL(new Blob([file], { type: "text/vcard;charset=utf-8" }));
   const anchor = document.createElement("a");
@@ -111,15 +118,25 @@ const LeagueTabs = ({
   onChallenge,
   hideTabBar,
   onProposeMatch,
-  onLogScore,
   onNeedMatch,
   viewerName,
   viewerAvailability,
   contactSheetEnabled: contactSheetEnabledProp,
+  pointerCoarse: pointerCoarseProp,
 }: LeagueTabsProps) => {
-  // One row open at a time — opening a second closes the first.
-  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
-  const pointerCoarse = usePointerCoarse();
+  // Which row last had its number copied, for the transient chip state.
+  const [copiedPlayerId, setCopiedPlayerId] = useState<string | null>(null);
+  const [liveMessage, setLiveMessage] = useState("");
+
+  const copyNumber = (playerId: string, e164: string) => {
+    void navigator.clipboard?.writeText(e164).then(() => {
+      setCopiedPlayerId(playerId);
+      setLiveMessage("Number copied");
+      setTimeout(() => setCopiedPlayerId(null), 1400);
+    }).catch(() => setCopiedPlayerId(null));
+  };
+  const detectedCoarse = usePointerCoarse();
+  const pointerCoarse = pointerCoarseProp ?? detectedCoarse;
   const contactSheetEnabled = contactSheetEnabledProp ?? isContactSheetEnabled();
   const leagueName = data.summary.name || "league";
 
@@ -246,90 +263,143 @@ const LeagueTabs = ({
     {activeTab === "players" ? (
       <section className="panel">
         <div className="ptab-head">
-          <div className="ptab-head-actions">
-            {onLogScore ? (
-              <button type="button" className="btn" onClick={onLogScore}>
-                Log a Score
-              </button>
-            ) : null}
-            {onNeedMatch ? (
-              <button type="button" className="btn ghost" onClick={onNeedMatch}>
-                Need a Match
-              </button>
-            ) : null}
-          </div>
+          <span className="ptab-count">{data.roster.length} players</span>
           {contactSheetEnabled && canSaveAllContacts(data.roster.map(toContactable)) ? (
             <button
               type="button"
-              className="btn ghost ptab-save-all"
+              className="btn ghost"
               onClick={() => saveAllContacts(data.roster, leagueName)}
             >
-              <Icon name="download" /> Save all contacts
+              Save all contacts
+            </button>
+          ) : null}
+          {onNeedMatch ? (
+            <button type="button" className="btn" onClick={onNeedMatch}>
+              Need a match
             </button>
           ) : null}
         </div>
+
         <div className="pg">
           {data.roster.map((player) => {
             const contactable = contactSheetEnabled && canShowContact(toContactable(player));
-            const expanded = expandedPlayerId === player.playerId;
-            const sheetId = `pcontact-${player.playerId}`;
+            const body = buildContactMessage({
+              recipientName: player.name,
+              senderName: viewerName || "",
+              leagueName,
+            });
+            // Links are only built for a player who consented, so a withheld
+            // number never reaches an href, an aria-label, or the DOM at all.
+            const links = contactable ? buildContactLinks(player.phone, body) : null;
+            const e164 = links ? links.tel.replace("tel:", "") : null;
+            const copied = copiedPlayerId === player.playerId;
+
             return (
-              <div className={`pcard${expanded ? " open" : ""}`} key={player.playerId}>
-                {/* The whole row is the control, not just a trailing icon. */}
-                <button
-                  type="button"
-                  className="pcard-row"
-                  aria-expanded={expanded}
-                  aria-controls={contactable ? sheetId : undefined}
-                  onClick={() => setExpandedPlayerId(expanded ? null : player.playerId)}
-                >
-                  <span className="av">{player.initials}</span>
-                  <span className="pinfo">
-                    <span className="nm">{player.name}</span>
-                    <span className="rt">
-                      {player.rating === null ? "TPR —" : `TPR ${player.rating.toFixed(1)}`}
-                      {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
-                      {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : " · UTR unrated"}
-                      {" · "}
-                      <span className={recordClass(player.wins, player.losses)}>
-                        {player.wins}–{player.losses}
-                      </span>
+              <div className="pcard" key={player.playerId}>
+                <span className={`av${contactable ? "" : " av-muted"}`}>{player.initials}</span>
+                <span className="pinfo">
+                  <span className="nm">{player.name}</span>
+                  <span className="rt">
+                    {player.rating === null ? "TPR —" : `TPR ${player.rating.toFixed(1)}`}
+                    {/* NTRP is the derived value; it is the segment that goes when
+                        the row runs out of width at 390px. Hidden by CSS, not
+                        dropped from the markup, so desktop keeps it. */}
+                    {player.ntrp ? (
+                      <span className="rt-ntrp">{` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}`}</span>
+                    ) : null}
+                    {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : " · UTR unrated"}
+                    {" · "}
+                    <span className={recordClass(player.wins, player.losses)}>
+                      {player.wins}–{player.losses}
                     </span>
                   </span>
-                  <Icon name={expanded ? "chevron-up" : "chevron-down"} className="pcard-chevron" />
-                </button>
-                {expanded ? (
-                  contactable && player.phone ? (
-                    <PlayerContactSheet
-                      id={sheetId}
-                      playerName={player.name}
-                      phone={player.phone}
-                      leagueName={leagueName}
-                      senderName={viewerName || ""}
-                      senderAvailability={viewerAvailability}
-                      pointerCoarse={pointerCoarse}
-                      onProposeMatch={() => onProposeMatch?.(player.playerId)}
-                    />
+                  {links ? (
+                    <span className="tel">{formatPhoneDisplay(player.phone)}</span>
                   ) : (
-                    /* No consent, or no number: the in-app route is still open, and
-                       nothing about the number reaches the DOM. */
-                    <div className="pcontact" role="region" aria-label={`Contact ${player.name}`}>
-                      <button
-                        type="button"
-                        className="pcontact-propose"
-                        onClick={() => onProposeMatch?.(player.playerId)}
-                      >
-                        <Icon name="ball-tennis" />
-                        Propose a match in app
-                        <Icon name="arrow-right" className="pcontact-propose-go" />
-                      </button>
-                    </div>
-                  )
-                ) : null}
+                    <span className="tel tel-none">Number not shared</span>
+                  )}
+                </span>
+
+                <span className="chans">
+                  {links && e164 ? (
+                    pointerCoarse ? (
+                      <>
+                        <a className="chip" href={links.sms} aria-label={`Text ${player.name}`}>
+                          <Icon name="message-circle" />
+                        </a>
+                        <a className="chip" href={links.tel} aria-label={`Call ${player.name}`}>
+                          <Icon name="phone" />
+                        </a>
+                        <a
+                          className="chip"
+                          href={links.whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`WhatsApp ${player.name}`}
+                        >
+                          <Icon name="brand-whatsapp" />
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        {/* sms: and tel: are dead on a fine pointer, so those two
+                            slots are replaced rather than greyed out. */}
+                        <button
+                          type="button"
+                          className={`chip${copied ? " chip-done" : ""}`}
+                          onClick={() => copyNumber(player.playerId, e164)}
+                          aria-label={`Copy number for ${player.name}`}
+                          title={copied ? "Copied" : "Copy number"}
+                        >
+                          <Icon name={copied ? "check" : "copy"} />
+                        </button>
+                        <a
+                          className="chip"
+                          href={links.whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`WhatsApp ${player.name}`}
+                          title="WhatsApp"
+                        >
+                          <Icon name="brand-whatsapp" />
+                        </a>
+                        <button
+                          type="button"
+                          className="chip"
+                          onClick={() => onProposeMatch?.(player.playerId)}
+                          aria-label={`Propose a match with ${player.name}`}
+                          title="Propose a match"
+                        >
+                          <Icon name="calendar-plus" />
+                        </button>
+                      </>
+                    )
+                  ) : (
+                    /* No consent, or no number: the in-app route is the only one left. */
+                    <button
+                      type="button"
+                      className="chip"
+                      onClick={() => onProposeMatch?.(player.playerId)}
+                      aria-label={`Propose a match with ${player.name}`}
+                      title="Propose a match"
+                    >
+                      <Icon name="calendar-plus" />
+                    </button>
+                  )}
+                </span>
               </div>
             );
           })}
         </div>
+
+        {contactSheetEnabled ? (
+          <p className="ptab-note">
+            {sharedContactCount(data.roster.map(toContactable))} of {data.roster.length} players
+            share a number with this division. The rest can be reached with a match invite.
+          </p>
+        ) : null}
+
+        <span className="sr-live" role="status" aria-live="polite">{liveMessage}</span>
       </section>
     ) : null}
 

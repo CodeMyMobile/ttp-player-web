@@ -15,8 +15,12 @@ export interface ContactablePlayer {
   phone?: string | null;
   /** Per-league opt-in. Undefined means "backend has not told us", which is NOT consent. */
   shareContact?: boolean;
-  /** Display rating used in the vCard name, e.g. "4.0". */
-  levelLabel?: string | null;
+  /** TPR — null when the player is unrated. */
+  rating?: number | null;
+  /** NTRP display value, already formatted. */
+  ntrp?: string | null;
+  /** UTR display value, already formatted. */
+  utr?: string | null;
 }
 
 /**
@@ -61,41 +65,28 @@ export const firstName = (fullName: unknown): string =>
   String(fullName ?? "").trim().split(/\s+/)[0] ?? "";
 
 /**
- * The outreach copy. Kept as one exported template so tuning the wording is a
- * one-line change and the message preview shown to the user cannot drift from
- * what the deeplinks actually carry — both call buildContactMessage.
+ * The outreach copy. One exported constant so tuning the wording is a one-line
+ * change, and so the body sent over SMS and the body sent over WhatsApp cannot
+ * drift apart — both call buildContactMessage.
  */
 export const CONTACT_MESSAGE_TEMPLATE =
-  "Hi {firstName} — {senderFirstName} here from the {leagueName}.\nWant to get our match in?";
-
-/** Appended only when the sender has availability text; never emitted empty. */
-export const AVAILABILITY_SENTENCE = "I'm usually free {availability}.";
+  "Hi {firstName} — {senderFirstName} here from {leagueName}. Want to get our match in?";
 
 export interface ContactMessageInput {
   recipientName: string;
   senderName: string;
   leagueName: string;
-  /** Sender's own availability text, if their profile has any. */
-  availability?: string | null;
 }
 
 export const buildContactMessage = ({
   recipientName,
   senderName,
   leagueName,
-  availability,
-}: ContactMessageInput): string => {
-  const base = CONTACT_MESSAGE_TEMPLATE
+}: ContactMessageInput): string =>
+  CONTACT_MESSAGE_TEMPLATE
     .replace("{firstName}", firstName(recipientName) || "there")
     .replace("{senderFirstName}", firstName(senderName) || "a fellow player")
-    .replace("{leagueName}", String(leagueName ?? "").trim() || "league");
-
-  const availabilityText = String(availability ?? "").trim();
-  // No availability means no sentence at all — an empty trailing sentence reads
-  // as a bug to the person receiving the text.
-  if (!availabilityText) return base;
-  return `${base} ${AVAILABILITY_SENTENCE.replace("{availability}", availabilityText)}`;
-};
+    .replace("{leagueName}", String(leagueName ?? "").trim() || "the league");
 
 export interface ContactLinks {
   sms: string;
@@ -131,28 +122,60 @@ export const buildContactLinks = (rawPhone: unknown, body: string): ContactLinks
 const escapeVCardValue = (value: string): string =>
   value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 
-/** `FN` carries the league context so the entry still makes sense in a phone book months later. */
-export const vCardDisplayName = (player: ContactablePlayer): string => {
-  const name = String(player.name ?? "").trim() || "League player";
-  const level = String(player.levelLabel ?? "").trim();
-  return level ? `${name} (${level} flex)` : name;
+/**
+ * Ratings the player actually holds, in the order the row shows them. Unrated
+ * values are omitted rather than printed as blanks — a phone-book entry reading
+ * "(TPR — · UTR unrated)" is worse than one with no parenthetical at all.
+ */
+export const ratingSuffix = (player: ContactablePlayer): string => {
+  const parts = [
+    player.rating === null || player.rating === undefined ? null : `TPR ${player.rating.toFixed(1)}`,
+    player.ntrp ? `NTRP ${player.ntrp}` : null,
+    player.utr ? `UTR ${player.utr}` : null,
+  ].filter(Boolean);
+  return parts.join(" · ");
 };
 
-export const buildVCard = (player: ContactablePlayer): string | null => {
+/** `FN` carries the ratings so the entry still means something in a phone book. */
+export const vCardDisplayName = (player: ContactablePlayer): string => {
+  const name = String(player.name ?? "").trim() || "League player";
+  const suffix = ratingSuffix(player);
+  return suffix ? `${name} (${suffix})` : name;
+};
+
+/**
+ * Structured name. Given-name first token, family name the rest — kept separate
+ * from FN so a phone sorts and searches the entry by the player's real name
+ * rather than by the rating string appended to FN.
+ */
+const structuredName = (fullName: string): string => {
+  const parts = String(fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  const given = parts[0] ?? "";
+  const family = parts.slice(1).join(" ");
+  return `${escapeVCardValue(family)};${escapeVCardValue(given)};;;`;
+};
+
+export const buildVCard = (player: ContactablePlayer, leagueName?: string): string | null => {
   const e164 = toE164(player.phone);
   if (!e164) return null;
+  const note = String(leagueName ?? "").trim();
   return [
     "BEGIN:VCARD",
     "VERSION:3.0",
     `FN:${escapeVCardValue(vCardDisplayName(player))}`,
+    `N:${structuredName(String(player.name ?? ""))}`,
     `TEL;TYPE=CELL:${e164}`,
+    ...(note ? [`NOTE:${escapeVCardValue(note)}`] : []),
     "END:VCARD",
   ].join("\r\n");
 };
 
 /** One file, one VCARD block per opted-in player. Null when nobody is contactable. */
-export const buildVCardFile = (players: ContactablePlayer[]): string | null => {
-  const cards = players.filter(canShowContact).map(buildVCard).filter(Boolean) as string[];
+export const buildVCardFile = (players: ContactablePlayer[], leagueName?: string): string | null => {
+  const cards = players
+    .filter(canShowContact)
+    .map((player) => buildVCard(player, leagueName))
+    .filter(Boolean) as string[];
   if (!cards.length) return null;
   // CRLF throughout and a trailing break — iOS is tolerant, some Android importers are not.
   return `${cards.join("\r\n")}\r\n`;
@@ -165,7 +188,7 @@ export const vCardFileName = (leagueName: unknown): string => {
     .replace(/['’]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${slug || "league"}-contacts.vcf`;
+  return `${slug || "league"}.vcf`;
 };
 
 /**
@@ -179,3 +202,7 @@ export const contactablePlayers = (players: ContactablePlayer[]): ContactablePla
 
 export const canSaveAllContacts = (players: ContactablePlayer[]): boolean =>
   contactablePlayers(players).length >= MIN_PLAYERS_FOR_BULK_SAVE;
+
+/** How many players share a number — drives the footnote and the export gate. */
+export const sharedContactCount = (players: ContactablePlayer[]): number =>
+  contactablePlayers(players).length;
