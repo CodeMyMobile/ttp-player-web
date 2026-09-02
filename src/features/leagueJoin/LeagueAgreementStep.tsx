@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { FileText } from "lucide-react";
 
 import type { League, LeagueRuleVersion } from "../../api/leagues";
+import { isContactOptOutAvailable } from "../leagueDashboard/contactSheetFlag";
 import { getAgreementNudges } from "./paymentState";
 
 export interface LeagueAgreementStepProps {
@@ -9,7 +10,14 @@ export interface LeagueAgreementStepProps {
   rule: LeagueRuleVersion | null;
   defaultName?: string;
   onBack: () => void;
-  onContinue: (agreement: { signedName: string; agreedAt: Date; rulesVersion: string }) => void;
+  onContinue: (agreement: {
+    signedName: string;
+    agreedAt: Date;
+    rulesVersion: string;
+    /** Opt-in to sharing the phone number with other players in this division.
+     *  Only present while the contact-sheet feature is enabled. */
+    shareContact?: boolean;
+  }) => void;
 }
 
 const LeagueAgreementStep = ({
@@ -21,6 +29,15 @@ const LeagueAgreementStep = ({
 }: LeagueAgreementStepProps) => {
   const [signedName, setSignedName] = useState(defaultName);
   const [agreed, setAgreed] = useState(false);
+  // Default checked: sharing a number is how flex matches actually get scheduled,
+  // and the player is opting into a division they chose to join. Still a real
+  // choice — unchecking it means no number is ever shown to anyone.
+  const [shareContact, setShareContact] = useState(true);
+  // Gated on its own flag: numbers are shown by default (membership is the
+  // consent), so this checkbox exists to let someone opt OUT. It stays hidden
+  // until the backend can persist the choice — offering it sooner would discard
+  // the one answer that matters.
+  const contactSharingAvailable = isContactOptOutAvailable();
   const [nudged, setNudged] = useState(false);
   const rulesVersion = rule?.version ?? league.current_rules_version ?? "v1";
   const nudges = useMemo(
@@ -39,6 +56,7 @@ const LeagueAgreementStep = ({
       signedName: signedName.trim(),
       agreedAt: new Date(),
       rulesVersion,
+      ...(contactSharingAvailable ? { shareContact } : {}),
     });
   };
 
@@ -80,6 +98,20 @@ const LeagueAgreementStep = ({
         />
         <span>I agree to the liability waiver and league rules.</span>
       </label>
+
+      {contactSharingAvailable ? (
+        <label className="league-join-check league-join-check--optional">
+          <input
+            type="checkbox"
+            checked={shareContact}
+            onChange={(event) => setShareContact(event.target.checked)}
+          />
+          <span>
+            Share my phone number with other players in this division.
+            <small>It&apos;s how players reach each other to schedule matches. You can change this later.</small>
+          </span>
+        </label>
+      ) : null}
 
       <div className="league-join-sheet__actions">
         <button type="button" className="league-join-sheet__secondary" onClick={onBack}>

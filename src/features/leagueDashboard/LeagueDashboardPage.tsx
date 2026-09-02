@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import MainLayout from "../../components/MainLayout";
+import { useAuth } from "../../context/AuthContext";
 import { buildLeagueChallengeState } from "../../pages/leagueLadder";
 import ActionSlot from "./ActionSlot";
 import Hero from "./Hero";
@@ -85,6 +86,48 @@ const LeagueDashboardPage = () => {
   // so recording a result from the dashboard mirrors the global Log a Score entry.
   const goLogScore = () =>
     navigate("/log-result", { state: { matchType: "league", leagueId: id } });
+
+  // Viewer's own first name for the outreach message. Read-only use of auth state.
+  const { user } = useAuth() as { user?: Record<string, unknown> };
+  const viewerName = String(
+    (user?.full_name as string | undefined)
+      ?? ((user?.profile as Record<string, unknown> | undefined)?.full_name as string | undefined)
+      ?? (user?.name as string | undefined)
+      ?? "",
+  );
+
+  // Contact sheet → the same match-create flow the ladder's Challenge button uses.
+  // Prefer the ladder row (it carries court and rating context); fall back to the
+  // roster entry for players who are not yet rated onto the ladder.
+  const goProposeMatch = (playerId: string) => {
+    const ladderRow = data?.ladder.find((item) => item.playerId === playerId);
+    if (ladderRow) {
+      if (ladderRow.isViewer) return;
+      navigate("/matches/create", {
+        state: buildLeagueChallengeState({ row: ladderRow, leagueName: data?.summary.name }),
+      });
+      return;
+    }
+    const player = data?.roster.find((item) => item.playerId === playerId);
+    if (!player) return;
+    navigate("/matches/create", {
+      state: {
+        connectIntent: {
+          invitee: {
+            id: player.playerId,
+            name: player.name,
+            // Unrated players carry no level rather than a fabricated one.
+            level: player.rating === null ? "" : `TPR ${player.rating.toFixed(1)}`,
+          },
+          senderLevel: "",
+          suggestedAvailability: [],
+          preferredCourt: null,
+          source: "league-players",
+          senderName: data?.summary.name || "League",
+        },
+      },
+    });
+  };
 
   const goChallenge = (playerId: string) => {
     const row = data?.ladder.find((item) => item.playerId === playerId);
@@ -209,6 +252,9 @@ const LeagueDashboardPage = () => {
                         onTabChange={setSection}
                         onSchedule={() => goPostAvailability()}
                         onChallenge={goChallenge}
+                        onProposeMatch={goProposeMatch}
+                        viewerName={viewerName}
+                        onNeedMatch={() => goPostAvailability()}
                         hideTabBar
                       />
                     </div>
@@ -287,6 +333,11 @@ const LeagueDashboardPage = () => {
                     onTabChange={setActiveTab}
                     onSchedule={() => goPostAvailability()}
                     onChallenge={goChallenge}
+                    onProposeMatch={goProposeMatch}
+                    viewerName={viewerName}
+                    // Desktop has no sticky bar. Deliberately no "Log a Score"
+                    // here — nothing on a roster screen implies a finished match.
+                    onNeedMatch={() => goPostAvailability()}
                   />
                 </>
               )}

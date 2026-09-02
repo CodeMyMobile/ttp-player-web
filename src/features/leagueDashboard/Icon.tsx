@@ -1,7 +1,10 @@
 // Inline SVG icon set ported verbatim from docs/tennis-plan-league.html so the
 // dashboard renders the exact same glyphs as the mock (no icon-font dependency).
 
-import type { CSSProperties } from "react";
+// React must be in scope for the classic JSX transform the node test runner uses
+// (tsx, with no root tsconfig by design — see scripts/typecheck.mjs). Vite uses
+// the automatic runtime and ignores this import.
+import React, { type CSSProperties } from "react";
 
 const PATHS: Record<string, string> = {
   home: '<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6h6v6"/>',
@@ -12,6 +15,12 @@ const PATHS: Record<string, string> = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   bell: '<path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3l2 3H4l2-3v-3a7 7 0 0 1 4-6"/><path d="M9 17v1a3 3 0 0 0 6 0v-1"/>',
   "chevron-down": '<path d="M6 9l6 6 6-6"/>',
+  "chevron-up": '<path d="M6 15l6-6 6 6"/>',
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  "brand-whatsapp": '<path d="M3 21l1.6-4.2A8 8 0 1 1 7.8 19.6z"/><path d="M9 10c.4 1.6 1.9 3.1 3.5 3.5l1-1.2 2 .8v1.4c-2.6.4-5.9-2.4-6.3-5h1.4z"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  swords: '<path d="M14.5 14.5 20 20"/><path d="M3 3h3l11 11-3 3L3 6z"/><path d="M21 3h-3L7 14l3 3z"/>',
+  download: '<path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/>',
   "chevron-left": '<path d="M15 6l-6 6 6 6"/>',
   "menu-2": '<path d="M4 6h16M4 12h16M4 18h16"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',

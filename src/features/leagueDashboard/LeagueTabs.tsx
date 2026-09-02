@@ -9,8 +9,31 @@
 // W–L colour rule (standings + players): GREEN when wins>losses, RED when
 // losses>wins, neutral otherwise.
 
+import React, { useState } from "react";
+
 import Icon from "./Icon";
-import type { LeagueData, StandingRow, TabKey } from "./types";
+import {
+  buildContactLinks,
+  buildContactMessage,
+  buildVCardFile,
+  canSaveAllContacts,
+  canShowContact,
+  formatPhoneDisplay,
+  sharedContactCount,
+  vCardFileName,
+  type ContactablePlayer,
+} from "./contactSheet";
+import { isContactSheetEnabled } from "./contactSheetFlag";
+import {
+  matchesLabel,
+  ratingStatusLabel,
+  ratingValue,
+  tprLabel,
+  viewerGapLabel,
+} from "./ladderRow";
+import { sizedImageUrl } from "../../utils/playerImage";
+import { usePointerCoarse } from "./usePointerCoarse";
+import type { LeagueData, RosterPlayer, StandingRow, TabKey } from "./types";
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "ladder", label: "Ladder" },
@@ -56,13 +79,79 @@ interface LeagueTabsProps {
   // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
   // render only the active panel (avoids showing two tab strips).
   hideTabBar?: boolean;
+  /** Opens the match-create flow with this roster player pre-selected. */
+  onProposeMatch?: (playerId: string) => void;
+  /** Players tab toolbar action. No log-a-score counterpart: a roster screen
+   *  implies no finished match. */
+  onNeedMatch?: () => void;
+  /** Viewer's own name and availability, for the outreach message. */
+  viewerName?: string;
+  viewerAvailability?: string | null;
+  /** Overrides the feature gate. Injected by tests; production reads the flag. */
+  contactSheetEnabled?: boolean;
+  /** Overrides touch detection. Injected by tests; production reads the media query. */
+  pointerCoarse?: boolean;
 }
 
-// A roster player's contact string is a phone or email — link out accordingly.
-const contactHref = (contact: string) =>
-  contact.includes("@") ? `mailto:${contact}` : `sms:${contact.replace(/[^\d+]/g, "")}`;
+/** Roster player as the contact helpers want it — ratings ride along for the vCard name. */
+const toContactable = (player: RosterPlayer): ContactablePlayer => ({
+  playerId: player.playerId,
+  name: player.name,
+  phone: player.phone,
+  shareContact: player.shareContact,
+  rating: player.rating,
+  ntrp: player.ntrp,
+  utr: player.utr,
+});
 
-const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hideTabBar }: LeagueTabsProps) => (
+/** Downloads the .vcf entirely client-side — no round trip, no server copy of the roster. */
+const saveAllContacts = (players: RosterPlayer[], leagueName: string) => {
+  const file = buildVCardFile(players.map(toContactable), leagueName);
+  if (!file) return;
+  const url = URL.createObjectURL(new Blob([file], { type: "text/vcard;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = vCardFileName(leagueName);
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
+const LeagueTabs = ({
+  data,
+  activeTab,
+  onTabChange,
+  onSchedule,
+  onChallenge,
+  hideTabBar,
+  onProposeMatch,
+  onNeedMatch,
+  viewerName,
+  viewerAvailability,
+  contactSheetEnabled: contactSheetEnabledProp,
+  pointerCoarse: pointerCoarseProp,
+}: LeagueTabsProps) => {
+  // Which row last had its number copied, for the transient chip state.
+  const [copiedPlayerId, setCopiedPlayerId] = useState<string | null>(null);
+  const [liveMessage, setLiveMessage] = useState("");
+
+  const copyNumber = (playerId: string, e164: string) => {
+    void navigator.clipboard?.writeText(e164).then(() => {
+      setCopiedPlayerId(playerId);
+      setLiveMessage("Number copied");
+      setTimeout(() => setCopiedPlayerId(null), 1400);
+    }).catch(() => setCopiedPlayerId(null));
+  };
+  const detectedCoarse = usePointerCoarse();
+  const pointerCoarse = pointerCoarseProp ?? detectedCoarse;
+  const contactSheetEnabled = contactSheetEnabledProp ?? isContactSheetEnabled();
+  const leagueName = data.summary.name || "league";
+  // `ladder` is optional in practice — the offline fixtures omit it — and this is
+  // read on every tab, not just the ladder, so it must not assume the array.
+  const ladderRows = data.ladder ?? [];
+
+  return (
   <>
     {hideTabBar ? null : (
       <div className="tabs" role="tablist" aria-label="League detail">
@@ -88,37 +177,73 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
             <div className="eyebrow">Rated players</div>
             <h2>League ladder</h2>
           </div>
-          <span>{data.ladder.length} rated</span>
+          <span>{ladderRows.length} rated</span>
         </div>
-        {data.ladder.length ? (
+        {/* Ladder order and standings order disagree all season, because TPR is
+            computed across a player's whole platform history. Saying so once here
+            is cheaper than fielding the question every week. */}
+        <p className="ladder-basis">
+          Ranked by TPR across all your matches. Playoff spots come from{" "}
+          <button type="button" className="ladder-basis__link" onClick={() => onTabChange("standings")}>
+            standings
+          </button>
+          .
+        </p>
+        {ladderRows.length ? (
           <div className="ladder-list">
-            {data.ladder.map((row) => (
-              <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
-                <span className="ladder-rank">#{row.rank}</span>
-                <span className="av">{row.initials}</span>
-                <div className="ladder-player">
-                  <div className="pl">
-                    <span className="pl-nm">{row.name}</span>
-                    {row.isViewer ? <span className="you-tag">you</span> : null}
-                  </div>
-                  <div className="rt">
-                    {row.ratingType} {row.ratingLabel}
-                    {row.ntrpLabel !== "-" && row.ratingType !== "NTRP" ? ` · NTRP ${row.ntrpLabel}` : ""}
-                    {row.utrLabel !== "-" && row.ratingType !== "UTR" ? ` · UTR ${row.utrLabel}` : ""}
-                    {row.ratingBadge ? ` · ${row.ratingBadge}` : ""}
-                  </div>
+            {ladderRows.map((row, index) => {
+              const above = index > 0 ? ladderRows[index - 1] : null;
+              const below = index < ladderRows.length - 1 ? ladderRows[index + 1] : null;
+              const gap = row.isViewer
+                ? viewerGapLabel(
+                    { rank: row.rank, rating: row.rating },
+                    above ? { rank: above.rank, rating: above.rating } : null,
+                    below ? { rank: below.rank, rating: below.rating } : null,
+                  )
+                : null;
+              return (
+                <div className={`ladder-row${row.isViewer ? " you-row" : ""}`} key={row.playerId}>
+                  {/* The # prefix marks the viewer's own place; everyone else is a
+                      plain number so the column scans as a list, not a set of tags. */}
+                  <span className="ladder-rank">{row.isViewer ? `#${row.rank}` : row.rank}</span>
+                  <span className="ladder-player">
+                    <span className="ladder-nm">{row.name}</span>
+                    <span className="ladder-meta">
+                      {gap ?? (
+                        <>
+                          {`NTRP ${ratingValue(row.ntrpLabel)} · UTR ${ratingValue(row.utrLabel)} · `}
+                          {matchesLabel(row.matchesPlayed, row.ratingBadge)}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                  <span className="ladder-tpr">
+                    <span className="ladder-tpr__n">{tprLabel(row.rating)}</span>
+                    {/* Qualifies the TPR, not the self-reported NTRP/UTR: rating_source
+                        keys off matches played, vouches and the seed. Never blank. */}
+                    <span className="ladder-tpr__st">{ratingStatusLabel(row.ratingBadge)}</span>
+                  </span>
+                  {row.isViewer ? (
+                    <span className="ladder-act" />
+                  ) : (
+                    <button
+                      type="button"
+                      className="ladder-act ladder-challenge"
+                      aria-label={`Challenge ${row.name}`}
+                      title={`Challenge ${row.name}`}
+                      onClick={(event) => {
+                        // The row is not a control today, but this stays so the
+                        // button keeps working if one is ever wrapped around it.
+                        event.stopPropagation();
+                        onChallenge?.(row.playerId);
+                      }}
+                    >
+                      <Icon name="swords" />
+                    </button>
+                  )}
                 </div>
-                <span className={recordClass(row.wins, row.losses)}>{row.recordLabel}</span>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={row.isViewer}
-                  onClick={() => onChallenge?.(row.playerId)}
-                >
-                  Challenge
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="list-empty">No rated players yet.</div>
@@ -184,38 +309,155 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
 
     {activeTab === "players" ? (
       <section className="panel">
-        <div className="pg">
-          {data.roster.map((player) => (
-            <div className="pcard" key={player.playerId}>
-              <span className="av">{player.initials}</span>
-              <div className="pinfo">
-                <div className="nm">{player.name}</div>
-                <div className="rt">
-                  TPR {player.rating.toFixed(1)}
-                  {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
-                  {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : ""}
-                  {" · "}
-                  <span className={recordClass(player.wins, player.losses)}>
-                    {player.wins}–{player.losses}
-                  </span>
-                </div>
-              </div>
-              {player.contact ? (
-                <a
-                  className="contact"
-                  aria-label={`Contact ${player.name}`}
-                  href={contactHref(player.contact)}
-                >
-                  <Icon name="message-circle" />
-                </a>
-              ) : (
-                <button type="button" className="contact" aria-label={`Contact ${player.name}`} disabled>
-                  <Icon name="message-circle" />
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="ptab-head">
+          <span className="ptab-count">{data.roster.length} players</span>
+          {contactSheetEnabled && canSaveAllContacts(data.roster.map(toContactable)) ? (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => saveAllContacts(data.roster, leagueName)}
+            >
+              Save all contacts
+            </button>
+          ) : null}
+          {/* Desktop only — on mobile the sticky bottom bar already carries it,
+              and two of the same button on one screen is one too many. */}
+          {onNeedMatch ? (
+            <button type="button" className="btn ptab-need-match" onClick={onNeedMatch}>
+              Need a match
+            </button>
+          ) : null}
         </div>
+
+        <div className="pg">
+          {data.roster.map((player) => {
+            const contactable = contactSheetEnabled && canShowContact(toContactable(player));
+            const body = buildContactMessage({
+              recipientName: player.name,
+              senderName: viewerName || "",
+              leagueName,
+            });
+            // Links are only built for a player who consented, so a withheld
+            // number never reaches an href, an aria-label, or the DOM at all.
+            const links = contactable ? buildContactLinks(player.phone, body) : null;
+            const e164 = links ? links.tel.replace("tel:", "") : null;
+            const copied = copiedPlayerId === player.playerId;
+
+            return (
+              <div className="pcard" key={player.playerId}>
+                {player.profileImageUrl ? (
+                  <img
+                    className="av av-photo"
+                    src={sizedImageUrl(player.profileImageUrl, { size: 40 })}
+                    alt=""
+                    loading="lazy"
+                    width={40}
+                    height={40}
+                  />
+                ) : (
+                  <span className={`av${contactable ? "" : " av-muted"}`}>{player.initials}</span>
+                )}
+                <span className="pinfo">
+                  <span className="nm">{player.name}</span>
+                  {/* All three ratings on one line, on both platforms; the record
+                      gets its own line below so neither has to be dropped. */}
+                  <span className="rt">
+                    {player.rating === null ? "TPR —" : `TPR ${player.rating.toFixed(1)}`}
+                    {player.ntrp ? ` · NTRP ${player.ntrpEstimated ? "~" : ""}${player.ntrp}` : ""}
+                    {player.utr ? ` · UTR ${player.utrEstimated ? "~" : ""}${player.utr}` : " · UTR unrated"}
+                  </span>
+                  <span className="rec-line">
+                    <span className={recordClass(player.wins, player.losses)}>
+                      {player.wins}–{player.losses}
+                    </span>
+                  </span>
+                  {links ? (
+                    <span className="tel">{formatPhoneDisplay(player.phone)}</span>
+                  ) : (
+                    <span className="tel tel-none">Number not shared</span>
+                  )}
+                </span>
+
+                <span className="chans">
+                  {links && e164 ? (
+                    pointerCoarse ? (
+                      <>
+                        <a className="chan-chip" href={links.sms} aria-label={`Text ${player.name}`}>
+                          <Icon name="message-circle" />
+                        </a>
+                        <a className="chan-chip" href={links.tel} aria-label={`Call ${player.name}`}>
+                          <Icon name="phone" />
+                        </a>
+                        <a
+                          className="chan-chip"
+                          href={links.whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`WhatsApp ${player.name}`}
+                        >
+                          <Icon name="brand-whatsapp" />
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        {/* sms: and tel: are dead on a fine pointer, so those two
+                            slots are replaced rather than greyed out. */}
+                        <button
+                          type="button"
+                          className={`chan-chip${copied ? " chan-chip-done" : ""}`}
+                          onClick={() => copyNumber(player.playerId, e164)}
+                          aria-label={`Copy number for ${player.name}`}
+                          title={copied ? "Copied" : "Copy number"}
+                        >
+                          <Icon name={copied ? "check" : "copy"} />
+                        </button>
+                        <a
+                          className="chan-chip"
+                          href={links.whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`WhatsApp ${player.name}`}
+                          title="WhatsApp"
+                        >
+                          <Icon name="brand-whatsapp" />
+                        </a>
+                        <button
+                          type="button"
+                          className="chan-chip"
+                          onClick={() => onProposeMatch?.(player.playerId)}
+                          aria-label={`Propose a match with ${player.name}`}
+                          title="Propose a match"
+                        >
+                          <Icon name="calendar-plus" />
+                        </button>
+                      </>
+                    )
+                  ) : (
+                    /* No consent, or no number: the in-app route is the only one left. */
+                    <button
+                      type="button"
+                      className="chan-chip"
+                      onClick={() => onProposeMatch?.(player.playerId)}
+                      aria-label={`Propose a match with ${player.name}`}
+                      title="Propose a match"
+                    >
+                      <Icon name="calendar-plus" />
+                    </button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {contactSheetEnabled ? (
+          <p className="ptab-note">
+            {sharedContactCount(data.roster.map(toContactable))} of {data.roster.length} players
+            share a number with this division. The rest can be reached with a match invite.
+          </p>
+        ) : null}
+
+        <span className="sr-live" role="status" aria-live="polite">{liveMessage}</span>
       </section>
     ) : null}
 
@@ -265,6 +507,7 @@ const LeagueTabs = ({ data, activeTab, onTabChange, onSchedule, onChallenge, hid
       </section>
     ) : null}
   </>
-);
+  );
+};
 
 export default LeagueTabs;

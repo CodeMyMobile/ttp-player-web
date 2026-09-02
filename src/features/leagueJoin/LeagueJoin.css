@@ -423,3 +423,14 @@
 /* Not-eligible (hard block) variant of the eligibility sheet */
 .ljr-elig-head.is-blocked h2 { color: var(--tpl-amber, #b45309); }
 .league-join-sheet__primary--wide { flex: 1; width: 100%; }
+
+/* Optional consent, distinct from the required waiver checkbox above it: no
+   invalid state, and helper text explaining why the choice exists. */
+.league-join-check--optional { align-items: flex-start; }
+.league-join-check--optional small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-3, #667085);
+  font-size: 12px;
+  line-height: 1.45;
+}

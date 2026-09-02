@@ -16,6 +16,8 @@ export interface LeagueLadderRow {
   losses: number;
   isViewer: boolean;
   ratingBadge: string | null;
+  /** All-platform matches behind the TPR — NOT the league record. Null when absent. */
+  matchesPlayed: number | null;
   ratingSource: string | null;
   ratingDeltaFromViewer: number | null;
   distanceLabel: string | null;
@@ -122,6 +124,7 @@ export const buildLeagueLadderRows = ({
         losses: record.losses,
         isViewer: viewerId != null && String(viewerId) === playerId,
         ratingBadge: ratingBadge(player),
+        matchesPlayed: numeric(player.matches_played),
         ratingSource: normalizeSource(player.rating_source),
         ratingDeltaFromViewer: numeric(player.rating_delta_from_viewer),
         distanceLabel: formatDistance(player.distance_miles),
@@ -131,6 +134,13 @@ export const buildLeagueLadderRows = ({
       };
     })
     .filter((row): row is Omit<LeagueLadderRow, "rank"> & { rank: number } => row !== null)
+    // A rating of 0 is not a rating. Three players in the live Fall division sit
+    // at current_rating 0 with NTRP 3.5-4.0 on file, and were ranking BELOW a
+    // genuine 4.44 — worse than being absent, because the order asserted
+    // something false about them. Same rule the public ladder already applies
+    // (PublicMatchResultsPage.onlyRatedPlayers), filtered before ranking so
+    // positions still run 1..n with no gaps.
+    .filter((row) => row.rating > 0)
     .sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name))
     .map((row, index) => ({ ...row, rank: index + 1 }));
 };

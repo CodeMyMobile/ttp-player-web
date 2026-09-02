@@ -73,6 +73,24 @@ export interface LeaguePlayer {
   }> | null;
   phone?: string | null;
   email?: string | null;
+  /**
+   * Per-league opt-in to sharing the phone number with other players in the division.
+   *
+   * NOT RETURNED BY THE BACKEND TODAY. `GET /leagues/:id/players` selects `pp.phone`
+   * and exposes it to every signed-in viewer (routes/leagues.js:481) with no consent
+   * check of any kind — there is no share_contact column anywhere in ttp-api. Typed
+   * here so the UI can be built and wired the moment the field ships; until then it
+   * is always undefined, and undefined is treated as "withheld", never as consent.
+   */
+  share_contact?: boolean | null;
+  /**
+   * Player photo. NOT RETURNED TODAY — `listLeaguePlayers` (models/leagues.js:274)
+   * selects from `player_profile as pp` but omits `pp.profile_picture`, which is
+   * a relative path needing the S3 bucket prefix. `models/player_history.js:44`
+   * shows the exact CASE/concat this query needs. Typed here so the roster lights
+   * up when it lands; until then rows fall back to initials.
+   */
+  profile_picture?: string | null;
   membership_status?: string;
   [key: string]: unknown;
 }
