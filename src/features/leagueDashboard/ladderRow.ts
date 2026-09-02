@@ -6,35 +6,6 @@
 // identical divides by zero, a player verified by vouching has zero matches, and
 // the viewer at rank 1 has nobody above them to measure against.
 
-/** Bar height bounds, in px. A floor so the bottom of the ladder stays visible. */
-export const GAP_BAR_MIN_PX = 14;
-export const GAP_BAR_MAX_PX = 34;
-
-/**
- * Height scaled linearly between the division's lowest and highest TPR.
- *
- * When every player shares a rating — a new division where nobody has played —
- * min and max are equal and the linear scale is 0/0. That degrades to a uniform
- * MID height rather than NaN, so the column reads as "no spread yet" instead of
- * collapsing.
- */
-export const gapBarHeight = (rating: number, min: number, max: number): number => {
-  if (!Number.isFinite(rating) || !Number.isFinite(min) || !Number.isFinite(max)) {
-    return GAP_BAR_MIN_PX;
-  }
-  const span = max - min;
-  if (span <= 0) return Math.round((GAP_BAR_MIN_PX + GAP_BAR_MAX_PX) / 2);
-  const t = Math.min(1, Math.max(0, (rating - min) / span));
-  return Math.round(GAP_BAR_MIN_PX + t * (GAP_BAR_MAX_PX - GAP_BAR_MIN_PX));
-};
-
-/** Min/max TPR across the division, for scaling every bar against the same range. */
-export const ratingRange = (ratings: number[]): { min: number; max: number } => {
-  const usable = ratings.filter((value) => Number.isFinite(value));
-  if (!usable.length) return { min: 0, max: 0 };
-  return { min: Math.min(...usable), max: Math.max(...usable) };
-};
-
 /**
  * One badge, two states, never blank — an absent badge teaches a new player
  * nothing about why one number is trustworthy and another is a starting guess.

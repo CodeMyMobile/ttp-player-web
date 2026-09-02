@@ -160,13 +160,12 @@ test("an empty ladder says so rather than rendering an empty list", () => {
   assert.ok(render([]).includes("No rated players yet."));
 });
 
-test("a division where every TPR is identical still renders every bar", () => {
+test("a division where every TPR is identical renders cleanly", () => {
   const html = render([
     row({ playerId: "1", rank: 1, name: "Ana Ruiz", rating: 5 }),
     row({ playerId: "2", rank: 2, name: "Ben Tan", rating: 5 }),
     row({ playerId: "3", rank: 3, name: "Cara Lee", rating: 5 }),
   ]);
-  const bars = html.match(/ladder-bar/g) ?? [];
-  assert.equal(bars.length, 3);
-  assert.ok(!html.includes("NaN"), "a zero span must not divide by zero");
+  assert.ok(!html.includes("NaN"));
+  assert.equal((html.match(/ladder-row/g) ?? []).length, 3);
 });

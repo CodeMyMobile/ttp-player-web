@@ -356,7 +356,7 @@
 /* Target row height ~56px so 6-8 players clear the fold on a 375px screen.
    The row is NOT a control — no hover, no active, no chevron — because tapping
    it does nothing; a dead affordance is worse than none. */
-.lgd .ladder-row{display:grid;grid-template-columns:26px 3px minmax(0,1fr) auto 32px;
+.lgd .ladder-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto 32px;
   align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line)}
 .lgd .ladder-row:last-child{border-bottom:0}
 .lgd .ladder-rank{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums;text-align:right}
@@ -369,11 +369,6 @@
 
 /* Rating-gap bar. Height is set inline from the division's range; one colour by
    design. To remove the whole idea: delete this rule and the <span> that uses it. */
-/* One flat colour for every bar — no ramp, so rank is encoded once, by height.
-   NOT --violet-softer as first specced: that token is #F5F3FE, which on a white
-   row is invisible at 3px wide. This is the same single violet at a fixed low
-   opacity, which keeps it quiet without erasing it. */
-.lgd .ladder-bar{width:3px;border-radius:2px;background:var(--violet);opacity:.35;justify-self:center}
 
 .lgd .ladder-player{min-width:0;display:block}
 .lgd .ladder-nm{display:block;font-size:14px;font-weight:600;letter-spacing:-.01em;
@@ -397,7 +392,7 @@
 /* 320px: the rank and bar columns tighten; the name still truncates rather than
    wrapping, and the TPR column never leaves the screen. */
 @media (max-width:360px){
-  .lgd .ladder-row{grid-template-columns:20px 3px minmax(0,1fr) auto 30px;gap:8px;padding:9px 10px}
+  .lgd .ladder-row{grid-template-columns:20px minmax(0,1fr) auto 30px;gap:8px;padding:9px 10px}
   .lgd .ladder-tpr{min-width:46px}
 }
 

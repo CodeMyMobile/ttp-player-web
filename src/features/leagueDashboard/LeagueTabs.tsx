@@ -25,9 +25,7 @@ import {
 } from "./contactSheet";
 import { isContactSheetEnabled } from "./contactSheetFlag";
 import {
-  gapBarHeight,
   matchesLabel,
-  ratingRange,
   ratingStatusLabel,
   ratingValue,
   tprLabel,
@@ -149,12 +147,9 @@ const LeagueTabs = ({
   const pointerCoarse = pointerCoarseProp ?? detectedCoarse;
   const contactSheetEnabled = contactSheetEnabledProp ?? isContactSheetEnabled();
   const leagueName = data.summary.name || "league";
-  // One range for the whole division, so every bar is scaled against the same
-  // span rather than against its own neighbours. `ladder` is optional in
-  // practice — the offline fixtures omit it — and this runs on every tab, not
-  // just the ladder, so it must not assume the array is there.
+  // `ladder` is optional in practice — the offline fixtures omit it — and this is
+  // read on every tab, not just the ladder, so it must not assume the array.
   const ladderRows = data.ladder ?? [];
-  const ladderRange = ratingRange(ladderRows.map((row) => row.rating));
 
   return (
   <>
@@ -211,14 +206,6 @@ const LeagueTabs = ({
                   {/* The # prefix marks the viewer's own place; everyone else is a
                       plain number so the column scans as a list, not a set of tags. */}
                   <span className="ladder-rank">{row.isViewer ? `#${row.rank}` : row.rank}</span>
-                  {/* Rating-gap bar. Height alone encodes the spread — one colour,
-                      because a colour ramp would encode rank a second time and
-                      more weakly. Delete this span and its CSS to remove it. */}
-                  <span
-                    className="ladder-bar"
-                    style={{ height: gapBarHeight(row.rating, ladderRange.min, ladderRange.max) }}
-                    aria-hidden="true"
-                  />
                   <span className="ladder-player">
                     <span className="ladder-nm">{row.name}</span>
                     <span className="ladder-meta">

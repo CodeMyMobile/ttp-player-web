@@ -2,51 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  GAP_BAR_MAX_PX,
-  GAP_BAR_MIN_PX,
-  gapBarHeight,
   isVerifiedRating,
   matchesLabel,
-  ratingRange,
   ratingStatusLabel,
   ratingValue,
   tprLabel,
   viewerGapLabel,
 } from "./ladderRow";
 import { buildLeagueLadderRows } from "../../pages/leagueLadder";
-
-/* gap bar */
-
-test("bar height scales linearly across the division's range", () => {
-  assert.equal(gapBarHeight(4, 4, 8), GAP_BAR_MIN_PX);
-  assert.equal(gapBarHeight(8, 4, 8), GAP_BAR_MAX_PX);
-  assert.equal(gapBarHeight(6, 4, 8), Math.round((GAP_BAR_MIN_PX + GAP_BAR_MAX_PX) / 2));
-});
-
-test("a division where everyone shares a TPR degrades to a uniform height", () => {
-  // span is 0 — the linear scale would be 0/0 and every bar would be NaN.
-  const h = gapBarHeight(6, 6, 6);
-  assert.ok(Number.isFinite(h));
-  assert.equal(h, 24);
-  assert.equal(gapBarHeight(6, 6, 6), gapBarHeight(6, 6, 6));
-});
-
-test("ratings outside the range clamp rather than overflow the column", () => {
-  assert.equal(gapBarHeight(99, 4, 8), GAP_BAR_MAX_PX);
-  assert.equal(gapBarHeight(-99, 4, 8), GAP_BAR_MIN_PX);
-});
-
-test("nonsense input still yields a drawable height", () => {
-  for (const bad of [NaN, Infinity]) {
-    assert.ok(Number.isFinite(gapBarHeight(bad as number, 4, 8)));
-  }
-});
-
-test("the range ignores unusable values and survives an empty division", () => {
-  assert.deepEqual(ratingRange([5, 7, 6]), { min: 5, max: 7 });
-  assert.deepEqual(ratingRange([NaN, 5, 7]), { min: 5, max: 7 });
-  assert.deepEqual(ratingRange([]), { min: 0, max: 0 });
-});
 
 /* status badge */
 
