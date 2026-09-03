@@ -39,6 +39,13 @@ import {
 } from "./services/authToken";
 import { updatePlayerPersonalDetails } from "./services/player";
 import {
+  levelFromParam,
+  formatFromParam,
+  genderFromParam,
+  distanceFromParam,
+  dayFromParam,
+} from "./utils/matchFilterParams";
+import {
   Calendar,
   MapPin,
   Users,
@@ -175,6 +182,16 @@ const getInitialPath = () => {
     return pathFromHash || "/";
   }
   return window.location.pathname || "/";
+};
+
+// Under HashRouter the query string lives inside the hash (e.g.
+// #/matches?level=3.5), so pull it from there rather than window.location.search.
+const getInitialSearchParams = () => {
+  if (typeof window === "undefined") return new URLSearchParams();
+  const hash = window.location.hash || "";
+  const queryIndex = hash.indexOf("?");
+  const search = queryIndex >= 0 ? hash.slice(queryIndex + 1) : "";
+  return new URLSearchParams(search);
 };
 
 const deriveScreenFromPath = (path) => {
@@ -951,6 +968,10 @@ const TennisMatchApp = ({
   const navigate = useNavigate();
   const location = useLocation();
   const initialPath = getInitialPath();
+  // URL query params seed the browse filters on first load so shareable links
+  // like #/matches?level=3.5&format=singles land already filtered. Read once on
+  // mount only — changing filters in the UI afterwards does not rewrite the URL.
+  const initialFilterParams = getInitialSearchParams();
   const [currentUser, setCurrentUser] = useState(null);
   const memberIdentityIds = useMemo(
     () => collectMemberIds(currentUser),
@@ -960,10 +981,22 @@ const TennisMatchApp = ({
     deriveScreenFromPath(initialPath),
   );
   const [activeFilter, setActiveFilter] = useState("all");
-  const [selectedDayKey, setSelectedDayKey] = useState("");
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState("Any");
-  const [selectedFormatFilter, setSelectedFormatFilter] = useState("Any");
-  const [selectedGenderFilter, setSelectedGenderFilter] = useState("Any");
+  const [selectedDayKey, setSelectedDayKey] = useState(
+    () =>
+      dayFromParam(
+        initialFilterParams.get("day"),
+        buildDayStripOptions().map((day) => day.key),
+      ) ?? "",
+  );
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState(
+    () => levelFromParam(initialFilterParams.get("level")) ?? "Any",
+  );
+  const [selectedFormatFilter, setSelectedFormatFilter] = useState(
+    () => formatFromParam(initialFilterParams.get("format")) ?? "Any",
+  );
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState(
+    () => genderFromParam(initialFilterParams.get("gender")) ?? "Any",
+  );
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [showToast, setShowToast] = useState(null);
   const [showProfileManager, setShowProfileManager] = useState(false);
@@ -1077,6 +1110,10 @@ const TennisMatchApp = ({
     }
   });
   const [distanceFilter, setDistanceFilter] = useState(() => {
+    // An explicit distance param expresses explicit intent, so it overrides the
+    // remembered localStorage value; absent/invalid falls back to the stored one.
+    const fromUrl = distanceFromParam(initialFilterParams.get("distance"));
+    if (fromUrl != null) return fromUrl;
     if (typeof window === "undefined") return 5;
     const stored = Number(window.localStorage.getItem("matchDistanceFilter"));
     return Number.isFinite(stored) && stored > 0 ? stored : 5;
