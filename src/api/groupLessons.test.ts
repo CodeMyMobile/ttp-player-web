@@ -65,6 +65,15 @@ test("resolveBookingState treats active comped bookings as booked without paymen
   });
 });
 
+test("resolveBookingState treats a non-cancelled comped API record as booked", () => {
+  assert.deepEqual(resolveBookingState({ status: 0, paymentStatus: 0, paymentMethod: "comped" }), {
+    key: "comped",
+    label: "Booked · added by coach",
+    tone: "success",
+    paymentDue: false,
+  });
+});
+
 test("resolveBookingState leaves active unpaid card bookings pending", () => {
   assert.deepEqual(resolveBookingState({ status: 1, paymentStatus: 0, paymentMethod: "card" }), {
     key: "pending",
@@ -84,6 +93,10 @@ test("holdsGroupSpot counts paid and pay-on-court reservations only", () => {
 test("holdsGroupSpot counts active comped reservations but not cancelled ones", () => {
   assert.equal(holdsGroupSpot(1, 0, "comped"), true);
   assert.equal(holdsGroupSpot(2, 0, "comped"), false);
+});
+
+test("holdsGroupSpot counts a non-cancelled comped API record", () => {
+  assert.equal(holdsGroupSpot(0, 0, "comped"), true);
 });
 
 test("mapUpcomingGroupLesson preserves pending credit status without marking participant booked", () => {

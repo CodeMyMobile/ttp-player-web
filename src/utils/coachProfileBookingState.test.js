@@ -53,6 +53,38 @@ test("group booking state is confirmed only when participant and payment are act
   assert.equal(state, "confirmed");
 });
 
+test("group booking state confirms a non-cancelled comped participant", () => {
+  const state = getGroupParticipantBookingState(
+    [
+      {
+        player_id: 12,
+        status: 0,
+        payment_status: 0,
+        payment_method: "comped",
+      },
+    ],
+    { id: 12 },
+  );
+
+  assert.equal(state, "confirmed");
+});
+
+test("cancelled comped participant remains pending", () => {
+  const state = getGroupParticipantBookingState(
+    [
+      {
+        player_id: 12,
+        status: 2,
+        payment_status: 0,
+        payment_method: "comped",
+      },
+    ],
+    { id: 12 },
+  );
+
+  assert.equal(state, "pending");
+});
+
 test("group slot matching ignores overlapping lessons with a different source lesson id", () => {
   const slot = {
     id: "group-slot",
