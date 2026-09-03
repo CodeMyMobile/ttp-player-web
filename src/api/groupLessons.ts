@@ -270,16 +270,19 @@ export type BookingPaymentMethod = "card" | "credits" | "pay_on_court" | string 
 export const isPayOnCourt = (method: BookingPaymentMethod) =>
   String(method ?? "").toLowerCase() === "pay_on_court";
 
+export const isComped = (method: BookingPaymentMethod) =>
+  String(method ?? "").toLowerCase() === "comped";
+
 export const holdsGroupSpot = (
   status?: number | string | null,
   paymentStatus?: number | string | null,
   paymentMethod?: BookingPaymentMethod,
 ) => {
   if (parseStatusValue(status) !== 1) return false;
-  return parseStatusValue(paymentStatus) === 1 || isPayOnCourt(paymentMethod);
+  return parseStatusValue(paymentStatus) === 1 || isPayOnCourt(paymentMethod) || isComped(paymentMethod);
 };
 
-export type BookingStateKey = "cancelled" | "booked" | "pay_on_court" | "pending";
+export type BookingStateKey = "cancelled" | "booked" | "pay_on_court" | "comped" | "pending";
 
 export const resolveBookingState = ({
   status,
@@ -300,6 +303,9 @@ export const resolveBookingState = ({
   }
   if (numericStatus === 1 && isPayOnCourt(paymentMethod)) {
     return { key: "pay_on_court", label: "Booked · pay on the day", tone: "success", paymentDue: true };
+  }
+  if (numericStatus === 1 && isComped(paymentMethod)) {
+    return { key: "comped", label: "Booked · added by coach", tone: "success", paymentDue: false };
   }
   return { key: "pending", label: "Pending", tone: "pending", paymentDue: false };
 };
