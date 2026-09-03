@@ -104,7 +104,7 @@ export const getGroupParticipantBookingState = (groupPlayers, currentUser) => {
   const paymentStatus = parseStatusCode(participant.payment_status ?? participant.paymentStatus);
   const paymentMethod = normalizeString(participant.payment_method ?? participant.paymentMethod);
 
-  if (status === 2 || paymentStatus === 2) return "pending";
+  if (status === 2 || paymentStatus === 2) return null;
   if (paymentMethod === "comped") return "confirmed";
   if (status === 1 && paymentStatus === 1) return "confirmed";
   return "pending";

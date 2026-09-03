@@ -69,7 +69,7 @@ test("group booking state confirms a non-cancelled comped participant", () => {
   assert.equal(state, "confirmed");
 });
 
-test("cancelled comped participant remains pending", () => {
+test("cancelled comped participant is not treated as a booking", () => {
   const state = getGroupParticipantBookingState(
     [
       {
@@ -82,7 +82,7 @@ test("cancelled comped participant remains pending", () => {
     { id: 12 },
   );
 
-  assert.equal(state, "pending");
+  assert.equal(state, null);
 });
 
 test("group slot matching ignores overlapping lessons with a different source lesson id", () => {
