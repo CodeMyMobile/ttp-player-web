@@ -117,7 +117,7 @@ const CoachSearchCard = ({
       </div>
 
       <div className="csc-actions">
-        {onShare ? <button type="button" className="csc-btn csc-btn--ghost" onClick={onShare}><Share2 size={15} /> Share</button> : null}
+        {onShare ? <button type="button" className="csc-btn csc-btn--ghost csc-btn--share" onClick={onShare}><Share2 size={15} /> Share</button> : null}
         <Link to={profileTo} state={profileState} className="csc-btn csc-btn--ghost">
           View profile
         </Link>

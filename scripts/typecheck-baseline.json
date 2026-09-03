@@ -122,7 +122,6 @@
   "src/pages/FindCoaches.tsx|TS2367|This comparison appears to be unintentional because the types '\"ready\"' and '\"loading\"' have no overlap.",
   "src/pages/FindPlayersPage.tsx|TS2339|Property 'value' does not exist on type 'EventTarget'.",
   "src/pages/FindPlayersPage.tsx|TS2559|Type '{ \"--fc-color-bg\": string; \"--fc-color-surface\": string; \"--fc-color-text-primary\": string; \"--fc-color-text-secondary\": string; \"--fc-color-text-muted\": string; \"--fc-color-border\": string; \"--fc-color-icon\": string; ... 21 more ...; \"--fc-body-line-height\": string; }' has no properties in common with type 'Properties<string | number, string & {}>'.",
-  "src/pages/GroupLessonDetailsPage.tsx|TS2304|Cannot find name 'lessonStartMoment'.",
   "src/pages/GroupLessonDetailsPage.tsx|TS2339|Property 'creditStatus' does not exist on type '{ id?: string | number; participantId?: string | number; playerId?: string | number; name?: string; avatarUrl?: string; email?: string; phone?: string; paymentStatus?: number; status?: number; paymentMethod?: string; }'.",
   "src/pages/GroupLessonDetailsPage.tsx|TS2339|Property 'focusArea' does not exist on type '{ id: string; name: string; avatarUrl: string; paymentStatus: number; status: number; paymentMethod: string; }'.",
   "src/pages/GroupLessonDetailsPage.tsx|TS2339|Property 'joinedLabel' does not exist on type '{ id: string; name: string; avatarUrl: string; paymentStatus: number; status: number; paymentMethod: string; }'.",

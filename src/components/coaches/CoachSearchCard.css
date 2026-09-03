@@ -150,13 +150,22 @@
 /* actions */
 .csc-actions {
   display: flex;
+  align-items: stretch;
   gap: 10px;
 }
+/* inline-flex centers both axes for <button> and <a> alike — text-align alone
+   left the <a> ("View profile") label pinned to the top of the stretched box,
+   and let the block-level lucide <svg> break onto its own line. */
 .csc-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
-  padding: 13px;
-  border: 0;
+  padding: 13px 10px;
+  border: 1.5px solid transparent;
   border-radius: 13px;
   cursor: pointer;
   font-family: inherit;
@@ -165,13 +174,19 @@
   text-decoration: none;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
+/* Share is a short icon+word: size it to content so the longer labels keep the
+   room they need. Without this, equal thirds starve "Book a lesson" into a wrap. */
+.csc-btn--share {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .csc-btn:active {
   transform: scale(0.98);
 }
 .csc-btn--ghost {
   background: #fff;
   color: #16161d;
-  border: 1.5px solid #dcdee6;
+  border-color: #dcdee6;
 }
 .csc-btn--ghost:hover {
   background: #f7f8fb;
