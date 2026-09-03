@@ -90,6 +90,7 @@ import {
   getDefaultCoachProfilePaymentChoice,
   getCoachProfilePaymentOptions,
   resolveCoachAllowsPayOnCourt,
+  resolveCoachCanAcceptCards,
   type CoachProfilePaymentChoice,
 } from "../utils/coachProfilePaymentOptions";
 
@@ -1076,6 +1077,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     })();
   const firstBookingKey = `coach-first-booking:${profile?.id ?? "coach"}:${playerId}`;
   const coachAllowsPayOnCourt = resolveCoachAllowsPayOnCourt(profile);
+  const coachCanAcceptCards = resolveCoachCanAcceptCards(profile);
 
   const redirectToLogin = (returnState?: Record<string, unknown>) => {
     navigate("/login", {
@@ -1793,11 +1795,19 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
         availableCredits,
         applePayReady: isApplePayReady,
         coachAllowsPayOnCourt,
+        coachCanAcceptCards,
       }),
-    [availableCredits, coachAllowsPayOnCourt, isApplePayReady],
+    [availableCredits, coachAllowsPayOnCourt, coachCanAcceptCards, isApplePayReady],
   );
   const canPayOnCourt = paymentOptions.some((option) => option.value === "pay-on-court" && option.enabled);
-  const preferredPaymentChoice = getDefaultCoachProfilePaymentChoice(coachAllowsPayOnCourt);
+  const preferredPaymentChoice = getDefaultCoachProfilePaymentChoice(coachAllowsPayOnCourt, coachCanAcceptCards);
+
+  useEffect(() => {
+    if (!paymentSheetOpen) return;
+    if ((paymentChoice === "card" || paymentChoice === "wallet") && !coachCanAcceptCards) {
+      setPaymentChoice(preferredPaymentChoice);
+    }
+  }, [coachCanAcceptCards, paymentChoice, paymentSheetOpen, preferredPaymentChoice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3591,13 +3601,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       </label>
                     ) : null}
 
-                    <label className={`coach-payment-choice${paymentChoice === "card" ? " coach-payment-choice--active" : ""}`}>
+                    <label className={`coach-payment-choice${paymentChoice === "card" ? " coach-payment-choice--active" : ""}${!coachCanAcceptCards ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
                         name="payment-choice"
                         value="card"
                         checked={paymentChoice === "card"}
                         onChange={() => setPaymentChoice("card")}
+                        disabled={!coachCanAcceptCards}
                       />
                       <div className="coach-payment-choice__icon" aria-hidden="true">💳</div>
                       <div className="coach-payment-choice__body">
@@ -3605,7 +3616,9 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           <span className="coach-payment-choice__title">Saved card</span>
                         </div>
                         <p className="coach-payment-choice__subtitle">
-                          {paymentMethodsLoading
+                          {!coachCanAcceptCards
+                            ? "Card checkout unavailable. Coach has not enabled Stripe."
+                            : paymentMethodsLoading
                             ? "Loading your saved cards..."
                             : paymentMethods.length > 0
                               ? `${paymentMethods.length} saved card${paymentMethods.length === 1 ? "" : "s"} available.`
@@ -3615,14 +3628,14 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       {paymentChoice === "card" ? <span className="coach-payment-choice__check">✓</span> : null}
                     </label>
 
-                    <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${!isApplePayReady ? " coach-payment-choice--disabled" : ""}`}>
+                    <label className={`coach-payment-choice${paymentChoice === "wallet" ? " coach-payment-choice--active" : ""}${(!isApplePayReady || !coachCanAcceptCards) ? " coach-payment-choice--disabled" : ""}`}>
                       <input
                         type="radio"
                         name="payment-choice"
                         value="wallet"
                         checked={paymentChoice === "wallet"}
                         onChange={() => setPaymentChoice("wallet")}
-                        disabled={!isApplePayReady}
+                        disabled={!isApplePayReady || !coachCanAcceptCards}
                       />
                       <div className="coach-payment-choice__icon" aria-hidden="true">🍎</div>
                       <div className="coach-payment-choice__body">
@@ -3630,8 +3643,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                           <span className="coach-payment-choice__title">Apple Pay / wallet</span>
                         </div>
                         <p className="coach-payment-choice__subtitle">
-                          {isApplePayReady
-                            ? "Pay with Apple Pay on this device."
+                          {!coachCanAcceptCards
+                            ? "Wallet checkout unavailable. Coach has not enabled Stripe."
+                            : isApplePayReady
+                              ? "Pay with Apple Pay on this device."
                             : stripePromise
                               ? "Apple Pay is not available on this device or browser."
                               : "Stripe is not configured for Apple Pay."}
