@@ -1154,7 +1154,11 @@ const GroupLessonDetailsPage = () => {
                 </div>
                 <h2 className="group-lesson-details__cancel-headline">Booking cancelled</h2>
                 <p className="group-lesson-details__cancel-copy">
-                  Your {lesson.title} on {lessonStartMoment?.isValid() ? lessonStartMoment.format("dddd") : dateLabel} has been cancelled.
+                  Your {lesson.title} on{" "}
+                  {lesson.startDateTime
+                    ? moment.utc(lesson.startDateTime).format("dddd")
+                    : dateLabel}{" "}
+                  has been cancelled.
                 </p>
                 <div className="group-lesson-details__cancel-refund-card">
                   <span aria-hidden>💰</span>
