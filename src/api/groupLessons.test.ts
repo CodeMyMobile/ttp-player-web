@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   holdsGroupSpot,
+  isComped,
   isPayOnCourt,
   mapUpcomingGroupLesson,
   resolveBookingState,
@@ -13,6 +14,13 @@ test("isPayOnCourt matches pay_on_court case-insensitively", () => {
   assert.equal(isPayOnCourt("PAY_ON_COURT"), true);
   assert.equal(isPayOnCourt("card"), false);
   assert.equal(isPayOnCourt(null), false);
+});
+
+test("isComped matches comped case-insensitively", () => {
+  assert.equal(isComped("comped"), true);
+  assert.equal(isComped("COMPED"), true);
+  assert.equal(isComped("card"), false);
+  assert.equal(isComped(null), false);
 });
 
 test("resolveBookingState treats paid active bookings as booked", () => {
@@ -48,6 +56,24 @@ test("resolveBookingState treats active pay on court as booked with payment due"
   });
 });
 
+test("resolveBookingState treats active comped bookings as booked without payment due", () => {
+  assert.deepEqual(resolveBookingState({ status: 1, paymentStatus: 0, paymentMethod: "comped" }), {
+    key: "comped",
+    label: "Booked · added by coach",
+    tone: "success",
+    paymentDue: false,
+  });
+});
+
+test("resolveBookingState treats a non-cancelled comped API record as booked", () => {
+  assert.deepEqual(resolveBookingState({ status: 0, paymentStatus: 0, paymentMethod: "comped" }), {
+    key: "comped",
+    label: "Booked · added by coach",
+    tone: "success",
+    paymentDue: false,
+  });
+});
+
 test("resolveBookingState leaves active unpaid card bookings pending", () => {
   assert.deepEqual(resolveBookingState({ status: 1, paymentStatus: 0, paymentMethod: "card" }), {
     key: "pending",
@@ -62,6 +88,15 @@ test("holdsGroupSpot counts paid and pay-on-court reservations only", () => {
   assert.equal(holdsGroupSpot(1, 0, "pay_on_court"), true);
   assert.equal(holdsGroupSpot(1, 0, "card"), false);
   assert.equal(holdsGroupSpot(2, 1, "pay_on_court"), false);
+});
+
+test("holdsGroupSpot counts active comped reservations but not cancelled ones", () => {
+  assert.equal(holdsGroupSpot(1, 0, "comped"), true);
+  assert.equal(holdsGroupSpot(2, 0, "comped"), false);
+});
+
+test("holdsGroupSpot counts a non-cancelled comped API record", () => {
+  assert.equal(holdsGroupSpot(0, 0, "comped"), true);
 });
 
 test("mapUpcomingGroupLesson preserves pending credit status without marking participant booked", () => {
