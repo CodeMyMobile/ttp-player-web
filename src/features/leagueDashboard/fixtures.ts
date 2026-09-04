@@ -84,6 +84,8 @@ const springLeague: LeagueData = {
     { id: "r5", winnerName: "Peter Bergren", loserName: "Saam Shabahang", score: "6–2 6–2", playedAgo: "2 days ago" },
     { id: "r6", winnerName: "Umair Savani", loserName: "Chad Kushner", score: "6–0 6–1", playedAgo: "3 days ago" },
   ],
+  ladder: [],
+  scheduled: [],
   pending: [
     { id: "p1", player1: "Paul Cochrane", player2: "Ivan Hee", isYours: true },
     { id: "p2", player1: "Paul Cochrane", player2: "Danny Eide", isYours: true },
@@ -183,6 +185,8 @@ const winterLeague: LeagueData = {
     { id: "wr2", winnerName: "Paul Cochrane", loserName: "Devon Clarke", score: "6–2 6–3", playedAgo: "Mar 14" },
     { id: "wr3", winnerName: "Samir Patel", loserName: "Greg Nolan", score: "7–6 6–4", playedAgo: "Mar 10" },
   ],
+  ladder: [],
+  scheduled: [],
   pending: [],
   looking: [],
   ticker: [
@@ -250,6 +254,8 @@ const fallLeague: LeagueData = {
     { id: "fr2", winnerName: "Paul Cochrane", loserName: "Owen Diaz", score: "6–1 6–2", playedAgo: "Dec 5" },
     { id: "fr3", winnerName: "Nate Kim", loserName: "Luis Ferro", score: "7–5 6–3", playedAgo: "Dec 1" },
   ],
+  ladder: [],
+  scheduled: [],
   pending: [],
   looking: [],
   ticker: [
@@ -318,6 +324,8 @@ const summerLeague: LeagueData = {
     { id: "sr2", winnerName: "Paul Cochrane", loserName: "Rob Feld", score: "6–2 6–1", playedAgo: "Sep 13" },
     { id: "sr3", winnerName: "Ali Mansour", loserName: "Jon Pace", score: "7–6 7–5", playedAgo: "Sep 8" },
   ],
+  ladder: [],
+  scheduled: [],
   pending: [],
   looking: [],
   ticker: [

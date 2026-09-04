@@ -40,6 +40,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
   { key: "players", label: "Players" },
   { key: "results", label: "Results" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "pending", label: "Pending" },
 ];
 
@@ -477,6 +478,52 @@ const LeagueTabs = ({
           ))
         ) : (
           <div className="list-empty">No results posted yet.</div>
+        )}
+      </section>
+    ) : null}
+
+    {activeTab === "scheduled" ? (
+      <section className="panel card">
+        <div className="ladder-head">
+          <div>
+            <div className="eyebrow">Agreed times</div>
+            <h2>Scheduled matches</h2>
+          </div>
+          <span>{(data.scheduled ?? []).length}</span>
+        </div>
+        {/* Accepted match needs, not league fixtures — an accepted need never becomes a
+            league_matches row, so these cannot come from the fixtures endpoint. Pending
+            (below) is the admin-generated round robin and is a different thing. */}
+        {(data.scheduled ?? []).length === 0 ? (
+          <p className="empty">
+            No scheduled matches yet. Post a time you can play, or accept one another player
+            has offered — agreed matches appear here.
+          </p>
+        ) : (
+          <ul className="pending-list">
+            {(data.scheduled ?? []).map((match) => (
+              <li key={match.id} className="pending-row">
+                <div className="pl">
+                  <span className="sp-nm">vs {match.opponentName}</span>
+                </div>
+                <div className="pending-meta">
+                  <span>
+                    {match.startDateTime
+                      ? new Date(match.startDateTime).toLocaleString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "Date TBD"}
+                  </span>
+                  <span>{match.location || "Location TBD"}</span>
+                  <span>{match.viewerIsHost ? "You posted this" : "You accepted this"}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     ) : null}

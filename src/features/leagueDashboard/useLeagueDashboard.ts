@@ -32,6 +32,8 @@ import {
   formatLeagueTime,
   isFutureLeagueItem,
 } from "../../pages/leagueDetailTime";
+import { listMatches } from "../../api/matches";
+import { buildScheduledLeagueMatches } from "../../utils/scheduledLeagueMatches";
 import { buildLeagueLadderRows } from "../../pages/leagueLadder";
 import { orientScore } from "../../pages/leagueScore";
 import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
@@ -221,6 +223,8 @@ interface RawBundle {
   myNeeds: LeagueMatchNeed[];
   suggestions: LeagueMatchSuggestion[];
   allNeeds: LeagueMatchNeed[];
+  /** Raw GET /matches rows; transformed in buildDashboard where viewerId is in scope. */
+  scheduledRaw: unknown[];
 }
 
 const buildDashboard = (
@@ -619,9 +623,16 @@ const buildDashboard = (
         tone: archived ? "gray" : "violet",
       };
 
+  const scheduled = buildScheduledLeagueMatches({
+    matches: raw.scheduledRaw ?? [],
+    leagueId,
+    viewerId,
+  });
+
   const data: LeagueData = {
     summary,
     standings: standingRows,
+    scheduled,
     ladder,
     roster,
     results,
@@ -699,8 +710,15 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
       getLeagueMatchNeeds({ leagueId, token, signal: controller.signal }),
       getLeagueMatchNeeds({ leagueId, token, scope: "all", signal: controller.signal }),
       listMyLeagues({ token, signal: controller.signal }),
+      // Accepted match needs. Not a league endpoint: an accepted need is a confirmed
+      // row in `matches`, never a league fixture — see utils/scheduledLeagueMatches.
+      // Resolves to an empty list on failure so one optional list cannot blank the
+      // whole dashboard.
+      listMatches({ token, filter: "my", status: "confirmed", signal: controller.signal })
+        .then((res) => res.matches)
+        .catch(() => [] as unknown[]),
     ])
-      .then(([standingsRes, playersRes, completedRes, pendingRes, needsRes, allNeedsRes, leaguesRes]) => {
+      .then(([standingsRes, playersRes, completedRes, pendingRes, needsRes, allNeedsRes, leaguesRes, scheduledRaw]) => {
         if (controller.signal.aborted) return;
         const league = standingsRes.league ?? playersRes.league;
         const raw: RawBundle = {
@@ -712,6 +730,7 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
           myNeeds: needsRes.myNeeds ?? [],
           suggestions: needsRes.suggestions ?? [],
           allNeeds: allNeedsRes.needs ?? [],
+          scheduledRaw: scheduledRaw ?? [],
         };
         const built = buildDashboard(String(leagueId), raw, viewer);
 
