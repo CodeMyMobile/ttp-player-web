@@ -39,6 +39,45 @@ export const DEFAULT_POSITION: Coordinates = DEFAULT_COORDINATES_VALUE;
 // back to this constant so the default can't drift across pages.
 export const DEFAULT_RADIUS_MILES = 10;
 
+export type LocationPermissionState = "prompt" | "granted" | "denied" | "unavailable";
+
+/**
+ * Converts browser capability and permission API output into the state the
+ * picker can render. Browsers that do not support permissions querying still
+ * get the actionable prompt state when geolocation itself is available.
+ */
+export const initialLocationState = ({
+  geolocationAvailable,
+  permission,
+}: {
+  geolocationAvailable: boolean;
+  permission: PermissionState | "unavailable" | null;
+}): LocationPermissionState => {
+  if (!geolocationAvailable) return "unavailable";
+  if (permission === "granted" || permission === "denied") return permission;
+  return "prompt";
+};
+
+type LocationDraft = {
+  location: Coordinates | null;
+  radiusMiles: number;
+};
+
+/**
+ * Filter-mode edits are deliberately local until Apply. This comparison keeps
+ * a slider drag from notifying search surfaces before the user commits it.
+ */
+export const hasLocationDraftChanged = ({
+  committed,
+  draft,
+}: {
+  committed: LocationDraft;
+  draft: LocationDraft;
+}): boolean =>
+  committed.radiusMiles !== draft.radiusMiles ||
+  committed.location?.latitude !== draft.location?.latitude ||
+  committed.location?.longitude !== draft.location?.longitude;
+
 /**
  * Whether the player has actually chosen a location.
  *
@@ -51,16 +90,17 @@ export const hasStoredLocation = (): boolean => getStoredLocation() !== null;
 
 /**
  * Players who already chose a location can continue using it even if browser
- * permission is unavailable. Everyone else needs the picker when permission
- * is not already granted.
+ * permission is unavailable. New players always see the picker: a granted
+ * browser permission lets it resolve immediately, while other states explain
+ * the next action or offer the manual fallback.
  */
 export const shouldPromptForLocationAfterLogin = ({
   hasSavedLocation,
-  permission,
+  permission: _permission,
 }: {
   hasSavedLocation: boolean;
   permission: PermissionState | "unavailable";
-}): boolean => !hasSavedLocation && permission !== "granted";
+}): boolean => !hasSavedLocation;
 
 export const getStoredLocation = (): Coordinates | null => {
   try {

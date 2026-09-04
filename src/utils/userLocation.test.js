@@ -5,6 +5,8 @@ import {
   DEFAULT_POSITION,
   DEFAULT_RADIUS_MILES,
   getSearchLocation,
+  hasLocationDraftChanged,
+  initialLocationState,
   locationNameFromReverseGeocode,
   shouldPromptForLocationAfterLogin,
 } from "./userLocation";
@@ -87,9 +89,39 @@ test("reverse geocoding supplies the navbar's city and full location label", () 
   );
 });
 
-test("login prompts for location only when no location is saved and permission is not granted", () => {
+test("login prompts for location whenever no location is saved, including already-granted permission", () => {
   assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: true, permission: "denied" }), false);
-  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "granted" }), false);
+  assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "granted" }), true);
   assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "prompt" }), true);
   assert.equal(shouldPromptForLocationAfterLogin({ hasSavedLocation: false, permission: "denied" }), true);
+});
+
+test("initial picker state reflects browser availability and permission", () => {
+  assert.equal(initialLocationState({ geolocationAvailable: false, permission: "granted" }), "unavailable");
+  assert.equal(initialLocationState({ geolocationAvailable: true, permission: "prompt" }), "prompt");
+  assert.equal(initialLocationState({ geolocationAvailable: true, permission: "granted" }), "granted");
+  assert.equal(initialLocationState({ geolocationAvailable: true, permission: "denied" }), "denied");
+});
+
+test("a filter draft changes only when its location or radius differs from what is committed", () => {
+  const committed = {
+    location: { latitude: 34.0028, longitude: -118.431 },
+    radiusMiles: 10,
+  };
+
+  assert.equal(hasLocationDraftChanged({ committed, draft: committed }), false);
+  assert.equal(
+    hasLocationDraftChanged({
+      committed,
+      draft: { ...committed, radiusMiles: 15 },
+    }),
+    true,
+  );
+  assert.equal(
+    hasLocationDraftChanged({
+      committed,
+      draft: { ...committed, location: { latitude: 34.0195, longitude: -118.4912 } },
+    }),
+    true,
+  );
 });

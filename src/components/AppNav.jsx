@@ -4,13 +4,18 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   ClipboardList,
   CreditCard,
   Home,
   LogOut,
   MapPin,
+  MapPinOff,
+  ExternalLink,
+  LoaderCircle,
   Plus,
   RefreshCw,
   Search,
@@ -32,8 +37,11 @@ import {
 } from "../api/notification";
 import {
   DEFAULT_RADIUS_MILES,
+  getStoredLocation,
   getStoredLocationLabel,
   getStoredLocationRadius,
+  hasLocationDraftChanged,
+  initialLocationState,
   storeLocation,
   storeLocationLabel,
   storeLocationArea,
@@ -119,15 +127,20 @@ const AppNav = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationsLoading, setNotificationsLoading] = useState(false);
   const [isLocationOpen, setLocationOpen] = useState(false);
-  const [locationLabel, setLocationLabel] = useState(getStoredLocationLabel() || "Current location");
+  const [locationLabel, setLocationLabel] = useState(getStoredLocationLabel() || "Set location");
   const [locationArea, setLocationArea] = useState(getStoredLocationArea());
   const [locationSearchTerm, setLocationSearchTerm] = useState("");
   const [locationError, setLocationError] = useState("");
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationState, setLocationState] = useState("prompt");
+  const [draftLocation, setDraftLocation] = useState(getStoredLocation());
+  const [draftLabel, setDraftLabel] = useState(getStoredLocationLabel() || "");
+  const [draftArea, setDraftArea] = useState(getStoredLocationArea());
   const [searchRadius, setSearchRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+  const [committedRadius, setCommittedRadius] = useState(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const locationSelectionVersionRef = useRef(0);
+  const openLocationPickerRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   // The platform's computed NTRP first. calculated_ntrp is derived per request
   // from current_rating + rating_gender (ttp-api rating_equivalents.js) and ships
@@ -197,16 +210,18 @@ const AppNav = ({
 
   useEffect(() => {
     const syncLocationState = () => {
-      setLocationLabel(getStoredLocationLabel() || "Current location");
+      setLocationLabel(getStoredLocationLabel() || "Set location");
       setLocationArea(getStoredLocationArea());
-      setSearchRadius(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+      const storedRadius = getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES;
+      setCommittedRadius(storedRadius);
+      setSearchRadius(storedRadius);
     };
 
     syncLocationState();
 
     // Another surface asking for the picker — the feed's prompt when no
     // location has been set.
-    const openOnRequest = () => setLocationOpen(true);
+    const openOnRequest = () => openLocationPickerRef.current?.();
 
     window.addEventListener("storage", syncLocationState);
     window.addEventListener(USER_LOCATION_CHANGED_EVENT, syncLocationState);
@@ -242,7 +257,7 @@ const AppNav = ({
     navigate("/create");
   };
 
-  const applyLocationSelection = ({ label, latitude, longitude, area = null }) => {
+  const commitLocationSelection = ({ label, latitude, longitude, area = null }) => {
     locationSelectionVersionRef.current += 1;
     storeLocation({ latitude, longitude });
     storeLocationLabel(label);
@@ -252,18 +267,27 @@ const AppNav = ({
     storeLocationArea(area);
     setLocationArea(area);
     setLocationLabel(label);
-    setLocationSearchTerm(label);
     setLocationError("");
     setLocationOpen(false);
   };
 
+  const setDraftLocationSelection = ({ label, latitude, longitude, area = null }) => {
+    setDraftLocation({ latitude, longitude });
+    setDraftLabel(label);
+    setDraftArea(area);
+    setLocationSearchTerm(label);
+    setLocationError("");
+    setLocationState("granted");
+  };
+
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
+    if (!navigator.geolocation || locationState === "locating") {
+      if (!navigator.geolocation) setLocationState("unavailable");
       setLocationError("Geolocation is unavailable in this browser.");
       return;
     }
 
-    setIsDetectingLocation(true);
+    setLocationState("locating");
     setLocationError("");
 
     navigator.geolocation.getCurrentPosition(
@@ -272,20 +296,16 @@ const AppNav = ({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        setIsDetectingLocation(false);
-        applyLocationSelection({
-          label: "Current location",
-          ...coords,
-        });
-
-        const selectionVersion = locationSelectionVersionRef.current;
         const locationName = await reverseGeocodeDeviceLocation(coords);
-        if (!locationName || locationSelectionVersionRef.current !== selectionVersion) return;
-        applyLocationSelection({ ...coords, ...locationName });
+        setDraftLocationSelection({
+          ...coords,
+          ...(locationName || { label: "Current location", area: null }),
+        });
       },
-      () => {
-        setIsDetectingLocation(false);
-        setLocationError("We couldn't access your current location.");
+      (error) => {
+        const blocked = error?.code === error?.PERMISSION_DENIED || error?.code === 1;
+        setLocationState(blocked ? "denied" : "unavailable");
+        setLocationError(blocked ? "Location permission is blocked." : "We couldn't access your current location.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
@@ -312,7 +332,66 @@ const AppNav = ({
       return;
     }
 
-    applyLocationSelection({ label, latitude, longitude, area: readPlaceArea(place) });
+    setDraftLocationSelection({ label, latitude, longitude, area: readPlaceArea(place) });
+  };
+
+  const openLocationPicker = async () => {
+    const storedLocation = getStoredLocation();
+    const storedLabel = getStoredLocationLabel() || "";
+    const storedArea = getStoredLocationArea();
+    setDraftLocation(storedLocation);
+    setDraftLabel(storedLabel);
+    setDraftArea(storedArea);
+    setLocationSearchTerm("");
+    setLocationError("");
+    setSearchRadius(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+    setLocationOpen(true);
+
+    let permission = null;
+    try {
+      if (navigator.permissions?.query) {
+        ({ state: permission } = await navigator.permissions.query({ name: "geolocation" }));
+      }
+    } catch {
+      permission = null;
+    }
+
+    const nextState = initialLocationState({
+      geolocationAvailable: Boolean(navigator.geolocation),
+      permission,
+    });
+    setLocationState(nextState);
+    if (nextState === "granted") handleUseCurrentLocation();
+  };
+  openLocationPickerRef.current = openLocationPicker;
+
+  const isFirstRun = !getStoredLocation();
+  const committedLocation = getStoredLocation();
+  const storedCommittedRadius = getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES;
+  const hasDraftChanges = hasLocationDraftChanged({
+    committed: { location: committedLocation, radiusMiles: storedCommittedRadius },
+    draft: { location: draftLocation, radiusMiles: searchRadius },
+  });
+
+  const applyDraft = () => {
+    if (!draftLocation) return;
+    storeLocationRadius(searchRadius);
+    commitLocationSelection({
+      latitude: draftLocation.latitude,
+      longitude: draftLocation.longitude,
+      label: draftLabel || "Selected location",
+      area: draftArea,
+    });
+  };
+
+  const resetDraft = () => {
+    setDraftLocation(committedLocation);
+    setDraftLabel(getStoredLocationLabel() || "");
+    setDraftArea(getStoredLocationArea());
+    setLocationSearchTerm("");
+    setSearchRadius(storedCommittedRadius);
+    setLocationError("");
+    setLocationState(committedLocation ? "granted" : "prompt");
   };
 
   const radiusProgress = ((searchRadius - 1) / 24) * 100;
@@ -360,14 +439,10 @@ const AppNav = ({
               type="button"
               className="app-nav__location"
               title={locationLabel}
-              onClick={() => {
-                setLocationSearchTerm("");
-                setLocationError("");
-                setLocationOpen(true);
-              }}
+              onClick={() => openLocationPickerRef.current?.()}
             >
               <MapPin size={14} />
-              <span>{locationArea || shortLocationLabel(locationLabel) || locationLabel}</span>
+              <span>{locationLabel === "Set location" ? locationLabel : `${locationArea || shortLocationLabel(locationLabel) || locationLabel} · ${committedRadius} mi`}</span>
               <ChevronDown size={14} />
             </button>
           </div>
@@ -521,7 +596,14 @@ const AppNav = ({
           <div className="app-nav__location-sheet" onClick={(event) => event.stopPropagation()}>
             <div className="app-nav__location-handle" />
             <div className="app-nav__location-header">
-              <h3 className="app-nav__location-title">Choose Location</h3>
+              <div>
+                <h3 className="app-nav__location-title">Choose Location</h3>
+                {isFirstRun ? (
+                  <p className="app-nav__location-explainer">
+                    Coaches, lessons, and matches are ranked by distance from here.
+                  </p>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className="app-nav__location-close"
@@ -532,28 +614,46 @@ const AppNav = ({
               </button>
             </div>
 
-            <p className="app-nav__location-section-title">Use Current Location</p>
             <button
               type="button"
-              className="app-nav__location-current"
+              className={`app-nav__location-current app-nav__location-current--${locationState}`}
               onClick={handleUseCurrentLocation}
+              disabled={locationState === "locating" || locationState === "denied" || locationState === "unavailable"}
             >
               <span className="app-nav__location-current-icon">
-                <MapPin size={16} />
+                {locationState === "locating" ? <LoaderCircle size={18} /> : null}
+                {locationState === "denied" || locationState === "unavailable" ? <MapPinOff size={17} /> : null}
+                {locationState === "granted" ? <MapPin size={17} /> : null}
+                {locationState === "prompt" ? <MapPin size={17} /> : null}
               </span>
               <span className="app-nav__location-current-copy">
-                <strong>{isDetectingLocation ? "Detecting location..." : "Use my current location"}</strong>
-                <small>
-                  {isDetectingLocation
-                    ? "Checking your device coordinates"
-                    : "Update results around your device"}
-                </small>
+                <strong>
+                  {locationState === "prompt" ? "Use my current location" : null}
+                  {locationState === "locating" ? "Getting your location…" : null}
+                  {locationState === "granted" ? draftLabel || "Current location" : null}
+                  {locationState === "denied" ? "Location is blocked" : null}
+                  {locationState === "unavailable" ? "Location is unavailable" : null}
+                </strong>
+                {locationState === "granted" ? <small>Using your current location</small> : null}
+                {locationState === "denied" ? <small>Enable it in your browser settings</small> : null}
+                {locationState === "unavailable" ? <small>Enter a location below instead</small> : null}
               </span>
-              <span className="app-nav__location-check">✓</span>
+              <span className="app-nav__location-trailing" aria-hidden="true">
+                {locationState === "prompt" ? <ChevronRight size={18} /> : null}
+                {locationState === "granted" ? <Check size={18} /> : null}
+                {locationState === "denied" || locationState === "unavailable" ? <ExternalLink size={16} /> : null}
+              </span>
             </button>
 
-            <p className="app-nav__location-section-title">Enter a Location</p>
-            <div className="app-nav__location-search">
+            <p className="app-nav__location-hint">
+              {locationState === "prompt" ? "Tap to continue — your browser will ask first." : null}
+              {locationState === "granted" ? "Tap to refresh" : null}
+              {locationState === "denied" ? "Enter a location below instead." : null}
+              {locationState === "unavailable" ? "Enter a location below instead." : null}
+            </p>
+
+            <p className="app-nav__location-field-label">Or enter a location</p>
+            <div className={`app-nav__location-search${locationState === "denied" || locationState === "unavailable" ? " app-nav__location-search--focused" : ""}`}>
               <Search size={16} />
               <Autocomplete
                 apiKey={import.meta.env.VITE_GOOGLE_API_KEY || undefined}
@@ -594,7 +694,6 @@ const AppNav = ({
                 onChange={(event) => {
                   const nextRadius = Number(event.target.value);
                   setSearchRadius(nextRadius);
-                  storeLocationRadius(nextRadius);
                 }}
                 className="app-nav__location-slider-input"
                 aria-label="Search Radius"
@@ -602,6 +701,22 @@ const AppNav = ({
                   background: `linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary) ${radiusProgress}%, #e2e8f0 ${radiusProgress}%, #e2e8f0 100%)`,
                 }}
               />
+            </div>
+
+            <div className={`app-nav__location-actions${isFirstRun ? " app-nav__location-actions--first-run" : ""}`}>
+              {!isFirstRun && hasDraftChanges ? (
+                <button type="button" className="app-nav__location-reset" onClick={resetDraft}>
+                  Reset
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={`app-nav__location-apply${isFirstRun ? " app-nav__location-apply--primary" : ""}`}
+                onClick={applyDraft}
+                disabled={isFirstRun ? !draftLocation : !hasDraftChanges}
+              >
+                {isFirstRun ? (draftLocation ? "Done" : "Choose a location") : "Apply"}
+              </button>
             </div>
           </div>
         </div>
