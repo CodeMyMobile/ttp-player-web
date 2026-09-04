@@ -1330,49 +1330,17 @@ const FindCoaches = () => {
                     : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
                   const reasons = coach.matchReasons.slice(0, 3);
                   const privateRate = formatMoney(coach.hourlyRateValue);
-                  // Omit the group line unless there's a real non-zero group rate (formatMoney(0) === "$0").
-                  const groupRate =
-                    coach.groupRateValue && coach.groupRateValue > 0 ? formatMoney(coach.groupRateValue) : null;
                   const certLabel = coach.certifications[0] ?? "";
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
-                  const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
                   // One clean, short venue name (drops street/city/"Tennis Court"). See utils/venueLabel.
                   const rawLocation = coach.courts?.[0] ?? coach.cityLabel ?? "";
                   const venueLabel = normalizeVenueLabel(rawLocation);
                   const locationLabel = isDisplayableLocation(venueLabel) ? venueLabel : "";
                   const tags = coach.specialties.slice(0, 3);
 
-                  return isMatched ? (
-                    <CoachCard
-                      variant="match"
-                      key={coach.id}
-                      name={coach.name}
-                      imageUrl={coach.imageUrl}
-                      initials={coach.initials}
-                      distanceLabel={formatDistance(coach.distanceMiles)}
-                      matchPercent={matchPercent}
-                      certLabel={certLabel || undefined}
-                      yearsExperience={coach.yearsExperience}
-                      studentCount={coach.studentCount}
-                      levels={coach.levels}
-                      reasons={reasons}
-                      privateRate={privateRate}
-                      groupRate={groupRate}
-                      privateFlag={privateFlag}
-                      groupFlag={groupFlag}
-                      bio={coach.bio || "Coach bio coming soon."}
-                      profileTo={`/coaches/${coach.id}`}
-                      profileState={{ findCoachesState: findCoachesStateSnapshot }}
-                      onBook={
-                        isSignedIn
-                          ? () =>
-                              navigate(`/coaches/${coach.id}/book`, {
-                                state: { findCoachesState: findCoachesStateSnapshot },
-                              })
-                          : promptSignUp
-                      }
-                    />
-                  ) : (
+                  // One card for both. A matched coach is this card plus a percentage,
+                  // its reasons and an over-budget qualifier — not a second layout.
+                  return (
                     <CoachCard
                       key={coach.id}
                       name={coach.name}
@@ -1383,13 +1351,16 @@ const FindCoaches = () => {
                       yearsExperience={coach.yearsExperience}
                       studentCount={coach.studentCount}
                       privateRate={privateRate}
-                      groupRate={groupRate}
                       bio={coach.bio || "Coach bio coming soon."}
                       tags={tags}
+                      levels={coach.levels}
                       availabilityPhrase={deriveAvailabilityPhrase(coach)}
                       locationLabel={locationLabel || undefined}
                       profileTo={`/coaches/${coach.id}`}
                       profileState={{ findCoachesState: findCoachesStateSnapshot }}
+                      matchPercent={isMatched ? matchPercent : null}
+                      reasons={isMatched ? reasons : undefined}
+                      privateFlag={privateFlag}
                       onBook={
                         isSignedIn
                           ? () =>

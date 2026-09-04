@@ -1,288 +1,17 @@
-/* Coach card — both variants.
+/* Coach card.
  *
- * Merged from CoachMatchCard.css (cmc-*) and CoachSearchCard.css (csc-*), which were two
- * namespaces for the same subject.
- *
- * The two variants are NOT yet one design, and this file does not pretend otherwise.
- * Of the 11 class names the old namespaces shared, only three had identical declarations
- * (head, head-mid, btn--primary). The other eight genuinely differed — 64px vs 60px
- * photos, 21px vs 19px names, a 3-line vs 2-line bio clamp, different action-row gaps.
- * Collapsing them by name would have been a visual change, which this commit is not.
- *
- * So the stems stay variant-scoped (cc-m-* / cc-s-*) under a shared .coach-card root.
- * What this buys is one component, one file and one prop interface; what it does not yet
- * buy is one set of rules. Reconciling them is a design decision, not a refactor.
+ * ONE layout for both shapes the page renders. The wizard's match result is this card
+ * plus a percentage pill, up to two reason rows, and an over-budget qualifier — not a
+ * second design. It used to be one: separate namespace, 64px photo against 60px, a
+ * 3-line bio clamp against 2, its own DOM order and its own rate block.
  */
-
-/* The two variant roots below carry their own declarations; there is deliberately no
-   shared base rule, so neither can silently inherit the other's spacing. */
-
-/* ─────────────── match variant (wizard results) ─────────────── */
-
-/* Shared "Your matches" coach card (Screen 1 of the find-coaches → book flow).
-   Ported from docs/find-coach-to-book-flow.html, using the app primary #8B5CF6
-   (not the prototype's #7C3AED, which is the gradient-dark partner). */
-
-.coach-card--match {
-  background: #fff;
-  border: 1px solid #e8e9ef;
-  border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.05);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-/* head */
-.cc-m-head {
-  display: flex;
-  gap: 13px;
-  align-items: flex-start;
-}
-.cc-m-photo {
-  width: 64px;
-  height: 64px;
-  border-radius: 14px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
-}
-.cc-m-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.cc-m-head-mid {
-  flex: 1;
-  min-width: 0;
-}
-.cc-m-name {
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #16161d;
-}
-.cc-m-dist {
-  margin-top: 3px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #5b5f6b;
-}
-.cc-m-match {
-  flex: 0 0 auto;
-  text-align: center;
-  background: #d1fae5;
-  border-radius: 14px;
-  padding: 8px 13px;
-}
-.cc-m-match-pct {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: #047857;
-}
-.cc-m-match-lbl {
-  margin-top: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #047857;
-}
-
-/* credibility band */
-.cc-m-cred {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 9px;
-  background: #f4f1fe;
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-.cc-m-cert-badge {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: #8b5cf6;
-  padding: 6px 11px;
-  border-radius: 8px;
-}
-.cc-m-cred-sep {
-  color: #c9bef0;
-}
-.cc-m-cred-item {
-  font-size: 14px;
-  font-weight: 700;
-  color: #6d28d9;
-}
-
-/* meta rows */
-.cc-m-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.cc-m-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14.5px;
-  font-weight: 500;
-  color: #5b5f6b;
-}
-.cc-m-meta-row svg {
-  flex: 0 0 auto;
-  color: #8b5cf6;
-}
-
-/* why-match */
-.cc-m-why {
-  background: #d1fae5;
-  border-radius: 13px;
-  padding: 14px 15px;
-}
-.cc-m-why-head {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #047857;
-  margin-bottom: 11px;
-}
-.cc-m-why-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14.5px;
-  font-weight: 500;
-  color: #047857;
-}
-.cc-m-why-row + .cc-m-why-row {
-  margin-top: 9px;
-}
-.cc-m-why-row svg {
-  flex: 0 0 auto;
-}
-
-/* budget block */
-.cc-m-budget {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.cc-m-budget-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
-}
-.cc-m-budget-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 4px 9px;
-  border-radius: 7px;
-}
-.cc-m-budget-tag--in {
-  color: #047857;
-  background: #d1fae5;
-}
-.cc-m-budget-tag--over {
-  color: #b45309;
-  background: #fef3c7;
-}
-.cc-m-fee-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #065f46;
-  background: #fff;
-  border: 1px solid #bbf7d0;
-  padding: 4px 9px;
-  border-radius: 7px;
-}
-.cc-m-budget-main {
-  font-size: 16px;
-  font-weight: 700;
-  color: #16161d;
-}
-.cc-m-budget-sub {
-  font-size: 13px;
-  color: #5b5f6b;
-}
-
-/* bio */
-.cc-m-bio {
-  font-size: 14.5px;
-  line-height: 1.55;
-  font-weight: 500;
-  color: #5b5f6b;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: break-word;
-}
-
-/* actions */
-.cc-m-actions {
-  display: flex;
-  gap: 11px;
-}
-.cc-m-btn {
-  flex: 1;
-  text-align: center;
-  padding: 14px;
-  border: 0;
-  border-radius: 14px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-}
-.cc-m-btn:active {
-  transform: scale(0.98);
-}
-.cc-m-btn--ghost {
-  background: #fff;
-  color: #16161d;
-  border: 1.5px solid #dcdee6;
-}
-.cc-m-btn--ghost:hover {
-  background: #f7f8fb;
-}
-.cc-m-btn--primary {
-  background: #8b5cf6;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
-}
-.cc-m-btn--primary:hover {
-  background: #7c3aed;
-}
 
 /* ─────────────── search variant (default listing) ─────────────── */
 
 /* Non-matched /find-coaches search card. Shares the visual language of CoachMatchCard (cmc-*),
    plus a trust mark, outlined specialty tags, and an availability strip. Primary = app #8B5CF6. */
 
-.coach-card--search {
+.coach-card {
   background: #fff;
   border: 1px solid #e8e9ef;
   border-radius: 16px;
@@ -294,12 +23,12 @@
 }
 
 /* head */
-.cc-s-head {
+.cc-head {
   display: flex;
   gap: 13px;
   align-items: flex-start;
 }
-.cc-s-photo {
+.cc-photo {
   width: 60px;
   height: 60px;
   border-radius: 14px;
@@ -312,28 +41,34 @@
   font-weight: 700;
   background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
 }
-.cc-s-photo img {
+.cc-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.cc-s-head-mid {
+.cc-head-mid {
   flex: 1;
   min-width: 0;
 }
-.cc-s-name-row {
+.cc-name-row {
   display: flex;
   align-items: center;
   gap: 7px;
+  /* Wraps so the match pill drops to its own line on a narrow card rather than
+     squeezing the name into two lines. The name is the thing that must stay legible. */
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
-.cc-s-name {
+.cc-name {
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #16161d;
   min-width: 0;
+  /* Keep a long name on one line; the row wraps around it instead. */
+  white-space: nowrap;
 }
-.cc-s-dist {
+.cc-dist {
   margin-top: 3px;
   display: inline-flex;
   align-items: center;
@@ -342,25 +77,25 @@
   font-weight: 500;
   color: #5b5f6b;
 }
-.cc-s-dist__pin {
+.cc-dist__pin {
   flex: 0 0 auto;
   color: var(--coach-meta-icon, #98a2b3);
 }
-.cc-s-rate {
+.cc-rate {
   flex: 0 0 auto;
   text-align: right;
 }
-.cc-s-rate-main {
+.cc-rate-main {
   font-size: 19px;
   font-weight: 800;
   color: #16161d;
 }
-.cc-s-rate-sm {
+.cc-rate-sm {
   font-size: 12px;
   font-weight: 700;
   color: #9ca0ac;
 }
-.cc-s-rate-group {
+.cc-rate-group {
   margin-top: 2px;
   font-size: 13px;
   font-weight: 600;
@@ -368,7 +103,7 @@
 }
 
 /* bio */
-.cc-s-bio {
+.cc-bio {
   margin: 0;
   font-size: 14px;
   font-weight: 500;
@@ -382,12 +117,12 @@
 }
 
 /* outlined specialty tags (not the old filled style) */
-.cc-s-tags {
+.cc-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
 }
-.cc-s-tag {
+.cc-tag {
   font-size: 12.5px;
   font-weight: 600;
   color: #5b5f6b;
@@ -398,7 +133,7 @@
 }
 
 /* availability strip with a pulsing dot */
-.cc-s-avail {
+.cc-avail {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -410,7 +145,7 @@
   border-radius: 12px;
   padding: 9px 12px;
 }
-.cc-s-avail-dot {
+.cc-avail-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -429,15 +164,21 @@
 }
 
 /* actions */
-.cc-s-actions {
+.cc-actions {
   display: flex;
   align-items: stretch;
   gap: 10px;
+  /* Pins the row to the bottom of a stretched card so buttons line up across a grid row.
+     The grid already stretches cards; without this the row lands wherever the content
+     above it happens to end, and cards with no tags or no credibility line sat high.
+     Deliberately no min-height on the pill row — pinning here means a card with no
+     specialties can collapse that row and still align. */
+  margin-top: auto;
 }
 /* inline-flex centers both axes for <button> and <a> alike — text-align alone
    left the <a> ("View profile") label pinned to the top of the stretched box,
    and let the block-level lucide <svg> break onto its own line. */
-.cc-s-btn {
+.cc-btn {
   flex: 1 1 0;
   min-width: 0;
   display: inline-flex;
@@ -457,26 +198,80 @@
 }
 /* Share is a short icon+word: size it to content so the longer labels keep the
    room they need. Without this, equal thirds starve "Book a lesson" into a wrap. */
-.cc-s-btn--share {
+.cc-btn--share {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.cc-s-btn:active {
+.cc-btn:active {
   transform: scale(0.98);
 }
-.cc-s-btn--ghost {
+.cc-btn--ghost {
   background: #fff;
   color: #16161d;
   border-color: #dcdee6;
 }
-.cc-s-btn--ghost:hover {
+.cc-btn--ghost:hover {
   background: #f7f8fb;
 }
-.cc-s-btn--primary {
+.cc-btn--primary {
   background: #8b5cf6;
   color: #fff;
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
 }
-.cc-s-btn--primary:hover {
+.cc-btn--primary:hover {
   background: #7c3aed;
+}
+
+/* ── match result additions ──
+   Present only when the coach-match wizard produced a score. The card is otherwise
+   identical to an unmatched one, which is the point. */
+
+/* Inline in the name row, after the trust shield. Deliberately not top-right: that is
+   the price, and the price must sit in the same place on every card. */
+.cc-match-pill {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f4f0fe;
+  color: #7c3aed;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The informative half of the old budget block. Sits under the price it qualifies. */
+.cc-rate-note {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b42318;
+}
+
+/* Reason rows share the pill row but are sentences, not tags, so they take the full
+   width and clamp. Two of them interpolate a server-side joined list with no upper
+   bound ("Supports your goals: a, b, c…"), so without the clamp a single reason can
+   run several lines and unbalance the grid. */
+.cc-reason {
+  flex: 1 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #5b5f6b;
+}
+
+.cc-reason::before {
+  content: "✓";
+  margin-right: 6px;
+  color: #15803d;
+  font-weight: 700;
+}
+
+/* Levels read as a fact about the coach rather than a keyword, so they are tinted apart
+   from the specialty tags they sit beside. */
+.cc-tag--levels {
+  border-color: #dcdafc;
+  color: #5b21b6;
 }
