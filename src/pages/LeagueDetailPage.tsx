@@ -40,6 +40,12 @@ import {
   previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
+import { cancelHostedMatch, leaveMatch, listMatches } from "../api/matches";
+import { buildGoogleCalendarUrl } from "../utils/googleCalendarLink";
+import {
+  buildScheduledLeagueMatches,
+  type ScheduledLeagueMatch,
+} from "../utils/scheduledLeagueMatches";
 import { evaluateLeagueEligibility } from "../features/leagueJoin/eligibility";
 import { getLeagueCapacity } from "./leagueBrowse";
 import { leaguePhoto } from "../utils/leaguePhoto";
@@ -69,15 +75,17 @@ import { orientScore } from "./leagueScore";
 
 import "./LeaguesPage.css";
 
-type TabKey = "standings" | "players" | "results" | "pending";
+type TabKey = "standings" | "players" | "results" | "pending" | "scheduled";
 type NeedFlowStep = "idle" | "precheck" | "accept" | "invite";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
   { key: "players", label: "Ladder" },
   { key: "results", label: "Results" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "pending", label: "Pending" },
 ];
+
 
 const displayValue = (value: unknown) => {
   if (value === null || value === undefined || value === "") return "-";
@@ -104,6 +112,14 @@ const describeJoinError = (err: unknown) => {
   if (code === "cannot_accept_own_match_need") return "You can't join your own match need.";
   return err instanceof Error ? err.message : "Failed to join match.";
 };
+
+// Suggestion and need records are indexed as `[key: string]: unknown`, so a timestamp
+// read off them arrives untyped. Narrow to the first usable string.
+const pickFirstString = (...values: unknown[]): string =>
+  values.find((value): value is string => typeof value === "string" && value.trim() !== "") ?? "";
+
+// Addressing someone by first name reads as a message from a person, not a receipt.
+const firstNameOf = (fullName: string) => fullName.trim().split(/\s+/)[0] || fullName;
 
 const formatNeedSummary = (need?: LeagueMatchNeed | null) => {
   if (!need) return "Match need";
@@ -455,7 +471,22 @@ const LeagueDetailPage = () => {
     name: string;
     when?: string;
     location?: string | null;
+    /** Raw ISO start, kept alongside the formatted `when` for the calendar link. */
+    startDateTime?: string | null;
   } | null>(null);
+  // Shown after a successful accept: what was agreed, and the two things that actually
+  // get the match played — message your opponent, and put it in your calendar.
+  const [acceptedMatch, setAcceptedMatch] = useState<{
+    name: string;
+    when?: string;
+    location: string | null;
+    startDateTime: string | null;
+  } | null>(null);
+  // Cancelling notifies the other player, so it gets a confirm step rather than firing
+  // straight off a row button.
+  const [confirmCancel, setConfirmCancel] = useState<ScheduledLeagueMatch | null>(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<LeagueStanding[]>([]);
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
@@ -465,6 +496,7 @@ const LeagueDetailPage = () => {
   const [pending, setPending] = useState<LeagueFixture[]>([]);
   const [matchNeeds, setMatchNeeds] = useState<LeagueMatchNeed[]>([]);
   const [allNeeds, setAllNeeds] = useState<LeagueMatchNeed[]>([]);
+  const [scheduled, setScheduled] = useState<ScheduledLeagueMatch[]>([]);
   const [suggestions, setSuggestions] = useState<LeagueMatchSuggestion[]>([]);
   const [needFlowStep, setNeedFlowStep] = useState<NeedFlowStep>("idle");
   const [postedNeed, setPostedNeed] = useState<LeagueMatchNeed | null>(null);
@@ -637,6 +669,40 @@ const LeagueDetailPage = () => {
 
     return () => controller.abort();
   }, [id, token, isAuthenticated, isMember, detail?.league?.venue_latitude, detail?.league?.venue_longitude]);
+
+  // Scheduled matches come from the general matches list rather than any league
+  // endpoint — see utils/scheduledLeagueMatches for why. Kept out of the main
+  // Promise.all so accepting a need can refresh just this list without refetching
+  // standings, players, results and fixtures alongside it.
+  const loadScheduled = useMemo(
+    () => async (signal?: AbortSignal) => {
+      if (!token || !id) {
+        setScheduled([]);
+        return;
+      }
+      try {
+        const { matches } = await listMatches({
+          token,
+          filter: "my",
+          status: "confirmed",
+          signal,
+        });
+        if (signal?.aborted) return;
+        setScheduled(buildScheduledLeagueMatches({ matches, leagueId: id, viewerId: userId }));
+      } catch {
+        // A scheduling list that fails to load must not take the league page with it —
+        // the tab renders its own empty state.
+        if (!signal?.aborted) setScheduled([]);
+      }
+    },
+    [token, id, userId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadScheduled(controller.signal);
+    return () => controller.abort();
+  }, [loadScheduled]);
 
   const pendingCount = pending.length;
   const filteredResults = useMemo(() => {
@@ -835,7 +901,11 @@ const LeagueDetailPage = () => {
       }
       setPostedNeed(null);
       setNeedFlowStep("idle");
-      setActiveTab("pending");
+      // Scheduled, not Pending. Pending reads league fixtures, which are admin-generated
+      // and never contain a scheduling match — sending the player there after accepting
+      // showed them an unrelated list and made the accept look like it had failed.
+      setActiveTab("scheduled");
+      void loadScheduled();
       return true;
     } catch (err) {
       setNeedError(describeJoinError(err));
@@ -863,7 +933,9 @@ const LeagueDetailPage = () => {
       setAllNeeds((current) => current.filter((need) => String(need.id) !== String(needId)));
       setSuggestions((current) => current.filter((item) => String(item.suggested_match_id) !== String(needId)));
       setNeedFlowStep("idle");
-      setActiveTab("pending");
+      // See the note in handleAcceptSuggestion — Pending cannot show a scheduling match.
+      setActiveTab("scheduled");
+      void loadScheduled();
       return true;
     } catch (err) {
       setNeedError(describeJoinError(err));
@@ -888,6 +960,7 @@ const LeagueDetailPage = () => {
           name: s?.player_name || "League player",
           when: s ? `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}` : undefined,
           location: s?.match_location ?? null,
+          startDateTime: pickFirstString(s?.match_start_date_time, s?.start_date_time) || null,
         });
       } else {
         const n = allNeeds.find((x) => String(x.id) === String(itemId));
@@ -897,19 +970,62 @@ const LeagueDetailPage = () => {
           name: n?.player_name || "League player",
           when: n ? `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}` : undefined,
           location: n?.match_location ?? n?.location ?? n?.location_text ?? null,
+          startDateTime: pickFirstString(n?.start_date_time) || null,
         });
       }
     });
   };
 
   // Explicit join — only fires from the confirm dialog's "Request match" button.
+  const acceptedCalendarUrl = acceptedMatch
+    ? buildGoogleCalendarUrl({
+        title: `Tennis match vs ${acceptedMatch.name}`,
+        startDateTime: acceptedMatch.startDateTime,
+        location: acceptedMatch.location,
+        details: league?.name ? `${league.name} — league match` : "League match",
+      })
+    : null;
+
+  // The host cancels the match outright; a player who accepted withdraws from it.
+  // Both notify the other side — see the wrappers in api/matches.
+  const cancelScheduled = async () => {
+    if (!confirmCancel) return;
+    setCancelSubmitting(true);
+    setCancelError(null);
+    try {
+      if (confirmCancel.viewerIsHost) {
+        await cancelHostedMatch({ matchId: confirmCancel.id, token });
+      } else {
+        await leaveMatch({ matchId: confirmCancel.id, token });
+      }
+      setScheduled((current) => current.filter((item) => String(item.id) !== String(confirmCancel.id)));
+      setConfirmCancel(null);
+      void loadScheduled();
+    } catch (err) {
+      // Keep the dialog open so the message is attached to the thing that failed.
+      setCancelError(err instanceof Error ? err.message : "Couldn't cancel this match.");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
   const requestMatch = async () => {
     if (!confirmAccept) return;
     const { type, id: acceptId } = confirmAccept;
+    // Captured before the accept clears it — the success dialog needs the same details.
+    const accepted = confirmAccept;
     const ok = type === "suggestion"
       ? await handleAcceptSuggestion(acceptId)
       : await handleAcceptOpenNeed(acceptId);
-    if (ok) setConfirmAccept(null); // on failure keep the dialog open so the error shows
+    if (ok) {
+      setConfirmAccept(null); // on failure keep the dialog open so the error shows
+      setAcceptedMatch({
+        name: accepted.name,
+        when: accepted.when,
+        location: accepted.location ?? null,
+        startDateTime: accepted.startDateTime ?? null,
+      });
+    }
   };
 
   // MatchBrowserPage hands off posting/connecting via router state. Posting opens the
@@ -1567,6 +1683,52 @@ const LeagueDetailPage = () => {
           </>
         ) : null}
 
+        {!showNeedFlow && !loading && !error && activeTab === "scheduled" ? (
+          <div className="league-list">
+            {scheduled.length === 0 ? (
+              <div className="leagues-page__state">
+                No scheduled matches yet. Post a time you can play, or accept one another
+                player has offered — agreed matches appear here.
+              </div>
+            ) : (
+              scheduled.map((match) => {
+                const timezone = match.timezone || DEFAULT_LEAGUE_TIMEZONE;
+                return (
+                  <article className="league-list__item league-list__item--pending" key={match.id}>
+                    <CalendarDays size={16} />
+                    <div className="league-list__item-body">
+                      <div>
+                        <h2>vs {match.opponentName}</h2>
+                        <p>
+                          {match.startDateTime ? formatDate(match.startDateTime, timezone) : "Date TBD"}
+                          {" · "}
+                          {match.startDateTime ? formatTime(match.startDateTime, timezone) : "Time TBD"}
+                          {" · "}
+                          {match.location || "Location TBD"}
+                        </p>
+                        {/* Who arranged it, so the pair know who to chase about a change. */}
+                        <p className="league-list__item-meta">
+                          {match.viewerIsHost ? "You posted this match" : "You accepted this match"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-cancel-scheduled"
+                        onClick={() => {
+                          setCancelError(null);
+                          setConfirmCancel(match);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        ) : null}
+
         {!showNeedFlow && !loading && !error && activeTab === "pending" ? (
           <div className="league-list">
             {suggestions.map((suggestion) => (
@@ -1691,13 +1853,94 @@ const LeagueDetailPage = () => {
                 </p>
               ) : null}
               <p className="league-confirm__note">
-                You'll be matched with {confirmAccept.name} and it moves to your pending matches to play.
+                You'll be matched with {confirmAccept.name} and it moves to your scheduled matches.
               </p>
               {needError ? <p className="league-need-error">{needError}</p> : null}
               <div className="league-confirm__actions">
                 <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
                 <button type="button" disabled={needSubmitting} onClick={() => requireLeagueAuth(() => void requestMatch())}>
                   {needSubmitting ? "Joining..." : "Join match"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {confirmCancel ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Cancel this match">
+            <div className="league-confirm__backdrop" onClick={() => setConfirmCancel(null)} />
+            <div className="league-confirm__panel">
+              <h2>Cancel this match?</h2>
+              <p className="league-confirm__player">{confirmCancel.opponentName}</p>
+              {confirmCancel.startDateTime || confirmCancel.location ? (
+                <p className="league-confirm__meta">
+                  {[
+                    confirmCancel.startDateTime
+                      ? `${formatDate(confirmCancel.startDateTime, confirmCancel.timezone || DEFAULT_LEAGUE_TIMEZONE)} · ${formatTime(confirmCancel.startDateTime, confirmCancel.timezone || DEFAULT_LEAGUE_TIMEZONE)}`
+                      : null,
+                    confirmCancel.location,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+              <p className="league-confirm__note">
+                {firstNameOf(confirmCancel.opponentName)} will be told. If the match is soon,
+                message them as well so they have a chance to find another.
+              </p>
+              {cancelError ? <p className="league-need-error">{cancelError}</p> : null}
+              <div className="league-confirm__actions">
+                <button type="button" onClick={() => setConfirmCancel(null)}>
+                  Keep match
+                </button>
+                <button
+                  type="button"
+                  className="league-confirm__destructive"
+                  disabled={cancelSubmitting}
+                  onClick={() => void cancelScheduled()}
+                >
+                  {cancelSubmitting ? "Cancelling..." : "Cancel match"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {acceptedMatch ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Match confirmed">
+            <div className="league-confirm__backdrop" onClick={() => setAcceptedMatch(null)} />
+            <div className="league-confirm__panel">
+              <h2>Match confirmed</h2>
+              <p className="league-confirm__player">{acceptedMatch.name}</p>
+              {acceptedMatch.when || acceptedMatch.location ? (
+                <p className="league-confirm__meta">
+                  {[acceptedMatch.when, acceptedMatch.location].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+              <p className="league-confirm__note">
+                We've let {firstNameOf(acceptedMatch.name)} know. It's still worth messaging
+                them to confirm the time and court — matches that get a quick hello beforehand
+                are the ones that actually get played.
+              </p>
+              {/* Hidden rather than disabled when there is no usable start: an "add to
+                  calendar" button that cannot add anything is worse than no button. */}
+              {acceptedCalendarUrl ? (
+                <a
+                  className="league-confirm__calendar"
+                  href={acceptedCalendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <CalendarDays size={15} aria-hidden /> Add to Google Calendar
+                </a>
+              ) : null}
+              <p className="league-confirm__cancel-note">
+                Plans change — but if you need to cancel, tell {firstNameOf(acceptedMatch.name)}{" "}
+                in plenty of time so they can find another match.
+              </p>
+              <div className="league-confirm__actions league-confirm__actions--single">
+                <button type="button" onClick={() => setAcceptedMatch(null)}>
+                  Done
                 </button>
               </div>
             </div>

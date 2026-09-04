@@ -40,10 +40,26 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "standings", label: "Standings" },
   { key: "players", label: "Players" },
   { key: "results", label: "Results" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "pending", label: "Pending" },
 ];
 
 // W–L colour rule — GREEN when wins>losses, RED when losses>wins, else neutral.
+// Scheduled matches carry a real timestamp, unlike fixtures. Short and locale-aware so
+// the row stays on one line next to the opponent and venue.
+const formatScheduledWhen = (iso: string | null) => {
+  if (!iso) return "Date TBD";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Date TBD";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
 // Exported so the mobile StandingsPreview reuses the exact same correctness rule.
 export const recordClass = (wins: number, losses: number): string =>
   wins > losses ? "rec-w" : losses > wins ? "rec-l" : "rec-0";
@@ -79,6 +95,8 @@ interface LeagueTabsProps {
   // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
   // render only the active panel (avoids showing two tab strips).
   hideTabBar?: boolean;
+  /** Cancel or withdraw from a scheduled match. Omitted where the list is read-only. */
+  onCancelScheduled?: (matchId: string | number, viewerIsHost: boolean) => void;
   /** Opens the match-create flow with this roster player pre-selected. */
   onProposeMatch?: (playerId: string) => void;
   /** Players tab toolbar action. No log-a-score counterpart: a roster screen
@@ -125,6 +143,7 @@ const LeagueTabs = ({
   onSchedule,
   onChallenge,
   hideTabBar,
+  onCancelScheduled,
   onProposeMatch,
   onNeedMatch,
   viewerName,
@@ -477,6 +496,44 @@ const LeagueTabs = ({
           ))
         ) : (
           <div className="list-empty">No results posted yet.</div>
+        )}
+      </section>
+    ) : null}
+
+    {activeTab === "scheduled" ? (
+      <section className="panel">
+        {/* Accepted match needs — agreed times, not league fixtures. An accepted need
+            never becomes a league_matches row, so these cannot come from the fixtures
+            endpoint; Pending below is the admin-generated round robin, a different
+            thing. Same list-row language as Results and Pending so the tabs read as
+            one set. */}
+        {data.scheduled.length ? (
+          data.scheduled.map((match) => (
+            <div className="list-row" key={match.id}>
+              <Icon name="calendar" style={{ color: "var(--ink-3)", fontSize: 17 }} />
+              <span className="who">{match.opponentName}</span>
+              <span className="meta">{formatScheduledWhen(match.startDateTime)}</span>
+              <span className="meta">{match.location || "Location TBD"}</span>
+              <span className="spacer meta">
+                {match.viewerIsHost ? "You posted" : "You accepted"}
+              </span>
+              {onCancelScheduled ? (
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ fontSize: 12.5, padding: "7px 12px" }}
+                  onClick={() => onCancelScheduled(match.id, match.viewerIsHost)}
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          ))
+        ) : (
+          <div className="list-empty">
+            No scheduled matches yet. Post a time you can play, or accept one another
+            player has offered.
+          </div>
         )}
       </section>
     ) : null}

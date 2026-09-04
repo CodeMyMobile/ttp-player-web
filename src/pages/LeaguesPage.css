@@ -1006,6 +1006,79 @@
   cursor: not-allowed;
 }
 
+/* Post-accept dialog. The actions grid is a 1fr 1fr pair for the confirm dialog's
+   Cancel/Join; this one has a single Done, which would otherwise sit half width. */
+.league-confirm__actions--single {
+  grid-template-columns: 1fr;
+}
+
+/* Secondary action: real, but not competing with Done. Sized to the 44px touch target
+   the dialog's buttons already use. */
+.league-confirm__calendar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 14px;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.league-confirm__calendar:hover {
+  background: #f8fafc;
+}
+
+/* Set apart from the encouraging copy above it — this one is an obligation, and it is
+   the difference between an opponent who can rebook and one who is stood up. */
+/* Destructive confirm. The dialog's last-child button is the violet primary; cancelling
+   a match is not a primary action, so it reads as a warning instead. */
+.league-confirm__actions button.league-confirm__destructive {
+  background: #b42318;
+  color: #fff;
+}
+
+.league-confirm__actions button.league-confirm__destructive:hover:not(:disabled) {
+  background: #912018;
+}
+
+/* Row action. Quiet by default — the row is information, not a prompt to cancel. */
+.btn-cancel-scheduled {
+  align-self: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-cancel-scheduled:hover {
+  border-color: #fda29b;
+  color: #b42318;
+  background: #fef3f2;
+}
+
+.league-confirm__cancel-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f7;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
 /* Players tab: left-align + tight (TPR now formatted to 3 decimals) */
 .league-table--players th,
 .league-table--players td {

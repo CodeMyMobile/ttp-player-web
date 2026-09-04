@@ -1,3 +1,5 @@
+import type { ScheduledLeagueMatch } from "../../utils/scheduledLeagueMatches";
+
 // Domain types for the League Dashboard.
 //
 // These describe the SHAPE the dashboard components consume. Fixtures back them
@@ -27,7 +29,7 @@ export type {
  *  gray   = inactive / archived / no action needed */
 export type StatusTone = "amber" | "green" | "violet" | "gray";
 
-export type TabKey = "ladder" | "standings" | "players" | "results" | "pending";
+export type TabKey = "ladder" | "standings" | "players" | "results" | "scheduled" | "pending";
 
 export interface LeagueStatus {
   label: string;
@@ -184,6 +186,8 @@ export interface LeagueData {
   roster: RosterPlayer[];
   results: ResultRow[];
   pending: PendingRow[];
+  /** Accepted match needs — agreed times, not league fixtures. See utils/scheduledLeagueMatches. */
+  scheduled: ScheduledLeagueMatch[];
   looking: LookingPlayer[];
   ticker: TickerItem[];
   week: WeekStats;
