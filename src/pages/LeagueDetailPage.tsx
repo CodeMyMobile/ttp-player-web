@@ -41,6 +41,7 @@ import {
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
 import { listMatches } from "../api/matches";
+import { buildGoogleCalendarUrl } from "../utils/googleCalendarLink";
 import {
   buildScheduledLeagueMatches,
   type ScheduledLeagueMatch,
@@ -111,6 +112,14 @@ const describeJoinError = (err: unknown) => {
   if (code === "cannot_accept_own_match_need") return "You can't join your own match need.";
   return err instanceof Error ? err.message : "Failed to join match.";
 };
+
+// Suggestion and need records are indexed as `[key: string]: unknown`, so a timestamp
+// read off them arrives untyped. Narrow to the first usable string.
+const pickFirstString = (...values: unknown[]): string =>
+  values.find((value): value is string => typeof value === "string" && value.trim() !== "") ?? "";
+
+// Addressing someone by first name reads as a message from a person, not a receipt.
+const firstNameOf = (fullName: string) => fullName.trim().split(/\s+/)[0] || fullName;
 
 const formatNeedSummary = (need?: LeagueMatchNeed | null) => {
   if (!need) return "Match need";
@@ -462,6 +471,16 @@ const LeagueDetailPage = () => {
     name: string;
     when?: string;
     location?: string | null;
+    /** Raw ISO start, kept alongside the formatted `when` for the calendar link. */
+    startDateTime?: string | null;
+  } | null>(null);
+  // Shown after a successful accept: what was agreed, and the two things that actually
+  // get the match played — message your opponent, and put it in your calendar.
+  const [acceptedMatch, setAcceptedMatch] = useState<{
+    name: string;
+    when?: string;
+    location: string | null;
+    startDateTime: string | null;
   } | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<LeagueStanding[]>([]);
@@ -936,6 +955,7 @@ const LeagueDetailPage = () => {
           name: s?.player_name || "League player",
           when: s ? `${formatDate(s.match_date, s.timezone)} · ${formatTime(s.match_time, s.timezone)}` : undefined,
           location: s?.match_location ?? null,
+          startDateTime: pickFirstString(s?.match_start_date_time, s?.start_date_time) || null,
         });
       } else {
         const n = allNeeds.find((x) => String(x.id) === String(itemId));
@@ -945,19 +965,39 @@ const LeagueDetailPage = () => {
           name: n?.player_name || "League player",
           when: n ? `${formatDate(n.start_date_time, n.timezone)} · ${formatTime(n.start_date_time, n.timezone)}` : undefined,
           location: n?.match_location ?? n?.location ?? n?.location_text ?? null,
+          startDateTime: pickFirstString(n?.start_date_time) || null,
         });
       }
     });
   };
 
   // Explicit join — only fires from the confirm dialog's "Request match" button.
+  const acceptedCalendarUrl = acceptedMatch
+    ? buildGoogleCalendarUrl({
+        title: `Tennis match vs ${acceptedMatch.name}`,
+        startDateTime: acceptedMatch.startDateTime,
+        location: acceptedMatch.location,
+        details: league?.name ? `${league.name} — league match` : "League match",
+      })
+    : null;
+
   const requestMatch = async () => {
     if (!confirmAccept) return;
     const { type, id: acceptId } = confirmAccept;
+    // Captured before the accept clears it — the success dialog needs the same details.
+    const accepted = confirmAccept;
     const ok = type === "suggestion"
       ? await handleAcceptSuggestion(acceptId)
       : await handleAcceptOpenNeed(acceptId);
-    if (ok) setConfirmAccept(null); // on failure keep the dialog open so the error shows
+    if (ok) {
+      setConfirmAccept(null); // on failure keep the dialog open so the error shows
+      setAcceptedMatch({
+        name: accepted.name,
+        when: accepted.when,
+        location: accepted.location ?? null,
+        startDateTime: accepted.startDateTime ?? null,
+      });
+    }
   };
 
   // MatchBrowserPage hands off posting/connecting via router state. Posting opens the
@@ -1775,13 +1815,54 @@ const LeagueDetailPage = () => {
                 </p>
               ) : null}
               <p className="league-confirm__note">
-                You'll be matched with {confirmAccept.name} and it moves to your pending matches to play.
+                You'll be matched with {confirmAccept.name} and it moves to your scheduled matches.
               </p>
               {needError ? <p className="league-need-error">{needError}</p> : null}
               <div className="league-confirm__actions">
                 <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
                 <button type="button" disabled={needSubmitting} onClick={() => requireLeagueAuth(() => void requestMatch())}>
                   {needSubmitting ? "Joining..." : "Join match"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {acceptedMatch ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Match confirmed">
+            <div className="league-confirm__backdrop" onClick={() => setAcceptedMatch(null)} />
+            <div className="league-confirm__panel">
+              <h2>Match confirmed</h2>
+              <p className="league-confirm__player">{acceptedMatch.name}</p>
+              {acceptedMatch.when || acceptedMatch.location ? (
+                <p className="league-confirm__meta">
+                  {[acceptedMatch.when, acceptedMatch.location].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+              <p className="league-confirm__note">
+                We've let {firstNameOf(acceptedMatch.name)} know. It's still worth messaging
+                them to confirm the time and court — matches that get a quick hello beforehand
+                are the ones that actually get played.
+              </p>
+              {/* Hidden rather than disabled when there is no usable start: an "add to
+                  calendar" button that cannot add anything is worse than no button. */}
+              {acceptedCalendarUrl ? (
+                <a
+                  className="league-confirm__calendar"
+                  href={acceptedCalendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <CalendarDays size={15} aria-hidden /> Add to Google Calendar
+                </a>
+              ) : null}
+              <p className="league-confirm__cancel-note">
+                Plans change — but if you need to cancel, tell {firstNameOf(acceptedMatch.name)}{" "}
+                in plenty of time so they can find another match.
+              </p>
+              <div className="league-confirm__actions league-confirm__actions--single">
+                <button type="button" onClick={() => setAcceptedMatch(null)}>
+                  Done
                 </button>
               </div>
             </div>
