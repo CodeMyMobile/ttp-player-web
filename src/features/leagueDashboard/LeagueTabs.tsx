@@ -45,6 +45,21 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 ];
 
 // W–L colour rule — GREEN when wins>losses, RED when losses>wins, else neutral.
+// Scheduled matches carry a real timestamp, unlike fixtures. Short and locale-aware so
+// the row stays on one line next to the opponent and venue.
+const formatScheduledWhen = (iso: string | null) => {
+  if (!iso) return "Date TBD";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Date TBD";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
 // Exported so the mobile StandingsPreview reuses the exact same correctness rule.
 export const recordClass = (wins: number, losses: number): string =>
   wins > losses ? "rec-w" : losses > wins ? "rec-l" : "rec-0";
@@ -483,47 +498,29 @@ const LeagueTabs = ({
     ) : null}
 
     {activeTab === "scheduled" ? (
-      <section className="panel card">
-        <div className="ladder-head">
-          <div>
-            <div className="eyebrow">Agreed times</div>
-            <h2>Scheduled matches</h2>
-          </div>
-          <span>{(data.scheduled ?? []).length}</span>
-        </div>
-        {/* Accepted match needs, not league fixtures — an accepted need never becomes a
-            league_matches row, so these cannot come from the fixtures endpoint. Pending
-            (below) is the admin-generated round robin and is a different thing. */}
-        {(data.scheduled ?? []).length === 0 ? (
-          <p className="empty">
-            No scheduled matches yet. Post a time you can play, or accept one another player
-            has offered — agreed matches appear here.
-          </p>
+      <section className="panel">
+        {/* Accepted match needs — agreed times, not league fixtures. An accepted need
+            never becomes a league_matches row, so these cannot come from the fixtures
+            endpoint; Pending below is the admin-generated round robin, a different
+            thing. Same list-row language as Results and Pending so the tabs read as
+            one set. */}
+        {data.scheduled.length ? (
+          data.scheduled.map((match) => (
+            <div className="list-row" key={match.id}>
+              <Icon name="calendar" style={{ color: "var(--ink-3)", fontSize: 17 }} />
+              <span className="who">{match.opponentName}</span>
+              <span className="meta">{formatScheduledWhen(match.startDateTime)}</span>
+              <span className="meta">{match.location || "Location TBD"}</span>
+              <span className="spacer meta">
+                {match.viewerIsHost ? "You posted" : "You accepted"}
+              </span>
+            </div>
+          ))
         ) : (
-          <ul className="pending-list">
-            {(data.scheduled ?? []).map((match) => (
-              <li key={match.id} className="pending-row">
-                <div className="pl">
-                  <span className="sp-nm">vs {match.opponentName}</span>
-                </div>
-                <div className="pending-meta">
-                  <span>
-                    {match.startDateTime
-                      ? new Date(match.startDateTime).toLocaleString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })
-                      : "Date TBD"}
-                  </span>
-                  <span>{match.location || "Location TBD"}</span>
-                  <span>{match.viewerIsHost ? "You posted this" : "You accepted this"}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="list-empty">
+            No scheduled matches yet. Post a time you can play, or accept one another
+            player has offered.
+          </div>
         )}
       </section>
     ) : null}
