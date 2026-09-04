@@ -287,3 +287,17 @@
 .cc-avail--none .cc-avail-dot {
   background: #c3c8d2;
 }
+
+/* Cross-link to group sessions. Deliberately understated — a different product on a
+   different page, offered rather than promoted. */
+.cc-xref {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.cc-xref a {
+  color: #5b21b6;
+  font-weight: 600;
+  text-underline-offset: 2px;
+}

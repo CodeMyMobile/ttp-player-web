@@ -64,6 +64,10 @@ export interface CoachCardProps {
   onBook?: () => void;
   /** Invoked when "Share" is pressed; the button is omitted without it. */
   onShare?: () => void;
+  /** Upcoming group sessions this coach runs; the link is omitted when 0 or absent. */
+  groupSessionCount?: number;
+  /** Where the group-sessions link points. Omitted with the count. */
+  groupSessionsTo?: { pathname: string; state?: unknown };
 
   /* ---- match variant ---- */
   /** Whole-number match percentage; the pill is hidden when null or <= 0. */
@@ -141,6 +145,8 @@ const CoachCard = ({
   profileState,
   onBook,
   onShare,
+  groupSessionCount = 0,
+  groupSessionsTo,
   matchPercent = null,
   reasons,
   privateFlag = null,
@@ -213,6 +219,17 @@ const CoachCard = ({
             </span>
           ))}
         </div>
+      ) : null}
+
+      {groupSessionCount > 0 && groupSessionsTo ? (
+        // Quiet by design: group sessions are a different product on a different page,
+        // and this card is about private lessons.
+        <p className="cc-xref">
+          Also runs{" "}
+          <Link to={groupSessionsTo.pathname} state={groupSessionsTo.state}>
+            {groupSessionCount} weekly group session{groupSessionCount === 1 ? "" : "s"}
+          </Link>
+        </p>
       ) : null}
 
       <div className={`cc-avail${hasAvailability ? "" : " cc-avail--none"}`}>

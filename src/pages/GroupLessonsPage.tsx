@@ -230,7 +230,7 @@ type GroupLessonsStateSnapshot = {
 };
 
 type GroupLessonsRouteState = {
-  groupLessonsState?: GroupLessonsStateSnapshot;
+  groupLessonsState?: Partial<GroupLessonsStateSnapshot>;
 };
 
 const GroupLessonsPage = () => {
@@ -573,16 +573,24 @@ const GroupLessonsPage = () => {
       return;
     }
 
-    setCoachFilter(restoredState.coachFilter);
-    setLevelFilter(restoredState.levelFilter);
-    setSearchTerm(restoredState.searchTerm);
-    setDateFilter(restoredState.dateFilter);
-    setRangeStartValue(restoredState.rangeStartValue);
-    setRangeEndValue(restoredState.rangeEndValue);
-    setUseLocationFilter(restoredState.useLocationFilter);
-    setSortBy(restoredState.sortBy);
-    setLocationSearchTerm(restoredState.locationSearchTerm);
-    applyLocationFilter(restoredState.locationFilter);
+    // Each field is applied only when present. This used to assign all ten
+    // unconditionally, which was fine for the back-navigation snapshot that always
+    // carries every one — but a deep link that sets only coachFilter (the coach card's
+    // "also runs N weekly group sessions") would have blanked the other nine, replacing
+    // real defaults with undefined.
+    const apply = <T,>(value: T | undefined, set: (next: T) => void) => {
+      if (value !== undefined) set(value);
+    };
+    apply(restoredState.coachFilter, setCoachFilter);
+    apply(restoredState.levelFilter, setLevelFilter);
+    apply(restoredState.searchTerm, setSearchTerm);
+    apply(restoredState.dateFilter, setDateFilter);
+    apply(restoredState.rangeStartValue, setRangeStartValue);
+    apply(restoredState.rangeEndValue, setRangeEndValue);
+    apply(restoredState.useLocationFilter, setUseLocationFilter);
+    apply(restoredState.sortBy, setSortBy);
+    apply(restoredState.locationSearchTerm, setLocationSearchTerm);
+    if (restoredState.locationFilter !== undefined) applyLocationFilter(restoredState.locationFilter);
 
     navigate(location.pathname, { replace: true, state: null });
   }, [applyLocationFilter, location.pathname, location.state, navigate]);

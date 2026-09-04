@@ -24,6 +24,7 @@ import {
   sortCoaches,
 } from "./findCoachesList";
 import { fetchCoachProfile } from "../api/coachProfile";
+import { fetchUpcomingGroupLessons } from "../api/groupLessons";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
@@ -719,6 +720,9 @@ const FindCoaches = () => {
   const [sortKey, setSortKey] = useState<CoachSortKey>("nearest");
   const [selectedChips, setSelectedChips] = useState<CoachChipKey[]>([]);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  // coach_id -> number of upcoming group sessions. One request for the whole page rather
+  // than one per card: group lessons carry coach_id, so a single call counts every coach.
+  const [groupSessionCounts, setGroupSessionCounts] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [coaches, setCoaches] = useState<CoachCardModel[]>([]);
@@ -961,6 +965,34 @@ const FindCoaches = () => {
 
     void loadCoachMatchQuestions();
   }, [loadCoachMatchQuestions, playerToken]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          ...(playerToken ? { token: playerToken } : {}),
+          perPage: 200,
+          page: 1,
+          ...(position ? { position } : {}),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        const counts: Record<string, number> = {};
+        for (const lesson of response?.lessons ?? []) {
+          const coachId = (lesson as { coach_id?: number | string }).coach_id;
+          if (coachId == null) continue;
+          counts[String(coachId)] = (counts[String(coachId)] ?? 0) + 1;
+        }
+        setGroupSessionCounts(counts);
+      } catch {
+        // The link is an extra, not the point of the page. A failure here leaves every
+        // card without it rather than blocking the roster.
+        if (!controller.signal.aborted) setGroupSessionCounts({});
+      }
+    })();
+    return () => controller.abort();
+  }, [playerToken, position?.latitude, position?.longitude]);
 
   const fetchCoaches = useCallback(async () => {
     if (!position) {
@@ -1530,6 +1562,13 @@ const FindCoaches = () => {
                               })
                           : promptSignUp
                       }
+                      groupSessionCount={groupSessionCounts[String(coach.id)] ?? 0}
+                      groupSessionsTo={{
+                        pathname: "/group-lessons",
+                        // The group lessons page restores its filters from this state, so
+                        // the link lands pre-filtered to this coach.
+                        state: { groupLessonsState: { coachFilter: coach.name } },
+                      }}
                       onShare={() => shareCoach(coach.id, coach.name)}
                     />
                     </Fragment>
