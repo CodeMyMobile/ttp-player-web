@@ -29,6 +29,7 @@ import {
   getStoredLocation,
   getStoredLocationLabel,
   getStoredLocationRadius,
+  requestLocationPicker,
   storeLocation,
   storeLocationLabel,
   USER_LOCATION_CHANGED_EVENT,
@@ -44,7 +45,11 @@ import {
 
 import "./FindCoachesPage.css";
 
-type Mode = "normal" | "empty" | "error";
+// "out-of-area" is distinct from "empty" on purpose: the search endpoint returns 404
+// when no coach LOCATION falls inside the radius, which means we do not cover where the
+// player is. That is not the same as "no coach matched your filters", and telling
+// someone in Tokyo to broaden their filters is useless advice.
+type Mode = "normal" | "empty" | "out-of-area" | "error";
 type Status = "loading" | "ready";
 
 type SelectedLocation = {
@@ -972,9 +977,12 @@ const FindCoaches = () => {
         authToken: playerToken ?? null,
       });
 
+      // 404 here is "no locations within the radius" (routes/player_coaches.js:255),
+      // not "no results" — the endpoint has nothing to search rather than nothing to
+      // return.
       if (response.status === 404) {
         setCoaches([]);
-        setMode("empty");
+        setMode("out-of-area");
         setStatus("ready");
         return;
       }
@@ -1305,6 +1313,20 @@ const FindCoaches = () => {
               <p>{error ?? "Please try again in a few minutes or adjust your filters."}</p>
               <button type="button" onClick={resetFilters}>
                 Retry search
+              </button>
+            </section>
+          ) : null}
+
+          {mode === "out-of-area" && status === "ready" && !shouldShowError ? (
+            <section className="fcv2-state">
+              <div className="fcv2-state-icon">📍</div>
+              <h2>No coaches near {locationShortLabel} yet</h2>
+              <p>
+                We haven't reached this area yet. Try a different location, or check back —
+                we add coaches as we grow.
+              </p>
+              <button type="button" onClick={requestLocationPicker}>
+                Change location
               </button>
             </section>
           ) : null}
