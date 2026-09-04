@@ -223,6 +223,9 @@ const buildMatchItem = (record: unknown): ScheduleItem | null => {
   const total = match.totalSpots;
   const rosterChip = total > 0 ? `${joined}/${total} players` : `${joined} player${joined === 1 ? "" : "s"}`;
   const hostLabel = match.relationship === "host" ? "Hosting" : match.hostName ? `vs ${match.hostName}` : "Match play";
+  // League scheduling matches arrive here alongside casual ones and are otherwise
+  // indistinguishable, which matters: this is the match you log a league result for.
+  const isLeagueMatch = (match.raw as { is_league_match?: boolean } | undefined)?.is_league_match === true;
 
   return {
     id: `match-${match.id}`,
@@ -232,12 +235,17 @@ const buildMatchItem = (record: unknown): ScheduleItem | null => {
     endsAt: null,
     location: match.location || "Location TBD",
     leadingMeta: hostLabel,
-    chips: [match.level?.summary, rosterChip].filter(Boolean) as string[],
+    chips: [isLeagueMatch ? "League" : null, match.level?.summary, rosterChip].filter(Boolean) as string[],
     priceLabel: null,
     icon: match.relationship === "host" ? <Trophy size={26} strokeWidth={2.2} /> : <Target size={26} strokeWidth={2.2} />,
     accent: match.relationship === "host" ? "amber" : "blue",
     destination: `/matches/${match.id}`,
   };
+};
+
+const dedupeById = (items: ScheduleItem[]): ScheduleItem[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)));
 };
 
 const sortByStart = (items: ScheduleItem[], segment: ScheduleSegment) =>
@@ -313,13 +321,27 @@ const PlayerCalendar = () => {
       setError(null);
 
       try {
-        const [futureLessons, pastLessons, upcomingMatches, archivedMatches] = await Promise.allSettled([
+        const [futureLessons, pastLessons, upcomingMatches, confirmedMatches, archivedMatches] = await Promise.allSettled([
           getPlayerFutureLessons({ token, perPage: 50, page: 1, signal: controller.signal }),
           getPlayerPastLessons({ token, perPage: 50, page: 1, signal: controller.signal }),
           listMatches({
             token,
             filter: "my",
             status: "upcoming",
+            includeHidden: true,
+            include_hidden: true,
+            perPage: 50,
+            page: 1,
+            signal: controller.signal,
+          }),
+          // League scheduling matches sit at status "confirmed", not "upcoming" — the
+          // backend filters on exact status equality, so they are invisible to the
+          // "upcoming" query above. Accepting a league match need is the only way to
+          // land here, and those matches belong on the player's schedule like any other.
+          listMatches({
+            token,
+            filter: "my",
+            status: "confirmed",
             includeHidden: true,
             include_hidden: true,
             perPage: 50,
@@ -343,6 +365,7 @@ const PlayerCalendar = () => {
         const nextUpcomingItems = [
           ...(futureLessons.status === "fulfilled" ? extractLessons(futureLessons.value).map((item) => buildLessonItem(item, "upcoming")) : []),
           ...(upcomingMatches.status === "fulfilled" ? upcomingMatches.value.matches.map(buildMatchItem) : []),
+          ...(confirmedMatches.status === "fulfilled" ? confirmedMatches.value.matches.map(buildMatchItem) : []),
         ].filter(Boolean) as ScheduleItem[];
 
         const nextPastItems = [
@@ -350,10 +373,13 @@ const PlayerCalendar = () => {
           ...(archivedMatches.status === "fulfilled" ? archivedMatches.value.matches.map(buildMatchItem) : []),
         ].filter(Boolean) as ScheduleItem[];
 
-        setUpcomingItems(sortByStart(nextUpcomingItems, "upcoming"));
+        // Two match queries now feed this list. A match can only hold one status so they
+        // cannot legitimately overlap, but dedupe by id rather than trust that — a
+        // duplicated row on a schedule reads as a double booking.
+        setUpcomingItems(sortByStart(dedupeById(nextUpcomingItems), "upcoming"));
         setPastItems(sortByStart(nextPastItems, "past"));
 
-        const failures = [futureLessons, pastLessons, upcomingMatches, archivedMatches].filter((result) => result.status === "rejected");
+        const failures = [futureLessons, pastLessons, upcomingMatches, confirmedMatches, archivedMatches].filter((result) => result.status === "rejected");
         if (failures.length > 0 && nextUpcomingItems.length === 0 && nextPastItems.length === 0) {
           const firstFailure = failures[0] as PromiseRejectedResult;
           throw firstFailure.reason;
