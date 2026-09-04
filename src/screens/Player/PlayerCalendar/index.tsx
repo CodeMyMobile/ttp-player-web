@@ -5,8 +5,10 @@ import { Link, useNavigate } from "react-router-dom";
 import "./index.css";
 import { getPlayerFutureLessons, getPlayerPastLessons, type LessonSummary } from "../../../api/playerHome";
 import { listMatches, normalizeMatchRecord } from "../../../api/matches";
+import { hasViewerWithdrawn } from "../../../utils/scheduledLeagueMatches";
 import { getStoredAuthToken } from "../../../services/authToken";
 import usePlayerIdentity from "../../../hooks/usePlayerIdentity";
+import { useAuth } from "../../../context/AuthContext";
 import MainLayout from "../../../components/MainLayout";
 import { isPayOnCourt } from "../../../api/groupLessons";
 
@@ -296,10 +298,25 @@ const buildDayGroups = (items: ScheduleItem[], segment: ScheduleSegment): Schedu
 const PlayerCalendar = () => {
   const navigate = useNavigate();
   const { displayName, initials, avatarUrl } = usePlayerIdentity();
+  // AuthContext is untyped JS, so the context comes back as {}. Narrowed here rather
+  // than widening the typecheck baseline for new code.
+  const { user } = useAuth() as {
+    user?: {
+      id?: number | string;
+      user_id?: number | string;
+      player_id?: number | string;
+      profile?: { id?: number | string; user_id?: number | string };
+    } | null;
+  };
   const [segment, setSegment] = useState<ScheduleSegment>("upcoming");
   const [selectedFilter, setSelectedFilter] = useState<ScheduleFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Needed to tell a match you are in from one you withdrew from: filter=my returns
+  // both. Same fallback chain the league pages use — the id lands under different
+  // keys depending on which login response shape is cached.
+  const viewerId =
+    user?.id ?? user?.user_id ?? user?.player_id ?? user?.profile?.id ?? user?.profile?.user_id;
   const [upcomingItems, setUpcomingItems] = useState<ScheduleItem[]>([]);
   const [pastItems, setPastItems] = useState<ScheduleItem[]>([]);
 
@@ -365,7 +382,15 @@ const PlayerCalendar = () => {
         const nextUpcomingItems = [
           ...(futureLessons.status === "fulfilled" ? extractLessons(futureLessons.value).map((item) => buildLessonItem(item, "upcoming")) : []),
           ...(upcomingMatches.status === "fulfilled" ? upcomingMatches.value.matches.map(buildMatchItem) : []),
-          ...(confirmedMatches.status === "fulfilled" ? confirmedMatches.value.matches.map(buildMatchItem) : []),
+          // Drop matches this player has withdrawn from. filter=my joins participants
+          // without filtering on participant status, so a cancelled match still comes
+          // back — it was appearing here as a normal upcoming match with nothing to
+          // say it had been cancelled.
+          ...(confirmedMatches.status === "fulfilled"
+            ? confirmedMatches.value.matches
+                .filter((match) => !hasViewerWithdrawn(match, viewerId))
+                .map(buildMatchItem)
+            : []),
         ].filter(Boolean) as ScheduleItem[];
 
         const nextPastItems = [
@@ -403,7 +428,11 @@ const PlayerCalendar = () => {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+    // viewerId, not []: AuthContext starts user as null and fills it in an effect, so on
+    // the first render there is no id to compare participants against and the withdrawn
+    // filter would silently pass everything through. Refetching when it resolves is the
+    // difference between hiding a cancelled match and showing it as upcoming.
+  }, [viewerId]);
 
   const activeItems = segment === "upcoming" ? upcomingItems : pastItems;
 

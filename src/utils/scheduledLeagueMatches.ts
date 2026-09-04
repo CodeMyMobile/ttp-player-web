@@ -45,6 +45,24 @@ type RawParticipant = {
 };
 
 /**
+ * Whether the viewer has withdrawn from this match.
+ *
+ * GET /matches?filter=my joins match_participants on player_id with NO filter on
+ * participant status, so a match you left still comes back as "yours". Every surface
+ * that lists your matches has to apply this, not just the league tab — My Schedule
+ * reads the same endpoint and showed matches the player had already cancelled.
+ */
+export const hasViewerWithdrawn = (raw: unknown, viewerId: unknown): boolean => {
+  if (!raw || typeof raw !== "object") return false;
+  const participants = (raw as Record<string, unknown>).participants;
+  const list = Array.isArray(participants) ? (participants as RawParticipant[]) : [];
+  const mine = list.find(
+    (participant) => String(participant?.player_id) === String(viewerId),
+  );
+  return Boolean(mine && WITHDRAWN_STATUSES.has(String(mine.status)));
+};
+
+/**
  * Map one row from GET /matches into a scheduled-match view model.
  * Returns null for anything that is not a league match, so callers can filter.
  */
@@ -56,18 +74,8 @@ export const toScheduledLeagueMatch = (
   const match = raw as Record<string, unknown>;
   if (match.is_league_match !== true) return null;
 
-  // GET /matches?filter=my joins match_participants on player_id with NO filter on
-  // participant status, so a match you withdrew from still comes back as "yours". The
-  // match usually drops out anyway because leaving reopens it, but that only holds for
-  // 1v1 league matches — and a row you can still press Cancel on, for a match you have
-  // already left, is worse than an absent one. Read your own row and drop it.
-  const viewerParticipant = (Array.isArray(match.participants)
-    ? (match.participants as RawParticipant[])
-    : []
-  ).find((participant) => String(participant?.player_id) === String(viewerId));
-  if (viewerParticipant && WITHDRAWN_STATUSES.has(String(viewerParticipant.status))) {
-    return null;
-  }
+  // A match you left still comes back from filter=my — see hasViewerWithdrawn.
+  if (hasViewerWithdrawn(raw, viewerId)) return null;
 
   const hostId = (match.host_id as number | string | undefined) ?? null;
   const viewerIsHost = viewerId != null && String(hostId) === String(viewerId);
