@@ -104,7 +104,7 @@ export interface UpcomingGroupLessonApi {
   booked_count?: number;
   open_spots?: number;
   waitlist_count?: number;
-  waitlist_position?: number;
+  waitlist_position?: number | null;
   group_players?: UpcomingGroupLessonPlayerApi[];
   metadata?: {
     level?: string;
@@ -348,6 +348,12 @@ export const isCancelledGroupLesson = (lesson: {
   updated_by?: number | string | null;
 }) => isCancelledGroupLessonRecord(lesson);
 
+export const isLessonNotFullError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const data = (error as { data?: { code?: unknown; error?: unknown } }).data;
+  return data?.code === "lesson_not_full" || data?.error === "lesson_not_full";
+};
+
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
   const normalizedGroupPlayers = (lesson.group_players ?? []).map((player) => {
@@ -380,7 +386,12 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
   const bookedCountRaw = typeof lesson.booked_count === "number" ? lesson.booked_count : Number(lesson.booked_count);
   const openSpotsRaw = typeof lesson.open_spots === "number" ? lesson.open_spots : Number(lesson.open_spots);
   const waitlistCountRaw = typeof lesson.waitlist_count === "number" ? lesson.waitlist_count : Number(lesson.waitlist_count);
-  const waitlistPositionRaw = typeof lesson.waitlist_position === "number" ? lesson.waitlist_position : Number(lesson.waitlist_position);
+  const waitlistPositionRaw =
+    lesson.waitlist_position === null || lesson.waitlist_position === undefined
+      ? undefined
+      : typeof lesson.waitlist_position === "number"
+        ? lesson.waitlist_position
+        : Number(lesson.waitlist_position);
   const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : activeGroupPlayers.length;
   const availableSpots = Number.isFinite(openSpotsRaw) ? Math.max(openSpotsRaw, 0) : Math.max(totalSpots - confirmedCount, 0);
   const locationCity = lesson.location_city || extractCityState(lesson.location);

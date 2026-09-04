@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   holdsGroupSpot,
+  isLessonNotFullError,
   isComped,
   isPayOnCourt,
   joinGroupLessonWaitlist,
@@ -182,6 +183,19 @@ test("mapUpcomingGroupLessonsResponse preserves waitlist count and player positi
     waitlistCount: 4,
     waitlistPosition: 2,
   });
+});
+
+test("mapUpcomingGroupLessonsResponse preserves an absent waitlist position", () => {
+  const response = mapUpcomingGroupLessonsResponse({
+    lessons: [{ id: 77, waitlist_count: 4, waitlist_position: null }],
+  });
+
+  assert.equal(response.lessons[0]?.waitlistCount, 4);
+  assert.equal(response.lessons[0]?.waitlistPosition, undefined);
+});
+
+test("isLessonNotFullError recognizes the API error discriminator", () => {
+  assert.equal(isLessonNotFullError({ data: { error: "lesson_not_full" } }), true);
 });
 
 test("joinGroupLessonWaitlist posts the lesson waitlist request with the token", async () => {

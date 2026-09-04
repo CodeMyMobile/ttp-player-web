@@ -17,6 +17,7 @@ import {
   fetchUpcomingGroupLessonById,
   holdsGroupSpot,
   isActiveGroupLessonBookingStatus,
+  isLessonNotFullError,
   joinGroupLessonWaitlist,
   leaveGroupLessonWaitlist,
   mapUpcomingGroupLesson,
@@ -188,12 +189,6 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return error.message;
   }
   return fallback;
-};
-
-const isLessonNotFullError = (error: unknown) => {
-  if (!error || typeof error !== "object") return false;
-  const data = (error as { data?: { code?: unknown } }).data;
-  return data?.code === "lesson_not_full";
 };
 
 const formatParticipantStatus = (
