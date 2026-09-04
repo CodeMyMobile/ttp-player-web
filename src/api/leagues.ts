@@ -630,6 +630,23 @@ export const sendLeagueMatchNeedInvites = ({
     },
   );
 
+export const deleteLeagueMatchNeed = ({
+  leagueId,
+  matchId,
+  token,
+  signal,
+}: {
+  leagueId: number | string;
+  matchId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<{ deleted: boolean }>(`/leagues/${leagueId}/match-needs/${matchId}`, {
+    method: "DELETE",
+    token,
+    signal,
+  });
+
 export const dismissLeagueMatchSuggestion = ({
   suggestionId,
   token,
