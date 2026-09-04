@@ -129,14 +129,30 @@ const AppNav = ({
   const notificationRef = useRef(null);
   const locationSelectionVersionRef = useRef(0);
   const firstName = displayName?.split(" ")?.[0] || "Player";
+  // The platform's computed NTRP first. calculated_ntrp is derived per request
+  // from current_rating + rating_gender (ttp-api rating_equivalents.js) and ships
+  // on the login profile, but this chain used to skip it entirely and settle on
+  // usta_rating — the player's own self-declared USTA number — under an "NTRP"
+  // label. A player on TPR 7.0 with a computed NTRP of 4.5 was shown 3.5.
+  //
+  // `??` rather than `||` for the computed value so a legitimate 0 is not treated
+  // as absent. The self-declared values below remain as a fallback because
+  // calculated_ntrp is null whenever rating_gender is unset, which is the normal
+  // state for a self-rating player until an admin fills it in.
+  //
+  // Ends in null, not a number: there is no default rating. The chain used to end
+  // in a hardcoded "4.5", so a player with no rating at all was shown a specific,
+  // plausible, entirely invented one.
   const skillLevel =
-    user?.skillLevel ||
-    user?.skill_level ||
-    user?.usta_rating ||
-    user?.profile?.skillLevel ||
-    user?.profile?.skill_level ||
-    user?.profile?.usta_rating ||
-    "4.5";
+    user?.calculated_ntrp ??
+    user?.profile?.calculated_ntrp ??
+    (user?.skillLevel ||
+      user?.skill_level ||
+      user?.usta_rating ||
+      user?.profile?.skillLevel ||
+      user?.profile?.skill_level ||
+      user?.profile?.usta_rating ||
+      null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -441,7 +457,9 @@ const AppNav = ({
                 </span>
                 <span className="app-nav__user-copy">
                   <strong>{firstName}</strong>
-                  <small>NTRP {skillLevel}</small>
+                  {/* No rating yet renders nothing at all — a bare "NTRP" label
+                      with no number reads as a loading state or a broken value. */}
+                  {skillLevel != null ? <small>NTRP {skillLevel}</small> : null}
                 </span>
                 <ChevronDown size={16} />
               </button>
