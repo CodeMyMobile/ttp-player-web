@@ -34,6 +34,10 @@ export type ScheduledLeagueMatch = {
   viewerIsHost: boolean;
 };
 
+// Statuses meaning "this player is no longer part of the match". `left` is set by
+// POST /matches/:id/leave; `removed` by the host removing a player.
+const WITHDRAWN_STATUSES = new Set(["left", "removed", "cancelled", "declined"]);
+
 type RawParticipant = {
   player_id?: number | string;
   status?: string;
@@ -51,6 +55,19 @@ export const toScheduledLeagueMatch = (
   if (!raw || typeof raw !== "object") return null;
   const match = raw as Record<string, unknown>;
   if (match.is_league_match !== true) return null;
+
+  // GET /matches?filter=my joins match_participants on player_id with NO filter on
+  // participant status, so a match you withdrew from still comes back as "yours". The
+  // match usually drops out anyway because leaving reopens it, but that only holds for
+  // 1v1 league matches — and a row you can still press Cancel on, for a match you have
+  // already left, is worse than an absent one. Read your own row and drop it.
+  const viewerParticipant = (Array.isArray(match.participants)
+    ? (match.participants as RawParticipant[])
+    : []
+  ).find((participant) => String(participant?.player_id) === String(viewerId));
+  if (viewerParticipant && WITHDRAWN_STATUSES.has(String(viewerParticipant.status))) {
+    return null;
+  }
 
   const hostId = (match.host_id as number | string | undefined) ?? null;
   const viewerIsHost = viewerId != null && String(hostId) === String(viewerId);

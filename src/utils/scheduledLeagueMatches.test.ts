@@ -66,6 +66,34 @@ test("falls back to a neutral label when the opponent has no profile", () => {
   assert.equal(toScheduledLeagueMatch(match, 6)?.opponentName, "League player");
 });
 
+test("drops a match the viewer has withdrawn from", () => {
+  // filter=my joins match_participants with no status filter, so a match you left still
+  // comes back as yours. It must not keep offering a Cancel button.
+  const match = leagueMatch({
+    id: 900,
+    participants: [
+      { player_id: 1688, status: "hosting", profile: { full_name: "Fernando Ruiz" } },
+      { player_id: 6, status: "left", profile: { full_name: "Paul Cochrane" } },
+    ],
+  });
+
+  assert.equal(toScheduledLeagueMatch(match, 6), null);
+  // The host still sees it — they have not gone anywhere.
+  assert.equal(toScheduledLeagueMatch(match, 1688)?.opponentName, "Paul Cochrane");
+});
+
+test("drops a match the viewer was removed from", () => {
+  const match = leagueMatch({
+    id: 900,
+    participants: [
+      { player_id: 1688, status: "hosting", profile: { full_name: "Fernando Ruiz" } },
+      { player_id: 6, status: "removed", profile: { full_name: "Paul Cochrane" } },
+    ],
+  });
+
+  assert.equal(toScheduledLeagueMatch(match, 6), null);
+});
+
 test("keeps only the requested league — filter=my spans every league", () => {
   const rows = buildScheduledLeagueMatches({
     matches: [
