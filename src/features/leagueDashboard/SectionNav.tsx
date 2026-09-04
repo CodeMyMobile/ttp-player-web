@@ -2,9 +2,14 @@
 //
 // Pinned directly under the app nav (sticky top:64px — the AppNav mobile
 // min-height). This is the ONLY tab bar on mobile: it drives both the activation
-// "Overview" stack AND the LeagueTabs panels (which render with hideTabBar). Five
-// labels are tight, so the row scrolls horizontally and never wraps. Uses the
-// existing violet `.tab`/`.tab.on` styling for visual continuity with desktop.
+// "Overview" stack AND the LeagueTabs panels (which render with hideTabBar). The
+// labels do not fit a phone row, so it scrolls horizontally and never wraps. Uses
+// the existing violet `.tab`/`.tab.on` styling for visual continuity with desktop.
+//
+// This list is deliberately separate from TABS in LeagueTabs, because it carries the
+// extra "overview" section desktop has no equivalent for — so a tab added to TABS is
+// invisible on mobile until it is added HERE too. That is exactly how the Scheduled
+// tab shipped desktop-only.
 
 import { useRef } from "react";
 
@@ -19,6 +24,7 @@ const SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "standings", label: "Standings" },
   { key: "players", label: "Players" },
   { key: "results", label: "Results" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "pending", label: "Pending" },
 ];
 
