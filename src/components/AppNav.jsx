@@ -37,6 +37,7 @@ import {
 } from "../api/notification";
 import {
   DEFAULT_RADIUS_MILES,
+  formatLocationPill,
   getStoredLocation,
   getStoredLocationLabel,
   getStoredLocationRadius,
@@ -48,7 +49,6 @@ import {
   getStoredLocationArea,
   locationNameFromReverseGeocode,
   readPlaceArea,
-  shortLocationLabel,
   storeLocationRadius,
   USER_LOCATION_CHANGED_EVENT,
   USER_LOCATION_REQUEST_EVENT,
@@ -140,6 +140,7 @@ const AppNav = ({
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
   const locationSelectionVersionRef = useRef(0);
+  const locationRequestVersionRef = useRef(0);
   const openLocationPickerRef = useRef(null);
   const firstName = displayName?.split(" ")?.[0] || "Player";
   // The platform's computed NTRP first. calculated_ntrp is derived per request
@@ -259,6 +260,7 @@ const AppNav = ({
 
   const commitLocationSelection = ({ label, latitude, longitude, area = null }) => {
     locationSelectionVersionRef.current += 1;
+    locationRequestVersionRef.current += 1;
     storeLocation({ latitude, longitude });
     storeLocationLabel(label);
     // The header shows the neighbourhood, not the full address. Geolocation
@@ -277,7 +279,6 @@ const AppNav = ({
     setDraftArea(area);
     setLocationSearchTerm(label);
     setLocationError("");
-    setLocationState("granted");
   };
 
   const handleUseCurrentLocation = () => {
@@ -287,6 +288,8 @@ const AppNav = ({
       return;
     }
 
+    const requestVersion = locationRequestVersionRef.current + 1;
+    locationRequestVersionRef.current = requestVersion;
     setLocationState("locating");
     setLocationError("");
 
@@ -296,13 +299,20 @@ const AppNav = ({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
-        const locationName = await reverseGeocodeDeviceLocation(coords);
+        if (locationRequestVersionRef.current !== requestVersion) return;
         setDraftLocationSelection({
           ...coords,
-          ...(locationName || { label: "Current location", area: null }),
+          label: "Current location",
+          area: null,
         });
+        setLocationState("granted");
+
+        const locationName = await reverseGeocodeDeviceLocation(coords);
+        if (!locationName || locationRequestVersionRef.current !== requestVersion) return;
+        setDraftLocationSelection({ ...coords, ...locationName });
       },
       (error) => {
+        if (locationRequestVersionRef.current !== requestVersion) return;
         const blocked = error?.code === error?.PERMISSION_DENIED || error?.code === 1;
         setLocationState(blocked ? "denied" : "unavailable");
         setLocationError(blocked ? "Location permission is blocked." : "We couldn't access your current location.");
@@ -332,7 +342,13 @@ const AppNav = ({
       return;
     }
 
+    locationRequestVersionRef.current += 1;
     setDraftLocationSelection({ label, latitude, longitude, area: readPlaceArea(place) });
+  };
+
+  const closeLocationPicker = () => {
+    locationRequestVersionRef.current += 1;
+    setLocationOpen(false);
   };
 
   const openLocationPicker = async () => {
@@ -385,6 +401,7 @@ const AppNav = ({
   };
 
   const resetDraft = () => {
+    locationRequestVersionRef.current += 1;
     setDraftLocation(committedLocation);
     setDraftLabel(getStoredLocationLabel() || "");
     setDraftArea(getStoredLocationArea());
@@ -442,7 +459,12 @@ const AppNav = ({
               onClick={() => openLocationPickerRef.current?.()}
             >
               <MapPin size={14} />
-              <span>{locationLabel === "Set location" ? locationLabel : `${locationArea || shortLocationLabel(locationLabel) || locationLabel} · ${committedRadius} mi`}</span>
+              <span>{formatLocationPill({
+                location: getStoredLocation(),
+                label: locationLabel === "Set location" ? null : locationLabel,
+                area: locationArea,
+                radiusMiles: committedRadius,
+              })}</span>
               <ChevronDown size={14} />
             </button>
           </div>
@@ -592,7 +614,7 @@ const AppNav = ({
       </header>
 
       {isLocationOpen ? (
-        <div className="app-nav__location-overlay" onClick={() => setLocationOpen(false)}>
+        <div className="app-nav__location-overlay" onClick={closeLocationPicker}>
           <div className="app-nav__location-sheet" onClick={(event) => event.stopPropagation()}>
             <div className="app-nav__location-handle" />
             <div className="app-nav__location-header">
@@ -608,7 +630,7 @@ const AppNav = ({
                 type="button"
                 className="app-nav__location-close"
                 aria-label="Close location picker"
-                onClick={() => setLocationOpen(false)}
+                onClick={closeLocationPicker}
               >
                 <X size={18} />
               </button>

@@ -253,6 +253,25 @@ export const shortLocationLabel = (label: string | null): string | null => {
   return first || null;
 };
 
+/**
+ * The header is based on the saved coordinate, not a best-effort display
+ * label. Older saved locations can legitimately have coordinates only.
+ */
+export const formatLocationPill = ({
+  location,
+  label,
+  area,
+  radiusMiles,
+}: {
+  location: Coordinates | null;
+  label: string | null;
+  area: string | null;
+  radiusMiles: number;
+}): string => {
+  if (!location) return "Set location";
+  return `${area || shortLocationLabel(label) || "Current location"} · ${radiusMiles} mi`;
+};
+
 export const getStoredLocationRadius = (): number | null => {
   try {
     const raw = localStorage.getItem(USER_LOCATION_RADIUS_STORAGE_KEY);

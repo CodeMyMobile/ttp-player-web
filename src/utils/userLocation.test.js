@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   DEFAULT_POSITION,
   DEFAULT_RADIUS_MILES,
+  formatLocationPill,
   getSearchLocation,
   hasLocationDraftChanged,
   initialLocationState,
@@ -123,5 +124,21 @@ test("a filter draft changes only when its location or radius differs from what 
       draft: { ...committed, location: { latitude: 34.0195, longitude: -118.4912 } },
     }),
     true,
+  );
+});
+
+test("the header pill is driven by saved coordinates even when an older record lacks a label", () => {
+  assert.equal(
+    formatLocationPill({ location: null, label: null, area: null, radiusMiles: 10 }),
+    "Set location",
+  );
+  assert.equal(
+    formatLocationPill({
+      location: { latitude: 34.0028, longitude: -118.431 },
+      label: null,
+      area: null,
+      radiusMiles: 10,
+    }),
+    "Current location · 10 mi",
   );
 });
