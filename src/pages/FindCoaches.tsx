@@ -26,8 +26,10 @@ import {
   submitCoachMatchSurveyAnswers,
 } from "../api/playerHome";
 import {
+  DEFAULT_RADIUS_MILES,
   getStoredLocation,
   getStoredLocationLabel,
+  getStoredLocationRadius,
   storeLocation,
   storeLocationLabel,
   USER_LOCATION_CHANGED_EVENT,
@@ -57,8 +59,6 @@ type SelectedLocation = {
 type FindCoachesStateSnapshot = {
   searchTerm: string;
   appliedSearchTerm: string;
-  selectedRadius: number;
-  appliedRadius: number;
   page: number;
   locationFilter: SelectedLocation | null;
   locationSearchTerm: string;
@@ -85,7 +85,10 @@ type CoachCardModel = Coach & {
   availableSlotCount: number | null;
 };
 
-const DEFAULT_RADIUS = 10;
+// Radius is owned by the header location chip and stored in utils/userLocation, the
+// same store the feed, group lessons and find players read. This page used to keep its
+// own copy and never read the stored one, so moving the header slider changed every
+// other surface and left this one alone.
 
 const shareCoach = async (id: string | number, name: string) => {
   const url = `${window.location.origin}/s/coach/${id}`;
@@ -93,34 +96,6 @@ const shareCoach = async (id: string | number, name: string) => {
   await navigator.clipboard?.writeText(url);
 };
 
-// Radius is the one real server-side attribute filter (see COACH_SEARCH_API_FINDINGS.md).
-// Presented as a compact "Within N mi" selector; changing it refetches via handleRadiusChange.
-const RADIUS_OPTIONS = [5, 10, 25, 50, 100];
-
-function RadiusSelect({ value, onChange }: { value: number; onChange: (radius: number) => void }) {
-  // Keep the current value selectable even if it isn't one of the presets.
-  const options = RADIUS_OPTIONS.includes(value)
-    ? RADIUS_OPTIONS
-    : [...RADIUS_OPTIONS, value].sort((a, b) => a - b);
-  return (
-    <label className="fcv2-radius">
-      <MapPin size={14} aria-hidden="true" />
-      <span className="fcv2-radius__prefix">Within</span>
-      <select
-        className="fcv2-radius__select"
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label="Search radius in miles"
-      >
-        {options.map((radius) => (
-          <option key={radius} value={radius}>
-            {radius} mi
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 type CoachMatchSummaryItem = {
   label: string;
@@ -697,8 +672,9 @@ const FindCoaches = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState<number>(DEFAULT_RADIUS);
-  const [appliedRadius, setAppliedRadius] = useState<number>(DEFAULT_RADIUS);
+  const [radiusMiles, setRadiusMiles] = useState<number>(
+    () => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
+  );
   const [page, setPage] = useState(1);
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
@@ -735,6 +711,11 @@ const FindCoaches = () => {
 
   useEffect(() => {
     const syncStoredLocation = () => {
+      // Radius first, and outside the early return below: the header chip can change the
+      // radius without changing the origin, and that has to reach this page. Syncing only
+      // position was why moving the slider did nothing here.
+      setRadiusMiles(getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES);
+
       const storedLocation = getStoredLocation();
       if (!storedLocation) return;
 
@@ -758,20 +739,16 @@ const FindCoaches = () => {
     () => ({
       searchTerm,
       appliedSearchTerm,
-      selectedRadius,
-      appliedRadius,
       page,
       locationFilter,
       locationSearchTerm,
     }),
     [
-      appliedRadius,
       appliedSearchTerm,
       locationFilter,
       locationSearchTerm,
       page,
       searchTerm,
-      selectedRadius,
     ],
   );
 
@@ -905,8 +882,6 @@ const FindCoaches = () => {
     if (restoredState) {
       setSearchTerm(restoredState.searchTerm);
       setAppliedSearchTerm(restoredState.appliedSearchTerm);
-      setSelectedRadius(restoredState.selectedRadius);
-      setAppliedRadius(restoredState.appliedRadius);
       setPage(restoredState.page || 1);
       setLocationSearchTerm(restoredState.locationSearchTerm);
       applyLocationFilter(restoredState.locationFilter);
@@ -968,7 +943,7 @@ const FindCoaches = () => {
         page: String(page),
         search: searchValue,
       });
-      params.set("radius", appliedRadius.toString());
+      params.set("radius", radiusMiles.toString());
 
       const positionPayload =
         position && typeof position.latitude === "number" && typeof position.longitude === "number"
@@ -1036,7 +1011,7 @@ const FindCoaches = () => {
       setStatus("ready");
     }
   }, [
-    appliedRadius,
+    radiusMiles,
     appliedSearchTerm,
     hasResolvedInitialLocation,
     locationSearchTerm,
@@ -1114,22 +1089,9 @@ const FindCoaches = () => {
     setAppliedSearchTerm(trimmed);
   };
 
-  const handleRadiusChange = (radius: number) => {
-    setSelectedRadius(radius);
-    setMode("normal");
-    setPage(1);
-    if (radius === appliedRadius) {
-      fetchCoaches();
-      return;
-    }
-    setAppliedRadius(radius);
-  };
-
   const resetFilters = () => {
     setSearchTerm("");
     setAppliedSearchTerm("");
-    setSelectedRadius(DEFAULT_RADIUS);
-    setAppliedRadius(DEFAULT_RADIUS);
     setPage(1);
     applyLocationFilter(null);
   };
@@ -1257,7 +1219,6 @@ const FindCoaches = () => {
                 />
               </div>
 
-              <RadiusSelect value={selectedRadius} onChange={handleRadiusChange} />
             </div>
           ) : null}
 
@@ -1313,8 +1274,7 @@ const FindCoaches = () => {
 
             {!isMatchedMode ? (
               <div className="fcv2-search-controls">
-                <RadiusSelect value={selectedRadius} onChange={handleRadiusChange} />
-              </div>
+                </div>
             ) : null}
 
             {locationPermissionPrompt ? (

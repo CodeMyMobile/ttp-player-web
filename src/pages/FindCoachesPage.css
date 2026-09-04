@@ -464,35 +464,6 @@
   gap: 12px;
   margin-bottom: 18px;
 }
-
-.fcv2-radius {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.fcv2-radius svg {
-  color: #94a3b8;
-}
-
-.fcv2-radius__select {
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: #1e293b;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .fcv2-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -530,68 +501,6 @@
   background: #f5f3ff;
   color: var(--color-primary-dark);
 }
-
-.fcv2-radius-slider {
-  margin-bottom: 18px;
-  padding: 16px 18px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
-}
-
-.fcv2-radius-slider__copy {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.fcv2-radius-slider__copy span {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
-.fcv2-radius-slider__copy strong {
-  font-size: 14px;
-  font-weight: 800;
-  color: #1e293b;
-}
-
-.fcv2-radius-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fcv2-radius-group button,
-.fcv2-chip-row button {
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: #fff;
-  color: #475569;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.18s ease;
-}
-
-.fcv2-radius-group button {
-  padding: 9px 12px;
-}
-
-.fcv2-radius-group button.active,
-.fcv2-chip-row button.active {
-  border-color: var(--color-primary);
-  background: #ede9fe;
-  color: var(--color-primary-dark);
-}
-
 .fcv2-location-panel {
   margin-top: 18px;
   padding: 20px;
@@ -971,7 +880,12 @@
   }
 
   .fcv2-page {
-    padding-bottom: 124px;
+    /* The bottom nav is fixed and its own padding includes env(safe-area-inset-bottom)
+       (MobileHomeBottomNav.css:16), and the FAB rises ~14px above it again. A flat 124px
+       therefore under-reserves by the inset — about 34px on a notched iPhone — which put
+       the last card under the FAB. Reserve the same inset the nav does rather than
+       raising the magic number, which would only over-pad every other device. */
+    padding-bottom: calc(124px + env(safe-area-inset-bottom));
     background: #f8fafc;
   }
 
@@ -1077,12 +991,6 @@
     align-items: stretch;
     gap: 8px;
   }
-
-  /* Search bar full width, then the compact radius control sits below it, left-aligned. */
-  .fcv2-mobile-search-row .fcv2-radius {
-    align-self: flex-start;
-  }
-
   .fcv2-mobile-search-block .fcv2-location-permission-banner {
     margin-top: 10px;
     margin-bottom: 0;
@@ -1193,17 +1101,6 @@
     flex-direction: column;
     align-items: stretch;
   }
-
-  .fcv2-location-button,
-  .fcv2-filter-summary,
-  .fcv2-radius-group {
-    width: 100%;
-  }
-
-  .fcv2-radius-group button {
-    flex: 1 1 calc(33.33% - 8px);
-  }
-
   .fcv2-location-panel-head {
     flex-direction: column;
   }
@@ -1548,7 +1445,6 @@
   border-radius: 8px;
   padding: 5px 10px;
 }
-
 
 /* Coach card */
 .fc-card {
