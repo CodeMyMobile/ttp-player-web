@@ -275,3 +275,15 @@
   border-color: #dcdafc;
   color: #5b21b6;
 }
+
+/* No published day parts. Muted rather than green: there is nothing to be positive
+   about, and the green strip elsewhere means "here is when they play". */
+.cc-avail--none {
+  border-color: #e8e9ef;
+  background: #f7f8fa;
+  color: #6b7280;
+}
+
+.cc-avail--none .cc-avail-dot {
+  background: #c3c8d2;
+}

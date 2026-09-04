@@ -150,6 +150,9 @@ const CoachCard = ({
   const showMatch = matchPercent != null && matchPercent > 0;
   const matchReasons = selectCoachMatchReasons(reasons);
   const overBudget = privateFlag === "over";
+  // Six of thirty coaches publish no day parts. Offering "Book a lesson" against nothing
+  // sends the player to a booking screen with no slots; asking is the honest action.
+  const hasAvailability = availabilityPhrase.trim().length > 0;
   const hasPillRow = specialties.length > 0 || Boolean(levelsPill) || matchReasons.length > 0;
 
   return (
@@ -212,11 +215,17 @@ const CoachCard = ({
         </div>
       ) : null}
 
-      <div className="cc-avail">
+      <div className={`cc-avail${hasAvailability ? "" : " cc-avail--none"}`}>
         <span className="cc-avail-dot" aria-hidden />
         <span>
-          {availabilityPhrase}
-          {locationLabel ? ` · ${locationLabel}` : ""}
+          {hasAvailability ? (
+            <>
+              {availabilityPhrase}
+              {locationLabel ? ` · ${locationLabel}` : ""}
+            </>
+          ) : (
+            "Availability not listed — message to ask"
+          )}
         </span>
       </div>
 
@@ -229,9 +238,17 @@ const CoachCard = ({
         <Link to={profileTo} state={profileState} className="cc-btn cc-btn--ghost">
           View profile
         </Link>
-        <button type="button" className="cc-btn cc-btn--primary" onClick={onBook}>
-          Book a lesson
-        </button>
+        {hasAvailability ? (
+          <button type="button" className="cc-btn cc-btn--primary" onClick={onBook}>
+            Book a lesson
+          </button>
+        ) : (
+          // Goes to the profile, which is where contact lives. Deliberately not the
+          // booking screen: there is nothing there to book.
+          <Link to={profileTo} state={profileState} className="cc-btn cc-btn--primary">
+            Message
+          </Link>
+        )}
       </div>
     </article>
   );

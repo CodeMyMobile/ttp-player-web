@@ -326,16 +326,29 @@ const budgetFlag = (
   return rate > budget.max ? "over" : "in";
 };
 
-// A time-anchored availability phrase derived from existing label data (no fabricated dates).
+/**
+ * The day parts a coach works, in sentence case.
+ *
+ * The API returns a closed four-value vocabulary — Weekday Mornings, Weekday Afternoons,
+ * Weekday Evenings, Weekends — and nothing finer. There is no timestamp anywhere on the
+ * list response, so the card says what the data says and stops there: no "next opening",
+ * no date, nothing implying a bookable slot we cannot actually name.
+ *
+ * Six of thirty coaches have none. They get the empty phrase, and the card swaps its CTA
+ * to Message rather than offering to book a time nobody has published.
+ */
 const deriveAvailabilityPhrase = (coach: CoachCardModel): string => {
-  const raw =
-    (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows[0] : "") ||
-    (typeof coach.availability === "string" ? coach.availability : "") ||
-    "";
-  const cleaned = String(raw).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim();
-  if (cleaned && !/^availability/i.test(cleaned)) return `Next opening · ${cleaned}`;
-  if ((coach.availableSlotCount ?? 0) > 0) return "Openings available";
-  return "Availability on request";
+  const windows = (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows : [])
+    .map((value) => String(value).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim())
+    .filter((value) => value && !/^availability/i.test(value));
+  if (windows.length === 0) return "";
+  // "Weekday Mornings, Weekends" reads better mid-sentence than title case.
+  const sentence = windows
+    .map((value, index) =>
+      index === 0 ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value.toLowerCase(),
+    )
+    .join(", ");
+  return sentence;
 };
 
 const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
@@ -446,14 +459,12 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
   const profileLocations = Array.isArray(profile.locations)
     ? (profile.locations as Array<Record<string, unknown>>).map((location) => pickFirstString(location.label))
     : [];
-  const availabilityWindows =
-    bookingDates.length > 0
-      ? bookingDates.map((date) => {
-          const label = pickFirstString(date.label);
-          const totalSlots = parseNumberValue(date.totalSlots);
-          return totalSlots && totalSlots > 0 ? `${label} (${totalSlots} slot${totalSlots === 1 ? "" : "s"})` : label;
-        }).filter(Boolean)
-      : toStringArray(profile.availability);
+  // Day-part strings only. This used to prefer booking.availableDates[].label when the
+  // per-coach profile had them, which is why cards were inconsistent: a coach with
+  // bookable slots showed "Sep 2" while the one beside them showed "Weekday Mornings".
+  // The list API returns only the four day-part strings, so that override made the card
+  // format depend on which coaches happened to have slots loaded. One format everywhere.
+  const availabilityWindows = toStringArray(profile.availability);
   const availableSlotCount = bookingDates.reduce((sum, date) => {
     const totalSlots = parseNumberValue(date.totalSlots);
     return totalSlots && totalSlots > 0 ? sum + totalSlots : sum;
