@@ -2,6 +2,50 @@ export const GAUGES = ["15L", "16", "16L", "17", "17L", "18"];
 
 export const vendorImageSrc = (vendor) => String(vendor?.image_url || "").trim();
 
+export const requiresVendorLogin = (isAuthenticated) => !isAuthenticated;
+
+export const createSelection = ({ mode = "supplied", stringId = null, family = null, requestedText = "", ownStringText = "" } = {}) => ({
+  mode,
+  stringId: stringId || null,
+  family: family || null,
+  requestedText: String(requestedText || ""),
+  ownStringText: String(ownStringText || ""),
+});
+
+export const nextScreenForVendor = (selection) => selection?.mode === "own" ? "rackets" : "setup";
+
+export const STRING_FIRST_QUESTIONS = [
+  { key: "arm", label: "Any arm or elbow trouble?", options: [["No problems", "none"], ["Occasional soreness", "soreness"], ["Recovering from an injury", "injury"]] },
+  { key: "game", label: "How would you describe your game?", options: [["Still learning", "learning"], ["Solid rally player", "rally"], ["Competitive / league", "competitive"]] },
+  { key: "break_frequency", label: "How often do you break strings?", options: [["Every few weeks", "weeks"], ["Every few months", "months"], ["Rarely or never", "rarely"]] },
+  { key: "preference", label: "What do you most want from a restring?", options: [["Spin and control", "spin_control"], ["Comfort and power", "comfort_power"], ["Feel and touch", "feel_touch"], ["Maximum durability", "durability"]] },
+];
+
+// The recommendation screen must never wait on network availability. The API
+// may enrich this later, but these four answers are sufficient for a safe
+// starting family and tension.
+export function wizardRecommendationFromAnswers(answers = {}) {
+  const armSensitive = ["soreness", "injury"].includes(answers.arm);
+  const preference = answers.preference;
+  const category = armSensitive
+    ? "std_multi"
+    : preference === "spin_control" || preference === "durability"
+      ? "std_poly"
+      : preference === "feel_touch"
+        ? "prem_multi"
+        : "std_multi";
+  return {
+    category,
+    categoryLabel: categoryLabel(category),
+    tensionLbs: armSensitive ? 52 : category.includes("poly") ? 50 : 54,
+  };
+}
+
+export function normaliseLastOrderPrefill(lastOrder) {
+  const item = lastOrder?.item || {};
+  return { vendorId: lastOrder?.vendor?.id || null, serviceTierId: item.service_tier_id || null, stringId: item.string_id || null, gauge: item.gauge || "16", tension: Number(item.tension_lbs_mains) || 54, crosses: Number(item.tension_lbs_crosses) || Number(item.tension_lbs_mains) || 54, racketMakeModel: item.racket_make_model || "", notes: item.notes || "" };
+}
+
 const normalizeGaugeList = (values) => {
   const rows = Array.isArray(values) ? values : [];
   return [...new Set(rows.map((value) => String(value || "").trim()).filter(Boolean))];
@@ -31,6 +75,26 @@ export const categoryLabel = (category) => ({
   std_poly: "Standard Polyester",
   prem_poly: "Premium Polyester",
 }[category] || "String");
+
+export function catalogFamilyFilters(catalog = []) {
+  const counts = new Map();
+  catalog.forEach((item) => {
+    const category = cleanText(item?.category);
+    if (category) counts.set(category, (counts.get(category) || 0) + 1);
+  });
+  return [
+    { category: "all", count: catalog.length },
+    ...[...counts.entries()].map(([category, count]) => ({ category, count })),
+  ];
+}
+
+export function filterCatalogStrings(catalog = [], { category = "all", query = "" } = {}) {
+  const needle = cleanText(query).toLowerCase();
+  return catalog.filter((item) => {
+    if (category !== "all" && item?.category !== category) return false;
+    return !needle || `${item?.brand || ""} ${item?.name || ""}`.toLowerCase().includes(needle);
+  });
+}
 
 const PRESET_COMPOSITIONS = new Set([
   "poly_multi_hybrid",
