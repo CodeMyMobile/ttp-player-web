@@ -1038,6 +1038,38 @@
 
 /* Set apart from the encouraging copy above it — this one is an obligation, and it is
    the difference between an opponent who can rebook and one who is stood up. */
+/* Destructive confirm. The dialog's last-child button is the violet primary; cancelling
+   a match is not a primary action, so it reads as a warning instead. */
+.league-confirm__actions button.league-confirm__destructive {
+  background: #b42318;
+  color: #fff;
+}
+
+.league-confirm__actions button.league-confirm__destructive:hover:not(:disabled) {
+  background: #912018;
+}
+
+/* Row action. Quiet by default — the row is information, not a prompt to cancel. */
+.btn-cancel-scheduled {
+  align-self: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-cancel-scheduled:hover {
+  border-color: #fda29b;
+  color: #b42318;
+  background: #fef3f2;
+}
+
 .league-confirm__cancel-note {
   margin: 14px 0 0;
   padding-top: 12px;

@@ -40,7 +40,7 @@ import {
   previewLeagueMatchNeed,
   sendLeagueMatchNeedInvites,
 } from "../api/leagues";
-import { listMatches } from "../api/matches";
+import { cancelHostedMatch, leaveMatch, listMatches } from "../api/matches";
 import { buildGoogleCalendarUrl } from "../utils/googleCalendarLink";
 import {
   buildScheduledLeagueMatches,
@@ -482,6 +482,11 @@ const LeagueDetailPage = () => {
     location: string | null;
     startDateTime: string | null;
   } | null>(null);
+  // Cancelling notifies the other player, so it gets a confirm step rather than firing
+  // straight off a row button.
+  const [confirmCancel, setConfirmCancel] = useState<ScheduledLeagueMatch | null>(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [standings, setStandings] = useState<LeagueStanding[]>([]);
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
@@ -980,6 +985,29 @@ const LeagueDetailPage = () => {
         details: league?.name ? `${league.name} — league match` : "League match",
       })
     : null;
+
+  // The host cancels the match outright; a player who accepted withdraws from it.
+  // Both notify the other side — see the wrappers in api/matches.
+  const cancelScheduled = async () => {
+    if (!confirmCancel) return;
+    setCancelSubmitting(true);
+    setCancelError(null);
+    try {
+      if (confirmCancel.viewerIsHost) {
+        await cancelHostedMatch({ matchId: confirmCancel.id, token });
+      } else {
+        await leaveMatch({ matchId: confirmCancel.id, token });
+      }
+      setScheduled((current) => current.filter((item) => String(item.id) !== String(confirmCancel.id)));
+      setConfirmCancel(null);
+      void loadScheduled();
+    } catch (err) {
+      // Keep the dialog open so the message is attached to the thing that failed.
+      setCancelError(err instanceof Error ? err.message : "Couldn't cancel this match.");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   const requestMatch = async () => {
     if (!confirmAccept) return;
@@ -1683,6 +1711,16 @@ const LeagueDetailPage = () => {
                           {match.viewerIsHost ? "You posted this match" : "You accepted this match"}
                         </p>
                       </div>
+                      <button
+                        type="button"
+                        className="btn-cancel-scheduled"
+                        onClick={() => {
+                          setCancelError(null);
+                          setConfirmCancel(match);
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </article>
                 );
@@ -1822,6 +1860,46 @@ const LeagueDetailPage = () => {
                 <button type="button" onClick={() => setConfirmAccept(null)}>Cancel</button>
                 <button type="button" disabled={needSubmitting} onClick={() => requireLeagueAuth(() => void requestMatch())}>
                   {needSubmitting ? "Joining..." : "Join match"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {confirmCancel ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Cancel this match">
+            <div className="league-confirm__backdrop" onClick={() => setConfirmCancel(null)} />
+            <div className="league-confirm__panel">
+              <h2>Cancel this match?</h2>
+              <p className="league-confirm__player">{confirmCancel.opponentName}</p>
+              {confirmCancel.startDateTime || confirmCancel.location ? (
+                <p className="league-confirm__meta">
+                  {[
+                    confirmCancel.startDateTime
+                      ? `${formatDate(confirmCancel.startDateTime, confirmCancel.timezone || DEFAULT_LEAGUE_TIMEZONE)} · ${formatTime(confirmCancel.startDateTime, confirmCancel.timezone || DEFAULT_LEAGUE_TIMEZONE)}`
+                      : null,
+                    confirmCancel.location,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+              <p className="league-confirm__note">
+                {firstNameOf(confirmCancel.opponentName)} will be told. If the match is soon,
+                message them as well so they have a chance to find another.
+              </p>
+              {cancelError ? <p className="league-need-error">{cancelError}</p> : null}
+              <div className="league-confirm__actions">
+                <button type="button" onClick={() => setConfirmCancel(null)}>
+                  Keep match
+                </button>
+                <button
+                  type="button"
+                  className="league-confirm__destructive"
+                  disabled={cancelSubmitting}
+                  onClick={() => void cancelScheduled()}
+                >
+                  {cancelSubmitting ? "Cancelling..." : "Cancel match"}
                 </button>
               </div>
             </div>

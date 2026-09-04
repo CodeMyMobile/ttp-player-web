@@ -95,6 +95,8 @@ interface LeagueTabsProps {
   // Mobile: the SectionNav is the tab bar, so omit the internal `.tabs` bar and
   // render only the active panel (avoids showing two tab strips).
   hideTabBar?: boolean;
+  /** Cancel or withdraw from a scheduled match. Omitted where the list is read-only. */
+  onCancelScheduled?: (matchId: string | number, viewerIsHost: boolean) => void;
   /** Opens the match-create flow with this roster player pre-selected. */
   onProposeMatch?: (playerId: string) => void;
   /** Players tab toolbar action. No log-a-score counterpart: a roster screen
@@ -141,6 +143,7 @@ const LeagueTabs = ({
   onSchedule,
   onChallenge,
   hideTabBar,
+  onCancelScheduled,
   onProposeMatch,
   onNeedMatch,
   viewerName,
@@ -514,6 +517,16 @@ const LeagueTabs = ({
               <span className="spacer meta">
                 {match.viewerIsHost ? "You posted" : "You accepted"}
               </span>
+              {onCancelScheduled ? (
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ fontSize: 12.5, padding: "7px 12px" }}
+                  onClick={() => onCancelScheduled(match.id, match.viewerIsHost)}
+                >
+                  Cancel
+                </button>
+              ) : null}
             </div>
           ))
         ) : (

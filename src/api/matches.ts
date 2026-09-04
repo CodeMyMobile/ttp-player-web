@@ -1598,3 +1598,43 @@ export const getMatchById = async (
 
   throw new Error("Match not found");
 };
+
+/**
+ * Cancel a match you host. Backend notifies the other player (routes/matches.js:918,
+ * notifyMatchCancelled), which is why this is host-only — a participant who is not the
+ * host gets 403 and should use leaveMatch instead.
+ */
+export const cancelHostedMatch = async ({
+  matchId,
+  token,
+  signal,
+}: {
+  matchId: string | number;
+  token?: string | null;
+  signal?: AbortSignal;
+}) =>
+  request<unknown>(`/matches/${matchId}/cancel`, {
+    method: "POST",
+    token: token ?? undefined,
+    signal,
+  });
+
+/**
+ * Withdraw from a match you joined. Sets your participant status to "left" and notifies
+ * the host with the match details (routes/matches.js:1003). The counterpart to
+ * cancelHostedMatch for the player who accepted rather than posted.
+ */
+export const leaveMatch = async ({
+  matchId,
+  token,
+  signal,
+}: {
+  matchId: string | number;
+  token?: string | null;
+  signal?: AbortSignal;
+}) =>
+  request<unknown>(`/matches/${matchId}/leave`, {
+    method: "POST",
+    token: token ?? undefined,
+    signal,
+  });

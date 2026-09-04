@@ -25,16 +25,48 @@ import StandingsPreview from "./StandingsPreview";
 import ThisWeekCard from "./ThisWeekCard";
 import { challengeService } from "./challengeService";
 import { useIsMobile } from "./useIsMobile";
+import { cancelHostedMatch, leaveMatch } from "../../api/matches";
+import { getStoredAuthToken } from "../../services/authToken";
 import { useLeagueDashboard } from "./useLeagueDashboard";
 import type { NextMoveTarget, TabKey } from "./types";
 
+// The cancel dialog reuses the .league-confirm panel defined in LeaguesPage.css. That
+// file is already in the single global stylesheet today, so this import changes no
+// output — it declares the dependency so the dialog does not silently lose its styling
+// if CSS code-splitting is ever turned on.
+import "../../pages/LeaguesPage.css";
 import "./LeagueDashboard.css";
 
 const LeagueDashboardPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { data, hero, nextMove, leagues, loading, error } = useLeagueDashboard(id);
+  // Cancelling notifies the other player, so it confirms first rather than firing off
+  // a row button. Host cancels the match; a player who accepted withdraws from it.
+  const [cancelTarget, setCancelTarget] = useState<{ id: string | number; viewerIsHost: boolean } | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const confirmCancelScheduled = async () => {
+    if (!cancelTarget) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const token = getStoredAuthToken({ preferScheme: "token" });
+      if (cancelTarget.viewerIsHost) {
+        await cancelHostedMatch({ matchId: cancelTarget.id, token });
+      } else {
+        await leaveMatch({ matchId: cancelTarget.id, token });
+      }
+      setCancelTarget(null);
+      reload();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Couldn't cancel this match.");
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+  const { data, hero, nextMove, leagues, loading, error, reload } = useLeagueDashboard(id);
   const [activeTab, setActiveTab] = useState<TabKey>("ladder");
   // Mobile section state (Overview + the four data tabs). Kept separate from the
   // desktop `activeTab` so "overview" can never leak into the desktop LeagueTabs.
@@ -256,6 +288,10 @@ const LeagueDashboardPage = () => {
                         viewerName={viewerName}
                         onNeedMatch={() => goPostAvailability()}
                         hideTabBar
+                        onCancelScheduled={(matchId, viewerIsHost) => {
+                          setCancelError(null);
+                          setCancelTarget({ id: matchId, viewerIsHost });
+                        }}
                       />
                     </div>
                   )}
@@ -338,12 +374,43 @@ const LeagueDashboardPage = () => {
                     // Desktop has no sticky bar. Deliberately no "Log a Score"
                     // here — nothing on a roster screen implies a finished match.
                     onNeedMatch={() => goPostAvailability()}
+                    onCancelScheduled={(matchId, viewerIsHost) => {
+                      setCancelError(null);
+                      setCancelTarget({ id: matchId, viewerIsHost });
+                    }}
                   />
                 </>
               )}
             </div>
           );
         })()}
+
+        {cancelTarget ? (
+          <div className="league-confirm" role="dialog" aria-modal="true" aria-label="Cancel this match">
+            <div className="league-confirm__backdrop" onClick={() => setCancelTarget(null)} />
+            <div className="league-confirm__panel">
+              <h2>Cancel this match?</h2>
+              <p className="league-confirm__note">
+                Your opponent will be told. If the match is soon, message them as well so
+                they have a chance to find another.
+              </p>
+              {cancelError ? <p className="league-need-error">{cancelError}</p> : null}
+              <div className="league-confirm__actions">
+                <button type="button" onClick={() => setCancelTarget(null)}>
+                  Keep match
+                </button>
+                <button
+                  type="button"
+                  className="league-confirm__destructive"
+                  disabled={cancelBusy}
+                  onClick={() => void confirmCancelScheduled()}
+                >
+                  {cancelBusy ? "Cancelling..." : "Cancel match"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {isMobile && data ? (
           <div className="nextmove-bar">
