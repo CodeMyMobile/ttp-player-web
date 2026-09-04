@@ -10,8 +10,7 @@ import {
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import CoachMatchCard from "../components/coaches/CoachMatchCard";
-import CoachSearchCard from "../components/coaches/CoachSearchCard";
+import CoachCard from "../components/coaches/CoachCard";
 import TrustCard from "../components/coaches/TrustCard";
 import { normalizeVenueLabel } from "../utils/venueLabel";
 import { fetchCoachProfile } from "../api/coachProfile";
@@ -43,7 +42,6 @@ import {
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
 
-import "./CoachMatchRecommendationsPage.css";
 import "./FindCoachesPage.css";
 
 type Mode = "normal" | "empty" | "error";
@@ -1345,7 +1343,8 @@ const FindCoaches = () => {
                   const tags = coach.specialties.slice(0, 3);
 
                   return isMatched ? (
-                    <CoachMatchCard
+                    <CoachCard
+                      variant="match"
                       key={coach.id}
                       name={coach.name}
                       imageUrl={coach.imageUrl}
@@ -1374,7 +1373,7 @@ const FindCoaches = () => {
                       }
                     />
                   ) : (
-                    <CoachSearchCard
+                    <CoachCard
                       key={coach.id}
                       name={coach.name}
                       imageUrl={coach.imageUrl}
