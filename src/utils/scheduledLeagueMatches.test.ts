@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildScheduledLeagueMatches,
+  hasViewerWithdrawn,
   toScheduledLeagueMatch,
 } from "./scheduledLeagueMatches";
 
@@ -132,4 +133,30 @@ test("survives a missing date and location rather than rendering blanks", () => 
   assert.equal(row.startDateTime, null);
   assert.equal(row.location, null);
   assert.equal(row.opponentName, "Keiko Shinomoto");
+});
+
+test("hasViewerWithdrawn reads the viewer's own participant row", () => {
+  // Exported so every surface listing "my" matches applies one rule — My Schedule reads
+  // the same endpoint as the league tab and was showing matches already cancelled.
+  const match = leagueMatch({
+    id: 900,
+    participants: [
+      { player_id: 1701, status: "hosting", profile: { full_name: "Fernando Ruiz" } },
+      { player_id: 6, status: "left", profile: { full_name: "Paul Cochrane" } },
+    ],
+  });
+
+  assert.equal(hasViewerWithdrawn(match, 6), true);
+  assert.equal(hasViewerWithdrawn(match, "6"), true, "ids compare as strings");
+  assert.equal(hasViewerWithdrawn(match, 1701), false, "the host has not withdrawn");
+});
+
+test("hasViewerWithdrawn is false when the viewer is unknown", () => {
+  // AuthContext starts user as null, so the first render has no id. Returning false
+  // shows the match rather than hiding everything while identity resolves.
+  const match = leagueMatch({ id: 900 });
+
+  assert.equal(hasViewerWithdrawn(match, undefined), false);
+  assert.equal(hasViewerWithdrawn(match, null), false);
+  assert.equal(hasViewerWithdrawn(null, 6), false);
 });
