@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  countSlotsInWindow,
+  currentWeekWindow,
   getAvailabilitySlotPeriod,
   isCancelledLessonStatus,
   mergeAvailabilityDayGroups,
@@ -150,4 +152,57 @@ test("getAvailabilitySlotPeriod uses displayed slot time", () => {
   assert.equal(getAvailabilitySlotPeriod("9:00 AM"), "morning");
   assert.equal(getAvailabilitySlotPeriod("12:00 PM"), "afternoon");
   assert.equal(getAvailabilitySlotPeriod("5:00 PM"), "evening");
+});
+
+// --- "this week" slot count -------------------------------------------------
+
+/** The real staging payload for coach 246: ten dates, Sep 7–18, 132 slots. */
+const SEP_7_TO_18 = [
+  { isoDate: "2026-09-07", slots: Array(14).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-08", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-09", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-10", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-11", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-14", slots: Array(14).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-15", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-16", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-17", slots: Array(13).fill({ id: "s", start: "" }) },
+  { isoDate: "2026-09-18", slots: Array(13).fill({ id: "s", start: "" }) },
+];
+
+test('"this week" counts the week, not the whole booking payload', () => {
+  // The bug: 132 was rendered beside the Book button under a "this week" label.
+  assert.equal(SEP_7_TO_18.reduce((n, d) => n + d.slots.length, 0), 132);
+  // Mon Sep 7 through Sun Sep 13 — the second week is excluded entirely.
+  assert.equal(countSlotsInWindow(SEP_7_TO_18, "2026-09-07", "2026-09-13"), 66);
+});
+
+test("the slot window includes both of its ends", () => {
+  const days = [
+    { isoDate: "2026-09-06", slots: [{ id: "a", start: "" }] },
+    { isoDate: "2026-09-07", slots: [{ id: "b", start: "" }] },
+    { isoDate: "2026-09-13", slots: [{ id: "c", start: "" }] },
+    { isoDate: "2026-09-14", slots: [{ id: "d", start: "" }] },
+  ];
+  // Today and the seventh day both count; the days either side of them do not.
+  assert.equal(countSlotsInWindow(days, "2026-09-07", "2026-09-13"), 2);
+});
+
+test("the slot count tolerates missing days and missing slots", () => {
+  assert.equal(countSlotsInWindow([], "2026-09-07", "2026-09-13"), 0);
+  assert.equal(
+    countSlotsInWindow(
+      [{ isoDate: "2026-09-08", slots: undefined as never }],
+      "2026-09-07",
+      "2026-09-13",
+    ),
+    0,
+  );
+});
+
+test("the week window is seven days inclusive", () => {
+  const { windowStart, windowEnd } = currentWeekWindow("2026-09-07");
+  assert.equal(windowStart, "2026-09-07");
+  // +6, not +7: a seven-day window counted inclusively ends on the seventh day.
+  assert.equal(windowEnd, "2026-09-13");
 });

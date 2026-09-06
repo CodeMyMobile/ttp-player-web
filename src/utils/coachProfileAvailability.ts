@@ -96,3 +96,39 @@ export const getAvailabilitySlotPeriod = (timeLabel: string): CoachProfileAvaila
   if (hour < 17) return "afternoon";
   return "evening";
 };
+
+/**
+ * How many of a coach's open slots fall inside the next seven days.
+ *
+ * The profile renders this as "N slots available this week" beside the Book button, so
+ * the number has to mean the week. The booking payload is not week-scoped — it runs
+ * about a fortnight — and counting all of it under that label overstated supply by
+ * roughly double on the profiles we checked.
+ *
+ * Bounds on ISO day strings rather than Date arithmetic, the same way
+ * utils/activityFeed itemsWithinWindow bounds the home feed: the day keys are already
+ * `YYYY-MM-DD`, so a lexical compare is the comparison, with no timezone to get wrong.
+ *
+ * The window is inclusive at both ends: today counts, and so does the seventh day.
+ */
+export const countSlotsInWindow = <T extends CoachProfileAvailabilitySlot>(
+  days: Array<{ isoDate: string; slots: T[] }>,
+  windowStart: string,
+  windowEnd: string,
+): number =>
+  (days ?? []).reduce(
+    (sum, day) =>
+      typeof day?.isoDate === "string" && day.isoDate >= windowStart && day.isoDate <= windowEnd
+        ? sum + (day.slots?.length ?? 0)
+        : sum,
+    0,
+  );
+
+/** Inclusive [today, today+6] as ISO day strings — the window countSlotsInWindow expects. */
+export const currentWeekWindow = (now: moment.MomentInput = undefined) => {
+  const start = now ? moment(now) : moment();
+  return {
+    windowStart: start.format("YYYY-MM-DD"),
+    windowEnd: start.clone().add(6, "days").format("YYYY-MM-DD"),
+  };
+};
