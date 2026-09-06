@@ -153,7 +153,7 @@ const MatchBrowserPage = () => {
     if (!window.confirm("Cancel this posted availability?")) return;
     setDeletingId(need.id);
     try {
-      await deleteLeagueMatchNeed({ leagueId: id, matchId: need.id, token });
+      await deleteLeagueMatchNeed({ matchId: need.id, token });
       const removedId = String(need.id);
       setMyNeeds((prev) => prev.filter((n) => String(n.id) !== removedId));
       setAllMatchNeeds((prev) => prev.filter((n) => String(n.id) !== removedId));

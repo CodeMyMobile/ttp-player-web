@@ -83,13 +83,18 @@ test("deleteLeagueMatchNeed issues DELETE with auth header", async () => {
   }) as typeof fetch;
 
   try {
-    const result = await deleteLeagueMatchNeed({ leagueId: 10, matchId: 55, token: "abc" });
+    const result = await deleteLeagueMatchNeed({ matchId: 55, token: "abc" });
     assert.equal(result.deleted, true);
   } finally {
     globalThis.fetch = previousFetch;
   }
 
-  assert.match(requestedUrl, /\/leagues\/10\/match-needs\/55$/);
+  // No league id: the backend route is `/leagues/match-needs/:matchId`
+  // (ttp-api routes/leagues.js:1017), unlike the other match-needs routes.
+  // Asserting the whole path, not a suffix — a suffix match passes just as
+  // happily on `/leagues/10/match-needs/55`, which is the URL that 404'd.
+  assert.match(requestedUrl, /\/leagues\/match-needs\/55$/);
+  assert.doesNotMatch(requestedUrl, /\/leagues\/\d+\/match-needs\//);
   assert.equal(requestedMethod, "DELETE");
   assert.ok(requestedAuth?.includes("abc"));
 });
