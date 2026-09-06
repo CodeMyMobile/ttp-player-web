@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  COACH_CHIPS,
+  type CoachChipKey,
   abbreviateVenueLabel,
   coachMatchesChip,
   countSessionsThisWeek,
@@ -32,7 +34,7 @@ const coach = (over: Record<string, unknown> = {}) => ({
 
 test("chips match the fields the API actually populates", () => {
   assert.equal(coachMatchesChip(coach(), "juniors"), true);
-  assert.equal(coachMatchesChip(coach(), "beginners"), true);
+  assert.equal(coachMatchesChip(coach(), "beginner"), true);
   assert.equal(coachMatchesChip(coach(), "groups"), true);
 });
 
@@ -42,7 +44,7 @@ test("chips are case-insensitive — the page title-cases what the API sends low
   // case-sensitive match would return an empty list for every chip, silently.
   const raw = coach({ specialties: ["juniors"], levels: ["beginner"], formats: ["group"] });
   assert.equal(coachMatchesChip(raw, "juniors"), true);
-  assert.equal(coachMatchesChip(raw, "beginners"), true);
+  assert.equal(coachMatchesChip(raw, "beginner"), true);
   assert.equal(coachMatchesChip(raw, "groups"), true);
 });
 
@@ -55,7 +57,7 @@ test("each chip reads only its own field", () => {
   // A coach who teaches juniors is not thereby a Beginners coach, and vice versa. If the
   // vocabulary shifts and a value lands in the wrong array, this catches it.
   assert.equal(coachMatchesChip(coach({ specialties: [], levels: ["Beginner"] }), "juniors"), false);
-  assert.equal(coachMatchesChip(coach({ levels: [], specialties: ["Juniors"] }), "beginners"), false);
+  assert.equal(coachMatchesChip(coach({ levels: [], specialties: ["Juniors"] }), "beginner"), false);
   assert.equal(coachMatchesChip(coach({ formats: [], specialties: ["Juniors"] }), "groups"), false);
 });
 
@@ -68,7 +70,7 @@ test("chips are AND, and an empty selection matches everyone", () => {
   const juniorsOnly = coach({ specialties: ["Juniors"], levels: [], formats: [] });
   assert.equal(coachMatchesChips(juniorsOnly, []), true);
   assert.equal(coachMatchesChips(juniorsOnly, ["juniors"]), true);
-  assert.equal(coachMatchesChips(juniorsOnly, ["juniors", "beginners"]), false);
+  assert.equal(coachMatchesChips(juniorsOnly, ["juniors", "beginner"]), false);
 });
 
 test("sorts nearest, cheapest and most students", () => {
@@ -242,4 +244,49 @@ test("session counting crosses a month boundary", () => {
 test("session counting ignores junk and missing timestamps", () => {
   assert.equal(countSessionsThisWeek([null, undefined, "", "not-a-date"], "2026-09-06"), 0);
   assert.equal(countSessionsThisWeek(["2026-09-07T10:00:00.000Z"], ""), 0);
+});
+
+// --- level chips -------------------------------------------------------------
+
+test("each level chip matches only its own level", () => {
+  const c = (levels: string[]) => ({ levels, specialties: [], formats: [] });
+  assert.equal(coachMatchesChip(c(["Intermediate"]), "intermediate"), true);
+  assert.equal(coachMatchesChip(c(["Intermediate"]), "advanced"), false);
+  assert.equal(coachMatchesChip(c(["Competitive"]), "competitive"), true);
+  assert.equal(coachMatchesChip(c(["Advanced"]), "advanced"), true);
+  // The API sends lowercase and the page title-cases it; both must match.
+  assert.equal(coachMatchesChip(c(["advanced"]), "advanced"), true);
+});
+
+test("level chips combine with AND, like every other chip", () => {
+  const both = { levels: ["Beginner", "Advanced"], specialties: [], formats: [] };
+  const onlyBeginner = { levels: ["Beginner"], specialties: [], formats: [] };
+  assert.equal(coachMatchesChips(both, ["beginner", "advanced"]), true);
+  // Selecting two levels asks for a coach who teaches both, not either. With this
+  // roster that is nearly the same set, but the semantics are worth pinning down.
+  assert.equal(coachMatchesChips(onlyBeginner, ["beginner", "advanced"]), false);
+});
+
+test("a coach who publishes no levels matches no level chip", () => {
+  // Half the roster is in this position today. They are excluded by any level chip,
+  // which is the behaviour to expect until the coach data is filled in.
+  const blank = { levels: [], specialties: ["Juniors"], formats: ["Group"] };
+  for (const chip of ["beginner", "intermediate", "advanced", "competitive"] as const) {
+    assert.equal(coachMatchesChip(blank, chip), false);
+  }
+  assert.equal(coachMatchesChip(blank, "juniors"), true);
+});
+
+test("an unrecognised chip key does not empty the list", () => {
+  // A stale key from an old link must not AND everything away with no explanation.
+  const anyone = { levels: [], specialties: [], formats: [] };
+  assert.equal(coachMatchesChip(anyone, "no-such-chip" as unknown as CoachChipKey), true);
+  assert.equal(coachMatchesChips(anyone, ["no-such-chip" as unknown as CoachChipKey]), true);
+});
+
+test("the chip row is levels in skill order, then the other two", () => {
+  assert.deepEqual(
+    COACH_CHIPS.map((chip) => chip.key),
+    ["beginner", "intermediate", "advanced", "competitive", "juniors", "groups"],
+  );
 });

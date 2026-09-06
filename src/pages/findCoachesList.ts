@@ -24,7 +24,13 @@ export const COACH_SORT_OPTIONS: CoachSortOption[] = [
   { key: "students-high", label: "Most students" },
 ];
 
-export type CoachChipKey = "juniors" | "beginners" | "groups";
+export type CoachChipKey =
+  | "beginner"
+  | "intermediate"
+  | "advanced"
+  | "competitive"
+  | "juniors"
+  | "groups";
 
 /**
  * The shape the chips read. A subset of the page's card model, so this file does not
@@ -58,14 +64,26 @@ export interface CoachListItem extends CoachChipSource {
  * but the fact that these four strings still correspond to something real.
  */
 const CHIP_MATCHERS: Record<CoachChipKey, { field: keyof CoachChipSource; values: string[] }> = {
+  beginner: { field: "levels", values: ["beginner"] },
+  intermediate: { field: "levels", values: ["intermediate"] },
+  advanced: { field: "levels", values: ["advanced"] },
+  competitive: { field: "levels", values: ["competitive"] },
   juniors: { field: "specialties", values: ["juniors"] },
-  beginners: { field: "levels", values: ["beginner"] },
   groups: { field: "formats", values: ["group", "clinics"] },
 };
 
+/**
+ * Levels first and in skill order, not alphabetically: the row reads as a ladder a player
+ * can find themselves on, and "Advanced, Beginner, Competitive, Intermediate" puts the
+ * two ends of that ladder next to each other. Juniors (who) and Groups (format) follow,
+ * because they answer different questions from the four in front of them.
+ */
 export const COACH_CHIPS: Array<{ key: CoachChipKey; label: string }> = [
+  { key: "beginner", label: "Beginner" },
+  { key: "intermediate", label: "Intermediate" },
+  { key: "advanced", label: "Advanced" },
+  { key: "competitive", label: "Competitive" },
   { key: "juniors", label: "Juniors" },
-  { key: "beginners", label: "Beginners" },
   { key: "groups", label: "Groups" },
 ];
 
@@ -74,7 +92,10 @@ const lower = (values: string[] | undefined) =>
 
 export const coachMatchesChip = (coach: CoachChipSource, chip: CoachChipKey): boolean => {
   const matcher = CHIP_MATCHERS[chip];
-  if (!matcher) return false;
+  // An unrecognised chip matches everything rather than nothing. Chip keys are not
+  // persisted today, but they are the obvious thing to put in a URL, and a stale key
+  // from an old link would otherwise AND the list down to empty with no way to tell why.
+  if (!matcher) return true;
   const present = lower(coach[matcher.field]);
   return matcher.values.some((value) => present.includes(value));
 };
