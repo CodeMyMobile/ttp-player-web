@@ -147,7 +147,7 @@ const CoachCard = ({
   const hasPillRow = specialties.length > 0 || Boolean(levelsPill) || matchReasons.length > 0;
 
   return (
-    <article className="coach-card">
+    <article className="cc-card">
       <div className="cc-head">
         <div className="cc-photo">
           {imageUrl ? <img src={imageUrl} alt={name} /> : <span>{initials}</span>}

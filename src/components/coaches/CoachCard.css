@@ -11,7 +11,18 @@
 /* Non-matched /find-coaches search card. Shares the visual language of CoachMatchCard (cmc-*),
    plus a trust mark, outlined specialty tags, and an availability strip. Primary = app #8B5CF6. */
 
-.coach-card {
+/* `cc-card`, not `coach-card`: that name is already taken twice — App.css:1847 defines a
+   global .coach-card with `align-items: center; text-align: center`, and
+   PlayerCoachListPage.css:508 defines another for My Coaches. App.css is imported in
+   App.jsx so it loads on every page, and it was winning here: the whole card rendered
+   centre-aligned, with the price collapsed inline beside the name instead of held right.
+   Every child of this component is already `cc-`-prefixed; the root now matches. */
+.cc-card {
+  /* A grid item's automatic minimum is its min-content, so a card whose longest
+     unbreakable run exceeds the column forces the track wider than the container and the
+     page scrolls sideways. Content-dependent, which is why it showed on the production
+     roster at 390px but not on the shorter staging one. */
+  min-width: 0;
   background: #fff;
   border: 1px solid #e8e9ef;
   border-radius: 16px;
@@ -65,8 +76,13 @@
   letter-spacing: -0.01em;
   color: #16161d;
   min-width: 0;
-  /* Keep a long name on one line; the row wraps around it instead. */
+  /* Keep a long name on one line; the row wraps around it instead. Truncation is the
+     safety net: nowrap without it let a long name run out of .cc-head-mid and under the
+     price, which the old centred layout had been hiding. */
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .cc-dist {
   margin-top: 3px;
@@ -338,5 +354,24 @@
 
   .cc-actions {
     gap: 8px;
+  }
+
+  /* A 60px photo and a 19px name left about 129px for the name on a 390px card, which
+     truncated ordinary two-word names — "Makaela Moseley", "Anna Kynclova". A name is the
+     one thing on the card a player is looking for, so the photo and the type give way to
+     it rather than the other way round. The reference card runs 46px and 15px here. */
+  .cc-photo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .cc-name {
+    font-size: 17px;
+  }
+
+  .cc-rate-main {
+    font-size: 17px;
   }
 }
