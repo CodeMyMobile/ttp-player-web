@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, CalendarDays, MapPin, Pin, Star, Users } from "lucide-react";
 
 import {
+  deleteLeagueMatchNeed,
   getLeagueMatchNeeds,
   isLeagueSlotAvailable,
   type League,
@@ -46,6 +47,8 @@ const MatchBrowserPage = () => {
   const [needPage, setNeedPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -136,6 +139,31 @@ const MatchBrowserPage = () => {
     if (needPage > totalNeedPages) setNeedPage(totalNeedPages);
   }, [needPage, totalNeedPages]);
 
+  // Delete errors auto-clear so a stale message does not linger on the page.
+  useEffect(() => {
+    if (!deleteError) return undefined;
+    const timer = setTimeout(() => setDeleteError(null), 4000);
+    return () => clearTimeout(timer);
+  }, [deleteError]);
+
+  // Cancelling a posted need removes it from both lists: the personal call
+  // returns myNeeds, and scope=all includes my own needs in `needs`.
+  const handleDeleteNeed = async (need: LeagueMatchNeed) => {
+    if (!id || deletingId !== null) return;
+    if (!window.confirm("Cancel this posted availability?")) return;
+    setDeletingId(need.id);
+    try {
+      await deleteLeagueMatchNeed({ matchId: need.id, token });
+      const removedId = String(need.id);
+      setMyNeeds((prev) => prev.filter((n) => String(n.id) !== removedId));
+      setAllMatchNeeds((prev) => prev.filter((n) => String(n.id) !== removedId));
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not cancel this availability");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // "Post yours" opens the multi-slot availability flow; the quick single-slot
   // drawer still lives on LeagueDetailPage's "Need a Match". Connecting hands off
   // to LeagueDetailPage via router state.
@@ -177,6 +205,11 @@ const MatchBrowserPage = () => {
                 <h2>My posted availability</h2>
                 <span>{futureMyNeeds.length} active</span>
               </div>
+              {deleteError ? (
+                <p className="my-availability-error" role="alert">
+                  {deleteError}
+                </p>
+              ) : null}
               {futureMyNeeds.length ? (
                 <div className="my-availability-list">
                   {futureMyNeeds.map((need) => (
@@ -184,6 +217,14 @@ const MatchBrowserPage = () => {
                       <strong>{formatDate(need.start_date_time, need.timezone)} · {formatTime(need.start_date_time, need.timezone)}</strong>
                       <p>{need.location_text || need.match_location || need.location || "Location TBD"}</p>
                       <span>Live • {need.league_visibility === "open" ? "Open" : "League only"}</span>
+                      <button
+                        type="button"
+                        className="my-availability-card__cancel"
+                        disabled={deletingId === need.id}
+                        onClick={() => void handleDeleteNeed(need)}
+                      >
+                        {deletingId === need.id ? "Cancelling…" : "Cancel"}
+                      </button>
                     </article>
                   ))}
                 </div>

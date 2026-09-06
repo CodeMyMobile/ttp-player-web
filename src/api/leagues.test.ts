@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deleteLeagueMatchNeed,
   getLeagueDetail,
   getLeagueMatchNeeds,
   getLeaguePlayers,
@@ -63,6 +64,39 @@ test("getLeagueMatchNeeds sends scope=all query", async () => {
   }
 
   assert.match(requestedUrl, /\/leagues\/10\/match-needs\?scope=all$/);
+});
+
+test("deleteLeagueMatchNeed issues DELETE with auth header", async () => {
+  const previousFetch = globalThis.fetch;
+  let requestedUrl = "";
+  let requestedMethod = "GET";
+  let requestedAuth: string | null = null;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    requestedUrl = String(input);
+    requestedMethod = (init?.method ?? "GET").toUpperCase();
+    const headers = new Headers(init?.headers);
+    requestedAuth = headers.get("Authorization");
+    return new Response(JSON.stringify({ deleted: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await deleteLeagueMatchNeed({ matchId: 55, token: "abc" });
+    assert.equal(result.deleted, true);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  // No league id: the backend route is `/leagues/match-needs/:matchId`
+  // (ttp-api routes/leagues.js:1017), unlike the other match-needs routes.
+  // Asserting the whole path, not a suffix — a suffix match passes just as
+  // happily on `/leagues/10/match-needs/55`, which is the URL that 404'd.
+  assert.match(requestedUrl, /\/leagues\/match-needs\/55$/);
+  assert.doesNotMatch(requestedUrl, /\/leagues\/\d+\/match-needs\//);
+  assert.equal(requestedMethod, "DELETE");
+  assert.ok(requestedAuth?.includes("abc"));
 });
 
 test("getLeaguePlayers sends rated ladder filters", async () => {

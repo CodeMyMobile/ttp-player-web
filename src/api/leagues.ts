@@ -630,6 +630,28 @@ export const sendLeagueMatchNeedInvites = ({
     },
   );
 
+/**
+ * No league id in the path. Every other match-needs route is `/leagues/:id/match-needs/...`,
+ * but the DELETE is mounted as `/match-needs/:matchId` (ttp-api routes/leagues.js:1017) —
+ * the match id alone identifies the row. Sending the league id produced a URL that matched
+ * no route, and Express answered with an HTML 404 page; api/http.ts then failed to parse
+ * that as JSON, so a wrong path surfaced in the UI as a server error.
+ */
+export const deleteLeagueMatchNeed = ({
+  matchId,
+  token,
+  signal,
+}: {
+  matchId: number | string;
+  token?: string;
+  signal?: AbortSignal;
+}) =>
+  request<{ deleted: boolean }>(`/leagues/match-needs/${matchId}`, {
+    method: "DELETE",
+    token,
+    signal,
+  });
+
 export const dismissLeagueMatchSuggestion = ({
   suggestionId,
   token,
