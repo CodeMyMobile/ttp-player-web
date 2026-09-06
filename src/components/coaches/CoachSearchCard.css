@@ -152,6 +152,12 @@
   display: flex;
   align-items: stretch;
   gap: 10px;
+  /* Pins the row to the bottom of a stretched card so buttons line up across a grid row.
+     The grid already stretches cards; without this the row lands wherever the content
+     above it happens to end, and cards with no tags or no credibility line sat high.
+     Deliberately no min-height on the tag row — pinning here means a card with no
+     specialties can collapse that row and still align. */
+  margin-top: auto;
 }
 /* inline-flex centers both axes for <button> and <a> alike — text-align alone
    left the <a> ("View profile") label pinned to the top of the stretched box,
