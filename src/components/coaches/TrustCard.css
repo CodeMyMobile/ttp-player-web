@@ -1,7 +1,7 @@
 /* Find a Coach trust card — promotes the "coaches are invited" USP.
    Reuses the green palette already used by the old .fc-invite-banner callout and
-   the CoachTrustMark badge (no new colour values). Responsive: an editorial card
-   at >= 640px (the page's mobile breakpoint), a single-line strip below it. */
+   the CoachTrustMark badge (no new colour values). Desktop only — see the media
+   query at the foot of this file. */
 .trust-card {
   margin-bottom: 16px;
 }
@@ -73,70 +73,11 @@
   color: #047857;
 }
 
-/* ---- Compact strip (mobile) — hidden by default (desktop shows the editorial) ---- */
-.trust-card__strip {
-  display: none;
-}
-
-/* ---- Responsive switch at the page's 640px breakpoint ---- */
+/* ---- Responsive switch at the page's 640px breakpoint ----
+   The card is desktop-only: below 640px the page carries the same claim in its
+   results-count row (.fcv2-mobile-trust), so there is no second treatment here. */
 @media (max-width: 640px) {
-  /* The in-shell instance is desktop-only; the mobile-search-block instance renders
-     the strip. */
   .trust-card--desktop {
-    display: none;
-  }
-
-  .trust-card__editorial {
-    display: none;
-  }
-
-  .trust-card__strip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    border-radius: 10px;
-    background: linear-gradient(100deg, #ecfdf3, #f0fdf4);
-    border: 0.5px solid #bbf7d0;
-  }
-
-  .trust-card__strip-icon {
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    background: #d1fae5; /* deeper green */
-    color: #065f46; /* dark green */
-  }
-
-  .trust-card__strip-title {
-    min-width: 0;
-    font-size: 14px;
-    font-weight: 500;
-    color: #065f46; /* darkest green */
-    white-space: nowrap;
-  }
-
-  .trust-card__strip-pill {
-    margin-left: auto;
-    flex: 0 0 auto;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: #d1fae5; /* mid/deeper green fill */
-    color: #047857; /* deeper green text */
-    font-size: 11px;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-}
-
-/* Priority rule: on the very smallest screens, hide the "Invite-only" pill before
-   the headline (the priority element) would be squeezed. */
-@media (max-width: 330px) {
-  .trust-card__strip-pill {
     display: none;
   }
 }

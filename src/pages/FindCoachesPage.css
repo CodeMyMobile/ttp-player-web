@@ -965,24 +965,116 @@
     padding: 10px 16px 0;
   }
 
-  .fcv2-mobile-title-row {
+  /* Chips: one line that scrolls sideways, never a second row — the block is sticky, so
+     a wrap would eat a chunk of the viewport for as long as the filter is on. Pattern
+     from LeagueDashboard.css:572. Negative margins let the row bleed to the screen edge
+     so the last chip reads as scrollable rather than clipped. */
+  .fcv2-mobile-chips {
     display: flex;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin: 10px -16px 0;
+    padding: 0 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .fcv2-mobile-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fcv2-mobile-chips .fcv2-chip {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  /* The wizard chip is the one filled control in the row: it starts something rather
+     than narrowing what is already there. */
+  .fcv2-mobile-chips .fcv2-chip--match {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-color: var(--color-primary, #8b5cf6);
+    background: var(--color-primary, #8b5cf6);
+    color: #fff;
+  }
+
+  /* Count on the left, sort on the right, trust folded in beside the count. */
+  .fcv2-mobile-meta {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-top: 10px;
   }
 
-  .fcv2-mobile-title-row h1 {
+  .fcv2-mobile-count {
     margin: 0;
-    font-size: 20px;
-    line-height: 1.1;
-  }
-
-  .fcv2-mobile-title-row p {
-    margin: 2px 0 0;
+    min-width: 0;
     color: #64748b;
     font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* The separator is a pseudo-element so the count string stays exactly what the page
+     computed — no punctuation baked into the label for the sake of this layout. */
+  /* Sits outside the button, not as its ::before: text-decoration propagates to
+     descendants and cannot be switched off on one, so a separator inside the link
+     would be underlined along with it. */
+  .fcv2-mobile-count .sep {
+    margin: 0 6px;
+    color: #94a3b8;
+  }
+
+  .fcv2-mobile-trust {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #047857;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .fcv2-mobile-trust::after {
+    content: " \203A";
+    text-decoration: none;
+  }
+
+  .fcv2-mobile-trust-note {
+    margin: 8px 0 0;
+    padding: 9px 11px;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* Compact by subtraction: no border or fill, so it reads as the row's own control
+     rather than a button competing with the chips directly above it. */
+  .fcv2-mobile-sort {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .fcv2-mobile-sort select {
+    border: 0;
+    background: none;
+    color: #334155;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    cursor: pointer;
   }
 
   .fcv2-mobile-search-row {

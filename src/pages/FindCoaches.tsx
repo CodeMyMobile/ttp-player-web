@@ -6,12 +6,14 @@ import {
   MapPin,
   Pencil,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
 import CoachCard from "../components/coaches/CoachCard";
 import TrustCard from "../components/coaches/TrustCard";
+import { TRUST_TOOLTIP } from "../components/coaches/CoachTrustMark";
 import { normalizeVenueLabel } from "../utils/venueLabel";
 import {
   COACH_CHIPS,
@@ -718,6 +720,9 @@ const FindCoaches = () => {
   );
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<CoachSortKey>("nearest");
+  // Mobile only: the trust claim is one tap away rather than a standing card. Same copy
+  // the per-coach shield shows, so there is one wording for it in the app.
+  const [mobileTrustOpen, setMobileTrustOpen] = useState(false);
   const [selectedChips, setSelectedChips] = useState<CoachChipKey[]>([]);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   // coach_id -> number of upcoming group sessions. One request for the whole page rather
@@ -1309,13 +1314,10 @@ const FindCoaches = () => {
     <MainLayout mobileChrome="home" desktopChrome="home">
       <div className="fcv2-page">
         <section className="fcv2-mobile-search-block">
-          {!isMatchedMode ? <TrustCard /> : null}
-          <div className="fcv2-mobile-title-row">
-            <div>
-              <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
-              <p>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</p>
-            </div>
-          </div>
+          {/* The visible heading is dropped below 640px — the nav already says where you
+              are and the row that follows carries the only information a heading would.
+              The h1 stays for document structure. Desktop keeps its heading (.fcv2-page-head). */}
+          <h1 className="sr-only">{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
 
           {!isMatchedMode ? (
             <div className="fcv2-mobile-search-row">
@@ -1335,6 +1337,78 @@ const FindCoaches = () => {
             </div>
           ) : null}
 
+          {/* Chips scroll horizontally rather than wrapping, so the block keeps a fixed
+              height as filters are added — the pattern from LeagueDashboard.css:572. */}
+          {!isMatchedMode ? (
+            <div className="fcv2-mobile-chips" role="group" aria-label="Filter coaches">
+              {/* The wizard is a filter like any other here, so it reads as the first
+                  chip rather than a full-width bar competing with the results. */}
+              <button
+                type="button"
+                className="fcv2-chip fcv2-chip--match"
+                onClick={openCoachMatchSurvey}
+              >
+                <Sparkles size={13} strokeWidth={2.4} aria-hidden="true" />
+                Match me
+              </button>
+              {COACH_CHIPS.map((chip) => {
+                const active = selectedChips.includes(chip.key);
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className={`fcv2-chip${active ? " is-active" : ""}`}
+                    aria-pressed={active}
+                    onClick={() => toggleChip(chip.key)}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {/* Count, trust and sort share one row: three short pieces of status that would
+              each waste a full line of a phone screen on their own. */}
+          <div className="fcv2-mobile-meta">
+            <p className="fcv2-mobile-count">
+              {isMatchedMode ? matchedSubtitle : resultsCountLabel}
+              {!isMatchedMode ? (
+                <>
+                  <span className="sep" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    className="fcv2-mobile-trust"
+                    aria-expanded={mobileTrustOpen}
+                    onClick={() => setMobileTrustOpen((open) => !open)}
+                  >
+                    all invited
+                  </button>
+                </>
+              ) : null}
+            </p>
+            {!isMatchedMode ? (
+              <label className="fcv2-mobile-sort">
+                <span className="sr-only">Sort coaches</span>
+                <select
+                  value={sortKey}
+                  onChange={(event) => setSortKey(event.target.value as CoachSortKey)}
+                  aria-label="Sort coaches"
+                >
+                  {COACH_SORT_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+
+          {mobileTrustOpen ? (
+            <p className="fcv2-mobile-trust-note">{TRUST_TOOLTIP}</p>
+          ) : null}
+
           {locationPermissionPrompt ? (
             <section className="fcv2-location-permission-banner" aria-label="Location permission">
               <div>
@@ -1348,9 +1422,11 @@ const FindCoaches = () => {
           ) : null}
         </section>
 
-        <section className="fcv2-mobile-banner-block">
-          {renderCoachMatchPanel()}
-        </section>
+        {/* Only the matched summary, with its edit/clear controls. The pre-match banner
+            is the "Match me" chip above; rendering both would ask twice. */}
+        {isMatchedMode ? (
+          <section className="fcv2-mobile-banner-block">{renderCoachMatchPanel()}</section>
+        ) : null}
 
         <div className="fcv2-shell">
           <section className="fcv2-page-head">
