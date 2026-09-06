@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -6,15 +6,30 @@ import {
   MapPin,
   Pencil,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 
 import MainLayout from "../components/MainLayout";
-import CoachMatchCard from "../components/coaches/CoachMatchCard";
-import CoachSearchCard from "../components/coaches/CoachSearchCard";
+import CoachCard from "../components/coaches/CoachCard";
 import TrustCard from "../components/coaches/TrustCard";
+import { TRUST_TOOLTIP } from "../components/coaches/CoachTrustMark";
 import { normalizeVenueLabel } from "../utils/venueLabel";
+import {
+  abbreviateVenueLabel,
+  COACH_CHIPS,
+  countSessionsThisWeek,
+  COACH_SORT_OPTIONS,
+  formatAvailabilityPhrase,
+  type CoachChipKey,
+  type CoachSortKey,
+  coachMatchesChips,
+  countWithinRadius,
+  findDistanceDividerIndex,
+  sortCoaches,
+} from "./findCoachesList";
 import { fetchCoachProfile } from "../api/coachProfile";
+import { fetchUpcomingGroupLessons } from "../api/groupLessons";
 import SimpleSurvey from "../components/questionnaire/SimpleSurvey";
 import { type Coach, type CoachHighlight } from "../data/mockCoaches";
 import { useAuth } from "../context/AuthContext";
@@ -30,6 +45,7 @@ import {
   getStoredLocation,
   getStoredLocationLabel,
   getStoredLocationRadius,
+  requestLocationPicker,
   storeLocation,
   storeLocationLabel,
   USER_LOCATION_CHANGED_EVENT,
@@ -43,10 +59,13 @@ import {
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
 
-import "./CoachMatchRecommendationsPage.css";
 import "./FindCoachesPage.css";
 
-type Mode = "normal" | "empty" | "error";
+// "out-of-area" is distinct from "empty" on purpose: the search endpoint returns 404
+// when no coach LOCATION falls inside the radius, which means we do not cover where the
+// player is. That is not the same as "no coach matched your filters", and telling
+// someone in Tokyo to broaden their filters is useless advice.
+type Mode = "normal" | "empty" | "out-of-area" | "error";
 type Status = "loading" | "ready";
 
 type SelectedLocation = {
@@ -84,6 +103,22 @@ type CoachCardModel = Coach & {
   semiRateValue: number | null;
   availableSlotCount: number | null;
 };
+
+/**
+ * The radius we ASK THE SERVER for — deliberately large, and not a user-facing distance.
+ *
+ * The endpoint uses radius to find coaches at all: getLocationsInRadius builds the
+ * location ids the query filters on, so omitting the param falls back to a 6-mile
+ * default. Measured against production, that returns the full roster from Venice and
+ * ONE coach from Pasadena — which is why a local test would not catch it. 200 is the
+ * smallest value that returned the whole roster from every origin tried, San Diego
+ * included.
+ *
+ * The player's own radius is applied client-side: it orders the list and draws the
+ * divider, and never removes anyone. Do NOT align this with the header slider — that
+ * would reintroduce server-side exclusion and hide coaches from a 30-coach roster.
+ */
+const ROSTER_FETCH_RADIUS_MILES = 200;
 
 // Radius is owned by the header location chip and stored in utils/userLocation, the
 // same store the feed, group lessons and find players read. This page used to keep its
@@ -248,6 +283,23 @@ const normalizeDisplayLabel = (value: string) => {
   return toTitleCase(normalized);
 };
 
+/** First list that has anything in it. */
+const firstNonEmpty = (...lists: string[][]) => lists.find((list) => list.length > 0) ?? [];
+
+/**
+ * Case-insensitive dedupe, keeping first-seen casing. The profile returns both "group" and
+ * "Group" for at least one coach, which would otherwise render the same format twice.
+ */
+const dedupeLabels = (values: string[]) => {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizeDisplayArray = (values: string[]) =>
   values
     .map((value) => normalizeDisplayLabel(value))
@@ -297,16 +349,23 @@ const budgetFlag = (
   return rate > budget.max ? "over" : "in";
 };
 
-// A time-anchored availability phrase derived from existing label data (no fabricated dates).
+/**
+ * The day parts a coach works, in sentence case.
+ *
+ * The API returns a closed four-value vocabulary — Weekday Mornings, Weekday Afternoons,
+ * Weekday Evenings, Weekends — and nothing finer. There is no timestamp anywhere on the
+ * list response, so the card says what the data says and stops there: no "next opening",
+ * no date, nothing implying a bookable slot we cannot actually name.
+ *
+ * Six of thirty coaches have none. They get the empty phrase, and the card swaps its CTA
+ * to Message rather than offering to book a time nobody has published.
+ */
 const deriveAvailabilityPhrase = (coach: CoachCardModel): string => {
-  const raw =
-    (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows[0] : "") ||
-    (typeof coach.availability === "string" ? coach.availability : "") ||
-    "";
-  const cleaned = String(raw).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim();
-  if (cleaned && !/^availability/i.test(cleaned)) return `Next opening · ${cleaned}`;
-  if ((coach.availableSlotCount ?? 0) > 0) return "Openings available";
-  return "Availability on request";
+  const windows = (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows : [])
+    .map((value) => String(value).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim())
+    .filter((value) => value && !/^availability/i.test(value));
+  // Capped at two parts plus a count — see formatAvailabilityPhrase.
+  return formatAvailabilityPhrase(windows);
 };
 
 const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
@@ -417,20 +476,18 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
   const profileLocations = Array.isArray(profile.locations)
     ? (profile.locations as Array<Record<string, unknown>>).map((location) => pickFirstString(location.label))
     : [];
-  const availabilityWindows =
-    bookingDates.length > 0
-      ? bookingDates.map((date) => {
-          const label = pickFirstString(date.label);
-          const totalSlots = parseNumberValue(date.totalSlots);
-          return totalSlots && totalSlots > 0 ? `${label} (${totalSlots} slot${totalSlots === 1 ? "" : "s"})` : label;
-        }).filter(Boolean)
-      : toStringArray(profile.availability);
+  // Day-part strings only. This used to prefer booking.availableDates[].label when the
+  // per-coach profile had them, which is why cards were inconsistent: a coach with
+  // bookable slots showed "Sep 2" while the one beside them showed "Weekday Mornings".
+  // The list API returns only the four day-part strings, so that override made the card
+  // format depend on which coaches happened to have slots loaded. One format everywhere.
+  const availabilityWindows = toStringArray(profile.availability);
   const availableSlotCount = bookingDates.reduce((sum, date) => {
     const totalSlots = parseNumberValue(date.totalSlots);
     return totalSlots && totalSlots > 0 ? sum + totalSlots : sum;
   }, 0);
 
-  const lessonTypeLabels = lessonTypes.map((lessonType) => pickFirstString(lessonType.label)).filter(Boolean);
+  const lessonTypeIds = lessonTypes.map((lessonType) => pickFirstString(lessonType.id)).filter(Boolean);
   const privateMetric = metrics.find((metric) => pickFirstString(metric.label).toLowerCase() === "private");
   const privateValue = pickFirstString(privateMetric?.value);
   const groupLessonType = lessonTypes.find((lessonType) => pickFirstString(lessonType.id).toLowerCase() === "group");
@@ -449,10 +506,21 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
     courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
     levels: normalizeDisplayArray(toStringArray(profile.levels)),
-    formats:
-      lessonTypeLabels.length > 0
-        ? normalizeDisplayArray(lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")))
-        : coach.formats,
+    // Tokens, not display labels. `formats` is what the Groups chip filters on
+    // (findCoachesList CHIP_MATCHERS), and it was being rebuilt here out of
+    // booking.lessonTypes[].label — "Private lesson", "Semi-private lesson", "Group
+    // session". The strip only removed a trailing " lesson", so "Group session" survived
+    // intact, lowercased to "group session", and never equalled the "group" the chip
+    // looks for. Every coach who runs group sessions was filtered out by the Groups chip.
+    // The profile and the search endpoint both return the raw tokens; prefer those, and
+    // fall back to lesson-type *ids* rather than their labels.
+    formats: dedupeLabels(
+      firstNonEmpty(
+        normalizeDisplayArray(toStringArray(profile.formats)),
+        coach.formats,
+        normalizeDisplayArray(lessonTypeIds.map((id) => id.replace(/_/g, " "))),
+      ),
+    ),
     languages: normalizeDisplayArray(toStringArray(profile.languages)),
     availability: availabilityWindows[0] || coach.availability,
     availabilityWindows: availabilityWindows.length > 0 ? availabilityWindows : coach.availabilityWindows,
@@ -676,6 +744,15 @@ const FindCoaches = () => {
     () => getStoredLocationRadius() ?? DEFAULT_RADIUS_MILES,
   );
   const [page, setPage] = useState(1);
+  const [sortKey, setSortKey] = useState<CoachSortKey>("nearest");
+  // Mobile only: the trust claim is one tap away rather than a standing card. Same copy
+  // the per-coach shield shows, so there is one wording for it in the app.
+  const [mobileTrustOpen, setMobileTrustOpen] = useState(false);
+  const [selectedChips, setSelectedChips] = useState<CoachChipKey[]>([]);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  // coach_id -> number of upcoming group sessions. One request for the whole page rather
+  // than one per card: group lessons carry coach_id, so a single call counts every coach.
+  const [groupSessionCounts, setGroupSessionCounts] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<Mode>("normal");
   const [status, setStatus] = useState<Status>("loading");
   const [coaches, setCoaches] = useState<CoachCardModel[]>([]);
@@ -919,6 +996,45 @@ const FindCoaches = () => {
     void loadCoachMatchQuestions();
   }, [loadCoachMatchQuestions, playerToken]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetchUpcomingGroupLessons({
+          ...(playerToken ? { token: playerToken } : {}),
+          perPage: 200,
+          page: 1,
+          ...(position ? { position } : {}),
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        // Bounded to the week, because the card says "weekly". The endpoint returns
+        // every upcoming session — for one coach that was the same Saturday class
+        // repeating into late November — so an unbounded tally sent players to a page
+        // showing a fraction of what the card promised.
+        const startsByCoach: Record<string, Array<string | null | undefined>> = {};
+        for (const lesson of response?.lessons ?? []) {
+          const record = lesson as { coach_id?: number | string; start_date_time?: string };
+          if (record.coach_id == null) continue;
+          const key = String(record.coach_id);
+          (startsByCoach[key] ??= []).push(record.start_date_time);
+        }
+        const todayIso = new Date().toLocaleDateString("en-CA");
+        const counts: Record<string, number> = {};
+        for (const [coachId, starts] of Object.entries(startsByCoach)) {
+          const weekly = countSessionsThisWeek(starts, todayIso);
+          if (weekly > 0) counts[coachId] = weekly;
+        }
+        setGroupSessionCounts(counts);
+      } catch {
+        // The link is an extra, not the point of the page. A failure here leaves every
+        // card without it rather than blocking the roster.
+        if (!controller.signal.aborted) setGroupSessionCounts({});
+      }
+    })();
+    return () => controller.abort();
+  }, [playerToken, position?.latitude, position?.longitude]);
+
   const fetchCoaches = useCallback(async () => {
     if (!position) {
       if (!hasResolvedInitialLocation) {
@@ -939,11 +1055,20 @@ const FindCoaches = () => {
     try {
       const searchValue = appliedSearchTerm.trim();
       const params = new URLSearchParams({
-        perPage: "12",
-        page: String(page),
+        // One page, whole roster. The backend already loads everything and slices in JS
+        // (public_coach_search.js:79 passes perPage=1000), and the roster is ~30 coaches,
+        // so paging bought nothing and stopped client-side sort from seeing the full set.
+        // This has a ceiling: it is fine at tens of coaches and wrong at thousands.
+        perPage: "500",
+        page: "1",
         search: searchValue,
       });
-      params.set("radius", radiusMiles.toString());
+      params.set("radius", ROSTER_FETCH_RADIUS_MILES.toString());
+      // Asks the API to include coaches the player already has a relation with, each
+      // carrying a relation_status. The API does not understand this yet and ignores it;
+      // when it ships, the roster fills out with no frontend release. Nothing here
+      // assumes it took effect.
+      params.set("includeExisting", "true");
 
       const positionPayload =
         position && typeof position.latitude === "number" && typeof position.longitude === "number"
@@ -974,9 +1099,12 @@ const FindCoaches = () => {
         authToken: playerToken ?? null,
       });
 
+      // 404 here is "no locations within the radius" (routes/player_coaches.js:255),
+      // not "no results" — the endpoint has nothing to search rather than nothing to
+      // return.
       if (response.status === 404) {
         setCoaches([]);
-        setMode("empty");
+        setMode("out-of-area");
         setStatus("ready");
         return;
       }
@@ -1099,20 +1227,40 @@ const FindCoaches = () => {
   // Render in server-returned order. No client-side sort: it only reordered the
   // current page of ~12, which misrepresents the full result set (see
   // COACH_SEARCH_API_FINDINGS.md). The recommender's ranking is applied server-side.
-  const filteredCoaches = useMemo(() => (mode !== "normal" ? [] : coaches), [coaches, mode]);
+  // Filtering and sorting are client-side over the whole roster. The endpoint offers
+  // only radius and a name search, and the roster is small enough that doing it here
+  // costs nothing and avoids a round trip per chip.
+  const filteredCoaches = useMemo(() => {
+    if (mode !== "normal") return [];
+    const matching = coaches.filter((coach) => {
+      if (!coachMatchesChips(coach, selectedChips)) return false;
+      if (maxPrice != null && typeof coach.hourlyRateValue === "number" && coach.hourlyRateValue > maxPrice) {
+        return false;
+      }
+      return true;
+    });
+    return sortCoaches(matching, sortKey);
+  }, [coaches, maxPrice, mode, selectedChips, sortKey]);
+
+  // Index of the first coach beyond the player's own radius; -1 for no rule.
+  const dividerIndex = useMemo(
+    () => findDistanceDividerIndex(filteredCoaches, { sort: sortKey, radiusMiles }),
+    [filteredCoaches, radiusMiles, sortKey],
+  );
+  const withinRadiusCount = useMemo(
+    () => countWithinRadius(filteredCoaches, radiusMiles),
+    [filteredCoaches, radiusMiles],
+  );
+
+  const toggleChip = (chip: CoachChipKey) =>
+    setSelectedChips((current) =>
+      current.includes(chip) ? current.filter((item) => item !== chip) : [...current, chip],
+    );
 
   const shouldShowError = status === "ready" && mode === "error";
   const shouldShowEmpty =
     status === "ready" && (mode === "empty" || (mode === "normal" && filteredCoaches.length === 0));
   const shouldShowResults = status === "ready" && mode === "normal" && filteredCoaches.length > 0;
-  const totalPages = pagination?.totalPages ?? null;
-  const hasPreviousPage = page > 1;
-  const hasNextPage = useMemo(() => {
-    if (totalPages) return page < totalPages;
-    if (pagination?.perPage) return filteredCoaches.length >= pagination.perPage;
-    return false;
-  }, [filteredCoaches.length, page, pagination?.perPage, totalPages]);
-
   const locationShortLabel = hasLocationFilter ? locationLabel : "Nearby";
   const coachMatchSummaryItems = useMemo(
     () => getCoachMatchSummaryItems(coachMatchQuestions),
@@ -1138,7 +1286,13 @@ const FindCoaches = () => {
         ? "Unable to load coaches"
         : shouldShowEmpty
           ? "No coaches found"
-          : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"} near you`;
+          // Counts what actually arrived, never a claim of completeness: the API may
+          // still be filtering out the player's existing coaches (includeExisting is not
+          // deployed yet), and the roster is geographically bounded regardless.
+          : `${filteredCoaches.length} ${filteredCoaches.length === 1 ? "coach" : "coaches"}` +
+            (withinRadiusCount < filteredCoaches.length
+              ? ` · ${withinRadiusCount} within ${radiusMiles} mi`
+              : "");
   // Post-questionnaire "Your matches" framing: hide search/filters and lead with the ranked count.
   const isMatchedMode = shouldShowCoachMatchSummary;
   const matchedSubtitle =
@@ -1196,13 +1350,10 @@ const FindCoaches = () => {
     <MainLayout mobileChrome="home" desktopChrome="home">
       <div className="fcv2-page">
         <section className="fcv2-mobile-search-block">
-          {!isMatchedMode ? <TrustCard /> : null}
-          <div className="fcv2-mobile-title-row">
-            <div>
-              <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
-              <p>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</p>
-            </div>
-          </div>
+          {/* The visible heading is dropped below 640px — the nav already says where you
+              are and the row that follows carries the only information a heading would.
+              The h1 stays for document structure. Desktop keeps its heading (.fcv2-page-head). */}
+          <h1 className="sr-only">{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
 
           {!isMatchedMode ? (
             <div className="fcv2-mobile-search-row">
@@ -1222,6 +1373,78 @@ const FindCoaches = () => {
             </div>
           ) : null}
 
+          {/* Chips scroll horizontally rather than wrapping, so the block keeps a fixed
+              height as filters are added — the pattern from LeagueDashboard.css:572. */}
+          {!isMatchedMode ? (
+            <div className="fcv2-mobile-chips" role="group" aria-label="Filter coaches">
+              {/* The wizard is a filter like any other here, so it reads as the first
+                  chip rather than a full-width bar competing with the results. */}
+              <button
+                type="button"
+                className="fcv2-chip fcv2-chip--match"
+                onClick={openCoachMatchSurvey}
+              >
+                <Sparkles size={13} strokeWidth={2.4} aria-hidden="true" />
+                Match me
+              </button>
+              {COACH_CHIPS.map((chip) => {
+                const active = selectedChips.includes(chip.key);
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className={`fcv2-chip${active ? " is-active" : ""}`}
+                    aria-pressed={active}
+                    onClick={() => toggleChip(chip.key)}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {/* Count, trust and sort share one row: three short pieces of status that would
+              each waste a full line of a phone screen on their own. */}
+          <div className="fcv2-mobile-meta">
+            <p className="fcv2-mobile-count">
+              {isMatchedMode ? matchedSubtitle : resultsCountLabel}
+              {!isMatchedMode ? (
+                <>
+                  <span className="sep" aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    className="fcv2-mobile-trust"
+                    aria-expanded={mobileTrustOpen}
+                    onClick={() => setMobileTrustOpen((open) => !open)}
+                  >
+                    all invited
+                  </button>
+                </>
+              ) : null}
+            </p>
+            {!isMatchedMode ? (
+              <label className="fcv2-mobile-sort">
+                <span className="sr-only">Sort coaches</span>
+                <select
+                  value={sortKey}
+                  onChange={(event) => setSortKey(event.target.value as CoachSortKey)}
+                  aria-label="Sort coaches"
+                >
+                  {COACH_SORT_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+
+          {mobileTrustOpen ? (
+            <p className="fcv2-mobile-trust-note">{TRUST_TOOLTIP}</p>
+          ) : null}
+
           {locationPermissionPrompt ? (
             <section className="fcv2-location-permission-banner" aria-label="Location permission">
               <div>
@@ -1235,17 +1458,21 @@ const FindCoaches = () => {
           ) : null}
         </section>
 
-        <section className="fcv2-mobile-banner-block">
-          {renderCoachMatchPanel()}
-        </section>
+        {/* Only the matched summary, with its edit/clear controls. The pre-match banner
+            is the "Match me" chip above; rendering both would ask twice. */}
+        {isMatchedMode ? (
+          <section className="fcv2-mobile-banner-block">{renderCoachMatchPanel()}</section>
+        ) : null}
 
         <div className="fcv2-shell">
           <section className="fcv2-page-head">
             <div className="fcv2-page-head-copy">
               <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
+              {/* No location here. The header chip owns location and now states it in
+                  full ("Current location · 10 mi"); repeating it under the heading gave
+                  the page two places to read the same thing, and two places to keep in
+                  sync when the radius changes. */}
               <p>
-                <span>📍 {locationShortLabel}</span>
-                <span>·</span>
                 <span>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</span>
               </p>
             </div>
@@ -1274,6 +1501,58 @@ const FindCoaches = () => {
 
             {!isMatchedMode ? (
               <div className="fcv2-search-controls">
+                <label className="fcv2-control">
+                  <span className="sr-only">Maximum price per hour</span>
+                  <select
+                    value={maxPrice ?? ""}
+                    onChange={(event) =>
+                      setMaxPrice(event.target.value === "" ? null : Number(event.target.value))
+                    }
+                    aria-label="Maximum price per hour"
+                  >
+                    <option value="">Any price</option>
+                    {[80, 100, 120, 150, 200].map((price) => (
+                      <option key={price} value={price}>
+                        Up to ${price}/hr
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="fcv2-control">
+                  <span className="sr-only">Sort coaches</span>
+                  <select
+                    value={sortKey}
+                    onChange={(event) => setSortKey(event.target.value as CoachSortKey)}
+                    aria-label="Sort coaches"
+                  >
+                    {COACH_SORT_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                </div>
+
+            ) : null}
+
+            {!isMatchedMode ? (
+              <div className="fcv2-chips" role="group" aria-label="Filter coaches">
+                {COACH_CHIPS.map((chip) => {
+                  const active = selectedChips.includes(chip.key);
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      className={`fcv2-chip${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      onClick={() => toggleChip(chip.key)}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
                 </div>
             ) : null}
 
@@ -1311,6 +1590,20 @@ const FindCoaches = () => {
             </section>
           ) : null}
 
+          {mode === "out-of-area" && status === "ready" && !shouldShowError ? (
+            <section className="fcv2-state">
+              <div className="fcv2-state-icon">📍</div>
+              <h2>No coaches near {locationShortLabel} yet</h2>
+              <p>
+                We haven't reached this area yet. Try a different location, or check back —
+                we add coaches as we grow.
+              </p>
+              <button type="button" onClick={requestLocationPicker}>
+                Change location
+              </button>
+            </section>
+          ) : null}
+
           {shouldShowEmpty && !shouldShowError ? (
             <section className="fcv2-state">
               <div className="fcv2-state-icon">🎾</div>
@@ -1325,57 +1618,38 @@ const FindCoaches = () => {
           {shouldShowResults ? (
             <>
               <section className="fcv2-grid coach-match-page__grid">
-                {filteredCoaches.map((coach) => {
+                {filteredCoaches.map((coach, coachIndex) => {
                   const isMatched = shouldShowCoachMatchSummary;
                   const matchPercent = shouldNormalizeCoachScores
                     ? Math.round((coach.matchScore / coachMatchMaxScore) * 100)
                     : Math.max(0, Math.min(100, Math.round(coach.matchScore)));
                   const reasons = coach.matchReasons.slice(0, 3);
                   const privateRate = formatMoney(coach.hourlyRateValue);
-                  // Omit the group line unless there's a real non-zero group rate (formatMoney(0) === "$0").
-                  const groupRate =
-                    coach.groupRateValue && coach.groupRateValue > 0 ? formatMoney(coach.groupRateValue) : null;
                   const certLabel = coach.certifications[0] ?? "";
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
-                  const groupFlag = isMatched ? budgetFlag(coach.groupRateValue, coachMatchBudgetRange) : null;
                   // One clean, short venue name (drops street/city/"Tennis Court"). See utils/venueLabel.
                   const rawLocation = coach.courts?.[0] ?? coach.cityLabel ?? "";
-                  const venueLabel = normalizeVenueLabel(rawLocation);
+                  const venueLabel = abbreviateVenueLabel(normalizeVenueLabel(rawLocation));
                   const locationLabel = isDisplayableLocation(venueLabel) ? venueLabel : "";
                   const tags = coach.specialties.slice(0, 3);
 
-                  return isMatched ? (
-                    <CoachMatchCard
-                      key={coach.id}
-                      name={coach.name}
-                      imageUrl={coach.imageUrl}
-                      initials={coach.initials}
-                      distanceLabel={formatDistance(coach.distanceMiles)}
-                      matchPercent={matchPercent}
-                      certLabel={certLabel || undefined}
-                      yearsExperience={coach.yearsExperience}
-                      studentCount={coach.studentCount}
-                      levels={coach.levels}
-                      reasons={reasons}
-                      privateRate={privateRate}
-                      groupRate={groupRate}
-                      privateFlag={privateFlag}
-                      groupFlag={groupFlag}
-                      bio={coach.bio || "Coach bio coming soon."}
-                      profileTo={`/coaches/${coach.id}`}
-                      profileState={{ findCoachesState: findCoachesStateSnapshot }}
-                      onBook={
-                        isSignedIn
-                          ? () =>
-                              navigate(`/coaches/${coach.id}/book`, {
-                                state: { findCoachesState: findCoachesStateSnapshot },
-                              })
-                          : promptSignUp
-                      }
-                    />
-                  ) : (
-                    <CoachSearchCard
-                      key={coach.id}
+                  // Radius no longer removes anyone; it draws a line. Everything below
+                  // the rule is still bookable, just further away.
+                  const divider =
+                    coachIndex === dividerIndex ? (
+                      <div className="fcv2-divider" key={`divider-${coach.id}`} role="separator">
+                        <span>
+                          Further than {radiusMiles} mi from {locationShortLabel}
+                        </span>
+                      </div>
+                    ) : null;
+
+                  // One card for both. A matched coach is this card plus a percentage,
+                  // its reasons and an over-budget qualifier — not a second layout.
+                  return (
+                    <Fragment key={coach.id}>
+                      {divider}
+                    <CoachCard
                       name={coach.name}
                       imageUrl={coach.imageUrl}
                       initials={coach.initials}
@@ -1384,13 +1658,16 @@ const FindCoaches = () => {
                       yearsExperience={coach.yearsExperience}
                       studentCount={coach.studentCount}
                       privateRate={privateRate}
-                      groupRate={groupRate}
                       bio={coach.bio || "Coach bio coming soon."}
                       tags={tags}
+                      levels={coach.levels}
                       availabilityPhrase={deriveAvailabilityPhrase(coach)}
                       locationLabel={locationLabel || undefined}
                       profileTo={`/coaches/${coach.id}`}
                       profileState={{ findCoachesState: findCoachesStateSnapshot }}
+                      matchPercent={isMatched ? matchPercent : null}
+                      reasons={isMatched ? reasons : undefined}
+                      privateFlag={privateFlag}
                       onBook={
                         isSignedIn
                           ? () =>
@@ -1399,35 +1676,19 @@ const FindCoaches = () => {
                               })
                           : promptSignUp
                       }
+                      groupSessionCount={groupSessionCounts[String(coach.id)] ?? 0}
+                      groupSessionsTo={{
+                        pathname: "/group-lessons",
+                        // The group lessons page restores its filters from this state, so
+                        // the link lands pre-filtered to this coach.
+                        state: { groupLessonsState: { coachFilter: coach.name } },
+                      }}
                       onShare={() => shareCoach(coach.id, coach.name)}
                     />
+                    </Fragment>
                   );
                 })}
               </section>
-              {(totalPages && totalPages > 1) || hasPreviousPage || hasNextPage ? (
-                <nav className="fcv2-pagination" aria-label="Coach results pagination">
-                  <button
-                    type="button"
-                    className="fcv2-pagination__button"
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                    disabled={!hasPreviousPage || status === "loading"}
-                  >
-                    Previous
-                  </button>
-                  <span className="fcv2-pagination__status">
-                    Page {page}
-                    {totalPages ? ` of ${totalPages}` : ""}
-                  </span>
-                  <button
-                    type="button"
-                    className="fcv2-pagination__button"
-                    onClick={() => setPage((current) => current + 1)}
-                    disabled={!hasNextPage || status === "loading"}
-                  >
-                    Next
-                  </button>
-                </nav>
-              ) : null}
             </>
           ) : null}
         </div>

@@ -662,12 +662,18 @@
 
 .fcv2-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  /* min(320px, 100%) rather than a bare 320px: a bare floor cannot shrink, so on a
+     viewport narrower than the floor the track overflows its own container and the page
+     scrolls sideways. */
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 20px;
 }
 
+/* Column count comes from the width available, not from a number written here. The hard
+   `repeat(2, …)` held the list at two columns on every desktop size — at 1280px the
+   container is 1192px and fits three 320px tracks with room to spare, so a third of the
+   viewport was going unused. Only the gap is this rule's business. */
 .fcv2-grid.coach-match-page__grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -965,24 +971,116 @@
     padding: 10px 16px 0;
   }
 
-  .fcv2-mobile-title-row {
+  /* Chips: one line that scrolls sideways, never a second row — the block is sticky, so
+     a wrap would eat a chunk of the viewport for as long as the filter is on. Pattern
+     from LeagueDashboard.css:572. Negative margins let the row bleed to the screen edge
+     so the last chip reads as scrollable rather than clipped. */
+  .fcv2-mobile-chips {
     display: flex;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin: 10px -16px 0;
+    padding: 0 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .fcv2-mobile-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fcv2-mobile-chips .fcv2-chip {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  /* The wizard chip is the one filled control in the row: it starts something rather
+     than narrowing what is already there. */
+  .fcv2-mobile-chips .fcv2-chip--match {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-color: var(--color-primary, #8b5cf6);
+    background: var(--color-primary, #8b5cf6);
+    color: #fff;
+  }
+
+  /* Count on the left, sort on the right, trust folded in beside the count. */
+  .fcv2-mobile-meta {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-top: 10px;
   }
 
-  .fcv2-mobile-title-row h1 {
+  .fcv2-mobile-count {
     margin: 0;
-    font-size: 20px;
-    line-height: 1.1;
-  }
-
-  .fcv2-mobile-title-row p {
-    margin: 2px 0 0;
+    min-width: 0;
     color: #64748b;
     font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* The separator is a pseudo-element so the count string stays exactly what the page
+     computed — no punctuation baked into the label for the sake of this layout. */
+  /* Sits outside the button, not as its ::before: text-decoration propagates to
+     descendants and cannot be switched off on one, so a separator inside the link
+     would be underlined along with it. */
+  .fcv2-mobile-count .sep {
+    margin: 0 6px;
+    color: #94a3b8;
+  }
+
+  .fcv2-mobile-trust {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #047857;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .fcv2-mobile-trust::after {
+    content: " \203A";
+    text-decoration: none;
+  }
+
+  .fcv2-mobile-trust-note {
+    margin: 8px 0 0;
+    padding: 9px 11px;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* Compact by subtraction: no border or fill, so it reads as the row's own control
+     rather than a button competing with the chips directly above it. */
+  .fcv2-mobile-sort {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .fcv2-mobile-sort select {
+    border: 0;
+    background: none;
+    color: #334155;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: right;
+    cursor: pointer;
   }
 
   .fcv2-mobile-search-row {
@@ -1691,4 +1789,98 @@
 }
 .fc-card__btn--full {
   flex: 1;
+}
+
+/* ── list controls: price, sort, chips, distance rule ── */
+
+/* Price and sort sit on the search row. Native selects on purpose: they get the platform
+   picker on mobile, which beats anything custom at this size. */
+.fcv2-control {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.fcv2-control select {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fcv2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.fcv2-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fcv2-chip:hover {
+  border-color: #cbd5e1;
+}
+
+.fcv2-chip.is-active {
+  border-color: var(--color-primary, #8b5cf6);
+  background: #f4f0fe;
+  color: var(--color-primary-dark, #7c3aed);
+}
+
+/* The distance rule. Spans the grid so it reads as a break in the list rather than a
+   card-sized element, and carries its label on the left with the line trailing off. */
+.fcv2-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.fcv2-divider span {
+  white-space: nowrap;
+}
+
+.fcv2-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* Visible to assistive tech only — the selects carry their own visible value, so the
+   label would otherwise duplicate it. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

@@ -5,10 +5,9 @@ import "./TrustCard.css";
 // Prominent trust statement for the Find a Coach page: every coach is invited,
 // not self-serve. Static — no links or buttons (an honest trust statement).
 //
-// Responsive (switched by CSS at the page's 640px breakpoint):
-//  - >= 640px: the editorial card (icon tile + headline + body + proof tags).
-//  - <  640px: a compact single-line strip (icon + headline + "Invite-only" pill).
-// Copy lives here once and is shared by both layouts.
+// Desktop only. Below 640px the page folds the same claim into its results-count row
+// as a tappable line (FindCoaches.tsx), so this card is hidden there by
+// `trust-card--desktop` rather than shrinking into a second mobile treatment.
 const HEADLINE = "Coaches you can trust";
 const BODY = "Not a self-serve platform. We personally invite every coach on The Tennis Plan.";
 const PROOF = ["Invite-only", "Personally vetted", "People we actually know"];
@@ -40,16 +39,6 @@ export default function TrustCard({ className = "" }: TrustCardProps) {
             </span>
           ))}
         </div>
-      </div>
-
-      {/* Compact strip — mobile (< 640px). Single line, never wraps. The pill is a
-          static label (no link/route — the fuller explainer doesn't exist yet). */}
-      <div className="trust-card__strip">
-        <span className="trust-card__strip-icon" aria-hidden="true">
-          <ShieldCheck size={16} strokeWidth={2} />
-        </span>
-        <span className="trust-card__strip-title">{HEADLINE}</span>
-        <span className="trust-card__strip-pill">{PROOF[0]}</span>
       </div>
     </section>
   );

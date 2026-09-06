@@ -1,170 +1,264 @@
-import type { KeyboardEventHandler } from "react";
-import { Award, Calendar, Sparkles, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { MapPin, Share2 } from "lucide-react";
 
-import type { Coach } from "../../data/mockCoaches";
-import TagPill from "./TagPill";
+import { formatLevelsPill } from "../../pages/findCoachesList";
+import CoachTrustMark from "./CoachTrustMark";
+import CoachCredibilityLine from "./CoachCredibilityLine";
+import "./CoachCard.css";
 
-import "./coaches.css";
+/**
+ * The coach card, in both the shapes /find-coaches renders.
+ *
+ * There is now ONE layout. The match variant — what the coach-match wizard produces — is
+ * the same card as the listing, plus a match percentage, up to two reasons, and an
+ * over-budget qualifier. It used to be a separate design with its own DOM order, its own
+ * class namespace, a 64px photo against 60px, a 3-line bio clamp against 2, and its own
+ * rate presentation. Keeping two shapes meant every card change landed twice and the two
+ * drifted apart while appearing to converge.
+ *
+ * Three blocks were dropped from the match shape rather than carried over:
+ *
+ *  - "Usually replies within 24 hours" — hardcoded, identical for every coach, with no
+ *    data behind it. The only unbacked claim on a card whose whole point is that these
+ *    coaches are personally vetted. Computable from message timestamps if wanted later.
+ *  - The budget block — "IN YOUR BUDGET" restated a price the player can read against a
+ *    budget they set themselves. Only the negative case carries information, so that
+ *    survives as a qualifier beside the price.
+ *  - "NO LESSON COMMISSION" — there is no per-coach commission field anywhere in the API
+ *    (the only `commission` column belongs to restringing orders), so it is a
+ *    platform-level claim, not a fact about this coach.
+ */
+export type BudgetFlag = "in" | "over" | null;
 
-const summarizeList = (items: string[], maxVisible = 2) => {
-  if (items.length === 0) {
-    return "";
-  }
+export interface CoachCardProps {
+  /** Coach display name. */
+  name: string;
+  /** Profile photo URL; falls back to initials when absent. */
+  imageUrl?: string | null;
+  /** Two-letter initials used when there is no photo. */
+  initials: string;
+  /** Pre-formatted distance label (e.g. "3.2 mi"). */
+  distanceLabel: string;
+  /** Primary certification. */
+  certLabel?: string;
+  /** Years coaching; rendered only when a positive number. */
+  yearsExperience?: number | null;
+  /** Players coached; rendered only when a positive number. */
+  studentCount?: number | null;
+  /** Pre-formatted private hourly rate (e.g. "$135"). */
+  privateRate?: string | null;
+  /** Short coach bio. */
+  bio?: string;
+  /** Specialty tags. */
+  tags?: string[];
+  /** Skill levels taught; rendered as a pill beside the specialties, on both variants. */
+  levels?: string[];
+  /** Pre-formatted availability sentence. */
+  availabilityPhrase?: string;
+  /** Short venue label appended to the availability strip. */
+  locationLabel?: string | null;
+  /** Router target for the profile link. */
+  profileTo: string;
+  /** Router state passed to the profile link (preserves search context). */
+  profileState?: unknown;
+  /** Invoked when "Book a lesson" is pressed. */
+  onBook?: () => void;
+  /** Invoked when "Share" is pressed; the button is omitted without it. */
+  onShare?: () => void;
+  /** Upcoming group sessions this coach runs; the link is omitted when 0 or absent. */
+  groupSessionCount?: number;
+  /** Where the group-sessions link points. Omitted with the count. */
+  groupSessionsTo?: { pathname: string; state?: unknown };
 
-  if (items.length <= maxVisible) {
-    return items.join(", ");
-  }
+  /* ---- match variant ---- */
+  /** Whole-number match percentage; the pill is hidden when null or <= 0. */
+  matchPercent?: number | null;
+  /** Why-this-coach-matches reasons, as returned by the recommender. */
+  reasons?: string[];
+  /** Whether the private rate is over the player's stated budget. */
+  privateFlag?: BudgetFlag;
+}
 
-  const visible = items.slice(0, maxVisible).join(", ");
-  const remaining = items.length - maxVisible;
+/**
+ * Reasons that only restate something already visible on the card.
+ *
+ * The recommender emits these as prose (ttp-api coach_matching.js buildReasons), and two
+ * of them duplicate fields the player can already see: distance sits in the sub line, the
+ * price sits top-right. Repeating them makes the card look padded and pushes the reasons
+ * that actually add something out of the two available rows.
+ */
+const DUPLICATIVE_REASONS = ["Nearby coach location", "Fits your budget"];
 
-  return `${visible} +${remaining} more`;
+/**
+ * Explicit ordering, because the source order is not meaningful.
+ *
+ * buildReasons pushes in a fixed sequence — level, goals, format, availability, budget —
+ * and never sorts by the score breakdown, so "the first two" would be an accident of
+ * append order rather than the two strongest. Ordered by how much each tells a player
+ * something the card does not already say.
+ */
+const REASON_RANK = ["Supports your goals", "Availability overlap", "Matches your level", "Offers your preferred"];
+
+const rankReason = (reason: string) => {
+  const index = REASON_RANK.findIndex((prefix) => reason.startsWith(prefix));
+  return index === -1 ? REASON_RANK.length : index;
 };
 
-type CoachCardProps = {
-  coach: Coach;
-  onBook?: (coach: Coach) => void;
-};
+export const selectCoachMatchReasons = (reasons: string[] | undefined, limit = 2): string[] =>
+  (reasons ?? [])
+    .map((reason) => (typeof reason === "string" ? reason.trim() : ""))
+    .filter(Boolean)
+    .filter((reason) => !DUPLICATIVE_REASONS.includes(reason))
+    .sort((a, b) => rankReason(a) - rankReason(b))
+    .slice(0, limit);
 
-const CoachCard = ({ coach, onBook }: CoachCardProps) => {
-  const navigate = useNavigate();
-
-  const goToProfile = () => {
-    navigate(`/coaches/${coach.id}`);
-  };
-
-  const handleKeyDown: KeyboardEventHandler<HTMLElement> = (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      goToProfile();
-    }
-  };
-
-  const availabilityHighlight = coach.highlights.find((highlight) => highlight.icon === "calendar");
-  const callouts = [
-    {
-      key: "group-lessons",
-      icon: <Users size={18} strokeWidth={2} />,
-      text: `Group lessons available · ${coach.lessonRates.group}`,
-    },
-    {
-      key: "package-discounts",
-      icon: <Sparkles size={18} strokeWidth={2} />,
-      text: "Package discounts offered",
-    },
-  ];
+const CoachCard = ({
+  name,
+  imageUrl,
+  initials,
+  distanceLabel,
+  certLabel,
+  yearsExperience,
+  studentCount,
+  privateRate,
+  bio,
+  tags,
+  levels,
+  availabilityPhrase = "",
+  locationLabel,
+  profileTo,
+  profileState,
+  onBook,
+  onShare,
+  groupSessionCount = 0,
+  groupSessionsTo,
+  matchPercent = null,
+  reasons,
+  privateFlag = null,
+}: CoachCardProps) => {
+  const specialties = (tags ?? []).filter(Boolean);
+  const levelsPill = formatLevelsPill(levels);
+  const showMatch = matchPercent != null && matchPercent > 0;
+  const matchReasons = selectCoachMatchReasons(reasons);
+  const overBudget = privateFlag === "over";
+  // Six of thirty coaches publish no day parts. Offering "Book a lesson" against nothing
+  // sends the player to a booking screen with no slots; asking is the honest action.
+  const hasAvailability = availabilityPhrase.trim().length > 0;
+  const hasPillRow = specialties.length > 0 || Boolean(levelsPill) || matchReasons.length > 0;
 
   return (
-    <article
-      className="fc-card fc-card--interactive"
-      role="link"
-      tabIndex={0}
-      aria-label={`View profile for ${coach.name}`}
-      onClick={goToProfile}
-      onKeyDown={handleKeyDown}
-    >
-      <div className="fc-card__top">
-        <div className="fc-card__labels">
-          {coach.featured && <TagPill tone="featured">Featured</TagPill>}
-          {coach.certifications.length > 0 && (
-            <TagPill tone="accent" icon={<Award size={14} strokeWidth={2} />}>
-              Certified
-            </TagPill>
+    <article className="cc-card">
+      <div className="cc-head">
+        <div className="cc-photo">
+          {imageUrl ? <img src={imageUrl} alt={name} /> : <span>{initials}</span>}
+        </div>
+
+        <div className="cc-head-mid">
+          <div className="cc-name-row">
+            <span className="cc-name">{name}</span>
+            <CoachTrustMark />
+            {/* Inline, not top-right: top-right is the price, and the price must not move
+                between a matched and an unmatched card. */}
+            {showMatch ? <span className="cc-match-pill">{matchPercent}% match</span> : null}
+          </div>
+          <div className="cc-dist">
+            <MapPin className="cc-dist__pin" size={14} strokeWidth={2} aria-hidden />
+            {distanceLabel}
+          </div>
+        </div>
+
+        <div className="cc-rate">
+          <div className="cc-rate-main">
+            <span className="cc-rate-sm">$</span>
+            {privateRate ? privateRate.replace("$", "") : "N/A"}
+            <span className="cc-rate-sm">/hour</span>
+          </div>
+          {/* Only the negative case says anything. "In your budget" beside a price the
+              player can read, against a budget they set, is noise. */}
+          {overBudget ? <div className="cc-rate-note">over budget</div> : null}
+        </div>
+      </div>
+
+      <CoachCredibilityLine
+        certLabel={certLabel}
+        yearsExperience={yearsExperience}
+        studentCount={studentCount}
+      />
+
+      {bio ? <p className="cc-bio">{bio}</p> : null}
+
+      {hasPillRow ? (
+        <div className="cc-tags">
+          {specialties.map((tag) => (
+            <span key={tag} className="cc-tag">
+              {tag}
+            </span>
+          ))}
+          {levelsPill ? <span className="cc-tag">{levelsPill}</span> : null}
+          {/* Reasons sit below the pills and read as sentences, so they get their own
+              rows rather than being crammed into the pill flow. Clamped to one line
+              each: two of them interpolate an unbounded joined list server-side. */}
+          {matchReasons.map((reason) => (
+            <span key={reason} className="cc-reason">
+              {reason}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {groupSessionCount > 0 && groupSessionsTo ? (
+        // Quiet by design: group sessions are a different product on a different page,
+        // and this card is about private lessons.
+        <p className="cc-xref">
+          Also runs{" "}
+          <Link to={groupSessionsTo.pathname} state={groupSessionsTo.state}>
+            {groupSessionCount} weekly group session{groupSessionCount === 1 ? "" : "s"}
+          </Link>
+        </p>
+      ) : null}
+
+      <div className={`cc-avail${hasAvailability ? "" : " cc-avail--none"}`}>
+        <span className="cc-avail-dot" aria-hidden />
+        <span>
+          {hasAvailability ? (
+            <>
+              {availabilityPhrase}
+              {locationLabel ? ` · ${locationLabel}` : ""}
+            </>
+          ) : (
+            "Availability not listed — message to ask"
           )}
-        </div>
-        <div className="fc-card__price">
-          <span className="fc-card__price-value">{coach.pricePerHour}</span>
-          <span className="fc-card__price-caption">per hour</span>
-        </div>
+        </span>
       </div>
 
-      <div className="fc-card__profile">
-        <img className="fc-card__avatar" src={coach.imageUrl} alt={`Portrait of ${coach.name}`} />
-        <div className="fc-card__identity">
-          <h3 className="fc-card__name">{coach.name}</h3>
-          <span className="fc-card__title">{coach.title}</span>
-          {coach.certifications.length > 0 && (
-            <div className="fc-card__credentials">
-              <div className="fc-card__certifications">
-                {coach.certifications.slice(0, 2).map((certification) => (
-                  <span key={certification} className="fc-card__certification">
-                    <Award size={14} strokeWidth={2} />
-                    <span>{certification}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <p className="fc-card__summary">{coach.summary}</p>
-
-      <div className="fc-card__quick-stats">
-        <div className="fc-card__quick-stat">
-          <span className="fc-card__quick-stat-label">Experience</span>
-          <span className="fc-card__quick-stat-value">{coach.yearsExperience}+ yrs coaching</span>
-        </div>
-        <div className="fc-card__quick-stat">
-          <span className="fc-card__quick-stat-label">Focus levels</span>
-          <span className="fc-card__quick-stat-value">{summarizeList(coach.levels, 2)}</span>
-        </div>
-        <div className="fc-card__quick-stat">
-          <span className="fc-card__quick-stat-label">Languages</span>
-          <span className="fc-card__quick-stat-value">{summarizeList(coach.languages, 3)}</span>
-        </div>
-        <div className="fc-card__quick-stat">
-          <span className="fc-card__quick-stat-label">Availability</span>
-          <span className="fc-card__quick-stat-value">
-            {availabilityHighlight?.label ?? coach.availability}
-          </span>
-        </div>
-      </div>
-
-      <div className="fc-card__lesson">
-        <div className="fc-card__lesson-icon">
-          <Calendar size={18} strokeWidth={2} />
-        </div>
-        <div className="fc-card__lesson-copy">
-          <span className="fc-card__lesson-label">Next lesson</span>
-          <span className="fc-card__lesson-time">
-            {coach.nextAvailableLesson.day} · {coach.nextAvailableLesson.time}
-          </span>
-          <span className="fc-card__lesson-court">{coach.nextAvailableLesson.court}</span>
-        </div>
-      </div>
-
-      <ul className="fc-card__callouts">
-        {callouts.map((callout) => (
-          <li key={callout.key} className="fc-card__callout">
-            <span className="fc-card__callout-icon">{callout.icon}</span>
-            <span className="fc-card__callout-text">{callout.text}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="fc-card__actions">
-        <button
-          type="button"
-          className="fc-button fc-button--secondary"
-          onClick={(event) => {
-            event.stopPropagation();
-            goToProfile();
-          }}
-        >
+      <div className="cc-actions">
+        {onShare ? (
+          // The label is hidden below 640px, so the button carries its own accessible
+          // name rather than relying on the text node.
+          <button
+            type="button"
+            className="cc-btn cc-btn--ghost cc-btn--share"
+            onClick={onShare}
+            aria-label="Share"
+          >
+            <Share2 size={15} aria-hidden="true" />
+            <span className="cc-btn__label">Share</span>
+          </button>
+        ) : null}
+        <Link to={profileTo} state={profileState} className="cc-btn cc-btn--ghost">
           View profile
-        </button>
-        <button
-          type="button"
-          className="fc-button fc-button--primary"
-          onClick={(event) => {
-            event.stopPropagation();
-            onBook?.(coach);
-          }}
-        >
-          Book now
-        </button>
+        </Link>
+        {hasAvailability ? (
+          <button type="button" className="cc-btn cc-btn--primary" onClick={onBook}>
+            Book a lesson
+          </button>
+        ) : (
+          // Goes to the profile, which is where contact lives. Deliberately not the
+          // booking screen: there is nothing there to book.
+          <Link to={profileTo} state={profileState} className="cc-btn cc-btn--primary">
+            Message
+          </Link>
+        )}
       </div>
     </article>
   );
