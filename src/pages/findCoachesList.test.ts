@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   abbreviateVenueLabel,
   coachMatchesChip,
+  countSessionsThisWeek,
   coachMatchesChips,
   countWithinRadius,
   findDistanceDividerIndex,
@@ -207,4 +208,38 @@ test("suppression does not depend on the casing it is handed", () => {
 
 test("numeric levels still collapse to a range", () => {
   assert.equal(formatLevelsPill(["3.0", "4.5"]), "Levels 3–4.5");
+});
+
+test('"weekly" group sessions means this week, not every upcoming one', () => {
+  // Artur Castro's real roster: one 10:00 Saturday class repeating for eleven weeks. The
+  // card said 11; the group-lessons page, which bounds to the week, showed 1.
+  const saturdays = [
+    "2026-09-12T10:00:00.000Z", "2026-09-19T10:00:00.000Z", "2026-09-26T10:00:00.000Z",
+    "2026-10-03T10:00:00.000Z", "2026-10-10T10:00:00.000Z", "2026-10-17T10:00:00.000Z",
+    "2026-10-24T10:00:00.000Z", "2026-10-31T10:00:00.000Z", "2026-11-07T10:00:00.000Z",
+    "2026-11-14T10:00:00.000Z", "2026-11-21T10:00:00.000Z",
+  ];
+  assert.equal(saturdays.length, 11);
+  assert.equal(countSessionsThisWeek(saturdays, "2026-09-06"), 1);
+});
+
+test("the session window includes today and the seventh day", () => {
+  const days = [
+    "2026-09-05T10:00:00.000Z", // yesterday
+    "2026-09-06T10:00:00.000Z", // today
+    "2026-09-12T10:00:00.000Z", // seventh day
+    "2026-09-13T10:00:00.000Z", // eighth
+  ];
+  assert.equal(countSessionsThisWeek(days, "2026-09-06"), 2);
+});
+
+test("session counting crosses a month boundary", () => {
+  // Naive slicing that compares only day-of-month would drop these.
+  const days = ["2026-09-30T10:00:00.000Z", "2026-10-01T10:00:00.000Z"];
+  assert.equal(countSessionsThisWeek(days, "2026-09-28"), 2);
+});
+
+test("session counting ignores junk and missing timestamps", () => {
+  assert.equal(countSessionsThisWeek([null, undefined, "", "not-a-date"], "2026-09-06"), 0);
+  assert.equal(countSessionsThisWeek(["2026-09-07T10:00:00.000Z"], ""), 0);
 });

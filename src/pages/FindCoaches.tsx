@@ -18,6 +18,7 @@ import { normalizeVenueLabel } from "../utils/venueLabel";
 import {
   abbreviateVenueLabel,
   COACH_CHIPS,
+  countSessionsThisWeek,
   COACH_SORT_OPTIONS,
   formatAvailabilityPhrase,
   type CoachChipKey,
@@ -282,6 +283,23 @@ const normalizeDisplayLabel = (value: string) => {
   return toTitleCase(normalized);
 };
 
+/** First list that has anything in it. */
+const firstNonEmpty = (...lists: string[][]) => lists.find((list) => list.length > 0) ?? [];
+
+/**
+ * Case-insensitive dedupe, keeping first-seen casing. The profile returns both "group" and
+ * "Group" for at least one coach, which would otherwise render the same format twice.
+ */
+const dedupeLabels = (values: string[]) => {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const normalizeDisplayArray = (values: string[]) =>
   values
     .map((value) => normalizeDisplayLabel(value))
@@ -469,7 +487,7 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     return totalSlots && totalSlots > 0 ? sum + totalSlots : sum;
   }, 0);
 
-  const lessonTypeLabels = lessonTypes.map((lessonType) => pickFirstString(lessonType.label)).filter(Boolean);
+  const lessonTypeIds = lessonTypes.map((lessonType) => pickFirstString(lessonType.id)).filter(Boolean);
   const privateMetric = metrics.find((metric) => pickFirstString(metric.label).toLowerCase() === "private");
   const privateValue = pickFirstString(privateMetric?.value);
   const groupLessonType = lessonTypes.find((lessonType) => pickFirstString(lessonType.id).toLowerCase() === "group");
@@ -488,10 +506,21 @@ const mergeCoachProfileIntoCard = (coach: CoachCardModel, profile: Record<string
     specialties: normalizeDisplayArray(toStringArray(profile.specialties)),
     courts: coachingLocations.length > 0 ? coachingLocations : profileLocations.length > 0 ? profileLocations : coach.courts,
     levels: normalizeDisplayArray(toStringArray(profile.levels)),
-    formats:
-      lessonTypeLabels.length > 0
-        ? normalizeDisplayArray(lessonTypeLabels.map((label) => label.replace(/\s+lesson$/i, "")))
-        : coach.formats,
+    // Tokens, not display labels. `formats` is what the Groups chip filters on
+    // (findCoachesList CHIP_MATCHERS), and it was being rebuilt here out of
+    // booking.lessonTypes[].label — "Private lesson", "Semi-private lesson", "Group
+    // session". The strip only removed a trailing " lesson", so "Group session" survived
+    // intact, lowercased to "group session", and never equalled the "group" the chip
+    // looks for. Every coach who runs group sessions was filtered out by the Groups chip.
+    // The profile and the search endpoint both return the raw tokens; prefer those, and
+    // fall back to lesson-type *ids* rather than their labels.
+    formats: dedupeLabels(
+      firstNonEmpty(
+        normalizeDisplayArray(toStringArray(profile.formats)),
+        coach.formats,
+        normalizeDisplayArray(lessonTypeIds.map((id) => id.replace(/_/g, " "))),
+      ),
+    ),
     languages: normalizeDisplayArray(toStringArray(profile.languages)),
     availability: availabilityWindows[0] || coach.availability,
     availabilityWindows: availabilityWindows.length > 0 ? availabilityWindows : coach.availabilityWindows,
@@ -979,11 +1008,22 @@ const FindCoaches = () => {
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
-        const counts: Record<string, number> = {};
+        // Bounded to the week, because the card says "weekly". The endpoint returns
+        // every upcoming session — for one coach that was the same Saturday class
+        // repeating into late November — so an unbounded tally sent players to a page
+        // showing a fraction of what the card promised.
+        const startsByCoach: Record<string, Array<string | null | undefined>> = {};
         for (const lesson of response?.lessons ?? []) {
-          const coachId = (lesson as { coach_id?: number | string }).coach_id;
-          if (coachId == null) continue;
-          counts[String(coachId)] = (counts[String(coachId)] ?? 0) + 1;
+          const record = lesson as { coach_id?: number | string; start_date_time?: string };
+          if (record.coach_id == null) continue;
+          const key = String(record.coach_id);
+          (startsByCoach[key] ??= []).push(record.start_date_time);
+        }
+        const todayIso = new Date().toLocaleDateString("en-CA");
+        const counts: Record<string, number> = {};
+        for (const [coachId, starts] of Object.entries(startsByCoach)) {
+          const weekly = countSessionsThisWeek(starts, todayIso);
+          if (weekly > 0) counts[coachId] = weekly;
         }
         setGroupSessionCounts(counts);
       } catch {

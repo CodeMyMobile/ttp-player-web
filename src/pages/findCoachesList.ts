@@ -233,3 +233,35 @@ export const formatLevelsPill = (levels: string[] | undefined): string | null =>
   }
   return clean.length === 1 ? `Level ${clean[0]}` : `Levels ${clean.slice(0, 3).join(", ")}`;
 };
+
+/**
+ * How many of a coach's group sessions fall in the next seven days.
+ *
+ * The card says "Also runs N weekly group sessions", so N has to be a week's worth. The
+ * endpoint is not week-scoped: it returns every upcoming session, and one coach's eleven
+ * were the same 10:00 Saturday class repeating from September to late November. The card
+ * promised eleven, the player followed the link, and the group-lessons page — which does
+ * bound to the week — showed one. The link looked broken; the number was.
+ *
+ * Counts sessions, not distinct classes: two different classes this week is genuinely two
+ * things to choose between, and the card is offering a choice.
+ *
+ * Compares the date half of the timestamp as a string. These stamps are venue-local wall
+ * clock with a Z suffix (see utils/floatingTime), so converting them to a Date and doing
+ * arithmetic would shift the day for anyone east or west of the venue. The day is already
+ * written in the string; read it rather than recompute it.
+ */
+export const countSessionsThisWeek = (
+  startDateTimes: Array<string | null | undefined>,
+  todayIso: string,
+): number => {
+  if (!todayIso) return 0;
+  const end = new Date(`${todayIso}T00:00:00Z`);
+  if (Number.isNaN(end.getTime())) return 0;
+  end.setUTCDate(end.getUTCDate() + 6);
+  const endIso = end.toISOString().slice(0, 10);
+  return startDateTimes.reduce<number>((count, value) => {
+    const day = typeof value === "string" ? value.slice(0, 10) : "";
+    return day && day >= todayIso && day <= endIso ? count + 1 : count;
+  }, 0);
+};
