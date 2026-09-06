@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  abbreviateVenueLabel,
   coachMatchesChip,
   coachMatchesChips,
   countWithinRadius,
   findDistanceDividerIndex,
+  formatAvailabilityPhrase,
+  formatLevelsPill,
   isThinCoachProfile,
   sortCoaches,
 } from "./findCoachesList";
@@ -135,4 +138,73 @@ test("counts how many results are inside the radius", () => {
   ];
   // Exactly on the radius counts as inside; unknown distance does not.
   assert.equal(countWithinRadius(list, 5), 2);
+});
+
+test("availability caps at two day parts and counts the rest", () => {
+  // The real three-part case from the roster: seven coaches publish three day parts.
+  assert.equal(
+    formatAvailabilityPhrase(["Weekends", "Weekday Mornings", "Weekday Evenings"]),
+    "Weekends, weekday mornings +1",
+  );
+  // One and two parts are unchanged — there is nothing to hide, so no "+0".
+  assert.equal(formatAvailabilityPhrase(["Weekday Mornings"]), "Weekday mornings");
+  assert.equal(
+    formatAvailabilityPhrase(["Weekday Mornings", "Weekends"]),
+    "Weekday mornings, weekends",
+  );
+});
+
+test("availability is sentence case, not title case", () => {
+  // The API sends "Weekday Mornings"; mid-phrase it should read as prose.
+  assert.equal(formatAvailabilityPhrase(["Weekday Afternoons", "Weekends"]), "Weekday afternoons, weekends");
+});
+
+test("availability tolerates empty, blank and missing input", () => {
+  assert.equal(formatAvailabilityPhrase(undefined), "");
+  assert.equal(formatAvailabilityPhrase([]), "");
+  assert.equal(formatAvailabilityPhrase(["  ", ""]), "");
+  // Blanks are dropped before the cap, so they never inflate the "+N".
+  assert.equal(formatAvailabilityPhrase(["Weekends", "  ", "Weekday Mornings"]), "Weekends, weekday mornings");
+});
+
+test("venue labels shorten the two long facility words in the roster", () => {
+  assert.equal(abbreviateVenueLabel("Penmar Recreation Center"), "Penmar Rec Center");
+  assert.equal(abbreviateVenueLabel("Culver City High School"), "Culver City HS");
+  // Untouched: abbreviating these would make the venue harder to recognise on arrival.
+  assert.equal(abbreviateVenueLabel("Cheviot Hills Tennis Center"), "Cheviot Hills Tennis Center");
+  assert.equal(abbreviateVenueLabel("Christine Emerson Reed Park"), "Christine Emerson Reed Park");
+  assert.equal(abbreviateVenueLabel(null), "");
+});
+
+test("the levels pill is suppressed when a coach takes the whole skill ladder", () => {
+  // 13 of the 15 coaches who publish levels are one of these two shapes, so the pill
+  // was repeating "everyone" down most of the list.
+  assert.equal(formatLevelsPill(["advanced", "beginner", "competitive", "intermediate"]), null);
+  assert.equal(formatLevelsPill(["advanced", "beginner", "intermediate"]), null);
+});
+
+test("the levels pill survives when the range is actually narrow", () => {
+  // Title case, because the page title-cases the API's lowercase values before the card
+  // sees them. The pill echoes what it is given; only the suppression test below is
+  // case-insensitive.
+  assert.equal(
+    formatLevelsPill(["Beginner", "Competitive", "Intermediate"]),
+    "Levels Beginner, Competitive, Intermediate",
+  );
+  assert.equal(formatLevelsPill(["Beginner", "Intermediate"]), "Levels Beginner, Intermediate");
+  // `competitive` is a fourth API value but not a rung on the ladder, so it neither
+  // completes the set nor suppresses on its own.
+  assert.equal(formatLevelsPill(["Advanced", "Beginner", "Competitive"]), "Levels Advanced, Beginner, Competitive");
+  assert.equal(formatLevelsPill([]), null);
+});
+
+test("suppression does not depend on the casing it is handed", () => {
+  // Raw API casing (lowercase) and page casing (title) must suppress alike, so the rule
+  // cannot start firing or stop firing on a change of call site.
+  assert.equal(formatLevelsPill(["beginner", "intermediate", "advanced"]), null);
+  assert.equal(formatLevelsPill(["Beginner", "Intermediate", "Advanced"]), null);
+});
+
+test("numeric levels still collapse to a range", () => {
+  assert.equal(formatLevelsPill(["3.0", "4.5"]), "Levels 3–4.5");
 });

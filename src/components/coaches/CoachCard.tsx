@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { MapPin, Share2 } from "lucide-react";
 
+import { formatLevelsPill } from "../../pages/findCoachesList";
 import CoachTrustMark from "./CoachTrustMark";
 import CoachCredibilityLine from "./CoachCredibilityLine";
 import "./CoachCard.css";
@@ -111,22 +112,6 @@ export const selectCoachMatchReasons = (reasons: string[] | undefined, limit = 2
     .sort((a, b) => rankReason(a) - rankReason(b))
     .slice(0, limit);
 
-/**
- * One pill summarising the levels a coach teaches. Numeric levels collapse to a range,
- * named levels are listed. Display-only — nothing is inferred that the data does not say.
- */
-export const formatLevelsPill = (levels: string[] | undefined): string | null => {
-  const clean = (levels ?? []).map((level) => level.trim()).filter(Boolean);
-  if (clean.length === 0) return null;
-  const numbers = clean
-    .map((level) => Number(level.match(/\d+(?:\.\d+)?/)?.[0]))
-    .filter((value) => Number.isFinite(value));
-  if (numbers.length >= 2) {
-    return `Levels ${Math.min(...numbers)}–${Math.max(...numbers)}`;
-  }
-  return clean.length === 1 ? `Level ${clean[0]}` : `Levels ${clean.slice(0, 3).join(", ")}`;
-};
-
 const CoachCard = ({
   name,
   imageUrl,
@@ -209,7 +194,7 @@ const CoachCard = ({
               {tag}
             </span>
           ))}
-          {levelsPill ? <span className="cc-tag cc-tag--levels">{levelsPill}</span> : null}
+          {levelsPill ? <span className="cc-tag">{levelsPill}</span> : null}
           {/* Reasons sit below the pills and read as sentences, so they get their own
               rows rather than being crammed into the pill flow. Clamped to one line
               each: two of them interpolate an unbounded joined list server-side. */}
@@ -248,8 +233,16 @@ const CoachCard = ({
 
       <div className="cc-actions">
         {onShare ? (
-          <button type="button" className="cc-btn cc-btn--ghost cc-btn--share" onClick={onShare}>
-            <Share2 size={15} /> Share
+          // The label is hidden below 640px, so the button carries its own accessible
+          // name rather than relying on the text node.
+          <button
+            type="button"
+            className="cc-btn cc-btn--ghost cc-btn--share"
+            onClick={onShare}
+            aria-label="Share"
+          >
+            <Share2 size={15} aria-hidden="true" />
+            <span className="cc-btn__label">Share</span>
           </button>
         ) : null}
         <Link to={profileTo} state={profileState} className="cc-btn cc-btn--ghost">

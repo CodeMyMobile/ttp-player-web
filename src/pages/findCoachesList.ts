@@ -148,3 +148,88 @@ export const countWithinRadius = (coaches: CoachListItem[], radiusMiles: number)
   coaches.filter(
     (coach) => numberOr(coach.distanceMiles, Number.POSITIVE_INFINITY) <= radiusMiles,
   ).length;
+
+/* ── card display strings ──
+   Here rather than in the card component because they are string rules with real edge
+   cases, and here rather than in utils/venueLabel because they are specific to a card
+   in a list. normalizeVenueLabel is shared with the profile header and the booking
+   slot list, where "Where you'll play" has to stay findable — abbreviating there would
+   make a venue harder to identify, not easier. */
+
+/**
+ * Day parts for the card's availability strip.
+ *
+ * Caps at two and counts the rest. The API's vocabulary is four values (Weekday
+ * Mornings / Afternoons / Evenings, Weekends) and coaches publish up to three, so the
+ * uncapped string ran to "Weekends, weekday mornings, weekday evenings" — two lines on
+ * desktop beside a venue name, and the tallest thing on the mobile card. Two parts plus
+ * a count says the same thing: this coach is broadly available.
+ *
+ * Sentence case, because it reads as a phrase rather than a label.
+ */
+export const formatAvailabilityPhrase = (windows: string[] | undefined, limit = 2): string => {
+  const parts = (windows ?? [])
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+
+  const shown = parts.slice(0, limit);
+  const sentence = shown
+    .map((value, index) =>
+      index === 0 ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value.toLowerCase(),
+    )
+    .join(", ");
+
+  const hidden = parts.length - shown.length;
+  return hidden > 0 ? `${sentence} +${hidden}` : sentence;
+};
+
+/**
+ * Shortens the two long facility words that actually occur in the roster. Applied after
+ * normalizeVenueLabel, on the card only.
+ *
+ * Deliberately not a general abbreviation pass: every rule here is one someone can read
+ * back to the venue it came from ("Penmar Recreation Center", "Culver City High School"
+ * — both live in the current data). Guessing at others would produce labels that no
+ * longer match what a player sees on arrival.
+ */
+export const abbreviateVenueLabel = (label: string | null | undefined): string =>
+  (label ?? "")
+    .replace(/\bRecreation Center\b/gi, "Rec Center")
+    .replace(/\bHigh School\b/gi, "HS")
+    .trim();
+
+/**
+ * The three rungs of the skill ladder. `competitive` is a fourth value the API sends, but
+ * it describes what a coach runs rather than who they will take, so it does not count
+ * toward "teaches everyone".
+ */
+const SKILL_TIERS = ["beginner", "intermediate", "advanced"];
+
+/**
+ * One pill summarising the levels a coach teaches — or nothing, when the answer is
+ * "everyone".
+ *
+ * A coach covering all three skill tiers tells a player nothing they can act on: 13 of
+ * the 15 coaches who publish levels at all are in that group, so the pill was a
+ * full-width element repeating the same non-fact down the list. It earns its place only
+ * when the range is narrow ("Levels Beginner, Intermediate"), which is the case a player
+ * can actually use to rule a coach in or out.
+ *
+ * Numeric levels collapse to a range, named levels are listed. Display-only — nothing is
+ * inferred that the data does not say.
+ */
+export const formatLevelsPill = (levels: string[] | undefined): string | null => {
+  const clean = (levels ?? []).map((level) => level.trim()).filter(Boolean);
+  if (clean.length === 0) return null;
+
+  const lowered = clean.map((level) => level.toLowerCase());
+  if (SKILL_TIERS.every((tier) => lowered.some((level) => level.includes(tier)))) return null;
+  const numbers = clean
+    .map((level) => Number(level.match(/\d+(?:\.\d+)?/)?.[0]))
+    .filter((value) => Number.isFinite(value));
+  if (numbers.length >= 2) {
+    return `Levels ${Math.min(...numbers)}–${Math.max(...numbers)}`;
+  }
+  return clean.length === 1 ? `Level ${clean[0]}` : `Levels ${clean.slice(0, 3).join(", ")}`;
+};

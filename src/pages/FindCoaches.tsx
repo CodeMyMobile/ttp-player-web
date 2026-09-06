@@ -16,8 +16,10 @@ import TrustCard from "../components/coaches/TrustCard";
 import { TRUST_TOOLTIP } from "../components/coaches/CoachTrustMark";
 import { normalizeVenueLabel } from "../utils/venueLabel";
 import {
+  abbreviateVenueLabel,
   COACH_CHIPS,
   COACH_SORT_OPTIONS,
+  formatAvailabilityPhrase,
   type CoachChipKey,
   type CoachSortKey,
   coachMatchesChips,
@@ -344,14 +346,8 @@ const deriveAvailabilityPhrase = (coach: CoachCardModel): string => {
   const windows = (Array.isArray(coach.availabilityWindows) ? coach.availabilityWindows : [])
     .map((value) => String(value).replace(/\s*\(\d+\s*slots?\)\s*$/i, "").trim())
     .filter((value) => value && !/^availability/i.test(value));
-  if (windows.length === 0) return "";
-  // "Weekday Mornings, Weekends" reads better mid-sentence than title case.
-  const sentence = windows
-    .map((value, index) =>
-      index === 0 ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value.toLowerCase(),
-    )
-    .join(", ");
-  return sentence;
+  // Capped at two parts plus a count — see formatAvailabilityPhrase.
+  return formatAvailabilityPhrase(windows);
 };
 
 const extractCoachArray = (payload: unknown): Record<string, unknown>[] => {
@@ -1432,9 +1428,11 @@ const FindCoaches = () => {
           <section className="fcv2-page-head">
             <div className="fcv2-page-head-copy">
               <h1>{isMatchedMode ? "Your matches" : "Find a Coach"}</h1>
+              {/* No location here. The header chip owns location and now states it in
+                  full ("Current location · 10 mi"); repeating it under the heading gave
+                  the page two places to read the same thing, and two places to keep in
+                  sync when the radius changes. */}
               <p>
-                <span>📍 {locationShortLabel}</span>
-                <span>·</span>
                 <span>{isMatchedMode ? matchedSubtitle : resultsCountLabel}</span>
               </p>
             </div>
@@ -1591,7 +1589,7 @@ const FindCoaches = () => {
                   const privateFlag = isMatched ? budgetFlag(coach.hourlyRateValue, coachMatchBudgetRange) : null;
                   // One clean, short venue name (drops street/city/"Tennis Court"). See utils/venueLabel.
                   const rawLocation = coach.courts?.[0] ?? coach.cityLabel ?? "";
-                  const venueLabel = normalizeVenueLabel(rawLocation);
+                  const venueLabel = abbreviateVenueLabel(normalizeVenueLabel(rawLocation));
                   const locationLabel = isDisplayableLocation(venueLabel) ? venueLabel : "";
                   const tags = coach.specialties.slice(0, 3);
 
