@@ -48,3 +48,22 @@ export const normalizeVenueLabel = (
 };
 
 export default normalizeVenueLabel;
+
+/**
+ * Shortens the long facility words, for surfaces that show a venue as a label rather than
+ * as the place you have to find.
+ *
+ * Separate from normalizeVenueLabel and opt-in: that function also feeds the booking slot
+ * list and the "Where you'll play" card, where a venue has to stay recognisable when a
+ * player arrives at it. Abbreviating there would make a court harder to identify, not
+ * easier.
+ *
+ * Deliberately not a general abbreviation pass. Every rule is one that can be read back
+ * to a venue in the live roster — "Penmar Recreation Center", "Culver City High School".
+ * Guessing at others produces labels that no longer match the sign on the gate.
+ */
+export const abbreviateVenueLabel = (label?: string | null): string =>
+  (label ?? "")
+    .replace(/\bRecreation Center\b/gi, "Rec Center")
+    .replace(/\bHigh School\b/gi, "HS")
+    .trim();

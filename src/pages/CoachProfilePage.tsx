@@ -30,7 +30,7 @@ import BookingSlotList from "../components/coaches/BookingSlotList";
 import CoachTrustMark from "../components/coaches/CoachTrustMark";
 import CoachCredibilityLine from "../components/coaches/CoachCredibilityLine";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
-import { normalizeVenueLabel } from "../utils/venueLabel";
+import { abbreviateVenueLabel, normalizeVenueLabel } from "../utils/venueLabel";
 import {
   consumePackageCredits,
   fetchCoachPackages,
@@ -78,6 +78,8 @@ import {
 } from "../utils/coachProfileBookingState.js";
 import {
   isCancelledLessonStatus,
+  countSlotsInWindow,
+  currentWeekWindow,
   mergeAvailabilityDayGroups,
   parseCoachAvailabilityClock,
 } from "../utils/coachProfileAvailability";
@@ -296,13 +298,6 @@ const LEVEL_OPTIONS = [
   "Advanced",
   "Competitive",
 ];
-
-// Skill order for the hero tagline level range (lowest → highest). Unknown labels sort last.
-const LEVEL_SKILL_ORDER = ["beginner", "beginner+", "intermediate", "intermediate+", "advanced", "competitive"];
-const levelSkillRank = (label: string) => {
-  const index = LEVEL_SKILL_ORDER.indexOf(label.trim().toLowerCase());
-  return index === -1 ? LEVEL_SKILL_ORDER.length : index;
-};
 
 const DISPLAY_LABEL_OVERRIDES: Record<string, string> = {
   private: "Private",
@@ -1037,28 +1032,20 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
       : extractMetricNumber(metrics, /(\d+(?:-\d+)?\+?)\s*yrs?/i) ?? extractMetricNumber(metrics, /(\d+\+?)\s*years?/i) ?? "Experienced";
   const studentsLabel =
     typeof apiProfile?.studentCount === "number"
-      ? `${apiProfile.studentCount} students`
+      ? `${apiProfile.studentCount} student${apiProfile.studentCount === 1 ? "" : "s"}`
       : extractMetricNumber(metrics, /(\d+\+?)\s*students?/i) ?? "Players coached";
   // Header shows the short venue name (no street/city/facility clutter).
-  const heroLocationLabel = normalizeVenueLabel(primaryLocationLabel) || primaryLocationLabel;
-  const cityLabel = heroLocationLabel || "Location TBD";
-  // Mobile hero credibility now renders via <CoachCredibilityLine> (cert · years · students).
-  const heroTagline = useMemo(() => {
-    const sentence = (value: string) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
-    const lowerLevels = [...levels]
-      .sort((a, b) => levelSkillRank(a) - levelSkillRank(b))
-      .map((level) => level.toLowerCase());
-    const levelsPart =
-      lowerLevels.length >= 2
-        ? `${lowerLevels[0]} to ${lowerLevels[lowerLevels.length - 1]}`
-        : lowerLevels[0] ?? "";
-    const focus = specialties.slice(0, 3).map((item) => item.toLowerCase());
-    const focusPart =
-      focus.length <= 1
-        ? focus.join("")
-        : `${focus.slice(0, -1).join(", ")} & ${focus[focus.length - 1]}`;
-    return [sentence(levelsPart), sentence(focusPart)].filter(Boolean).join(" · ");
-  }, [levels, specialties]);
+  // Abbreviated the same way the search card does it: a player moves straight from that
+  // list to here, and "Penmar Rec Center" on one screen against "Penmar Recreation
+  // Center" on the next reads as two different courts.
+  const heroLocationLabel =
+    abbreviateVenueLabel(normalizeVenueLabel(primaryLocationLabel)) || primaryLocationLabel;
+  // The mobile hero used to carry a tagline here — "Beginner to competitive · Backhand,
+  // fitness & footwork" — built from the same levels and specialties the "What <name>
+  // teaches" section lists as pills a screen below. On a card being scanned a summary
+  // earns its place; on a profile the player has already drilled in, so it was the same
+  // facts twice, and its level range said "everyone" for most coaches. Credibility
+  // (cert · years · students) still renders below via <CoachCredibilityLine>.
   // §3: lesson-format chip group renders only when the profile actually carries formats.
   const hasLessonFormats = Boolean(bookingLessonTypes.length || apiProfile?.formats?.length);
   const playerId =
@@ -1734,7 +1721,27 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
   ]);
 
   const nextAvailableSlot = visibleDays.flatMap((day) => day.slots)[0] ?? null;
-  const slotsThisWeek = visibleDays.reduce((sum, day) => sum + day.slots.length, 0);
+  /**
+   * "N slots available this week" sits next to the Book button, so the number has to be
+   * the week's.
+   *
+   * visibleDays is everything the booking payload returned, filtered by lesson type and
+   * nothing else. That payload runs about a fortnight — for one staging coach it was
+   * Sep 7 to Sep 18, ten dates, 132 slots — and the count was rendering all of it under
+   * a "this week" label. The honest figure for that coach was 66.
+   *
+   * Bounded rather than relabelled: "this week" is the claim that means something beside
+   * a booking action, and widening the label to match the payload would keep the bigger
+   * number by making it say less. A thin number here is a fact about supply.
+   *
+   * Compares ISO day strings, the same way utils/activityFeed itemsWithinWindow bounds
+   * the home feed — no timezone arithmetic, and a slot dated outside the window cannot
+   * be counted under a day it does not belong to.
+   */
+  const slotsThisWeek = useMemo(() => {
+    const { windowStart, windowEnd } = currentWeekWindow();
+    return countSlotsInWindow(visibleDays, windowStart, windowEnd);
+  }, [visibleDays]);
   const selectedSlotPricing = useMemo(
     () =>
       selectedSlot
@@ -2704,6 +2711,16 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     });
   };
 
+  /**
+   * Sentence case, not the title case formatDisplayLabel produces.
+   *
+   * Two reasons, pointing the same way: the search card renders these same day parts as
+   * "Weekday mornings" and a player moves straight from that list to here, and the pills
+   * beside these ones already read "Private lesson" and "Semi-private lesson" rather than
+   * "Private Lesson". Title case was the outlier on both counts.
+   */
+  const toSentenceCase = (value: string) =>
+    value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value;
   const availabilityLabels = useMemo(() => {
     if (Array.isArray(profile?.availability)) {
       return formatDisplayLabelList(
@@ -2720,6 +2737,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     }
     return [];
   }, [profile?.availability]);
+  const availabilityDisplayLabels = useMemo(
+    () => availabilityLabels.map(toSentenceCase),
+    [availabilityLabels],
+  );
   const lessonFormatLabels = useMemo(() => {
     if (bookingLessonTypes.length) {
       return bookingLessonTypes.map((item) => item.label);
@@ -4174,7 +4195,6 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     ) : null}
                   </div>
                 </div>
-                {heroTagline ? <p className="coach-hero-m__tagline">{heroTagline}</p> : null}
                 <CoachCredibilityLine
                   certLabel={certifications[0] || undefined}
                   yearsExperience={profile?.yearsExperience ?? apiProfile?.experienceYears}
@@ -4264,7 +4284,6 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                             <MessageCircle size={16} /> Message
                           </button>
                         )}
-                        <span className="coach-profile-hero-v2__location-note">{cityLabel}</span>
                       </div>
                     </div>
                     <div className="coach-profile-hero-v2__chips">
@@ -4355,7 +4374,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       <div className="coach-sec-m__chip-group">
                         <p className="coach-sec-m__chip-label">Typically available</p>
                         <div className="coach-sec-m__chips">
-                          {availabilityLabels.map((label) => (
+                          {availabilityDisplayLabels.map((label) => (
                             <span key={label} className="coach-sec-m__chip coach-sec-m__chip--avail">
                               <span className="coach-sec-m__pulse" aria-hidden />
                               {label}
@@ -4442,24 +4461,22 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   </article>
                 </div>
 
-                <div className="coach-detail-stack">
-                  <div>
-                    <h3>Certifications</h3>
-                    <div className="coach-chip-row">
-                      {certifications.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                {/* Certifications are not repeated here. They render in the hero, directly
+                    under the name, which is where a credential belongs and where the search
+                    card also puts it — About already carries experience, students and
+                    languages, so this was the same three pills a screen apart. */}
               </section>
 
               <section ref={specialtiesRef} className="coach-profile-section coach-profile-section--split" id="specialties">
                 <div className="coach-profile-section__header">
                   <h2>Specialties</h2>
                 </div>
+                {/* One colour in this stack, and it belongs to availability. Focus areas,
+                    player levels and lesson formats had three different tints between
+                    them, which ranked them against each other for no reason a player
+                    could act on — and put levels above the specialties, when the
+                    specialties are what a coach actually teaches. Availability keeps its
+                    green because it is the one group tied to whether you can book. */}
                 <div className="coach-detail-stack">
                   <div>
                     <h3>Focus areas</h3>
@@ -4475,7 +4492,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     <h3>Player levels</h3>
                     <div className="coach-chip-row">
                       {levels.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--purple">
+                        <span key={item} className="coach-profile-pill coach-profile-pill--soft">
                           {item}
                         </span>
                       ))}
@@ -4485,7 +4502,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     <h3>Lesson formats</h3>
                     <div className="coach-chip-row">
                       {lessonFormatLabels.map((item) => (
-                        <span key={item} className="coach-profile-pill coach-profile-pill--blue">
+                        <span key={item} className="coach-profile-pill coach-profile-pill--soft">
                           {item}
                         </span>
                       ))}
@@ -4494,7 +4511,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   <div>
                     <h3>Availability</h3>
                     <div className="coach-chip-row">
-                      {(availabilityLabels.length ? availabilityLabels : [profile?.availability || "Schedule shared after booking"]).map((item) => (
+                      {(availabilityDisplayLabels.length ? availabilityDisplayLabels : [profile?.availability || "Schedule shared after booking"]).map((item) => (
                         <span key={item} className="coach-profile-pill coach-profile-pill--green">
                           {item}
                         </span>

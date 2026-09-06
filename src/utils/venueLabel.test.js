@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeVenueLabel } from "./venueLabel.ts";
+import { abbreviateVenueLabel, normalizeVenueLabel } from "./venueLabel.ts";
 
 // Real strings pulled from the prod coach-profile API (coachingLocations / booking slot locations).
 const REAL = {
@@ -68,4 +68,21 @@ test("normalizeVenueLabel — empty / nullish input", () => {
   assert.equal(normalizeVenueLabel(""), "");
   assert.equal(normalizeVenueLabel(null), "");
   assert.equal(normalizeVenueLabel(undefined), "");
+});
+
+test("abbreviateVenueLabel shortens only the facility words in the roster", () => {
+  assert.equal(abbreviateVenueLabel("Penmar Recreation Center"), "Penmar Rec Center");
+  assert.equal(abbreviateVenueLabel("Mar Vista Recreation Center"), "Mar Vista Rec Center");
+  assert.equal(abbreviateVenueLabel("Culver City High School"), "Culver City HS");
+  // Left alone: shortening these would make the venue harder to recognise on arrival.
+  assert.equal(abbreviateVenueLabel("Cheviot Hills Tennis Center"), "Cheviot Hills Tennis Center");
+  assert.equal(abbreviateVenueLabel("Christine Emerson Reed Park"), "Christine Emerson Reed Park");
+  assert.equal(abbreviateVenueLabel(null), "");
+});
+
+test("the search card and the profile abbreviate a venue identically", () => {
+  // The point of sharing this: a player moves straight from the list to the profile, and
+  // two spellings of one court read as two courts.
+  const raw = "Penmar Recreation Center 1341 Lake St, Venice, CA 90291, USA";
+  assert.equal(abbreviateVenueLabel(normalizeVenueLabel(raw)), "Penmar Rec Center");
 });
