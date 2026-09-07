@@ -1,0 +1,36 @@
+---
+import type { Coach } from "../lib/coaches";
+import { areaLabel } from "../lib/venues";
+
+interface Props { coach: Coach; }
+const { coach } = Astro.props;
+const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
+const courts = coach.courts.slice(0, 3).map((court) => court.name);
+const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
+const bio = coach.bio || "Public coach profile coming soon.";
+const photoPath = `/images/coaches/${coach.slug}.jpg`;
+---
+<article class="coach">
+  <div class="coach-top">
+    <div class="coach-avatar" aria-label={`${coach.name} initials`}>
+      {initials}
+      {coach.photo && <img src={photoPath} alt={`${coach.name}, tennis coach`} width="64" height="64" loading="lazy" />}
+    </div>
+    <div class="coach-id">
+      <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a><span class="coach-verified" aria-label="Tennis Plan Verified">✓</span></h3>
+      <p>Tennis Plan Verified · {primaryArea}{coach.students !== null && ` · ${coach.students} students`}</p>
+    </div>
+    <div class="coach-rate">
+      {coach.privateRate !== null && <><b>${coach.privateRate}</b><small>private</small></>}
+      {coach.groupRate !== null && <em>${coach.groupRate} group</em>}
+    </div>
+  </div>
+  <p class="coach-bio">{bio}</p>
+  {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
+  {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
+  <p class="coach-opening"><span></span>Availability shared when you book</p>
+  <div class="coach-actions">
+    <a class="coach-button coach-button--primary" href={`/coaches/${coach.slug}`}>View profile</a>
+    <a class="coach-button" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book</a>
+  </div>
+</article>

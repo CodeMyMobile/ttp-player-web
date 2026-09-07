@@ -14,6 +14,17 @@ npm test
 npm run check
 ```
 
+## Coach-directory build variables
+
+Set these in Netlify's public-site build environment, not in client-visible `VITE_*` variables:
+
+- `COACH_API_URL`: full HTTPS URL for the API endpoint that returns only public coach records as a JSON array.
+- `COACH_API_TOKEN`: bearer token accepted by that endpoint.
+
+The build stops when either variable is missing, the endpoint fails, the response is not an array, a consented coach has no stored `slug`, or the public roster is empty. `VITE_GOOGLE_API_KEY` is not used here; courts are mapped solely from the committed `src/data/venues.json` allowlist.
+
+Configure a Netlify build hook for coach create/update and a nightly scheduled build as fallback. Both should run this site's normal `npm run build` command; never add a client-side roster fetch.
+
 The project requires Node `>=22.12.0`. Keep Netlify on Node `22.12.0`, as specified in `netlify.toml` and the package engine declaration.
 
 ## New Netlify site

@@ -41,8 +41,9 @@ test("build emits an apex-domain crawler policy and sitemap", async () => {
   assert.match(robots, /Allow: \/\n/);
   assert.match(robots, /Sitemap: https:\/\/thetennisplan\.com\/sitemap-index\.xml/);
   assert.doesNotMatch(robots, /app\.thetennisplan\.com/);
-  assert.deepEqual(
-    [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]),
-    ["https://thetennisplan.com/"],
-  );
+  const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+  assert.ok(locations.includes("https://thetennisplan.com/"));
+  assert.ok(locations.includes("https://thetennisplan.com/tennis-coaches/"));
+  assert.ok(locations.includes("https://thetennisplan.com/about/"));
+  assert.doesNotMatch(sitemap, /\/coaches\/short\//);
 });

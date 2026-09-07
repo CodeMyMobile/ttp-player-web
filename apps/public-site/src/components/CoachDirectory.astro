@@ -1,0 +1,12 @@
+---
+import CoachCard from "./CoachCard.astro";
+import type { Coach } from "../lib/coaches";
+import { areaLabel } from "../lib/venues";
+interface Props { coaches: Coach[]; areas: string[]; currentArea?: string; }
+const { coaches, areas, currentArea } = Astro.props;
+---
+<section class="coach-areas" aria-label="Browse coaches by area"><div class="directory-shell"><h2>Browse by area</h2><ul>
+  <li><a href="/tennis-coaches" aria-current={!currentArea ? "page" : undefined}>All of West LA</a></li>
+  {areas.map((area) => <li><a href={`/tennis-coaches/${area}`} aria-current={currentArea === area ? "page" : undefined}>{areaLabel(area)}</a></li>)}
+</ul></div></section>
+<section class="coach-roster"><div class="directory-shell"><div class="coach-grid">{coaches.map((coach) => <CoachCard coach={coach} />)}</div></div></section>

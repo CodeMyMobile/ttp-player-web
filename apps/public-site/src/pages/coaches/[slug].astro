@@ -1,0 +1,16 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getAreaCoaches, getCoaches } from "../../lib/coaches";
+import { areaLabel } from "../../lib/venues";
+export async function getStaticPaths() { const coaches = await getCoaches(); const indexableAreas = [...getAreaCoaches(coaches).keys()]; return coaches.map((coach) => ({ params: { slug: coach.slug }, props: { coach, indexableAreas } })); }
+const { coach, indexableAreas } = Astro.props;
+const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
+const schema = coach.indexable ? { "@context": "https://schema.org", "@type": "Person", name: coach.name, jobTitle: "Tennis Coach", url: `https://thetennisplan.com/coaches/${coach.slug}`, knowsAbout: coach.focus, worksFor: { "@type": "Organization", name: "The Tennis Plan" } } : undefined;
+---
+<BaseLayout title={`${coach.name} — Tennis Coach in ${primaryArea} | The Tennis Plan`} description={`Book tennis lessons with ${coach.name} in ${primaryArea}. See courts, rates, and specialties.`} canonicalPath={`/coaches/${coach.slug}`} noindex={!coach.indexable} schema={schema}>
+  <main class="coach-profile"><div class="profile-shell"><a class="profile-back" href="/tennis-coaches">← All coaches</a><header><div class="profile-avatar">{coach.name.split(/\s+/).map((part: string) => part[0]).join("").slice(0, 2)}{coach.photo && <img src={`/images/coaches/${coach.slug}.jpg`} alt={`${coach.name}, tennis coach`} width="96" height="96" />}</div><div><h1>{coach.name} — Tennis Coach in {primaryArea}</h1><p class="profile-rate">{coach.privateRate !== null ? `$${coach.privateRate}/hr · Private lessons` : "Private lessons"}</p><p class="profile-verified">✓ Tennis Plan Verified</p></div><a class="coach-button coach-button--primary" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book a lesson</a></header>
+    <section><h2>Where {coach.name.split(" ")[0]} coaches</h2><ul class="profile-courts">{coach.courts.map((court: import("../../lib/venues").Venue) => <li>{indexableAreas.includes(court.area) ? <a href={`/tennis-coaches/${court.area}`}>{court.name}</a> : court.name}</li>)}</ul></section>
+    {(coach.focus.length > 0 || coach.certifications.length > 0) && <section><h2>Specialties</h2>{coach.focus.length > 0 && <p>{coach.focus.join(", ")}</p>}{coach.certifications.length > 0 && <p>Credentials: {coach.certifications.join(", ")}</p>}</section>}
+    <section><h2>About {coach.name.split(" ")[0]}</h2><p>{coach.bio || "This coach's full bio is coming soon. Contact-free booking is available in The Tennis Plan app."}</p></section>
+  </div></main>
+</BaseLayout>

@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { buildPublicCoaches, getAreaCoaches } from "../src/lib/coaches.ts";
+
+const venues = {
+  "Culver City High School": { name: "Culver City High School", area: "culver-city" },
+  "Penmar Recreation Center": { name: "Penmar Recreation Center", area: "venice" },
+};
+
+test("public coach mapper permits consented fields and drops unknown venues", () => {
+  const coaches = buildPublicCoaches([
+    {
+      is_public: true,
+      slug: "dean-kern",
+      name: "Dean Kern",
+      photo_url: "https://private.example/dean.jpg",
+      rate_private: 150,
+      rate_group: 50,
+      bio: "word ".repeat(60),
+      focus_areas: ["doubles"],
+      certifications: ["USPTA"],
+      student_count: 11,
+      courts: [{ name: "Culver City High School" }, { name: "123 Private Drive" }, { name: "Penmar Recreation Center" }],
+      phone: "+13105551212",
+      email: "dean@example.com",
+    },
+    { is_public: false, slug: "not-consented", name: "Private Coach" },
+  ], venues);
+
+  assert.deepEqual(coaches, [{
+    slug: "dean-kern",
+    name: "Dean Kern",
+    photo: "https://private.example/dean.jpg",
+    privateRate: 150,
+    groupRate: 50,
+    bio: "word ".repeat(60).trim(),
+    focus: ["doubles"],
+    certifications: ["USPTA"],
+    students: 11,
+    courts: [
+      { name: "Culver City High School", area: "culver-city" },
+      { name: "Penmar Recreation Center", area: "venice" },
+    ],
+    areas: ["culver-city", "venice"],
+    indexable: true,
+  }]);
+});
+
+test("short biographies remain usable but not indexable", () => {
+  const [coach] = buildPublicCoaches([{
+    is_public: true,
+    slug: "short-bio",
+    name: "Short Bio",
+    rate_private: 80,
+    bio: "A real but brief coach bio.",
+    courts: [{ name: "Culver City High School" }],
+  }], venues);
+
+  assert.equal(coach.indexable, false);
+});
+
+test("area groups include only three-coach routes", () => {
+  const coaches = buildPublicCoaches([
+    "one", "two", "three", "four",
+  ].map((slug, index) => ({
+    is_public: true,
+    slug,
+    name: slug,
+    rate_private: 100,
+    courts: [{ name: index === 3 ? "Penmar Recreation Center" : "Culver City High School" }],
+  })), venues);
+
+  assert.deepEqual([...getAreaCoaches(coaches).keys()], ["culver-city"]);
+});
+
+test("missing stored slug rejects build data", () => {
+  assert.throws(
+    () => buildPublicCoaches([{ is_public: true, name: "No Slug", courts: [] }], venues),
+    /stored slug/i,
+  );
+});

@@ -5,9 +5,11 @@ interface Props {
   title: string;
   description: string;
   canonicalPath?: string;
+  noindex?: boolean;
+  schema?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const { title, description, canonicalPath = "/" } = Astro.props;
+const { title, description, canonicalPath = "/", noindex = false, schema } = Astro.props;
 const isSiteRelativePath = canonicalPath.startsWith("/") && !canonicalPath.startsWith("//") && !canonicalPath.includes("\\");
 const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).toString();
 ---
@@ -16,7 +18,7 @@ const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -25,6 +27,10 @@ const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:image" content="https://thetennisplan.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://thetennisplan.com/og-image.png" />
+    {schema && <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />}
   </head>
   <body><slot /></body>
 </html>

@@ -1,0 +1,20 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CoachDirectory from "../../components/CoachDirectory.astro";
+import { getAreaCoaches, getCoaches } from "../../lib/coaches";
+import { areaLabel } from "../../lib/venues";
+const coaches = await getCoaches();
+const areas = [...getAreaCoaches(coaches).keys()];
+const courtsByArea = new Map(areas.map((area) => [area, [...new Set(coaches.filter((coach) => coach.areas.includes(area)).flatMap((coach) => coach.courts.filter((court) => court.area === area).map((court) => court.name)))]]));
+const schema = [{ "@context": "https://schema.org", "@type": "ItemList", name: "Tennis coaches in West Los Angeles", itemListElement: coaches.map((coach, index) => ({ "@type": "ListItem", position: index + 1, url: `https://thetennisplan.com/coaches/${coach.slug}` })) }, { "@context": "https://schema.org", "@type": "LocalBusiness", name: "The Tennis Plan", url: "https://thetennisplan.com", areaServed: areas.map((area) => ({ "@type": "Place", name: areaLabel(area) })) }];
+---
+<BaseLayout title="Tennis Coaches in West Los Angeles | The Tennis Plan" description="Browse invite-only tennis coaches across West Los Angeles. Compare rates and courts — no account needed." canonicalPath="/tennis-coaches" schema={schema}>
+  <main class="coach-directory">
+    <section class="coach-hero"><div class="directory-shell"><span><b>{coaches.length}</b> invited coaches · no open sign-ups</span><h1>Tennis coaches in West Los Angeles you can trust</h1><p class="coach-promise">Not a directory. Every coach here is someone we know and would book ourselves.</p><p>Browse rates, courts and availability across Culver City, Mar Vista, Venice, Santa Monica, Westwood and Brentwood — no account needed.</p></div></section>
+    <section class="coach-strip"><div class="directory-shell">Invite-only. Coaches can't add themselves.</div></section>
+    <CoachDirectory coaches={coaches} areas={areas} />
+    <section class="coach-vetting"><div class="directory-shell"><h2>How we choose coaches</h2><p>The roster is closed. It grows when we meet a coach worth adding, and not before.</p><ul><li><b>We reach out first</b><span>There is no self-service coach application.</span></li><li><b>We have seen them coach</b><span>Invitations follow direct experience of their work.</span></li><li><b>Tennis Plan Verified</b><span>We confirm identity, courts, and listed credentials.</span></li></ul></div></section>
+    <section class="coach-about"><div class="directory-shell coach-about-grid"><div><h2>Why this exists</h2><p>Finding a coach in West LA should start with real courts, clear rates, and people you can trust.</p><p>We built this public list so players can make that first decision before creating an account.</p></div><aside><p><b>{coaches.length}</b> coaches</p><p><b>{new Set(coaches.flatMap((coach) => coach.areas)).size}</b> West LA neighbourhoods</p><p><b>0</b> open sign-ups</p><a class="coach-button coach-button--primary" href="/about">More about us</a></aside></div></section>
+    <section class="coach-courts"><div class="directory-shell"><h2>Where our coaches teach</h2><div class="court-grid">{areas.map((area) => <article><h3><a href={`/tennis-coaches/${area}`}>{areaLabel(area)}</a></h3><ul>{courtsByArea.get(area)?.map((court) => <li>{court}</li>)}</ul><p>{coaches.filter((coach) => coach.areas.includes(area)).length} coaches</p></article>)}</div></div></section>
+  </main>
+</BaseLayout>
