@@ -3,11 +3,22 @@ import test from "node:test";
 
 import {
   holdsGroupSpot,
+  isLessonNotFullError,
   isComped,
   isPayOnCourt,
+  joinGroupLessonWaitlist,
+  leaveGroupLessonWaitlist,
   mapUpcomingGroupLesson,
+  mapUpcomingGroupLessonsResponse,
   resolveBookingState,
 } from "./groupLessons";
+
+const mockJsonResponse = (payload: unknown = {}) =>
+  ({
+    ok: true,
+    status: 200,
+    json: async () => payload,
+  }) as Response;
 
 test("isPayOnCourt matches pay_on_court case-insensitively", () => {
   assert.equal(isPayOnCourt("pay_on_court"), true);
@@ -160,4 +171,76 @@ test("mapUpcomingGroupLesson counts pay-on-court participants as active", () => 
   assert.equal(lesson.participants.length, 1);
   assert.equal(lesson.availableSpots, 3);
   assert.equal(lesson.groupPlayers?.[0]?.paymentMethod, "pay_on_court");
+});
+
+test("mapUpcomingGroupLessonsResponse preserves waitlist count and player position", () => {
+  const response = mapUpcomingGroupLessonsResponse({
+    lessons: [{ id: 77, waitlist_count: 4, waitlist_position: 2 }],
+  });
+
+  assert.deepEqual(response.lessons[0], {
+    ...response.lessons[0],
+    waitlistCount: 4,
+    waitlistPosition: 2,
+  });
+});
+
+test("preserves lesson type so restricted groups cannot offer waitlist joins", () => {
+  const { lessons } = mapUpcomingGroupLessonsResponse({ lessons: [{ id: 77, lessontype_id: 3 }, { id: 78, lessontype_id: 4 }] });
+  assert.deepEqual(lessons.map(lesson => lesson.lessonTypeId), [3, 4]);
+});
+
+test("mapUpcomingGroupLessonsResponse preserves an absent waitlist position", () => {
+  const response = mapUpcomingGroupLessonsResponse({
+    lessons: [{ id: 77, waitlist_count: 4, waitlist_position: null }],
+  });
+
+  assert.equal(response.lessons[0]?.waitlistCount, 4);
+  assert.equal(response.lessons[0]?.waitlistPosition, undefined);
+});
+
+test("isLessonNotFullError recognizes the API error discriminator", () => {
+  assert.equal(isLessonNotFullError({ data: { error: "lesson_not_full" } }), true);
+});
+
+test("joinGroupLessonWaitlist posts the lesson waitlist request with the token", async () => {
+  const previousFetch = globalThis.fetch;
+  let capturedInput: RequestInfo | URL | undefined;
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    capturedInput = input;
+    capturedInit = init;
+    return mockJsonResponse();
+  }) as typeof fetch;
+
+  try {
+    await joinGroupLessonWaitlist({ token: "token-123", lessonId: 77 });
+
+    assert.equal(new URL(String(capturedInput)).pathname, "/api/player/lessons/77/waitlist");
+    assert.equal(capturedInit?.method, "POST");
+    assert.equal((capturedInit?.headers as Record<string, string>).Authorization, "token token-123");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("leaveGroupLessonWaitlist deletes the lesson waitlist request with the token", async () => {
+  const previousFetch = globalThis.fetch;
+  let capturedInput: RequestInfo | URL | undefined;
+  let capturedInit: RequestInit | undefined;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    capturedInput = input;
+    capturedInit = init;
+    return mockJsonResponse();
+  }) as typeof fetch;
+
+  try {
+    await leaveGroupLessonWaitlist({ token: "token-123", lessonId: 77 });
+
+    assert.equal(new URL(String(capturedInput)).pathname, "/api/player/lessons/77/waitlist");
+    assert.equal(capturedInit?.method, "DELETE");
+    assert.equal((capturedInit?.headers as Record<string, string>).Authorization, "token token-123");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });

@@ -7,6 +7,7 @@ export type GroupLessonLevel = 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5 | 5.5 | 6;
 
 export interface GroupLesson {
   id: string;
+  lessonTypeId?: number;
   title: string;
   coachId: number;
   coachName: string;
@@ -27,6 +28,8 @@ export interface GroupLesson {
   distanceMiles: number;
   totalSpots: number;
   availableSpots: number;
+  waitlistCount?: number;
+  waitlistPosition?: number;
   cancelled: boolean;
   focus: string;
   courtSurface?: string;
@@ -83,6 +86,7 @@ export interface UpcomingGroupLessonPlayerApi {
 
 export interface UpcomingGroupLessonApi {
   id: number | string;
+  lessontype_id?: number | string;
   lesson_id?: number | string | null;
   occurrence_id?: string | null;
   group_class_id?: number | string | null;
@@ -101,6 +105,8 @@ export interface UpcomingGroupLessonApi {
   player_limit?: number;
   booked_count?: number;
   open_spots?: number;
+  waitlist_count?: number;
+  waitlist_position?: number | null;
   group_players?: UpcomingGroupLessonPlayerApi[];
   metadata?: {
     level?: string;
@@ -344,6 +350,12 @@ export const isCancelledGroupLesson = (lesson: {
   updated_by?: number | string | null;
 }) => isCancelledGroupLessonRecord(lesson);
 
+export const isLessonNotFullError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const data = (error as { data?: { code?: unknown; error?: unknown } }).data;
+  return data?.code === "lesson_not_full" || data?.error === "lesson_not_full";
+};
+
 export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLesson => {
   const { day, date, startTime } = buildDateLabels(lesson.start_date_time);
   const normalizedGroupPlayers = (lesson.group_players ?? []).map((player) => {
@@ -375,6 +387,13 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
   const totalSpots = lesson.player_limit ?? normalizedGroupPlayers.length ?? 0;
   const bookedCountRaw = typeof lesson.booked_count === "number" ? lesson.booked_count : Number(lesson.booked_count);
   const openSpotsRaw = typeof lesson.open_spots === "number" ? lesson.open_spots : Number(lesson.open_spots);
+  const waitlistCountRaw = typeof lesson.waitlist_count === "number" ? lesson.waitlist_count : Number(lesson.waitlist_count);
+  const waitlistPositionRaw =
+    lesson.waitlist_position === null || lesson.waitlist_position === undefined
+      ? undefined
+      : typeof lesson.waitlist_position === "number"
+        ? lesson.waitlist_position
+        : Number(lesson.waitlist_position);
   const confirmedCount = Number.isFinite(bookedCountRaw) ? bookedCountRaw : activeGroupPlayers.length;
   const availableSpots = Number.isFinite(openSpotsRaw) ? Math.max(openSpotsRaw, 0) : Math.max(totalSpots - confirmedCount, 0);
   const locationCity = lesson.location_city || extractCityState(lesson.location);
@@ -391,6 +410,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
 
   return {
     id: String(lesson.id),
+    lessonTypeId: lesson.lessontype_id == null ? undefined : Number(lesson.lessontype_id),
     title,
     coachId: lesson.coach_id ?? 0,
     coachName: lesson.full_name ?? "Coach",
@@ -415,6 +435,8 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
     distanceMiles,
     totalSpots,
     availableSpots,
+    waitlistCount: Number.isFinite(waitlistCountRaw) ? waitlistCountRaw : undefined,
+    waitlistPosition: Number.isFinite(waitlistPositionRaw) ? waitlistPositionRaw : undefined,
     cancelled: isCancelledGroupLesson(lesson),
     focus: lesson.lesson_type_name ?? description,
     pricePerPlayer: formatPricePerPlayer(lesson.group_price_per_person),
@@ -480,4 +502,21 @@ export const fetchUpcomingGroupLessonById = ({
   request<UpcomingGroupLessonByIdResponse>(`/player/upcoming_group_lessons/${lessonId}`, {
     token,
     signal,
+  });
+
+export interface GroupLessonWaitlistParams {
+  token: string;
+  lessonId: number | string;
+}
+
+export const joinGroupLessonWaitlist = ({ token, lessonId }: GroupLessonWaitlistParams) =>
+  request<{ waitlist_count: number; waitlist_position: number }>(`/player/lessons/${lessonId}/waitlist`, {
+    method: "POST",
+    token,
+  });
+
+export const leaveGroupLessonWaitlist = ({ token, lessonId }: GroupLessonWaitlistParams) =>
+  request(`/player/lessons/${lessonId}/waitlist`, {
+    method: "DELETE",
+    token,
   });

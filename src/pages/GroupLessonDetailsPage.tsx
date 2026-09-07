@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getGroupLessonWaitlistState, runGroupLessonWaitlistAction } from "../utils/groupLessonWaitlist";
+import { GroupLessonWaitlistStatus } from "../components/GroupLessonWaitlistStatus";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -17,6 +19,9 @@ import {
   fetchUpcomingGroupLessonById,
   holdsGroupSpot,
   isActiveGroupLessonBookingStatus,
+  isLessonNotFullError,
+  joinGroupLessonWaitlist,
+  leaveGroupLessonWaitlist,
   mapUpcomingGroupLesson,
   mapUpcomingGroupLessonsResponse,
   resolveBookingState,
@@ -249,6 +254,7 @@ const GroupLessonDetailsPage = () => {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
+  const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null);
   const [bookingWithCredits, setBookingWithCredits] = useState(false);
   const [bookingPayOnCourt, setBookingPayOnCourt] = useState(false);
   const [purchasingPackage, setPurchasingPackage] = useState(false);
@@ -906,6 +912,10 @@ const GroupLessonDetailsPage = () => {
     paymentMethod: "paymentMethod" in participant ? participant.paymentMethod : undefined,
   }));
   const spotsRemaining = Math.max(Math.min(lesson.availableSpots, lesson.totalSpots - confirmedCount), 0);
+  const isFull = spotsRemaining === 0;
+  const { isWaitlisted, shouldShowStatus, canJoin: canJoinWaitlist } = getGroupLessonWaitlistState(
+    lesson, isFull, (hoursUntilFloating(lesson.startDateTime) ?? 0) > 0,
+  );
   const timeRange = lesson.startDateTime && lesson.endDateTime
     ? (() => {
         const start = moment.utc(lesson.startDateTime);
@@ -929,7 +939,7 @@ const GroupLessonDetailsPage = () => {
   const hiddenParticipantsCount = Math.max(participantRows.length - participantsPreview.length, 0);
   const availabilityLabel =
     spotsRemaining === 0
-      ? "Full — join waitlist"
+      ? canJoinWaitlist ? "Full — join waitlist" : "Full"
       : spotsRemaining <= 2
         ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
         : `${spotsRemaining} spots available`;
@@ -956,7 +966,7 @@ const GroupLessonDetailsPage = () => {
     : dateLabel.toUpperCase();
   const availabilityMetaLabel =
     spotsRemaining === 0
-      ? "Full — join waitlist"
+      ? canJoinWaitlist ? "Full — join waitlist" : "Full"
       : spotsRemaining <= 2
         ? `Only ${spotsRemaining} spot${spotsRemaining === 1 ? "" : "s"} left`
         : `${spotsRemaining} spots available`;
@@ -973,6 +983,46 @@ const GroupLessonDetailsPage = () => {
   const paymentDueLine = currentBookingState.paymentDue
     ? `Pay ${formatMoney(groupCoachFee)} to coach on the day`
     : null;
+  const handleWaitlistAction = async (action: "join" | "leave") => {
+    if (!lesson?.id) return;
+    if (!authToken) {
+      promptSignIn();
+      return;
+    }
+
+    setBookingPayOnCourt(true);
+    setPackagePurchaseError(null);
+    setWaitlistMessage(null);
+    try {
+      const result = await runGroupLessonWaitlistAction({
+        mutate: async () => action === "join"
+          ? joinGroupLessonWaitlist({ token: authToken, lessonId: lesson.id })
+          : leaveGroupLessonWaitlist({ token: authToken, lessonId: lesson.id }).then(() => undefined),
+        applySuccess: response => setLesson(current => current?.id === lesson.id ? {
+          ...current,
+          waitlistPosition: response?.waitlist_position,
+          waitlistCount: response?.waitlist_count ?? Math.max((current.waitlistCount ?? 1) - 1, 0),
+        } : current),
+        refresh: refreshLesson,
+      });
+      setWaitlistMessage(`${action === "join" ? "You joined the waitlist." : "You left the waitlist."}${result.refreshFailed ? " Lesson details could not refresh. Reload to see the latest availability." : ""}`);
+    } catch (error) {
+      if (isLessonNotFullError(error)) {
+        try {
+          await refreshLesson();
+          return;
+        } catch (refreshError) {
+          setPackagePurchaseError(getErrorMessage(refreshError, "Unable to refresh this lesson."));
+          return;
+        }
+      }
+      setPackagePurchaseError(
+        getErrorMessage(error, action === "join" ? "Unable to join the waitlist." : "Unable to leave the waitlist."),
+      );
+    } finally {
+      setBookingPayOnCourt(false);
+    }
+  };
   const handleShare = async () => {
     const shareUrl = buildGroupLessonShareUrl(lesson.id);
     if (!shareUrl) return;
@@ -1278,6 +1328,12 @@ const GroupLessonDetailsPage = () => {
                   </section>
                 ) : null}
 
+                {waitlistMessage ? <p role="status">{waitlistMessage}</p> : null}
+                {shouldShowStatus ? <>
+                  <GroupLessonWaitlistStatus lesson={lesson} pending={bookingPayOnCourt} onLeave={() => void handleWaitlistAction("leave")} />
+                  {isWaitlisted && packagePurchaseError ? <p role="alert">{packagePurchaseError}</p> : null}
+                </> : null}
+
                 {isBooked && !lesson.cancelled ? (
                   <section className="group-lesson-details__section group-lesson-details__section--booked">
                     <div className="group-lesson-details__booked-banner">
@@ -1536,6 +1592,37 @@ const GroupLessonDetailsPage = () => {
                           : "Free cancellation up to 24 hours before class"}
                       </p>
                     </>
+                  ) : isFull ? (
+                    <>
+                      <p className="group-lesson-details__booking-label">Class is full</p>
+                      {isWaitlisted ? (
+                        <p className="group-lesson-details__booking-price-caption">
+                          You&apos;re #{lesson.waitlistPosition} on waitlist · {lesson.waitlistCount ?? 0} waiting
+                        </p>
+                      ) : (
+                        <p className="group-lesson-details__booking-price-caption">
+                          {canJoinWaitlist ? "Join the waitlist for this session." : "This class is currently full."}
+                        </p>
+                      )}
+                      {packagePurchaseError ? <p className="group-lesson-details__checkout-error">{packagePurchaseError}</p> : null}
+                      <button
+                        type="button"
+                        className="group-lesson-details__checkout-action"
+                        disabled={bookingPayOnCourt || (!isWaitlisted && !canJoinWaitlist)}
+                        onClick={() => void handleWaitlistAction(isWaitlisted ? "leave" : "join")}
+                      >
+                        {bookingPayOnCourt
+                          ? isWaitlisted
+                            ? "Leaving waitlist..."
+                            : "Joining waitlist..."
+                          : isWaitlisted
+                            ? "Leave waitlist"
+                            : canJoinWaitlist ? "Join waitlist" : "Full"}
+                      </button>
+                      <p className="group-lesson-details__checkout-caption">
+                        {lesson.cancelled ? "This class has been cancelled." : "This class is currently full."}
+                      </p>
+                    </>
                   ) : (
                     <>
                       <p className="group-lesson-details__booking-label">
@@ -1792,7 +1879,7 @@ const GroupLessonDetailsPage = () => {
                             : isBooked
                               ? "Booked"
                               : spotsRemaining === 0
-                                ? "Join waitlist"
+                                ? canJoinWaitlist ? "Join waitlist" : "Full"
                                 : !isSignedIn
                                   ? "Sign in to book"
 	                                  : groupUsesCredits
@@ -1805,9 +1892,7 @@ const GroupLessonDetailsPage = () => {
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">
-                        {spotsRemaining === 0
-                          ? "We’ll notify you if a player drops and a spot re-opens."
-                          : isPayOnCourtChoice
+                        {isPayOnCourtChoice
                             ? "Your place is held now. Pay your coach on the day."
                             : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
                       </p>
@@ -1843,6 +1928,36 @@ const GroupLessonDetailsPage = () => {
                     Cancel booking
                   </button>
                 </div>
+              ) : isFull ? (
+                <>
+                  <div className="group-lesson-details__mobile-footer-price">
+                    {isWaitlisted ? (
+                      <>
+                        <strong>You&apos;re #{lesson.waitlistPosition}</strong>
+                        <span>{lesson.waitlistCount ?? 0} waiting</span>
+                      </>
+                    ) : (
+                      <>
+                        <strong>Full</strong>
+                        <span>{canJoinWaitlist ? "Join the waitlist" : "No spots available"}</span>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="group-lesson-details__mobile-footer-action"
+                    disabled={bookingPayOnCourt || (!isWaitlisted && !canJoinWaitlist)}
+                    onClick={() => void handleWaitlistAction(isWaitlisted ? "leave" : "join")}
+                  >
+                    {bookingPayOnCourt
+                      ? isWaitlisted
+                        ? "Leaving..."
+                        : "Joining..."
+                      : isWaitlisted
+                        ? "Leave waitlist"
+                        : canJoinWaitlist ? "Join waitlist" : "Full"}
+                  </button>
+                </>
               ) : (
                 <>
                   <div className="group-lesson-details__mobile-footer-price">
@@ -1852,7 +1967,7 @@ const GroupLessonDetailsPage = () => {
                   <button
                     type="button"
                     className="group-lesson-details__mobile-footer-action"
-                    disabled={lesson.cancelled || spotsRemaining === 0 || isBooked}
+                    disabled={lesson.cancelled || isBooked}
                     onClick={() => {
                       if (!isSignedIn) {
                         promptSignIn();
@@ -1870,9 +1985,7 @@ const GroupLessonDetailsPage = () => {
                       ? "Cancelled"
                       : isBooked
                         ? "Booked"
-                        : spotsRemaining === 0
-                          ? "Join waitlist"
-                          : isSignedIn
+                        : isSignedIn
                             ? "Book now"
                             : "Sign in to book"}
                   </button>
