@@ -25,7 +25,6 @@ test("public coach mapper permits consented fields and drops unknown venues", ()
       phone: "+13105551212",
       email: "dean@example.com",
     },
-    { is_public: false, slug: "not-consented", name: "Private Coach" },
   ], venues);
 
   assert.deepEqual(coaches, [{

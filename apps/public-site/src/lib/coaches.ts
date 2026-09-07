@@ -17,7 +17,6 @@ export type Coach = {
 
 type ApiCourt = { name?: unknown };
 type ApiCoach = {
-  is_public?: unknown;
   slug?: unknown;
   name?: unknown;
   photo_url?: unknown;
@@ -40,7 +39,6 @@ const textOrEmpty = (value: unknown) => typeof value === "string" ? value.trim()
 
 export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, Venue> = VENUES): Coach[] =>
   records
-    .filter((record) => record.is_public === true)
     .map((record) => {
       const slug = textOrEmpty(record.slug);
       if (!slug) throw new Error("Public coach is missing a stored slug — aborting build");
@@ -82,11 +80,9 @@ export const getAreaCoaches = (coaches: Coach[]) => {
 };
 
 export async function getCoaches(): Promise<Coach[]> {
-  const api = import.meta.env.COACH_API_URL;
-  const token = import.meta.env.COACH_API_TOKEN;
-  if (!api || !token) throw new Error("COACH_API_URL and COACH_API_TOKEN are required to build coach pages");
+  const api = import.meta.env.COACH_API_URL || "https://api.thetennisplan.com/api/public/coaches";
 
-  const response = await fetch(api, { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch(api);
   if (!response.ok) throw new Error(`Coach API ${response.status} — aborting build`);
 
   const payload: unknown = await response.json();
