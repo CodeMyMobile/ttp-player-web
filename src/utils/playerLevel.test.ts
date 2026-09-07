@@ -66,3 +66,41 @@ test("empty string is treated as absent, but 0 is not", () => {
   // ever were, it is a value rather than a gap.
   assert.equal(resolveComputedNtrp({ authUser: { calculated_ntrp: 0 } }), 0);
 });
+
+// --- the creator's user object -------------------------------------------------
+
+import { buildLevelAwareUser } from "./playerLevel";
+
+const PD = { id: 6, calculated_ntrp: 4.5, usta_rating: "3.5" };
+const LR = { profile: { id: 6, calculated_ntrp: 4.5, usta_rating: "3.5" } };
+
+test("the creator gets a level even when localStorage 'user' is missing or empty", () => {
+  // Requiring "user" was the fourth thing that broke this: absent or {} left the
+  // creator with no level and no host id, and it asked the player to add one.
+  for (const authUser of [null, undefined, {}]) {
+    const u = buildLevelAwareUser({ authUser, personalDetails: PD, loginResponse: LR });
+    assert.equal(u?.skillLevel, 4.5, `authUser=${JSON.stringify(authUser)}`);
+    assert.equal(u?.profile?.id, 6);
+  }
+});
+
+test("the login response alone is enough", () => {
+  const u = buildLevelAwareUser({ loginResponse: LR });
+  assert.equal(u?.skillLevel, 4.5);
+  assert.equal(u?.profile?.id, 6);
+});
+
+test("authUser still wins where it has a value", () => {
+  const u = buildLevelAwareUser({
+    authUser: { id: 99, usta_rating: "3.5" },
+    personalDetails: PD,
+    loginResponse: LR,
+  });
+  assert.equal(u?.id, 99);          // not overwritten by the other stores
+  assert.equal(u?.skillLevel, 4.5); // but the computed level still comes through
+});
+
+test("nothing stored resolves to null rather than an empty object", () => {
+  assert.equal(buildLevelAwareUser({}), null);
+  assert.equal(buildLevelAwareUser({ authUser: null, personalDetails: null, loginResponse: null }), null);
+});

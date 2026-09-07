@@ -92,3 +92,33 @@ export const resolveSelfReportedLevel = ({
  */
 export const resolvePlayerLevel = (sources: LevelSources): number | string =>
   resolveComputedNtrp(sources) ?? resolveSelfReportedLevel(sources) ?? "";
+
+/**
+ * A user object for the match creator, assembled from every store that holds part of one.
+ *
+ * The /create route reads localStorage directly rather than going through App.jsx's
+ * buildMatchesUser, and "user" alone is not enough: it carries no calculated_ntrp, and
+ * it may be absent entirely. Requiring it left MultiMatchCreatorFlow with no level and
+ * no host id, because it reads both off this object.
+ *
+ * `authUser` is spread last so it still wins wherever it has a value; the other two only
+ * fill gaps. `profile` is populated because the host-id lookup expects a nested object.
+ * Returns null only when nothing at all is stored.
+ */
+export const buildLevelAwareUser = ({
+  authUser,
+  personalDetails,
+  loginResponse,
+}: LevelSources): LevelSourceRecord | null => {
+  const loginProfile = loginResponse?.profile ?? null;
+  const merged: LevelSourceRecord = { ...loginProfile, ...personalDetails, ...authUser };
+  if (Object.keys(merged).length === 0) return null;
+
+  const profile = authUser?.profile ?? personalDetails ?? loginProfile ?? null;
+  if (profile) merged.profile = profile;
+
+  const skillLevel = resolvePlayerLevel({ authUser, personalDetails, loginResponse });
+  if (skillLevel) merged.skillLevel = skillLevel;
+
+  return merged;
+};

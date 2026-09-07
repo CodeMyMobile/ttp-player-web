@@ -3,17 +3,22 @@ import { useNavigate } from "react-router-dom";
 import MatchCreatorFlow from "../components/MatchCreatorFlow";
 import MultiMatchCreatorFlow from "../components/MultiMatchCreatorFlow";
 import { isMultiMatchEnabled } from "../utils/featureFlags";
-import { resolvePlayerLevel } from "../../utils/playerLevel";
+import { buildLevelAwareUser } from "../../utils/playerLevel";
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
-  // This route builds its own currentUser rather than going through App.jsx's
-  // buildMatchesUser, so a fix applied there does not reach it — which is how the
-  // computed NTRP kept failing to populate here after two attempts at the other path.
+  // Built from all three stores rather than from localStorage "user" alone.
   //
-  // localStorage "user" carries no calculated_ntrp at all; it lives on
-  // "playerPersonalDetails" and on "authLoginResponse".profile. resolvePlayerLevel
-  // knows every nesting it has been observed at.
+  // This route does not go through App.jsx's buildMatchesUser, so fixes applied there
+  // never reached it. And "user" on its own is not enough: it carries no
+  // calculated_ntrp (that lives on "playerPersonalDetails" and on
+  // "authLoginResponse".profile), and it may be absent entirely — in which case
+  // requiring it left MultiMatchCreatorFlow with no level *and* no host id, since it
+  // reads both off currentUser.
+  //
+  // Merge order puts "user" last so it still wins wherever it has a value; the other
+  // two only fill gaps. `profile` is populated for the host-id lookup at
+  // MultiMatchCreatorFlow:181-184, which expects a nested object.
   const [currentUser] = useState(() => {
     const read = (key) => {
       try {
@@ -24,14 +29,11 @@ const CreateMatchPage = () => {
         return null;
       }
     };
-    const authUser = read("user");
-    if (!authUser) return null;
-    const skillLevel = resolvePlayerLevel({
-      authUser,
+    return buildLevelAwareUser({
+      authUser: read("user"),
       personalDetails: read("playerPersonalDetails"),
       loginResponse: read("authLoginResponse"),
     });
-    return skillLevel ? { ...authUser, skillLevel } : authUser;
   });
 
   useEffect(() => {
