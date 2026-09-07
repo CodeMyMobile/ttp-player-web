@@ -7,13 +7,28 @@ const { coach } = Astro.props;
 const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const courts = coach.courts.slice(0, 3).map((court) => court.name);
 const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
-const bio = coach.bio || "Public coach profile coming soon.";
 ---
 <article class="coach">
   <div class="coach-top">
-    <div class="coach-avatar" aria-label={`${coach.name} initials`}>
+    {/* Initials sit underneath; the photo covers them. onerror removes a photo that
+        fails to load so the initials show through — every photo_url on the roster is
+        non-null, so a missing image here is a dead URL rather than absent data, and
+        without this the card renders alt text in a 64px box. Empty alt because the
+        name is already the adjacent heading: to a screen reader this image carries
+        nothing the coach's own name does not. */}
+    <div class="coach-avatar" aria-hidden="true">
       {initials}
-      {coach.photo && <img src={coach.photo} alt={`${coach.name}, tennis coach`} width="64" height="64" loading="lazy" />}
+      {coach.photo && (
+        <img
+          src={coach.photo}
+          alt=""
+          width="64"
+          height="64"
+          loading="lazy"
+          decoding="async"
+          onerror="this.remove()"
+        />
+      )}
     </div>
     <div class="coach-id">
       <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a><span class="coach-verified" aria-label="Tennis Plan Verified">✓</span></h3>
@@ -24,7 +39,7 @@ const bio = coach.bio || "Public coach profile coming soon.";
       {coach.groupRate !== null && <em>${coach.groupRate} group</em>}
     </div>
   </div>
-  <p class="coach-bio">{bio}</p>
+  <p class="coach-bio">{coach.bio}</p>
   {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
   {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
   <p class="coach-opening"><span></span>Availability shared when you book</p>
