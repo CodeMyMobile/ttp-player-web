@@ -8,13 +8,12 @@ const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0
 const courts = coach.courts.slice(0, 3).map((court) => court.name);
 const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
 const bio = coach.bio || "Public coach profile coming soon.";
-const photoPath = `/images/coaches/${coach.slug}.jpg`;
 ---
 <article class="coach">
   <div class="coach-top">
     <div class="coach-avatar" aria-label={`${coach.name} initials`}>
       {initials}
-      {coach.photo && <img src={photoPath} alt={`${coach.name}, tennis coach`} width="64" height="64" loading="lazy" />}
+      {coach.photo && <img src={coach.photo} alt={`${coach.name}, tennis coach`} width="64" height="64" loading="lazy" />}
     </div>
     <div class="coach-id">
       <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a><span class="coach-verified" aria-label="Tennis Plan Verified">✓</span></h3>
