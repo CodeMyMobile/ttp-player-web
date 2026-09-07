@@ -257,8 +257,22 @@ const buildMatchesUser = (authUser) => {
     // `??` for the computed value so a legitimate 0 is not treated as absent. The
     // self-reported fallbacks stay, because calculated_ntrp is null whenever
     // rating_gender is unset — the normal state for a self-rating player.
+    // Checked in this order because calculated_ntrp is not where the obvious guess
+    // puts it. Verified against a real session: it is absent from the AuthContext
+    // `user` object entirely, and present on `authLoginResponse.profile` and on
+    // `playerPersonalDetails`. AuthContext does `setUser(response.user ||
+    // response.profile)` and `response.user` wins, so the enriched sibling — the one
+    // ensurePlayerStripeCustomer ran withCalculatedRatingEquivalents over (ttp-api
+    // routes/auth.js:107,157,416) — never reaches `user`.
+    //
+    // personalDetails before loginResponse: GET /player/personal_details also runs
+    // through withCalculatedRatingEquivalents (player_profile.js:322) and is refetched,
+    // so it reflects a rating change that the login payload would still show stale.
     skillLevel:
       profile?.calculated_ntrp ??
+      authUser?.profile?.calculated_ntrp ??
+      personalDetails?.calculated_ntrp ??
+      loginResponse?.profile?.calculated_ntrp ??
       loginResponse?.calculated_ntrp ??
       (profile?.skillLevel ||
         profile?.skill_level ||
