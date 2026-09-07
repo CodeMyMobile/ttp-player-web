@@ -7,6 +7,7 @@ export type GroupLessonLevel = 2 | 2.5 | 3 | 3.5 | 4 | 4.5 | 5 | 5.5 | 6;
 
 export interface GroupLesson {
   id: string;
+  lessonTypeId?: number;
   title: string;
   coachId: number;
   coachName: string;
@@ -85,6 +86,7 @@ export interface UpcomingGroupLessonPlayerApi {
 
 export interface UpcomingGroupLessonApi {
   id: number | string;
+  lessontype_id?: number | string;
   lesson_id?: number | string | null;
   occurrence_id?: string | null;
   group_class_id?: number | string | null;
@@ -408,6 +410,7 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
 
   return {
     id: String(lesson.id),
+    lessonTypeId: lesson.lessontype_id == null ? undefined : Number(lesson.lessontype_id),
     title,
     coachId: lesson.coach_id ?? 0,
     coachName: lesson.full_name ?? "Coach",
@@ -507,7 +510,7 @@ export interface GroupLessonWaitlistParams {
 }
 
 export const joinGroupLessonWaitlist = ({ token, lessonId }: GroupLessonWaitlistParams) =>
-  request(`/player/lessons/${lessonId}/waitlist`, {
+  request<{ waitlist_count: number; waitlist_position: number }>(`/player/lessons/${lessonId}/waitlist`, {
     method: "POST",
     token,
   });

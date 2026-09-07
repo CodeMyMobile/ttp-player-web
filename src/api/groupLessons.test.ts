@@ -185,6 +185,11 @@ test("mapUpcomingGroupLessonsResponse preserves waitlist count and player positi
   });
 });
 
+test("preserves lesson type so restricted groups cannot offer waitlist joins", () => {
+  const { lessons } = mapUpcomingGroupLessonsResponse({ lessons: [{ id: 77, lessontype_id: 3 }, { id: 78, lessontype_id: 4 }] });
+  assert.deepEqual(lessons.map(lesson => lesson.lessonTypeId), [3, 4]);
+});
+
 test("mapUpcomingGroupLessonsResponse preserves an absent waitlist position", () => {
   const response = mapUpcomingGroupLessonsResponse({
     lessons: [{ id: 77, waitlist_count: 4, waitlist_position: null }],
