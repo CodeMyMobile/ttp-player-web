@@ -59,6 +59,16 @@ test("short biographies remain usable but not indexable", () => {
   assert.equal(coach.indexable, false);
 });
 
+test("venue lookup normalizes API labels before applying the allowlist", () => {
+  const [coach] = buildPublicCoaches([{
+    slug: "venue-coach",
+    name: "Venue Coach",
+    courts: [{ name: "Culver City High School Tennis Court Culver City, CA 90230, USA" }],
+  }], venues);
+
+  assert.deepEqual(coach.courts, [{ name: "Culver City High School", area: "culver-city" }]);
+});
+
 test("area groups include only three-coach routes", () => {
   const coaches = buildPublicCoaches([
     "one", "two", "three", "four",

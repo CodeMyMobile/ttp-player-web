@@ -1,4 +1,4 @@
-import { VENUES, type Venue } from "./venues.ts";
+import { normalizeVenueLabel, VENUES, type Venue } from "./venues.ts";
 
 export type Coach = {
   slug: string;
@@ -44,7 +44,7 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
       if (!slug) throw new Error("Public coach is missing a stored slug — aborting build");
 
       const courts = (Array.isArray(record.courts) ? record.courts : [])
-        .map((court) => textOrEmpty(court?.name))
+        .map((court) => normalizeVenueLabel(textOrEmpty(court?.name)))
         .map((name) => {
           const venue = venues[name];
           if (!venue && name) console.warn(`Dropping unapproved coach venue: ${name}`);
