@@ -7,6 +7,8 @@ export type Coach = {
   privateRate: number | null;
   groupRate: number | null;
   bio: string;
+  /** Card copy: emoji stripped, clamped. `bio` stays whole for the profile page. */
+  excerpt: string;
   focus: string[];
   certifications: string[];
   students: number | null;
@@ -52,6 +54,37 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
  * change once the profile is filled in.
  */
 const HUB_BIO_WORDS = 25;
+
+/**
+ * Card bio length. Full bios run to 189 words on this roster, and a card carrying one
+ * next to a 40-word card made heights vary by a factor of ten. The whole bio is on the
+ * profile, which is the page that wants it.
+ */
+const EXCERPT_WORDS = 20;
+
+/** Focus areas per card — a coach with ten should not turn the card into a keyword list. */
+const MAX_FOCUS = 4;
+
+/**
+ * Emoji and dingbats only.
+ *
+ * Two bios arrive with raw "✅ USPTA Certified Professional ✅ …" and 🎾 from the API,
+ * which read as decoration in a card excerpt. The ranges deliberately exclude General
+ * Punctuation (U+2000–U+206F): one of those same bios uses an em dash and a curly
+ * apostrophe as ordinary writing, and stripping those would damage the prose.
+ */
+const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
+
+export const stripEmoji = (text: string): string =>
+  text.replace(EMOJI, "").replace(/\s{2,}/g, " ").trim();
+
+/** First `limit` words, with an ellipsis only when something was actually cut. */
+export const excerptFrom = (text: string, limit = EXCERPT_WORDS): string => {
+  const clean = stripEmoji(text ?? "");
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length <= limit) return clean;
+  return `${parts.slice(0, limit).join(" ").replace(/[,;:.\u2014-]+$/, "")}…`;
+};
 const INDEXABLE_BIO_WORDS = 60;
 
 export type Incomplete = { name: string; slug: string; reasons: string[] };
@@ -91,7 +124,8 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
         privateRate: numberOrNull(record.rate_private),
         groupRate: numberOrNull(record.rate_group),
         bio,
-        focus: strings(record.focus_areas),
+        excerpt: excerptFrom(bio),
+        focus: strings(record.focus_areas).slice(0, MAX_FOCUS),
         certifications: strings(record.certifications),
         students: numberOrNull(record.student_count),
         courts,

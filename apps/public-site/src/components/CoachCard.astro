@@ -39,7 +39,11 @@ const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angel
       {coach.groupRate !== null && <em>${coach.groupRate} group</em>}
     </div>
   </div>
-  <p class="coach-bio">{coach.bio}</p>
+  <p class="coach-bio">{coach.excerpt}</p>
+  {/* focus_areas is empty for all 46 coaches on /public/coaches today — the data
+      exists as `specialties` on /public/coaches/search and is not mapped across.
+      Rendering conditionally means this lights up when that lands, with no change
+      here. Capped in the data layer so a coach with ten does not fill the card. */}
   {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
   {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
   <p class="coach-opening"><span></span>Availability shared when you book</p>
