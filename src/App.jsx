@@ -26,6 +26,7 @@ import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import MainLayout from "./components/MainLayout";
+import { resolvePlayerLevel } from "./utils/playerLevel";
 import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
@@ -242,43 +243,10 @@ const buildMatchesUser = (authUser) => {
       "Player",
     email: profile?.email || loginResponse?.email || "",
     phone: profile?.phone || profile?.mobile || loginResponse?.phone || "",
-    // The platform's computed NTRP first, matching AppNav.jsx. calculated_ntrp is
-    // derived per request from current_rating + rating_gender (ttp-api
-    // rating_equivalents.js); the rest of this chain reads the two *self-reported*
-    // stores — profile.skillLevel/skill_level is the onboarding survey answer
-    // (answers to questions.id 3, models/player_survey.js:634) and usta_rating is
-    // the number the player typed in.
-    //
-    // Without it, a player on TPR 7.0 with a computed NTRP of 4.5 opened the match
-    // creator pre-filled at their self-declared 3.5 and posted an open match a full
-    // level below where the platform rates them. The header chip was fixed for this
-    // already; this is the same bug in the chain that feeds the matches sub-app.
-    //
-    // `??` for the computed value so a legitimate 0 is not treated as absent. The
-    // self-reported fallbacks stay, because calculated_ntrp is null whenever
-    // rating_gender is unset — the normal state for a self-rating player.
-    // Checked in this order because calculated_ntrp is not where the obvious guess
-    // puts it. Verified against a real session: it is absent from the AuthContext
-    // `user` object entirely, and present on `authLoginResponse.profile` and on
-    // `playerPersonalDetails`. AuthContext does `setUser(response.user ||
-    // response.profile)` and `response.user` wins, so the enriched sibling — the one
-    // ensurePlayerStripeCustomer ran withCalculatedRatingEquivalents over (ttp-api
-    // routes/auth.js:107,157,416) — never reaches `user`.
-    //
-    // personalDetails before loginResponse: GET /player/personal_details also runs
-    // through withCalculatedRatingEquivalents (player_profile.js:322) and is refetched,
-    // so it reflects a rating change that the login payload would still show stale.
-    skillLevel:
-      profile?.calculated_ntrp ??
-      authUser?.profile?.calculated_ntrp ??
-      personalDetails?.calculated_ntrp ??
-      loginResponse?.profile?.calculated_ntrp ??
-      loginResponse?.calculated_ntrp ??
-      (profile?.skillLevel ||
-        profile?.skill_level ||
-        profile?.usta_rating ||
-        loginResponse?.skillLevel ||
-        ""),
+    // One resolver, shared with CreateMatchPage — see utils/playerLevel. Written out
+    // by hand here twice, and wrong both times, because calculated_ntrp is not on the
+    // object this function receives.
+    skillLevel: resolvePlayerLevel({ authUser, personalDetails, loginResponse }),
     profile,
   };
 };
