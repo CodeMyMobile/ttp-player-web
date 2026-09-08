@@ -4,6 +4,8 @@ export type Coach = {
   slug: string;
   name: string;
   photo: string | null;
+  /** `object-position` for the card crop. Null means the default centre. */
+  photoFocus: string | null;
   privateRate: number | null;
   groupRate: number | null;
   bio: string;
@@ -56,6 +58,26 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
  * grows. Neither is a judgement about the coach, and both clear themselves with no code
  * change once the profile is filled in.
  */
+/**
+ * Per-coach crop overrides, keyed by slug.
+ *
+ * The cards frame photos 1:1 with `object-position: center`, which is right for the 20-odd
+ * portrait and square sources on the roster. A few are composed such that centre is wrong —
+ * a full-body shot where the subject sits low, a landscape frame where the subject is off
+ * to one side. Those get an override here rather than a rule that would move everyone.
+ *
+ * This only shifts which part of the source is visible; it cannot zoom. A photo whose
+ * problem is that the subject is small in a busy frame needs a new photo, not an entry here.
+ */
+const PHOTO_FOCUS: Record<string, string> = {
+  // Full-body crouching shot: centre lands on her knees, so bias up to the head and torso.
+  "makaela-moseley": "center 22%",
+  // Landscape source in a square frame, so only the horizontal component does anything —
+  // the full height is already shown. This pulls him off the left edge; the ceiling above
+  // him is in the photo itself and needs a re-shoot, not a crop.
+  "paul-cochrane-6": "35% center",
+};
+
 const HUB_BIO_WORDS = 25;
 
 /**
@@ -139,7 +161,7 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
       const slug = textOrEmpty(record.slug);
       if (!slug) throw new Error("Public coach is missing a stored slug — aborting build");
 
-      const courts = (Array.isArray(record.courts) ? record.courts : [])
+      const rawCourts = (Array.isArray(record.courts) ? record.courts : [])
         .map((court) => normalizeVenueLabel(textOrEmpty(court?.name)))
         .map((name) => {
           const venue = venues[name];
@@ -155,12 +177,19 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
           return venue;
         })
         .filter((venue): venue is Venue => Boolean(venue));
+      // Deduped by name: normalisation is many-to-one, so a coach who listed the same
+      // facility twice under different raw labels ("Cheviot Hills Tennis Center" and
+      // "Cheviot Hills Tennis Ctr") resolved to the same venue twice and rendered it twice
+      // on the card. Ilinca Stoica read "Cheviot Hills Tennis Center, Cheviot Hills Tennis
+      // Center" on the live hub.
+      const courts = [...new Map(rawCourts.map((venue) => [venue.name, venue])).values()];
       const bio = textOrEmpty(record.bio);
 
       return {
         slug,
         name: textOrEmpty(record.name),
         photo: textOrEmpty(record.photo_url) || null,
+        photoFocus: PHOTO_FOCUS[slug] ?? null,
         privateRate: numberOrNull(record.rate_private),
         groupRate: numberOrNull(record.rate_group),
         bio,

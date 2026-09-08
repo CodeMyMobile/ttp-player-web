@@ -7,7 +7,6 @@ const { coach } = Astro.props;
 
 const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const courts = coach.courts.slice(0, 2).map((court) => court.name);
-const moreCourts = coach.courts.length - courts.length;
 const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
 const profileHref = `/coaches/${coach.slug}`;
 ---
@@ -20,7 +19,8 @@ const profileHref = `/coaches/${coach.slug}`;
   <div class="shot" aria-hidden="true">
     <span class="shot-initials">{initials}</span>
     {coach.photo && (
-      <img src={coach.photo} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
+      <img src={coach.photo} alt="" loading="lazy" decoding="async" onerror="this.remove()"
+           style={coach.photoFocus ? `object-position:${coach.photoFocus}` : undefined} />
     )}
   </div>
 
@@ -59,10 +59,10 @@ const profileHref = `/coaches/${coach.slug}`;
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
         </svg>
-        <span>
-          {courts.join(", ")}
-          {moreCourts > 0 && <> <a href={profileHref}>+{moreCourts} more</a></>}
-        </span>
+        {/* Clamped to two lines rather than followed by a "+N more" link: the link landed on
+            its own line whenever the names filled the last one, and read as an orphan. The
+            full list is on the profile, which the button below already goes to. */}
+        <span>{courts.join(", ")}</span>
       </p>
     )}
 

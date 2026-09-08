@@ -4,11 +4,15 @@ import CoachDirectory from "../../components/CoachDirectory.astro";
 import { getAreaCoaches, getCoaches } from "../../lib/coaches";
 import { areaLabel } from "../../lib/venues";
 const coaches = await getCoaches();
-// Sorted, because the Map's key order is coach-iteration order — it reorders itself
-// whenever the roster changes, so the chips and the hero sentence would shuffle between
-// builds. Alphabetical is stable and scannable; the chips and the sentence share it.
-const areas = [...getAreaCoaches(coaches).keys()].sort((a, b) =>
-  areaLabel(a).localeCompare(areaLabel(b)),
+// Ordered by coach count, strongest area first, so the chips and the courts section both
+// lead with the neighbourhoods we actually cover deeply. Alphabetical breaks ties, which
+// matters because the Map's own key order is coach-iteration order — it reshuffles
+// whenever the roster changes, and the chips would move between builds for no reason.
+const areaCoaches = getAreaCoaches(coaches);
+const areas = [...areaCoaches.keys()].sort(
+  (a, b) =>
+    (areaCoaches.get(b)?.length ?? 0) - (areaCoaches.get(a)?.length ?? 0) ||
+    areaLabel(a).localeCompare(areaLabel(b)),
 );
 const courtsByArea = new Map(areas.map((area) => [area, [...new Set(coaches.filter((coach) => coach.areas.includes(area)).flatMap((coach) => coach.courts.filter((court) => court.area === area).map((court) => court.name)))]]));
 /**
@@ -16,6 +20,11 @@ const courtsByArea = new Map(areas.map((area) => [area, [...new Set(coaches.filt
  * render them. It was hardcoded to six while the chips showed nine, and the two drifted
  * the moment the roster changed. Oxford-comma-free "A, B and C" to match the prose.
  */
+// Spelled out because it reads as prose, not as a statistic — the panel below carries the
+// numerals. Falls back to the digits past the point where a roster this size could reach.
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const spellNumber = (value: number) => NUMBER_WORDS[value] ?? String(value);
+
 const areaNames = areas.map((area) => areaLabel(area));
 const areaSentence =
   areaNames.length > 1
@@ -26,7 +35,7 @@ const schema = [{ "@context": "https://schema.org", "@type": "ItemList", name: "
 ---
 <BaseLayout title="Tennis Coaches in West Los Angeles | The Tennis Plan" description="Browse invite-only tennis coaches across West Los Angeles. Compare rates and courts — no account needed." canonicalPath="/tennis-coaches" schema={schema}>
   <main class="coach-directory">
-    <section class="coach-hero"><div class="directory-shell"><span><b>{coaches.length}</b> invited coaches · no open sign-ups</span><h1>Tennis coaches in West Los Angeles you can trust</h1><p class="coach-promise">Not a directory. Every coach here is someone we know and would book ourselves.</p><p>Browse rates, courts and availability across {areaSentence} — no account needed.</p></div></section>
+    <section class="coach-hero"><div class="directory-shell"><span><b>{coaches.length}</b> invited coaches · no open sign-ups</span><h1>Tennis coaches in West Los Angeles you can trust</h1><p class="coach-promise">Not a directory. Every coach here is someone we know and would book ourselves.</p><p>Browse rates and courts across {spellNumber(areas.length)} West LA neighbourhoods — no account needed.</p></div></section>
     <section class="coach-strip"><div class="directory-shell">Invite-only. Coaches can't add themselves.</div></section>
     <CoachDirectory coaches={coaches} areas={areas} />
     <section class="coach-vetting"><div class="directory-shell"><h2>How we choose coaches</h2><p>The roster is closed. It grows when we meet a coach worth adding, and not before.</p><ul><li><b>We reach out first</b><span>There's no application form and no way to add yourself. Every coach here got an invitation from us.</span></li><li><b>We've seen them coach</b><span>Someone at The Tennis Plan has hit with each coach or watched them run a lesson before the invitation went out.</span></li><li><b>Tennis Plan Verified</b><span>The badge means we've confirmed identity, courts, and listed credentials — not that they filled in a profile.</span></li><li><b>Someone vouched by name</b><span>Every coach traces back to a person who put their own reputation behind the recommendation.</span></li></ul></div></section>
