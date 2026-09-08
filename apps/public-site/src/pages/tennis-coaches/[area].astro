@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import Header from "../../components/Header.astro";
 import CoachDirectory from "../../components/CoachDirectory.astro";
 import { getAreaCoaches, getCoaches } from "../../lib/coaches";
 import { areaLabel } from "../../lib/venues";
@@ -14,5 +15,6 @@ const label = areaLabel(area);
 const schema = [{ "@context": "https://schema.org", "@type": "ItemList", name: `Tennis coaches in ${label}`, itemListElement: coaches.map((coach: import("../../lib/coaches").Coach, index: number) => ({ "@type": "ListItem", position: index + 1, url: `https://thetennisplan.com/coaches/${coach.slug}` })) }, { "@context": "https://schema.org", "@type": "LocalBusiness", name: "The Tennis Plan", areaServed: { "@type": "Place", name: label } }];
 ---
 <BaseLayout title={`Tennis Coaches in ${label} | The Tennis Plan`} description={`Browse Tennis Plan Verified tennis coaches teaching in ${label}. Compare rates and courts — no account needed.`} canonicalPath={`/tennis-coaches/${area}`} schema={schema}>
+  <Header />
   <main class="coach-directory"><section class="coach-hero"><div class="directory-shell"><span>{coaches.length} Tennis Plan Verified coaches</span><h1>Tennis coaches in {label}</h1><p class="coach-promise">Local coaches, public courts, and clear rates before you make an account.</p></div></section><CoachDirectory coaches={coaches} areas={areas} currentArea={area} /></main>
 </BaseLayout>

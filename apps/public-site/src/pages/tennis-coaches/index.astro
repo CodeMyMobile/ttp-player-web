@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import Header from "../../components/Header.astro";
 import CoachDirectory from "../../components/CoachDirectory.astro";
 import { getAreaCoaches, getCoaches } from "../../lib/coaches";
 import { areaLabel } from "../../lib/venues";
@@ -34,6 +35,7 @@ const areaSentence =
 const schema = [{ "@context": "https://schema.org", "@type": "ItemList", name: "Tennis coaches in West Los Angeles", itemListElement: coaches.map((coach, index) => ({ "@type": "ListItem", position: index + 1, url: `https://thetennisplan.com/coaches/${coach.slug}` })) }, { "@context": "https://schema.org", "@type": "LocalBusiness", name: "The Tennis Plan", url: "https://thetennisplan.com", areaServed: areas.map((area) => ({ "@type": "Place", name: areaLabel(area) })) }];
 ---
 <BaseLayout title="Tennis Coaches in West Los Angeles | The Tennis Plan" description="Browse invite-only tennis coaches across West Los Angeles. Compare rates and courts — no account needed." canonicalPath="/tennis-coaches" schema={schema}>
+  <Header />
   <main class="coach-directory">
     <section class="coach-hero"><div class="directory-shell"><span><b>{coaches.length}</b> invited coaches · no open sign-ups</span><h1>Tennis coaches in West Los Angeles you can trust</h1><p class="coach-promise">Not a directory. Every coach here is someone we know and would book ourselves.</p><p>Browse rates and courts across {spellNumber(areas.length)} West LA neighbourhoods — no account needed.</p></div></section>
     <section class="coach-strip"><div class="directory-shell">Invite-only. Coaches can't add themselves.</div></section>
