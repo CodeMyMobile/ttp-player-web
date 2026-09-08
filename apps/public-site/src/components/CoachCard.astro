@@ -55,7 +55,21 @@ const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angel
       Rendering conditionally means this lights up when that lands, with no change
       here. Capped in the data layer so a coach with ten does not fill the card. */}
   {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
-  {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
+  {/* formats is the best-covered of the fields missing from /public/coaches — 31/31 on
+      /public/coaches/search against 16/31 for specialties — and it answers "can I book
+      the kind of session I want", which a specialty list does not. Conditional, so it
+      lights up when the endpoint maps it across. */}
+  {coach.formats.length > 0 && <p class="coach-detail"><b>Formats</b><span>{coach.formats.join(" · ")}</span></p>}
+  {/* No label word. "Courts" in front of a list of court names is the only label on the
+      card that restates what the value obviously is, and dropping it buys the names the
+      full width. The wash background does the work the label was doing — marking the row
+      as a different kind of thing from the bio above it. */}
+  {courts.length > 0 && (
+    <p class="coach-courts-row">
+      {courts.join(", ")}
+      {coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}
+    </p>
+  )}
   <div class="coach-actions">
     <a class="coach-button coach-button--primary" href={`/coaches/${coach.slug}`}>View profile</a>
     <a class="coach-button" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book</a>

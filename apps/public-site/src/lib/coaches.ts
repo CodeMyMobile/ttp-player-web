@@ -9,6 +9,8 @@ export type Coach = {
   bio: string;
   /** Card copy: emoji stripped, clamped. `bio` stays whole for the profile page. */
   excerpt: string;
+  /** Lesson formats, display-cased and in a fixed order. */
+  formats: string[];
   focus: string[];
   certifications: string[];
   students: number | null;
@@ -26,6 +28,7 @@ type ApiCoach = {
   rate_group?: unknown;
   bio?: unknown;
   focus_areas?: unknown;
+  formats?: unknown;
   certifications?: unknown;
   student_count?: unknown;
   courts?: ApiCourt[] | unknown;
@@ -64,6 +67,35 @@ const EXCERPT_WORDS = 20;
 
 /** Focus areas per card — a coach with ten should not turn the card into a keyword list. */
 const MAX_FOCUS = 4;
+
+/**
+ * Lesson formats, in the order a player chooses between them — cheapest-to-most-personal
+ * reversed, so the common case leads. Ordered explicitly rather than alphabetically
+ * ("Clinics, Group, Hitting, Private, Semi-private" buries the one most people want) and
+ * mapped explicitly rather than title-cased ("semi" is not a word, and "Semi-private" has
+ * a hyphen no transform would guess).
+ *
+ * Anything the API sends that is not in this map is dropped rather than shown raw: an
+ * unrecognised format on a public page is worse than a shorter list.
+ */
+const FORMAT_LABELS: Record<string, string> = {
+  private: "Private",
+  semi: "Semi-private",
+  semi_private: "Semi-private",
+  group: "Group",
+  clinics: "Clinics",
+  hitting: "Hitting",
+};
+const FORMAT_ORDER = ["Private", "Semi-private", "Group", "Clinics", "Hitting"];
+
+export const formatLabels = (raw: unknown): string[] => {
+  const seen = new Set(
+    strings(raw)
+      .map((value) => FORMAT_LABELS[value.trim().toLowerCase()])
+      .filter(Boolean),
+  );
+  return FORMAT_ORDER.filter((label) => seen.has(label));
+};
 
 /**
  * Emoji and dingbats only.
@@ -133,6 +165,7 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
         groupRate: numberOrNull(record.rate_group),
         bio,
         excerpt: excerptFrom(bio),
+        formats: formatLabels(record.formats),
         focus: strings(record.focus_areas).slice(0, MAX_FOCUS),
         certifications: strings(record.certifications),
         students: numberOrNull(record.student_count),
