@@ -94,10 +94,11 @@ test("resolveBookingState leaves active unpaid card bookings pending", () => {
   });
 });
 
-test("holdsGroupSpot counts paid and pay-on-court reservations only", () => {
+test("holdsGroupSpot counts every non-cancelled reservation", () => {
   assert.equal(holdsGroupSpot(1, 1, "card"), true);
   assert.equal(holdsGroupSpot(1, 0, "pay_on_court"), true);
-  assert.equal(holdsGroupSpot(1, 0, "card"), false);
+  assert.equal(holdsGroupSpot(1, 0, "card"), true);
+  assert.equal(holdsGroupSpot(0, 0, undefined), true);
   assert.equal(holdsGroupSpot(2, 1, "pay_on_court"), false);
 });
 
@@ -110,7 +111,7 @@ test("holdsGroupSpot counts a non-cancelled comped API record", () => {
   assert.equal(holdsGroupSpot(0, 0, "comped"), true);
 });
 
-test("mapUpcomingGroupLesson preserves pending credit status without marking participant booked", () => {
+test("mapUpcomingGroupLesson counts pending credit participants as reserved seats", () => {
   const lesson = mapUpcomingGroupLesson({
     id: 2558,
     coach_id: 10,
@@ -137,7 +138,8 @@ test("mapUpcomingGroupLesson preserves pending credit status without marking par
     ],
   });
 
-  assert.equal(lesson.participants.length, 0);
+  assert.equal(lesson.participants.length, 1);
+  assert.equal(lesson.availableSpots, 3);
   assert.equal(lesson.groupPlayers?.[0]?.creditStatus, "pending");
   assert.equal(lesson.groupPlayers?.[0]?.creditPurchaseId, 123);
 });

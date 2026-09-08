@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildVisibleGroupLessonParticipantRows } from "./groupLessonVisibleParticipants";
 
-test("buildVisibleGroupLessonParticipantRows excludes pending participants", () => {
+test("buildVisibleGroupLessonParticipantRows includes non-cancelled reserved seats", () => {
   const rows = buildVisibleGroupLessonParticipantRows({
     participants: [
       {
@@ -26,11 +26,18 @@ test("buildVisibleGroupLessonParticipantRows excludes pending participants", () 
         paymentStatus: 0,
         paymentMethod: "pay_on_court",
       },
+      {
+        id: "cancelled",
+        name: "Cancelled Player",
+        status: 2,
+        paymentStatus: 2,
+      },
     ],
   });
 
   assert.deepEqual(rows.map((row) => row.name), [
     "Confirmed Player",
+    "Pending Player",
     "Pay On Court Player",
   ]);
 });

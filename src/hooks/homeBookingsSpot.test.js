@@ -54,12 +54,12 @@ test("a lesson you have booked still counts", () => {
   assert.equal(holdsOwnSpot(yourLesson), true);
 });
 
-test("your row must also be a confirmed spot, not merely present", () => {
+test("your row counts when it holds any non-cancelled group spot", () => {
   const pending = { groupPlayers: [{ playerId: 4021, status: 0, paymentStatus: 0 }] };
   const cancelled = { groupPlayers: [{ playerId: 4021, status: 2, paymentStatus: 2 }] };
   const payOnCourt = { groupPlayers: [{ playerId: 4021, status: 1, paymentStatus: 0, paymentMethod: "pay_on_court" }] };
 
-  assert.equal(holdsOwnSpot(pending), false);
+  assert.equal(holdsOwnSpot(pending), true, "pending guest/checkout rows reserve capacity");
   assert.equal(holdsOwnSpot(cancelled), false);
   assert.equal(holdsOwnSpot(payOnCourt), true, "pay-on-court is a held spot");
 });
