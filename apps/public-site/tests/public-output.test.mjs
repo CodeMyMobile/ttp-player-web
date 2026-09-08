@@ -21,8 +21,14 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
   assert.match(html, /href="\/tennis-coaches"/);
-  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/#\/"/);
-  assert.doesNotMatch(html, /https:\/\/app\.thetennisplan\.com\/#\/login/);
+  // Inverted deliberately. 2c077f9 pointed the auth links at the app root and locked that in
+  // here, but the root renders the app's own landing page when logged out — no sign-in form —
+  // so "Sign in" led to a second landing page rather than a login. /login is the route with
+  // the email and password fields, and AuthRedirectRoute still bounces a signed-in user to
+  // their dashboard, so returning users keep the behaviour that commit wanted. The edge
+  // function is what actually routes returning users, and it only runs on "/" — unaffected.
+  assert.match(html, /href="https:\/\/app\.thetennisplan\.com\/#\/login"/);
+  assert.doesNotMatch(html, /href="https:\/\/app\.thetennisplan\.com\/#\/"/);
   assert.match(html, /alt="/);
 });
 
