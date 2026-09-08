@@ -16,6 +16,8 @@ body {
    colour in it resolves through these; scoped to .landing they came out unstyled. Only
    .landing-* rules read them, so nothing else changes by their being global. */
 :root {
+  /* Horizontal gutter inside every shell. 20px on mobile, set in the media query. */
+  --shell-gutter: 24px;
   --l-purple: #8b5cf6;
   --l-purple-dark: #7c3aed;
   --l-purple-tint: #f4ebff;
@@ -165,9 +167,12 @@ body {
 }
 
 .coach-directory { --coach-ink: #12141c; --coach-muted: #667085; --coach-line: #e4e7ec; --coach-purple: #7c5cf5; --coach-wash: #f7f8fb; --coach-purple-wash: #f1edfe; --coach-purple-ink: #5b3ad4; color: var(--coach-ink); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-.directory-shell, .profile-shell { width: min(100% - 48px, 1180px); margin-inline: auto; }
+/* Padding-based rather than width-based so the gutter can carry the safe-area inset.
+   max-width adds the gutter back on both sides, which keeps the content box at exactly the
+   widths these had before: 1180 here, 900 in the hero, 960 on a profile. */
+.directory-shell, .profile-shell { width: 100%; max-width: calc(1180px + var(--shell-gutter) * 2); margin-inline: auto; padding-inline: calc(var(--shell-gutter) + env(safe-area-inset-left, 0px)) calc(var(--shell-gutter) + env(safe-area-inset-right, 0px)); }
 .coach-hero { background: linear-gradient(rgba(14, 18, 32, .68), rgba(14, 18, 32, .82)), url('/images/landing/coaching.jpg') center / cover; color: #fff; }
-.coach-hero .directory-shell { max-width: 900px; padding-block: 60px; }
+.coach-hero .directory-shell { max-width: calc(900px + var(--shell-gutter) * 2); padding-block: 60px; }
 .coach-hero span { display: inline-block; border: 1px solid rgba(255,255,255,.32); border-radius: 999px; padding: 6px 14px; font-size: .82rem; font-weight: 700; }
 .coach-hero span b { color: #9be24e; }.coach-hero h1 { max-width: 760px; margin: 18px 0 0; font-size: clamp(2.1rem, 5vw, 3.25rem); line-height: 1.08; letter-spacing: -.035em; }.coach-hero p { max-width: 62ch; margin: 14px 0 0; color: #d4d8e5; line-height: 1.6; }.coach-hero .coach-promise { color: #fff; font-size: 1.17rem; font-weight: 700; }
 .coach-strip { border-bottom: 1px solid #cdebd9; background: #ebf9ef; color: #15794a; font-weight: 700; }.coach-strip .directory-shell { padding-block: 13px; }
@@ -185,7 +190,7 @@ body {
 .coach-cta { border-top:1px solid var(--coach-line); padding:64px 0; background:#f7f8fb; }.coach-cta h2 { margin:0; font-size:clamp(1.6rem,3vw,2.1rem); }.coach-cta p { max-width:60ch; margin:12px 0 26px; color:#475467; line-height:1.6; }.coach-cta .coach-button + .coach-button { margin-left:12px; }
 
 
-.coach-profile { min-height:80vh; padding:48px 0 80px; background:#f8fafc; color:#1e293b; }.profile-shell { max-width:960px; }.profile-back { display:inline-block; margin-bottom:24px; color:#5b3ad4; font-weight:700; text-decoration:none; }.coach-profile header { display:flex; align-items:flex-start; gap:20px; border:1px solid #e2e8f0; border-radius:24px; padding:32px; background:#fff; }.profile-avatar { width:96px; height:96px; border-radius:50%; font-size:1.7rem; }.coach-profile h1 { margin:0; font-size:clamp(1.9rem,4vw,2.6rem); line-height:1.1; letter-spacing:-.03em; }.profile-rate { margin:9px 0; color:#64748b; }.profile-verified { margin:0; color:#15794a; font-size:.9rem; font-weight:700; }.coach-profile header .coach-button { margin-left:auto; }
+.coach-profile { min-height:80vh; padding:48px 0 80px; background:#f8fafc; color:#1e293b; }.profile-shell { max-width:calc(960px + var(--shell-gutter) * 2); }.profile-back { display:inline-block; margin-bottom:24px; color:#5b3ad4; font-weight:700; text-decoration:none; }.coach-profile header { display:flex; align-items:flex-start; gap:20px; border:1px solid #e2e8f0; border-radius:24px; padding:32px; background:#fff; }.profile-avatar { width:96px; height:96px; border-radius:50%; font-size:1.7rem; }.coach-profile h1 { margin:0; font-size:clamp(1.9rem,4vw,2.6rem); line-height:1.1; letter-spacing:-.03em; }.profile-rate { margin:9px 0; color:#64748b; }.profile-verified { margin:0; color:#15794a; font-size:.9rem; font-weight:700; }.coach-profile header .coach-button { margin-left:auto; }
 /* .coach-button carried only layout rules and .coach-button--primary had no rule at all, so
    all four uses rendered as the browser's default underlined blue link — including "Book a
    lesson", the primary CTA on every coach profile. Same defect as the FAQ: a class in the
@@ -195,4 +200,12 @@ body {
 .coach-button--primary { background:linear-gradient(135deg,var(--l-purple),var(--l-purple-dark)); }
 .coach-button:not(.coach-button--primary) { border-color:var(--l-border); background:#fff; color:var(--l-heading); }
 .coach-profile section { margin-top:18px; border:1px solid #e2e8f0; border-radius:20px; padding:30px; background:#fff; }.coach-profile h2 { margin:0 0 14px; font-size:1.3rem; }.coach-profile section p { color:#475569; line-height:1.7; white-space:pre-line; }.profile-courts { display:flex; flex-wrap:wrap; gap:10px; margin:0; padding:0; list-style:none; }.profile-courts a { display:block; border:1px solid #e2e8f0; border-radius:999px; padding:8px 13px; color:#5b3ad4; font-weight:700; text-decoration:none; }
-@media (max-width: 700px) { .directory-shell,.profile-shell { width:min(100% - 32px,1180px); }.coach-about-grid { grid-template-columns:1fr; gap:24px; }.coach-profile header { flex-wrap:wrap; padding:24px; }.coach-profile header .coach-button { width:100%; margin-left:0; }.coach-grid { grid-template-columns:1fr; }.coach-vetting ul { grid-template-columns:1fr; } }
+@media (max-width: 700px) { :root { --shell-gutter: 20px; }
+/* The bar had a fixed 64px height and a brand that wrapped to two lines at 375px and
+   below, so the actions overflowed it top and bottom and were clipped. Height grows now,
+   and the brand stays on one line. */
+.landing-nav__inner { height:auto; min-height:56px; padding-block:9px; }.landing-brand { white-space:nowrap; font-size:17px; }
+/* Sign in and Get started point at the same URL. Two controls to one place is noise on a
+   320px bar and the pair does not fit; this keeps the label a returning player looks for,
+   and the body still carries Create your account and Book a lesson as primary actions. */
+.landing-nav__actions .landing-btn { display:none; }.landing-nav .landing-link { border:1px solid var(--l-border); border-radius:999px; padding:8px 14px; color:var(--l-heading); }.coach-about-grid { grid-template-columns:1fr; gap:24px; }.coach-profile header { flex-wrap:wrap; padding:24px; }.coach-profile header .coach-button { width:100%; margin-left:0; }.coach-grid { grid-template-columns:1fr; }.coach-vetting ul { grid-template-columns:1fr; } }
