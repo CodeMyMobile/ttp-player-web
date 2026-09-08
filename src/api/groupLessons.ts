@@ -287,9 +287,7 @@ export const holdsGroupSpot = (
   const numericStatus = parseStatusValue(status);
   const numericPaymentStatus = parseStatusValue(paymentStatus);
   if (numericStatus === 2 || numericPaymentStatus === 2) return false;
-  if (isComped(paymentMethod)) return true;
-  if (numericStatus !== 1) return false;
-  return numericPaymentStatus === 1 || isPayOnCourt(paymentMethod);
+  return true;
 };
 
 export type BookingStateKey = "cancelled" | "booked" | "pay_on_court" | "comped" | "pending";
