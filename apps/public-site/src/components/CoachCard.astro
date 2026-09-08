@@ -31,8 +31,18 @@ const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angel
       )}
     </div>
     <div class="coach-id">
-      <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a><span class="coach-verified" aria-label="Tennis Plan Verified">✓</span></h3>
-      <p>Tennis Plan Verified · {primaryArea}{coach.students !== null && ` · ${coach.students} students`}</p>
+      <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a></h3>
+      {/* The badge is decorative and the words carry the claim. "Tennis Plan Verified"
+          stays real text on the meta line so it is indexable and readable aloud; the
+          mark beside it is aria-hidden rather than being the only carrier of meaning,
+          which is what a bare ✓ with an aria-label was. */}
+      <p>
+        <span class="coach-verified">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" width="13" height="13">
+            <path d="M12 1.6l2.2 2 3-.2.9 2.9 2.6 1.5-1 2.8 1 2.8-2.6 1.5-.9 2.9-3-.2-2.2 2-2.2-2-3 .2-.9-2.9L3.3 14l1-2.8-1-2.8 2.6-1.5.9-2.9 3 .2z" />
+            <path d="M10.8 15.5l-3-3 1.4-1.4 1.6 1.6 4-4L16.2 10z" fill="#ECFAF0" />
+          </svg>Tennis Plan Verified</span> · {primaryArea}{coach.students !== null && ` · ${coach.students} students`}
+      </p>
     </div>
     <div class="coach-rate">
       {coach.privateRate !== null && <><b>${coach.privateRate}</b><small>private</small></>}
@@ -46,7 +56,6 @@ const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angel
       here. Capped in the data layer so a coach with ten does not fill the card. */}
   {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
   {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
-  <p class="coach-opening"><span></span>Availability shared when you book</p>
   <div class="coach-actions">
     <a class="coach-button coach-button--primary" href={`/coaches/${coach.slug}`}>View profile</a>
     <a class="coach-button" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book</a>
