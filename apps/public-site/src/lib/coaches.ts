@@ -1,4 +1,4 @@
-import { normalizeVenueLabel, VENUES, type Venue } from "./venues.ts";
+import { isDeliberatelyExcluded, normalizeVenueLabel, VENUES, type Venue } from "./venues.ts";
 
 export type Coach = {
   slug: string;
@@ -111,7 +111,15 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
         .map((court) => normalizeVenueLabel(textOrEmpty(court?.name)))
         .map((name) => {
           const venue = venues[name];
-          if (!venue && name) console.warn(`Dropping unapproved coach venue: ${name}`);
+          // Quiet for the two expected cases — a residence (every bare street address
+          // normalises to itself and matches nothing) and a venue already recorded in
+          // venues.json's _excluded_* blocks. What is left is a label nobody has
+          // classified, which is the only kind worth a maintainer's attention. A warning
+          // that fires on every build is a warning nobody reads: before this, 29 lines
+          // printed per build and all but two were deliberate.
+          if (!venue && name && !/^\d/.test(name) && !isDeliberatelyExcluded(name)) {
+            console.warn(`[venues] unclassified label dropped: ${name}`);
+          }
           return venue;
         })
         .filter((venue): venue is Venue => Boolean(venue));

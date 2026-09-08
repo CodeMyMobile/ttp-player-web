@@ -5,7 +5,21 @@ export type Venue = {
   area: string;
 };
 
-export const VENUES: Record<string, Venue> = venueData;
+export const VENUES: Record<string, Venue> = venueData.venues as Record<string, Venue>;
+
+/**
+ * Venues considered and deliberately left out — unverified access, or outside West LA.
+ * Separate from the allowlist so a maintainer can tell "not looked at yet" from "looked
+ * at and rejected", and so the build only warns about the first kind.
+ */
+export const EXCLUDED_VENUES: Record<string, string> = {
+  ...((venueData as Record<string, unknown>)._excluded_unverified as Record<string, string>),
+  ...((venueData as Record<string, unknown>)._excluded_outside_area as Record<string, string>),
+};
+
+/** True when a dropped label was dropped on purpose. */
+export const isDeliberatelyExcluded = (normalisedLabel: string): boolean =>
+  Boolean(EXCLUDED_VENUES[normalisedLabel]);
 
 export const normalizeVenueLabel = (raw: string) => {
   const head = raw.split(",")[0]?.trim() ?? "";
