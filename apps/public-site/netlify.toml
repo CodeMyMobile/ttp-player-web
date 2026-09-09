@@ -10,3 +10,12 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# /find-coaches is the React app's route, not a page on this site, and it 404'd here for as
+# long as the landing page linked to it. The links now point at /tennis-coaches; this
+# catches anything referencing the old URL from outside this repo.
+[[redirects]]
+  from = "/find-coaches"
+  to = "/tennis-coaches"
+  status = 301
+  force = true

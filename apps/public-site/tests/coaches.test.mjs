@@ -31,9 +31,15 @@ test("public coach mapper permits consented fields and drops unknown venues", ()
     slug: "dean-kern",
     name: "Dean Kern",
     photo: "https://private.example/dean.jpg",
+    // Null unless the slug has an entry in PHOTO_FOCUS — the card crop override.
+    photoFocus: null,
     privateRate: 150,
     groupRate: 50,
     bio: "word ".repeat(60).trim(),
+    // Card copy, derived from bio: emoji stripped and clamped. bio stays whole.
+    excerpt: `${"word ".repeat(20).trim()}…`,
+    // Empty because this fixture sends no formats; /public/coaches does not map them yet.
+    formats: [],
     focus: ["doubles"],
     certifications: ["USPTA"],
     students: 11,

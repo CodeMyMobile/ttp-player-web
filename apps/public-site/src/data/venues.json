@@ -1,27 +1,132 @@
 {
-  "Culver City High School": { "name": "Culver City High School", "area": "culver-city" },
-  "Culver City High School Tennis Court": { "name": "Culver City High School", "area": "culver-city" },
-  "Culver High School": { "name": "Culver City High School", "area": "culver-city" },
-  "Veterans Memorial Park": { "name": "Veterans Memorial Park", "area": "culver-city" },
-  "Mar Vista Recreation Center": { "name": "Mar Vista Recreation Center", "area": "mar-vista" },
-  "Mar Vista Recreation Center Tennis Court": { "name": "Mar Vista Recreation Center", "area": "mar-vista" },
-  "Culver West Alexander Park": { "name": "Culver West Alexander Park", "area": "mar-vista" },
-  "Penmar Recreation Center": { "name": "Penmar Recreation Center", "area": "venice" },
-  "Penmar Recreation Center Tennis Court": { "name": "Penmar Recreation Center", "area": "venice" },
-  "Memorial Park": { "name": "Memorial Park", "area": "santa-monica" },
-  "Christine Emerson Reed Park": { "name": "Reed Park", "area": "santa-monica" },
-  "Reed Park": { "name": "Reed Park", "area": "santa-monica" },
-  "Clover Park": { "name": "Clover Park", "area": "santa-monica" },
-  "Marine Park": { "name": "Marine Park", "area": "santa-monica" },
-  "Santa Monica High School": { "name": "Santa Monica High School", "area": "santa-monica" },
-  "Westwood Recreation Center": { "name": "Westwood Recreation Center", "area": "westwood" },
-  "Westwood Tennis Center": { "name": "Westwood Recreation Center", "area": "westwood" },
-  "Barrington Recreation Center": { "name": "Barrington Recreation Center", "area": "brentwood" },
-  "Barrington Recreation Center Tennis Court": { "name": "Barrington Recreation Center", "area": "brentwood" },
-  "Stoner Park": { "name": "Stoner Park", "area": "west-la" },
-  "Stoner Recreation Center": { "name": "Stoner Park", "area": "west-la" },
-  "Cheviot Hills Tennis Center": { "name": "Cheviot Hills Tennis Center", "area": "cheviot-hills" },
-  "Cheviot Hills Recreation Center": { "name": "Cheviot Hills Tennis Center", "area": "cheviot-hills" },
-  "Glen Alla Park": { "name": "Glen Alla Park", "area": "marina-del-rey" },
-  "Glen Alla Park Tennis Courts": { "name": "Glen Alla Park", "area": "marina-del-rey" }
+  "_note": "Venue -> neighbourhood lookup. Keys are normalizeVenueLabel outputs. Both the short form and the facility form are listed for every venue, so a single-pass V[normalizeVenueLabel(label)] lookup matches \u2014 no fallback needed. Multiple keys mapping to one canonical `name` is intentional; that's how duplicate API records collapse. Nothing renders unless it appears here.",
+  "_rules": [
+    "Any label not present here is dropped, including all bare street addresses.",
+    "The starts-with-a-digit check is a second line of defence, not the mechanism.",
+    "Log dropped labels at build time so a real venue never disappears silently."
+  ],
+  "venues": {
+    "Culver City High School": {
+      "name": "Culver City High School",
+      "area": "culver-city"
+    },
+    "Culver City High School Tennis Court": {
+      "name": "Culver City High School",
+      "area": "culver-city"
+    },
+    "Culver High School": {
+      "name": "Culver City High School",
+      "area": "culver-city"
+    },
+    "Veterans Memorial Park": {
+      "name": "Veterans Memorial Park",
+      "area": "culver-city"
+    },
+    "Mar Vista Recreation Center": {
+      "name": "Mar Vista Recreation Center",
+      "area": "mar-vista"
+    },
+    "Mar Vista Recreation Center Tennis Court": {
+      "name": "Mar Vista Recreation Center",
+      "area": "mar-vista"
+    },
+    "Culver West Alexander Park": {
+      "name": "Culver West Alexander Park",
+      "area": "mar-vista"
+    },
+    "Penmar Recreation Center": {
+      "name": "Penmar Recreation Center",
+      "area": "venice"
+    },
+    "Penmar Recreation Center Tennis Court": {
+      "name": "Penmar Recreation Center",
+      "area": "venice"
+    },
+    "Memorial Park": {
+      "name": "Memorial Park",
+      "area": "santa-monica"
+    },
+    "Christine Emerson Reed Park": {
+      "name": "Reed Park",
+      "area": "santa-monica"
+    },
+    "Reed Park": {
+      "name": "Reed Park",
+      "area": "santa-monica"
+    },
+    "Clover Park": {
+      "name": "Clover Park",
+      "area": "santa-monica"
+    },
+    "Marine Park": {
+      "name": "Marine Park",
+      "area": "santa-monica"
+    },
+    "Santa Monica High School": {
+      "name": "Santa Monica High School",
+      "area": "santa-monica"
+    },
+    "Westwood Recreation Center": {
+      "name": "Westwood Recreation Center",
+      "area": "westwood"
+    },
+    "Westwood Tennis Center": {
+      "name": "Westwood Recreation Center",
+      "area": "westwood"
+    },
+    "Barrington Recreation Center": {
+      "name": "Barrington Recreation Center",
+      "area": "brentwood"
+    },
+    "Barrington Recreation Center Tennis Court": {
+      "name": "Barrington Recreation Center",
+      "area": "brentwood"
+    },
+    "Stoner Park": {
+      "name": "Stoner Park",
+      "area": "west-la"
+    },
+    "Stoner Recreation Center": {
+      "name": "Stoner Park",
+      "area": "west-la"
+    },
+    "Cheviot Hills Tennis Center": {
+      "name": "Cheviot Hills Tennis Center",
+      "area": "cheviot-hills"
+    },
+    "Cheviot Hills Recreation Center": {
+      "name": "Cheviot Hills Tennis Center",
+      "area": "cheviot-hills"
+    },
+    "Glen Alla Park": {
+      "name": "Glen Alla Park",
+      "area": "marina-del-rey"
+    },
+    "Glen Alla Park Tennis Courts": {
+      "name": "Glen Alla Park",
+      "area": "marina-del-rey"
+    }
+  },
+  "_excluded_unverified": {
+    "Hermon Park and": "Raw normalizeVenueLabel output for \"Hermon Park and Tennis Courts\" \u2014 the generic Tennis Courts branch cuts the name mid-phrase. Second key so the drop classifies as deliberate. Remove once fixed at source.",
+    "Colorado Center Park Broadway &": "Same venue as the entry below \u2014 this is the raw normalizeVenueLabel output, trailing ampersand and all. Kept as a second key so the drop classifies as deliberate rather than unknown. Remove once the ampersand is fixed at source in normalizeVenueLabel.",
+    "Loyola Marymount University": "University facility; public lesson access unconfirmed.",
+    "Ocean Park": "Neighbourhood name, not a venue \u2014 no street address in the record.",
+    "Mar Vista": "Neighbourhood name stored in locations.",
+    "Pacific Palisades": "Neighbourhood name stored in locations.",
+    "Playa Vista": "Neighbourhood name stored in locations.",
+    "Griffin Club Los Angeles": "Private members club.",
+    "Hillcrest Country Club": "Private country club.",
+    "Marina City Club": "Private members club.",
+    "Le Parc at Melrose": "Apartment complex courts, residents only.",
+    "Montrose at Beverly Hills": "Apartment complex courts, residents only.",
+    "Colorado Center Park": "Private office-campus courts, Santa Monica. Also exposes a normaliser bug \u2014 trailing ampersand in the output; visible in the app today."
+  },
+  "_excluded_outside_area": {
+    "Loren Miller Recreation Center": "Jefferson Park 90018",
+    "Hermon Park and Tennis Courts": "Highland Park 90042",
+    "Rose Bowl Aquatics Center": "Pasadena 91103",
+    "Peninsula Racquet Club": "Rolling Hills Estates",
+    "Sherman Oaks": "Valley \u2014 neighbourhood name, not a venue"
+  }
 }

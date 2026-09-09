@@ -4,32 +4,73 @@ import { areaLabel } from "../lib/venues";
 
 interface Props { coach: Coach; }
 const { coach } = Astro.props;
+
 const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
-const courts = coach.courts.slice(0, 3).map((court) => court.name);
+const courts = coach.courts.slice(0, 2).map((court) => court.name);
 const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
-const bio = coach.bio || "Public coach profile coming soon.";
+const profileHref = `/coaches/${coach.slug}`;
 ---
 <article class="coach">
-  <div class="coach-top">
-    <div class="coach-avatar" aria-label={`${coach.name} initials`}>
-      {initials}
-      {coach.photo && <img src={coach.photo} alt={`${coach.name}, tennis coach`} width="64" height="64" loading="lazy" />}
-    </div>
-    <div class="coach-id">
-      <h3><a href={`/coaches/${coach.slug}`}>{coach.name}</a><span class="coach-verified" aria-label="Tennis Plan Verified">✓</span></h3>
-      <p>Tennis Plan Verified · {primaryArea}{coach.students !== null && ` · ${coach.students} students`}</p>
-    </div>
-    <div class="coach-rate">
-      {coach.privateRate !== null && <><b>${coach.privateRate}</b><small>private</small></>}
-      {coach.groupRate !== null && <em>${coach.groupRate} group</em>}
-    </div>
+  {/* The photo opens the card rather than sitting in a 64px thumbnail.
+      The initials are always rendered underneath and the image covers them, so a dead
+      photo_url reveals a designed state rather than a hole — nine URLs on the roster are
+      currently dead links, and onerror removes the image when one fails. Empty alt: the
+      name is the heading directly below, so the image adds nothing for a screen reader. */}
+  <div class="shot" aria-hidden="true">
+    <span class="shot-initials">{initials}</span>
+    {coach.photo && (
+      <img src={coach.photo} alt="" loading="lazy" decoding="async" onerror="this.remove()"
+           style={coach.photoFocus ? `object-position:${coach.photoFocus}` : undefined} />
+    )}
   </div>
-  <p class="coach-bio">{bio}</p>
-  {coach.focus.length > 0 && <p class="coach-detail"><b>Focus</b><span>{coach.focus.join(", ")}</span></p>}
-  {courts.length > 0 && <p class="coach-detail"><b>Courts</b><span>{courts.join(", ")}{coach.courts.length > 3 && <span class="coach-more"> +{coach.courts.length - 3} more</span>}</span></p>}
-  <p class="coach-opening"><span></span>Availability shared when you book</p>
-  <div class="coach-actions">
-    <a class="coach-button coach-button--primary" href={`/coaches/${coach.slug}`}>View profile</a>
-    <a class="coach-button" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book</a>
+
+  <div class="body">
+    <div class="head">
+      <h3><a href={profileHref}>{coach.name}</a></h3>
+      {/* The mark is decorative; the words carry the claim and stay indexable. */}
+      <span class="verified">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 1.6l2.2 2 3-.2.9 2.9 2.6 1.5-1 2.8 1 2.8-2.6 1.5-.9 2.9-3-.2-2.2 2-2.2-2-3 .2-.9-2.9L3.3 14l1-2.8-1-2.8 2.6-1.5.9-2.9 3 .2z" />
+          <path d="M10.8 15.5l-3-3 1.4-1.4 1.6 1.6 4-4L16.2 10z" fill="#fff" />
+        </svg>Tennis Plan Verified
+      </span>
+      <span class="place">{primaryArea}</span>
+    </div>
+
+    {(coach.privateRate !== null || coach.groupRate !== null) && (
+      <p class="price">
+        {coach.privateRate !== null && <><b>${coach.privateRate}</b> private</>}
+        {coach.privateRate !== null && coach.groupRate !== null && " · "}
+        {coach.groupRate !== null && <><b>${coach.groupRate}</b> group</>}
+      </p>
+    )}
+
+    {/* Clamped in CSS, not truncated in the data layer: three lines of whatever width the
+        card happens to be, rather than a word count guessing at it. */}
+    <p class="bio">{coach.excerpt}</p>
+
+    {/* formats and focus are empty until /public/coaches maps them across from
+        /public/coaches/search — conditional, so they light up with no change here. */}
+    {coach.formats.length > 0 && <p class="meta-line">{coach.formats.join(" · ")}</p>}
+    {coach.focus.length > 0 && <p class="meta-line">{coach.focus.join(", ")}</p>}
+
+    {courts.length > 0 && (
+      <p class="courts">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" />
+        </svg>
+        {/* Clamped to two lines rather than followed by a "+N more" link: the link landed on
+            its own line whenever the names filled the last one, and read as an orphan. The
+            full list is on the profile, which the button below already goes to. */}
+        <span>{courts.join(", ")}</span>
+      </p>
+    )}
+
+    {/* margin-top:auto on .cta pins both actions to the card's bottom edge, so cards in a
+        row match height however much bio or how many courts they carry. */}
+    <div class="cta">
+      <a class="btn" href={profileHref}>View profile</a>
+      <a class="book" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book a lesson →</a>
+    </div>
   </div>
 </article>

@@ -17,7 +17,11 @@ const canonical = new URL(isSiteRelativePath ? canonicalPath : "/", Astro.site).
 <html lang="en-US">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* viewport-fit=cover so full-bleed sections reach the physical screen edge on notched
+        devices. Without it the default (contain) letterboxes the page inside the safe area
+        and the band outside it renders dark. The shells add the safe-area inset back as
+        padding, so backgrounds go edge to edge and no text sits under the notch. */}
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content={noindex ? "noindex, follow" : "index, follow"} />
     <title>{title}</title>
     <meta name="description" content={description} />
