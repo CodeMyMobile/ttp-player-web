@@ -51,6 +51,47 @@
   color: #65a30d;
 }
 
+/* Rating, not yet known. The lime tile's shape with no number in it, so the row
+   keeps its height and nothing claims the player is unrated before we know. */
+.home-v2 .home-tile--pending {
+  cursor: default;
+}
+
+/* .home-tile:hover lifts every tile; this one is not interactive, so it must not
+   invite a click that does nothing. */
+.home-v2 .home-tile--pending:hover {
+  transform: none;
+}
+
+.home-v2 .home-tile__value--placeholder {
+  display: block;
+  width: 3.2ch;
+  border-radius: 6px;
+  background: #d9f99d;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-v2 .home-tile__value--placeholder {
+    animation: home-tile-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes home-tile-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.home-v2 .home-tile__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Bookings and prompts — the white tile. */
 .home-v2 .home-tile--bookings {
   background: #fff;

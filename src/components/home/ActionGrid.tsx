@@ -2,9 +2,11 @@ import { GraduationCap, ListOrdered, Swords, Trophy, Users, Wrench } from "lucid
 import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import type { RatingState } from "../../utils/homeTiles";
+
 interface ActionGridProps {
   /** From useLadderStanding in HomePage — passed down so the rankings call isn't made twice. */
-  isRated: boolean;
+  ratingState: RatingState;
 }
 
 interface Action {
@@ -34,11 +36,14 @@ const ACTIONS: Action[] = [
   { label: "Ladder", to: "/ladder", icon: ListOrdered, gated: true },
 ];
 
-export function ActionGrid({ isRated }: ActionGridProps) {
+export function ActionGrid({ ratingState }: ActionGridProps) {
   return (
     <nav className="home-grid" aria-label="Quick actions">
       {ACTIONS.map(({ label, to, icon: Icon, gated }) => {
-        const locked = Boolean(gated) && !isRated;
+        // Locked only on a confirmed "unrated". While the answer is unknown the
+        // tile stays live: disabling it is the same wrong claim the rating tile
+        // used to make, and it greeted rated players with a dead Ladder button.
+        const locked = Boolean(gated) && ratingState === "unrated";
 
         if (locked) {
           return (

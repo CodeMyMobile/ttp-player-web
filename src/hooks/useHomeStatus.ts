@@ -53,6 +53,7 @@ import {
 import { buildHomeAlerts, type HomeAlert } from "../utils/homeAlertStack";
 import { selectHomeInvite, type HomeInviteItem } from "../utils/homeInvite";
 import { useApiRequest } from "./useApiRequest";
+import type { RatingState } from "../utils/homeTiles";
 
 /** Matches the identity fallback chain used elsewhere, e.g. LeagueDetailPage.tsx:438. */
 export const readViewerId = (user: unknown): number | null => {
@@ -78,10 +79,23 @@ export function useLadderStanding(viewerId: number | null) {
   const ratingRaw = data?.current_rating;
   const rating = ratingRaw == null || ratingRaw === "" ? null : Number(ratingRaw);
 
+  /**
+   * Three states, because `Boolean(data?.ranked)` had only one way to be false
+   * and three ways to get there: genuinely unrated, still loading, and never
+   * asked — the request is skipped while `viewerId` is null, and `viewerId`
+   * comes from an id chain off the stored user that can come back empty.
+   *
+   * All three rendered "Play a match to get rated", so a player with a rating
+   * and a ladder position was told to go and play a match. `unknown` is the
+   * honest answer for the two that are not an answer.
+   */
+  const ratingState: RatingState =
+    loading || error || data === undefined ? "unknown" : data.ranked ? "rated" : "unrated";
+
   return {
     loading,
     error,
-    isRated: Boolean(data?.ranked),
+    ratingState,
     rating: rating !== null && Number.isFinite(rating) ? rating : null,
     positionLabel: ladderPositionLabel(data?.rank ?? null),
   };
