@@ -1,11 +1,12 @@
 import { ChevronRight, Info, Sparkles, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
-import { resolveStatusTiles } from "../../utils/homeTiles";
+import { resolveStatusTiles, type RatingState } from "../../utils/homeTiles";
 
 interface StatusTilesProps {
   /** Null until the rating loads, or when the player has no rating at all. */
   rating: number | null;
-  isRated: boolean;
+  /** "unknown" while we are still finding out — see homeTiles.RatingState. */
+  ratingState: RatingState;
   /** "3rd nearby", or null when the player isn't placed in the nearby ladder. */
   positionLabel: string | null;
   bookingsCount: number;
@@ -27,12 +28,12 @@ const formatRating = (rating: number | null) =>
  */
 export function StatusTiles({
   rating,
-  isRated,
+  ratingState,
   positionLabel,
   bookingsCount,
   nextBookingLabel,
 }: StatusTilesProps) {
-  const { left, right, fullWidth } = resolveStatusTiles({ isRated, bookingsCount });
+  const { left, right, fullWidth } = resolveStatusTiles({ ratingState, bookingsCount });
 
   return (
     <section className="home-tiles">
@@ -45,6 +46,16 @@ export function StatusTiles({
           <span className="home-tile__value">{formatRating(rating)}</span>
           {positionLabel ? <span className="home-tile__sub">{positionLabel}</span> : null}
         </Link>
+      ) : left === "ratingUnknown" ? (
+        /* We do not know yet, so we claim nothing. A placeholder in the rating
+           tile's own shape, so the row does not resize when the answer lands. */
+        <div className="home-tile home-tile--rating home-tile--pending" aria-busy="true">
+          <span className="home-tile__label">Tennis Plan Rating</span>
+          <span className="home-tile__value home-tile__value--placeholder" aria-hidden="true">
+            &nbsp;
+          </span>
+          <span className="home-tile__sr-only">Loading your rating</span>
+        </div>
       ) : (
         /* Points at match play, NOT at leagues.
          *

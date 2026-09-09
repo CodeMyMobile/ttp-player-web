@@ -36,7 +36,7 @@ export default function HomePage() {
   const { user } = useAuth();
   const viewerId = readViewerId(user);
 
-  const { rating, isRated, positionLabel } = useLadderStanding(viewerId);
+  const { rating, ratingState, positionLabel } = useLadderStanding(viewerId);
   // Always fetched, never gated on the rating: an unrated player with a
   // standing weekly lesson has real bookings and needs to see them.
   const { count, nextLabel, today } = useWeekBookings();
@@ -79,7 +79,7 @@ export default function HomePage() {
       <main className="home-v2__main">
         <StatusTiles
           rating={rating}
-          isRated={isRated}
+          ratingState={ratingState}
           positionLabel={positionLabel}
           bookingsCount={count}
           nextBookingLabel={nextLabel}
@@ -100,7 +100,7 @@ export default function HomePage() {
 
         <AlertStack alerts={alerts} />
 
-        <ActionGrid isRated={isRated} />
+        <ActionGrid ratingState={ratingState} />
 
         {/* Season, then the feed. Every mockup puts "Play this week" last;
             off court (PR 8) will sit between these two when it lands. */}

@@ -336,8 +336,18 @@ export const decorateRankings = (rankings: Ranking[]): DecoratedRanking[] =>
  * Ordering by current_rating here, and numbering from that order, is what makes
  * the column mean what it says.
  *
- * sortByRatingDesc is shared with the home tile's position so the two cannot
- * disagree about where a player sits.
+ * This number is computed HERE, in the browser, over the rows currently loaded.
+ * It is not the API's `rank` — which is why DecoratedRanking calls it
+ * ladderPosition. The home tile's position is a third computation again: it
+ * reads `rank` off GET /match-results/rankings/me, ordered server-side.
+ *
+ * This comment used to claim sortByRatingDesc was shared with the home tile "so
+ * the two cannot disagree about where a player sits". It is not shared — nothing
+ * on the home page calls it — and they did disagree: Adam Luftig was 23rd here
+ * and 16th on home, because rankings/me ranked only the players with a played
+ * match while this ranks everyone with a rating. Fixed in that query rather than
+ * here, since the ladder's population is the intended one. If you change this
+ * ordering, change getPlayerRankingSummary to match.
  */
 /**
  * Only players with a rating belong on a ladder.
