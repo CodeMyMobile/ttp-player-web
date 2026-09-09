@@ -276,3 +276,41 @@ body {
   .cp-hero-inner { flex-direction:column; align-items:flex-start; gap:20px; padding-block:32px; }
   .cp-shot { width:150px; }
 }
+/* ── about ─────────────────────────────────────────────────────────────────────
+   Text-heavy and read start to finish, so it alternates white and washed bands to
+   break the run, and holds a tighter measure than the hub. Built on the :root --l-*
+   set rather than new tokens: the values are the site's, and a second near-identical
+   palette is the kind of thing that drifts. */
+.ab-hero { background:var(--cp-night); color:#fff; }
+.ab-hero .directory-shell { padding-block:56px 52px; }
+.ab-eyebrow { margin:0 0 14px; font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--l-lime); }
+.ab-hero h1 { max-width:18ch; margin:0; font-size:clamp(2rem,5vw,3rem); font-weight:700; line-height:1.1; letter-spacing:-.025em; }
+.ab-lede { max-width:54ch; margin:16px 0 0; font-size:1.12rem; line-height:1.6; color:#d4d8e5; }
+.ab-shot { background:var(--cp-night); }
+/* height:auto or the width/height attributes win and aspect-ratio never applies. */
+.ab-shot img { display:block; width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; object-position:center 40%; }
+.ab-body { padding-block:48px; }
+.ab-band { border-block:1px solid var(--l-border); background:var(--l-page); padding-block:48px; }
+/* 68ch: the hub's full width runs past 130 characters a line, which is fine for a card
+   and not for six paragraphs of first-person prose. */
+.ab-prose { max-width:calc(68ch + var(--shell-gutter) * 2); color:var(--l-body); font-size:1.02rem; line-height:1.75; }
+.ab-prose h2 { margin:38px 0 14px; font-size:1.45rem; font-weight:700; letter-spacing:-.02em; color:var(--l-heading); }
+.ab-prose > h2:first-child { margin-top:0; }
+.ab-prose p { margin:0; }
+.ab-prose p + p { margin-top:16px; }
+.ab-prose a { color:var(--l-purple-dark); text-underline-offset:2px; }
+.ab-pull { margin-top:22px !important; font-size:1.22rem; font-weight:700; letter-spacing:-.02em; color:var(--l-heading); }
+.ab-next { margin-top:26px !important; font-weight:600; }
+.ab-next a { text-decoration:none; }
+.ab-next a:hover { text-decoration:underline; }
+
+/* ── sitewide footer ───────────────────────────────────────────────────────── */
+.site-footer { border-top:1px solid var(--l-border); background:#fff; padding-block:30px; }
+.site-footer__inner { display:flex; flex-wrap:wrap; align-items:center; gap:12px 26px; }
+.site-footer__brand { font-size:1rem; font-weight:800; letter-spacing:-.02em; color:var(--l-heading); text-decoration:none; }
+.site-footer__brand span { color:var(--l-purple); }
+.site-footer__links { display:flex; flex-wrap:wrap; gap:8px 20px; font-size:.88rem; }
+.site-footer__links a { color:var(--l-body); text-decoration:none; }
+.site-footer__links a:hover { color:var(--l-purple-dark); text-decoration:underline; }
+.site-footer__fine { margin:0; margin-left:auto; font-size:.8rem; color:var(--l-subtle); }
+@media (max-width:700px) { .site-footer__fine { margin-left:0; } }

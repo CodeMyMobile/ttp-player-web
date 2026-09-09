@@ -1,8 +1,182 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { getAreaCoaches, getCoaches } from "../lib/coaches";
+import { spellNumber } from "../lib/numberWords";
+import { CONTACT_EMAIL, COACH_SIGNUP_URL, TENNIS_GARAGE_URL } from "../lib/site";
+
+const coaches = await getCoaches();
+/**
+ * The copy reads "twenty-three coaches across nine West LA neighbourhoods". Both numbers are
+ * derived rather than typed, because the sentence is a claim about the roster and the roster
+ * changes — the wording is exactly the draft's, the figures just cannot go stale.
+ */
+const coachCount = spellNumber(coaches.length);
+const areaCount = spellNumber(new Set(coaches.flatMap((coach) => coach.areas)).size);
+
+const schema = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "The Tennis Plan",
+    url: "https://thetennisplan.com",
+    email: CONTACT_EMAIL,
+    foundingDate: "2020",
+    areaServed: { "@type": "Place", name: "West Los Angeles" },
+    founder: { "@type": "Person", name: "Paul Cochrane" },
+  },
+  {
+    // sameAs ties the founder to his own coach profile, so the two are one person to Google
+    // rather than two unrelated mentions of the same name.
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: "Paul Cochrane",
+    jobTitle: "Tennis Coach",
+    url: "https://thetennisplan.com/about",
+    sameAs: ["https://thetennisplan.com/coaches/paul-cochrane-6"],
+    worksFor: { "@type": "Organization", name: "The Tennis Plan", url: "https://thetennisplan.com" },
+  },
+];
 ---
-<BaseLayout title="About The Tennis Plan | West LA Tennis" description="Learn why The Tennis Plan makes local tennis coaching easier to discover." canonicalPath="/about">
+<BaseLayout
+  title="About The Tennis Plan — Invite-Only Tennis Coaching in West LA"
+  description="The Tennis Plan is a short list of West LA tennis coaches, invited one by one by someone who's played with them. Here's who I am and how it works."
+  canonicalPath="/about"
+  schema={schema}
+>
   <Header />
-  <main class="coach-profile"><div class="profile-shell"><h1>About The Tennis Plan</h1><section><h2>Good tennis starts local</h2><p>The Tennis Plan helps West Los Angeles players discover trusted coaches, public courts, group lessons, and people to play with. We keep browsing public and move booking and messaging into the app, where players control their account and next steps.</p></section><section><h2>Our coach directory</h2><p>Every public coach has agreed to appear. Their courts, rates, and background are shown so a player can decide who to consider before signing up.</p></section></div></main>
+
+  <section class="ab-hero">
+    <div class="directory-shell">
+      <p class="ab-eyebrow">About</p>
+      <h1>Why The Tennis Plan exists</h1>
+      <p class="ab-lede">
+        A short list of West LA tennis coaches, invited one by one by someone who has played
+        with them.
+      </p>
+    </div>
+  </section>
+
+  {/* Placeholder. A stock photo of two strangers cannot do this page's job — the coach is
+      not Paul, is not identifiable, and has his back to camera. Replace with a phone photo
+      of Paul on court at Penmar or Mar Vista Rec. */}
+  <div class="ab-shot">
+    <img
+      src="/images/about/hero.jpg"
+      alt="A coach guiding a player's serve."
+      width="1800"
+      height="1013"
+      fetchpriority="high"
+      decoding="async"
+    />
+  </div>
+
+  <div class="ab-body">
+    <div class="directory-shell ab-prose">
+      <p>
+        I&rsquo;m Paul Cochrane. I&rsquo;ve been coaching tennis in West LA since 2010 &mdash;
+        Venice, Mar Vista, Culver City and Brentwood, mostly on the public courts you already
+        know. I also run <a href={TENNIS_GARAGE_URL}>The Tennis Garage</a>, a racket stringing
+        shop in Mar Vista, which means a fair number of the people playing tennis around here
+        come through my door sooner or later.
+      </p>
+      <p>
+        For years, the way people found a coach around here was the same: ask someone at the
+        courts, get a name, hope it worked out. The coaches were out there. Some of the best
+        I&rsquo;ve ever hit with teach within three miles of Mar Vista. The hard part was never
+        supply &mdash; it was knowing whose name you&rsquo;d been given, and whether the person
+        giving it actually knew.
+      </p>
+      <p>
+        So in 2020 I started keeping a list. Coaches I&rsquo;d been on court with. People
+        I&rsquo;d send a friend to without thinking twice about it.
+      </p>
+      <p class="ab-pull">That list is this website.</p>
+    </div>
+  </div>
+
+  <section class="ab-band">
+    <div class="directory-shell ab-prose">
+      <h2>Applying doesn&rsquo;t get you on the list</h2>
+      <p>Coaches can put their name forward. It isn&rsquo;t how anyone gets here.</p>
+      <p>
+        Every coach on The Tennis Plan is someone I&rsquo;ve been on court with &mdash; hit with
+        them, worked alongside them, or watched them run a lesson. Not a phone call, not a CV.
+        On court.
+      </p>
+      <p>
+        I&rsquo;ve strung rackets for a lot of them too, which is its own kind of vetting &mdash;
+        you hear which coaches players stay with, and which ones they quietly stop mentioning.
+      </p>
+      <p>
+        That&rsquo;s the whole bar, and it&rsquo;s deliberately hard to clear at scale. It&rsquo;s
+        why the list is short: {coachCount} coaches across {areaCount} West LA neighbourhoods. A
+        national directory will show you two hundred and let you sort by price. I&rsquo;d rather
+        show you {coachCount} and be able to tell you why each one is on here.
+      </p>
+    </div>
+  </section>
+
+  <div class="ab-body">
+    <div class="directory-shell ab-prose">
+      <h2>What &ldquo;Tennis Plan Verified&rdquo; means</h2>
+      <p>
+        The badge on a coach&rsquo;s profile means I&rsquo;ve been on court with them, and that
+        I&rsquo;ve confirmed the courts they teach at and any credentials they list. It
+        isn&rsquo;t a self-reported field.
+      </p>
+      <p>
+        It also means my name is behind them. If a coach on this list disappoints you,
+        that&rsquo;s on me &mdash; I&rsquo;d want to hear about it.
+      </p>
+
+      <h2>Who this is for</h2>
+      <p>
+        Anyone in West LA looking for a coach, whether it&rsquo;s your first lesson or your
+        fiftieth. The coaches here work with beginners, juniors, adults coming back to the game,
+        and players preparing for leagues and high school tennis.
+      </p>
+      <p>
+        Lessons run on public courts across the Westside &mdash; Penmar, Mar Vista Rec, Culver
+        City High, Stoner Park, Barrington, Marine Park, Clover Park and others. Private lessons
+        run from $85 to $180 an hour, group sessions around $50 a player.
+      </p>
+      <p>
+        You don&rsquo;t need an account to look. Every coach, rate and court on this site is
+        public. You only sign up when you want to book.
+      </p>
+    </div>
+  </div>
+
+  <section class="ab-band">
+    <div class="directory-shell ab-prose">
+      <h2>Are you a coach?</h2>
+      <p>
+        You can put your name forward at
+        <a href={COACH_SIGNUP_URL}>coaches.thetennisplan.com</a>.
+      </p>
+      <p>
+        Being straight about what happens next: it doesn&rsquo;t put you on the list. I add
+        coaches I&rsquo;ve been on court with, so what an application really does is start a
+        conversation about getting on court together. If we&rsquo;ve already crossed paths
+        somewhere in West LA, say so &mdash; that&rsquo;s the shortest route. Or email me at
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+      </p>
+    </div>
+  </section>
+
+  <div class="ab-body">
+    <div class="directory-shell ab-prose">
+      <h2>Get in touch</h2>
+      <p><a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+      <p>
+        Or find me at <a href={TENNIS_GARAGE_URL}>The Tennis Garage</a> in Mar Vista &mdash;
+        I&rsquo;m usually there.
+      </p>
+      <p class="ab-next"><a href="/tennis-coaches">Browse the coaches &rarr;</a></p>
+    </div>
+  </div>
+
+  <Footer />
 </BaseLayout>

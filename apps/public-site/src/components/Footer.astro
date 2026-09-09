@@ -1,0 +1,24 @@
+---
+import { CONTACT_EMAIL } from "../lib/site";
+
+/**
+ * Sitewide footer.
+ *
+ * There was no shared footer before this: `<footer>` lived inside CommunityCta, which only
+ * the landing page renders, so the hub, the area pages and all 23 profiles ended on a CTA
+ * band with no way to reach /about or anything else. That is why /about was reachable from
+ * exactly one button.
+ */
+const year = 2026;
+---
+<footer class="site-footer">
+  <div class="directory-shell site-footer__inner">
+    <a class="site-footer__brand" href="/">The Tennis <span>Plan</span></a>
+    <nav class="site-footer__links" aria-label="Footer navigation">
+      <a href="/tennis-coaches">Tennis coaches</a>
+      <a href="/about">About</a>
+      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+    </nav>
+    <p class="site-footer__fine">© {year} The Tennis Plan · Coaching across West Los Angeles</p>
+  </div>
+</footer>

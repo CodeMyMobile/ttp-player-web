@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
 import { APP_FIND_COACHES } from "../../lib/appLinks";
 import CoachDirectory from "../../components/CoachDirectory.astro";
 import { getAreaCoaches, getCoaches } from "../../lib/coaches";
@@ -18,4 +19,6 @@ const schema = [{ "@context": "https://schema.org", "@type": "ItemList", name: `
 <BaseLayout title={`Tennis Coaches in ${label} | The Tennis Plan`} description={`Browse Tennis Plan Verified tennis coaches teaching in ${label}. Compare rates and courts — no account needed.`} canonicalPath={`/tennis-coaches/${area}`} schema={schema}>
   <Header next={APP_FIND_COACHES} />
   <main class="coach-directory"><section class="coach-hero"><div class="directory-shell"><span>{coaches.length} Tennis Plan Verified coaches</span><h1>Tennis coaches in {label}</h1><p class="coach-promise">Local coaches, public courts, and clear rates before you make an account.</p></div></section><CoachDirectory coaches={coaches} areas={areas} currentArea={area} /></main>
+
+  <Footer />
 </BaseLayout>
