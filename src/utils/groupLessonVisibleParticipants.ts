@@ -10,5 +10,6 @@ export const buildVisibleGroupLessonParticipantRows = (
       participant.status,
       participant.paymentStatus,
       participant.paymentMethod,
+      participant,
     ),
   );

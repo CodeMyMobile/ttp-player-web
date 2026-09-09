@@ -49,6 +49,10 @@ export interface GroupLesson {
     creditStatus?: string | null;
     creditPurchaseId?: number | string | null;
     paymentMethod?: string;
+    paymentSource?: string | null;
+    stripePaymentIntentId?: string | null;
+    paidByStripe?: boolean;
+    paidByCredit?: boolean;
   }>;
   groupPlayers?: Array<{
     id?: number | string;
@@ -61,6 +65,12 @@ export interface GroupLesson {
     paymentStatus?: number;
     status?: number;
     paymentMethod?: string;
+    paymentSource?: string | null;
+    stripePaymentIntentId?: string | null;
+    paidByStripe?: boolean;
+    paidByCredit?: boolean;
+    creditStatus?: string | null;
+    creditPurchaseId?: number | string | null;
   }>;
   highlights?: string[];
 }
@@ -79,6 +89,10 @@ export interface UpcomingGroupLessonPlayerApi {
   payment_status?: number;
   status?: number;
   payment_method?: string;
+  payment_source?: string | null;
+  stripe_paymentintent_id?: string | null;
+  paid_by_stripe?: boolean;
+  paid_by_credit?: boolean;
   credit_status?: string | null;
   credit_purchase_id?: number | string | null;
   [key: string]: unknown;
@@ -283,11 +297,40 @@ export const holdsGroupSpot = (
   status?: number | string | null,
   paymentStatus?: number | string | null,
   paymentMethod?: BookingPaymentMethod,
+  reservation?: {
+    paymentSource?: BookingPaymentMethod;
+    stripePaymentIntentId?: string | null;
+    stripe_paymentintent_id?: string | null;
+    paidByStripe?: boolean | null;
+    paid_by_stripe?: boolean | null;
+    paidByCredit?: boolean | null;
+    paid_by_credit?: boolean | null;
+    creditStatus?: string | null;
+    credit_status?: string | null;
+    creditPurchaseId?: number | string | null;
+    credit_purchase_id?: number | string | null;
+  },
 ) => {
   const numericStatus = parseStatusValue(status);
   const numericPaymentStatus = parseStatusValue(paymentStatus);
   if (numericStatus === 2 || numericPaymentStatus === 2) return false;
-  return true;
+
+  const normalizedMethod = String(paymentMethod ?? "").toLowerCase();
+  const normalizedSource = String(reservation?.paymentSource ?? "").toLowerCase();
+  const creditStatus = String(reservation?.creditStatus ?? reservation?.credit_status ?? "").toLowerCase();
+  const reservedMethods = new Set(["pay_on_court", "comped", "credit", "credits"]);
+
+  return numericStatus === 1 ||
+    numericPaymentStatus === 1 ||
+    reservedMethods.has(normalizedMethod) ||
+    reservedMethods.has(normalizedSource) ||
+    Boolean(reservation?.stripePaymentIntentId || reservation?.stripe_paymentintent_id) ||
+    reservation?.paidByStripe === true ||
+    reservation?.paid_by_stripe === true ||
+    reservation?.paidByCredit === true ||
+    reservation?.paid_by_credit === true ||
+    Boolean(reservation?.creditPurchaseId || reservation?.credit_purchase_id) ||
+    Boolean(creditStatus);
 };
 
 export type BookingStateKey = "cancelled" | "booked" | "pay_on_court" | "comped" | "pending";
@@ -333,11 +376,31 @@ export const isActiveGroupLessonPlayer = (player: {
   payment_status?: number | string | null;
   paymentMethod?: BookingPaymentMethod;
   payment_method?: BookingPaymentMethod;
+  paymentSource?: BookingPaymentMethod;
+  payment_source?: BookingPaymentMethod;
+  stripePaymentIntentId?: string | null;
+  stripe_paymentintent_id?: string | null;
+  paidByStripe?: boolean | null;
+  paid_by_stripe?: boolean | null;
+  paidByCredit?: boolean | null;
+  paid_by_credit?: boolean | null;
+  creditStatus?: string | null;
+  credit_status?: string | null;
+  creditPurchaseId?: number | string | null;
+  credit_purchase_id?: number | string | null;
 }) => {
   return holdsGroupSpot(
     player.status,
     player.paymentStatus ?? player.payment_status,
     player.paymentMethod ?? player.payment_method,
+    {
+      paymentSource: player.paymentSource ?? player.payment_source,
+      stripePaymentIntentId: player.stripePaymentIntentId ?? player.stripe_paymentintent_id,
+      paidByStripe: player.paidByStripe ?? player.paid_by_stripe,
+      paidByCredit: player.paidByCredit ?? player.paid_by_credit,
+      creditStatus: player.creditStatus ?? player.credit_status,
+      creditPurchaseId: player.creditPurchaseId ?? player.credit_purchase_id,
+    },
   );
 };
 
@@ -379,6 +442,10 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       creditStatus: typeof player.credit_status === "string" ? player.credit_status : null,
       creditPurchaseId: player.credit_purchase_id ?? null,
       paymentMethod: typeof player.payment_method === "string" ? player.payment_method : undefined,
+      paymentSource: typeof player.payment_source === "string" ? player.payment_source : null,
+      stripePaymentIntentId: typeof player.stripe_paymentintent_id === "string" ? player.stripe_paymentintent_id : null,
+      paidByStripe: player.paid_by_stripe === true,
+      paidByCredit: player.paid_by_credit === true,
     };
   });
   const activeGroupPlayers = normalizedGroupPlayers.filter(isActiveGroupLessonPlayer);
@@ -446,6 +513,12 @@ export const mapUpcomingGroupLesson = (lesson: UpcomingGroupLessonApi): GroupLes
       paymentStatus: player.paymentStatus,
       status: player.status,
       paymentMethod: player.paymentMethod,
+      paymentSource: player.paymentSource,
+      stripePaymentIntentId: player.stripePaymentIntentId,
+      paidByStripe: player.paidByStripe,
+      paidByCredit: player.paidByCredit,
+      creditStatus: player.creditStatus,
+      creditPurchaseId: player.creditPurchaseId,
     })),
     groupPlayers: normalizedGroupPlayers,
   };

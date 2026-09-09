@@ -37,10 +37,10 @@ const yourLesson = {
 const holdsOwnSpot = (lesson) =>
   (lesson.groupPlayers || []).some((p) =>
     matchesViewer(viewer, p.playerId, p.participantId, p.email, p.name) &&
-    holdsGroupSpot(p.status, p.paymentStatus, p.paymentMethod));
+    holdsGroupSpot(p.status, p.paymentStatus, p.paymentMethod, p));
 
 const anyoneHoldsSpot = (lesson) =>
-  (lesson.groupPlayers || []).some((p) => holdsGroupSpot(p.status, p.paymentStatus, p.paymentMethod));
+  (lesson.groupPlayers || []).some((p) => holdsGroupSpot(p.status, p.paymentStatus, p.paymentMethod, p));
 
 test("the old test counted other people's bookings as yours", () => {
   assert.equal(anyoneHoldsSpot(someoneElsesLesson), true, "this is the bug");
@@ -54,14 +54,18 @@ test("a lesson you have booked still counts", () => {
   assert.equal(holdsOwnSpot(yourLesson), true);
 });
 
-test("your row counts when it holds any non-cancelled group spot", () => {
+test("your row counts only when it has a reservation signal", () => {
   const pending = { groupPlayers: [{ playerId: 4021, status: 0, paymentStatus: 0 }] };
   const cancelled = { groupPlayers: [{ playerId: 4021, status: 2, paymentStatus: 2 }] };
   const payOnCourt = { groupPlayers: [{ playerId: 4021, status: 1, paymentStatus: 0, paymentMethod: "pay_on_court" }] };
+  const comped = { groupPlayers: [{ playerId: 4021, status: 0, paymentStatus: 0, paymentMethod: "comped" }] };
+  const pendingCheckout = { groupPlayers: [{ playerId: 4021, status: 0, paymentStatus: 0, stripePaymentIntentId: "pi_pending" }] };
 
-  assert.equal(holdsOwnSpot(pending), true, "pending guest/checkout rows reserve capacity");
+  assert.equal(holdsOwnSpot(pending), false, "invite-only pending rows do not reserve capacity");
   assert.equal(holdsOwnSpot(cancelled), false);
   assert.equal(holdsOwnSpot(payOnCourt), true, "pay-on-court is a held spot");
+  assert.equal(holdsOwnSpot(comped), true, "comped is a held spot");
+  assert.equal(holdsOwnSpot(pendingCheckout), true, "pending checkout is a held spot");
 });
 
 test("identity matches on email or name when the ids disagree", () => {

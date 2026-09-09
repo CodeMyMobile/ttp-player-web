@@ -637,6 +637,11 @@ const GroupLessonDetailsPage = () => {
       paymentMethod: playerRecord.paymentMethod,
       participantId: playerRecord.participantId ?? playerRecord.id,
       creditStatus: playerRecord.creditStatus,
+      creditPurchaseId: playerRecord.creditPurchaseId,
+      paymentSource: playerRecord.paymentSource,
+      stripePaymentIntentId: playerRecord.stripePaymentIntentId,
+      paidByStripe: playerRecord.paidByStripe,
+      paidByCredit: playerRecord.paidByCredit,
     };
   }, [currentUserIdentity, lesson?.groupPlayers]);
 
@@ -894,6 +899,7 @@ const GroupLessonDetailsPage = () => {
     currentUserBookingStatus?.status,
     currentUserBookingStatus?.paymentStatus,
     currentUserBookingStatus?.paymentMethod,
+    currentUserBookingStatus,
   );
   const currentBookingState = resolveBookingState({
     status: currentUserBookingStatus?.status,

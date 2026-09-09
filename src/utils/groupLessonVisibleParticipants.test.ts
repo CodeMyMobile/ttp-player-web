@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildVisibleGroupLessonParticipantRows } from "./groupLessonVisibleParticipants";
 
-test("buildVisibleGroupLessonParticipantRows includes non-cancelled reserved seats", () => {
+test("buildVisibleGroupLessonParticipantRows excludes invite-only pending rows", () => {
   const rows = buildVisibleGroupLessonParticipantRows({
     participants: [
       {
@@ -15,7 +15,7 @@ test("buildVisibleGroupLessonParticipantRows includes non-cancelled reserved sea
       },
       {
         id: "pending",
-        name: "Pending Player",
+        name: "Invited Pending Player",
         status: 0,
         paymentStatus: 0,
       },
@@ -25,6 +25,13 @@ test("buildVisibleGroupLessonParticipantRows includes non-cancelled reserved sea
         status: 1,
         paymentStatus: 0,
         paymentMethod: "pay_on_court",
+      },
+      {
+        id: "comped",
+        name: "Comped Player",
+        status: 0,
+        paymentStatus: 0,
+        paymentMethod: "comped",
       },
       {
         id: "cancelled",
@@ -37,7 +44,7 @@ test("buildVisibleGroupLessonParticipantRows includes non-cancelled reserved sea
 
   assert.deepEqual(rows.map((row) => row.name), [
     "Confirmed Player",
-    "Pending Player",
     "Pay On Court Player",
+    "Comped Player",
   ]);
 });
