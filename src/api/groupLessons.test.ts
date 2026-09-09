@@ -94,11 +94,14 @@ test("resolveBookingState leaves active unpaid card bookings pending", () => {
   });
 });
 
-test("holdsGroupSpot counts every non-cancelled reservation", () => {
+test("holdsGroupSpot counts explicit reservations but not invite-only pending rows", () => {
   assert.equal(holdsGroupSpot(1, 1, "card"), true);
   assert.equal(holdsGroupSpot(1, 0, "pay_on_court"), true);
   assert.equal(holdsGroupSpot(1, 0, "card"), true);
-  assert.equal(holdsGroupSpot(0, 0, undefined), true);
+  assert.equal(holdsGroupSpot(0, 0, undefined), false);
+  assert.equal(holdsGroupSpot(undefined, undefined, undefined), false);
+  assert.equal(holdsGroupSpot(0, 0, undefined, { stripePaymentIntentId: "pi_pending" }), true);
+  assert.equal(holdsGroupSpot(0, 0, undefined, { creditStatus: "pending" }), true);
   assert.equal(holdsGroupSpot(2, 1, "pay_on_court"), false);
 });
 
