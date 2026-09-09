@@ -33,6 +33,8 @@ test("public coach mapper permits consented fields and drops unknown venues", ()
     photo: "https://private.example/dean.jpg",
     // Null unless the slug has an entry in PHOTO_FOCUS — the card crop override.
     photoFocus: null,
+    // Resolved after this mapper, by the join against /public/coaches/search.
+    appId: null,
     privateRate: 150,
     groupRate: 50,
     bio: "word ".repeat(60).trim(),
@@ -43,6 +45,10 @@ test("public coach mapper permits consented fields and drops unknown venues", ()
     focus: ["doubles"],
     certifications: ["USPTA"],
     students: 11,
+    // Absent from /public/coaches today; present on the type so the facts row lights up
+    // when the endpoint carries them.
+    experienceYears: null,
+    languages: [],
     courts: [
       { name: "Culver City High School", area: "culver-city" },
       { name: "Penmar Recreation Center", area: "venice" },
