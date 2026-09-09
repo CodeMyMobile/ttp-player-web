@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { readNextParam } from "../utils/nextParam";
 import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthPhoneCapture";
 import LegalFooter from "../components/LegalFooter";
 import {
@@ -210,8 +211,19 @@ const LoginPage = () => {
       );
       return;
     }
+    // `from` is router state, so only an in-app redirect can set it. Links arriving from
+    // the public Astro site have no state, and every one of them landed on the dashboard —
+    // someone who signed in from the public coach directory was dropped somewhere further
+    // from what they were doing than where they started. `next` carries that destination
+    // across the handoff. Router state still wins: it is set by the guard that interrupted
+    // a real navigation, which is a stronger signal than a query string.
+    const next = readNextParam(location.search);
+    if (next) {
+      navigate(next, { replace: true });
+      return;
+    }
     navigate("/", { replace: true });
-  }, [location.state?.from, navigate]);
+  }, [location.state?.from, location.search, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
