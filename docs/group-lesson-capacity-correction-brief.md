@@ -119,3 +119,42 @@ curl -s https://api.thetennisplan.com/api/public/lessons/2756 \
 print(l['booked_count'], l['open_spots'], l['is_full'])"
 # expect: 2 5 False
 ```
+
+---
+
+## Related but separate: the "You're booked" banner is a stale frontend deploy
+
+Reported alongside this: every visitor to 2756 sees **"✓ You're booked — Your spot is
+confirmed for this class."** and a **Cancel booking** button, whether or not they booked.
+
+It is **not** caused by the count. It is a frontend build that predates fixes already on
+`main`. Same lesson, same production API, both logged out with empty `localStorage`:
+
+| | local `main` | production |
+|---|---|---|
+| "You're booked" banner | absent | **shown** |
+| "Cancel booking" button | absent | **shown** |
+| avatars in "Who's joining" | 2 | 6 shown, **+6 → 11** |
+| count | 11 of 7 | 11 of 7 |
+
+The count is identical because it comes from the API. Everything else differs, so current
+frontend code already renders this lesson correctly for an anonymous visitor.
+
+On `main`, `isBooked` reads `holdsGroupSpot(...)` over the current user's matched participant
+row (`GroupLessonDetailsPage.tsx:893`), and with no match every argument is `undefined`,
+`parseStatusValue` returns `null`, and it is false. The roster likewise renders through
+`buildVisibleGroupLessonParticipantRows` rather than the raw `groupPlayers`, which is why it
+shows 2 and not 11.
+
+**Action: redeploy the frontend.** No code change needed for this half.
+
+**Worth checking urgently:** production offers an anonymous visitor a *Cancel booking*
+button. We did not click it — it acts on live bookings. Confirm the endpoint rejects an
+unauthenticated caller, and that the button cannot target another player's participant row.
+
+### The two fixes are independent, and both are needed
+
+After a frontend deploy alone, 2756 still reads "11 of 7" and still pushes players to the
+waitlist, because `booked_count` and `is_full` come from the API. Local `main` against
+production today shows exactly that: no false banner, but "11 of 7" and a *Join waitlist*
+CTA where there are really five open seats.
