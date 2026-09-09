@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Header from "../../components/Header.astro";
-import { APP_FIND_COACHES, appCoachHref } from "../../lib/appLinks";
+import { APP_FIND_COACHES, appCoachBookHref } from "../../lib/appLinks";
 import { getAreaCoaches, getCoaches, type Coach } from "../../lib/coaches";
 import { areaLabel, type Venue } from "../../lib/venues";
 
@@ -43,7 +43,7 @@ const siblings = (primaryAreaKey
   courts: other.courts.filter((court) => court.area === primaryAreaKey).slice(0, 2).map((court) => court.name),
 }));
 
-const bookHref = appCoachHref(coach.appId);
+const bookHref = appCoachBookHref(coach.appId);
 const coachNext = coach.appId ? `/coaches/${coach.appId}` : APP_FIND_COACHES;
 const sessionTypes = coach.formats.length > 0 ? coach.formats.join(", ") : null;
 

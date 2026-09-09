@@ -35,6 +35,17 @@ export const appCoachHref = (appId: number | null | undefined) =>
   appId ? `${APP}/#/coaches/${appId}` : `${APP}/#/`;
 
 /**
+ * The coach's booking page — `#/coaches/:id/book`, which renders the date strip, the
+ * format filter and their available slots, rather than the profile someone then has to
+ * find the button on.
+ *
+ * Also public, so a logged-out visitor can pick a time and only meets the account wall at
+ * the point of actually booking.
+ */
+export const appCoachBookHref = (appId: number | null | undefined) =>
+  appId ? `${APP}/#/coaches/${appId}/book` : `${APP}/#/`;
+
+/**
  * Sign-in that returns to this coach.
  *
  * Deliberately not a bare link to `#/coaches/:id`: that route is public, so it would show
