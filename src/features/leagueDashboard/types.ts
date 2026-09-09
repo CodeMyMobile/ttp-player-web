@@ -121,6 +121,10 @@ export interface ResultRow {
   loserName: string;
   score: string;
   playedAgo: string;
+  /** ISO timestamp the match was played, or null. What the list is ordered on. */
+  playedDate: string | null;
+  /** The viewer is one of the two players. Drives the Mine filter. */
+  isYours: boolean;
 }
 
 export interface PendingRow {

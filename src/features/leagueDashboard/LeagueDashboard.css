@@ -437,6 +437,10 @@
 /* Players tab toolbar. No "Log a Score" — a roster screen implies no finished match. */
 .lgd .ptab-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px}
 .lgd .ptab-count{font-size:13px;color:var(--ink-3);margin-right:auto}
+.lgd .scope{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-2);border-radius:999px;background:#fff}
+.lgd .scope-btn{border:0;border-radius:999px;padding:5px 13px;font:inherit;font-size:13px;line-height:1;color:var(--ink-3);background:transparent;cursor:pointer}
+.lgd .scope-btn:hover{color:var(--violet)}
+.lgd .scope-btn.on{background:var(--violet);color:#fff}
 .lgd .ptab-note{margin:14px 0 0;font-size:12px;color:var(--ink-3)}
 .lgd .sr-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
