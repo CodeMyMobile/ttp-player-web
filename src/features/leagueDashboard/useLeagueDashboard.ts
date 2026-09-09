@@ -37,6 +37,7 @@ import { buildScheduledLeagueMatches } from "../../utils/scheduledLeagueMatches"
 import { buildLeagueLadderRows } from "../../pages/leagueLadder";
 import { orientScore } from "../../pages/leagueScore";
 import { deriveNtrp, deriveUtr } from "../../utils/ratingConversions";
+import { byNewestPlayed, playedAtMs } from "./resultRows"
 import { computeNextMove } from "./nextMove";
 import type {
   LeagueData,
@@ -280,7 +281,7 @@ const buildDashboard = (
       timeline.set(playerId, list);
     };
     resolved.forEach((r) => {
-      const t = new Date(r.playedDate || 0).getTime();
+      const t = playedAtMs(r.playedDate);
       record(r.winnerId, t, true);
       record(r.loserId, t, false);
     });
@@ -366,13 +367,23 @@ const buildDashboard = (
   });
 
   // Results.
-  const results: ResultRow[] = resolved.map((r) => ({
-    id: r.id,
-    winnerName: r.winnerName,
-    loserName: r.loserName,
-    score: r.score || "Score TBD",
-    playedAgo: relativeTime(r.playedDate) || "recently",
-  }));
+  // Newest first. The API returns completed matches in no guaranteed order, and the
+  // ticker built from the same rows has always sorted — the Results tab was the one
+  // surface rendering them in arrival order, which reads as random.
+  const results: ResultRow[] = resolved
+    .map((r) => ({
+      id: r.id,
+      winnerName: r.winnerName,
+      loserName: r.loserName,
+      score: r.score || "Score TBD",
+      playedAgo: relativeTime(r.playedDate) || "recently",
+      playedDate: r.playedDate ?? null,
+      // Both sides, both identifiers: a result is yours whether you won or lost, and
+      // matchesViewer takes ids or names because the API supplies whichever it has.
+      isYours: matchesViewer(viewer, r.winnerId, r.winnerName, r.loserId, r.loserName),
+    }))
+    // Sorted after mapping so the tab and this list are ordered by the one comparator.
+    .sort(byNewestPlayed);
 
   // Pending rows (viewer's scheduled-but-unscored fixtures).
   const pendingRows: PendingRow[] = pending.map((fixture) => ({
@@ -449,7 +460,7 @@ const buildDashboard = (
 
   // Ticker — most recent completed results, newest first.
   const ticker = [...resolved]
-    .sort((a, b) => new Date(b.playedDate || 0).getTime() - new Date(a.playedDate || 0).getTime())
+    .sort((a, b) => playedAtMs(b.playedDate) - playedAtMs(a.playedDate))
     .slice(0, 6)
     .map((r) => ({
       id: r.id,
@@ -459,7 +470,7 @@ const buildDashboard = (
   // This week.
   const weekCutoff = Date.now() - WEEK_MS;
   const resultsThisWeek = resolved.filter(
-    (r) => new Date(r.playedDate || 0).getTime() >= weekCutoff,
+    (r) => playedAtMs(r.playedDate) >= weekCutoff,
   );
   // Biggest upset: lower-rated beat higher-rated (by rating), largest gap wins.
   let biggestUpset = "—"; // NOTE: DEGRADE — no upset this week or ratings missing.

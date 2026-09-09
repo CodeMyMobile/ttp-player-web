@@ -154,6 +154,8 @@ const LeagueTabs = ({
   // Which row last had its number copied, for the transient chip state.
   const [copiedPlayerId, setCopiedPlayerId] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
+  // Results scope. Local to the tab: it is a way of reading the list, not a route.
+  const [resultScope, setResultScope] = useState<"all" | "mine">("all");
 
   const copyNumber = (playerId: string, e164: string) => {
     void navigator.clipboard?.writeText(e164).then(() => {
@@ -169,6 +171,10 @@ const LeagueTabs = ({
   // `ladder` is optional in practice — the offline fixtures omit it — and this is
   // read on every tab, not just the ladder, so it must not assume the array.
   const ladderRows = data.ladder ?? [];
+  // The toggle only earns its place once the viewer has a result to filter to —
+  // otherwise "Mine" is a button whose only outcome is an empty list.
+  const myResults = data.results.filter((result) => result.isYours);
+  const shownResults = resultScope === "mine" ? myResults : data.results;
 
   return (
   <>
@@ -482,8 +488,28 @@ const LeagueTabs = ({
 
     {activeTab === "results" ? (
       <section className="panel">
-        {data.results.length ? (
-          data.results.map((result) => (
+        {data.results.length && myResults.length ? (
+          <div className="ptab-head">
+            <span className="ptab-count">
+              {shownResults.length} {shownResults.length === 1 ? "result" : "results"}
+            </span>
+            <div className="scope" role="group" aria-label="Filter results">
+              {([["all", "All"], ["mine", "Mine"]] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={resultScope === key}
+                  className={`scope-btn${resultScope === key ? " on" : ""}`}
+                  onClick={() => setResultScope(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {shownResults.length ? (
+          shownResults.map((result) => (
             <div className="list-row" key={result.id}>
               <span className="winner">{result.winnerName}</span>
               <span className="meta">def.</span>
@@ -495,7 +521,9 @@ const LeagueTabs = ({
             </div>
           ))
         ) : (
-          <div className="list-empty">No results posted yet.</div>
+          <div className="list-empty">
+            {data.results.length ? "None of yours yet." : "No results posted yet."}
+          </div>
         )}
       </section>
     ) : null}
