@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
 import { APP_FIND_COACHES, appCoachBookHref } from "../../lib/appLinks";
 import { getAreaCoaches, getCoaches, type Coach } from "../../lib/coaches";
 import { areaLabel, type Venue } from "../../lib/venues";
@@ -245,4 +246,6 @@ const schema = coach.indexable
       </div>
     </section>
   )}
+
+  <Footer />
 </BaseLayout>
