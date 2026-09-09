@@ -22,3 +22,35 @@ export const loginHref = (next?: string | null) => {
   if (!next) return base;
   return `${base}?next=${encodeURIComponent(next)}`;
 };
+
+/**
+ * The coach's own page in the player app.
+ *
+ * `#/coaches/:id` is not behind the auth guard, so a logged-out visitor sees the coach and
+ * can sign in from there; a logged-in one lands straight on them. Without an id there is
+ * nowhere specific to send anyone, so it degrades to the app root rather than inventing a
+ * URL that resolves to "Invalid coach identifier".
+ */
+export const appCoachHref = (appId: number | null | undefined) =>
+  appId ? `${APP}/#/coaches/${appId}` : `${APP}/#/`;
+
+/**
+ * The coach's booking page — `#/coaches/:id/book`, which renders the date strip, the
+ * format filter and their available slots, rather than the profile someone then has to
+ * find the button on.
+ *
+ * Also public, so a logged-out visitor can pick a time and only meets the account wall at
+ * the point of actually booking.
+ */
+export const appCoachBookHref = (appId: number | null | undefined) =>
+  appId ? `${APP}/#/coaches/${appId}/book` : `${APP}/#/`;
+
+/**
+ * Sign-in that returns to this coach.
+ *
+ * Deliberately not a bare link to `#/coaches/:id`: that route is public, so it would show
+ * the coach without ever signing anyone in — wrong for a control labelled "Sign in". This
+ * goes to the real form and carries the coach as `next`.
+ */
+export const coachLoginHref = (appId: number | null | undefined) =>
+  appId ? loginHref(`/coaches/${appId}`) : loginHref(APP_FIND_COACHES);

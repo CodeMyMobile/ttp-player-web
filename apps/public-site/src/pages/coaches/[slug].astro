@@ -1,19 +1,248 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Header from "../../components/Header.astro";
-import { APP_FIND_COACHES } from "../../lib/appLinks";
-import { getAreaCoaches, getCoaches } from "../../lib/coaches";
-import { areaLabel } from "../../lib/venues";
-export async function getStaticPaths() { const coaches = await getCoaches(); const indexableAreas = [...getAreaCoaches(coaches).keys()]; return coaches.map((coach) => ({ params: { slug: coach.slug }, props: { coach, indexableAreas } })); }
-const { coach, indexableAreas } = Astro.props;
-const primaryArea = coach.areas[0] ? areaLabel(coach.areas[0]) : "West Los Angeles";
-const schema = coach.indexable ? { "@context": "https://schema.org", "@type": "Person", name: coach.name, jobTitle: "Tennis Coach", url: `https://thetennisplan.com/coaches/${coach.slug}`, knowsAbout: coach.focus, worksFor: { "@type": "Organization", name: "The Tennis Plan" } } : undefined;
+import { APP_FIND_COACHES, appCoachBookHref } from "../../lib/appLinks";
+import { getAreaCoaches, getCoaches, type Coach } from "../../lib/coaches";
+import { areaLabel, type Venue } from "../../lib/venues";
+
+export async function getStaticPaths() {
+  const coaches = await getCoaches();
+  const indexableAreas = [...getAreaCoaches(coaches).keys()];
+  return coaches.map((coach) => ({
+    params: { slug: coach.slug },
+    props: { coach, coaches, indexableAreas },
+  }));
+}
+
+interface Props { coach: Coach; coaches: Coach[]; indexableAreas: string[]; }
+const { coach, coaches, indexableAreas } = Astro.props;
+
+const first = coach.name.split(/\s+/)[0];
+const initials = coach.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
+const primaryAreaKey = coach.areas[0] ?? null;
+const primaryArea = primaryAreaKey ? areaLabel(primaryAreaKey) : "West Los Angeles";
+const areaLink = (area: string) => (indexableAreas.includes(area) ? `/tennis-coaches/${area}` : null);
+
+/**
+ * Each court carries its own area. Adam teaches at Glen Alla Park, which is Marina del Rey
+ * even though he is listed under Mar Vista — labelling every court with the coach's primary
+ * area would send someone to the wrong neighbourhood page.
+ */
+const courtsInPrimary = primaryAreaKey ? coach.courts.filter((court) => court.area === primaryAreaKey).length : 0;
+
+/**
+ * Three others teaching in this area, each listed with the courts that put them here —
+ * not their first two courts overall, which under a "More coaches in Mar Vista" heading
+ * was naming Cheviot Hills and Culver City High.
+ */
+const siblings = (primaryAreaKey
+  ? coaches.filter((other) => other.slug !== coach.slug && other.areas.includes(primaryAreaKey))
+  : []
+).slice(0, 3).map((other) => ({
+  coach: other,
+  courts: other.courts.filter((court) => court.area === primaryAreaKey).slice(0, 2).map((court) => court.name),
+}));
+
+const bookHref = appCoachBookHref(coach.appId);
+const coachNext = coach.appId ? `/coaches/${coach.appId}` : APP_FIND_COACHES;
+const sessionTypes = coach.formats.length > 0 ? coach.formats.join(", ") : null;
+
+const schema = coach.indexable
+  ? {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      name: coach.name,
+      jobTitle: "Tennis Coach",
+      url: `https://thetennisplan.com/coaches/${coach.slug}`,
+      ...(coach.photo ? { image: coach.photo } : {}),
+      ...(coach.focus.length ? { knowsAbout: coach.focus } : {}),
+      ...(coach.languages.length ? { knowsLanguage: coach.languages } : {}),
+      workLocation: coach.courts.map((court) => ({
+        "@type": "Place",
+        name: court.name,
+        address: { "@type": "PostalAddress", addressLocality: areaLabel(court.area), addressRegion: "CA" },
+      })),
+      worksFor: { "@type": "Organization", name: "The Tennis Plan", url: "https://thetennisplan.com" },
+    }
+  : undefined;
 ---
-<BaseLayout title={`${coach.name} — Tennis Coach in ${primaryArea} | The Tennis Plan`} description={`Book tennis lessons with ${coach.name} in ${primaryArea}. See courts, rates, and specialties.`} canonicalPath={`/coaches/${coach.slug}`} noindex={!coach.indexable} schema={schema}>
-  <Header next={APP_FIND_COACHES} />
-  <main class="coach-profile"><div class="profile-shell"><a class="profile-back" href="/tennis-coaches">← All coaches</a><header><div class="profile-avatar">{coach.name.split(/\s+/).map((part: string) => part[0]).join("").slice(0, 2)}{coach.photo && <img src={coach.photo} alt={`${coach.name}, tennis coach`} width="96" height="96" />}</div><div><h1>{coach.name} — Tennis Coach in {primaryArea}</h1><p class="profile-rate">{coach.privateRate !== null ? `$${coach.privateRate}/hr · Private lessons` : "Private lessons"}</p><p class="profile-verified">✓ Tennis Plan Verified</p></div><a class="coach-button coach-button--primary" href={`https://app.thetennisplan.com/#/?redirect=coach/${coach.slug}&action=book`}>Book a lesson</a></header>
-    <section><h2>Where {coach.name.split(" ")[0]} coaches</h2><ul class="profile-courts">{coach.courts.map((court: import("../../lib/venues").Venue) => <li>{indexableAreas.includes(court.area) ? <a href={`/tennis-coaches/${court.area}`}>{court.name}</a> : court.name}</li>)}</ul></section>
-    {(coach.focus.length > 0 || coach.certifications.length > 0) && <section><h2>Specialties</h2>{coach.focus.length > 0 && <p>{coach.focus.join(", ")}</p>}{coach.certifications.length > 0 && <p>Credentials: {coach.certifications.join(", ")}</p>}</section>}
-    <section><h2>About {coach.name.split(" ")[0]}</h2><p>{coach.bio || "This coach's full bio is coming soon. Contact-free booking is available in The Tennis Plan app."}</p></section>
-  </div></main>
+<BaseLayout
+  title={`${coach.name} — Tennis Coach in ${primaryArea} | The Tennis Plan`}
+  description={`Book tennis lessons with ${coach.name}, a Tennis Plan Verified coach in ${primaryArea}. See courts, rates and session types — no account needed to browse.`}
+  canonicalPath={`/coaches/${coach.slug}`}
+  noindex={!coach.indexable}
+  schema={schema}
+>
+  {/* Sign in returns to this coach rather than the app home. Falls back to the app's coach
+      list when we could not resolve an id. */}
+  <Header next={coachNext} />
+
+  <nav class="cp-crumbs" aria-label="Breadcrumb">
+    <div class="directory-shell">
+      <a href="/">Home</a><span aria-hidden="true">›</span>
+      <a href="/tennis-coaches">Tennis coaches</a><span aria-hidden="true">›</span>
+      {primaryAreaKey && areaLink(primaryAreaKey) && (
+        <><a href={areaLink(primaryAreaKey)}>{primaryArea}</a><span aria-hidden="true">›</span></>
+      )}
+      <span aria-current="page">{coach.name}</span>
+    </div>
+  </nav>
+
+  <section class="cp-hero">
+    <img class="cp-hero-bg" src="/images/landing/coaching.jpg" alt="" aria-hidden="true" />
+    <div class="directory-shell cp-hero-inner">
+      {/* Initials sit underneath and the photo covers them, so a dead photo_url reveals a
+          designed state rather than an empty box. */}
+      <div class="cp-shot" aria-hidden="true">
+        <span class="cp-shot-initials">{initials}</span>
+        {coach.photo && (
+          <img
+            src={coach.photo}
+            alt=""
+            decoding="async"
+            onerror="this.remove()"
+            style={coach.photoFocus ? `object-position:${coach.photoFocus}` : undefined}
+          />
+        )}
+      </div>
+      <div class="cp-who">
+        <h1>{coach.name}</h1>
+        <p class="cp-role">Tennis coach in {primaryArea}, West Los Angeles</p>
+        <span class="cp-verified">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 1.6l2.2 2 3-.2.9 2.9 2.6 1.5-1 2.8 1 2.8-2.6 1.5-.9 2.9-3-.2-2.2 2-2.2-2-3 .2-.9-2.9L3.3 14l1-2.8-1-2.8 2.6-1.5.9-2.9 3 .2z" />
+            <path d="M10.8 15.5l-3-3 1.4-1.4 1.6 1.6 4-4L16.2 10z" fill="#0e1220" />
+          </svg>Tennis Plan Verified
+        </span>
+        {/* Every fact is conditional: the row has to read as complete on the coaches who
+            carry none of them, which today is all of them. */}
+        {(coach.experienceYears || coach.students || courtsInPrimary > 0 || coach.languages.length > 0) && (
+          <p class="cp-facts">
+            {coach.experienceYears && <span><b>{coach.experienceYears}+</b> years coaching</span>}
+            {coach.students && <span><b>{coach.students}</b> students coached</span>}
+            {courtsInPrimary > 0 && (
+              <span><b>{courtsInPrimary}</b> {courtsInPrimary === 1 ? "court" : "courts"} in {primaryArea}</span>
+            )}
+            {coach.languages.length > 0 && <span><b>{coach.languages.join(", ")}</b></span>}
+          </p>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <div class="cp-body">
+    <div class="directory-shell cp-grid">
+      <main class="cp-main">
+        {coach.courts.length > 0 && (
+          <section>
+            <h2>Where {first} coaches</h2>
+            <ul class="cp-courts">
+              {coach.courts.map((court: Venue) => {
+                const href = areaLink(court.area);
+                return (
+                  <li>
+                    {href ? (
+                      <a href={href}>{court.name}<small>{areaLabel(court.area)}</small></a>
+                    ) : (
+                      <span>{court.name}<small>{areaLabel(court.area)}</small></span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {coach.formats.length > 0 && (
+          <section>
+            <h2>Sessions {first} offers</h2>
+            <ul class="cp-tags">{coach.formats.map((format) => <li>{format}</li>)}</ul>
+          </section>
+        )}
+
+        {coach.focus.length > 0 && (
+          <section>
+            <h2>What {first} focuses on</h2>
+            <ul class="cp-tags">{coach.focus.map((item) => <li>{item}</li>)}</ul>
+          </section>
+        )}
+
+        {/* Full bio, unclamped and with nothing stripped — the excerpt exists for cards. */}
+        <section>
+          <h2>About {first}</h2>
+          <div class="cp-prose">{coach.bio.split(/\n{2,}/).map((para) => <p>{para}</p>)}</div>
+        </section>
+
+        <section>
+          <h2>How {first} joined</h2>
+          <div class="cp-prose">
+            <p>
+              There is no application form for The Tennis Plan. {first} was invited by someone who had
+              already hit with them — we do not add a coach we have not seen work.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <aside class="cp-rail">
+        <div class="cp-box">
+          {coach.privateRate !== null ? (
+            <p class="cp-rate"><b>${coach.privateRate}</b><span>per hour, private</span></p>
+          ) : (
+            <p class="cp-rate"><b>Private</b><span>lessons</span></p>
+          )}
+          {coach.groupRate !== null && <p class="cp-rate-alt">${coach.groupRate} per player for group sessions</p>}
+
+          <dl>
+            {coach.courts.length > 0 && (
+              <><dt>Teaches at</dt><dd>{coach.courts.map((court) => court.name).join(", ")}</dd></>
+            )}
+            {sessionTypes && (<><dt>Session types</dt><dd>{sessionTypes}</dd></>)}
+            {coach.languages.length > 0 && (<><dt>Languages</dt><dd>{coach.languages.join(", ")}</dd></>)}
+            {coach.certifications.length > 0 && (
+              <><dt>Credentials</dt><dd>{coach.certifications.join(", ")}</dd></>
+            )}
+          </dl>
+
+          <a class="cp-btn" href={bookHref}>Book a lesson</a>
+          <p class="cp-fine">You&rsquo;ll create an account to book</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  {siblings.length > 0 && (
+    <section class="cp-more">
+      <div class="directory-shell">
+        <h2>More coaches in {primaryArea}</h2>
+        <div class="cp-mini-grid">
+          {siblings.map(({ coach: other, courts: sharedCourts }) => (
+            <a class="cp-mini" href={`/coaches/${other.slug}`}>
+              <div class="cp-mini-shot" aria-hidden="true">
+                <span>{other.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase()}</span>
+                {other.photo && (
+                  <img
+                    src={other.photo}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onerror="this.remove()"
+                    style={other.photoFocus ? `object-position:${other.photoFocus}` : undefined}
+                  />
+                )}
+              </div>
+              <div class="cp-mini-body">
+                <h3>{other.name}</h3>
+                <p>
+                  {other.privateRate !== null && <>${other.privateRate} private</>}
+                  {other.privateRate !== null && sharedCourts.length > 0 && " · "}
+                  {sharedCourts.join(", ")}
+                </p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
 </BaseLayout>

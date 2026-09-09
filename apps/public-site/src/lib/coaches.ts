@@ -6,6 +6,11 @@ export type Coach = {
   photo: string | null;
   /** `object-position` for the card crop. Null means the default centre. */
   photoFocus: string | null;
+  /**
+   * The coach's numeric id in the player app, which is what `#/coaches/:id` routes on.
+   * Null when it could not be resolved — links fall back to the app root.
+   */
+  appId: number | null;
   privateRate: number | null;
   groupRate: number | null;
   bio: string;
@@ -16,6 +21,12 @@ export type Coach = {
   focus: string[];
   certifications: string[];
   students: number | null;
+  /**
+   * Not on /public/coaches yet. Read defensively and rendered conditionally, so the facts
+   * row fills in when the endpoint carries them without another change here.
+   */
+  experienceYears: number | null;
+  languages: string[];
   courts: Venue[];
   areas: string[];
   indexable: boolean;
@@ -33,6 +44,8 @@ type ApiCoach = {
   formats?: unknown;
   certifications?: unknown;
   student_count?: unknown;
+  experience_years?: unknown;
+  languages?: unknown;
   courts?: ApiCourt[] | unknown;
 };
 
@@ -190,6 +203,7 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
         name: textOrEmpty(record.name),
         photo: textOrEmpty(record.photo_url) || null,
         photoFocus: PHOTO_FOCUS[slug] ?? null,
+        appId: null,
         privateRate: numberOrNull(record.rate_private),
         groupRate: numberOrNull(record.rate_group),
         bio,
@@ -197,6 +211,8 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
         formats: formatLabels(record.formats),
         focus: strings(record.focus_areas).slice(0, MAX_FOCUS),
         certifications: strings(record.certifications),
+        experienceYears: numberOrNull(record.experience_years),
+        languages: strings(record.languages),
         students: numberOrNull(record.student_count),
         courts,
         areas: [...new Set(courts.map((court) => court.area))],
@@ -212,6 +228,67 @@ export const getAreaCoaches = (coaches: Coach[]) => {
     }
   }
   return new Map([...byArea.entries()].filter(([, list]) => list.length >= 3));
+};
+
+/**
+ * Resolves each coach's numeric app id.
+ *
+ * `#/coaches/:id` in the player app routes on a numeric id, and `/public/coaches` does not
+ * return one — its rows carry `slug` and nine other fields, no id. The slug does not encode
+ * it either: `paul-cochrane-6` is coach 26, and `#/coaches/6` is a different coach entirely.
+ * So a booking link built from the slug points at nothing.
+ *
+ * `/public/coaches/search` does return ids. Joining the two on name is a bridge, not the
+ * fix — ask for `id` on `/public/coaches` and delete this. Until then:
+ *
+ *   - a name matched by more than one search row is skipped, never guessed. A wrong id
+ *     sends someone to a different coach's booking page, which is worse than the fallback.
+ *   - search being unreachable degrades to null ids and a warning. It enriches links; it
+ *     must not be able to fail a build that the roster endpoint already satisfied.
+ */
+const SEARCH_API = "https://api.thetennisplan.com/api/public/coaches/search?perPage=200&page=1";
+// Search requires a position. West LA, the area this site covers.
+const SEARCH_ORIGIN = { latitude: 33.985, longitude: -118.4695 };
+
+const resolveAppIds = async (coaches: Coach[]): Promise<void> => {
+  let rows: Array<{ id?: unknown; full_name?: unknown; name?: unknown }> = [];
+  try {
+    const response = await fetch(SEARCH_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position: SEARCH_ORIGIN }),
+    });
+    if (!response.ok) throw new Error(`search ${response.status}`);
+    const payload: unknown = await response.json();
+    const list = (payload as { coaches?: unknown })?.coaches;
+    rows = Array.isArray(list) ? (list as typeof rows) : [];
+  } catch (error) {
+    console.warn(`[coaches] could not resolve app ids (${String(error)}) — booking links fall back to the app root`);
+    return;
+  }
+
+  const seen = new Map<string, number | null>();
+  for (const row of rows) {
+    const name = textOrEmpty(row.full_name) || textOrEmpty(row.name);
+    const id = typeof row.id === "number" && Number.isFinite(row.id) ? row.id : null;
+    if (!name || id === null) continue;
+    const key = name.toLowerCase();
+    // Second sighting of a name makes it ambiguous, and it stays that way.
+    seen.set(key, seen.has(key) ? null : id);
+  }
+
+  for (const coach of coaches) {
+    coach.appId = seen.get(coach.name.trim().toLowerCase()) ?? null;
+  }
+
+  const unresolved = coaches.filter((coach) => coach.appId === null);
+  if (unresolved.length) {
+    console.warn(
+      `\n[coaches] ${unresolved.length} of ${coaches.length} have no app id — their booking links go to the app root:\n` +
+        unresolved.map((coach) => `  - ${coach.name}`).join("\n") +
+        "\n",
+    );
+  }
 };
 
 export async function getCoaches(): Promise<Coach[]> {
@@ -243,5 +320,9 @@ export async function getCoaches(): Promise<Coach[]> {
   console.log(`[coaches] ${complete.length} of ${all.length} published`);
 
   if (!complete.length) throw new Error("No coach has a complete profile — aborting build");
+
+  // Only the published set: the others render no page, so an id for them buys nothing and
+  // would only pad the warning.
+  await resolveAppIds(complete);
   return complete;
 }

@@ -209,3 +209,70 @@ body {
    320px bar and the pair does not fit; this keeps the label a returning player looks for,
    and the body still carries Create your account and Book a lesson as primary actions. */
 .landing-nav__actions .landing-btn { display:none; }.landing-nav .landing-link { border:1px solid var(--l-border); border-radius:999px; padding:8px 14px; color:var(--l-heading); }.coach-about-grid { grid-template-columns:1fr; gap:24px; }.coach-profile header { flex-wrap:wrap; padding:24px; }.coach-profile header .coach-button { width:100%; margin-left:0; }.coach-grid { grid-template-columns:1fr; }.coach-vetting ul { grid-template-columns:1fr; } }
+
+/* ── coach profile ─────────────────────────────────────────────────────────────
+   Its own scale rather than the directory's: this page is one subject read top to
+   bottom, where the hub is a grid scanned across. Tokens sit on :root because the
+   crumbs, hero, body and footer strip are siblings with no shared wrapper to scope to. */
+:root { --cp-ink:#12141c; --cp-ink-2:#40465a; --cp-ink-3:#727a90; --cp-line:#e5e7ef; --cp-wash:#f7f8fb; --cp-purple:#7c5cf5; --cp-purple-wash:#f1edfe; --cp-purple-ink:#5b3ad4; --cp-night:#0e1220; --cp-lime:#9be24e; }
+.cp-crumbs { border-bottom:1px solid var(--cp-line); background:var(--cp-wash); font-size:.82rem; }
+.cp-crumbs .directory-shell { padding-block:11px; color:var(--cp-ink-3); }
+.cp-crumbs a { color:var(--cp-ink-3); text-decoration:none; }
+.cp-crumbs a:hover { color:var(--cp-purple-ink); }
+.cp-crumbs span { margin:0 7px; }
+.cp-crumbs span[aria-hidden] { opacity:.5; }
+.cp-hero { position:relative; overflow:hidden; background:var(--cp-night); color:#fff; }
+.cp-hero-bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.26; }
+.cp-hero-inner { position:relative; display:flex; align-items:flex-end; gap:28px; padding-block:44px; }
+.cp-shot { position:relative; flex:none; width:190px; aspect-ratio:4/5; overflow:hidden; border:3px solid rgb(255 255 255 / 16%); border-radius:16px; background:var(--cp-purple-wash); display:grid; place-items:center; }
+.cp-shot-initials { font-size:3rem; font-weight:800; letter-spacing:-.02em; color:var(--cp-purple-ink); }
+.cp-shot img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+.cp-who { min-width:0; padding-bottom:6px; }
+.cp-who h1 { margin:0; font-size:clamp(2rem,4.5vw,2.9rem); font-weight:700; line-height:1.15; letter-spacing:-.02em; }
+.cp-role { margin:10px 0 0; font-size:1.12rem; font-weight:600; color:#e4e7f2; letter-spacing:-.01em; }
+.cp-verified { display:inline-flex; align-items:center; gap:6px; margin-top:14px; padding:5px 13px 5px 10px; border:1px solid rgb(155 226 78 / 40%); border-radius:999px; background:rgb(155 226 78 / 14%); font-size:.78rem; font-weight:700; color:var(--cp-lime); }
+.cp-verified svg { width:14px; height:14px; flex:none; }
+.cp-facts { display:flex; flex-wrap:wrap; gap:8px 22px; margin:16px 0 0; font-size:.88rem; color:#c6cbdb; }
+.cp-facts b { color:#fff; }
+.cp-body { padding-block:52px; }
+.cp-grid { display:grid; grid-template-columns:1fr 330px; gap:52px; align-items:start; }
+.cp-main > section + section { margin-top:40px; }
+.cp-main h2 { margin:0 0 14px; font-size:1.45rem; font-weight:700; letter-spacing:-.02em; }
+/* 68ch, because the unconstrained column ran to about 140 characters a line. */
+.cp-prose { max-width:68ch; color:var(--cp-ink-2); }
+.cp-prose p { margin:0; }
+.cp-prose p + p { margin-top:14px; }
+.cp-courts, .cp-tags { display:flex; flex-wrap:wrap; gap:9px; margin:0; padding:0; list-style:none; }
+.cp-courts a, .cp-courts span { display:block; padding:9px 16px; border:1px solid var(--cp-line); border-radius:999px; background:#fff; font-size:.9rem; font-weight:600; text-decoration:none; color:inherit; }
+.cp-courts a:hover { border-color:var(--cp-purple); color:var(--cp-purple-ink); }
+.cp-courts small { display:block; font-size:.74rem; font-weight:500; color:var(--cp-ink-3); }
+.cp-tags li { padding:6px 14px; border-radius:999px; background:var(--cp-purple-wash); font-size:.82rem; font-weight:600; color:var(--cp-purple-ink); }
+.cp-rail { position:sticky; top:88px; }
+.cp-box { padding:24px; border:1px solid var(--cp-line); border-radius:18px; background:#fff; }
+.cp-rate { display:flex; align-items:baseline; gap:8px; margin:0; }
+.cp-rate b { font-size:2rem; font-weight:700; letter-spacing:-.03em; }
+.cp-rate span { font-size:.88rem; color:var(--cp-ink-3); }
+.cp-rate-alt { margin:4px 0 0; font-size:.9rem; color:var(--cp-ink-2); }
+.cp-box dl { margin:20px 0 0; padding-top:18px; border-top:1px solid var(--cp-line); font-size:.86rem; }
+.cp-box dl:empty { margin:0; padding:0; border-top:0; }
+.cp-box dt { margin-top:12px; color:var(--cp-ink-3); }
+.cp-box dt:first-child { margin-top:0; }
+.cp-box dd { margin:2px 0 0; color:var(--cp-ink); font-weight:600; }
+.cp-btn { display:block; margin-top:22px; padding:14px 18px; border-radius:12px; background:var(--cp-purple); color:#fff; font-size:.96rem; font-weight:600; text-align:center; text-decoration:none; }
+.cp-fine { margin:12px 0 0; font-size:.78rem; color:var(--cp-ink-3); text-align:center; }
+.cp-more { border-top:1px solid var(--cp-line); background:var(--cp-wash); padding-block:56px; }
+.cp-more h2 { margin:0; font-size:1.45rem; font-weight:700; letter-spacing:-.02em; }
+.cp-mini-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; margin-top:22px; }
+.cp-mini { display:block; overflow:hidden; border:1px solid var(--cp-line); border-radius:18px; background:#fff; text-decoration:none; color:inherit; }
+.cp-mini-shot { position:relative; aspect-ratio:1/1; overflow:hidden; background:var(--cp-purple-wash); display:grid; place-items:center; }
+.cp-mini-shot span { font-size:2rem; font-weight:800; color:var(--cp-purple-ink); }
+.cp-mini-shot img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+.cp-mini-body { padding:15px 17px; }
+.cp-mini-body h3 { margin:0; font-size:1rem; font-weight:700; letter-spacing:-.02em; }
+.cp-mini-body p { margin:3px 0 0; font-size:.82rem; color:var(--cp-ink-3); }
+@media (max-width:900px) {
+  .cp-grid { grid-template-columns:1fr; gap:36px; }
+  .cp-rail { position:static; }
+  .cp-hero-inner { flex-direction:column; align-items:flex-start; gap:20px; padding-block:32px; }
+  .cp-shot { width:150px; }
+}
