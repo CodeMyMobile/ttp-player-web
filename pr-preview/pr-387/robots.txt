@@ -1,0 +1,17 @@
+# The Tennis Plan — player web app
+#
+# Nothing here is disallowed, on purpose.
+#
+# The app is marked noindex via a <meta name="robots"> tag in index.html. A crawler has
+# to be able to FETCH a page to read that tag. Adding a Disallow would block the fetch,
+# which does not prevent indexing — a disallowed URL can still be indexed from inbound
+# links — it only hides the directive that would have removed it. Disallow + noindex is
+# self-defeating, so we allow crawling and let the noindex do the work.
+#
+# /s/* (share links) is a separate surface with its own rules; it is intentionally
+# fetchable so that link previews and, where wanted, indexing keep working.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://app.thetennisplan.com/sitemap.xml
