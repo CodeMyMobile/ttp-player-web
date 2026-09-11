@@ -20,6 +20,7 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /Browse coaches before you sign up/);
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
+  assert.match(html, /href="\/what-is-my-tennis-level"[^>]*>\s*Find my tennis level/);
   assert.match(html, /href="\/tennis-coaches"/);
   // Inverted deliberately. 2c077f9 pointed the auth links at the app root and locked that in
   // here, but the root renders the app's own landing page when logged out — no sign-in form —
