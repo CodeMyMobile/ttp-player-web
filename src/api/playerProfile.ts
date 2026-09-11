@@ -55,6 +55,10 @@ export interface PatchPlayerPersonalDetailsBody {
   uta_rating?: number | string | null;
   gender?: PlayerGender | null;
   about_me?: string | null;
+  self_rated_seed?: number | string | null;
+  self_rating_source?: "self_assessed" | "match_verified" | string | null;
+  rating_quiz_answers?: Record<string, unknown> | null;
+  rating_model_version?: number | null;
 }
 
 const PLAYER_PERSONAL_DETAILS_PATH = "/player/personal_details";

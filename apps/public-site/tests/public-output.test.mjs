@@ -20,6 +20,7 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /Browse coaches before you sign up/);
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
+  assert.match(html, /href="\/what-is-my-tennis-level"[^>]*>\s*Find my tennis level/);
   assert.match(html, /href="\/tennis-coaches"/);
   // Inverted deliberately. 2c077f9 pointed the auth links at the app root and locked that in
   // here, but the root renders the app's own landing page when logged out — no sign-in form —
@@ -52,4 +53,20 @@ test("build emits an apex-domain crawler policy and sitemap", async () => {
   assert.ok(locations.includes("https://thetennisplan.com/tennis-coaches/"));
   assert.ok(locations.includes("https://thetennisplan.com/about/"));
   assert.doesNotMatch(sitemap, /\/coaches\/short\//);
+});
+
+test("build emits the public tennis level quiz route", async () => {
+  const html = await readFile(
+    new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /<title>What&#39;s My Tennis Level\? Free NTRP Rating Quiz \| The Tennis Plan<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/what-is-my-tennis-level"/);
+  assert.match(html, /data-question-key="bg"/);
+  assert.match(html, /data-option-id="lessons"/);
+  assert.match(html, /"id":"c_split"/);
+  assert.match(html, /RATING_MODEL_VERSION/);
+  assert.match(html, /FAQPage/);
+  assert.doesNotMatch(html, /PATCH \/player\/personal_details/);
 });

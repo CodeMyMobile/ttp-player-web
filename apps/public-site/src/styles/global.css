@@ -50,6 +50,7 @@ body {
 .landing-btn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 10px; padding: 11px 20px; color: #fff; font: inherit; font-size: 15px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .landing-btn--lg { border-radius: 12px; padding: 15px 28px; font-size: 16px; }
 .landing-btn--primary { background: linear-gradient(135deg, var(--l-purple), var(--l-purple-dark)); }
+.landing-btn--quiz { background: #84cc16; color: #142006; box-shadow: 0 12px 26px rgb(132 204 22 / 28%); }
 .landing-btn--glass { border-color: rgb(255 255 255 / 45%); background: rgb(255 255 255 / 14%); backdrop-filter: blur(4px); }
 .landing-btn--onDark { background: #fff; color: var(--l-purple-dark); }
 
