@@ -1,0 +1,881 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
+const description =
+  "Answer five questions and get an honest NTRP estimate in about a minute. No account, no email needed.";
+
+interface QuizOption {
+  id: string;
+  label: string;
+  detail?: string;
+}
+
+interface QuizQuestion {
+  key: string;
+  prompt: string;
+  hint: string;
+  branch?: boolean;
+  options: QuizOption[];
+}
+
+const quizQuestions: QuizQuestion[] = [
+  {
+    key: "bg",
+    prompt: "How much competitive tennis have you played?",
+    hint: "The single biggest clue to your level.",
+    options: [
+      { id: "starting", label: "I'm just starting out", detail: "New to tennis, or played a handful of times" },
+      { id: "social", label: "Not really: social and rec", detail: "Hitting with friends, drop-in play" },
+      { id: "lessons", label: "Lessons or clinics regularly", detail: "Group lessons, cardio tennis" },
+      { id: "team", label: "High school or club team", detail: "Organized team matches" },
+      { id: "usta", label: "USTA league or tournaments", detail: "You already have a rating" },
+      { id: "college", label: "College varsity or higher", detail: "NCAA, ITF, satellite or pro" },
+    ],
+  },
+  {
+    key: "usta",
+    prompt: "What NTRP rating do you play at?",
+    hint: "We'll take your word for it. It beats anything we'd estimate.",
+    branch: true,
+    options: [
+      { id: "u30", label: "3.0" },
+      { id: "u35", label: "3.5" },
+      { id: "u40", label: "4.0" },
+      { id: "u45", label: "4.5" },
+      { id: "u50", label: "5.0 and above" },
+    ],
+  },
+  {
+    key: "freq",
+    prompt: "How often are you playing right now?",
+    hint: "Current form counts for more than peak form.",
+    options: [
+      { id: "f3", label: "Three or more times a week" },
+      { id: "f2", label: "Once or twice a week" },
+      { id: "f1", label: "A few times a month" },
+      { id: "f0", label: "Coming back after time off", detail: "We'll factor in the rust" },
+    ],
+  },
+  {
+    key: "serve",
+    prompt: "Your second serve",
+    hint: "This is where levels separate most clearly.",
+    options: [
+      { id: "s0", label: "Getting it in is the goal", detail: "Double faults happen" },
+      { id: "s1", label: "Safe and reliable, not much spin", detail: "Rarely double fault, easy to attack" },
+      { id: "s2", label: "A spin serve I trust at 30-40", detail: "It holds up under pressure" },
+      { id: "s3", label: "A weapon I can place", detail: "I win free points on serve" },
+    ],
+  },
+  {
+    key: "rally",
+    prompt: "In a baseline rally",
+    hint: "Think about your normal weekly opponents.",
+    options: [
+      { id: "r0", label: "I focus on getting it back" },
+      { id: "r1", label: "I can keep a crosscourt rally going" },
+      { id: "r2", label: "I direct the ball on purpose", detail: "Change direction, find the open court" },
+      { id: "r3", label: "I construct points and handle real pace" },
+    ],
+  },
+  {
+    key: "cmp",
+    prompt: "Think of someone you play often whose level you know",
+    hint: "Optional, but it sharpens the estimate more than anything else here.",
+    options: [
+      { id: "c_win", label: "I usually beat them" },
+      { id: "c_split", label: "We split most of the time" },
+      { id: "c_lose", label: "They usually beat me" },
+      { id: "c_skip", label: "I'd rather skip this" },
+    ],
+  },
+];
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "Is NTRP the same as UTR?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. NTRP runs 1.0 to 7.0 in half steps and is the standard for US league play. UTR runs 1 to 16.5 and is calculated from match results.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How accurate is a tennis self-rating?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Less accurate than most players expect, particularly between 3.0 and 4.0. Asking about playing history and results is more reliable than asking players to pick a flattering description.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Do I need an account?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No account is needed to take the quiz or see the result. You only need one if you want to save the level and use it in The Tennis Plan app.",
+      },
+    },
+  ],
+};
+---
+
+<BaseLayout {title} {description} canonicalPath="/what-is-my-tennis-level" schema={faqSchema}>
+  <div class="level-page">
+    <Header />
+    <main id="main">
+      <section class="level-hero">
+        <div class="level-hero__image" aria-hidden="true"></div>
+        <div class="level-shell level-hero__inner">
+          <div class="level-copy">
+            <p class="level-eyebrow">Free NTRP quiz</p>
+            <h1>What's my tennis level?</h1>
+            <p>
+              Five questions, about a minute, no account. Get a practical NTRP estimate
+              you can use to choose better matches, classes, leagues, and coaches.
+            </p>
+            <div class="level-proof" aria-label="Quiz promises">
+              <span>5 questions</span>
+              <span>No email</span>
+              <span>Half-level band</span>
+            </div>
+          </div>
+
+          <section class="level-quiz quiz" id="quiz" aria-labelledby="quiz-title">
+            <div class="qhead">
+              <button class="qback" type="button" aria-label="Back" disabled>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+              </button>
+              <span class="qbar"><i style="width: 20%"></i></span>
+              <span class="qcount">1 of 5</span>
+            </div>
+            <h2 class="qz-q" id="quiz-title" data-question-key="bg">{quizQuestions[0].prompt}</h2>
+            <p class="qz-h">{quizQuestions[0].hint}</p>
+            <div class="qopts">
+              {quizQuestions[0].options.map((option) => (
+                <button class="qopt" type="button" data-option-id={option.id}>
+                  <b>{option.label}</b>
+                  {option.detail && <small>{option.detail}</small>}
+                </button>
+              ))}
+            </div>
+            <div class="qskip"><button type="button" data-skip-to-usta>I already know my level</button></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="level-section level-section--levels">
+        <div class="level-shell">
+          <div class="level-section__head">
+            <p class="level-eyebrow">NTRP, briefly</p>
+            <h2>The adult rec levels most players mean</h2>
+          </div>
+          <div class="level-grid">
+            <article><b>2.0-2.5</b><span>Newer player building rally control and serve basics.</span></article>
+            <article><b>3.0</b><span>Can rally and start points reliably, but pace and placement vary.</span></article>
+            <article><b>3.5</b><span>Consistent from the baseline, directs the ball, handles normal pressure.</span></article>
+            <article><b>4.0+</b><span>Constructs points, owns a dependable second serve, punishes short balls.</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="level-section">
+        <div class="level-shell level-explain">
+          <div>
+            <p class="level-eyebrow">Why this works</p>
+            <h2>We ask about tennis facts, not tennis confidence.</h2>
+          </div>
+          <div class="level-explain__list">
+            <article>
+              <h3>Playing background</h3>
+              <p>League, team, clinic, and social tennis history gives the estimate its first guardrails.</p>
+            </article>
+            <article>
+              <h3>Current habits</h3>
+              <p>How often you play now matters more than the best version of your game from years ago.</p>
+            </article>
+            <article>
+              <h3>Serve and rally shape</h3>
+              <p>Second serve trust and directed rally balls separate most adult levels fastest.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="level-faq">
+        <div class="level-shell">
+          <h2>Common questions</h2>
+          <dl>
+            <dt>Is NTRP the same as UTR?</dt>
+            <dd>No. NTRP runs in half steps and is the common language for US league play. UTR is match-result based and uses a wider numeric scale.</dd>
+
+            <dt>How accurate is this?</dt>
+            <dd>Accurate enough to start in the right neighborhood. Match results are still the real test, so treat this as an estimate, not a lifetime label.</dd>
+
+            <dt>Do I need an account?</dt>
+            <dd>No. You only need an account if you want to save the result and use it for leagues, classes, coaches, or hitting partners.</dd>
+          </dl>
+        </div>
+      </section>
+    </main>
+    <Footer wide />
+  </div>
+
+  <script is:inline define:vars={{ quizQuestions }}>
+    (() => {
+      const RATING_MODEL_VERSION = 2;
+      const quiz = document.getElementById("quiz");
+      const weights = {
+        social: 0, lessons: 1, team: 2, college: 4,
+        f3: 2, f2: 1, f1: 0, f0: -1,
+        s0: 0, s1: 1, s2: 2, s3: 3,
+        c_win: 1, c_split: 0, c_lose: -1, c_skip: 0,
+      };
+      const coefficients = { bg: 1.1, freq: 0.5, serve: 1.2, rally: 1.1, cmp: 0.4 };
+      const clamps = {
+        social: { ceiling: 3.5 },
+        lessons: { ceiling: 4.0 },
+        team: { floor: 3.0, ceiling: 4.5 },
+        college: { floor: 4.0, ceiling: 5.0 },
+      };
+      const declared = { u30: 3.0, u35: 3.5, u40: 4.0, u45: 4.5, u50: 5.0 };
+      let answers = {};
+      let index = 0;
+
+      function toHalf(value) {
+        return Math.round(value * 2) / 2;
+      }
+
+      function bandLabel(seed) {
+        return seed >= 5 ? "5.0+" : `${seed.toFixed(1)}-${(seed + 0.5).toFixed(1)}`;
+      }
+
+      function score() {
+        if (answers.bg === "starting") {
+          return {
+            seed: 2.0,
+            band: "1.5-2.0",
+            confidence: "Starting out",
+            why: "That's a real level with a number, not a blank. What moves you up fastest is court time with someone showing you the basics.",
+            declaredUsta: null,
+          };
+        }
+        if (answers.bg === "usta") {
+          const seed = declared[answers.usta] || 3.0;
+          return {
+            seed,
+            band: seed >= 5 ? "5.0+" : seed.toFixed(1),
+            confidence: "Self-declared",
+            why: "You told us your USTA rating, which beats anything we could work out from five questions.",
+            declaredUsta: seed,
+          };
+        }
+
+        let raw = 0;
+        Object.keys(coefficients).forEach((key) => {
+          if (key === "cmp" && !answers[key]) return;
+          raw += (weights[answers[key]] || 0) * coefficients[key];
+        });
+
+        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * 0.34)));
+        const clamp = clamps[answers.bg] || {};
+        if (clamp.ceiling !== undefined && seed > clamp.ceiling) seed = clamp.ceiling;
+        if (clamp.floor !== undefined && seed < clamp.floor) seed = clamp.floor;
+
+        return {
+          seed,
+          band: bandLabel(seed),
+          confidence: "Estimated",
+          why: answers.serve === "s2" || answers.serve === "s3"
+            ? "A second serve you trust under pressure is the clearest marker at this level, and your rally answer backs it up."
+            : "Your rally consistency puts you here; the second serve is what would move you up half a level.",
+          declaredUsta: null,
+        };
+      }
+
+      function activeQuestions() {
+        return quizQuestions.filter((question) => !question.branch || answers.bg === "usta");
+      }
+
+      function renderQuestion() {
+        const questions = activeQuestions();
+        if (answers.bg === "starting" || index >= questions.length) {
+          renderResult();
+          return;
+        }
+
+        const question = questions[index];
+        const progress = Math.round(((index + 1) / questions.length) * 100);
+        quiz.innerHTML = `
+          <div class="qhead">
+            <button class="qback" type="button" aria-label="Back"${index === 0 ? " disabled" : ""}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+            </button>
+            <span class="qbar"><i style="width: ${progress}%"></i></span>
+            <span class="qcount">${index + 1} of ${questions.length}</span>
+          </div>
+          <h2 class="qz-q" id="quiz-title" data-question-key="${question.key}">${question.prompt}</h2>
+          <p class="qz-h">${question.hint}</p>
+          <div class="qopts">
+            ${question.options.map((option) => `
+              <button class="qopt" type="button" data-option-id="${option.id}">
+                <b>${option.label}</b>
+                ${option.detail ? `<small>${option.detail}</small>` : ""}
+              </button>
+            `).join("")}
+          </div>
+          <div class="qskip"><button type="button" data-skip-to-usta>I already know my level</button></div>
+        `;
+
+        quiz.querySelector(".qback").addEventListener("click", () => {
+          index = Math.max(0, index - 1);
+          renderQuestion();
+        });
+        quiz.querySelectorAll("[data-option-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            answers[question.key] = button.dataset.optionId;
+            index += 1;
+            renderQuestion();
+          });
+        });
+        quiz.querySelector("[data-skip-to-usta]").addEventListener("click", () => {
+          answers.bg = "usta";
+          index = 1;
+          renderQuestion();
+        });
+      }
+
+      function appHref(result) {
+        const params = new URLSearchParams({
+          level: result.band,
+          src: "quiz",
+          rating_model_version: String(RATING_MODEL_VERSION),
+        });
+        return `https://app.thetennisplan.com/#/?${params.toString()}`;
+      }
+
+      function renderResult() {
+        const result = score();
+        const payload = result.declaredUsta === null
+          ? {
+              self_rated_seed: result.seed,
+              self_rating_source: "self_assessed",
+              rating_quiz_answers: answers,
+              rating_model_version: RATING_MODEL_VERSION,
+            }
+          : { usta_rating: result.declaredUsta };
+
+        quiz.innerHTML = `
+          <div class="res">
+            <p class="lead">Based on your answers, you look like</p>
+            <p class="band">NTRP ${result.band}</p>
+            <span class="conf">${result.confidence}</span>
+            <p class="why">${result.why}</p>
+            <div class="local">
+              <h3>Playing in West LA?</h3>
+              <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
+              <a class="btn solid" href="${appHref(result)}">Find options at this level</a>
+            </div>
+            <details class="save-preview">
+              <summary>What the app saves if you sign in</summary>
+              <pre>${JSON.stringify(payload, null, 2)}</pre>
+            </details>
+            <p class="again"><button class="level-reset" type="button">Take it again</button></p>
+          </div>
+        `;
+
+        quiz.querySelector(".level-reset").addEventListener("click", () => {
+          answers = {};
+          index = 0;
+          renderQuestion();
+        });
+      }
+
+      quiz.addEventListener("click", (event) => {
+        if (event.target.closest("[data-skip-to-usta]")) {
+          answers.bg = "usta";
+          index = 1;
+          renderQuestion();
+          return;
+        }
+        const button = event.target.closest("[data-option-id]");
+        if (!button) return;
+        const question = activeQuestions()[index];
+        if (!question) return;
+        answers[question.key] = button.dataset.optionId;
+        index += 1;
+        renderQuestion();
+      }, { once: true });
+    })();
+  </script>
+</BaseLayout>
+
+<style>
+  .level-page {
+    --level-ink: #111827;
+    --level-muted: #566074;
+    --level-line: #e4e7ec;
+    --level-purple: #7c5cf5;
+    --level-purple-dark: #5b3ad4;
+    --level-green: #15794a;
+    --level-lime: #9be24e;
+    --level-wash: #f7f8fb;
+    background: #fff;
+    color: var(--level-muted);
+  }
+
+  .level-shell {
+    width: min(1180px, 100%);
+    margin-inline: auto;
+    padding-inline: clamp(20px, 4vw, 64px);
+  }
+
+  .level-hero {
+    position: relative;
+    overflow: hidden;
+    background: #111827;
+  }
+
+  .level-hero__image {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgb(17 24 39 / 92%) 0%, rgb(17 24 39 / 82%) 38%, rgb(17 24 39 / 48%) 66%, rgb(17 24 39 / 22%) 100%),
+      url("/images/landing/match-nights.jpg") center / cover no-repeat;
+  }
+
+  .level-hero__inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, .95fr) minmax(360px, .72fr);
+    gap: clamp(28px, 6vw, 72px);
+    align-items: center;
+    min-height: calc(100svh - 64px);
+    padding-block: clamp(40px, 7vw, 90px);
+  }
+
+  .level-copy {
+    max-width: 650px;
+    color: #fff;
+  }
+
+  .level-eyebrow {
+    margin: 0 0 14px;
+    color: var(--level-lime);
+    font-size: .8rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .level-copy h1 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(2.65rem, 6vw, 5rem);
+    line-height: .98;
+    letter-spacing: 0;
+  }
+
+  .level-copy > p:not(.level-eyebrow) {
+    max-width: 58ch;
+    margin: 20px 0 0;
+    color: rgb(255 255 255 / 88%);
+    font-size: clamp(1.05rem, 2vw, 1.22rem);
+    line-height: 1.62;
+  }
+
+  .level-proof {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  .level-proof span {
+    border: 1px solid rgb(255 255 255 / 24%);
+    border-radius: 999px;
+    padding: 8px 13px;
+    color: #fff;
+    background: rgb(255 255 255 / 12%);
+    font-size: .88rem;
+    font-weight: 700;
+  }
+
+  .level-quiz {
+    border: 1px solid rgb(255 255 255 / 30%);
+    border-radius: 18px;
+    padding: 26px;
+    background: #fff;
+    color: var(--level-ink);
+    box-shadow: 0 30px 70px rgb(0 0 0 / 28%);
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global(.qhead) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  :global(.qback) {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    padding: 2px;
+    color: var(--level-muted);
+    background: none;
+    font: inherit;
+    line-height: 0;
+    cursor: pointer;
+  }
+
+  :global(.qback:disabled) {
+    opacity: .42;
+    cursor: default;
+  }
+
+  :global(.qbar) {
+    flex: 1;
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--level-line);
+  }
+
+  :global(.qbar i) {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--level-purple);
+    transition: width .2s ease;
+  }
+
+  :global(.qcount) {
+    color: var(--level-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  :global(.qz-q) {
+    margin: 0;
+    color: var(--level-ink);
+    font-size: 1.22rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0;
+  }
+
+  :global(.qz-h) {
+    margin: 6px 0 0;
+    color: var(--level-muted);
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+
+  :global(.qopts) {
+    display: grid;
+    gap: 9px;
+    margin-top: 16px;
+  }
+
+  :global(.qopt) {
+    width: 100%;
+    border: 1px solid var(--level-line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--level-ink);
+    background: #fff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  :global(.qopt:hover) {
+    border-color: var(--level-purple);
+    background: #f1edfe;
+  }
+
+  :global(.qopt b) {
+    display: block;
+    font-size: .94rem;
+    font-weight: 700;
+  }
+
+  :global(.qopt small) {
+    display: block;
+    margin-top: 2px;
+    color: var(--level-muted);
+    font-size: .8rem;
+    line-height: 1.45;
+  }
+
+  :global(.qskip) {
+    margin-top: 16px;
+    text-align: center;
+  }
+
+  :global(.qskip button),
+  :global(.res .again button) {
+    border: 0;
+    padding: 0;
+    color: var(--level-purple-dark);
+    background: none;
+    font: inherit;
+    font-size: .83rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  :global(.res) {
+    margin: auto 0;
+    text-align: center;
+  }
+
+  :global(.res .lead) {
+    margin: 0;
+    color: var(--level-muted);
+    font-size: .86rem;
+  }
+
+  :global(.res .band) {
+    margin: 4px 0 8px;
+    color: var(--level-ink);
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  :global(.res .conf) {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 5px 13px;
+    color: #8a5a0b;
+    background: #fdf3e3;
+    font-size: .78rem;
+    font-weight: 800;
+  }
+
+  :global(.res .why) {
+    margin: 16px 0 0;
+    color: var(--level-muted);
+    font-size: .9rem;
+    line-height: 1.55;
+  }
+
+  :global(.local) {
+    margin-top: 20px;
+    border: 1px solid #d6f0e0;
+    border-radius: 14px;
+    padding: 16px;
+    background: #ecfaf0;
+    text-align: left;
+  }
+
+  :global(.local h3) {
+    margin: 0 0 5px;
+    color: var(--level-green);
+    font-size: 1.05rem;
+  }
+
+  :global(.local p) {
+    margin: 0;
+    color: #1d5f44;
+    font-size: .87rem;
+    line-height: 1.55;
+  }
+
+  :global(.btn) {
+    display: inline-block;
+    border: 1px solid var(--level-line);
+    border-radius: 11px;
+    padding: 11px 14px;
+    color: var(--level-ink);
+    background: #fff;
+    font: inherit;
+    font-size: .9rem;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  :global(.btn.solid) {
+    display: block;
+    margin-top: 13px;
+    color: #fff;
+    border-color: var(--level-purple);
+    background: var(--level-purple);
+  }
+
+  :global(.level-reset) {
+    display: inline;
+  }
+
+  :global(.res .again) {
+    margin: 14px 0 0;
+  }
+
+  :global(.save-preview) {
+    margin-top: 18px;
+    color: var(--level-muted);
+    font-size: .86rem;
+    text-align: left;
+  }
+
+  :global(.save-preview summary) {
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  :global(.save-preview pre) {
+    overflow: auto;
+    border: 1px solid var(--level-line);
+    border-radius: 8px;
+    padding: 12px;
+    background: var(--level-wash);
+    color: var(--level-ink);
+    font-size: .76rem;
+  }
+
+  .level-section {
+    padding-block: clamp(54px, 8vw, 92px);
+  }
+
+  .level-section--levels {
+    background: var(--level-wash);
+  }
+
+  .level-section__head {
+    max-width: 680px;
+    margin-bottom: 26px;
+  }
+
+  .level-section h2,
+  .level-faq h2 {
+    margin: 0;
+    color: var(--level-ink);
+    font-size: clamp(1.8rem, 4vw, 2.7rem);
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .level-grid article {
+    display: grid;
+    gap: 10px;
+    border: 1px solid var(--level-line);
+    border-radius: 8px;
+    padding: 20px;
+    background: #fff;
+  }
+
+  .level-grid b {
+    color: var(--level-purple-dark);
+    font-size: 1.2rem;
+  }
+
+  .level-grid span {
+    color: var(--level-muted);
+    line-height: 1.5;
+  }
+
+  .level-explain {
+    display: grid;
+    grid-template-columns: .8fr 1.2fr;
+    gap: clamp(28px, 6vw, 72px);
+  }
+
+  .level-explain__list {
+    display: grid;
+    gap: 18px;
+  }
+
+  .level-explain__list article {
+    border-top: 1px solid var(--level-line);
+    padding-top: 18px;
+  }
+
+  .level-explain__list h3 {
+    margin: 0;
+    color: var(--level-ink);
+    font-size: 1.05rem;
+  }
+
+  .level-explain__list p {
+    margin: 8px 0 0;
+    line-height: 1.6;
+  }
+
+  .level-faq {
+    border-top: 1px solid var(--level-line);
+    padding-block: clamp(54px, 8vw, 86px);
+    background: var(--level-wash);
+  }
+
+  .level-faq dl {
+    display: grid;
+    gap: 18px;
+    max-width: 760px;
+    margin: 26px 0 0;
+  }
+
+  .level-faq dt {
+    color: var(--level-ink);
+    font-size: 1.03rem;
+    font-weight: 800;
+  }
+
+  .level-faq dd {
+    margin: 7px 0 0;
+    color: var(--level-muted);
+    line-height: 1.65;
+  }
+
+  @media (max-width: 920px) {
+    .level-hero__inner,
+    .level-explain {
+      grid-template-columns: 1fr;
+    }
+
+    .level-hero__inner {
+      min-height: auto;
+    }
+
+    .level-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    .level-hero__image {
+      background:
+        linear-gradient(180deg, rgb(17 24 39 / 94%) 0%, rgb(17 24 39 / 82%) 62%, rgb(17 24 39 / 72%) 100%),
+        url("/images/landing/match-nights.jpg") center / cover no-repeat;
+    }
+
+    .level-proof span {
+      font-size: .8rem;
+    }
+
+    .level-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

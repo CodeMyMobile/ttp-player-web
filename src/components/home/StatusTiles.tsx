@@ -63,22 +63,18 @@ export function StatusTiles({
          * no league filter, so a casual match counts exactly as a league match
          * does, and /log-result covers one already played.
          *
-         * A league cannot be the first step, and pointing here at /leagues sent
-         * people to a door they couldn't open: all five leagues are draft
-         * status, and eligibility resolves
-         *   usta_rating ?? self_rated_seed ?? starting_rating ?? current_rating
-         * which is 0 for the zero-rated majority — clearing missing_rating and
-         * then failing rating_out_of_band. 1099 of 1142 unrated players have no
-         * usable fallback. Entry needs a level; only playing establishes one. */
+         * A league cannot be the first step until the player has a usable level.
+         * The rating quiz writes self_rated_seed, which creates an estimated
+         * level without pretending it is match-verified. */
         <Link
           className={`home-tile home-tile--prompt${fullWidth ? " home-tile--full" : ""}`}
-          to="/matches"
+          to="/rating-quiz"
         >
           <Swords className="home-tile__lead-icon" size={20} aria-hidden="true" />
           <span className="home-tile__prompt-copy">
-            <span className="home-tile__prompt-title">Play a match to get rated</span>
+            <span className="home-tile__prompt-title">Find your tennis level</span>
             <span className="home-tile__prompt-sub">
-              Log the result and your opponent confirms
+              Five questions, then save an estimate
             </span>
           </span>
           {fullWidth ? (
