@@ -53,3 +53,19 @@ test("build emits an apex-domain crawler policy and sitemap", async () => {
   assert.ok(locations.includes("https://thetennisplan.com/about/"));
   assert.doesNotMatch(sitemap, /\/coaches\/short\//);
 });
+
+test("build emits the public tennis level quiz route", async () => {
+  const html = await readFile(
+    new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /<title>What&#39;s My Tennis Level\? Free NTRP Rating Quiz \| The Tennis Plan<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/what-is-my-tennis-level"/);
+  assert.match(html, /data-question-key="bg"/);
+  assert.match(html, /data-option-id="lessons"/);
+  assert.match(html, /"id":"c_split"/);
+  assert.match(html, /RATING_MODEL_VERSION/);
+  assert.match(html, /FAQPage/);
+  assert.doesNotMatch(html, /PATCH \/player\/personal_details/);
+});

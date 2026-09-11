@@ -54,6 +54,7 @@ import PostAvailabilityPage from "./pages/PostAvailabilityPage";
 import AvailabilityReviewPage from "./pages/AvailabilityReviewPage";
 import CreditsPage from "./pages/CreditsPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import RatingQuizPage from "./pages/RatingQuizPage";
 import PlayerCalendar from "./screens/Player/PlayerCalendar";
 import LogResultPage from "./pages/log-result";
 import ConfirmResultPage from "./pages/log-result/ConfirmResultPage";
@@ -441,6 +442,16 @@ const AppRoutes = () => (
       element={(
         <ProtectedRoute>
           <ConfirmResultPage />
+        </ProtectedRoute>
+      )}
+    />
+    <Route
+      path="/rating-quiz"
+      element={(
+        <ProtectedRoute>
+          <MainLayout mobileChrome="home" pageClassName="rating-quiz-shell">
+            <RatingQuizPage />
+          </MainLayout>
         </ProtectedRoute>
       )}
     />
