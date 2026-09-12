@@ -845,10 +845,13 @@ const resolveAuthSession = (data = {}, fallback = {}) => {
     profile?.usta_rating,
     profile?.skill_level,
     profile?.skillLevel,
+    profile?.ntrp,
     userFromApi?.usta_rating,
     userFromApi?.skill_level,
     userFromApi?.skillLevel,
+    userFromApi?.ntrp,
     fallbackData?.skillLevel,
+    fallbackData?.ntrp,
   );
 
   const user = buildLocalUser({
@@ -1156,6 +1159,7 @@ const TennisMatchApp = ({
           profileDetails.ustaRating,
           profileDetails.skill_level,
           profileDetails.skillLevel,
+          profileDetails.ntrp,
         );
 
         const derivedAvatarUrl = getAvatarUrlFromPlayer({
