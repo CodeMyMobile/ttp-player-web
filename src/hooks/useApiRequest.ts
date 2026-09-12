@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface UseApiRequestOptions<TParams extends Record<string, unknown>> {
   skip?: boolean;
@@ -33,10 +33,25 @@ export function useApiRequest<
   const serializer = paramsSerializer ?? defaultSerializer;
   const serializedParams = useMemo(() => serializer(params), [params, serializer]);
 
+  // The params go through a ref, and only their SERIALIZED form is a dependency
+  // below.
+  //
+  // Depending on the params object itself made a caller that built it inline —
+  // `useMemo(() => ({ user }), [user])` with a `user` that is rebuilt whenever
+  // the auth session syncs — refetch on identity alone. Each fetch re-rendered,
+  // each re-render produced a new object, and a request that 401'd refreshed the
+  // session, which fired auth:session-refreshed, which rebuilt `user` again. The
+  // browser ran out of sockets: GET /leagues, ERR_INSUFFICIENT_RESOURCES.
+  //
+  // Serialized params still refetch on a real change of value, which is the
+  // behaviour every caller wants; identity churn now costs nothing.
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+
   const execute = useCallback(
     async (overrideParams?: Partial<TParams>) => {
       const finalParams = {
-        ...params,
+        ...paramsRef.current,
         ...(overrideParams ?? {}),
       } as TParams;
 
@@ -53,7 +68,7 @@ export function useApiRequest<
         setLoading(false);
       }
     },
-    [fetcher, params, serializedParams],
+    [fetcher, serializedParams],
   );
 
   useEffect(() => {

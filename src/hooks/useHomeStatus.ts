@@ -433,9 +433,27 @@ const seasonsFetcher = async (params: { user: unknown }) => {
  * Progress comes from utils/leagueSeason, shared with the leagues page, so the
  * two screens can never disagree about how far through a season someone is.
  */
+/**
+ * Keyed on the viewer's identities, not the whole user object.
+ *
+ * The default serializer would stringify `user` entire, and the stored user
+ * carries the session tokens — which rotate on every refresh. That made a
+ * refreshed session look like new params and refetch the seasons, and this
+ * fetcher fans out per league, so a request that 401'd could refresh, rotate,
+ * refetch and 401 again until the browser ran out of sockets.
+ *
+ * The identities are what the fetcher actually reads, so they are the honest
+ * cache key: they change when the viewer changes, and not when a token does.
+ */
+const seasonsParamsKey = (params: { user: unknown }) =>
+  buildViewerIdentities(params.user, null).join("|");
+
 export function useActiveSeasons(user: unknown, skip = false) {
   const params = useMemo(() => ({ user }), [user]);
-  const { data, loading, error } = useApiRequest(seasonsFetcher, params, { skip });
+  const { data, loading, error } = useApiRequest(seasonsFetcher, params, {
+    skip,
+    paramsSerializer: seasonsParamsKey,
+  });
 
   return { loading, error, seasons: data ?? [] };
 }

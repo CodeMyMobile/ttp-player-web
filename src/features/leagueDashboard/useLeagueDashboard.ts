@@ -669,7 +669,7 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
     [user],
   );
 
-  const viewer = useMemo<ViewerContext>(() => {
+  const viewerSource = useMemo(() => {
     const userId =
       user?.id ?? user?.user_id ?? user?.player_id ?? user?.profile?.id ?? user?.profile?.user_id;
     const identities = new Set(
@@ -682,8 +682,22 @@ export const useLeagueDashboard = (leagueId?: string): UseLeagueDashboardResult 
         normalizeIdentity(user?.name),
       ].filter(Boolean),
     );
-    return { identities, userId };
+    return { identities, userId } satisfies ViewerContext;
   }, [user]);
+
+  // Memoised on the viewer's CONTENT, not on the user object it came from.
+  //
+  // `viewer` is a dependency of the fetch effect below, which issues eight
+  // requests including /leagues. The auth context rebuilds `user` from storage on
+  // every session event, so keying on it made a session refresh re-run all eight
+  // — and since a 401 inside them triggers a refresh, which fires the event that
+  // rebuilds `user`, the effect fed itself until the browser ran out of sockets.
+  //
+  // The key below changes when the viewer really changes and not when their token
+  // rotates, which is what the effect actually cares about.
+  const viewerKey = `${viewerSource.userId ?? ""}|${[...viewerSource.identities].join("|")}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on viewerKey by design; see above
+  const viewer = useMemo<ViewerContext>(() => viewerSource, [viewerKey]);
 
   const [state, setState] = useState<{
     data: LeagueData | null;
