@@ -15,6 +15,14 @@ export const listServiceTiers = () =>
 export const listVendors = ({ lat = null, lng = null } = {}) =>
   unwrap(api(`/restringing/vendors${qs({ lat, lng })}`)).then((data) => data.vendors || []);
 
+export const listPublicCatalog = ({ q = null, category = null } = {}) =>
+  unwrap(api(`/restringing/catalog${qs({ q, category })}`));
+
+export const getStringRecommendation = (answers) =>
+  unwrap(api("/restringing/wizard/string-recommendation", { method: "POST", json: answers }));
+
+export const getRestringingHome = () => unwrap(api("/player/restringing/home"));
+
 export const getVendorProfile = (vendorId) =>
   unwrap(api(`/restringing/vendors/${vendorId}`)).then((data) => data.vendor);
 
