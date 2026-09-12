@@ -446,7 +446,9 @@ const seasonsFetcher = async (params: { user: unknown }) => {
  * cache key: they change when the viewer changes, and not when a token does.
  */
 const seasonsParamsKey = (params: { user: unknown }) =>
-  buildViewerIdentities(params.user, null).join("|");
+  // buildViewerIdentities returns a Set, not an array. Sorted so the key cannot
+  // depend on insertion order.
+  [...buildViewerIdentities(params.user, null)].sort().join("|");
 
 export function useActiveSeasons(user: unknown, skip = false) {
   const params = useMemo(() => ({ user }), [user]);
