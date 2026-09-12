@@ -48,6 +48,7 @@ import { packageAllowsLessonCreditType } from "../utils/lessonPricing";
 import { buildGroupLessonShareUrl } from "../utils/shareLinks";
 import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
+import { buildGroupLessonCreditConsumeParams } from "../utils/groupLessonCreditBooking";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
 
 import "./GroupLessonDetailsPage.css";
@@ -726,21 +727,16 @@ const GroupLessonDetailsPage = () => {
 
   const handleBookWithCredits = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedCreditId) return;
-    if (!currentUserBookingStatus?.participantId) {
-      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
-      return;
-    }
     setBookingWithCredits(true);
     setPackagePurchaseError(null);
     try {
-      await consumePackageCredits({
+      await consumePackageCredits(buildGroupLessonCreditConsumeParams({
         token: authToken,
         coachId: lesson.coachId,
-        lessonType: "group",
         lessonId: lesson.id,
         purchaseId: selectedCreditId,
-        participantId: currentUserBookingStatus.participantId,
-      });
+        participantId: currentUserBookingStatus?.participantId,
+      }));
       try {
         await confirmCreditBooking(lesson.id);
       } catch (confirmError) {
@@ -778,10 +774,6 @@ const GroupLessonDetailsPage = () => {
 
   const handleBuyPackageAndApply = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
-    if (!currentUserBookingStatus?.participantId) {
-      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
-      return;
-    }
     setPurchasingPackage(true);
     setPackagePurchaseError(null);
     try {
@@ -797,14 +789,13 @@ const GroupLessonDetailsPage = () => {
         packageId: selectedPackage.id,
         paymentMethodId: defaultMethod.id,
       });
-      await consumePackageCredits({
+      await consumePackageCredits(buildGroupLessonCreditConsumeParams({
         token: authToken,
         coachId: lesson.coachId,
-        lessonType: "group",
         lessonId: lesson.id,
         purchaseId: purchaseResponse.purchase?.id,
-        participantId: currentUserBookingStatus.participantId,
-      });
+        participantId: currentUserBookingStatus?.participantId,
+      }));
       try {
         await confirmCreditBooking(lesson.id);
       } catch (confirmError) {
