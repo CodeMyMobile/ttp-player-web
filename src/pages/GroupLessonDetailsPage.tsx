@@ -49,6 +49,7 @@ import { buildGroupLessonShareUrl } from "../utils/shareLinks";
 import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
+import { requiresExistingParticipantForCredits } from "../utils/groupCreditBooking";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -726,8 +727,14 @@ const GroupLessonDetailsPage = () => {
 
   const handleBookWithCredits = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedCreditId) return;
-    if (!currentUserBookingStatus?.participantId) {
-      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
+    // An open class needs no participant row yet — confirming creates it. Only a
+    // restricted one does, and there the player is expected to be on the lesson
+    // already. See utils/groupCreditBooking.
+    if (
+      !currentUserBookingStatus?.participantId &&
+      requiresExistingParticipantForCredits(lesson.lessonTypeId)
+    ) {
+      setPackagePurchaseError("We couldn't find your spot in this class, so your credits can't be applied. Ask your coach to add you, then try again.");
       return;
     }
     setBookingWithCredits(true);
@@ -739,7 +746,7 @@ const GroupLessonDetailsPage = () => {
         lessonType: "group",
         lessonId: lesson.id,
         purchaseId: selectedCreditId,
-        participantId: currentUserBookingStatus.participantId,
+        participantId: currentUserBookingStatus?.participantId,
       });
       try {
         await confirmCreditBooking(lesson.id);
@@ -756,7 +763,7 @@ const GroupLessonDetailsPage = () => {
     } finally {
       setBookingWithCredits(false);
     }
-  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, selectedCreditId]);
+  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, lesson?.lessonTypeId, selectedCreditId]);
 
   const handleBookPayOnCourt = useCallback(async () => {
     if (!lesson?.id || !authToken) return;
@@ -778,8 +785,11 @@ const GroupLessonDetailsPage = () => {
 
   const handleBuyPackageAndApply = useCallback(async () => {
     if (!lesson?.id || !lesson.coachId || !authToken || !selectedPackage) return;
-    if (!currentUserBookingStatus?.participantId) {
-      setPackagePurchaseError("We couldn't identify your group booking. Please refresh and try again.");
+    if (
+      !currentUserBookingStatus?.participantId &&
+      requiresExistingParticipantForCredits(lesson.lessonTypeId)
+    ) {
+      setPackagePurchaseError("We couldn't find your spot in this class, so your credits can't be applied. Ask your coach to add you, then try again.");
       return;
     }
     setPurchasingPackage(true);
@@ -803,7 +813,7 @@ const GroupLessonDetailsPage = () => {
         lessonType: "group",
         lessonId: lesson.id,
         purchaseId: purchaseResponse.purchase?.id,
-        participantId: currentUserBookingStatus.participantId,
+        participantId: currentUserBookingStatus?.participantId,
       });
       try {
         await confirmCreditBooking(lesson.id);
@@ -839,7 +849,7 @@ const GroupLessonDetailsPage = () => {
     } finally {
       setPurchasingPackage(false);
     }
-  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
+  }, [authToken, confirmCreditBooking, currentUserBookingStatus?.participantId, lesson?.coachId, lesson?.id, lesson?.lessonTypeId, paymentMethods, refreshLesson, selectedPackage, selectedPaymentMethodId]);
 
   if (isLoading) {
     return (
