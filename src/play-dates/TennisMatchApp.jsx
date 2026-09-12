@@ -119,6 +119,7 @@ import {
   memberMatchesInvite,
   memberMatchesParticipant,
 } from "./utils/memberIdentity";
+import { shouldHideRestrictedMatch } from "./utils/restrictedMatchVisibility";
 import { getMatchPrivacy } from "./utils/matchPrivacy";
 import {
   deriveListingVisibility,
@@ -2160,12 +2161,20 @@ const TennisMatchApp = ({
 
         const matchPrivacy = getMatchPrivacy(m);
         const isPrivateMatch = matchPrivacy === "private";
-        if (isPrivateMatch && !isHost && !isJoined && !isInvited) {
-          hiddenRestrictedMatches += 1;
-          return null;
-        }
-
-        if (isLinkOnly && !isHost && !isJoined && !isInvited) {
+        // "My matches" is fetched with filter=my, which the API joins against this
+        // player's own participant rows — so those rows are theirs before they get
+        // here, and re-deriving membership can only lose them. See
+        // utils/restrictedMatchVisibility.
+        if (
+          shouldHideRestrictedMatch({
+            isPrivate: isPrivateMatch,
+            isLinkOnly,
+            isHost,
+            isJoined,
+            isInvited,
+            serverScopedToViewer: apiFilter === "my",
+          })
+        ) {
           hiddenRestrictedMatches += 1;
           return null;
         }
