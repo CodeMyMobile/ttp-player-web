@@ -1,6 +1,7 @@
 import { ChevronRight, Info, Sparkles, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
 import { resolveStatusTiles, type RatingState } from "../../utils/homeTiles";
+import { ratingPrompt } from "../../utils/ratingPrompt";
 
 interface StatusTilesProps {
   /** Null until the rating loads, or when the player has no rating at all. */
@@ -12,6 +13,12 @@ interface StatusTilesProps {
   bookingsCount: number;
   /** "Next Sat 10 AM", or null when nothing is booked. */
   nextBookingLabel: string | null;
+  /**
+   * The level the player says they are, or null. Not a rating: it only decides
+   * whether an unranked player is asked to FIND their level or to CONFIRM the
+   * one they already gave. See utils/ratingPrompt.
+   */
+  declaredLevel?: number | null;
 }
 
 const formatRating = (rating: number | null) =>
@@ -32,8 +39,10 @@ export function StatusTiles({
   positionLabel,
   bookingsCount,
   nextBookingLabel,
+  declaredLevel = null,
 }: StatusTilesProps) {
   const { left, right, fullWidth } = resolveStatusTiles({ ratingState, bookingsCount });
+  const prompt = ratingPrompt(declaredLevel);
 
   return (
     <section className="home-tiles">
@@ -68,14 +77,12 @@ export function StatusTiles({
          * level without pretending it is match-verified. */
         <Link
           className={`home-tile home-tile--prompt${fullWidth ? " home-tile--full" : ""}`}
-          to="/rating-quiz"
+          to={prompt.href}
         >
           <Swords className="home-tile__lead-icon" size={20} aria-hidden="true" />
           <span className="home-tile__prompt-copy">
-            <span className="home-tile__prompt-title">Find your tennis level</span>
-            <span className="home-tile__prompt-sub">
-              Five questions, then save an estimate
-            </span>
+            <span className="home-tile__prompt-title">{prompt.title}</span>
+            <span className="home-tile__prompt-sub">{prompt.sub}</span>
           </span>
           {fullWidth ? (
             <ChevronRight className="home-tile__chevron" size={16} aria-hidden="true" />

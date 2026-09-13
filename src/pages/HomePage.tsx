@@ -17,6 +17,7 @@ import {
   useActivityFeed,
   useHomeAlerts,
   useHomeInvites,
+  useDeclaredLevel,
   useLadderStanding,
   useWeekBookings,
 } from "../hooks/useHomeStatus";
@@ -37,6 +38,8 @@ export default function HomePage() {
   const viewerId = readViewerId(user);
 
   const { rating, ratingState, positionLabel } = useLadderStanding(viewerId);
+  // Only consulted while unranked, so it is not fetched for a rated player.
+  const { declaredLevel } = useDeclaredLevel(ratingState === "rated");
   // Always fetched, never gated on the rating: an unrated player with a
   // standing weekly lesson has real bookings and needs to see them.
   const { count, nextLabel, today } = useWeekBookings();
@@ -83,6 +86,7 @@ export default function HomePage() {
           positionLabel={positionLabel}
           bookingsCount={count}
           nextBookingLabel={nextLabel}
+          declaredLevel={declaredLevel}
         />
 
         {/* The mockups' order: tiles, today row, invite card, alerts, grid.

@@ -29,6 +29,8 @@ import { buildPlayerInviteItems } from "../utils/dashboardInvites";
 import { getPlayerDiscoverNearby, getPlayerExternalLessons } from "../api/playerHome";
 import { fetchPlayerCoaches } from "../api/playerCoaches";
 import { listMyLeagues, getLeagueResultOpponents } from "../api/leagues";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
+import { declaredLevelOf } from "../utils/ratingPrompt";
 import { fetchTipVideos, hasYouTubeKey } from "../api/youtube";
 import { pickTipOfDay, readCachedTips, writeCachedTips, type TipVideo } from "../utils/tipOfDay";
 import {
@@ -67,6 +69,27 @@ export const readViewerId = (user: unknown): number | null => {
 
 const rankingSummaryFetcher = () => fetchMyRankingSummary({ token: getStoredAuthToken() ?? undefined });
 const NO_LADDER_PARAMS = {};
+
+const declaredLevelFetcher = async () => {
+  const token = getStoredAuthToken() ?? undefined;
+  if (!token) return null;
+  const profile = await getPlayerPersonalDetails({ token });
+  return declaredLevelOf(profile);
+};
+const NO_LEVEL_PARAMS = {};
+
+/**
+ * The level the player says they are, which is not what the ladder means by
+ * rated — see utils/ratingPrompt. Used only to address them correctly while
+ * they are unranked; it never appears where a match-verified rating would.
+ *
+ * A failure yields null, which is the copy we had before: an unproven level is
+ * worth less than not claiming one.
+ */
+export function useDeclaredLevel(skip = false) {
+  const { data } = useApiRequest(declaredLevelFetcher, NO_LEVEL_PARAMS, { skip });
+  return { declaredLevel: data ?? null };
+}
 
 /**
  * Rating, global ladder position, and the rated gate — one small call.
