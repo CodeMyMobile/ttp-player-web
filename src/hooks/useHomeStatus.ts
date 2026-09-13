@@ -16,12 +16,12 @@ import {
 import {
   groupLessonsToBookings,
   lessonsToBookings,
-  matchesToBookings,
   nextBookingLabel,
   nextTodayBooking,
   summariseWeekBookings,
   type WeekBooking,
 } from "../utils/weekBookings";
+import { buildMyMatchBookings } from "../utils/homeMatchBookings";
 import { listMyOrders } from "../restringing/restringingService";
 import { listInvites } from "../services/invites";
 import { buildPlayerInviteItems } from "../utils/dashboardInvites";
@@ -113,16 +113,38 @@ const readStoredJson = (key: string) => {
 
 const bookingsFetcher = async (): Promise<WeekBooking[]> => {
   const token = getStoredAuthToken() ?? undefined;
+  const storedUser = readStoredJson("user");
   const viewerIdentities = buildViewerIdentities(
-    readStoredJson("user"),
+    storedUser,
     readStoredJson("playerPersonalDetails"),
   );
+  const viewerId = readViewerId(storedUser);
   const stored = getStoredLocation() ?? DEFAULT_POSITION;
 
   // Settled, not all — one failing source should degrade the count, not blank
   // the tile. A wrong-but-present number is worse than a smaller one, so a
   // rejected source contributes nothing rather than a guess.
-  const [lessons, groups, matches] = await Promise.allSettled([
+  // Matches are asked for the way PlayerCalendar asks — the screen that already
+  // shows them correctly:
+  //
+  //   filter: "my"      scopes to this player's participant rows server-side.
+  //                     Without it this was the public browse list, so the count
+  //                     described matches near you rather than matches you are in.
+  //   includeHidden     a link-only match you joined is still yours. The API
+  //                     drops is_hidden rows unless asked.
+  //   two statuses      league matches sit at "confirmed", never "upcoming", and
+  //                     the API filters on exact equality — one query cannot see
+  //                     both. Duplicates cannot arise (a match holds one status)
+  //                     and summariseWeekBookings dedupes by kind:id regardless.
+  const myMatchQuery = {
+    token,
+    filter: "my",
+    includeHidden: true,
+    include_hidden: true,
+    perPage: 50,
+    page: 1,
+  } as const;
+  const [lessons, groups, upcomingMatches, confirmedMatches] = await Promise.allSettled([
     token ? getPlayerUpcomingLessons(token) : Promise.resolve(null),
     fetchUpcomingGroupLessons({
       token,
@@ -130,7 +152,8 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
       page: 1,
       position: { latitude: stored.latitude, longitude: stored.longitude },
     }),
-    listMatches({ token }),
+    listMatches({ ...myMatchQuery, status: "upcoming" }),
+    listMatches({ ...myMatchQuery, status: "confirmed" }),
   ]);
 
   const bookings: WeekBooking[] = [];
@@ -170,9 +193,20 @@ const bookingsFetcher = async (): Promise<WeekBooking[]> => {
     );
   }
 
-  if (matches.status === "fulfilled" && Array.isArray(matches.value)) {
-    bookings.push(...matchesToBookings(matches.value));
-  }
+  // listMatches resolves to { matches, pagination, raw } — never an array. This
+  // read it with Array.isArray, which is never true for an object, so match play
+  // contributed nothing to the home page and did so silently.
+  //
+  // The rules for turning those rows into bookings live in utils/homeMatchBookings,
+  // where they are tested.
+  bookings.push(
+    ...buildMyMatchBookings({
+      upcoming: upcomingMatches.status === "fulfilled" ? upcomingMatches.value.matches : [],
+      confirmed: confirmedMatches.status === "fulfilled" ? confirmedMatches.value.matches : [],
+      viewerId,
+      currentUser: storedUser,
+    }),
+  );
 
   return bookings;
 };
