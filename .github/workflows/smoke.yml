@@ -26,9 +26,22 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # playwright-core drives a browser but ships none. Chrome is preinstalled on the
-      # runner; installing only chromium keeps this well under a minute.
-      - run: npx playwright install --with-deps chromium
+      # playwright-core drives a browser but ships none, so one is installed here.
+      # Installing only chromium keeps this well under a minute.
+      #
+      # Through the LOCAL binary, not `npx playwright`. npx fetches the latest
+      # `playwright` and installs the browser revision that version expects, while the
+      # smoke script launches through the pinned `playwright-core` and looks for the
+      # revision ITS version expects. The moment those drift apart the browser is
+      # installed and still not found:
+      #
+      #   playwright-core (pinned)   1.62.1
+      #   npx playwright             1.63.0  ->  "Please run npx playwright install"
+      #
+      # That is what broke this job — silently, for every run from 2026-09-09 onward,
+      # on main as well as on pull requests. The local binary cannot drift from the
+      # library that launches the browser, because it ships with it.
+      - run: ./node_modules/.bin/playwright-core install --with-deps chromium
 
       - name: Resolve target
         id: target
