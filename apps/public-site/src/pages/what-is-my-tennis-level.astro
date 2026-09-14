@@ -93,17 +93,6 @@ const quizQuestions: QuizQuestion[] = [
       { id: "r3", label: "I construct points and handle real pace" },
     ],
   },
-  {
-    key: "cmp",
-    prompt: "Think of someone you play often whose level you know",
-    hint: "Optional, but it sharpens the estimate more than anything else here.",
-    options: [
-      { id: "c_win", label: "I usually beat them" },
-      { id: "c_split", label: "We split most of the time" },
-      { id: "c_lose", label: "They usually beat me" },
-      { id: "c_skip", label: "I'd rather skip this" },
-    ],
-  },
 ];
 
 /**
@@ -267,13 +256,54 @@ const faqSchema = {
     (() => {
       const RATING_MODEL_VERSION = 2;
       const quiz = document.getElementById("quiz");
+      /**
+       * Every scored answer needs an entry here. A missing one is not an error —
+       * `weights[id]` is undefined and `|| 0` turns it into a zero — so the question
+       * keeps being asked, keeps being shown as a reason for the result, and counts
+       * for nothing. That is what happened to the rally answers from the day this
+       * page shipped until 2026-09-14, and only came up because someone read the
+       * table. A test now fails the build if any answer is missing from it.
+       */
       const weights = {
         social: 0, lessons: 1, team: 2, college: 4,
         f3: 2, f2: 1, f1: 0, f0: -1,
         s0: 0, s1: 1, s2: 2, s3: 3,
-        c_win: 1, c_split: 0, c_lose: -1, c_skip: 0,
+        r0: 0, r1: 1, r2: 2, r3: 3,
       };
-      const coefficients = { bg: 1.1, freq: 0.5, serve: 1.2, rally: 1.1, cmp: 0.4 };
+      /**
+       * The comparison question is gone, and nothing was renormalised to compensate.
+       *
+       * It was circular — it asked for someone "whose level you know" and then never
+       * asked what that level was, so beating a 3.0 and beating a 4.5 both scored
+       * +0.4. It could not inform the estimate at any weight.
+       *
+       * Removing it needed no rebalancing because its neutral answers carried a
+       * weight of 0: "we split" and "I'd rather skip this" contributed nothing, so
+       * the base constant and the remaining weights already produce the identical
+       * level. Across all 1024 answer combinations, 96 move — every one of them a
+       * player who had answered "I usually beat them" or "they usually beat me",
+       * which is the circular signal itself going away. Adding a compensating
+       * constant would have re-rated everyone, including the 928 that do not move.
+       */
+      /**
+       * Serve and rally are the two stroke questions and carry the same weight. They
+       * did not before: with rally inert, serve at 1.2 was the entire stroke signal,
+       * so a single answer about a second serve moved the estimate as much as both
+       * strokes should together.
+       *
+       * Background stays the heaviest single question — it spans 0 to 4, so 4.4 of
+       * range against 2.7 for either stroke — which is what the card claims when it
+       * calls it the biggest clue. Frequency stays the modifier it reads as.
+       *
+       * SCALE. Turning rally on widens the raw range from 9.0 to 10.8, so leaving the
+       * multiplier at 0.34 would have pushed everyone up half a level or more for no
+       * better reason than an arithmetic side effect. 0.23 puts the strongest honest
+       * set of answers — college player, playing three times a week, weapon serve,
+       * constructs points — at 4.98, which is the 5.0 the top of this scale means.
+       * The base stays 2.5, the floor of what this quiz will estimate.
+       */
+      const coefficients = { bg: 1.1, freq: 0.5, serve: 0.9, rally: 0.9 };
+      const SCALE = 0.23;
       const clamps = {
         social: { ceiling: 3.5 },
         lessons: { ceiling: 4.0 },
@@ -295,6 +325,27 @@ const faqSchema = {
 
       function toHalf(value) {
         return Math.round(value * 2) / 2;
+      }
+
+      /**
+       * The one-line reason under the estimate. Four cases rather than two, because
+       * the two stroke answers can disagree and the sentence has to survive that: a
+       * player with a weapon serve and no rally shape is a different reading from one
+       * who constructs points off a serve they only get in.
+       */
+      function explain(a) {
+        const serve = a.serve === "s2" || a.serve === "s3";
+        const rally = a.rally === "r2" || a.rally === "r3";
+        if (serve && rally) {
+          return "A second serve you trust and a rally you can direct are the two clearest markers at this level, and you have both.";
+        }
+        if (serve) {
+          return "A second serve you trust under pressure is the clearest marker at this level; steadier rally shape is what would move you up half a level.";
+        }
+        if (rally) {
+          return "Directing the ball in a rally puts you here; a second serve you trust under pressure is what would move you up half a level.";
+        }
+        return "Rally consistency and a reliable second serve are what move players up from here, and they tend to arrive in that order.";
       }
 
       function bandLabel(seed) {
@@ -324,13 +375,12 @@ const faqSchema = {
 
         let raw = 0;
         Object.keys(coefficients).forEach((key) => {
-          if (key === "cmp" && !answers[key]) return;
           raw += (weights[answers[key]] || 0) * coefficients[key];
         });
 
         // Applied to the estimated path only. A declared USTA rating is already on the
         // right scale, and the beginner answer is a floor rather than an estimate.
-        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * 0.34) + (POOL_SHIFT[answers.pool] || 0)));
+        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * SCALE) + (POOL_SHIFT[answers.pool] || 0)));
         const clamp = clamps[answers.bg] || {};
         if (clamp.ceiling !== undefined && seed > clamp.ceiling) seed = clamp.ceiling;
         if (clamp.floor !== undefined && seed < clamp.floor) seed = clamp.floor;
@@ -339,9 +389,10 @@ const faqSchema = {
           seed,
           band: bandLabel(seed),
           confidence: "Estimated",
-          why: answers.serve === "s2" || answers.serve === "s3"
-            ? "A second serve you trust under pressure is the clearest marker at this level, and your rally answer backs it up."
-            : "Your rally consistency puts you here; the second serve is what would move you up half a level.",
+          // Says what the answers actually were. The old pair claimed the rally answer
+          // "backs it up" whichever way it had been answered — and it was contributing
+          // nothing at the time, so for some players the sentence was false twice over.
+          why: explain(answers),
           declaredUsta: null,
         };
       }
@@ -410,9 +461,9 @@ const faqSchema = {
         });
       }
 
-      function appHref(result) {
+      function appHref(settled) {
         const params = new URLSearchParams({
-          level: result.band,
+          level: settled.band,
           src: "quiz",
           rating_model_version: String(RATING_MODEL_VERSION),
         });
@@ -423,12 +474,80 @@ const faqSchema = {
         return `https://app.thetennisplan.com/#/?${params.toString()}`;
       }
 
+      /**
+       * The estimate, as the player leaves it.
+       *
+       * `accepted` is what they settled on: our number until they nudge it, theirs
+       * afterwards. It replaces the comparison question — anyone can say whether a
+       * number sounds right about themselves, where "how do you do against someone
+       * whose level you know" needed a second player's rating to mean anything.
+       *
+       * The answer NEVER moves the score on its own. It is recorded, and the only
+       * thing that changes the level is the player explicitly taking the offered
+       * half step — at which point it stops being our estimate and is labelled as
+       * their claim.
+       */
+      let accepted = null;
+
+      function nudgeTarget(result) {
+        if (answers.feedback === "low") return Math.min(5.5, result.seed + 0.5);
+        if (answers.feedback === "high") return Math.max(1.5, result.seed - 0.5);
+        return null;
+      }
+
+      function confirmBlock(result) {
+        // Nothing to confirm for someone who told us their rating — they are the
+        // source, so asking whether our number sounds right is asking them about
+        // themselves twice.
+        if (result.declaredUsta !== null) return "";
+
+        if (!answers.feedback) {
+          return `
+            <div class="confirm">
+              <p class="confirm__q" id="confirm-q">NTRP ${accepted.band} — does that sound about right?</p>
+              <div class="confirm__opts" role="group" aria-labelledby="confirm-q">
+                <button type="button" data-feedback="low">Lower than I expected</button>
+                <button type="button" data-feedback="right">Sounds right</button>
+                <button type="button" data-feedback="high">Higher than I expected</button>
+              </div>
+            </div>
+          `;
+        }
+
+        // Answered and settled: they agreed, they took the half step, or they were
+        // offered it and kept ours. All three are done; only an unanswered nudge
+        // still has something to ask.
+        if (answers.feedback === "right" || accepted.declared || answers.feedback.endsWith("_kept")) {
+          return `<p class="confirm__done" role="status">Thanks — that helps us calibrate the quiz.</p>`;
+        }
+
+        const target = nudgeTarget(result);
+        return `
+          <div class="confirm">
+            <p class="confirm__q" id="confirm-q">Want to set it to ${fmtLevel(target)} instead?</p>
+            <div class="confirm__opts" role="group" aria-labelledby="confirm-q">
+              <button type="button" data-adjust="${target}">Yes, ${fmtLevel(target)}</button>
+              <button type="button" data-adjust="keep">No, keep ${fmtLevel(result.seed)}</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function fmtLevel(value) {
+        return value.toFixed(1);
+      }
+
       function renderResult() {
         const result = score();
+        if (!accepted) {
+          accepted = { seed: result.seed, band: result.band, confidence: result.confidence, declared: false };
+        }
+
         const payload = result.declaredUsta === null
           ? {
-              self_rated_seed: result.seed,
-              self_rating_source: "self_assessed",
+              self_rated_seed: accepted.seed,
+              // Their claim once they have moved it, ours until then.
+              self_rating_source: accepted.declared ? "self_declared" : "self_assessed",
               rating_quiz_answers: answers,
               rating_model_version: RATING_MODEL_VERSION,
             }
@@ -437,13 +556,14 @@ const faqSchema = {
         quiz.innerHTML = `
           <div class="res">
             <p class="lead">Based on your answers, you look like</p>
-            <p class="band">NTRP ${result.band}</p>
-            <span class="conf">${result.confidence}</span>
+            <p class="band">NTRP ${accepted.band}</p>
+            <span class="conf">${accepted.confidence}</span>
             <p class="why">${result.why}</p>
+            ${confirmBlock(result)}
             <div class="local">
               <h3>Playing in West LA?</h3>
               <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
-              <a class="btn solid" href="${appHref(result)}">Find options at this level</a>
+              <a class="btn solid" href="${appHref(accepted)}">Find options at this level</a>
             </div>
             <details class="save-preview">
               <summary>What the app saves if you sign in</summary>
@@ -453,8 +573,31 @@ const faqSchema = {
           </div>
         `;
 
+        quiz.querySelectorAll("[data-feedback]").forEach((button) => {
+          button.addEventListener("click", () => {
+            // Recorded, not applied. When the completion event ships, this rides
+            // along with level, confidence and pool — it is the calibration signal.
+            answers.feedback = button.dataset.feedback;
+            renderResult();
+          });
+        });
+
+        quiz.querySelectorAll("[data-adjust]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.dataset.adjust !== "keep") {
+              const seed = Number(button.dataset.adjust);
+              accepted = { seed, band: bandLabel(seed), confidence: "Self-declared", declared: true };
+            } else {
+              accepted = { ...accepted, declared: false };
+              answers.feedback = answers.feedback === "low" ? "low_kept" : "high_kept";
+            }
+            renderResult();
+          });
+        });
+
         quiz.querySelector(".level-reset").addEventListener("click", () => {
           answers = {};
+          accepted = null;
           index = 0;
           renderQuestion();
         });
@@ -733,6 +876,60 @@ const faqSchema = {
     color: var(--level-muted);
     font-size: .9rem;
     line-height: 1.55;
+  }
+
+  /* The confirmation that replaced the comparison question. Styled off the same
+     tokens as the quiz options so the result screen does not introduce a new
+     button language. */
+  :global(.confirm) {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--level-line);
+  }
+
+  :global(.confirm__q) {
+    margin: 0 0 10px;
+    color: var(--level-ink);
+    font-size: .92rem;
+    font-weight: 700;
+  }
+
+  :global(.confirm__opts) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :global(.confirm__opts button) {
+    flex: 1 1 auto;
+    border: 1px solid var(--level-line);
+    border-radius: 999px;
+    padding: 9px 14px;
+    color: var(--level-ink);
+    background: #fff;
+    font: inherit;
+    font-size: .86rem;
+    cursor: pointer;
+  }
+
+  :global(.confirm__opts button:hover) {
+    border-color: var(--level-purple);
+    color: var(--level-purple-dark);
+  }
+
+  /* The page sets no focus styles anywhere, so these keep the browser's ring
+     rather than replacing it with something less visible. */
+  :global(.confirm__opts button:focus-visible) {
+    outline: 2px solid var(--level-purple);
+    outline-offset: 2px;
+  }
+
+  :global(.confirm__done) {
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--level-line);
+    color: var(--level-muted);
+    font-size: .86rem;
   }
 
   :global(.local) {
