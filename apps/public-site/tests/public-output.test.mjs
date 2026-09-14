@@ -69,7 +69,9 @@ test("build emits the public tennis level quiz route", async () => {
   // Still shipped in the question data the script picks up.
   assert.match(html, /data-option-id="m"/);
   assert.match(html, /"id":"lessons"/);
-  assert.match(html, /"id":"c_split"/);
+  // Was /"id":"c_split"/ — an option of the comparison question, which was removed
+  // for being circular. The rally question stands in as the later-question check.
+  assert.match(html, /"id":"r2"/);
   assert.match(html, /RATING_MODEL_VERSION/);
   assert.match(html, /FAQPage/);
   assert.doesNotMatch(html, /PATCH \/player\/personal_details/);
@@ -86,9 +88,11 @@ test("the level quiz asks the pool question first, in the served HTML", async ()
 
   assert.match(html, /Which do you play\?/);
   assert.match(html, /calibrated separately for men&#39;s and women&#39;s play/);
-  // The served card's counter is derived from the question set. It read "1 of 5"
-  // after the set had already changed, which is what this pins.
-  assert.match(html, /1 of 6/);
+  // The served card's counter is derived from the question set, which is why it
+  // tracks changes to that set instead of going stale the way a literal "1 of 5"
+  // did. Five again now that the comparison question is gone: pool, background,
+  // frequency, serve, rally.
+  assert.match(html, /1 of 5/);
   assert.doesNotMatch(html, /Five questions/);
   assert.doesNotMatch(html, /5 questions/);
 });
@@ -120,4 +124,34 @@ test("every FAQ answer marked up on the quiz page is on the page", async () => {
   assert.ok(marked, "the pool FAQ entry is in the JSON-LD");
   // Structured data has to say what the page says, word for word.
   assert.equal(marked.acceptedAnswer.text, visible.get(question));
+});
+
+/**
+ * The comparison question asked the player to think of someone "whose level you
+ * know" and then never asked what that level was, so beating a 3.0 and beating a
+ * 4.5 scored the same. It is gone, and nothing replaced it in the scoring.
+ */
+test("the quiz no longer scores the circular comparison question", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  assert.doesNotMatch(html, /Think of someone you play often/);
+  assert.doesNotMatch(html, /c_win|c_split|c_lose|c_skip/);
+  assert.doesNotMatch(html, /cmp/);
+});
+
+test("the result asks for confirmation and never scores the answer", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /does that sound about right\?/);
+  assert.match(html, /Lower than I expected/);
+  assert.match(html, /Higher than I expected/);
+  assert.match(html, /Want to set it to/);
+
+  // The whole point of the confirmation is that it is recorded, not applied. The
+  // scorer must not read it: the only thing that moves the level is the player
+  // explicitly taking the offered half step.
+  const scorer = html.slice(html.indexOf("function score()"), html.indexOf("function activeQuestions()"));
+  assert.ok(scorer.length > 100, "found the scoring function in the built output");
+  assert.doesNotMatch(scorer, /feedback/);
+  assert.doesNotMatch(scorer, /accepted/);
 });
