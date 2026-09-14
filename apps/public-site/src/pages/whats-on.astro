@@ -155,8 +155,16 @@ const leagues = [
 
     const paramValue = (value) => value && value !== "any" ? value : null;
     if (q.has("level")) F.level = paramValue(q.get("level"));
-    // Parse level ranges like "3.0-3.5" → use the first value for chip display
-    let levelDisplay = F.level && F.level.includes("-") ? F.level.split("-")[0] : F.level;
+    // Helper to check if a level id is covered by a range value (e.g. "3.0-3.5" covers both 3.0 and 3.5)
+    const levelIdSelected = (levelId) => {
+      if (F.level === null) return false;
+      if (F.level === levelId) return true;
+      if (F.level.includes("-")) {
+        const parts = F.level.split("-");
+        return parts.length === 2 && (levelId === parts[0] || levelId === parts[1]);
+      }
+      return false;
+    };
     if (q.has("divisions")) F.div = paramValue(q.get("divisions"));
     if (q.has("division")) F.div = paramValue(q.get("division"));
     if (q.has("area")) F.area = paramValue(q.get("area"));
@@ -183,11 +191,15 @@ const leagues = [
       .replaceAll("'", "&#39;");
     function chips(elId, list, key) {
       const el = document.getElementById(elId);
-      const compareValue = key === "level" ? levelDisplay : F[key];
+      const isLevel = key === "level";
       el.innerHTML = list.map((item) => {
         const id = item[0];
         const text = item[1];
-        const selected = id === "any" ? compareValue === null : compareValue === id;
+        const selected = id === "any"
+          ? F[key] === null
+          : isLevel
+            ? levelIdSelected(id)
+            : F[key] === id;
         return `<button class="wo-chip${selected ? " is-on" : ""}" type="button" data-k="${key}" data-v="${id}">${escapeHtml(text)}</button>`;
       }).join("");
     }
@@ -332,8 +344,6 @@ const leagues = [
       if (chip) {
         const key = chip.dataset.k;
         F[key] = chip.dataset.v === "any" ? null : chip.dataset.v;
-        // Recompute levelDisplay when level changes
-        if (key === "level") levelDisplay = F.level && F.level.includes("-") ? F.level.split("-")[0] : F.level;
         fetchGuestPayload();
         return;
       }
