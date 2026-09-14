@@ -155,3 +155,49 @@ test("the result asks for confirmation and never scores the answer", async () =>
   assert.doesNotMatch(scorer, /feedback/);
   assert.doesNotMatch(scorer, /accepted/);
 });
+
+/**
+ * The guard for the defect that made this test worth writing.
+ *
+ * `weights[answers[key]] || 0` cannot tell a deliberate zero from a missing entry.
+ * The rally answers had no entries at all, so a question the page calls the clearest
+ * separator of levels scored nothing from the day it shipped — silently, because
+ * undefined and "worth zero" look identical to the scorer.
+ *
+ * This reads the question set and the weights out of the built page and asserts that
+ * every answer the scorer will look up is actually in the table. An incomplete table
+ * fails the build instead of quietly mis-calibrating everyone.
+ */
+test("every scored quiz answer has a weight", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  const questions = JSON.parse(html.match(/const quizQuestions = (\[.*?\]);/s)[1]);
+  const keysOf = (literal) => [...literal.matchAll(/([A-Za-z_][\w]*)\s*:/g)].map((m) => m[1]);
+  const weights = new Set(keysOf(html.match(/const weights = \{(.*?)\};/s)[1]));
+  const declared = new Set(keysOf(html.match(/const declared = \{(.*?)\};/s)[1]));
+  const scored = new Set(Object.keys(JSON.parse(`{${html.match(/const coefficients = \{(.*?)\};/s)[1].replace(/(\w+):/g, '"$1":')}}`)));
+
+  // Answers that route rather than score: two exits from the background question,
+  // and the pool question, which picks a calibration rather than adding to the total.
+  const ROUTES = new Set(["starting", "usta"]);
+
+  for (const question of questions) {
+    for (const option of question.options) {
+      if (question.key === "pool") continue;
+      if (question.key === "usta") {
+        assert.ok(declared.has(option.id), `declared rating "${option.id}" has no level`);
+        continue;
+      }
+      if (ROUTES.has(option.id)) continue;
+      assert.ok(
+        weights.has(option.id),
+        `answer "${option.id}" on question "${question.key}" has no entry in weights — it would score zero silently`,
+      );
+    }
+  }
+
+  // And the reverse: every scored question is one the question set actually asks.
+  for (const key of scored) {
+    assert.ok(questions.some((question) => question.key === key), `coefficient "${key}" has no question`);
+  }
+});
