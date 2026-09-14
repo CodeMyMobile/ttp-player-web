@@ -4,8 +4,11 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
 const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
+// No question count in the copy: the paths are different lengths — the beginner
+// answer exits early, declaring a USTA rating short-circuits the scoring — so any
+// fixed number is wrong on most of them. "About a minute" is true on all.
 const description =
-  "Answer five questions and get an honest NTRP estimate in about a minute. No account, no email needed.";
+  "Get an honest NTRP estimate in about a minute. No account, no email needed.";
 
 interface QuizOption {
   id: string;
@@ -22,6 +25,15 @@ interface QuizQuestion {
 }
 
 const quizQuestions: QuizQuestion[] = [
+  {
+    key: "pool",
+    prompt: "Which do you play?",
+    hint: "NTRP is calibrated separately for men's and women's play, so this genuinely changes the answer.",
+    options: [
+      { id: "m", label: "Men's" },
+      { id: "w", label: "Women's" },
+    ],
+  },
   {
     key: "bg",
     prompt: "How much competitive tennis have you played?",
@@ -94,6 +106,17 @@ const quizQuestions: QuizQuestion[] = [
   },
 ];
 
+/**
+ * The served first card shows a count, and it has to agree with what the script
+ * computes once it takes over. Derived rather than written out: "1 of 5" was left
+ * behind when this question set changed, and the page shipped saying five.
+ *
+ * The default path is every non-branching question — declaring a USTA rating is
+ * the only thing that opens the branch.
+ */
+const defaultPathLength = quizQuestions.filter((question) => !question.branch).length;
+const initialProgress = Math.round((1 / defaultPathLength) * 100);
+
 const faqSchema = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -104,6 +127,16 @@ const faqSchema = {
       acceptedAnswer: {
         "@type": "Answer",
         text: "No. NTRP runs 1.0 to 7.0 in half steps and is the standard for US league play. UTR runs 1 to 16.5 and is calculated from match results.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is a women's 4.0 the same as a men's 4.0?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        // Identical to the visible answer in the FAQ below — marked-up text that does
+        // not match what the page shows is a structured-data violation, not a nicety.
+        text: "On paper the NTRP descriptions are identical. In practice the two scales are calibrated against different populations, because USTA ratings come out of league play that's separated by gender, and there's no official conversion between them. That's why we ask which you play before estimating rather than after.",
       },
     },
     {
@@ -137,11 +170,11 @@ const faqSchema = {
             <p class="level-eyebrow">Free NTRP quiz</p>
             <h1>What's my tennis level?</h1>
             <p>
-              Five questions, about a minute, no account. Get a practical NTRP estimate
-              you can use to choose better matches, classes, leagues, and coaches.
+              About a minute, no account. Get a practical NTRP estimate you can use to
+              choose better matches, classes, leagues, and coaches.
             </p>
             <div class="level-proof" aria-label="Quiz promises">
-              <span>5 questions</span>
+              <span>About a minute</span>
               <span>No email</span>
               <span>Half-level band</span>
             </div>
@@ -152,10 +185,10 @@ const faqSchema = {
               <button class="qback" type="button" aria-label="Back" disabled>
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
               </button>
-              <span class="qbar"><i style="width: 20%"></i></span>
-              <span class="qcount">1 of 5</span>
+              <span class="qbar"><i style={`width: ${initialProgress}%`}></i></span>
+              <span class="qcount">1 of {defaultPathLength}</span>
             </div>
-            <h2 class="qz-q" id="quiz-title" data-question-key="bg">{quizQuestions[0].prompt}</h2>
+            <h2 class="qz-q" id="quiz-title" data-question-key={quizQuestions[0].key}>{quizQuestions[0].prompt}</h2>
             <p class="qz-h">{quizQuestions[0].hint}</p>
             <div class="qopts">
               {quizQuestions[0].options.map((option) => (
@@ -215,6 +248,9 @@ const faqSchema = {
             <dt>Is NTRP the same as UTR?</dt>
             <dd>No. NTRP runs in half steps and is the common language for US league play. UTR is match-result based and uses a wider numeric scale.</dd>
 
+            <dt>Is a women's 4.0 the same as a men's 4.0?</dt>
+            <dd>On paper the NTRP descriptions are identical. In practice the two scales are calibrated against different populations, because USTA ratings come out of league play that's separated by gender, and there's no official conversion between them. That's why we ask which you play before estimating rather than after.</dd>
+
             <dt>How accurate is this?</dt>
             <dd>Accurate enough to start in the right neighborhood. Match results are still the real test, so treat this as an estimate, not a lifetime label.</dd>
 
@@ -245,6 +281,15 @@ const faqSchema = {
         college: { floor: 4.0, ceiling: 5.0 },
       };
       const declared = { u30: 3.0, u35: 3.5, u40: 4.0, u45: 4.5, u50: 5.0 };
+
+      // NTRP scales are calibrated against different populations. The stroke
+      // descriptions in this quiz are absolute, so identical answers place
+      // differently on the two scales.
+      // UNVALIDATED — currently 0 while we gather data. The question is asked and
+      // `pool` is captured on every completion, so nobody is mis-rated by a number
+      // we have not checked. When the league data says otherwise, this line is the
+      // only edit: the term is applied once, at the end of scoring, and nowhere else.
+      const POOL_SHIFT = { m: 0, w: 0 };
       let answers = {};
       let index = 0;
 
@@ -283,7 +328,9 @@ const faqSchema = {
           raw += (weights[answers[key]] || 0) * coefficients[key];
         });
 
-        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * 0.34)));
+        // Applied to the estimated path only. A declared USTA rating is already on the
+        // right scale, and the beginner answer is a floor rather than an estimate.
+        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * 0.34) + (POOL_SHIFT[answers.pool] || 0)));
         const clamp = clamps[answers.bg] || {};
         if (clamp.ceiling !== undefined && seed > clamp.ceiling) seed = clamp.ceiling;
         if (clamp.floor !== undefined && seed < clamp.floor) seed = clamp.floor;
@@ -297,6 +344,20 @@ const faqSchema = {
             : "Your rally consistency puts you here; the second serve is what would move you up half a level.",
           declaredUsta: null,
         };
+      }
+
+      /**
+       * Jump to the "what rating do you play at" question.
+       *
+       * The index is looked up rather than written down. It used to be a literal 1,
+       * correct only while the background question was first; inserting the pool
+       * question ahead of it pointed the skip at the question it exists to skip.
+       */
+      function skipToUsta() {
+        answers.bg = "usta";
+        const target = activeQuestions().findIndex((question) => question.key === "usta");
+        index = target === -1 ? index + 1 : target;
+        renderQuestion();
       }
 
       function activeQuestions() {
@@ -345,9 +406,7 @@ const faqSchema = {
           });
         });
         quiz.querySelector("[data-skip-to-usta]").addEventListener("click", () => {
-          answers.bg = "usta";
-          index = 1;
-          renderQuestion();
+          skipToUsta();
         });
       }
 
@@ -357,6 +416,10 @@ const faqSchema = {
           src: "quiz",
           rating_model_version: String(RATING_MODEL_VERSION),
         });
+        // Which division this routes to. Nothing reads it yet; it costs nothing to
+        // send and the alternative is re-asking later. Omitted rather than guessed
+        // when the question was not reached.
+        if (answers.pool) params.set("divisions", answers.pool === "w" ? "womens" : "mens");
         return `https://app.thetennisplan.com/#/?${params.toString()}`;
       }
 
@@ -399,9 +462,7 @@ const faqSchema = {
 
       quiz.addEventListener("click", (event) => {
         if (event.target.closest("[data-skip-to-usta]")) {
-          answers.bg = "usta";
-          index = 1;
-          renderQuestion();
+          skipToUsta();
           return;
         }
         const button = event.target.closest("[data-option-id]");

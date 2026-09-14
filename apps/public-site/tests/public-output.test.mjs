@@ -63,10 +63,61 @@ test("build emits the public tennis level quiz route", async () => {
 
   assert.match(html, /<title>What&#39;s My Tennis Level\? Free NTRP Rating Quiz \| The Tennis Plan<\/title>/);
   assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/what-is-my-tennis-level"/);
-  assert.match(html, /data-question-key="bg"/);
-  assert.match(html, /data-option-id="lessons"/);
+  // The served card is question one, which is now the pool question — the background
+  // question moved to second when the quiz started asking which scale to estimate on.
+  assert.match(html, /data-question-key="pool"/);
+  // Still shipped in the question data the script picks up.
+  assert.match(html, /data-option-id="m"/);
+  assert.match(html, /"id":"lessons"/);
   assert.match(html, /"id":"c_split"/);
   assert.match(html, /RATING_MODEL_VERSION/);
   assert.match(html, /FAQPage/);
   assert.doesNotMatch(html, /PATCH \/player\/personal_details/);
+});
+
+/**
+ * The level quiz asks which tennis someone plays before estimating, because NTRP is
+ * calibrated separately for men's and women's play. These assert the served HTML,
+ * not the script: the question and the FAQ answer have to be there for a crawler
+ * and for a visitor with JavaScript off.
+ */
+test("the level quiz asks the pool question first, in the served HTML", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /Which do you play\?/);
+  assert.match(html, /calibrated separately for men&#39;s and women&#39;s play/);
+  // The served card's counter is derived from the question set. It read "1 of 5"
+  // after the set had already changed, which is what this pins.
+  assert.match(html, /1 of 6/);
+  assert.doesNotMatch(html, /Five questions/);
+  assert.doesNotMatch(html, /5 questions/);
+});
+
+test("the quiz's pool adjustment ships unvalidated and inert", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  // One named term, both values zero: the question collects data without changing
+  // anyone's result until the league numbers say what the shift should be.
+  assert.match(html, /POOL_SHIFT = \{ m: 0, w: 0 \}/);
+  assert.match(html, /UNVALIDATED/);
+  // Applied once, at the end of scoring.
+  assert.equal((html.match(/POOL_SHIFT\[/g) || []).length, 1);
+});
+
+test("every FAQ answer marked up on the quiz page is on the page", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+  const { decode } = { decode: (s) => s.replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"') };
+
+  const visible = new Map(
+    [...html.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/gs)]
+      .map(([, q, a]) => [decode(q).trim(), decode(a).trim()]),
+  );
+  const schema = JSON.parse(html.match(/type="application\/ld\+json">(.*?)<\/script>/s)[1]);
+
+  const question = "Is a women's 4.0 the same as a men's 4.0?";
+  assert.ok(visible.has(question), "the pool FAQ entry is visible on the page");
+  const marked = schema.mainEntity.find((entry) => entry.name === question);
+  assert.ok(marked, "the pool FAQ entry is in the JSON-LD");
+  // Structured data has to say what the page says, word for word.
+  assert.equal(marked.acceptedAnswer.text, visible.get(question));
 });
