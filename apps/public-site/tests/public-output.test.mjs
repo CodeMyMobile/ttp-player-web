@@ -216,3 +216,17 @@ test("build emits the public whats-on route", async () => {
   assert.match(html, /players at your level/);
   assert.doesNotMatch(html, /Taylor Host|profile_picture|about_me|genderAdditionalText/);
 });
+
+test("public whats-on filters can be broadened to any value", async () => {
+  const html = await readFile(
+    new URL("../dist/whats-on/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /const levels = \[\["any","Any"\]/);
+  assert.match(html, /const whens = \[\["any","Any"\]/);
+  assert.match(html, /const areas = \[\["any","Any"\]/);
+  assert.match(html, /const divisions = \[\["any","Any"\]/);
+  assert.match(html, /if \(F\.level\) params\.set\("level", F\.level\)/);
+  assert.doesNotMatch(html, /\n\s*params\.set\("level", F\.level\);/);
+});
