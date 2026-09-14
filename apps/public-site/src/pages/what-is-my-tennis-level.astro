@@ -471,7 +471,7 @@ const faqSchema = {
         // send and the alternative is re-asking later. Omitted rather than guessed
         // when the question was not reached.
         if (answers.pool) params.set("divisions", answers.pool === "w" ? "womens" : "mens");
-        return `https://app.thetennisplan.com/#/?${params.toString()}`;
+        return `/whats-on?${params.toString()}`;
       }
 
       /**

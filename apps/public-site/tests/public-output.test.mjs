@@ -201,3 +201,17 @@ test("every scored quiz answer has a weight", async () => {
     assert.ok(questions.some((question) => question.key === key), `coefficient "${key}" has no question`);
   }
 });
+
+test("build emits the public whats-on route", async () => {
+  const html = await readFile(
+    new URL("../dist/whats-on/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /<title>Tennis at Your Level in West LA \| The Tennis Plan<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/whats-on"/);
+  assert.match(html, /id="matches"/);
+  assert.match(html, /\/api\/public\/whats-on/);
+  assert.match(html, /players at your level/);
+  assert.doesNotMatch(html, /Taylor Host|profile_picture|about_me|genderAdditionalText/);
+});
