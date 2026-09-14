@@ -93,17 +93,6 @@ const quizQuestions: QuizQuestion[] = [
       { id: "r3", label: "I construct points and handle real pace" },
     ],
   },
-  {
-    key: "cmp",
-    prompt: "Think of someone you play often whose level you know",
-    hint: "Optional, but it sharpens the estimate more than anything else here.",
-    options: [
-      { id: "c_win", label: "I usually beat them" },
-      { id: "c_split", label: "We split most of the time" },
-      { id: "c_lose", label: "They usually beat me" },
-      { id: "c_skip", label: "I'd rather skip this" },
-    ],
-  },
 ];
 
 /**
@@ -271,9 +260,23 @@ const faqSchema = {
         social: 0, lessons: 1, team: 2, college: 4,
         f3: 2, f2: 1, f1: 0, f0: -1,
         s0: 0, s1: 1, s2: 2, s3: 3,
-        c_win: 1, c_split: 0, c_lose: -1, c_skip: 0,
       };
-      const coefficients = { bg: 1.1, freq: 0.5, serve: 1.2, rally: 1.1, cmp: 0.4 };
+      /**
+       * The comparison question is gone, and nothing was renormalised to compensate.
+       *
+       * It was circular — it asked for someone "whose level you know" and then never
+       * asked what that level was, so beating a 3.0 and beating a 4.5 both scored
+       * +0.4. It could not inform the estimate at any weight.
+       *
+       * Removing it needed no rebalancing because its neutral answers carried a
+       * weight of 0: "we split" and "I'd rather skip this" contributed nothing, so
+       * the base constant and the remaining weights already produce the identical
+       * level. Across all 1024 answer combinations, 96 move — every one of them a
+       * player who had answered "I usually beat them" or "they usually beat me",
+       * which is the circular signal itself going away. Adding a compensating
+       * constant would have re-rated everyone, including the 928 that do not move.
+       */
+      const coefficients = { bg: 1.1, freq: 0.5, serve: 1.2, rally: 1.1 };
       const clamps = {
         social: { ceiling: 3.5 },
         lessons: { ceiling: 4.0 },
@@ -324,7 +327,6 @@ const faqSchema = {
 
         let raw = 0;
         Object.keys(coefficients).forEach((key) => {
-          if (key === "cmp" && !answers[key]) return;
           raw += (weights[answers[key]] || 0) * coefficients[key];
         });
 
@@ -410,9 +412,9 @@ const faqSchema = {
         });
       }
 
-      function appHref(result) {
+      function appHref(settled) {
         const params = new URLSearchParams({
-          level: result.band,
+          level: settled.band,
           src: "quiz",
           rating_model_version: String(RATING_MODEL_VERSION),
         });
@@ -423,12 +425,80 @@ const faqSchema = {
         return `https://app.thetennisplan.com/#/?${params.toString()}`;
       }
 
+      /**
+       * The estimate, as the player leaves it.
+       *
+       * `accepted` is what they settled on: our number until they nudge it, theirs
+       * afterwards. It replaces the comparison question — anyone can say whether a
+       * number sounds right about themselves, where "how do you do against someone
+       * whose level you know" needed a second player's rating to mean anything.
+       *
+       * The answer NEVER moves the score on its own. It is recorded, and the only
+       * thing that changes the level is the player explicitly taking the offered
+       * half step — at which point it stops being our estimate and is labelled as
+       * their claim.
+       */
+      let accepted = null;
+
+      function nudgeTarget(result) {
+        if (answers.feedback === "low") return Math.min(5.5, result.seed + 0.5);
+        if (answers.feedback === "high") return Math.max(1.5, result.seed - 0.5);
+        return null;
+      }
+
+      function confirmBlock(result) {
+        // Nothing to confirm for someone who told us their rating — they are the
+        // source, so asking whether our number sounds right is asking them about
+        // themselves twice.
+        if (result.declaredUsta !== null) return "";
+
+        if (!answers.feedback) {
+          return `
+            <div class="confirm">
+              <p class="confirm__q" id="confirm-q">NTRP ${accepted.band} — does that sound about right?</p>
+              <div class="confirm__opts" role="group" aria-labelledby="confirm-q">
+                <button type="button" data-feedback="low">Lower than I expected</button>
+                <button type="button" data-feedback="right">Sounds right</button>
+                <button type="button" data-feedback="high">Higher than I expected</button>
+              </div>
+            </div>
+          `;
+        }
+
+        // Answered and settled: they agreed, they took the half step, or they were
+        // offered it and kept ours. All three are done; only an unanswered nudge
+        // still has something to ask.
+        if (answers.feedback === "right" || accepted.declared || answers.feedback.endsWith("_kept")) {
+          return `<p class="confirm__done" role="status">Thanks — that helps us calibrate the quiz.</p>`;
+        }
+
+        const target = nudgeTarget(result);
+        return `
+          <div class="confirm">
+            <p class="confirm__q" id="confirm-q">Want to set it to ${fmtLevel(target)} instead?</p>
+            <div class="confirm__opts" role="group" aria-labelledby="confirm-q">
+              <button type="button" data-adjust="${target}">Yes, ${fmtLevel(target)}</button>
+              <button type="button" data-adjust="keep">No, keep ${fmtLevel(result.seed)}</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function fmtLevel(value) {
+        return value.toFixed(1);
+      }
+
       function renderResult() {
         const result = score();
+        if (!accepted) {
+          accepted = { seed: result.seed, band: result.band, confidence: result.confidence, declared: false };
+        }
+
         const payload = result.declaredUsta === null
           ? {
-              self_rated_seed: result.seed,
-              self_rating_source: "self_assessed",
+              self_rated_seed: accepted.seed,
+              // Their claim once they have moved it, ours until then.
+              self_rating_source: accepted.declared ? "self_declared" : "self_assessed",
               rating_quiz_answers: answers,
               rating_model_version: RATING_MODEL_VERSION,
             }
@@ -437,13 +507,14 @@ const faqSchema = {
         quiz.innerHTML = `
           <div class="res">
             <p class="lead">Based on your answers, you look like</p>
-            <p class="band">NTRP ${result.band}</p>
-            <span class="conf">${result.confidence}</span>
+            <p class="band">NTRP ${accepted.band}</p>
+            <span class="conf">${accepted.confidence}</span>
             <p class="why">${result.why}</p>
+            ${confirmBlock(result)}
             <div class="local">
               <h3>Playing in West LA?</h3>
               <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
-              <a class="btn solid" href="${appHref(result)}">Find options at this level</a>
+              <a class="btn solid" href="${appHref(accepted)}">Find options at this level</a>
             </div>
             <details class="save-preview">
               <summary>What the app saves if you sign in</summary>
@@ -453,8 +524,31 @@ const faqSchema = {
           </div>
         `;
 
+        quiz.querySelectorAll("[data-feedback]").forEach((button) => {
+          button.addEventListener("click", () => {
+            // Recorded, not applied. When the completion event ships, this rides
+            // along with level, confidence and pool — it is the calibration signal.
+            answers.feedback = button.dataset.feedback;
+            renderResult();
+          });
+        });
+
+        quiz.querySelectorAll("[data-adjust]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (button.dataset.adjust !== "keep") {
+              const seed = Number(button.dataset.adjust);
+              accepted = { seed, band: bandLabel(seed), confidence: "Self-declared", declared: true };
+            } else {
+              accepted = { ...accepted, declared: false };
+              answers.feedback = answers.feedback === "low" ? "low_kept" : "high_kept";
+            }
+            renderResult();
+          });
+        });
+
         quiz.querySelector(".level-reset").addEventListener("click", () => {
           answers = {};
+          accepted = null;
           index = 0;
           renderQuestion();
         });
@@ -733,6 +827,60 @@ const faqSchema = {
     color: var(--level-muted);
     font-size: .9rem;
     line-height: 1.55;
+  }
+
+  /* The confirmation that replaced the comparison question. Styled off the same
+     tokens as the quiz options so the result screen does not introduce a new
+     button language. */
+  :global(.confirm) {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--level-line);
+  }
+
+  :global(.confirm__q) {
+    margin: 0 0 10px;
+    color: var(--level-ink);
+    font-size: .92rem;
+    font-weight: 700;
+  }
+
+  :global(.confirm__opts) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :global(.confirm__opts button) {
+    flex: 1 1 auto;
+    border: 1px solid var(--level-line);
+    border-radius: 999px;
+    padding: 9px 14px;
+    color: var(--level-ink);
+    background: #fff;
+    font: inherit;
+    font-size: .86rem;
+    cursor: pointer;
+  }
+
+  :global(.confirm__opts button:hover) {
+    border-color: var(--level-purple);
+    color: var(--level-purple-dark);
+  }
+
+  /* The page sets no focus styles anywhere, so these keep the browser's ring
+     rather than replacing it with something less visible. */
+  :global(.confirm__opts button:focus-visible) {
+    outline: 2px solid var(--level-purple);
+    outline-offset: 2px;
+  }
+
+  :global(.confirm__done) {
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--level-line);
+    color: var(--level-muted);
+    font-size: .86rem;
   }
 
   :global(.local) {
