@@ -2,6 +2,9 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import { CONTACT_EMAIL } from "../lib/site";
+
+const contactEmail = CONTACT_EMAIL;
 
 const title = "What's My Tennis Level? Free NTRP Rating Quiz | The Tennis Plan";
 // No question count in the copy: the paths are different lengths — the beginner
@@ -93,6 +96,28 @@ const quizQuestions: QuizQuestion[] = [
       { id: "r3", label: "I construct points and handle real pace" },
     ],
   },
+];
+
+/**
+ * Where and when, asked after the result rather than as questions six and seven.
+ *
+ * The ids are what travel; the labels are what people read. A display string in a
+ * URL is a string that breaks the moment the copy is edited, and these ids are
+ * about to be read by the destination page.
+ */
+const areas = [
+  { id: "mar-vista", label: "Mar Vista" },
+  { id: "santa-monica", label: "Santa Monica" },
+  { id: "culver-city", label: "Culver City" },
+  { id: "venice", label: "Venice" },
+  { id: "westwood", label: "Westwood" },
+  { id: "somewhere-else", label: "Somewhere else" },
+];
+
+const times = [
+  { id: "mornings", label: "Mornings" },
+  { id: "evenings", label: "Evenings" },
+  { id: "weekends", label: "Weekends" },
 ];
 
 /**
@@ -252,7 +277,7 @@ const faqSchema = {
     <Footer wide />
   </div>
 
-  <script is:inline define:vars={{ quizQuestions }}>
+  <script is:inline define:vars={{ quizQuestions, areas, times, contactEmail }}>
     (() => {
       const RATING_MODEL_VERSION = 2;
       const quiz = document.getElementById("quiz");
@@ -461,16 +486,49 @@ const faqSchema = {
         });
       }
 
+      /**
+       * The confidence we are handing on, as a stable slug rather than the sentence
+       * we print. A consumer needs it to know whether to show a range at all: a
+       * declared 4.0 has no uncertainty to display, and re-deriving that downstream
+       * would mean guessing from information that is not in the URL.
+       */
+      const CONFIDENCE_SLUG = {
+        "Estimated": "estimated",
+        "Self-declared": "self_declared",
+        "Starting out": "starting_out",
+      };
+
+      /**
+       * What the player takes with them.
+       *
+       * `level` is the half step and nothing else — one format on every path,
+       * declared and beginner exits included. It used to be the band: "3.5-4.0" on
+       * one path, "4.0" on another, "1.5-2.0" on a third, which made every consumer
+       * parse a string and decide which end was meant. Our divisions are 3.5 or 4.0,
+       * never 3.5-4.0, so each of those guesses was a chance for the app and this
+       * page to disagree about the same player.
+       *
+       * `band` is presentation. It stays on the screen and goes nowhere near a URL.
+       *
+       * Everything else is omitted when it was never answered, rather than sent
+       * empty — an absent param says "not asked", an empty one says "asked and
+       * blank", and they are different facts.
+       */
       function appHref(settled) {
-        const params = new URLSearchParams({
-          level: settled.band,
-          src: "quiz",
-          rating_model_version: String(RATING_MODEL_VERSION),
-        });
-        // Which division this routes to. Nothing reads it yet; it costs nothing to
-        // send and the alternative is re-asking later. Omitted rather than guessed
-        // when the question was not reached.
-        if (answers.pool) params.set("divisions", answers.pool === "w" ? "womens" : "mens");
+        const params = new URLSearchParams({ level: fmtLevel(settled.seed) });
+
+        const confidence = CONFIDENCE_SLUG[settled.confidence];
+        if (confidence) params.set("confidence", confidence);
+        if (answers.feedback) params.set("feedback", answers.feedback);
+        if (answers.pool) {
+          params.set("pool", answers.pool);
+          params.set("divisions", answers.pool === "w" ? "womens" : "mens");
+        }
+        if (answers.area) params.set("area", answers.area);
+        if (answers.when) params.set("when", answers.when);
+
+        params.set("src", "quiz");
+        params.set("rating_model_version", String(RATING_MODEL_VERSION));
         return `https://app.thetennisplan.com/#/?${params.toString()}`;
       }
 
@@ -488,6 +546,69 @@ const faqSchema = {
        * their claim.
        */
       let accepted = null;
+
+      /**
+       * What we keep between visits, and why it is worth keeping.
+       *
+       * The destination page being built next lives on this same origin, so it can
+       * read this directly — someone who takes the quiz today and comes back next
+       * week still has their level without carrying a URL around. If that page had
+       * lived in the app it would be a different origin and nothing but the query
+       * string would survive.
+       *
+       * Versioned twice over: STORE_VERSION for the shape, rating_model_version for
+       * the rubric. A stored level from a different rubric is not this quiz's answer
+       * and is discarded rather than shown back to someone as theirs.
+       *
+       * Every access is wrapped: localStorage throws outright in some private
+       * browsing modes, and a quiz that cannot remember must still work.
+       */
+      const STORE_KEY = "ttp.levelQuiz";
+      const STORE_VERSION = 1;
+
+      function readStored() {
+        try {
+          const raw = window.localStorage.getItem(STORE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.v !== STORE_VERSION) return null;
+          if (parsed.rating_model_version !== RATING_MODEL_VERSION) {
+            window.localStorage.removeItem(STORE_KEY);
+            return null;
+          }
+          if (typeof parsed.level !== "number") return null;
+          return parsed;
+        } catch {
+          return null;
+        }
+      }
+
+      function writeStored() {
+        if (!accepted) return;
+        try {
+          window.localStorage.setItem(STORE_KEY, JSON.stringify({
+            v: STORE_VERSION,
+            rating_model_version: RATING_MODEL_VERSION,
+            level: accepted.seed,
+            confidence: CONFIDENCE_SLUG[accepted.confidence] || null,
+            pool: answers.pool || null,
+            feedback: answers.feedback || null,
+            area: answers.area || null,
+            when: answers.when || null,
+            saved_at: new Date().toISOString(),
+          }));
+        } catch {
+          // No store available. The run still works; it just will not be remembered.
+        }
+      }
+
+      function clearStored() {
+        try {
+          window.localStorage.removeItem(STORE_KEY);
+        } catch {
+          // Nothing to do — see writeStored.
+        }
+      }
 
       function nudgeTarget(result) {
         if (answers.feedback === "low") return Math.min(5.5, result.seed + 0.5);
@@ -537,8 +658,95 @@ const faqSchema = {
         return value.toFixed(1);
       }
 
+      const labelOf = (list, id) => (list.find((entry) => entry.id === id) || {}).label;
+
+      function chips(list, key) {
+        return list.map((entry) => `
+          <button type="button" class="chip${answers[key] === entry.id ? " chip--on" : ""}"
+                  data-pick="${key}" data-value="${entry.id}"
+                  aria-pressed="${answers[key] === entry.id ? "true" : "false"}">${entry.label}</button>
+        `).join("");
+      }
+
+      /**
+       * Place and time, shown once the confirmation is settled so only one thing is
+       * ever asked at a time. Both optional: neither gates the button below them,
+       * and tapping a chosen chip clears it.
+       */
+      function pickers() {
+        if (!settledConfirmation()) return "";
+        return `
+          <div class="picks">
+            <p class="picks__q" id="pick-area">Where do you play?</p>
+            <div class="picks__row" role="group" aria-labelledby="pick-area">${chips(areas, "area")}</div>
+            <p class="picks__q" id="pick-when">When, usually?</p>
+            <div class="picks__row" role="group" aria-labelledby="pick-when">${chips(times, "when")}</div>
+          </div>
+        `;
+      }
+
+      function settledConfirmation() {
+        return Boolean(answers.feedback) &&
+          (answers.feedback === "right" || accepted.declared || answers.feedback.endsWith("_kept"));
+      }
+
+      /**
+       * The panel under the result. Out of area gets its own, because the green one
+       * promises players, classes and coaches we do not have outside West LA — and
+       * promising them anyway is how a page like this loses the person it just
+       * helped. Their level is theirs either way; the offer is the only thing that
+       * changes.
+       */
+      function ctaPanel() {
+        if (answers.area === "somewhere-else") {
+          return `
+            <div class="local local--away">
+              <h3>We're West LA only, for now</h3>
+              <p>Our leagues, classes and coaches are all in West Los Angeles at the moment. Tell us where you play and we'll let you know when we get there — your level is yours to keep either way.</p>
+              <form class="away-form" name="level-quiz-waitlist" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+                <input type="hidden" name="form-name" value="level-quiz-waitlist" />
+                <p class="away-form__hp"><label>Leave this empty <input name="bot-field" tabindex="-1" /></label></p>
+                <input type="hidden" name="level" value="${fmtLevel(accepted.seed)}" />
+                <label class="away-form__label" for="away-email">Your email</label>
+                <div class="away-form__row">
+                  <input id="away-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" />
+                  <button class="btn solid" type="submit">Keep me posted</button>
+                </div>
+                <p class="away-form__note" data-away-note aria-live="polite"></p>
+              </form>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="local">
+            <h3>Playing in West LA?</h3>
+            <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
+            <a class="btn solid" href="${appHref(accepted)}">Find options at this level</a>
+          </div>
+        `;
+      }
+
+      /**
+       * A resumed run has no answers to score — this visit never asked the questions.
+       * The stored result is pinned so that re-renders (picking a neighbourhood, say)
+       * keep showing it instead of scoring an empty answer set.
+       */
+      let pinned = null;
+
+      function renderStoredResult() {
+        pinned = {
+          seed: accepted.seed,
+          band: accepted.band,
+          confidence: accepted.confidence,
+          why: "This is the level you landed on last time. Take it again if your game has moved.",
+          declaredUsta: accepted.declared ? accepted.seed : null,
+        };
+        renderResult();
+      }
+
       function renderResult() {
-        const result = score();
+        const result = pinned || score();
         if (!accepted) {
           accepted = { seed: result.seed, band: result.band, confidence: result.confidence, declared: false };
         }
@@ -560,11 +768,8 @@ const faqSchema = {
             <span class="conf">${accepted.confidence}</span>
             <p class="why">${result.why}</p>
             ${confirmBlock(result)}
-            <div class="local">
-              <h3>Playing in West LA?</h3>
-              <p>Save your level and we'll show you players, classes, coaches, and league divisions that actually fit.</p>
-              <a class="btn solid" href="${appHref(accepted)}">Find options at this level</a>
-            </div>
+            ${pickers()}
+            ${ctaPanel()}
             <details class="save-preview">
               <summary>What the app saves if you sign in</summary>
               <pre>${JSON.stringify(payload, null, 2)}</pre>
@@ -595,13 +800,111 @@ const faqSchema = {
           });
         });
 
+        quiz.querySelectorAll("[data-pick]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const key = button.dataset.pick;
+            // Tapping the chosen one clears it: these are optional, and an answer you
+            // cannot take back is not optional.
+            answers[key] = answers[key] === button.dataset.value ? undefined : button.dataset.value;
+            renderResult();
+          });
+        });
+
+        const awayForm = quiz.querySelector(".away-form");
+        if (awayForm) {
+          awayForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const note = awayForm.querySelector("[data-away-note]");
+            const email = awayForm.querySelector("#away-email").value.trim();
+            if (!email) return;
+            try {
+              const response = await fetch("/", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(new FormData(awayForm)).toString(),
+              });
+              if (!response.ok) throw new Error(String(response.status));
+              note.textContent = "Thanks — we'll be in touch when we reach you.";
+            } catch {
+              // Never swallow it. If the post fails, hand them a way to reach us that
+              // cannot fail, with the details already filled in.
+              const subject = encodeURIComponent("Tennis Plan — let me know when you reach my area");
+              const body = encodeURIComponent(`I came out at NTRP ${fmtLevel(accepted.seed)} on the level quiz.\n\nEmail: ${email}\n\nI play in: `);
+              note.innerHTML = `That didn't send. <a href="mailto:${contactEmail}?subject=${subject}&body=${body}">Email us instead</a> and we'll add you.`;
+            }
+          });
+        }
+
+        writeStored();
+
         quiz.querySelector(".level-reset").addEventListener("click", () => {
           answers = {};
           accepted = null;
+          pinned = null;
           index = 0;
+          clearStored();
           renderQuestion();
         });
       }
+
+      /**
+       * A returning visitor is offered what they got last time instead of five
+       * questions they have already answered. Retaking is one tap and sits right
+       * next to it — a resume that hides the way back is worse than no resume.
+       */
+      function renderResume(stored) {
+        const band = stored.confidence === "self_declared"
+          ? fmtLevel(stored.level)
+          : stored.confidence === "starting_out"
+            ? "1.5-2.0"
+            : bandLabel(stored.level);
+
+        quiz.innerHTML = `
+          <div class="resume">
+            <p class="lead">Last time you came out at</p>
+            <p class="band">NTRP ${band}</p>
+            <p class="why">Still right? Pick up where you left off, or start again from the first question.</p>
+            <div class="confirm__opts" role="group">
+              <button class="btn solid" type="button" data-resume>Yes, that's still me</button>
+              <button type="button" data-restart>Take it again</button>
+            </div>
+          </div>
+        `;
+
+        quiz.querySelector("[data-resume]").addEventListener("click", () => {
+          answers = {
+            pool: stored.pool || undefined,
+            feedback: stored.feedback || undefined,
+            area: stored.area || undefined,
+            when: stored.when || undefined,
+          };
+          accepted = {
+            seed: stored.level,
+            band,
+            confidence: stored.confidence === "self_declared"
+              ? "Self-declared"
+              : stored.confidence === "starting_out"
+                ? "Starting out"
+                : "Estimated",
+            declared: stored.confidence === "self_declared",
+          };
+          // Rendered from the stored answer, so the scoring is not re-run over
+          // questions this visit never asked.
+          renderStoredResult();
+        });
+
+        quiz.querySelector("[data-restart]").addEventListener("click", () => {
+          answers = {};
+          accepted = null;
+          pinned = null;
+          index = 0;
+          clearStored();
+          renderQuestion();
+        });
+      }
+
+      const stored = readStored();
+      if (stored) renderResume(stored);
 
       quiz.addEventListener("click", (event) => {
         if (event.target.closest("[data-skip-to-usta]")) {
@@ -930,6 +1233,124 @@ const faqSchema = {
     border-top: 1px solid var(--level-line);
     color: var(--level-muted);
     font-size: .86rem;
+  }
+
+  /* Place and time. Chips rather than a list: two optional questions should read as
+     lighter than the five that came before them. */
+  :global(.picks) {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--level-line);
+  }
+
+  :global(.picks__q) {
+    margin: 0 0 8px;
+    color: var(--level-ink);
+    font-size: .9rem;
+    font-weight: 700;
+  }
+
+  :global(.picks__row) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  :global(.picks__row:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.chip) {
+    border: 1px solid var(--level-line);
+    border-radius: 999px;
+    padding: 7px 13px;
+    color: var(--level-ink);
+    background: #fff;
+    font: inherit;
+    font-size: .82rem;
+    cursor: pointer;
+  }
+
+  :global(.chip:hover) {
+    border-color: var(--level-purple);
+  }
+
+  :global(.chip--on) {
+    border-color: var(--level-purple);
+    color: #fff;
+    background: var(--level-purple);
+  }
+
+  :global(.chip:focus-visible),
+  :global(.resume [data-restart]:focus-visible) {
+    outline: 2px solid var(--level-purple);
+    outline-offset: 2px;
+  }
+
+  /* Out of area: deliberately not the green panel, which promises coaches and
+     classes we do not have there. */
+  :global(.local--away) {
+    border-color: var(--level-line);
+    background: var(--level-wash);
+  }
+
+  :global(.away-form) {
+    margin-top: 12px;
+  }
+
+  :global(.away-form__hp) {
+    position: absolute;
+    left: -9999px;
+  }
+
+  :global(.away-form__label) {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--level-muted);
+    font-size: .8rem;
+    font-weight: 700;
+  }
+
+  :global(.away-form__row) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :global(.away-form__row input) {
+    flex: 1 1 190px;
+    min-width: 0;
+    border: 1px solid var(--level-line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: .9rem;
+  }
+
+  :global(.away-form__row input:focus-visible) {
+    outline: 2px solid var(--level-purple);
+    outline-offset: 1px;
+  }
+
+  :global(.away-form__note:empty) {
+    display: none;
+  }
+
+  :global(.away-form__note) {
+    margin: 10px 0 0;
+    color: var(--level-muted);
+    font-size: .84rem;
+  }
+
+  :global(.resume [data-restart]) {
+    border: 1px solid var(--level-line);
+    border-radius: 999px;
+    padding: 9px 14px;
+    background: #fff;
+    font: inherit;
+    font-size: .86rem;
+    cursor: pointer;
   }
 
   :global(.local) {

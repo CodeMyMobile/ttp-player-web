@@ -201,3 +201,49 @@ test("every scored quiz answer has a weight", async () => {
     assert.ok(questions.some((question) => question.key === key), `coefficient "${key}" has no question`);
   }
 });
+
+/**
+ * The handoff to whatever reads the quiz's result. These assert the built page
+ * because the contract is the URL and the stored record, not the internals.
+ */
+test("the outbound link carries the half step, never the band", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+  const href = html.slice(html.indexOf("function appHref"), html.indexOf("function renderStoredResult"));
+
+  // `band` is presentation: "3.5-4.0" on one path, "4.0" on another, "1.5-2.0" on a
+  // third. Emitting it made every consumer parse a string and guess which end was
+  // meant, and our divisions are 3.5 or 4.0 — never 3.5-4.0.
+  assert.match(href, /level: fmtLevel\(settled\.seed\)/);
+  assert.doesNotMatch(href, /settled\.band/);
+
+  for (const param of ["confidence", "feedback", "pool", "divisions", "area", "when", "src", "rating_model_version"]) {
+    assert.match(href, new RegExp(`"${param}"`), `${param} is emitted`);
+  }
+});
+
+test("place and time travel as slugs, not display strings", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+  const areas = JSON.parse(html.match(/const areas = (\[.*?\]);/s)[1]);
+  const times = JSON.parse(html.match(/const times = (\[.*?\]);/s)[1]);
+
+  assert.deepEqual(areas.map((a) => a.id),
+    ["mar-vista", "santa-monica", "culver-city", "venice", "westwood", "somewhere-else"]);
+  assert.deepEqual(times.map((t) => t.id), ["mornings", "evenings", "weekends"]);
+  // A label in a URL is a URL that breaks when the copy is edited.
+  for (const entry of [...areas, ...times]) {
+    assert.notEqual(entry.id, entry.label, `${entry.label} travels as a slug`);
+  }
+});
+
+test("the stored answer is versioned twice and never assumed readable", async () => {
+  const html = await readFile(new URL("../dist/what-is-my-tennis-level/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /const STORE_VERSION = 1/);
+  // The shape and the rubric are versioned separately: a level scored by a different
+  // rubric is not this quiz's answer and must not be shown back as theirs.
+  assert.match(html, /parsed\.rating_model_version !== RATING_MODEL_VERSION/);
+  // localStorage throws outright in some private modes, so every access is guarded.
+  const reads = html.slice(html.indexOf("function readStored"), html.indexOf("function clearStored"));
+  assert.match(reads, /try \{/);
+  assert.match(reads, /catch/);
+});
