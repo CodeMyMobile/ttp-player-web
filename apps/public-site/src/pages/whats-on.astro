@@ -1,0 +1,726 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { loginHref } from "../lib/appLinks";
+
+const title = "Tennis at Your Level in West LA | The Tennis Plan";
+const description =
+  "Find open matches, group classes, flex leagues, and coaches around your NTRP level across West LA. Browse without an account.";
+
+const whatsOnApiUrl =
+  import.meta.env.PUBLIC_WHATS_ON_API_URL ||
+  "https://api.thetennisplan.com/api/public/whats-on";
+
+const levels = ["2.5", "3.0", "3.5", "4.0", "4.5", "5.0"];
+const divisions = [
+  ["mens", "Men's"],
+  ["womens", "Women's"],
+];
+const areas = [
+  ["mar-vista", "Mar Vista"],
+  ["cheviot-hills", "Cheviot Hills"],
+  ["santa-monica", "Santa Monica"],
+  ["culver-city", "Culver City"],
+  ["venice", "Venice"],
+  ["westwood", "Westwood"],
+  ["west-la", "West LA"],
+  ["del-rey", "Del Rey"],
+];
+const whens = [
+  ["mornings", "Mornings"],
+  ["evenings", "Evenings"],
+  ["weekends", "Weekends"],
+];
+
+const classes = [
+  { t: "Intermediate drills and points", v: "Penmar", d: "Tue 6:30pm", c: "Coach Sal", p: "$28", lvl: "3.5", area: "mar-vista", when: "evenings" },
+  { t: "Morning cardio tennis", v: "Mar Vista Rec", d: "Wed 8:00am", c: "Coach Dana", p: "$22", lvl: "3.5", area: "mar-vista", when: "mornings" },
+  { t: "Serve and return clinic", v: "Stoner Park", d: "Sat 9:00am", c: "Coach Paul", p: "$30", lvl: "4.0", area: "westwood", when: "weekends" },
+  { t: "Beginner basics", v: "Penmar", d: "Mon 7:00pm", c: "Coach Sal", p: "$22", lvl: "2.5", area: "mar-vista", when: "evenings" },
+];
+
+const leagues = [
+  { t: "Men's 3.5 Fall Flex League", lvl: "3.5", div: "mens", spots: 3, n: "16 players · Sep-Nov · $5" },
+  { t: "Men's 4.0 Fall Flex League", lvl: "4.0", div: "mens", spots: 5, n: "16 players · Sep-Nov · $5" },
+  { t: "Men's 4.5 Fall Flex League", lvl: "4.5", div: "mens", spots: 2, n: "12 players · Sep-Nov · $5" },
+  { t: "Women's 3.5 Fall Flex League", lvl: "3.5", div: "womens", spots: 4, n: "16 players · Sep-Nov · $5" },
+  { t: "Women's 4.0 Fall Flex League", lvl: "4.0", div: "womens", spots: 6, n: "13 players · Sep-Nov · $5" },
+];
+---
+
+<BaseLayout {title} {description} canonicalPath="/whats-on">
+  <div class="whats-on">
+    <Header next="/whats-on" />
+    <main id="main">
+      <section class="wo-top">
+        <div class="wo-shell">
+          <span class="wo-eyebrow" id="eyebrow">Browsing · <b>NTRP 3.5</b></span>
+          <h1 id="h1">Tennis at 3.5 in Mar Vista</h1>
+          <p class="wo-sub">Open matches you can join, classes pitched at your level, and league divisions with spots left. Nothing here needs an account.</p>
+          <div class="wo-filters" aria-label="Filter what's on">
+            <div><div class="wo-filter-label">Level</div><div class="wo-chips" id="f-level"></div></div>
+            <div><div class="wo-filter-label">Division</div><div class="wo-chips" id="f-div"></div></div>
+            <div><div class="wo-filter-label">Area</div><div class="wo-chips" id="f-area"></div></div>
+            <div><div class="wo-filter-label">When</div><div class="wo-chips" id="f-when"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wo-block">
+        <div class="wo-shell">
+          <div class="wo-head"><h2>Open matches</h2><span class="wo-count" id="c-matches"></span></div>
+          <p class="wo-lede">Matches already arranged with spots left. Nobody has to approve you first; you just take a spot.</p>
+          <div class="wo-grid" id="matches" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="wo-block wo-block--alt">
+        <div class="wo-shell">
+          <div class="wo-people">
+            <div class="wo-people__number" id="p-count">-</div>
+            <div class="wo-people__copy">
+              <h3 id="p-head">players at your level near Mar Vista</h3>
+              <p id="p-sub">Arrange your own match rather than joining one. Create an account to see who's around and message them.</p>
+            </div>
+            <button class="wo-btn wo-btn--solid" data-dt="See players at your level" data-dw="Players choose whether they're visible, so you'll need an account to see who's around and message them. We'll save your level at the same time.">See who's playing</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="wo-block">
+        <div class="wo-shell">
+          <div class="wo-head"><h2>Group classes</h2><span class="wo-count" id="c-classes"></span></div>
+          <p class="wo-lede">Small groups with invited coaches at public courts across West LA.</p>
+          <div class="wo-grid" id="classes"></div>
+        </div>
+      </section>
+
+      <section class="wo-block wo-block--alt">
+        <div class="wo-shell">
+          <div class="wo-head"><h2>Flex leagues</h2><span class="wo-count" id="c-leagues"></span></div>
+          <p class="wo-lede">Sixteen players a division, matches arranged on your own schedule over the season.</p>
+          <div class="wo-grid" id="leagues"></div>
+        </div>
+      </section>
+
+      <section class="wo-block">
+        <div class="wo-shell">
+          <div class="wo-coaches">
+            <div>
+              <h2>Working on your game?</h2>
+              <p>Invited coaches teach across Mar Vista, Santa Monica, Culver City, Venice, Cheviot Hills, Westwood, and Del Rey. Browse them without an account.</p>
+            </div>
+            <a class="wo-btn wo-btn--solid" href="/tennis-coaches">Browse coaches</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="wo-savebar">
+      <div class="wo-shell">
+        <p>Browsing as a guest. <b>Nothing saved yet.</b> Keep your level so this page is waiting next time.</p>
+        <button class="wo-btn wo-btn--solid" data-dt="Save your level" data-dw="We'll keep your level on your profile so this page is ready for you next time.">Save my level</button>
+      </div>
+    </div>
+
+    <Footer />
+
+    <div class="wo-scrim" id="scrim"></div>
+    <div class="wo-drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
+      <div class="wo-drawer__grab"></div>
+      <h3 id="dtitle"></h3>
+      <p id="dwhy"></p>
+      <a class="wo-btn" href={loginHref("/whats-on")}>Continue with Google</a>
+      <a class="wo-btn wo-btn--solid" href={loginHref("/whats-on")}>Continue with email</a>
+      <p class="wo-drawer__fine">Already have an account? <a href={loginHref("/whats-on")}>Sign in</a></p>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ whatsOnApiUrl, levels, divisions, areas, whens, classes, leagues }}>
+    const F = { level: "3.5", div: null, area: "mar-vista", when: null };
+    const state = { matches: [], playersCount: null, loading: false, error: null };
+    const q = new URLSearchParams(location.search);
+
+    if (q.get("level")) F.level = q.get("level");
+    if (q.get("divisions")) F.div = q.get("divisions");
+    if (q.get("division")) F.div = q.get("division");
+    if (q.get("area")) F.area = q.get("area");
+    if (q.get("when")) F.when = q.get("when");
+
+    const label = (list, id) => {
+      const found = list.find((item) => item[0] === id);
+      return found ? found[1] : id;
+    };
+    const up = (level) => {
+      const next = Number.parseFloat(level) + 0.5;
+      return next <= 5 ? next.toFixed(1) : null;
+    };
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+    function chips(elId, list, key, plain = false) {
+      const el = document.getElementById(elId);
+      el.innerHTML = list.map((item) => {
+        const id = plain ? item : item[0];
+        const text = plain ? item : item[1];
+        return `<button class="wo-chip${F[key] === id ? " is-on" : ""}" type="button" data-k="${key}" data-v="${id}">${escapeHtml(text)}</button>`;
+      }).join("");
+    }
+
+    function authReason(action) {
+      return `${action} You'll need an account so we can save your NTRP ${escapeHtml(F.level)} and take you back to the right place.`;
+    }
+
+    function empty(title, body, labelText) {
+      return `<div class="wo-empty"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(body)}</p><button class="wo-btn wo-btn--solid" data-dt="${escapeHtml(labelText)}" data-dw="${escapeHtml(authReason(""))}">${escapeHtml(labelText)}</button></div>`;
+    }
+
+    function renderShell() {
+      chips("f-level", levels, "level", true);
+      chips("f-div", divisions, "div");
+      chips("f-area", areas, "area");
+      chips("f-when", whens, "when");
+
+      const areaName = F.area ? label(areas, F.area) : "West LA";
+      document.getElementById("h1").textContent = `Tennis at ${F.level} in ${areaName}`;
+      document.getElementById("eyebrow").innerHTML = q.get("src") === "quiz"
+        ? `From your level quiz · <b>NTRP ${escapeHtml(F.level)}</b>`
+        : `Browsing · <b>NTRP ${escapeHtml(F.level)}</b>`;
+    }
+
+    function renderMatches() {
+      const areaName = F.area ? label(areas, F.area) : "West LA";
+      const count = state.matches.length;
+      document.getElementById("c-matches").textContent = count ? `${count} with spots left` : "";
+      if (state.loading) {
+        document.getElementById("matches").innerHTML = empty("Loading open matches", "Checking what's open at this level now.", "Notify me");
+        return;
+      }
+      if (state.error) {
+        document.getElementById("matches").innerHTML = empty("Open matches are temporarily unavailable", "Classes, leagues, and coaches are still here while this refreshes.", "Tell me when one opens");
+        return;
+      }
+      document.getElementById("matches").innerHTML = count
+        ? state.matches.map((match) => {
+            const capacity = match.capacity || {};
+            const open = capacity.open ?? 0;
+            const limit = capacity.limit ?? "?";
+            const low = Number(open) <= 1;
+            const min = match.skill_level_min ?? F.level;
+            const max = match.skill_level_max ?? F.level;
+            const range = String(min) === String(max) ? min : `${min}-${max}`;
+            return `<article class="wo-card">
+              <h3>${escapeHtml(match.match_format || "Match")} · ${escapeHtml(range)}</h3>
+              <p class="wo-card__meta">${escapeHtml(match.day_time_band || "Time TBD")} · ${escapeHtml(match.general_area || `${areaName} area`)}</p>
+              <p class="wo-spots${low ? " wo-spots--low" : ""}"><b>${escapeHtml(open)} of ${escapeHtml(limit)}</b> spots open</p>
+              <div class="wo-foot"><span class="wo-badge wo-badge--fmt">${escapeHtml(match.match_format || "Match")}</span><button class="wo-btn" data-dt="Take a spot in this match" data-dw="${escapeHtml(authReason("To join a match,"))}">Take a spot</button></div>
+            </article>`;
+          }).join("")
+        : empty(`No open matches at ${F.level} in ${areaName}`, "Try a nearby area, or ask us to tell you when one opens.", "Tell me when one opens");
+    }
+
+    function renderPlayers() {
+      const areaName = F.area ? label(areas, F.area) : "West LA";
+      const count = state.playersCount;
+      document.getElementById("p-count").textContent = count === null ? "-" : String(count);
+      document.getElementById("p-head").textContent = count === 1
+        ? `player at ${F.level} near ${areaName}`
+        : `players at your level near ${areaName}`;
+    }
+
+    function renderClasses() {
+      const areaName = F.area ? label(areas, F.area) : "West LA";
+      const filtered = classes.filter((item) => (
+        item.lvl === F.level && (!F.area || item.area === F.area) && (!F.when || item.when === F.when)
+      ));
+      document.getElementById("c-classes").textContent = filtered.length ? `${filtered.length} at your level` : "";
+      document.getElementById("classes").innerHTML = filtered.length
+        ? filtered.map((item) => `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.v)} · ${escapeHtml(item.d)} · ${escapeHtml(item.c)} · ${escapeHtml(item.p)}</p><div class="wo-foot"><span class="wo-badge wo-badge--match">Built for ${escapeHtml(item.lvl)}</span><button class="wo-btn" data-dt="Book this class" data-dw="${escapeHtml(authReason("To book,"))}">Book</button></div></article>`).join("")
+        : empty(`No classes at ${F.level} in ${areaName}`, "Try a nearby area, or register interest so coaches know what to open next.", "Register interest");
+    }
+
+    function renderLeagues() {
+      const exact = leagues.filter((item) => item.lvl === F.level && (!F.div || item.div === F.div));
+      const stretchLevel = up(F.level);
+      const stretch = leagues.filter((item) => item.lvl === stretchLevel && (!F.div || item.div === F.div));
+      const all = exact.concat(stretch);
+      document.getElementById("c-leagues").textContent = all.length ? `${all.length} open` : "";
+      document.getElementById("leagues").innerHTML = all.length
+        ? all.map((item) => {
+            const isStretch = item.lvl !== F.level;
+            return `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.n)}</p><p class="wo-spots${item.spots <= 2 ? " wo-spots--low" : ""}"><b>${item.spots}</b> spots left</p><div class="wo-foot"><span class="wo-badge ${isStretch ? "wo-badge--stretch" : "wo-badge--match"}">${isStretch ? "Half a level up" : "Your level"}</span><button class="wo-btn" data-dt="Join this division" data-dw="${escapeHtml(authReason("To join a division,"))}">Join</button></div></article>`;
+          }).join("")
+        : empty(`No ${F.level} division running yet`, "We add divisions where there's demand. Join the waitlist and you'll be first to know.", "Join the waitlist");
+    }
+
+    function render() {
+      renderShell();
+      renderMatches();
+      renderPlayers();
+      renderClasses();
+      renderLeagues();
+    }
+
+    async function fetchGuestPayload() {
+      const params = new URLSearchParams();
+      params.set("level", F.level);
+      if (F.div) params.set("divisions", F.div);
+      if (F.area) params.set("area", F.area);
+      if (F.when) params.set("when", F.when);
+
+      state.loading = true;
+      state.error = null;
+      render();
+
+      try {
+        const response = await fetch(`${whatsOnApiUrl}?${params.toString()}`, { headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error(`whats-on ${response.status}`);
+        const payload = await response.json();
+        state.matches = Array.isArray(payload.matches) ? payload.matches : [];
+        state.playersCount = Number.isFinite(Number(payload.players?.count)) ? Number(payload.players.count) : 0;
+      } catch (error) {
+        state.matches = [];
+        state.playersCount = null;
+        state.error = error;
+      } finally {
+        state.loading = false;
+        render();
+      }
+    }
+
+    function openDrawer(title, why) {
+      document.getElementById("dtitle").textContent = title;
+      document.getElementById("dwhy").textContent = why;
+      document.getElementById("scrim").classList.add("is-open");
+      document.getElementById("drawer").classList.add("is-open");
+    }
+
+    function closeDrawer() {
+      document.getElementById("scrim").classList.remove("is-open");
+      document.getElementById("drawer").classList.remove("is-open");
+    }
+
+    document.addEventListener("click", (event) => {
+      const chip = event.target.closest(".wo-chip");
+      if (chip) {
+        const key = chip.dataset.k;
+        F[key] = F[key] === chip.dataset.v && key !== "level" ? null : chip.dataset.v;
+        fetchGuestPayload();
+        return;
+      }
+      const action = event.target.closest("[data-dt]");
+      if (action) openDrawer(action.dataset.dt, action.dataset.dw);
+      if (event.target.id === "scrim") closeDrawer();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDrawer();
+    });
+
+    fetchGuestPayload();
+  </script>
+</BaseLayout>
+
+<style is:global>
+  .whats-on {
+    --wo-ink: #12141c;
+    --wo-ink-2: #40465a;
+    --wo-ink-3: #727a90;
+    --wo-line: #e5e7ef;
+    --wo-paper: #ffffff;
+    --wo-wash: #f7f8fb;
+    --wo-purple: #7c5cf5;
+    --wo-purple-ink: #5b3ad4;
+    --wo-purple-wash: #f1edfe;
+    --wo-green-wash: #ecfaf0;
+    --wo-green-ink: #15794a;
+    --wo-amber-wash: #fdf3e3;
+    --wo-amber-ink: #8a5a0b;
+    color: var(--wo-ink);
+    background: var(--wo-paper);
+  }
+
+  .wo-shell {
+    width: 100%;
+    max-width: calc(1180px + var(--shell-gutter) * 2);
+    margin-inline: auto;
+    padding-inline: calc(var(--shell-gutter) + env(safe-area-inset-left, 0px)) calc(var(--shell-gutter) + env(safe-area-inset-right, 0px));
+  }
+
+  .wo-top {
+    padding: 34px 0 26px;
+    color: #fff;
+    background: #0e1220;
+  }
+
+  .wo-eyebrow {
+    display: inline-block;
+    margin-bottom: 12px;
+    border: 1px solid rgb(255 255 255 / 28%);
+    border-radius: 999px;
+    padding: 5px 13px;
+    color: #edeff7;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+
+  .wo-eyebrow b { color: #9be24e; }
+
+  .wo-top h1 {
+    margin: 0;
+    max-width: 800px;
+    font-size: clamp(1.9rem, 4vw, 2.7rem);
+    letter-spacing: 0;
+    line-height: 1.12;
+  }
+
+  .wo-sub {
+    max-width: 62ch;
+    margin: 11px 0 0;
+    color: #b9bece;
+    font-size: .96rem;
+    line-height: 1.6;
+  }
+
+  .wo-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+    border-top: 1px solid rgb(255 255 255 / 16%);
+    padding-top: 18px;
+  }
+
+  .wo-filter-label {
+    margin-bottom: 7px;
+    color: #a8adbd;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .wo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .wo-chip {
+    border: 1px solid rgb(255 255 255 / 22%);
+    border-radius: 999px;
+    padding: 6px 12px;
+    color: #d7dae4;
+    background: transparent;
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .wo-chip:hover,
+  .wo-chip.is-on {
+    border-color: var(--wo-purple);
+    color: #fff;
+    background: var(--wo-purple);
+  }
+
+  .wo-block {
+    border-bottom: 1px solid var(--wo-line);
+    padding: 40px 0;
+  }
+
+  .wo-block--alt { background: var(--wo-wash); }
+
+  .wo-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .wo-head h2,
+  .wo-coaches h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    letter-spacing: 0;
+    line-height: 1.15;
+  }
+
+  .wo-count {
+    color: var(--wo-ink-3);
+    font-size: .85rem;
+    font-weight: 700;
+  }
+
+  .wo-lede {
+    max-width: 64ch;
+    margin: 0 0 18px;
+    color: var(--wo-ink-2);
+    font-size: .92rem;
+    line-height: 1.6;
+  }
+
+  .wo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .wo-card,
+  .wo-empty,
+  .wo-coaches {
+    border: 1px solid var(--wo-line);
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .wo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-height: 178px;
+    padding: 16px;
+  }
+
+  .wo-card h3,
+  .wo-empty h3,
+  .wo-people h3,
+  .wo-drawer h3 {
+    margin: 0;
+    font-size: 1rem;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .wo-card__meta {
+    margin: 0;
+    color: var(--wo-ink-3);
+    font-size: .84rem;
+    line-height: 1.55;
+  }
+
+  .wo-spots {
+    margin: 0;
+    color: var(--wo-ink-2);
+    font-size: .84rem;
+    font-weight: 700;
+  }
+
+  .wo-spots b { color: var(--wo-green-ink); }
+  .wo-spots--low b { color: var(--wo-amber-ink); }
+
+  .wo-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+  }
+
+  .wo-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: .72rem;
+    font-weight: 800;
+  }
+
+  .wo-badge--match { color: var(--wo-green-ink); background: var(--wo-green-wash); }
+  .wo-badge--stretch { color: var(--wo-amber-ink); background: var(--wo-amber-wash); }
+  .wo-badge--fmt { color: var(--wo-purple-ink); background: var(--wo-purple-wash); }
+
+  .wo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--wo-line);
+    border-radius: 8px;
+    padding: 8px 15px;
+    color: var(--wo-ink);
+    background: #fff;
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .wo-btn:hover {
+    border-color: var(--wo-purple);
+    color: var(--wo-purple-ink);
+  }
+
+  .wo-btn--solid {
+    border-color: var(--wo-purple);
+    color: #fff;
+    background: var(--wo-purple);
+  }
+
+  .wo-btn--solid:hover {
+    color: #fff;
+    background: var(--wo-purple-ink);
+  }
+
+  .wo-empty {
+    grid-column: 1 / -1;
+    padding: 22px;
+    text-align: center;
+    border-style: dashed;
+  }
+
+  .wo-empty p {
+    max-width: 48ch;
+    margin: 5px auto 13px;
+    color: var(--wo-ink-3);
+    font-size: .88rem;
+    line-height: 1.55;
+  }
+
+  .wo-people {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    border: 1px solid #ddd5fb;
+    border-radius: 8px;
+    padding: 22px 24px;
+    background: var(--wo-purple-wash);
+  }
+
+  .wo-people__number {
+    color: var(--wo-purple-ink);
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .wo-people__copy {
+    flex: 1;
+    min-width: 220px;
+  }
+
+  .wo-people p,
+  .wo-coaches p {
+    margin: 4px 0 0;
+    color: var(--wo-ink-2);
+    font-size: .9rem;
+    line-height: 1.55;
+  }
+
+  .wo-coaches {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 18px 20px;
+  }
+
+  .wo-coaches p { max-width: 58ch; }
+
+  .wo-savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    border-top: 1px solid var(--wo-line);
+    padding: 11px 0;
+    background: rgb(255 255 255 / 95%);
+    backdrop-filter: blur(12px);
+  }
+
+  .wo-savebar .wo-shell {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .wo-savebar p {
+    flex: 1;
+    min-width: 200px;
+    margin: 0;
+    color: var(--wo-ink-2);
+    font-size: .85rem;
+  }
+
+  .wo-savebar b { color: var(--wo-ink); }
+
+  .wo-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    background: rgb(10 12 20 / 50%);
+  }
+
+  .wo-scrim.is-open { display: block; }
+
+  .wo-drawer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 61;
+    max-width: 460px;
+    margin: 0 auto;
+    border-radius: 20px 20px 0 0;
+    padding: 22px 20px 26px;
+    background: #fff;
+    box-shadow: 0 -18px 50px rgb(0 0 0 / 22%);
+    transform: translateY(100%);
+    transition: transform .22s ease;
+  }
+
+  .wo-drawer.is-open { transform: translateY(0); }
+
+  .wo-drawer__grab {
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 16px;
+    border-radius: 999px;
+    background: var(--wo-line);
+  }
+
+  .wo-drawer p {
+    margin: 6px 0 16px;
+    color: var(--wo-ink-2);
+    font-size: .88rem;
+    line-height: 1.55;
+  }
+
+  .wo-drawer .wo-btn {
+    display: flex;
+    width: 100%;
+    margin-bottom: 9px;
+    padding: 12px;
+  }
+
+  .wo-drawer__fine {
+    margin-top: 10px;
+    text-align: center;
+    color: var(--wo-ink-3);
+    font-size: .8rem;
+  }
+
+  .wo-drawer__fine a {
+    color: var(--wo-purple-ink);
+    font-weight: 800;
+  }
+
+  @media (max-width: 700px) {
+    .wo-top { padding-top: 26px; }
+    .wo-grid { grid-template-columns: 1fr; }
+    .wo-foot { align-items: stretch; flex-direction: column; }
+    .wo-foot .wo-btn { width: 100%; }
+    .wo-savebar .wo-btn { width: 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wo-drawer { transition: none; }
+  }
+</style>

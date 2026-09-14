@@ -21,6 +21,7 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
   assert.match(html, /href="\/what-is-my-tennis-level"[^>]*>\s*Find my tennis level/);
+  assert.match(html, /href="\/whats-on"[^>]*>\s*See what's on/);
   assert.match(html, /href="\/tennis-coaches"/);
   // Inverted deliberately. 2c077f9 pointed the auth links at the app root and locked that in
   // here, but the root renders the app's own landing page when logged out — no sign-in form —
@@ -200,4 +201,18 @@ test("every scored quiz answer has a weight", async () => {
   for (const key of scored) {
     assert.ok(questions.some((question) => question.key === key), `coefficient "${key}" has no question`);
   }
+});
+
+test("build emits the public whats-on route", async () => {
+  const html = await readFile(
+    new URL("../dist/whats-on/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /<title>Tennis at Your Level in West LA \| The Tennis Plan<\/title>/);
+  assert.match(html, /rel="canonical" href="https:\/\/thetennisplan\.com\/whats-on"/);
+  assert.match(html, /id="matches"/);
+  assert.match(html, /\/api\/public\/whats-on/);
+  assert.match(html, /players at your level/);
+  assert.doesNotMatch(html, /Taylor Host|profile_picture|about_me|genderAdditionalText/);
 });
