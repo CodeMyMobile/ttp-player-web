@@ -21,6 +21,7 @@ test("build emits the public landing content and account boundaries", async () =
   assert.match(html, /See who's free to play/);
   assert.match(html, /Track matches and climb/);
   assert.match(html, /href="\/what-is-my-tennis-level"[^>]*>\s*Find my tennis level/);
+  assert.match(html, /href="\/whats-on"[^>]*>\s*See what's on/);
   assert.match(html, /href="\/tennis-coaches"/);
   // Inverted deliberately. 2c077f9 pointed the auth links at the app root and locked that in
   // here, but the root renders the app's own landing page when logged out — no sign-in form —
@@ -214,4 +215,18 @@ test("build emits the public whats-on route", async () => {
   assert.match(html, /\/api\/public\/whats-on/);
   assert.match(html, /players at your level/);
   assert.doesNotMatch(html, /Taylor Host|profile_picture|about_me|genderAdditionalText/);
+});
+
+test("public whats-on filters can be broadened to any value", async () => {
+  const html = await readFile(
+    new URL("../dist/whats-on/index.html", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(html, /const levels = \[\["any","Any"\]/);
+  assert.match(html, /const whens = \[\["any","Any"\]/);
+  assert.match(html, /const areas = \[\["any","Any"\]/);
+  assert.match(html, /const divisions = \[\["any","Any"\]/);
+  assert.match(html, /if \(F\.level\) params\.set\("level", F\.level\)/);
+  assert.doesNotMatch(html, /\n\s*params\.set\("level", F\.level\);/);
 });

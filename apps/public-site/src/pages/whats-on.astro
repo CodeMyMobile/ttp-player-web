@@ -12,12 +12,22 @@ const whatsOnApiUrl =
   import.meta.env.PUBLIC_WHATS_ON_API_URL ||
   "https://api.thetennisplan.com/api/public/whats-on";
 
-const levels = ["2.5", "3.0", "3.5", "4.0", "4.5", "5.0"];
+const levels = [
+  ["any", "Any"],
+  ["2.5", "2.5"],
+  ["3.0", "3.0"],
+  ["3.5", "3.5"],
+  ["4.0", "4.0"],
+  ["4.5", "4.5"],
+  ["5.0", "5.0"],
+];
 const divisions = [
+  ["any", "Any"],
   ["mens", "Men's"],
   ["womens", "Women's"],
 ];
 const areas = [
+  ["any", "Any"],
   ["mar-vista", "Mar Vista"],
   ["cheviot-hills", "Cheviot Hills"],
   ["santa-monica", "Santa Monica"],
@@ -28,6 +38,7 @@ const areas = [
   ["del-rey", "Del Rey"],
 ];
 const whens = [
+  ["any", "Any"],
   ["mornings", "Mornings"],
   ["evenings", "Evenings"],
   ["weekends", "Weekends"],
@@ -138,41 +149,49 @@ const leagues = [
   </div>
 
   <script is:inline define:vars={{ whatsOnApiUrl, levels, divisions, areas, whens, classes, leagues }}>
-    const F = { level: "3.5", div: null, area: "mar-vista", when: null };
+    const F = { level: null, div: null, area: null, when: null };
     const state = { matches: [], playersCount: null, loading: false, error: null };
     const q = new URLSearchParams(location.search);
 
-    if (q.get("level")) F.level = q.get("level");
-    if (q.get("divisions")) F.div = q.get("divisions");
-    if (q.get("division")) F.div = q.get("division");
-    if (q.get("area")) F.area = q.get("area");
-    if (q.get("when")) F.when = q.get("when");
+    const paramValue = (value) => value && value !== "any" ? value : null;
+    if (q.has("level")) F.level = paramValue(q.get("level"));
+    if (q.has("divisions")) F.div = paramValue(q.get("divisions"));
+    if (q.has("division")) F.div = paramValue(q.get("division"));
+    if (q.has("area")) F.area = paramValue(q.get("area"));
+    if (q.has("when")) F.when = paramValue(q.get("when"));
 
     const label = (list, id) => {
       const found = list.find((item) => item[0] === id);
       return found ? found[1] : id;
     };
     const up = (level) => {
+      if (!level) return null;
       const next = Number.parseFloat(level) + 0.5;
       return next <= 5 ? next.toFixed(1) : null;
     };
+    const levelText = () => F.level ? F.level : "any level";
+    const titleText = (areaName) => F.level
+      ? `Tennis at ${F.level} in ${areaName}`
+      : `Tennis in ${areaName}`;
     const escapeHtml = (value) => String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
-    function chips(elId, list, key, plain = false) {
+    function chips(elId, list, key) {
       const el = document.getElementById(elId);
       el.innerHTML = list.map((item) => {
-        const id = plain ? item : item[0];
-        const text = plain ? item : item[1];
-        return `<button class="wo-chip${F[key] === id ? " is-on" : ""}" type="button" data-k="${key}" data-v="${id}">${escapeHtml(text)}</button>`;
+        const id = item[0];
+        const text = item[1];
+        const selected = id === "any" ? F[key] === null : F[key] === id;
+        return `<button class="wo-chip${selected ? " is-on" : ""}" type="button" data-k="${key}" data-v="${id}">${escapeHtml(text)}</button>`;
       }).join("");
     }
 
     function authReason(action) {
-      return `${action} You'll need an account so we can save your NTRP ${escapeHtml(F.level)} and take you back to the right place.`;
+      const levelCopy = F.level ? `save your NTRP ${escapeHtml(F.level)}` : "save your preferences";
+      return `${action} You'll need an account so we can ${levelCopy} and take you back to the right place.`;
     }
 
     function empty(title, body, labelText) {
@@ -180,16 +199,16 @@ const leagues = [
     }
 
     function renderShell() {
-      chips("f-level", levels, "level", true);
+      chips("f-level", levels, "level");
       chips("f-div", divisions, "div");
       chips("f-area", areas, "area");
       chips("f-when", whens, "when");
 
       const areaName = F.area ? label(areas, F.area) : "West LA";
-      document.getElementById("h1").textContent = `Tennis at ${F.level} in ${areaName}`;
+      document.getElementById("h1").textContent = titleText(areaName);
       document.getElementById("eyebrow").innerHTML = q.get("src") === "quiz"
-        ? `From your level quiz · <b>NTRP ${escapeHtml(F.level)}</b>`
-        : `Browsing · <b>NTRP ${escapeHtml(F.level)}</b>`;
+        ? `From your level quiz · <b>${F.level ? `NTRP ${escapeHtml(F.level)}` : "Any level"}</b>`
+        : `Browsing · <b>${F.level ? `NTRP ${escapeHtml(F.level)}` : "Any level"}</b>`;
     }
 
     function renderMatches() {
@@ -210,8 +229,8 @@ const leagues = [
             const open = capacity.open ?? 0;
             const limit = capacity.limit ?? "?";
             const low = Number(open) <= 1;
-            const min = match.skill_level_min ?? F.level;
-            const max = match.skill_level_max ?? F.level;
+            const min = match.skill_level_min ?? F.level ?? "Any";
+            const max = match.skill_level_max ?? F.level ?? "Any";
             const range = String(min) === String(max) ? min : `${min}-${max}`;
             return `<article class="wo-card">
               <h3>${escapeHtml(match.match_format || "Match")} · ${escapeHtml(range)}</h3>
@@ -220,7 +239,7 @@ const leagues = [
               <div class="wo-foot"><span class="wo-badge wo-badge--fmt">${escapeHtml(match.match_format || "Match")}</span><button class="wo-btn" data-dt="Take a spot in this match" data-dw="${escapeHtml(authReason("To join a match,"))}">Take a spot</button></div>
             </article>`;
           }).join("")
-        : empty(`No open matches at ${F.level} in ${areaName}`, "Try a nearby area, or ask us to tell you when one opens.", "Tell me when one opens");
+        : empty(`No open matches at ${levelText()} in ${areaName}`, "Try a nearby area, or ask us to tell you when one opens.", "Tell me when one opens");
     }
 
     function renderPlayers() {
@@ -228,33 +247,34 @@ const leagues = [
       const count = state.playersCount;
       document.getElementById("p-count").textContent = count === null ? "-" : String(count);
       document.getElementById("p-head").textContent = count === 1
-        ? `player at ${F.level} near ${areaName}`
-        : `players at your level near ${areaName}`;
+        ? `player at ${levelText()} near ${areaName}`
+        : F.level ? `players at your level near ${areaName}` : `players near ${areaName}`;
     }
 
     function renderClasses() {
       const areaName = F.area ? label(areas, F.area) : "West LA";
       const filtered = classes.filter((item) => (
-        item.lvl === F.level && (!F.area || item.area === F.area) && (!F.when || item.when === F.when)
+        (!F.level || item.lvl === F.level) && (!F.area || item.area === F.area) && (!F.when || item.when === F.when)
       ));
-      document.getElementById("c-classes").textContent = filtered.length ? `${filtered.length} at your level` : "";
+      document.getElementById("c-classes").textContent = filtered.length ? (F.level ? `${filtered.length} at your level` : `${filtered.length} open`) : "";
       document.getElementById("classes").innerHTML = filtered.length
         ? filtered.map((item) => `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.v)} · ${escapeHtml(item.d)} · ${escapeHtml(item.c)} · ${escapeHtml(item.p)}</p><div class="wo-foot"><span class="wo-badge wo-badge--match">Built for ${escapeHtml(item.lvl)}</span><button class="wo-btn" data-dt="Book this class" data-dw="${escapeHtml(authReason("To book,"))}">Book</button></div></article>`).join("")
-        : empty(`No classes at ${F.level} in ${areaName}`, "Try a nearby area, or register interest so coaches know what to open next.", "Register interest");
+        : empty(`No classes at ${levelText()} in ${areaName}`, "Try a nearby area, or register interest so coaches know what to open next.", "Register interest");
     }
 
     function renderLeagues() {
-      const exact = leagues.filter((item) => item.lvl === F.level && (!F.div || item.div === F.div));
+      const exact = leagues.filter((item) => (!F.level || item.lvl === F.level) && (!F.div || item.div === F.div));
       const stretchLevel = up(F.level);
-      const stretch = leagues.filter((item) => item.lvl === stretchLevel && (!F.div || item.div === F.div));
+      const stretch = stretchLevel ? leagues.filter((item) => item.lvl === stretchLevel && (!F.div || item.div === F.div)) : [];
       const all = exact.concat(stretch);
       document.getElementById("c-leagues").textContent = all.length ? `${all.length} open` : "";
       document.getElementById("leagues").innerHTML = all.length
         ? all.map((item) => {
-            const isStretch = item.lvl !== F.level;
-            return `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.n)}</p><p class="wo-spots${item.spots <= 2 ? " wo-spots--low" : ""}"><b>${item.spots}</b> spots left</p><div class="wo-foot"><span class="wo-badge ${isStretch ? "wo-badge--stretch" : "wo-badge--match"}">${isStretch ? "Half a level up" : "Your level"}</span><button class="wo-btn" data-dt="Join this division" data-dw="${escapeHtml(authReason("To join a division,"))}">Join</button></div></article>`;
+            const isStretch = F.level && item.lvl !== F.level;
+            const badgeText = F.level ? (isStretch ? "Half a level up" : "Your level") : "Open division";
+            return `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.n)}</p><p class="wo-spots${item.spots <= 2 ? " wo-spots--low" : ""}"><b>${item.spots}</b> spots left</p><div class="wo-foot"><span class="wo-badge ${isStretch ? "wo-badge--stretch" : "wo-badge--match"}">${badgeText}</span><button class="wo-btn" data-dt="Join this division" data-dw="${escapeHtml(authReason("To join a division,"))}">Join</button></div></article>`;
           }).join("")
-        : empty(`No ${F.level} division running yet`, "We add divisions where there's demand. Join the waitlist and you'll be first to know.", "Join the waitlist");
+        : empty(`No ${levelText()} division running yet`, "We add divisions where there's demand. Join the waitlist and you'll be first to know.", "Join the waitlist");
     }
 
     function render() {
@@ -267,7 +287,7 @@ const leagues = [
 
     async function fetchGuestPayload() {
       const params = new URLSearchParams();
-      params.set("level", F.level);
+      if (F.level) params.set("level", F.level);
       if (F.div) params.set("divisions", F.div);
       if (F.area) params.set("area", F.area);
       if (F.when) params.set("when", F.when);
@@ -308,7 +328,7 @@ const leagues = [
       const chip = event.target.closest(".wo-chip");
       if (chip) {
         const key = chip.dataset.k;
-        F[key] = F[key] === chip.dataset.v && key !== "level" ? null : chip.dataset.v;
+        F[key] = chip.dataset.v === "any" ? null : chip.dataset.v;
         fetchGuestPayload();
         return;
       }
@@ -325,7 +345,7 @@ const leagues = [
   </script>
 </BaseLayout>
 
-<style>
+<style is:global>
   .whats-on {
     --wo-ink: #12141c;
     --wo-ink-2: #40465a;
