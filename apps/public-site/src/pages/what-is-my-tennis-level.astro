@@ -256,10 +256,19 @@ const faqSchema = {
     (() => {
       const RATING_MODEL_VERSION = 2;
       const quiz = document.getElementById("quiz");
+      /**
+       * Every scored answer needs an entry here. A missing one is not an error —
+       * `weights[id]` is undefined and `|| 0` turns it into a zero — so the question
+       * keeps being asked, keeps being shown as a reason for the result, and counts
+       * for nothing. That is what happened to the rally answers from the day this
+       * page shipped until 2026-09-14, and only came up because someone read the
+       * table. A test now fails the build if any answer is missing from it.
+       */
       const weights = {
         social: 0, lessons: 1, team: 2, college: 4,
         f3: 2, f2: 1, f1: 0, f0: -1,
         s0: 0, s1: 1, s2: 2, s3: 3,
+        r0: 0, r1: 1, r2: 2, r3: 3,
       };
       /**
        * The comparison question is gone, and nothing was renormalised to compensate.
@@ -276,7 +285,25 @@ const faqSchema = {
        * which is the circular signal itself going away. Adding a compensating
        * constant would have re-rated everyone, including the 928 that do not move.
        */
-      const coefficients = { bg: 1.1, freq: 0.5, serve: 1.2, rally: 1.1 };
+      /**
+       * Serve and rally are the two stroke questions and carry the same weight. They
+       * did not before: with rally inert, serve at 1.2 was the entire stroke signal,
+       * so a single answer about a second serve moved the estimate as much as both
+       * strokes should together.
+       *
+       * Background stays the heaviest single question — it spans 0 to 4, so 4.4 of
+       * range against 2.7 for either stroke — which is what the card claims when it
+       * calls it the biggest clue. Frequency stays the modifier it reads as.
+       *
+       * SCALE. Turning rally on widens the raw range from 9.0 to 10.8, so leaving the
+       * multiplier at 0.34 would have pushed everyone up half a level or more for no
+       * better reason than an arithmetic side effect. 0.23 puts the strongest honest
+       * set of answers — college player, playing three times a week, weapon serve,
+       * constructs points — at 4.98, which is the 5.0 the top of this scale means.
+       * The base stays 2.5, the floor of what this quiz will estimate.
+       */
+      const coefficients = { bg: 1.1, freq: 0.5, serve: 0.9, rally: 0.9 };
+      const SCALE = 0.23;
       const clamps = {
         social: { ceiling: 3.5 },
         lessons: { ceiling: 4.0 },
@@ -298,6 +325,27 @@ const faqSchema = {
 
       function toHalf(value) {
         return Math.round(value * 2) / 2;
+      }
+
+      /**
+       * The one-line reason under the estimate. Four cases rather than two, because
+       * the two stroke answers can disagree and the sentence has to survive that: a
+       * player with a weapon serve and no rally shape is a different reading from one
+       * who constructs points off a serve they only get in.
+       */
+      function explain(a) {
+        const serve = a.serve === "s2" || a.serve === "s3";
+        const rally = a.rally === "r2" || a.rally === "r3";
+        if (serve && rally) {
+          return "A second serve you trust and a rally you can direct are the two clearest markers at this level, and you have both.";
+        }
+        if (serve) {
+          return "A second serve you trust under pressure is the clearest marker at this level; steadier rally shape is what would move you up half a level.";
+        }
+        if (rally) {
+          return "Directing the ball in a rally puts you here; a second serve you trust under pressure is what would move you up half a level.";
+        }
+        return "Rally consistency and a reliable second serve are what move players up from here, and they tend to arrive in that order.";
       }
 
       function bandLabel(seed) {
@@ -332,7 +380,7 @@ const faqSchema = {
 
         // Applied to the estimated path only. A declared USTA rating is already on the
         // right scale, and the beginner answer is a floor rather than an estimate.
-        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * 0.34) + (POOL_SHIFT[answers.pool] || 0)));
+        let seed = Math.max(2.5, Math.min(5.0, 2.5 + toHalf(raw * SCALE) + (POOL_SHIFT[answers.pool] || 0)));
         const clamp = clamps[answers.bg] || {};
         if (clamp.ceiling !== undefined && seed > clamp.ceiling) seed = clamp.ceiling;
         if (clamp.floor !== undefined && seed < clamp.floor) seed = clamp.floor;
@@ -341,9 +389,10 @@ const faqSchema = {
           seed,
           band: bandLabel(seed),
           confidence: "Estimated",
-          why: answers.serve === "s2" || answers.serve === "s3"
-            ? "A second serve you trust under pressure is the clearest marker at this level, and your rally answer backs it up."
-            : "Your rally consistency puts you here; the second serve is what would move you up half a level.",
+          // Says what the answers actually were. The old pair claimed the rally answer
+          // "backs it up" whichever way it had been answered — and it was contributing
+          // nothing at the time, so for some players the sentence was false twice over.
+          why: explain(answers),
           declaredUsta: null,
         };
       }
