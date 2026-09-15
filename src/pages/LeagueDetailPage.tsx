@@ -1142,7 +1142,9 @@ const LeagueDetailPage = () => {
         league: previewLeague as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
         profile: {
           gender: previewProfile.gender,
+          calculated_ntrp: previewProfile.calculated_ntrp,
           usta_rating: previewProfile.usta_rating,
+          self_rated_seed: previewProfile.self_rated_seed,
           date_of_birth: previewProfile.date_of_birth,
         },
         pending: {},

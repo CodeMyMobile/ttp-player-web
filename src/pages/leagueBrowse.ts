@@ -68,7 +68,9 @@ export const filterAvailableLeagues = (
       league: league as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
       profile: {
         gender: profile?.gender,
+        calculated_ntrp: profile?.calculated_ntrp,
         usta_rating: profile?.usta_rating,
+        self_rated_seed: profile?.self_rated_seed,
         date_of_birth: profile?.date_of_birth,
       },
       pending: {},

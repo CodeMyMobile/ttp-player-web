@@ -230,7 +230,9 @@ const LeagueJoinReviewSheet = ({
         league: league as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
         profile: {
           gender: localProfile?.gender,
+          calculated_ntrp: localProfile?.calculated_ntrp,
           usta_rating: localProfile?.usta_rating,
+          self_rated_seed: localProfile?.self_rated_seed,
           date_of_birth: readProfileDateOfBirth(localProfile),
         },
         pending,
@@ -291,7 +293,9 @@ const LeagueJoinReviewSheet = ({
         league: league as Parameters<typeof evaluateLeagueEligibility>[0]["league"],
         profile: {
           gender: nextProfile.gender,
+          calculated_ntrp: nextProfile.calculated_ntrp,
           usta_rating: nextProfile.usta_rating,
+          self_rated_seed: nextProfile.self_rated_seed,
           date_of_birth: readProfileDateOfBirth(nextProfile),
         },
         pending: {},
@@ -329,8 +333,9 @@ const LeagueJoinReviewSheet = ({
   const genderMismatch = !canEditGender && eligibility.gender.status !== "pass";
   const levelMismatch = !canEditLevel && eligibility.level.status !== "pass";
   const ageMismatch = !canEditAge && eligibility.age.status !== "pass";
-  const levelCheckValue = hasValue(localProfile?.usta_rating)
-    ? `You're ${localProfile?.usta_rating} — inside ${formatLeagueLevelRange(league)}`
+  const displayLevel = localProfile?.calculated_ntrp ?? localProfile?.usta_rating;
+  const levelCheckValue = hasValue(displayLevel)
+    ? `You're ${displayLevel} — inside ${formatLeagueLevelRange(league)}`
     : `Inside ${formatLeagueLevelRange(league)}`;
 
   // Hard block: a locked, non-fixable disqualification (existing profile value doesn't meet the

@@ -122,6 +122,36 @@ test("API-shaped league and profile fields are accepted", () => {
   });
 });
 
+test("calculated NTRP qualifies a rated player before TRP fields or missing USTA", () => {
+  const result = evaluateLeagueEligibility({
+    league: {
+      gender: "men",
+      band_low: 3,
+      band_high: 4,
+    },
+    profile: {
+      gender: "male",
+      date_of_birth: "1979-01-01",
+      calculated_ntrp: 3.25,
+      usta_rating: null,
+      self_rated_seed: null,
+      starting_rating: 6,
+      current_rating: 4.42,
+      rating_gender: "M",
+      matches_played: 6,
+    },
+    pending: {},
+    now,
+  });
+
+  assertEligibility(result, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+});
+
 test("missing fields are reported as missing when neither profile nor pending provides them", () => {
   const missingGender = evaluateLeagueEligibility({
     league: baseLeague(),
