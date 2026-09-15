@@ -30,7 +30,8 @@ const normalizeDate = (value: string | null | undefined): Date | null => {
 
 const readLeagueBandLow = (league: LeagueJoinLeague) => league.bandLow ?? league.band_low;
 const readLeagueBandHigh = (league: LeagueJoinLeague) => league.bandHigh ?? league.band_high;
-const readProfileLevel = (profile: LeagueJoinProfile) => profile.level ?? profile.usta_rating;
+const readProfileLevel = (profile: LeagueJoinProfile) =>
+  profile.calculated_ntrp ?? profile.level ?? profile.usta_rating ?? profile.self_rated_seed;
 const readPendingLevel = (pending: LeagueJoinPending) => pending.level ?? pending.usta_rating;
 const readProfileDateOfBirth = (profile: LeagueJoinProfile) =>
   profile.dateOfBirth ?? profile.date_of_birth;

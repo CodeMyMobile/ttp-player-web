@@ -29,7 +29,13 @@ export interface LeagueJoinLeague {
 export interface LeagueJoinProfile {
   gender?: PlayerGender | null;
   level?: number | string | null;
+  calculated_ntrp?: number | string | null;
   usta_rating?: number | string | null;
+  self_rated_seed?: number | string | null;
+  starting_rating?: number | string | null;
+  current_rating?: number | string | null;
+  rating_gender?: string | null;
+  matches_played?: number | null;
   dateOfBirth?: string | null;
   date_of_birth?: string | null;
 }
