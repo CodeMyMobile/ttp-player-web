@@ -327,3 +327,72 @@ test("other only qualifies for mixed leagues", () => {
   assert.equal(men.gender.status, "entered_mismatch");
   assert.equal(women.gender.status, "entered_mismatch");
 });
+
+/**
+ * The case this chain exists for.
+ *
+ * A player with six matches played, no self-declared USTA rating, and a
+ * calculated 3.25 was being stopped here — the Continue button disabled — while
+ * the API would have admitted him. The client read only `usta_rating`, saw
+ * nothing, and called the level missing.
+ */
+test("a match-derived level counts, with no self-declared rating", () => {
+  const result = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: undefined, usta_rating: null, calculated_ntrp: 3.25 }),
+    pending: basePending(),
+    now,
+  });
+
+  assert.equal(result.level.status, "pass");
+  assert.equal(result.canContinue, true);
+});
+
+test("the calculated level leads, ahead of a self-declared one", () => {
+  // Results beat a self-declaration: a calculated 2.75 keeps someone out of a
+  // 3.0-4.0 band even when they have told us they are a 4.5.
+  const result = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: undefined, usta_rating: 4.5, calculated_ntrp: 2.75 }),
+    pending: basePending(),
+    now,
+  });
+
+  // "existing_mismatch": the value on their profile does not fit the band, as
+  // opposed to one they just typed in ("entered_mismatch") or none at all.
+  assert.equal(result.level.status, "existing_mismatch");
+  assert.equal(result.canContinue, false);
+});
+
+test("a self-rated seed is the last resort, not the first", () => {
+  const result = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: undefined, usta_rating: null, self_rated_seed: 3.5 }),
+    pending: basePending(),
+    now,
+  });
+
+  assert.equal(result.level.status, "pass");
+});
+
+/**
+ * The chain here and the one in ttp-api's src/services/league_eligibility.js
+ * (`resolveLeagueRating`) have to agree. They did not, and this side was the
+ * stricter one, so a player was blocked before the request left the browser.
+ *
+ * TRP fields are absent on purpose: `starting_rating` and `current_rating` are on
+ * a different scale from the NTRP bands, and comparing them is what rejected a
+ * genuine 3.25 as a "6".
+ */
+test("TRP fields never decide a band check", () => {
+  const trpOnly = evaluateLeagueEligibility({
+    league: baseLeague({ bandLow: 3, bandHigh: 4 }),
+    profile: baseProfile({ level: undefined, usta_rating: null }),
+    pending: basePending(),
+    now,
+  });
+
+  // No NTRP-scaled value anywhere: the level is unknown, not "6" and not "4.42".
+  assert.equal(trpOnly.level.status, "missing");
+  assert.equal(trpOnly.canContinue, false);
+});

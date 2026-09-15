@@ -30,6 +30,13 @@ export interface LeagueJoinProfile {
   gender?: PlayerGender | null;
   level?: number | string | null;
   usta_rating?: number | string | null;
+  /**
+   * The match-derived level, already converted to NTRP by the API — it is what
+   * `GET /player/personal_details` returns via withCalculatedRatingEquivalents.
+   * Leading, because the server's eligibility check leads with it.
+   */
+  calculated_ntrp?: number | string | null;
+  self_rated_seed?: number | string | null;
   dateOfBirth?: string | null;
   date_of_birth?: string | null;
 }
