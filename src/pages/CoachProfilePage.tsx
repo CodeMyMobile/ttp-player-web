@@ -88,6 +88,7 @@ import {
   getCoachPackageLessonTypeOptions,
 } from "../utils/coachPackageFilters.js";
 import { buildCoachShareUrl } from "../utils/shareLinks.js";
+import { hoursUntilFloating } from "../utils/floatingTime";
 import {
   getDefaultCoachProfilePaymentChoice,
   getCoachProfilePaymentOptions,
@@ -2238,12 +2239,15 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     () => (lessonToCancel ? getLessonMomentRange(lessonToCancel) : null),
     [lessonToCancel],
   );
+  const lessonToCancelStartValue = useMemo(() => {
+    if (!lessonToCancel) return null;
+    const record = lessonToCancel as Record<string, unknown>;
+    return record.start_date_time ?? record.startDateTime ?? record.startTime ?? lessonToCancel.startTime ?? null;
+  }, [lessonToCancel]);
   const isCancellationWindowClosed = useMemo(() => {
-    if (!lessonToCancelRange?.start?.isValid()) {
-      return true;
-    }
-    return lessonToCancelRange.start.diff(moment.utc(), "hours", true) < 24;
-  }, [lessonToCancelRange]);
+    const hours = hoursUntilFloating(lessonToCancelStartValue);
+    return hours !== null && hours < 24;
+  }, [lessonToCancelStartValue]);
 
   const openCancelFlow = (lesson: Lesson) => {
     setLessonToCancel(lesson as PlayerLesson);
