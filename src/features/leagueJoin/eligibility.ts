@@ -30,7 +30,22 @@ const normalizeDate = (value: string | null | undefined): Date | null => {
 
 const readLeagueBandLow = (league: LeagueJoinLeague) => league.bandLow ?? league.band_low;
 const readLeagueBandHigh = (league: LeagueJoinLeague) => league.bandHigh ?? league.band_high;
-const readProfileLevel = (profile: LeagueJoinProfile) => profile.level ?? profile.usta_rating;
+/**
+ * The player's level for a band check, in the same order the API uses.
+ *
+ * This must not drift from `resolveLeagueRating` in ttp-api's
+ * src/services/league_eligibility.js — `calculated_ntrp ?? usta_rating ??
+ * self_rated_seed`. When it did, the two disagreed and this side was the stricter
+ * one: a player with six matches played and a calculated 3.25 had the Continue
+ * button disabled here, so the request never reached the server that would have
+ * admitted him.
+ *
+ * `starting_rating` and `current_rating` are deliberately absent. Both are on the
+ * TRP scale while league bands are NTRP, and comparing them is what rejected a
+ * genuine 3.25 as a "6".
+ */
+const readProfileLevel = (profile: LeagueJoinProfile) =>
+  profile.calculated_ntrp ?? profile.level ?? profile.usta_rating ?? profile.self_rated_seed;
 const readPendingLevel = (pending: LeagueJoinPending) => pending.level ?? pending.usta_rating;
 const readProfileDateOfBirth = (profile: LeagueJoinProfile) =>
   profile.dateOfBirth ?? profile.date_of_birth;

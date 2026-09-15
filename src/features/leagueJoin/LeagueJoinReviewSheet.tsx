@@ -231,6 +231,11 @@ const LeagueJoinReviewSheet = ({
         profile: {
           gender: localProfile?.gender,
           usta_rating: localProfile?.usta_rating,
+          // The level the API worked out from match results. Passed through
+          // because the band check leads with it — without it a rated player
+          // with no self-declared rating reads as having no level at all.
+          calculated_ntrp: localProfile?.calculated_ntrp,
+          self_rated_seed: localProfile?.self_rated_seed,
           date_of_birth: readProfileDateOfBirth(localProfile),
         },
         pending,
