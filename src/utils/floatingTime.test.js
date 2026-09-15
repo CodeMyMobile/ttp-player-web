@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { hoursUntilFloating, parseFloatingLocal } from "./floatingTime";
@@ -48,6 +49,14 @@ test("a player 25 hours out is still inside a 24-hour window", () => {
   assert.ok(hours >= 24, "must not read as closed");
 });
 
+test("Alexandria Zech's group lesson stays cancellable 26 hours out", () => {
+  const now = new Date(2026, 8, 14, 16, 11, 0).getTime();
+  const hours = hoursUntilFloating("2026-09-15T18:30:00.000Z", now);
+
+  assert.ok(hours !== null && hours > 26 && hours < 27);
+  assert.ok(hours >= 24, "must not close the refund window early");
+});
+
 test("a class already past reads as negative, not as far away", () => {
   const now = new Date(2026, 7, 21, 20, 0, 0).getTime();
 
@@ -61,4 +70,16 @@ test("an unreadable value is null, never a number", () => {
     assert.equal(parseFloatingLocal(bad), null);
     assert.equal(hoursUntilFloating(bad), null);
   }
+});
+
+test("cancellation gates do not diff floating starts as UTC instants", () => {
+  const coachProfileSource = readFileSync(
+    new URL("../pages/CoachProfilePage.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(
+    coachProfileSource,
+    /isCancellationWindowClosed[\s\S]{0,500}\.diff\(moment\.utc\(\),\s*["']hours["']/,
+  );
 });
