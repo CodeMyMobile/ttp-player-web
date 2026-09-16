@@ -50,6 +50,11 @@ import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
 import { buildGroupLessonCreditConsumeParams } from "../utils/groupLessonCreditBooking";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
+import { patchPlayerPersonalDetails } from "../api/playerProfile";
+import { levelRequirementOf } from "../utils/groupLessonLevelRequirement";
+import { LevelRequirementNotice } from "../components/group-lessons/LevelRequirementNotice";
+import { CodeOfConductModal } from "../components/group-lessons/CodeOfConductModal";
+import { LevelCheckDrawer } from "../components/group-lessons/LevelCheckDrawer";
 
 import "./GroupLessonDetailsPage.css";
 
@@ -257,6 +262,8 @@ const GroupLessonDetailsPage = () => {
   const [packagePurchaseError, setPackagePurchaseError] = useState<string | null>(null);
   const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null);
   const [bookingWithCredits, setBookingWithCredits] = useState(false);
+  const [conductOpen, setConductOpen] = useState(false);
+  const [levelCheckOpen, setLevelCheckOpen] = useState(false);
   const [bookingPayOnCourt, setBookingPayOnCourt] = useState(false);
   const [purchasingPackage, setPurchasingPackage] = useState(false);
   const [pendingCreditConfirm, setPendingCreditConfirm] = useState<{ lessonId: number | string } | null>(null);
@@ -950,6 +957,43 @@ const GroupLessonDetailsPage = () => {
   // cannot be subtracted from now directly — moment.utc().diff() applied the
   // fictional offset and shortened the window by seven hours in Pacific summer,
   // telling a player 25 hours out that cancellation had already closed.
+  // Derived here, where `lesson` is guaranteed loaded — the notice and the drawer
+  // both read it, and it is null for a class with no stated level.
+  const levelRequirement = levelRequirementOf(lesson);
+  // Classes to offer someone who comes out under the requirement. Filtered on the
+  // level the API gives us, which is the same free-text label the notice reads, so
+  // a class with no level never shows up as a suggestion.
+  const levelSuggestions = relatedLessons.filter(
+    (candidate) =>
+      String(candidate.id) !== String(lesson.id) &&
+      candidate.level !== null &&
+      levelRequirement !== null &&
+      candidate.level < levelRequirement,
+  );
+
+  /**
+   * Persists the level the quiz suggested.
+   *
+   * `usta_rating` and ONLY `usta_rating`. It is the one rating field a player can
+   * write, it is on the NTRP scale the quiz produces, and the seeding logic
+   * converts it properly through RATING_CONFIG.seedLookup when it needs a ladder
+   * seed. `self_rated_seed`, `starting_rating` and `current_rating` are all TRP
+   * and are written by the rating engine — putting an NTRP number in any of them
+   * seeds the player about a level and a half low.
+   *
+   * Returns false when the API refuses: a rating locks once the player has been
+   * seeded (409 self_rating_locked), and a played rating should outrank a quiz.
+   */
+  const saveSelfRatedLevel = async (level: number) => {
+    if (!authToken) return false;
+    try {
+      await patchPlayerPersonalDetails({ token: authToken, body: { usta_rating: level } });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const hoursUntilLesson = hoursUntilFloating(lesson.startDateTime);
   // Unreadable start means we do not know, and we must not close the window on
   // a guess — that costs the player a refund they are entitled to.
@@ -1286,6 +1330,10 @@ const GroupLessonDetailsPage = () => {
                   </div>
                   <div className="group-lesson-details__hero-body">
                     <h1 className="group-lesson-details__hero-title">{lesson.title}</h1>
+                    <LevelRequirementNotice
+                      requirement={levelRequirement}
+                      onOpenLevelCheck={() => setLevelCheckOpen(true)}
+                    />
                     <p className="group-lesson-details__hero-copy">{lesson.description}</p>
                     <div className="group-lesson-details__hero-meta">
                       <div className="group-lesson-details__hero-meta-item">
@@ -1891,7 +1939,19 @@ const GroupLessonDetailsPage = () => {
                       <p className="group-lesson-details__checkout-caption">
                         {isPayOnCourtChoice
                             ? "Your place is held now. Pay your coach on the day."
-                            : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}
+                            : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}{" "}
+                        By booking, you agree to our{" "}
+                        {/* A button, not a link. Navigating away would drop the selected
+                            payment method and everything else in this card, and the
+                            agreement is the booking itself — there is no checkbox. */}
+                        <button
+                          type="button"
+                          onClick={() => setConductOpen(true)}
+                          className="group-lesson-details__conduct-link"
+                        >
+                          Player Code of Conduct
+                        </button>
+                        .
                       </p>
                     </>
                   )}
@@ -1992,6 +2052,26 @@ const GroupLessonDetailsPage = () => {
           </div>
         </div>
       </div>
+      <CodeOfConductModal open={conductOpen} onClose={() => setConductOpen(false)} />
+
+      <LevelCheckDrawer
+        open={levelCheckOpen}
+        onClose={() => setLevelCheckOpen(false)}
+        className={lesson.title}
+        requirement={levelRequirement}
+        suggestions={levelSuggestions}
+        isSignedIn={isSignedIn}
+        onPromptSignIn={promptSignIn}
+        onSaveLevel={saveSelfRatedLevel}
+        onViewClass={(lessonId) => {
+          setLevelCheckOpen(false);
+          navigate(`/group-lessons/${lessonId}`);
+        }}
+        onBrowseAll={() => {
+          setLevelCheckOpen(false);
+          navigate("/group-lessons");
+        }}
+      />
     </MainLayout>
   );
 };
