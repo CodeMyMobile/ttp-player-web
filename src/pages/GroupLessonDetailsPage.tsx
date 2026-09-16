@@ -49,6 +49,7 @@ import { buildGroupLessonShareUrl } from "../utils/shareLinks";
 import { hoursUntilFloating } from "../utils/floatingTime";
 import { buildVisibleGroupLessonParticipantRows } from "../utils/groupLessonVisibleParticipants";
 import { buildGroupLessonCreditConsumeParams } from "../utils/groupLessonCreditBooking";
+import { getLessonAvailabilityErrorMessage } from "../utils/lessonAvailabilityError";
 import { bookGroupLessonWithCard, fetchPublicLessonById } from "../api/playerLessons";
 import { patchPlayerPersonalDetails } from "../api/playerProfile";
 import { levelRequirementOf } from "../utils/groupLessonLevelRequirement";
@@ -181,23 +182,7 @@ const getCoachProfileAvatarUrl = (profile: CoachProfileRecord | null) => {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
-const getErrorMessage = (error: unknown, fallback: string) => {
-  if (error && typeof error === "object") {
-    const data = (error as { data?: Record<string, unknown> }).data;
-    const detail = data?.detail;
-    const message = data?.message;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail;
-    }
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-  }
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return fallback;
-};
+const getErrorMessage = getLessonAvailabilityErrorMessage;
 
 const formatParticipantStatus = (
   status?: number | string | null,
@@ -726,7 +711,7 @@ const GroupLessonDetailsPage = () => {
     try {
       await confirmCreditBooking(pendingCreditConfirm.lessonId);
     } catch (error) {
-      setPackagePurchaseError(error instanceof Error ? error.message : "Confirming your spot failed. Please retry.");
+      setPackagePurchaseError(getErrorMessage(error, "Confirming your spot failed. Please retry."));
     } finally {
       setBookingWithCredits(false);
     }
@@ -749,13 +734,11 @@ const GroupLessonDetailsPage = () => {
       } catch (confirmError) {
         setPendingCreditConfirm({ lessonId: lesson.id });
         setPackagePurchaseError(
-          confirmError instanceof Error && confirmError.message.trim()
-            ? confirmError.message
-            : "Your credit was applied, but confirming your spot failed. Please retry.",
+          getErrorMessage(confirmError, "Your credit was applied, but confirming your spot failed. Please retry."),
         );
       }
     } catch (error) {
-      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to apply credits.");
+      setPackagePurchaseError(getErrorMessage(error, "Unable to apply credits."));
     } finally {
       setBookingWithCredits(false);
     }
@@ -773,7 +756,7 @@ const GroupLessonDetailsPage = () => {
       });
       await refreshLesson();
     } catch (error) {
-      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to book pay on court.");
+      setPackagePurchaseError(getErrorMessage(error, "Unable to book pay on court."));
     } finally {
       setBookingPayOnCourt(false);
     }
@@ -808,9 +791,7 @@ const GroupLessonDetailsPage = () => {
       } catch (confirmError) {
         setPendingCreditConfirm({ lessonId: lesson.id });
         setPackagePurchaseError(
-          confirmError instanceof Error && confirmError.message.trim()
-            ? confirmError.message
-            : "Your credit was applied, but confirming your spot failed. Please retry.",
+          getErrorMessage(confirmError, "Your credit was applied, but confirming your spot failed. Please retry."),
         );
         return;
       }
@@ -833,7 +814,7 @@ const GroupLessonDetailsPage = () => {
       setSelectedCreditId(boughtCredit?.id != null ? String(boughtCredit.id) : groupCredits[0]?.id != null ? String(groupCredits[0].id) : null);
       await refreshLesson();
     } catch (error) {
-      setPackagePurchaseError(error instanceof Error ? error.message : "Unable to reserve and apply credits.");
+      setPackagePurchaseError(getErrorMessage(error, "Unable to reserve and apply credits."));
     } finally {
       setPurchasingPackage(false);
     }
