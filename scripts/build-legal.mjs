@@ -37,6 +37,13 @@ const PAGES = [
       "How The Tennis Plan collects, uses, and shares your information when you use our tennis app.",
   },
   {
+    slug: "code-of-conduct",
+    source: "code-of-conduct.md",
+    title: "Player Code of Conduct | The Tennis Plan",
+    description:
+      "The conduct we expect on court in every Tennis Plan class, and what happens when it is not met.",
+  },
+  {
     slug: "terms",
     source: "terms.md",
     title: "Terms of Service | The Tennis Plan",
@@ -55,6 +62,14 @@ const wrapTables = (html) =>
     .replace(/<table>/g, '<div class="table-wrap"><table>')
     .replace(/<\/table>/g, "</table></div>");
 
+// Outbound links leave in a new tab, so a reader following a citation does not
+// lose the policy they were reading. `noopener` because `target="_blank"` hands
+// the opened page a reference back to this one without it.
+// Mirrored in src/components/group-lessons/CodeOfConductModal.tsx, which renders
+// the same markdown in-app.
+const externalLinksNewTab = (html) =>
+  html.replace(/<a href="(https?:\/\/[^"]+)"/g, '<a href="$1" target="_blank" rel="noopener noreferrer"');
+
 const buildPage = async (page) => {
   const sourcePath = resolve(CONTENT_DIR, page.source);
   let markdown;
@@ -67,7 +82,7 @@ const buildPage = async (page) => {
     );
   }
 
-  const contentHtml = wrapTables(marked.parse(markdown));
+  const contentHtml = externalLinksNewTab(wrapTables(marked.parse(markdown)));
   const canonical = `${SITE_ORIGIN}/${page.slug}/`;
   const document = renderLegalPage({
     title: page.title,

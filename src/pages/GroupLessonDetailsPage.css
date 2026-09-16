@@ -1745,3 +1745,23 @@
     width: 100%;
   }
 }
+
+/* The code of conduct opener in the checkout fine print. A button so the card's
+   state survives — styled as the link it reads as. */
+.group-lesson-details__conduct-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: #7c3aed;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.group-lesson-details__conduct-link:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
