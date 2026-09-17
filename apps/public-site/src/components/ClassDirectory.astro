@@ -1,0 +1,92 @@
+---
+import type { PublicClass } from "../lib/whatsOn";
+import { AREAS } from "../lib/whatsOn";
+import { appGroupLessonHref } from "../lib/appLinks";
+
+interface Props {
+  classes: PublicClass[];
+  areas: string[];
+  currentArea?: string;
+}
+const { classes, areas, currentArea } = Astro.props;
+
+const labelOf = (id: string) => AREAS.find(([key]) => key === id)?.[1] ?? id;
+---
+
+<section class="class-areas" aria-label="Browse classes by area">
+  <div class="directory-shell">
+    <h2>Browse by area</h2>
+    <ul>
+      <li><a href="/group-tennis-lessons" aria-current={!currentArea ? "page" : undefined}>All of West LA</a></li>
+      {areas.map((area) => (
+        <li>
+          <a href={`/group-tennis-lessons/${area}`} aria-current={currentArea === area ? "page" : undefined}>
+            {labelOf(area)}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<section class="class-roster">
+  <div class="directory-shell">
+    <div class="class-grid">
+      {classes.map((item) => (
+        <article class="class-card">
+          <div class="class-card__head">
+            <h3><a href={appGroupLessonHref(item.id)}>{item.t}</a></h3>
+            {item.lvl && <span class="class-card__level">NTRP {item.lvl}</span>}
+          </div>
+          <p class="class-card__when">
+            <b>{item.dateLabel}</b> · {item.d.replace(/^\w{3}\s/, "")}
+          </p>
+          <p class="class-card__where">{item.v}</p>
+          <p class="class-card__coach">with {item.c}</p>
+          <p class="class-card__price"><b>{item.p}</b> per player</p>
+          {item.occurrences > 1 && (
+            <p class="class-card__repeat">{item.occurrences} dates scheduled</p>
+          )}
+          <div class="class-card__cta">
+            <a class="class-btn" href={appGroupLessonHref(item.id)}>See this class</a>
+          </div>
+        </article>
+      ))}
+    </div>
+    {classes.length === 0 && (
+      <p class="class-empty">
+        No classes scheduled here right now. <a href="/group-tennis-lessons">See every class in West LA</a>.
+      </p>
+    )}
+  </div>
+</section>
+
+<style>
+  .class-areas { padding: 26px 0 4px; }
+  .class-areas h2 { margin: 0 0 12px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #667085; }
+  .class-areas ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .class-areas a { display: inline-block; padding: 8px 14px; border: 1px solid #e4e7ec; border-radius: 999px; background: #fff; color: #40465a; font-size: 0.88rem; font-weight: 600; text-decoration: none; }
+  .class-areas a[aria-current="page"] { border-color: #7c5cf5; background: #f1edfe; color: #5b3ad4; }
+
+  .class-roster { padding: 18px 0 60px; }
+  .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; align-items: stretch; }
+
+  .class-card { display: flex; flex-direction: column; gap: 6px; padding: 20px; border: 1px solid #e4e7ec; border-radius: 18px; background: #fff; }
+  .class-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .class-card h3 { margin: 0; font-size: 1.12rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; }
+  .class-card h3 a { color: #12141c; text-decoration: none; }
+  .class-card__level { flex: none; padding: 4px 9px; border-radius: 999px; background: #f1edfe; color: #5b3ad4; font-size: 0.75rem; font-weight: 700; }
+  .class-card__when { margin: 4px 0 0; font-size: 0.95rem; color: #12141c; }
+  .class-card__where, .class-card__coach { margin: 0; font-size: 0.86rem; color: #667085; }
+  .class-card__price { margin: 6px 0 0; font-size: 0.86rem; color: #40465a; }
+  .class-card__price b { font-size: 1.02rem; font-weight: 700; color: #12141c; }
+  .class-card__repeat { margin: 0; font-size: 0.8rem; color: #667085; }
+  .class-card__cta { margin-top: auto; padding-top: 16px; }
+  .class-btn { display: block; padding: 12px 16px; border-radius: 12px; background: #7c5cf5; color: #fff; font-size: 0.94rem; font-weight: 600; text-align: center; text-decoration: none; }
+
+  .class-empty { margin: 8px 0 0; font-size: 0.95rem; color: #667085; }
+
+  @media (max-width: 720px) {
+    .class-grid { grid-template-columns: 1fr; }
+  }
+</style>

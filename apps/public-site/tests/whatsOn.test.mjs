@@ -6,9 +6,13 @@ import {
   bandOf,
   buildPublicClasses,
   buildPublicLeagues,
+  classAreas,
+  classSchema,
+  formatDate,
   formatDayTime,
   levelOf,
   venueOf,
+  venueOffsetIso,
 } from "../src/lib/whatsOn.ts";
 
 // Lesson 2637 as the API actually returns it.
@@ -84,6 +88,10 @@ test("a real lesson becomes a card with nothing invented", () => {
     lvl: "4.5",
     area: "culver-city",
     when: "evenings",
+    id: 2637,
+    startDateTime: "2026-09-17T18:30:00.000Z",
+    dateLabel: "Thu, Sep 17",
+    occurrences: 1,
   });
 });
 
@@ -223,6 +231,10 @@ test("a weekly class is listed once, at its soonest date", () => {
 
   assert.equal(cards.length, 1);
   assert.equal(cards[0].d, "Fri 9:00am");
+  // The card can say "3 dates" rather than pretending the other two do not exist.
+  assert.equal(cards[0].occurrences, 3);
+  assert.equal(cards[0].dateLabel, "Fri, Sep 18"); // the soonest, not the last
+  assert.equal(cards[0].id, 2786);
 });
 
 test("two different classes at the same hour both survive", () => {
@@ -236,4 +248,65 @@ test("two different classes at the same hour both survive", () => {
 
   assert.equal(buildPublicClasses([at("Morning drills", "Penmar Park"), at("Cardio tennis", "Penmar Park")]).length, 2);
   assert.equal(buildPublicClasses([at("Morning drills", "Penmar Park"), at("Morning drills", "Stoner Park")]).length, 2);
+});
+
+test("schema.org startDate carries the venue's offset for that date", () => {
+  // Search engines read startDate as an instant, so the floating clock needs an
+  // offset — and it differs by date, since PDT and PST are an hour apart.
+  assert.equal(venueOffsetIso("2026-09-17T18:30:00.000Z"), "2026-09-17T18:30:00-07:00"); // PDT
+  assert.equal(venueOffsetIso("2026-12-10T18:30:00.000Z"), "2026-12-10T18:30:00-08:00"); // PST
+  assert.equal(venueOffsetIso(null), null);
+});
+
+test("the date label reads from the venue clock", () => {
+  assert.equal(formatDate("2026-09-17T18:30:00.000Z"), "Thu, Sep 17");
+  assert.equal(formatDate("2026-10-02T09:00:00.000Z"), "Fri, Oct 2");
+  assert.equal(formatDate("bad"), null);
+});
+
+test("areas are ordered by how many classes they hold, ties alphabetical", () => {
+  const at = (area, title) => ({
+    start_date_time: "2026-09-17T18:30:00.000Z",
+    full_name: "Paul Cochrane",
+    group_price_per_person: 40,
+    location: `Some Court, ${area}, CA`,
+    metadata: { title },
+  });
+
+  const classes = buildPublicClasses([
+    at("Venice", "A"),
+    at("Culver City", "B"),
+    at("Culver City", "C"),
+    at("Santa Monica", "D"),
+    // No recognised area — belongs to no area page.
+    { ...at("Pasadena", "E") },
+  ]);
+
+  assert.deepEqual(classAreas(classes), ["culver-city", "santa-monica", "venice"]);
+});
+
+test("structured data states only what we hold", () => {
+  const [card] = buildPublicClasses([lesson2637]);
+  const schema = classSchema(card);
+
+  assert.equal(schema["@type"], "SportsEvent");
+  assert.equal(schema.startDate, "2026-09-17T18:30:00-07:00");
+  // Culver City is its own city, not Los Angeles.
+  assert.equal(schema.location.address.addressLocality, "Culver City");
+  assert.equal(schema.offers.price, "42.5");
+  assert.equal(schema.offers.url, "https://app.thetennisplan.com/#/group-lessons/2637");
+});
+
+test("an unknown area leaves the locality out rather than guessing", () => {
+  const [card] = buildPublicClasses([
+    { ...lesson2637, location: "17005 Palisades Cir, Pacific Palisades, CA 90272, USA" },
+  ]);
+
+  assert.equal(card.area, null);
+  assert.equal("addressLocality" in classSchema(card).location.address, false);
+});
+
+test("a class with no price emits no offer", () => {
+  const [card] = buildPublicClasses([{ ...lesson2637, group_price_per_person: 0 }]);
+  assert.equal("offers" in classSchema(card), false);
 });

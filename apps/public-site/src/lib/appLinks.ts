@@ -54,3 +54,15 @@ export const appCoachBookHref = (appId: number | null | undefined) =>
  */
 export const coachLoginHref = (appId: number | null | undefined) =>
   appId ? loginHref(`/coaches/${appId}`) : loginHref(APP_FIND_COACHES);
+
+/**
+ * A group lesson's page in the player app — `#/group-lessons/:id`.
+ *
+ * Public, like the coach routes, so someone arriving from search sees the class,
+ * its coach and its price before meeting the account wall at the point of
+ * booking. Without an id there is nowhere specific to send anyone, so it
+ * degrades to the app's own group lesson browser rather than a URL that
+ * resolves to an error.
+ */
+export const appGroupLessonHref = (id: number | null | undefined) =>
+  id ? `${APP}/#/group-lessons/${id}` : `${APP}/#/group-lessons`;

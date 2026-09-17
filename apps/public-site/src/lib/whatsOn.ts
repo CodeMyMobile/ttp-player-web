@@ -37,6 +37,13 @@ export type PublicClass = {
   lvl: string | null;
   area: string | null;
   when: string | null;
+  /** Fields below serve the dedicated /group-tennis-lessons pages. The
+   *  /whats-on script reads only the short keys above. */
+  id: number | null;
+  startDateTime: string | null;
+  dateLabel: string | null;
+  /** How many future dates this class runs. 1 means a one-off. */
+  occurrences: number;
 };
 
 export type PublicLeague = {
@@ -143,6 +150,36 @@ export const areaOf = (location: unknown): [string, string] | [null, null] => {
   return [null, null];
 };
 
+const VENUE_TIME_ZONE = "America/Los_Angeles";
+
+/**
+ * A floating wall clock as a real instant, for schema.org `startDate`.
+ *
+ * Search engines read that field as an instant, so it needs the venue's offset
+ * — and the offset depends on the date, since PDT and PST differ by an hour.
+ * Asking Intl for the date in question is the only way to get that right
+ * without a timezone database.
+ */
+export const venueOffsetIso = (value: unknown, timeZone = VENUE_TIME_ZONE): string | null => {
+  const clock = readWallClock(value);
+  if (!clock) return null;
+  const probe = new Date(Date.UTC(clock.year, clock.month - 1, clock.day, 12));
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }).formatToParts(probe);
+  const named = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
+  const offset = named.replace(/^(GMT|UTC)/, "") || "-08:00";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${clock.year}-${pad(clock.month)}-${pad(clock.day)}T${pad(clock.hour)}:${pad(clock.minute)}:00${offset}`;
+};
+
+/** "Thu, Sep 17" from the venue's own clock. */
+export const formatDate = (value: unknown): string | null => {
+  const clock = readWallClock(value);
+  if (!clock) return null;
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const weekday = DAYS[new Date(Date.UTC(clock.year, clock.month - 1, clock.day)).getUTCDay()];
+  return `${weekday}, ${MONTHS[clock.month - 1]} ${clock.day}`;
+};
+
 const money = (value: unknown): string | null => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
@@ -151,7 +188,7 @@ const money = (value: unknown): string | null => {
 
 export const buildPublicClasses = (records: unknown[]): PublicClass[] => {
   const out: PublicClass[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
   for (const record of Array.isArray(records) ? records : []) {
     const row = record as Record<string, unknown>;
     const metadata = (row.metadata ?? {}) as Record<string, unknown>;
@@ -168,11 +205,17 @@ export const buildPublicClasses = (records: unknown[]): PublicClass[] => {
 
     // A weekly class is many rows, one per date, and the card only says
     // "Fri 9:00am" — so every week after the first renders as a duplicate
-    // listing. Keep the soonest occurrence. Rows arrive soonest-first.
+    // listing. Keep the soonest occurrence and count the rest. Rows arrive
+    // soonest-first.
     const key = `${title.toLowerCase()}|${venue.toLowerCase()}|${dayTime}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const already = seen.get(key);
+    if (already !== undefined) {
+      out[already].occurrences += 1;
+      continue;
+    }
+    seen.set(key, out.length);
 
+    const id = Number(row.id);
     out.push({
       t: title,
       v: venue,
@@ -182,6 +225,10 @@ export const buildPublicClasses = (records: unknown[]): PublicClass[] => {
       lvl: levelOf(metadata),
       area,
       when: bandOf(row.start_date_time),
+      id: Number.isFinite(id) ? id : null,
+      startDateTime: typeof row.start_date_time === "string" ? row.start_date_time : null,
+      dateLabel: formatDate(row.start_date_time),
+      occurrences: 1,
     });
   }
   return out;
@@ -254,7 +301,16 @@ const fetchJson = async (url: string, init?: RequestInit): Promise<unknown> => {
  * serving real classes; a tolerated one would publish "No classes at any level
  * in West LA" during an outage, which reads as a fact about our supply.
  */
+let cached: Promise<{ classes: PublicClass[]; leagues: PublicLeague[] }> | null = null;
+
 export async function getWhatsOn(): Promise<{ classes: PublicClass[]; leagues: PublicLeague[] }> {
+  // Four pages ask for this during one build. Without the cache that is four
+  // identical round trips, and four chances for one of them to fail the build.
+  cached ??= fetchWhatsOn();
+  return cached;
+}
+
+async function fetchWhatsOn(): Promise<{ classes: PublicClass[]; leagues: PublicLeague[] }> {
   // Read inside the function: the mappers above are imported by plain node in
   // the tests, where `import.meta.env` does not exist.
   const lessonsApi = import.meta.env.WHATS_ON_LESSONS_API_URL || DEFAULT_LESSONS_API;
@@ -292,4 +348,58 @@ export async function getWhatsOn(): Promise<{ classes: PublicClass[]; leagues: P
   }
 
   return { classes, leagues };
+}
+
+/** Areas that actually have a class, busiest first. Alphabetical breaks ties so
+ *  the chips do not reshuffle between builds when two areas are level. */
+export const classAreas = (classes: PublicClass[]): string[] => {
+  const counts = new Map<string, number>();
+  for (const item of classes) {
+    if (!item.area) continue;
+    counts.set(item.area, (counts.get(item.area) ?? 0) + 1);
+  }
+  const labelOf = (id: string) => AREAS.find(([key]) => key === id)?.[1] ?? id;
+  return [...counts.keys()].sort(
+    (a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0) || labelOf(a).localeCompare(labelOf(b)),
+  );
+};
+
+/**
+ * One class as schema.org. Only fields we hold are emitted — an absent level or
+ * price is left out rather than guessed, since structured data that disagrees
+ * with the page is worse than none.
+ */
+export const classSchema = (item: PublicClass): Record<string, unknown> => {
+  const startDate = venueOffsetIso(item.startDateTime);
+  const price = Number(item.p.replace(/[^0-9.]/g, ""));
+  return {
+    "@type": "SportsEvent",
+    name: item.t,
+    ...(startDate ? { startDate } : {}),
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: {
+      "@type": "Place",
+      name: item.v,
+      address: {
+        "@type": "PostalAddress",
+        // Culver City and Santa Monica are their own cities, not Los Angeles.
+        // Where we could not read an area, the locality is left out rather
+        // than guessed — structured data that contradicts the page is worse
+        // than structured data that says less.
+        ...(item.area ? { addressLocality: AREAS.find(([key]) => key === item.area)?.[1] } : {}),
+        addressRegion: "CA",
+        addressCountry: "US",
+      },
+    },
+    ...(item.c ? { performer: { "@type": "Person", name: item.c } } : {}),
+    ...(Number.isFinite(price) && price > 0
+      ? { offers: { "@type": "Offer", price: String(price), priceCurrency: "USD", availability: "https://schema.org/InStock", url: item.id ? `https://app.thetennisplan.com/#/group-lessons/${item.id}` : undefined } }
+      : {}),
+  };
+};
+
+/** Classes alone, for the dedicated pages. Shares the fetch policy below. */
+export async function getPublicClasses(): Promise<PublicClass[]> {
+  const { classes } = await getWhatsOn();
+  return classes;
 }

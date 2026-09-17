@@ -1,0 +1,72 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import ClassDirectory from "../../components/ClassDirectory.astro";
+import { loginHref } from "../../lib/appLinks";
+import { AREAS, classAreas, classSchema, getPublicClasses, type PublicClass } from "../../lib/whatsOn";
+
+export async function getStaticPaths() {
+  const classes = await getPublicClasses();
+  const areas = classAreas(classes);
+  return areas.map((area) => ({
+    params: { area },
+    props: { classes: classes.filter((item) => item.area === area), areas },
+  }));
+}
+
+const { classes, areas } = Astro.props as { classes: PublicClass[]; areas: string[] };
+const area = Astro.params.area!;
+const label = AREAS.find(([key]) => key === area)?.[1] ?? area;
+
+const venues = [...new Set(classes.map((item) => item.v))];
+
+const schema = [
+  {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Group tennis lessons in ${label}`,
+    itemListElement: classes.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      item: classSchema(item),
+    })),
+  },
+];
+---
+
+<BaseLayout
+  title={`Group Tennis Lessons in ${label} | The Tennis Plan`}
+  description={`Group tennis lessons, clinics and liveball in ${label}. See the level, coach, court and price before you book — no account needed.`}
+  canonicalPath={`/group-tennis-lessons/${area}`}
+  schema={schema}
+>
+  <Header next="/group-lessons" />
+  <main class="class-directory">
+    <section class="class-hero">
+      <div class="directory-shell">
+        <span><b>{classes.length}</b> {classes.length === 1 ? "class" : "classes"} scheduled in {label}</span>
+        <h1>Group tennis lessons in {label}</h1>
+        <p class="class-promise">Local coaches, public courts, and the price before you make an account.</p>
+        {venues.length > 0 && (
+          <p>{venues.length === 1 ? "Playing at" : "Playing at"} {venues.join(", ")}.</p>
+        )}
+      </div>
+    </section>
+
+    <ClassDirectory classes={classes} areas={areas} currentArea={area} />
+
+    <section class="class-cta">
+      <div class="directory-shell">
+        <h2>Nothing here at your level?</h2>
+        <p>
+          <a href="/group-tennis-lessons">Every class in West LA</a> is on one page, and coaches open
+          new ones where there is demand.
+        </p>
+        <a class="class-button class-button--primary" href={loginHref("/group-lessons")}>Create your account</a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>
