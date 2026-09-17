@@ -8,6 +8,7 @@ const pillars = [
     body: "Browse coaches by format and rate, book a session, and track every lesson from your account.",
     meta: "Private · Semi-private · Group sessions",
     link: "Browse coaches",
+    href: "/tennis-coaches",
   },
   {
     image: "/images/landing/group-lessons.jpg",
@@ -15,7 +16,8 @@ const pillars = [
     eyebrow: "Group lessons",
     title: "Clinics, liveball, and group classes",
     body: "Group lessons, clinics, and liveball sessions — browse what's on by date, location, and level, and grab a spot in a couple of taps.",
-    link: "Explore coaching",
+    link: "Browse group lessons",
+    href: "/group-tennis-lessons",
     reverse: true,
   },
   {
@@ -26,6 +28,7 @@ const pillars = [
     body: "Post when and where you want to play, set your level, and get matched with players looking for a game.",
     badge: "Verified rating · community-reviewed",
     link: "Find a coach",
+    href: "/tennis-coaches",
   },
   {
     image: "/images/landing/match-nights.jpg",
@@ -35,6 +38,7 @@ const pillars = [
     body: "Join flex leagues and schedule matches on your own time — then log results and climb the standings.",
     meta: "Flexible scheduling · Live standings",
     link: "Meet the coaches",
+    href: "/tennis-coaches",
     reverse: true,
   },
 ];
@@ -52,7 +56,7 @@ const pillars = [
             <p class="landing-pillar__text">{pillar.body}</p>
             {pillar.badge && <p class="landing-pillar__badge">✓ {pillar.badge}</p>}
             {pillar.meta && <p class="landing-pillar__meta">{pillar.meta}</p>}
-            <a class="landing-pillar__link" href="/tennis-coaches">{pillar.link} <span aria-hidden="true">→</span></a>
+            <a class="landing-pillar__link" href={pillar.href}>{pillar.link} <span aria-hidden="true">→</span></a>
           </div>
         </article>
       ))}

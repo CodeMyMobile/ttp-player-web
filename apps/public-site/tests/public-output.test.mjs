@@ -230,3 +230,33 @@ test("public whats-on filters can be broadened to any value", async () => {
   assert.match(html, /if \(F\.level\) params\.set\("level", F\.level\)/);
   assert.doesNotMatch(html, /\n\s*params\.set\("level", F\.level\);/);
 });
+
+/**
+ * Every pillar and tile on the landing page linked to /tennis-coaches, whatever its
+ * subject — the "Group lessons" pillar invited you to "Explore coaching" and took you to
+ * the coach directory. The internal-link walker could never catch this: the destination
+ * existed, it was just the wrong one. So this asserts where a link goes, not that it goes
+ * somewhere.
+ */
+test("the group lessons links on the landing page reach the group lessons page", async () => {
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+
+  const blocks = html.split(/<article/).filter((block) => /Group lessons/.test(block));
+  assert.ok(blocks.length >= 2, `expected the pillar and the tile, found ${blocks.length}`);
+
+  for (const block of blocks) {
+    const hrefs = [...block.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(
+      hrefs.includes("/group-tennis-lessons"),
+      `a "Group lessons" block links to ${hrefs.join(", ") || "nothing"} instead of /group-tennis-lessons`,
+    );
+  }
+});
+
+test("the coaching pillar still reaches the coach directory", async () => {
+  const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  const pillar = html.split(/<article/).find((block) => /Learn from certified coaches/.test(block));
+
+  assert.ok(pillar, "coaching pillar not found");
+  assert.match(pillar, /href="\/tennis-coaches"/);
+});
