@@ -44,6 +44,7 @@ export interface LeagueJoinPending {
   gender?: PlayerGender | null;
   level?: number | string | null;
   usta_rating?: number | string | null;
+  self_rated_seed?: number | string | null;
   dateOfBirth?: string | null;
   date_of_birth?: string | null;
 }
