@@ -57,12 +57,14 @@ const valuesMatch = (left: unknown, right: unknown) => {
 const readPendingLevel = (pending: LeagueJoinPending) => {
   const level = normalizeLevel(pending.level);
   const ustaRating = normalizeLevel(pending.usta_rating);
+  const selfRatedSeed = normalizeLevel(pending.self_rated_seed);
 
-  if (level !== undefined && ustaRating !== undefined && !valuesMatch(level, ustaRating)) {
+  const supplied = [level, ustaRating, selfRatedSeed].filter((value) => value !== undefined);
+  if (supplied.length > 1 && supplied.some((value) => !valuesMatch(value, supplied[0]))) {
     return null;
   }
 
-  return ustaRating ?? level;
+  return selfRatedSeed ?? ustaRating ?? level;
 };
 
 const readPendingDateOfBirth = (pending: LeagueJoinPending) => {
@@ -102,8 +104,13 @@ export const buildJoinProfilePatch = (
     patch.gender = pending.gender as PlayerGender;
   }
 
-  if (isMissingProfileField(profile?.usta_rating) && nextLevel !== undefined) {
-    patch.usta_rating = nextLevel;
+  if (
+    isMissingProfileField(profile?.usta_rating) &&
+    isMissingProfileField(profile?.self_rated_seed) &&
+    nextLevel !== undefined
+  ) {
+    patch.self_rated_seed = nextLevel;
+    patch.self_rating_source = "self_assessed";
   }
 
   if (isMissingProfileField(readProfileDateOfBirth(profile)) && nextDateOfBirth !== undefined) {

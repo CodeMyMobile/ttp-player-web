@@ -242,12 +242,21 @@ const LeagueJoinReviewSheet = ({
   );
 
   const genderValue = pending.gender ?? localProfile?.gender ?? "";
-  const levelValue = String(pending.usta_rating ?? localProfile?.usta_rating ?? "");
+  const levelValue = String(
+    pending.self_rated_seed ??
+      pending.usta_rating ??
+      localProfile?.usta_rating ??
+      localProfile?.self_rated_seed ??
+      "",
+  );
   const profileDateOfBirth = readProfileDateOfBirth(localProfile);
   const dobValue = pending.date_of_birth ?? formatDateInputValue(profileDateOfBirth);
 
   const canEditGender = eligibility.gender.status === "missing" || hasValue(pending.gender);
-  const canEditLevel = eligibility.level.status === "missing" || hasValue(pending.usta_rating);
+  const canEditLevel =
+    eligibility.level.status === "missing" ||
+    hasValue(pending.usta_rating) ||
+    hasValue(pending.self_rated_seed);
   const canEditAge = eligibility.age.status === "missing" || hasValue(pending.date_of_birth);
   const controlsDisabled = isSubmitting || (!!profileError && !localProfile);
   const continueDisabled = loading || isSubmitting || !!profileError || !eligibility.canContinue;
@@ -502,7 +511,7 @@ const LeagueJoinReviewSheet = ({
                       setSubmitError(null);
                       setPending((current) => ({
                         ...current,
-                        usta_rating: event.target.value || undefined,
+                        self_rated_seed: event.target.value || undefined,
                       }));
                     }}
                   >
