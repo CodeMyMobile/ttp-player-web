@@ -1,6 +1,6 @@
 ---
 const features = [
-  ["▦", "Group lessons", "Join high-energy group liveball and clinics near a coach.", true],
+  ["▦", "Group lessons", "Join high-energy group liveball and clinics near a coach.", "/group-tennis-lessons"],
   ["★", "Lesson packages", "Buy credits once and redeem them across sessions — every booking tracked for you."],
   ["⌁", "Restring your racket", "Keep your gear match-ready right alongside your lessons and matches."],
   ["↗", "Results & standings", "Log your match results and follow how your league is shaping up."],
@@ -13,12 +13,12 @@ const features = [
       <p class="landing-section__lede">From your first lesson to your next league match — one account covers it.</p>
     </div>
     <div class="landing-feature-grid">
-      {features.map(([icon, title, body, browse]) => (
+      {features.map(([icon, title, body, browseHref]) => (
         <article class="landing-feature">
           <span class="landing-feature__icon" aria-hidden="true">{icon}</span>
           <h3 class="landing-feature__title">{title}</h3>
           <p class="landing-feature__body">{body}</p>
-          {browse && <a class="landing-feature__more" href="/tennis-coaches">Browse — no account needed →</a>}
+          {browseHref && <a class="landing-feature__more" href={browseHref}>Browse — no account needed →</a>}
         </article>
       ))}
     </div>
