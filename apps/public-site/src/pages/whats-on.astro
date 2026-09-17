@@ -3,6 +3,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import { loginHref } from "../lib/appLinks";
+import { AREAS, getWhatsOn } from "../lib/whatsOn";
 
 const title = "Tennis at Your Level in West LA | The Tennis Plan";
 const description =
@@ -26,17 +27,7 @@ const divisions = [
   ["mens", "Men's"],
   ["womens", "Women's"],
 ];
-const areas = [
-  ["any", "Any"],
-  ["mar-vista", "Mar Vista"],
-  ["cheviot-hills", "Cheviot Hills"],
-  ["santa-monica", "Santa Monica"],
-  ["culver-city", "Culver City"],
-  ["venice", "Venice"],
-  ["westwood", "Westwood"],
-  ["west-la", "West LA"],
-  ["del-rey", "Del Rey"],
-];
+const areas = AREAS;
 const whens = [
   ["any", "Any"],
   ["mornings", "Mornings"],
@@ -44,20 +35,7 @@ const whens = [
   ["weekends", "Weekends"],
 ];
 
-const classes = [
-  { t: "Intermediate drills and points", v: "Penmar", d: "Tue 6:30pm", c: "Coach Sal", p: "$28", lvl: "3.5", area: "mar-vista", when: "evenings" },
-  { t: "Morning cardio tennis", v: "Mar Vista Rec", d: "Wed 8:00am", c: "Coach Dana", p: "$22", lvl: "3.5", area: "mar-vista", when: "mornings" },
-  { t: "Serve and return clinic", v: "Stoner Park", d: "Sat 9:00am", c: "Coach Paul", p: "$30", lvl: "4.0", area: "westwood", when: "weekends" },
-  { t: "Beginner basics", v: "Penmar", d: "Mon 7:00pm", c: "Coach Sal", p: "$22", lvl: "2.5", area: "mar-vista", when: "evenings" },
-];
-
-const leagues = [
-  { t: "Men's 3.5 Fall Flex League", lvl: "3.5", div: "mens", spots: 3, n: "16 players · Sep-Nov · $5" },
-  { t: "Men's 4.0 Fall Flex League", lvl: "4.0", div: "mens", spots: 5, n: "16 players · Sep-Nov · $5" },
-  { t: "Men's 4.5 Fall Flex League", lvl: "4.5", div: "mens", spots: 2, n: "12 players · Sep-Nov · $5" },
-  { t: "Women's 3.5 Fall Flex League", lvl: "3.5", div: "womens", spots: 4, n: "16 players · Sep-Nov · $5" },
-  { t: "Women's 4.0 Fall Flex League", lvl: "4.0", div: "womens", spots: 6, n: "13 players · Sep-Nov · $5" },
-];
+const { classes, leagues } = await getWhatsOn();
 ---
 
 <BaseLayout {title} {description} canonicalPath="/whats-on">
@@ -273,14 +251,15 @@ const leagues = [
       ));
       document.getElementById("c-classes").textContent = filtered.length ? (F.level ? `${filtered.length} at your level` : `${filtered.length} open`) : "";
       document.getElementById("classes").innerHTML = filtered.length
-        ? filtered.map((item) => `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.v)} · ${escapeHtml(item.d)} · ${escapeHtml(item.c)} · ${escapeHtml(item.p)}</p><div class="wo-foot"><span class="wo-badge wo-badge--match">Built for ${escapeHtml(item.lvl)}</span><button class="wo-btn" data-dt="Book this class" data-dw="${escapeHtml(authReason("To book,"))}">Book</button></div></article>`).join("")
+        ? filtered.map((item) => `<article class="wo-card"><h3>${escapeHtml(item.t)}</h3><p class="wo-card__meta">${escapeHtml(item.v)} · ${escapeHtml(item.d)} · ${escapeHtml(item.c)} · ${escapeHtml(item.p)}</p><div class="wo-foot">${item.lvl ? `<span class="wo-badge wo-badge--match">Built for ${escapeHtml(item.lvl)}</span>` : ""}<button class="wo-btn" data-dt="Book this class" data-dw="${escapeHtml(authReason("To book,"))}">Book</button></div></article>`).join("")
         : empty(`No classes at ${levelText()} in ${areaName}`, "Try a nearby area, or register interest so coaches know what to open next.", "Register interest");
     }
 
     function renderLeagues() {
-      const exact = leagues.filter((item) => (!F.level || item.lvl === F.level) && (!F.div || item.div === F.div));
+      const divMatch = (item) => !F.div || item.div === F.div || item.div === "any";
+      const exact = leagues.filter((item) => (!F.level || item.lvl === F.level) && divMatch(item));
       const stretchLevel = up(F.level);
-      const stretch = stretchLevel ? leagues.filter((item) => item.lvl === stretchLevel && (!F.div || item.div === F.div)) : [];
+      const stretch = stretchLevel ? leagues.filter((item) => item.lvl === stretchLevel && divMatch(item)) : [];
       const all = exact.concat(stretch);
       document.getElementById("c-leagues").textContent = all.length ? `${all.length} open` : "";
       document.getElementById("leagues").innerHTML = all.length
