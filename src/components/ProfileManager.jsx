@@ -20,7 +20,16 @@ const emptyDetails = {
   uta_rating: "",
   calculated_ntrp: "",
   calculated_utr: "",
+  seeded_at: null,
+  matches_played: 0,
   about_me: "",
+};
+
+const NTRP_OPTIONS = ["3.0", "3.5", "3.75", "4.0", "4.25", "4.5", "5.0"];
+
+const positiveRating = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 };
 
 const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
@@ -32,6 +41,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
   const [imagePreview, setImagePreview] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [smsConsentGranted, setSmsConsentGranted] = useState(false);
+  const [selfRatingDeclared, setSelfRatingDeclared] = useState(false);
   const accessToken = localStorage.getItem("authToken");
   const isPage = variant === "page";
 
@@ -45,6 +55,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         setImagePreview("");
         setSuccessMessage("");
         setSmsConsentGranted(false);
+        setSelfRatingDeclared(false);
       };
     }
 
@@ -57,6 +68,7 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       setImagePreview("");
       setSuccessMessage("");
       setSmsConsentGranted(false);
+      setSelfRatingDeclared(false);
     }
   }, [isOpen, isPage]);
 
@@ -79,6 +91,8 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         uta_rating: normalizeProfileRating(data?.uta_rating),
         calculated_ntrp: normalizeProfileRating(data?.calculated_ntrp),
         calculated_utr: normalizeProfileRating(data?.calculated_utr),
+        seeded_at: data?.seeded_at || null,
+        matches_played: Number(data?.matches_played || 0),
         about_me: data?.about_me || "",
       };
       setDetails(normalizedDetails);
@@ -134,11 +148,16 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
         setSaving(false);
         return;
       }
+      if (canEditRating && details.usta_rating && !selfRatingDeclared) {
+        setError("Please declare that your self-rating is accurate before saving.");
+        setSaving(false);
+        return;
+      }
       const aboutMe = details.about_me?.trim();
       const payload = {
         player: accessToken,
         date_of_birth: details.date_of_birth || null,
-        usta_rating: parseRating(details.usta_rating),
+        usta_rating: canEditRating ? parseRating(details.usta_rating) : undefined,
         uta_rating: parseRating(details.uta_rating),
         fullName: details.full_name?.trim() || null,
         mobile: sanitizedPhone ? sanitizedPhone : null,
@@ -200,6 +219,19 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
       )}
     </div>
   );
+
+  const declaredRating = positiveRating(details.usta_rating);
+  const matchRating = positiveRating(details.calculated_ntrp);
+  const hasMatchRating = Number(details.matches_played || 0) > 0 && matchRating !== null;
+  const canEditRating = !details.seeded_at && !hasMatchRating;
+  const ratingValue = details.usta_rating || (hasMatchRating ? details.calculated_ntrp : "");
+  const ratingHelper = canEditRating
+    ? "Choose once. After saving, only an admin can edit this."
+    : hasMatchRating
+      ? "Your level is now match-derived. Ask support if this needs correction."
+      : declaredRating !== null
+        ? "Saved. Only an admin can edit this now."
+        : "Only an admin can edit this now.";
 
   const FormContent = (
     <form onSubmit={handleUpdate} className="profile-manager__form">
@@ -311,6 +343,50 @@ const ProfileManager = ({ isOpen, onClose, variant = "modal" }) => {
               }
             />
           </div>
+
+          <h3 className="profile-manager__subhead">Tennis level</h3>
+
+          <div className="profile-manager__field">
+            <label className="profile-manager__label" htmlFor="profile-usta-rating">
+              Self-declared NTRP
+            </label>
+            <select
+              id="profile-usta-rating"
+              className="profile-manager__input"
+              value={ratingValue}
+              disabled={!canEditRating}
+              onChange={(e) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  usta_rating: e.target.value,
+                }))
+              }
+            >
+              <option value="">Select your level</option>
+              {NTRP_OPTIONS.map((rating) => (
+                <option key={rating} value={rating}>
+                  {rating}
+                </option>
+              ))}
+            </select>
+            <p className="profile-manager__helper">{ratingHelper}</p>
+          </div>
+
+          {canEditRating && details.usta_rating ? (
+            <label className="profile-manager__field profile-manager__field--declaration">
+              <span className="profile-manager__label">Self-rating declaration</span>
+              <span className="profile-manager__helper">
+                <input
+                  id="profile-self-rating-declaration"
+                  type="checkbox"
+                  checked={selfRatingDeclared}
+                  onChange={(event) => setSelfRatingDeclared(event.target.checked)}
+                  required
+                />{" "}
+                I declare that my self-rating above is accurate and I will play at this level.
+              </span>
+            </label>
+          ) : null}
 
           {details.phone ? (
             <label className="profile-manager__field" htmlFor="profile-sms-consent">
