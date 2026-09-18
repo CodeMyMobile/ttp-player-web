@@ -19,20 +19,25 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+const positiveNumber = (value: unknown) => {
+  const numeric = toNumber(value);
+  return numeric !== null && numeric > 0 ? numeric : null;
+};
+
 const hasStoredRating = (details: PlayerPersonalDetails | null) =>
   Boolean(
-    toNumber(details?.calculated_ntrp) ||
-      toNumber(details?.current_rating) ||
-      toNumber(details?.self_rated_seed) ||
-      toNumber(details?.usta_rating),
+    positiveNumber(details?.usta_rating) ||
+      positiveNumber(details?.self_rated_seed) ||
+      positiveNumber(details?.calculated_ntrp) ||
+      (positiveNumber(details?.current_rating) && Number(details?.matches_played || 0) > 0),
   );
 
 const currentRatingLabel = (details: PlayerPersonalDetails | null) => {
   const rating =
-    toNumber(details?.calculated_ntrp) ??
-    toNumber(details?.current_rating) ??
-    toNumber(details?.self_rated_seed) ??
-    toNumber(details?.usta_rating);
+    positiveNumber(details?.usta_rating) ??
+    positiveNumber(details?.self_rated_seed) ??
+    positiveNumber(details?.calculated_ntrp) ??
+    positiveNumber(details?.current_rating);
   return rating === null ? null : rating.toFixed(1);
 };
 

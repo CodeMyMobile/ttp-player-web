@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BadgeCheck, MapPin, MessageCircle, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Gauge, MapPin, MessageCircle, Users } from "lucide-react";
 import moment from "moment";
 
 import MainLayout from "../components/MainLayout";
@@ -289,6 +289,7 @@ const PlayerProfilePage = () => {
   const canShowMutual = isSignedIn && myPlayerId != null && String(myPlayerId) !== String(id);
   const visiblePlayedWith =
     canShowMutual && networkFilter === "mutual" ? mutualPlayedWith : playedWith;
+  const isOwnProfile = myPlayerId != null && id != null && String(myPlayerId) === String(id);
 
   // Guest summary — proof without exposing individual identities.
   const networkCount = playedWithTotal || playedWith.length;
@@ -476,6 +477,10 @@ const PlayerProfilePage = () => {
   const favoriteCourt = typeof player.favoriteCourt === "string" ? player.favoriteCourt : undefined;
 
   const openConnectModal = () => {
+    if (isOwnProfile) {
+      navigate("/rating-quiz");
+      return;
+    }
     if (!isSignedIn) {
       promptSignIn();
       return;
@@ -637,14 +642,24 @@ const PlayerProfilePage = () => {
 
           {player.bio ? <p className="ppv-bio">{player.bio}</p> : null}
 
-          <button type="button" className="ppv-connect" onClick={openConnectModal}>
-            <MessageCircle size={18} strokeWidth={2.2} aria-hidden="true" />
-            Connect with {firstName}
+          <button
+            type="button"
+            className={`ppv-connect${isOwnProfile ? " ppv-connect--rating" : ""}`}
+            onClick={openConnectModal}
+          >
+            {isOwnProfile ? (
+              <Gauge size={18} strokeWidth={2.2} aria-hidden="true" />
+            ) : (
+              <MessageCircle size={18} strokeWidth={2.2} aria-hidden="true" />
+            )}
+            {isOwnProfile ? "Check my rating" : `Connect with ${firstName}`}
           </button>
 
-          <button type="button" className="ppv-block-link" onClick={blockPlayer}>
-            Report or block this player
-          </button>
+          {!isOwnProfile ? (
+            <button type="button" className="ppv-block-link" onClick={blockPlayer}>
+              Report or block this player
+            </button>
+          ) : null}
         </aside>
 
         <main className="ppv-main">
@@ -856,15 +871,17 @@ const PlayerProfilePage = () => {
             ) : null}
           </section>
 
-          <section className="ppv-danger">
-            <h3 className="ppv-danger-title">Report or block this player</h3>
-            <p className="ppv-danger-sub">
-              Block this player if you no longer want to match or receive messages from them.
-            </p>
-            <button type="button" className="ppv-block-btn" onClick={blockPlayer}>
-              Block player
-            </button>
-          </section>
+          {!isOwnProfile ? (
+            <section className="ppv-danger">
+              <h3 className="ppv-danger-title">Report or block this player</h3>
+              <p className="ppv-danger-sub">
+                Block this player if you no longer want to match or receive messages from them.
+              </p>
+              <button type="button" className="ppv-block-btn" onClick={blockPlayer}>
+                Block player
+              </button>
+            </section>
+          ) : null}
         </main>
       </div>
       <ConnectPlayerModal
