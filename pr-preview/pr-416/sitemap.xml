@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Only genuinely public, indexable pages belong here.
+
+  The app itself is noindex (see index.html), so its routes are deliberately absent —
+  listing a noindexed URL in a sitemap asks a crawler to index something it is then told
+  not to, which just produces coverage warnings.
+
+  These two are real static files generated at build time by scripts/build-legal.mjs,
+  not SPA routes. Marketing URLs get added here when that property exists.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://app.thetennisplan.com/privacy/</loc>
+  </url>
+  <url>
+    <loc>https://app.thetennisplan.com/terms/</loc>
+  </url>
+</urlset>
