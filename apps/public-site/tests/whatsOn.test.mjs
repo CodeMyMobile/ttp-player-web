@@ -4,8 +4,13 @@ import { test } from "node:test";
 import {
   areaOf,
   bandOf,
+  buildExternalClasses,
   buildPublicClasses,
   buildPublicLeagues,
+  dropPastClasses,
+  utcInstantToVenueWallClock,
+  venueNowKey,
+  wallClockKey,
   classAreas,
   classSchema,
   formatDate,
@@ -92,6 +97,7 @@ test("a real lesson becomes a card with nothing invented", () => {
     startDateTime: "2026-09-17T18:30:00.000Z",
     dateLabel: "Thu, Sep 17",
     occurrences: 1,
+    externalUrl: null,
   });
 });
 
@@ -309,4 +315,126 @@ test("an unknown area leaves the locality out rather than guessing", () => {
 test("a class with no price emits no offer", () => {
   const [card] = buildPublicClasses([{ ...lesson2637, group_price_per_person: 0 }]);
   assert.equal("offers" in classSchema(card), false);
+});
+
+
+// ─── External lessons ─────────────────────────────────────────────────────
+
+// Lesson 1296 as /api/admin/external-lessons actually returns it. Note the
+// shape: title at the top level, coach under metadata, and no price field at
+// all — the internal mapper looks for metadata.title and row.full_name, so it
+// finds neither and drops the row.
+const external1296 = {
+  id: 1296,
+  title: "Liveball: 4.5",
+  level: "4.5",
+  start_date_time: "2026-09-30T03:00:00.000Z",
+  end_date_time: "2026-09-30T04:30:00.000Z",
+  location: "Culver City Private Court, across from 6225 Canterbury Drive, Culver City, CA 90230",
+  external_url: "https://momence.com/u/fortune-tennis-mJIDpV?class=liveball-4-5",
+  metadata: { full_name: "Manny Fortune", coach_name: "Manny Fortune", description: "90 min. Price: $50." },
+  status: 0,
+};
+
+test("the internal mapper cannot read an external row", () => {
+  // The reason these never appeared even before the fetch existed: the two
+  // shapes differ in exactly the fields buildPublicClasses guards on.
+  assert.equal(buildPublicClasses([external1296]).length, 0);
+});
+
+test("an external class maps to a card, priced as See price", () => {
+  const [card] = buildExternalClasses([external1296]);
+  assert.equal(card.t, "Liveball: 4.5");
+  assert.equal(card.c, "Manny Fortune");
+  assert.equal(card.v, "Culver City Private Court");
+  assert.equal(card.lvl, "4.5");
+  assert.equal(card.area, "culver-city");
+  // No price column exists. "Price: $50." lives in prose inside the
+  // description, and parsing that would publish a guess.
+  assert.equal(card.p, "See price");
+  assert.equal(card.externalUrl, "https://momence.com/u/fortune-tennis-mJIDpV?class=liveball-4-5");
+});
+
+test("an external card never claims an in-app id", () => {
+  // `id` addresses our own app's route; an external id would link to a class
+  // the app does not have.
+  const [card] = buildExternalClasses([external1296]);
+  assert.equal(card.id, null);
+});
+
+test("an external start is a real UTC instant and gets converted", () => {
+  // The opposite convention from our own lessons, whose Z is decorative. The
+  // row's own booking URL is the proof: date=2026-09-29&time=2000. Reading it
+  // literally would advertise Wed 3:00am for a Tuesday evening class.
+  const [card] = buildExternalClasses([external1296]);
+  assert.equal(card.d, "Tue 8:00pm");
+  assert.equal(card.dateLabel, "Tue, Sep 29");
+  assert.equal(card.startDateTime, "2026-09-29T20:00:00.000Z");
+});
+
+test("the conversion matches what each provider's own booking link says", () => {
+  // Sampled from live rows, each checked against its external_url.
+  assert.equal(utcInstantToVenueWallClock("2026-09-30T03:00:00.000Z"), "2026-09-29T20:00:00.000Z");
+  assert.equal(utcInstantToVenueWallClock("2026-09-27T20:30:00.000Z"), "2026-09-27T13:30:00.000Z");
+  assert.equal(utcInstantToVenueWallClock("2026-09-26T16:00:00.000Z"), "2026-09-26T09:00:00.000Z");
+  assert.equal(utcInstantToVenueWallClock("nonsense"), null);
+  assert.equal(utcInstantToVenueWallClock(null), null);
+});
+
+test("a winter instant converts on standard time, not a fixed offset", () => {
+  // PST is UTC-8, so a hardcoded -7 would put this an hour out.
+  assert.equal(utcInstantToVenueWallClock("2027-01-15T03:00:00.000Z"), "2027-01-14T19:00:00.000Z");
+});
+
+test("an external class with nothing to book is not a listing", () => {
+  assert.equal(buildExternalClasses([{ ...external1296, external_url: "" }]).length, 0);
+  assert.equal(buildExternalClasses([{ ...external1296, title: "" }]).length, 0);
+  assert.equal(buildExternalClasses([{ ...external1296, metadata: {} }]).length, 0);
+  assert.equal(buildExternalClasses([{ ...external1296, location: "" }]).length, 0);
+  assert.equal(buildExternalClasses([{ ...external1296, start_date_time: null }]).length, 0);
+});
+
+test("repeat external dates collapse to one card with a count", () => {
+  const cards = buildExternalClasses([
+    external1296,
+    { ...external1296, id: 1297, start_date_time: "2026-10-07T03:00:00.000Z" },
+    { ...external1296, id: 1298, start_date_time: "2026-10-14T03:00:00.000Z" },
+  ]);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].occurrences, 3);
+});
+
+// ─── Past classes ─────────────────────────────────────────────────────────
+
+test("a class that has already started is dropped", () => {
+  // These pages are a build-time snapshot, so nothing re-checks after deploy.
+  // This is the backstop that stops a fresh build shipping a past class.
+  const [past] = buildExternalClasses([external1296]);
+  const [future] = buildExternalClasses([{ ...external1296, start_date_time: "2026-12-01T03:00:00.000Z" }]);
+  const now = new Date("2026-10-01T12:00:00Z");
+
+  const kept = dropPastClasses([past, future], now);
+  assert.deepEqual(kept.map((item) => item.startDateTime), ["2026-11-30T19:00:00.000Z"]);
+});
+
+test("the cutoff is the venue's clock, not the build machine's", () => {
+  // The class is Tue Sep 29, 8:00pm at the court. At 2026-09-30T02:00Z it is
+  // still only 7:00pm there, so it has not started.
+  const [card] = buildExternalClasses([external1296]);
+  assert.equal(dropPastClasses([card], new Date("2026-09-30T02:00:00Z")).length, 1);
+  // An hour later on the venue clock it has.
+  assert.equal(dropPastClasses([card], new Date("2026-09-30T03:30:00Z")).length, 0);
+});
+
+test("an unreadable start is kept rather than silently binned", () => {
+  const card = { ...buildExternalClasses([external1296])[0], startDateTime: null };
+  assert.equal(dropPastClasses([card], new Date("2027-01-01T00:00:00Z")).length, 1);
+});
+
+test("wall clock keys sort without ever building a Date from the string", () => {
+  assert.equal(wallClockKey("2026-09-30T03:00:00.000Z"), 202609300300);
+  assert.equal(wallClockKey("nonsense"), null);
+  assert.ok(wallClockKey("2026-09-30T03:00:00.000Z") < wallClockKey("2026-09-30T18:30:00.000Z"));
+  // Midnight in the venue zone reads as hour 0, matching the backend cutoff.
+  assert.ok(venueNowKey(new Date("2026-09-30T07:00:00Z")) % 10000 < 100);
 });
