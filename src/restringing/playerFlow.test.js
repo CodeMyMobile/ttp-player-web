@@ -13,12 +13,59 @@ import {
   recommendStringCategory,
   isPresetCompositionTier,
   serviceCompositionLabel,
+  requiresVendorLogin,
+  createSelection,
+  nextScreenForVendor,
+  wizardRecommendationFromAnswers,
+  catalogFamilyFilters,
+  filterCatalogStrings,
 } from "./playerFlow.js";
 
 test("uses only a non-empty vendor image URL for card thumbnails", () => {
   assert.equal(playerFlow.vendorImageSrc({ image_url: " https://images.example.test/store.png " }), "https://images.example.test/store.png");
   assert.equal(playerFlow.vendorImageSrc({ image_url: " " }), "");
   assert.equal(playerFlow.vendorImageSrc(null), "");
+});
+
+test("requires authentication when a guest starts ordering with a vendor", () => {
+  assert.equal(requiresVendorLogin(false), true);
+  assert.equal(requiresVendorLogin(true), false);
+});
+
+test("keeps the reference selection mode through vendor choice", () => {
+  assert.equal(nextScreenForVendor({ mode: "own" }), "rackets");
+  assert.equal(nextScreenForVendor({ mode: "supplied", stringId: 9 }), "setup");
+  assert.deepEqual(createSelection({ mode: "family", family: "std_multi", requestedText: "Lynx Tour" }), {
+    mode: "family", stringId: null, family: "std_multi", requestedText: "Lynx Tour", ownStringText: "",
+  });
+});
+
+test("completes the guided flow with a recommendation without waiting for the API", () => {
+  assert.deepEqual(wizardRecommendationFromAnswers({
+    arm: "soreness",
+    game: "learning",
+    break_frequency: "months",
+    preference: "comfort_power",
+  }), {
+    category: "std_multi",
+    categoryLabel: "Standard Multifilament",
+    tensionLbs: 52,
+  });
+});
+
+test("filters stocked strings by family and a case-insensitive name search", () => {
+  const catalog = [
+    { id: 1, brand: "Head", name: "Lynx Tour", category: "std_poly" },
+    { id: 2, brand: "Head", name: "MLT", category: "std_multi" },
+    { id: 3, brand: "Solinco", name: "Mach 10", category: "std_poly" },
+  ];
+
+  assert.deepEqual(catalogFamilyFilters(catalog), [
+    { category: "all", count: 3 },
+    { category: "std_poly", count: 2 },
+    { category: "std_multi", count: 1 },
+  ]);
+  assert.deepEqual(filterCatalogStrings(catalog, { category: "std_poly", query: "head" }).map((item) => item.id), [1]);
 });
 
 test("recognizes vendor-selected preset composition tiers", () => {
