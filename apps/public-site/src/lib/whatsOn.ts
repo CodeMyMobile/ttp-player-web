@@ -14,6 +14,10 @@
 
 const DEFAULT_LESSONS_API = "https://api.thetennisplan.com/api/player/upcoming_group_lessons";
 const DEFAULT_LEAGUES_API = "https://api.thetennisplan.com/api/leagues";
+// Classes run by other providers. Mounted under /api/admin but served without a
+// token (routes/external_lessons.js has no middleware.verify on this one route),
+// which is what lets a static build read it.
+const DEFAULT_EXTERNAL_API = "https://api.thetennisplan.com/api/admin/external-lessons";
 
 /** Areas this site covers. Shared with the filter chips so both stay in step. */
 export const AREAS: Array<[string, string]> = [
@@ -44,6 +48,9 @@ export type PublicClass = {
   dateLabel: string | null;
   /** How many future dates this class runs. 1 means a one-off. */
   occurrences: number;
+  /** Set only for classes run by another provider: where to book them. The
+   *  card links here instead of into our app, and opens in a new tab. */
+  externalUrl: string | null;
 };
 
 export type PublicLeague = {
@@ -229,6 +236,151 @@ export const buildPublicClasses = (records: unknown[]): PublicClass[] => {
       startDateTime: typeof row.start_date_time === "string" ? row.start_date_time : null,
       dateLabel: formatDate(row.start_date_time),
       occurrences: 1,
+      externalUrl: null,
+    });
+  }
+  return out;
+};
+
+/**
+ * A sortable YYYYMMDDHHMM key from a floating venue wall clock. Used to order
+ * and to expire classes without ever building a Date from the string, which
+ * would re-interpret a 6:30pm class in the build machine's zone.
+ */
+export const wallClockKey = (value: unknown): number | null => {
+  const clock = readWallClock(value);
+  if (!clock) return null;
+  return ((clock.year * 100 + clock.month) * 100 + clock.day) * 10000
+    + clock.hour * 100 + clock.minute;
+};
+
+/** "Now" as the same key, read on the venue's clock rather than the builder's. */
+export const venueNowKey = (now = new Date(), timeZone = VENUE_TIME_ZONE): number => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  // en-CA renders midnight as 24; the backend cutoff treats it as hour 0.
+  const hour = get("hour") % 24;
+  return ((get("year") * 100 + get("month")) * 100 + get("day")) * 10000 + hour * 100 + get("minute");
+};
+
+/**
+ * Drops classes that have already started.
+ *
+ * The lessons API filters this server-side, correctly and on the venue clock
+ * (ttp-api utils/lessonTime.js). But these pages are a BUILD-TIME snapshot: the
+ * filter ran whenever the site was last deployed, so every day without a deploy
+ * pushes more of the page into the past. This is a backstop, not the fix — a
+ * scheduled rebuild is. It does guarantee a fresh build never ships a past class,
+ * and that external lessons, which have no server-side filter at all, are held to
+ * the same rule.
+ */
+export const dropPastClasses = (classes: PublicClass[], now = new Date()): PublicClass[] => {
+  const cutoff = venueNowKey(now);
+  return classes.filter((item) => {
+    const key = wallClockKey(item.startDateTime);
+    // An unreadable start is kept: it was good enough to publish, and we cannot
+    // prove it is past.
+    return key === null || key >= cutoff;
+  });
+};
+
+/** Soonest first, across both sources. Unreadable starts sort last. */
+export const byStart = (a: PublicClass, b: PublicClass): number =>
+  (wallClockKey(a.startDateTime) ?? Number.MAX_SAFE_INTEGER)
+  - (wallClockKey(b.startDateTime) ?? Number.MAX_SAFE_INTEGER);
+
+/**
+ * External lessons store a TRUE UTC INSTANT, the opposite of our own group
+ * lessons, whose `start_date_time` is a floating venue wall clock that merely
+ * carries a `Z`. Reading an external row the way we read ours shifts it by the
+ * UTC offset: `2026-09-30T03:00:00Z` is Tue Sep 29, 8:00pm at the court, and
+ * that row's own booking URL says so (`date=2026-09-29&time=2000`).
+ *
+ * So these are converted here, once, into the same floating wall-clock shape
+ * every formatter below already expects.
+ */
+export const utcInstantToVenueWallClock = (
+  value: unknown,
+  timeZone = VENUE_TIME_ZONE,
+): string | null => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(instant);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  // en-CA renders midnight as 24, which every reader below would reject.
+  const hour = String(Number(get("hour")) % 24).padStart(2, "0");
+  return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}:${get("second")}.000Z`;
+};
+
+/**
+ * Classes run by other providers, from the external-lessons table.
+ *
+ * A different row shape from our own lessons, in exactly the fields the internal
+ * mapper guards on: the title is top-level rather than under metadata, and the
+ * coach lives at metadata.coach_name rather than row.full_name. Piping these
+ * through buildPublicClasses drops every one of them.
+ *
+ * There is no price column. The only price is prose inside the description
+ * ("90 min. Price: $50."), and parsing that is the guess this file exists to
+ * avoid — a description reading "$50 members / $60 drop-in" would publish a
+ * wrong number. So these cards say "See price" and link to the provider, who
+ * states it.
+ */
+export const buildExternalClasses = (records: unknown[]): PublicClass[] => {
+  const out: PublicClass[] = [];
+  const seen = new Map<string, number>();
+
+  for (const record of Array.isArray(records) ? records : []) {
+    const row = record as Record<string, unknown>;
+    const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+    const title = typeof row.title === "string" ? row.title.trim() : "";
+    // Converted first: everything downstream reads wall clocks literally.
+    const start = utcInstantToVenueWallClock(row.start_date_time);
+    const dayTime = formatDayTime(start);
+    const coachRaw = metadata.coach_name ?? metadata.full_name;
+    const coach = typeof coachRaw === "string" ? coachRaw.trim() : "";
+    const url = typeof row.external_url === "string" ? row.external_url.trim() : "";
+    const [area, areaLabel] = areaOf(row.location);
+    const venue = venueOf(row.location, areaLabel);
+
+    // Same bar as our own classes, plus a link: an external card no one can
+    // book is not a listing.
+    if (!title || !dayTime || !coach || !venue || !url) continue;
+
+    const key = `${title.toLowerCase()}|${venue.toLowerCase()}|${dayTime}`;
+    const already = seen.get(key);
+    if (already !== undefined) {
+      out[already].occurrences += 1;
+      continue;
+    }
+    seen.set(key, out.length);
+
+    const id = Number(row.id);
+    out.push({
+      t: title,
+      v: venue,
+      d: dayTime,
+      c: coach,
+      p: "See price",
+      lvl: typeof row.level === "string" && row.level.trim() ? row.level.trim() : null,
+      area,
+      when: bandOf(start),
+      // Deliberately null: `id` addresses our own app's route, and an external
+      // id would build a link to a class the app does not have.
+      id: null,
+      // The converted wall clock, not the raw instant, so every consumer of
+      // this field treats ours and theirs identically.
+      startDateTime: start,
+      dateLabel: formatDate(start),
+      occurrences: 1,
+      externalUrl: url,
     });
   }
   return out;
@@ -315,8 +467,9 @@ async function fetchWhatsOn(): Promise<{ classes: PublicClass[]; leagues: Public
   // the tests, where `import.meta.env` does not exist.
   const lessonsApi = import.meta.env.WHATS_ON_LESSONS_API_URL || DEFAULT_LESSONS_API;
   const leaguesApi = import.meta.env.WHATS_ON_LEAGUES_API_URL || DEFAULT_LEAGUES_API;
+  const externalApi = import.meta.env.WHATS_ON_EXTERNAL_API_URL || DEFAULT_EXTERNAL_API;
 
-  const [lessonPayload, leaguePayload] = await Promise.all([
+  const [lessonPayload, leaguePayload, externalPayload] = await Promise.all([
     fetchJson(lessonsApi, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -327,18 +480,38 @@ async function fetchWhatsOn(): Promise<{ classes: PublicClass[]; leagues: Public
     fetchJson(leaguesApi).catch((error) => {
       throw new Error(`League API unreachable (${String(error)}) — aborting build`);
     }),
+    // Deliberately NOT fatal, unlike the two above. Our own classes are the
+    // page's promise; other providers' are a bonus, and losing them should not
+    // hold up a deploy that fixes something else.
+    fetchJson(externalApi).catch((error) => {
+      console.warn(`[whats-on] external lessons unavailable (${String(error)}) — publishing without them`);
+      return null;
+    }),
   ]);
 
   const lessonRows = (lessonPayload as { lessons?: unknown })?.lessons;
   const leagueRows = (leaguePayload as { leagues?: unknown })?.leagues;
+  const externalRows = Array.isArray(externalPayload)
+    ? externalPayload
+    : (externalPayload as { data?: unknown; lessons?: unknown })?.data
+      ?? (externalPayload as { lessons?: unknown })?.lessons;
 
-  const classes = buildPublicClasses(Array.isArray(lessonRows) ? lessonRows : []);
+  const ourClasses = buildPublicClasses(Array.isArray(lessonRows) ? lessonRows : []);
+  const theirClasses = buildExternalClasses(Array.isArray(externalRows) ? externalRows : []);
+  // Merged and re-sorted so the page reads as one chronological directory
+  // rather than ours followed by theirs.
+  const classes = dropPastClasses([...ourClasses, ...theirClasses]).sort(byStart);
   const leagues = buildPublicLeagues(Array.isArray(leagueRows) ? leagueRows : []);
 
   const lessonCount = Array.isArray(lessonRows) ? lessonRows.length : 0;
   const leagueCount = Array.isArray(leagueRows) ? leagueRows.length : 0;
+  const externalCount = Array.isArray(externalRows) ? externalRows.length : 0;
+  const dropped = ourClasses.length + theirClasses.length - classes.length;
   console.log(
-    `[whats-on] ${classes.length} of ${lessonCount} classes, ${leagues.length} of ${leagueCount} divisions published`,
+    `[whats-on] ${classes.length} classes published `
+    + `(${ourClasses.length} of ${lessonCount} ours, ${theirClasses.length} of ${externalCount} external`
+    + `${dropped ? `, ${dropped} already past` : ""}), `
+    + `${leagues.length} of ${leagueCount} divisions`,
   );
   const unlevelled = classes.filter((item) => item.lvl === null).length;
   if (unlevelled) {

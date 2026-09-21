@@ -11,6 +11,11 @@ interface Props {
 const { classes, areas, currentArea } = Astro.props;
 
 const labelOf = (id: string) => AREAS.find(([key]) => key === id)?.[1] ?? id;
+
+// Ours book in the app; other providers' book on their own site. Anything
+// external opens in a new tab and says so, so nobody taps "See this class"
+// expecting our checkout and lands on a stranger's.
+const hrefOf = (item: PublicClass) => item.externalUrl ?? appGroupLessonHref(item.id);
 ---
 
 <section class="class-areas" aria-label="Browse classes by area">
@@ -35,20 +40,34 @@ const labelOf = (id: string) => AREAS.find(([key]) => key === id)?.[1] ?? id;
       {classes.map((item) => (
         <article class="class-card">
           <div class="class-card__head">
-            <h3><a href={appGroupLessonHref(item.id)}>{item.t}</a></h3>
+            <h3>
+              <a
+                href={hrefOf(item)}
+                target={item.externalUrl ? "_blank" : undefined}
+                rel={item.externalUrl ? "noopener" : undefined}
+              >{item.t}</a>
+            </h3>
             {item.lvl && <span class="class-card__level">NTRP {item.lvl}</span>}
           </div>
+          {item.externalUrl && <p class="class-card__external-note">Run by another provider</p>}
           <p class="class-card__when">
             <b>{item.dateLabel}</b> · {item.d.replace(/^\w{3}\s/, "")}
           </p>
           <p class="class-card__where">{item.v}</p>
           <p class="class-card__coach">with {item.c}</p>
-          <p class="class-card__price"><b>{item.p}</b> per player</p>
+          <p class="class-card__price">
+            <b>{item.p}</b>{!item.externalUrl && " per player"}
+          </p>
           {item.occurrences > 1 && (
             <p class="class-card__repeat">{item.occurrences} dates scheduled</p>
           )}
           <div class="class-card__cta">
-            <a class="class-btn" href={appGroupLessonHref(item.id)}>See this class</a>
+            <a
+              class="class-btn"
+              href={hrefOf(item)}
+              target={item.externalUrl ? "_blank" : undefined}
+              rel={item.externalUrl ? "noopener" : undefined}
+            >{item.externalUrl ? "Book with provider" : "See this class"}</a>
           </div>
         </article>
       ))}
@@ -81,6 +100,7 @@ const labelOf = (id: string) => AREAS.find(([key]) => key === id)?.[1] ?? id;
   .class-card__price { margin: 6px 0 0; font-size: 0.86rem; color: #40465a; }
   .class-card__price b { font-size: 1.02rem; font-weight: 700; color: #12141c; }
   .class-card__repeat { margin: 0; font-size: 0.8rem; color: #667085; }
+  .class-card__external-note { margin: 0; font-size: 0.78rem; font-weight: 600; color: #667085; }
   .class-card__cta { margin-top: auto; padding-top: 16px; }
   .class-btn { display: block; padding: 12px 16px; border-radius: 12px; background: #7c5cf5; color: #fff; font-size: 0.94rem; font-weight: 600; text-align: center; text-decoration: none; }
 
