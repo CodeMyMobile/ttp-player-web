@@ -60,6 +60,7 @@ test("buildJoinProfilePatch preserves normalized alias values", () => {
     baseProfile({
       gender: null,
       usta_rating: null,
+      self_rated_seed: null,
       date_of_birth: null,
     }),
     basePending({
@@ -71,8 +72,32 @@ test("buildJoinProfilePatch preserves normalized alias values", () => {
 
   assert.deepEqual(patch, {
     gender: "other",
-    usta_rating: "4.0",
+    self_rated_seed: "4.0",
+    self_rating_source: "self_assessed",
     date_of_birth: "1998-11-02",
+  });
+});
+
+test("buildJoinProfilePatch saves league join levels as self-rated profile ratings", () => {
+  const patch = buildJoinProfilePatch(
+    baseProfile({
+      gender: null,
+      usta_rating: null,
+      self_rated_seed: null,
+      date_of_birth: null,
+    }),
+    basePending({
+      gender: "female",
+      usta_rating: 3.5,
+      date_of_birth: "1992-03-15",
+    }),
+  );
+
+  assert.deepEqual(patch, {
+    gender: "female",
+    self_rated_seed: 3.5,
+    self_rating_source: "self_assessed",
+    date_of_birth: "1992-03-15",
   });
 });
 

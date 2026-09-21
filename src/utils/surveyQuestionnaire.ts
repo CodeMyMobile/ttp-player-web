@@ -66,6 +66,15 @@ export const extractSurveyQuestions = (payload: unknown): NormalizedSurveyQuesti
   return [];
 };
 
+export const makeMatchProfileEditSurveyQuestions = (
+  questions: NormalizedSurveyQuestion[],
+) =>
+  questions.map((question) =>
+    question.questionType === "ImageUpload"
+      ? { ...question, answerRequired: false }
+      : question,
+  );
+
 export const getSurveyAnswerValue = (question: Partial<NormalizedSurveyQuestion>) => {
   const metadata = isObject(question.answerMetadata) ? question.answerMetadata : null;
   const metadataValue = metadata?.value;

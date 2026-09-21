@@ -14,6 +14,7 @@ import { getStoredAuthToken } from "../services/authToken";
 import {
   buildSurveySubmissionPayload,
   extractSurveyQuestions,
+  makeMatchProfileEditSurveyQuestions,
   type NormalizedSurveyQuestion,
 } from "../utils/surveyQuestionnaire";
 
@@ -52,7 +53,7 @@ const PlayerMatchProfileEditPage = () => {
           : [];
 
       if (routeSurvey.length > 0) {
-        setQuestions(routeSurvey);
+        setQuestions(makeMatchProfileEditSurveyQuestions(routeSurvey));
         return;
       }
 
@@ -60,7 +61,7 @@ const PlayerMatchProfileEditPage = () => {
         const answered = await getAllSurveyQuestionAnswered({ token: playerToken });
         const answeredQuestions = extractSurveyQuestions(answered);
         if (answeredQuestions.length > 0) {
-          setQuestions(answeredQuestions);
+          setQuestions(makeMatchProfileEditSurveyQuestions(answeredQuestions));
           return;
         }
       } catch {
@@ -68,7 +69,7 @@ const PlayerMatchProfileEditPage = () => {
       }
 
       const survey = await getAllSurveyQuestion({ token: playerToken });
-      setQuestions(extractSurveyQuestions(survey));
+      setQuestions(makeMatchProfileEditSurveyQuestions(extractSurveyQuestions(survey)));
     } catch (requestError) {
       setError(
         requestError instanceof Error

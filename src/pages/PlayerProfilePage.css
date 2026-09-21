@@ -142,6 +142,15 @@
   background: #ede9fe;
 }
 
+.ppv-connect--rating {
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.ppv-connect--rating:hover {
+  background: #ecfdf5;
+}
+
 .ppv-block-link {
   display: none;
   width: 100%;
