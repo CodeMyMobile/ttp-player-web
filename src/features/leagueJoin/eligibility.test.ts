@@ -210,6 +210,37 @@ test("zero-match players can qualify with a declared USTA rating", () => {
   });
 });
 
+test("pending self-rated seed also qualifies as an entered level", () => {
+  const result = evaluateLeagueEligibility({
+    league: {
+      gender: "mixed",
+      band_low: 4.5,
+      band_high: 5.0,
+    },
+    profile: {
+      gender: "male",
+      date_of_birth: "1995-01-01",
+      calculated_ntrp: 3.5,
+      usta_rating: null,
+      self_rated_seed: null,
+      current_rating: 5.0,
+      rating_gender: "M",
+      matches_played: 0,
+    },
+    pending: {
+      self_rated_seed: "4.5",
+    },
+    now,
+  });
+
+  assertEligibility(result, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+});
+
 test("missing fields are reported as missing when neither profile nor pending provides them", () => {
   const missingGender = evaluateLeagueEligibility({
     league: baseLeague(),
