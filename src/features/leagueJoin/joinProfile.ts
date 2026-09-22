@@ -109,8 +109,7 @@ export const buildJoinProfilePatch = (
     isMissingProfileField(profile?.self_rated_seed) &&
     nextLevel !== undefined
   ) {
-    patch.self_rated_seed = nextLevel;
-    patch.self_rating_source = "self_assessed";
+    patch.usta_rating = nextLevel;
   }
 
   if (isMissingProfileField(readProfileDateOfBirth(profile)) && nextDateOfBirth !== undefined) {

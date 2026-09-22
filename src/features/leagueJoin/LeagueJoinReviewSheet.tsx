@@ -31,6 +31,12 @@ const NTRP_OPTIONS = Array.from({ length: 6 }, (_, index) => (2.5 + (index * 0.5
 const hasValue = (value: unknown) =>
   !(value == null || (typeof value === "string" && value.trim() === ""));
 
+const toNumber = (value: unknown) => {
+  if (!hasValue(value)) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const formatLeagueLevelRange = (league: League) => {
   const low = league.bandLow ?? league.band_low;
   const high = league.bandHigh ?? league.band_high;
@@ -38,6 +44,18 @@ const formatLeagueLevelRange = (league: League) => {
     return "All levels";
   }
   return `NTRP ${low}-${high}`;
+};
+
+const getLeagueNtrpOptions = (league: League) => {
+  const low = toNumber(league.bandLow ?? league.band_low);
+  const high = toNumber(league.bandHigh ?? league.band_high);
+  if (low === null || high === null) return NTRP_OPTIONS;
+
+  const options = NTRP_OPTIONS.filter((option) => {
+    const value = Number(option);
+    return value >= low && value <= high;
+  });
+  return options.length ? options : NTRP_OPTIONS;
 };
 
 const formatLeagueGender = (league: League) => {
@@ -223,6 +241,8 @@ const LeagueJoinReviewSheet = ({
   }, [league.id, profile]);
 
   const latestEligibleDob = useMemo(() => getLatestEligibleDob(new Date()), []);
+  const leagueNtrpOptions = useMemo(() => getLeagueNtrpOptions(league), [league]);
+  const leagueLevelRange = formatLeagueLevelRange(league);
 
   const eligibility = useMemo(
     () =>
@@ -233,6 +253,7 @@ const LeagueJoinReviewSheet = ({
           calculated_ntrp: localProfile?.calculated_ntrp,
           usta_rating: localProfile?.usta_rating,
           self_rated_seed: localProfile?.self_rated_seed,
+          matches_played: localProfile?.matches_played,
           date_of_birth: readProfileDateOfBirth(localProfile),
         },
         pending,
@@ -305,6 +326,7 @@ const LeagueJoinReviewSheet = ({
           calculated_ntrp: nextProfile.calculated_ntrp,
           usta_rating: nextProfile.usta_rating,
           self_rated_seed: nextProfile.self_rated_seed,
+          matches_played: nextProfile.matches_played,
           date_of_birth: readProfileDateOfBirth(nextProfile),
         },
         pending: {},
@@ -342,10 +364,12 @@ const LeagueJoinReviewSheet = ({
   const genderMismatch = !canEditGender && eligibility.gender.status !== "pass";
   const levelMismatch = !canEditLevel && eligibility.level.status !== "pass";
   const ageMismatch = !canEditAge && eligibility.age.status !== "pass";
-  const displayLevel = localProfile?.calculated_ntrp ?? localProfile?.usta_rating;
+  const displayLevel = Number(localProfile?.matches_played || 0) > 0
+    ? (localProfile?.calculated_ntrp ?? localProfile?.usta_rating)
+    : localProfile?.usta_rating;
   const levelCheckValue = hasValue(displayLevel)
-    ? `You're ${displayLevel} — inside ${formatLeagueLevelRange(league)}`
-    : `Inside ${formatLeagueLevelRange(league)}`;
+    ? `You're ${displayLevel} — inside ${leagueLevelRange}`
+    : `Inside ${leagueLevelRange}`;
 
   // Hard block: a locked, non-fixable disqualification (existing profile value doesn't meet the
   // league — wrong division, out-of-band rating, or under 18). Distinct from "missing" fields the
@@ -358,7 +382,7 @@ const LeagueJoinReviewSheet = ({
       ? `This league is ${formatLeagueGender(league)} only — your profile is set to a different division.`
       : null,
     levelMismatch
-      ? `This league is for ${formatLeagueLevelRange(league)} — your profile rating is outside that range.`
+      ? `This league is for ${leagueLevelRange} — your profile rating is outside that range.`
       : null,
     ageMismatch
       ? "This league is 18-and-over — your date of birth on file doesn't meet that."
@@ -399,7 +423,7 @@ const LeagueJoinReviewSheet = ({
               <>{blockReasons.join(" ")}</>
             ) : (
               <>
-                This league needs {formatLeagueGender(league)}, {formatLeagueLevelRange(league)}, 18+.{" "}
+                This league needs {formatLeagueGender(league)}, {leagueLevelRange}, 18+.{" "}
                 {allPass
                   ? "Here's how your profile lines up:"
                   : "Fill in what's missing — we'll save it to your profile."}
@@ -446,7 +470,7 @@ const LeagueJoinReviewSheet = ({
                   value={describeFieldState({
                     field: eligibility.level,
                     label: "NTRP rating",
-                    mismatch: `This league accepts ${formatLeagueLevelRange(league)}.`,
+                    mismatch: `This league accepts ${leagueLevelRange}.`,
                   })}
                 />
               ) : null}
@@ -499,9 +523,9 @@ const LeagueJoinReviewSheet = ({
             {!hardBlock && canEditLevel ? (
               <div className="ljr-need">
                 <div className="ljr-need__lbl">What&apos;s your NTRP rating?</div>
-                <div className="ljr-need__why">This league accepts {formatLeagueLevelRange(league)}.</div>
+                <div className="ljr-need__why">Declare an NTRP in the {leagueLevelRange} range to join.</div>
                 <label className="league-join-sheet__select-field" htmlFor="league-join-level">
-                  <span>NTRP rating</span>
+                  <span>Self-declared NTRP</span>
                   <select
                     id="league-join-level"
                     value={levelValue}
@@ -511,12 +535,12 @@ const LeagueJoinReviewSheet = ({
                       setSubmitError(null);
                       setPending((current) => ({
                         ...current,
-                        self_rated_seed: event.target.value || undefined,
+                        usta_rating: event.target.value || undefined,
                       }));
                     }}
                   >
                     <option value="">Select a rating</option>
-                    {NTRP_OPTIONS.map((option) => (
+                    {leagueNtrpOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
