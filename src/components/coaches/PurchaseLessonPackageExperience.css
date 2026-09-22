@@ -655,6 +655,24 @@
   color: #475467;
 }
 
+.payment-methods__auth-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.payment-methods__auth-prompt p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #334155;
+}
+
 .payment-methods__cta {
   justify-self: center;
   display: inline-flex;
