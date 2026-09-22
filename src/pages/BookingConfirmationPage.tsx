@@ -63,6 +63,12 @@ import {
 } from "../utils/groupLessonCancellation";
 import { createSingleFlightRequest, ensureCreditLessonId } from "../utils/creditLessonBooking";
 import { packageAllowsLessonCreditType, resolveLessonCreditType } from "../utils/lessonPricing";
+import { CodeOfConductModal } from "../components/group-lessons/CodeOfConductModal";
+import {
+  CANCELLATION_POLICY_CONFIRMED,
+  CONDUCT_AGREEMENT_PREFIX,
+  cancellationPolicyFor,
+} from "../content/bookingPolicy";
 
 import "./BookingConfirmationPage.css";
 
@@ -494,6 +500,7 @@ const BookingConfirmationPage = () => {
   const state = location.state as LocationState | undefined;
   const searchParams = new URLSearchParams(location.search);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [conductOpen, setConductOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("apple-pay");
   const [paymentMethods, setPaymentMethods] = useState<NormalizedPaymentMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
@@ -2016,8 +2023,7 @@ const BookingConfirmationPage = () => {
 	    paymentDue: isUsingPayOnCourt,
     spotsRemainingAfterBooking: isGroupLesson ? Math.max(openSpots - 1, 0) : undefined,
     showPackagePrompt: isGroupLesson ? !isUsingCredits : false,
-    cancellationPolicyText:
-      "Cancellation policy: Free cancellation up to 24 hours before your lesson. Cancellations within 24 hours may be subject to a fee.",
+    cancellationPolicyText: CANCELLATION_POLICY_CONFIRMED,
   };
 
   const handleAddToCalendar = () => {
@@ -2716,9 +2722,18 @@ const BookingConfirmationPage = () => {
                 <div className="booking-confirmation__policy">
                   <span className="booking-confirmation__policy-emoji" aria-hidden>ℹ️</span>
                   <div className="booking-confirmation__policy-copy">
-	                  {isUsingPayOnCourt
-	                    ? "Cancel at least 24 hours before your class. No card charge is created for pay on court."
-	                    : "Cancel at least 24 hours before your class for a full refund or credit. Cancellations within 24 hours are non-refundable."}
+	                  {cancellationPolicyFor(isUsingPayOnCourt)}{" "}
+	                  {CONDUCT_AGREEMENT_PREFIX}
+	                  {/* A button, not a link: navigating away would drop the payment
+	                      method and everything else chosen on this page. */}
+	                  <button
+	                    type="button"
+	                    onClick={() => setConductOpen(true)}
+	                    className="booking-confirmation__conduct-link"
+	                  >
+	                    Player Code of Conduct
+	                  </button>
+	                  .
                   </div>
                 </div>
 
@@ -2859,9 +2874,18 @@ const BookingConfirmationPage = () => {
               <div className="booking-confirmation__policy">
                 <AlertCircle aria-hidden size={16} />
                 <div className="booking-confirmation__policy-copy">
-	                  {isUsingPayOnCourt
-	                    ? "Cancel at least 24 hours before your class. No card charge is created for pay on court."
-	                    : "Cancel at least 24 hours before your class for a full refund or credit. Cancellations within 24 hours are non-refundable."}
+	                  {cancellationPolicyFor(isUsingPayOnCourt)}{" "}
+	                  {CONDUCT_AGREEMENT_PREFIX}
+	                  {/* A button, not a link: navigating away would drop the payment
+	                      method and everything else chosen on this page. */}
+	                  <button
+	                    type="button"
+	                    onClick={() => setConductOpen(true)}
+	                    className="booking-confirmation__conduct-link"
+	                  >
+	                    Player Code of Conduct
+	                  </button>
+	                  .
                 </div>
               </div>
 
@@ -2956,6 +2980,7 @@ const BookingConfirmationPage = () => {
           onShareWithFriends={modalStatus === "CONFIRMED" ? handleShare : undefined}
         />
       ) : null}
+      <CodeOfConductModal open={conductOpen} onClose={() => setConductOpen(false)} />
     </MainLayout>
   );
 };

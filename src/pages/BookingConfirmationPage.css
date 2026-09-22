@@ -953,6 +953,22 @@
   color: #475569;
 }
 
+/* Inline in the policy sentence, so it reads as part of the agreement rather
+   than a separate control. Matches the details page's conduct link. */
+.booking-confirmation__conduct-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8b5cf6;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.booking-confirmation__conduct-link:hover {
+  color: #7c3aed;
+}
+
 .booking-confirmation__actions {
   display: flex;
   flex-direction: column;
