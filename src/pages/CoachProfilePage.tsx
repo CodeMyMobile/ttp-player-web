@@ -146,6 +146,7 @@ type CoachProfileRouteState = {
   resumeBookingSlotId?: string;
   resumePaymentChoice?: PaymentChoice;
   focusBookCta?: boolean;
+  focusPackages?: boolean;
   purchaseAfterAuth?: boolean;
   findCoachesState?: FindCoachesStateSnapshot;
 };
@@ -1657,6 +1658,29 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     });
   }, [findCoachesReturnState, navigate]);
 
+  const scrollToPackages = useCallback((navigateIfMissing = true) => {
+    const isMobileViewport =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches;
+    const target = isMobileViewport
+      ? mobilePackagesRef.current ?? desktopPackagesRef.current
+      : desktopPackagesRef.current ?? mobilePackagesRef.current;
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (navigateIfMissing && profile?.id) {
+      navigate(`/coaches/${profile.id}/book`, {
+        state: {
+          focusPackages: true,
+          ...(findCoachesReturnState ? { findCoachesState: findCoachesReturnState } : {}),
+        },
+      });
+    }
+  }, [findCoachesReturnState, navigate, profile?.id]);
+
   const isFirstBooking = useMemo(() => {
     const completedLocally =
       typeof window !== "undefined" ? localStorage.getItem(firstBookingKey) === "completed" : false;
@@ -1720,6 +1744,17 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     routeState,
     slotsByDay,
   ]);
+
+  useEffect(() => {
+    if (!routeState?.focusPackages) return;
+
+    const timer = window.setTimeout(() => {
+      scrollToPackages(false);
+      clearResumeState();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [clearResumeState, routeState?.focusPackages, scrollToPackages]);
 
   const nextAvailableSlot = visibleDays.flatMap((day) => day.slots)[0] ?? null;
   /**
@@ -2982,15 +3017,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
           </div>
           <button
             type="button"
-            onClick={() => {
-              const isMobileViewport =
-                typeof window !== "undefined" &&
-                window.matchMedia("(max-width: 1023px)").matches;
-              const target = isMobileViewport
-                ? mobilePackagesRef.current ?? desktopPackagesRef.current
-                : desktopPackagesRef.current ?? mobilePackagesRef.current;
-              target?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
+            onClick={() => scrollToPackages()}
           >
             {availableCredits > 0 ? "Top up" : "View packages"}
           </button>
@@ -4420,9 +4447,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                     <button
                       type="button"
                       className="coach-sec-m__pkg"
-                      onClick={() =>
-                        mobilePackagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-                      }
+                      onClick={() => scrollToPackages()}
                     >
                       <span className="coach-sec-m__pkg-txt">
                         <b>Lesson packages</b> — book in bulk and lock in today's rate.
