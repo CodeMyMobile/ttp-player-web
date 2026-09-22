@@ -55,6 +55,7 @@ import { patchPlayerPersonalDetails } from "../api/playerProfile";
 import { levelRequirementOf } from "../utils/groupLessonLevelRequirement";
 import { LevelRequirementNotice } from "../components/group-lessons/LevelRequirementNotice";
 import { CodeOfConductModal } from "../components/group-lessons/CodeOfConductModal";
+import { CONDUCT_AGREEMENT_PREFIX, cancellationPolicyFor } from "../content/bookingPolicy";
 import { LevelCheckDrawer } from "../components/group-lessons/LevelCheckDrawer";
 
 import "./GroupLessonDetailsPage.css";
@@ -1918,10 +1919,11 @@ const GroupLessonDetailsPage = () => {
                       </button>
 
                       <p className="group-lesson-details__checkout-caption">
+                        {cancellationPolicyFor(isPayOnCourtChoice)}{" "}
                         {isPayOnCourtChoice
-                            ? "Your place is held now. Pay your coach on the day."
-                            : "Free cancellation up to 24 hours before the class. Your place is held as soon as checkout completes."}{" "}
-                        By booking, you agree to our{" "}
+                            ? "Your place is held now."
+                            : "Your place is held as soon as checkout completes."}{" "}
+                        {CONDUCT_AGREEMENT_PREFIX}
                         {/* A button, not a link. Navigating away would drop the selected
                             payment method and everything else in this card, and the
                             agreement is the booking itself — there is no checkbox. */}
