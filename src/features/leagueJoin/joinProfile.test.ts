@@ -72,13 +72,12 @@ test("buildJoinProfilePatch preserves normalized alias values", () => {
 
   assert.deepEqual(patch, {
     gender: "other",
-    self_rated_seed: "4.0",
-    self_rating_source: "self_assessed",
+    usta_rating: "4.0",
     date_of_birth: "1998-11-02",
   });
 });
 
-test("buildJoinProfilePatch saves league join levels as self-rated profile ratings", () => {
+test("buildJoinProfilePatch saves league join levels as declared USTA ratings", () => {
   const patch = buildJoinProfilePatch(
     baseProfile({
       gender: null,
@@ -95,8 +94,7 @@ test("buildJoinProfilePatch saves league join levels as self-rated profile ratin
 
   assert.deepEqual(patch, {
     gender: "female",
-    self_rated_seed: 3.5,
-    self_rating_source: "self_assessed",
+    usta_rating: 3.5,
     date_of_birth: "1992-03-15",
   });
 });
