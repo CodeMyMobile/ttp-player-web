@@ -152,6 +152,64 @@ test("calculated NTRP qualifies a rated player before TRP fields or missing USTA
   });
 });
 
+test("default calculated NTRP is not a profile level before any match play", () => {
+  const result = evaluateLeagueEligibility({
+    league: {
+      gender: "mixed",
+      band_low: 4.5,
+      band_high: 5.0,
+    },
+    profile: {
+      gender: "male",
+      date_of_birth: "1995-01-01",
+      calculated_ntrp: 3.5,
+      usta_rating: null,
+      self_rated_seed: null,
+      current_rating: 5.0,
+      rating_gender: "M",
+      matches_played: 0,
+    },
+    pending: {},
+    now,
+  });
+
+  assertEligibility(result, {
+    gender: "pass",
+    level: "missing",
+    age: "pass",
+    canContinue: false,
+  });
+});
+
+test("zero-match players can qualify with a declared USTA rating", () => {
+  const result = evaluateLeagueEligibility({
+    league: {
+      gender: "mixed",
+      band_low: 4.5,
+      band_high: 5.0,
+    },
+    profile: {
+      gender: "male",
+      date_of_birth: "1995-01-01",
+      calculated_ntrp: 3.5,
+      usta_rating: 4.5,
+      self_rated_seed: null,
+      current_rating: 5.0,
+      rating_gender: "M",
+      matches_played: 0,
+    },
+    pending: {},
+    now,
+  });
+
+  assertEligibility(result, {
+    gender: "pass",
+    level: "pass",
+    age: "pass",
+    canContinue: true,
+  });
+});
+
 test("missing fields are reported as missing when neither profile nor pending provides them", () => {
   const missingGender = evaluateLeagueEligibility({
     league: baseLeague(),

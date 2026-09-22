@@ -30,8 +30,13 @@ const normalizeDate = (value: string | null | undefined): Date | null => {
 
 const readLeagueBandLow = (league: LeagueJoinLeague) => league.bandLow ?? league.band_low;
 const readLeagueBandHigh = (league: LeagueJoinLeague) => league.bandHigh ?? league.band_high;
+const hasMatchDerivedRating = (profile: LeagueJoinProfile) =>
+  (normalizeNumber(profile.matches_played) ?? 0) > 0;
 const readProfileLevel = (profile: LeagueJoinProfile) =>
-  profile.calculated_ntrp ?? profile.level ?? profile.usta_rating ?? profile.self_rated_seed;
+  (hasMatchDerivedRating(profile) ? profile.calculated_ntrp : null) ??
+  profile.level ??
+  profile.usta_rating ??
+  profile.self_rated_seed;
 const readPendingLevel = (pending: LeagueJoinPending) => pending.level ?? pending.usta_rating;
 const readProfileDateOfBirth = (profile: LeagueJoinProfile) =>
   profile.dateOfBirth ?? profile.date_of_birth;
