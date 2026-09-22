@@ -37,7 +37,8 @@ const readProfileLevel = (profile: LeagueJoinProfile) =>
   profile.level ??
   profile.usta_rating ??
   profile.self_rated_seed;
-const readPendingLevel = (pending: LeagueJoinPending) => pending.level ?? pending.usta_rating;
+const readPendingLevel = (pending: LeagueJoinPending) =>
+  pending.level ?? pending.usta_rating ?? pending.self_rated_seed;
 const readProfileDateOfBirth = (profile: LeagueJoinProfile) =>
   profile.dateOfBirth ?? profile.date_of_birth;
 const readPendingDateOfBirth = (pending: LeagueJoinPending) =>
