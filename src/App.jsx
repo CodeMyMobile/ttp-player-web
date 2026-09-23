@@ -26,6 +26,7 @@ import CreatePrivateMatchInvitePage from "./pages/CreatePrivateMatchInvitePage";
 import FindCoaches from "./pages/FindCoaches";
 import FindPlayersPage from "./pages/FindPlayersPage";
 import MainLayout from "./components/MainLayout";
+import { resolvePlayerLevel } from "./utils/playerLevel";
 import PublicMatchResultsPage from "./pages/PublicMatchResultsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
@@ -243,12 +244,10 @@ const buildMatchesUser = (authUser) => {
       "Player",
     email: profile?.email || loginResponse?.email || "",
     phone: profile?.phone || profile?.mobile || loginResponse?.phone || "",
-    skillLevel:
-      profile?.skillLevel ||
-      profile?.skill_level ||
-      profile?.usta_rating ||
-      loginResponse?.skillLevel ||
-      "",
+    // One resolver, shared with CreateMatchPage — see utils/playerLevel. Written out
+    // by hand here twice, and wrong both times, because calculated_ntrp is not on the
+    // object this function receives.
+    skillLevel: resolvePlayerLevel({ authUser, personalDetails, loginResponse }),
     profile,
   };
 };
