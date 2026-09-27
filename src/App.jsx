@@ -825,11 +825,15 @@ const LocationPermissionGate = () => {
 };
 
 function App() {
+  const hashPath = typeof window !== "undefined"
+    ? window.location.hash.replace(/^#/, "")
+    : "";
+  const hasHashRoute = hashPath.startsWith("/");
   const directPayMatch = typeof window !== "undefined"
-    ? window.location.pathname.match(/^\/pay\/([^/?#]+)/)
+    ? !hasHashRoute && window.location.pathname.match(/^\/pay\/([^/?#]+)/)
     : null;
   const directVendorMatch = typeof window !== "undefined"
-    ? window.location.pathname.match(/^\/([^/?#]+)\/?$/)
+    ? !hasHashRoute && window.location.pathname.match(/^\/([^/?#]+)\/?$/)
     : null;
   const directVendorSlug = directVendorMatch && directVendorMatch[1] !== "pay"
     ? decodeURIComponent(directVendorMatch[1])
