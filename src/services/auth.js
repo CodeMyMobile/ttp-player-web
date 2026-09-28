@@ -4,6 +4,16 @@ import { getPhoneDigits } from "./phone";
 import { clearReturningUserHint, setReturningUserHint } from "./returningUserHint";
 import { withSmsConsent } from "./smsConsent";
 
+export const LIGHTWEIGHT_ACCOUNT_CLAIM_REQUIRED = "lightweight_account_claim_required";
+
+export const isLightweightAccountClaimRequired = (error) => {
+  const data = error?.data || error?.response?.data || {};
+  return (
+    data?.detail === LIGHTWEIGHT_ACCOUNT_CLAIM_REQUIRED ||
+    data?.action === "claim_account"
+  );
+};
+
 export const clearStoredSession = () => {
   localStorage.removeItem("authToken");
   localStorage.removeItem("refreshToken");

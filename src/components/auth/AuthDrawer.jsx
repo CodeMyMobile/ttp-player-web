@@ -4,7 +4,11 @@ import { ArrowRight, Eye, EyeOff, X } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
 import { shouldCaptureOAuthPhone, shouldCaptureProfilePhone } from "../OAuthPhoneCapture";
-import { googlePlayerLogin, signup as signupService } from "../../services/auth";
+import {
+  googlePlayerLogin,
+  isLightweightAccountClaimRequired,
+  signup as signupService,
+} from "../../services/auth";
 import { createPlayerPersonalDetails } from "../../services/player";
 import { getPhoneDigits } from "../../services/phone";
 import { SMS_DISCLOSURE_TEXT } from "../../services/smsConsent";
@@ -95,6 +99,7 @@ const AuthDrawer = ({
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [claimAccountPrompt, setClaimAccountPrompt] = useState(false);
   const [pendingSession, setPendingSession] = useState(null);
 
   const dialogRef = useRef(null);
@@ -111,6 +116,7 @@ const AuthDrawer = ({
     setMode(initialMode);
     setStep(1);
     setError("");
+    setClaimAccountPrompt(false);
     setPassword("");
     setPhone("");
     setSmsConsentGranted(false);
@@ -126,6 +132,7 @@ const AuthDrawer = ({
   const handleIdentifySubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setClaimAccountPrompt(false);
     setLoading(true);
     try {
       if (isSignup) {
@@ -145,11 +152,16 @@ const AuthDrawer = ({
         finishAuth();
       }
     } catch (err) {
-      setError(
-        err?.response?.data?.error ||
-          err?.message ||
-          `Unable to ${isSignup ? "sign up" : "sign in"}. Please try again.`,
-      );
+      if (isLightweightAccountClaimRequired(err)) {
+        setClaimAccountPrompt(true);
+        setError("A shop already started your player profile. Claim it to finish creating your account.");
+      } else {
+        setError(
+          err?.response?.data?.error ||
+            err?.message ||
+            `Unable to ${isSignup ? "sign up" : "sign in"}. Please try again.`,
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -157,9 +169,24 @@ const AuthDrawer = ({
 
   const handleModeToggle = () => {
     setError("");
+    setClaimAccountPrompt(false);
     setStep(1);
     setSmsConsentGranted(false);
     setMode((current) => (current === "signup" ? "signin" : "signup"));
+  };
+
+  const handleEmailChange = (event) => {
+    setEmail(event.target.value);
+    setClaimAccountPrompt(false);
+  };
+
+  const handleClaimAccount = () => {
+    setError("");
+    setClaimAccountPrompt(false);
+    setMode("signup");
+    setStep(1);
+    setPassword("");
+    setSmsConsentGranted(false);
   };
 
   // ----- Google -----
@@ -418,7 +445,16 @@ const AuthDrawer = ({
               </p>
             </div>
 
-            {error ? <div className="auth-drawer__error" role="alert">{error}</div> : null}
+            {error ? (
+              <div className="auth-drawer__error" role="alert">
+                <span>{error}</span>
+                {claimAccountPrompt ? (
+                  <button type="button" onClick={handleClaimAccount}>
+                    Claim your account
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {GOOGLE_CLIENT_ID ? (
               <>
@@ -465,7 +501,7 @@ const AuthDrawer = ({
                   id="ad-email"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={handleEmailChange}
                   placeholder="you@example.com"
                   required
                   autoComplete="email"

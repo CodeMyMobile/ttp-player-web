@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isSessionTokenPayloadValid, persistAuthSession } from "./auth.js";
+import {
+  LIGHTWEIGHT_ACCOUNT_CLAIM_REQUIRED,
+  isLightweightAccountClaimRequired,
+  isSessionTokenPayloadValid,
+  persistAuthSession,
+} from "./auth.js";
 
 const tokenWithPayload = (payload) =>
   `header.${btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.signature`;
@@ -40,4 +45,31 @@ test("persistAuthSession marks a successful player session as returning", () => 
     if (previousLocalStorage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = previousLocalStorage;
   }
+});
+
+test("isLightweightAccountClaimRequired detects the backend claim-account response", () => {
+  assert.equal(
+    isLightweightAccountClaimRequired({
+      response: {
+        data: {
+          detail: LIGHTWEIGHT_ACCOUNT_CLAIM_REQUIRED,
+          action: "claim_account",
+        },
+      },
+    }),
+    true,
+  );
+});
+
+test("isLightweightAccountClaimRequired ignores ordinary auth failures", () => {
+  assert.equal(
+    isLightweightAccountClaimRequired({
+      response: {
+        data: {
+          detail: "Password do not match",
+        },
+      },
+    }),
+    false,
+  );
 });
