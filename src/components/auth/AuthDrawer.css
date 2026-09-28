@@ -93,6 +93,20 @@
   font-size: 13px;
   font-weight: 600;
 }
+.auth-drawer__error button {
+  display: inline-flex;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7c3aed;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.auth-drawer__error button:hover {
+  text-decoration: underline;
+}
 
 .auth-drawer__google {
   display: flex;

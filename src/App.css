@@ -2132,6 +2132,22 @@
   font-weight: 600;
 }
 
+.auth-welcome__error button {
+  display: inline-flex;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-welcome__error button:hover {
+  text-decoration: underline;
+}
+
 .auth-welcome__socials {
   display: flex;
   flex-direction: column;

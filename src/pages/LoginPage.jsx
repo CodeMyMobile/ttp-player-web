@@ -16,6 +16,7 @@ import OAuthPhoneCapture, { shouldCaptureOAuthPhone } from "../components/OAuthP
 import LegalFooter from "../components/LegalFooter";
 import {
   googlePlayerLogin,
+  isLightweightAccountClaimRequired,
   logout as clearAuthSession,
   signup as signupService,
 } from "../services/auth";
@@ -185,6 +186,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [claimAccountPrompt, setClaimAccountPrompt] = useState(false);
   const [mobileScreen, setMobileScreen] = useState("welcome");
   const [pendingOAuthSession, setPendingOAuthSession] = useState(null);
   const [pendingOAuthProvider, setPendingOAuthProvider] = useState("google");
@@ -228,6 +230,7 @@ const LoginPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+    setClaimAccountPrompt(false);
     setLoading(true);
     try {
       if (isSignup) {
@@ -249,7 +252,12 @@ const LoginPage = () => {
       }
       navigateAfterAuth();
     } catch (err) {
-      setError(getAuthErrorMessage(err, { isSignup }));
+      if (isLightweightAccountClaimRequired(err)) {
+        setClaimAccountPrompt(true);
+        setError("A shop already started your player profile. Claim it to finish creating your account.");
+      } else {
+        setError(getAuthErrorMessage(err, { isSignup }));
+      }
     } finally {
       setLoading(false);
     }
@@ -257,7 +265,22 @@ const LoginPage = () => {
 
   const handleModeToggle = () => {
     setError("");
+    setClaimAccountPrompt(false);
     setMode((current) => (current === "signup" ? "signin" : "signup"));
+    setSmsConsentGranted(false);
+  };
+
+  const handleEmailChange = (event) => {
+    setEmail(event.target.value);
+    setClaimAccountPrompt(false);
+  };
+
+  const handleClaimAccount = () => {
+    setError("");
+    setClaimAccountPrompt(false);
+    setMode("signup");
+    setMobileScreen("form");
+    setPassword("");
     setSmsConsentGranted(false);
   };
 
@@ -437,7 +460,16 @@ const LoginPage = () => {
                   </p>
                 </div>
 
-                {error ? <div className="auth-welcome__error">{error}</div> : null}
+                {error ? (
+                  <div className="auth-welcome__error">
+                    <span>{error}</span>
+                    {claimAccountPrompt ? (
+                      <button type="button" onClick={handleClaimAccount}>
+                        Claim your account
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <form className="auth-welcome__form" onSubmit={handleSubmit}>
                   {isSignup ? (
@@ -475,7 +507,7 @@ const LoginPage = () => {
                       id="mobile-email"
                       type="email"
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={handleEmailChange}
                       placeholder="you@example.com"
                       required
                       autoComplete="email"
@@ -627,7 +659,16 @@ const LoginPage = () => {
               </p>
             </div>
 
-            {error ? <div className="auth-welcome__error">{error}</div> : null}
+            {error ? (
+              <div className="auth-welcome__error">
+                <span>{error}</span>
+                {claimAccountPrompt ? (
+                  <button type="button" onClick={handleClaimAccount}>
+                    Claim your account
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="auth-welcome__socials">
               {/* <button
@@ -685,7 +726,7 @@ const LoginPage = () => {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={handleEmailChange}
                   placeholder="you@example.com"
                   required
                   autoComplete="email"
