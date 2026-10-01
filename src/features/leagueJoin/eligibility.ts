@@ -8,7 +8,12 @@ import type {
 } from "./types";
 
 const isPresent = (value: unknown): boolean =>
-  !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""));
+  !(
+    value === null ||
+    value === undefined ||
+    (typeof value === "number" && value === 0) ||
+    (typeof value === "string" && value.trim() === "")
+  );
 
 const normalizeNumber = (value: number | string | null | undefined): number | null => {
   if (!isPresent(value)) {
@@ -16,7 +21,7 @@ const normalizeNumber = (value: number | string | null | undefined): number | nu
   }
 
   const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isFinite(parsed) && parsed !== 0 ? parsed : null;
 };
 
 const normalizeDate = (value: string | null | undefined): Date | null => {
@@ -32,13 +37,15 @@ const readLeagueBandLow = (league: LeagueJoinLeague) => league.bandLow ?? league
 const readLeagueBandHigh = (league: LeagueJoinLeague) => league.bandHigh ?? league.band_high;
 const hasMatchDerivedRating = (profile: LeagueJoinProfile) =>
   (normalizeNumber(profile.matches_played) ?? 0) > 0;
-const readProfileLevel = (profile: LeagueJoinProfile) =>
-  (hasMatchDerivedRating(profile) ? profile.calculated_ntrp : null) ??
-  profile.level ??
-  profile.usta_rating ??
-  profile.self_rated_seed;
+export const readLeagueJoinProfileLevel = (profile: LeagueJoinProfile) =>
+  (hasMatchDerivedRating(profile) ? normalizeNumber(profile.calculated_ntrp) : null) ??
+  normalizeNumber(profile.level) ??
+  normalizeNumber(profile.usta_rating) ??
+  normalizeNumber(profile.self_rated_seed);
 const readPendingLevel = (pending: LeagueJoinPending) =>
-  pending.level ?? pending.usta_rating ?? pending.self_rated_seed;
+  normalizeNumber(pending.level) ??
+  normalizeNumber(pending.usta_rating) ??
+  normalizeNumber(pending.self_rated_seed);
 const readProfileDateOfBirth = (profile: LeagueJoinProfile) =>
   profile.dateOfBirth ?? profile.date_of_birth;
 const readPendingDateOfBirth = (pending: LeagueJoinPending) =>
@@ -128,7 +135,7 @@ export const evaluateLeagueEligibility = ({
   pending: LeagueJoinPending;
   now: Date;
 }): LeagueJoinEligibility => {
-  const profileLevel = readProfileLevel(profile);
+  const profileLevel = readLeagueJoinProfileLevel(profile);
   const pendingLevel = readPendingLevel(pending);
   const profileDateOfBirth = readProfileDateOfBirth(profile);
   const pendingDateOfBirth = readPendingDateOfBirth(pending);
