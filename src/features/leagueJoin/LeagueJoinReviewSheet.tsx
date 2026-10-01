@@ -10,6 +10,7 @@ import {
 } from "../../api/playerProfile";
 import {
   evaluateLeagueEligibility,
+  readLeagueJoinProfileLevel,
   type LeagueJoinEligibility,
   type LeagueJoinPending,
 } from "./eligibility";
@@ -29,7 +30,11 @@ const GENDER_OPTIONS: Array<{
 const NTRP_OPTIONS = Array.from({ length: 6 }, (_, index) => (2.5 + (index * 0.5)).toFixed(1));
 
 const hasValue = (value: unknown) =>
-  !(value == null || (typeof value === "string" && value.trim() === ""));
+  !(
+    value == null ||
+    (typeof value === "number" && value === 0) ||
+    (typeof value === "string" && value.trim() === "")
+  );
 
 const toNumber = (value: unknown) => {
   if (!hasValue(value)) return null;
@@ -364,9 +369,12 @@ const LeagueJoinReviewSheet = ({
   const genderMismatch = !canEditGender && eligibility.gender.status !== "pass";
   const levelMismatch = !canEditLevel && eligibility.level.status !== "pass";
   const ageMismatch = !canEditAge && eligibility.age.status !== "pass";
-  const displayLevel = Number(localProfile?.matches_played || 0) > 0
-    ? (localProfile?.calculated_ntrp ?? localProfile?.usta_rating)
-    : localProfile?.usta_rating;
+  const displayLevel = readLeagueJoinProfileLevel({
+    calculated_ntrp: localProfile?.calculated_ntrp,
+    usta_rating: localProfile?.usta_rating,
+    self_rated_seed: localProfile?.self_rated_seed,
+    matches_played: localProfile?.matches_played,
+  });
   const levelCheckValue = hasValue(displayLevel)
     ? `You're ${displayLevel} — inside ${leagueLevelRange}`
     : `Inside ${leagueLevelRange}`;

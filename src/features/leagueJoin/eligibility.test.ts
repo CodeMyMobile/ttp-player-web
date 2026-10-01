@@ -210,6 +210,30 @@ test("zero-match players can qualify with a declared USTA rating", () => {
   });
 });
 
+test("a stamped zero is missing instead of an out-of-band profile rating", () => {
+  const result = evaluateLeagueEligibility({
+    league: baseLeague(),
+    profile: baseProfile({ level: undefined, usta_rating: 0, self_rated_seed: null }),
+    pending: {},
+    now,
+  });
+
+  assert.equal(result.level.status, "missing");
+  assert.equal(result.canContinue, false);
+});
+
+test("a stamped zero does not hide a valid self-rated seed", () => {
+  const result = evaluateLeagueEligibility({
+    league: baseLeague(),
+    profile: baseProfile({ level: undefined, usta_rating: 0, self_rated_seed: 3.5 }),
+    pending: {},
+    now,
+  });
+
+  assert.equal(result.level.status, "pass");
+  assert.equal(result.canContinue, true);
+});
+
 test("pending self-rated seed also qualifies as an entered level", () => {
   const result = evaluateLeagueEligibility({
     league: {
