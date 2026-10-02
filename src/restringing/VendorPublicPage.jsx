@@ -303,10 +303,8 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
 
           {address || collection ? (
             <section className="vp-card">
-              {directions ? (
-                <a className="vp-map" href={directions} target="_blank" rel="noreferrer" aria-label="Get directions in Google Maps"><i /></a>
-              ) : null}
               {address ? <div className="vp-map-addr">{address}</div> : null}
+              {directions ? <a className="vp-small" href={directions} target="_blank" rel="noreferrer">Get directions ↗</a> : null}
               {collection ? (
                 <>
                   <div className="vp-step-h">Drop-off &amp; pickup</div>
