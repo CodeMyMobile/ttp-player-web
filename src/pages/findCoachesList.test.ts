@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   COACH_CHIPS,
   type CoachChipKey,
-  abbreviateVenueLabel,
   coachMatchesChip,
   countSessionsThisWeek,
   coachMatchesChips,
@@ -168,15 +167,6 @@ test("availability tolerates empty, blank and missing input", () => {
   assert.equal(formatAvailabilityPhrase(["  ", ""]), "");
   // Blanks are dropped before the cap, so they never inflate the "+N".
   assert.equal(formatAvailabilityPhrase(["Weekends", "  ", "Weekday Mornings"]), "Weekends, weekday mornings");
-});
-
-test("venue labels shorten the two long facility words in the roster", () => {
-  assert.equal(abbreviateVenueLabel("Penmar Recreation Center"), "Penmar Rec Center");
-  assert.equal(abbreviateVenueLabel("Culver City High School"), "Culver City HS");
-  // Untouched: abbreviating these would make the venue harder to recognise on arrival.
-  assert.equal(abbreviateVenueLabel("Cheviot Hills Tennis Center"), "Cheviot Hills Tennis Center");
-  assert.equal(abbreviateVenueLabel("Christine Emerson Reed Park"), "Christine Emerson Reed Park");
-  assert.equal(abbreviateVenueLabel(null), "");
 });
 
 test("the levels pill is suppressed when a coach takes the whole skill ladder", () => {

@@ -206,21 +206,6 @@ export const formatAvailabilityPhrase = (windows: string[] | undefined, limit = 
 };
 
 /**
- * Shortens the two long facility words that actually occur in the roster. Applied after
- * normalizeVenueLabel, on the card only.
- *
- * Deliberately not a general abbreviation pass: every rule here is one someone can read
- * back to the venue it came from ("Penmar Recreation Center", "Culver City High School"
- * — both live in the current data). Guessing at others would produce labels that no
- * longer match what a player sees on arrival.
- */
-export const abbreviateVenueLabel = (label: string | null | undefined): string =>
-  (label ?? "")
-    .replace(/\bRecreation Center\b/gi, "Rec Center")
-    .replace(/\bHigh School\b/gi, "HS")
-    .trim();
-
-/**
  * The three rungs of the skill ladder. `competitive` is a fourth value the API sends, but
  * it describes what a coach runs rather than who they will take, so it does not count
  * toward "teaches everyone".
