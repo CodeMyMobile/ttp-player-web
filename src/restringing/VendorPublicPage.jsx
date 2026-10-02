@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { MessageCircle, Navigation, Phone, Share2 } from "lucide-react";
+import { Check, MessageCircle, Minus, Navigation, Phone, Plus, Share2 } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
-import { vendorImageSrc } from "./playerFlow.js";
-import { getVendorProfile, listVendors } from "./restringingService.js";
-import { parseVendorHours, vendorOpenStatus } from "./vendorPage.js";
+import { formatMoneyCents, vendorImageSrc } from "./playerFlow.js";
+import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors } from "./restringingService.js";
+import {
+  STRING_CHOICE,
+  buildVendorPageCheckoutItem,
+  clampTension,
+  clearOrderDraft,
+  gaugeChoiceForString,
+  loadOrderDraft,
+  orderSelectionGaps,
+  parseVendorHours,
+  saveOrderDraft,
+  tensionConfigForCategory,
+  vendorOpenStatus,
+} from "./vendorPage.js";
 import { findVendorBySlug, vendorSlug } from "./vendorProfileRoutes.js";
 import "./VendorPublicPage.css";
 
@@ -51,6 +65,32 @@ const readyLabel = (days) => {
   const count = Number(days);
   if (!Number.isFinite(count) || count <= 0) return "";
   return `Ready in ${count} day${count === 1 ? "" : "s"}`;
+};
+
+const isOwnStringTier = (tier) => tier?.string_category === null;
+
+// "Restringing + Standard Polyester" -> "Standard Polyester"; tiers come from the API, not a fixed list.
+const tierTitle = (tier) => (
+  isOwnStringTier(tier) ? "Restringing only" : clean(tier?.name).replace(/^Restring(ing)?\s*\+\s*/i, "")
+);
+
+const TIER_SUBS = {
+  syn_gut: "Soft, all-round, budget",
+  std_multi: "Comfort and feel",
+  prem_multi: "Best feel, arm-friendly",
+  std_poly: "Control and spin",
+  prem_poly: "Tour-level spin and control",
+};
+
+const tierSub = (tier) => (isOwnStringTier(tier) ? "You bring the string" : TIER_SUBS[tier?.string_category] || "");
+
+const stringName = (string) => `${clean(string?.brand)} ${clean(string?.name)}`.trim();
+
+const GAP_MESSAGES = {
+  service: "Choose a service to book.",
+  string: "Tell us which string to use.",
+  gauge: "Choose a gauge for your string.",
+  racket: "Add your racket's make and model.",
 };
 
 function VerifiedMark({ size = 30 }) {
@@ -126,6 +166,21 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const [vendor, setVendor] = useState(null);
   const [now, setNow] = useState(() => new Date());
   const [shareNote, setShareNote] = useState("");
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const authDrawer = useAuthDrawer();
+  const [tiers, setTiers] = useState([]);
+  const [tierId, setTierId] = useState(null);
+  const [catalog, setCatalog] = useState({ status: "idle", rows: [] });
+  const [stringChoice, setStringChoice] = useState(STRING_CHOICE.SHOP);
+  const [stringId, setStringId] = useState(null);
+  const [gauge, setGauge] = useState(null);
+  const [ownStringText, setOwnStringText] = useState("");
+  const [tensionLbs, setTensionLbs] = useState(null);
+  const [stringerChoosesTension, setStringerChoosesTension] = useState(false);
+  const [racketMakeModel, setRacketMakeModel] = useState("");
+  const [bookError, setBookError] = useState("");
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +204,65 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
       cancelled = true;
     };
   }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listServiceTiers()
+      .then((rows) => {
+        if (!cancelled) setTiers(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setTiers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const vendorId = vendor?.id || null;
+  const tier = useMemo(() => tiers.find((item) => Number(item.id) === Number(tierId)) || null, [tiers, tierId]);
+
+  // Bring back an order saved before sign-in (or before a reload), once, when the data it
+  // refers to has loaded. An order that was mid-Book carries on to checkout after sign-in.
+  useEffect(() => {
+    if (draftRestored || !vendorId || !tiers.length || authLoading) return;
+    setDraftRestored(true);
+    const draft = loadOrderDraft(vendorId);
+    if (!draft || !tiers.some((item) => Number(item.id) === Number(draft.tierId))) return;
+    setTierId(draft.tierId);
+    setStringChoice(draft.stringChoice === STRING_CHOICE.SPECIFIED ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP);
+    setStringId(draft.stringId ?? null);
+    setGauge(draft.gauge ?? null);
+    setOwnStringText(clean(draft.ownStringText));
+    setTensionLbs(draft.tensionLbs ?? null);
+    setStringerChoosesTension(Boolean(draft.stringerChoosesTension));
+    setRacketMakeModel(clean(draft.racketMakeModel));
+    if (draft.pendingBook && isAuthenticated) setCheckoutOpen(true);
+  }, [authLoading, draftRestored, isAuthenticated, tiers, vendorId]);
+
+  useEffect(() => {
+    if (!vendorId || !tier || isOwnStringTier(tier)) {
+      setCatalog({ status: "idle", rows: [] });
+      return undefined;
+    }
+    let cancelled = false;
+    setCatalog({ status: "loading", rows: [] });
+    listVendorStrings({ vendorId, serviceTierId: tier.id })
+      .then((data) => {
+        if (!cancelled) setCatalog({ status: "ready", rows: Array.isArray(data?.catalog) ? data.catalog : [] });
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog({ status: "error", rows: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tier, vendorId]);
+
+  // The saved order has served its purpose once checkout has it.
+  useEffect(() => {
+    if (checkoutOpen && isAuthenticated && vendorId) clearOrderDraft(vendorId);
+  }, [checkoutOpen, isAuthenticated, vendorId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -189,6 +303,108 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     website ? ["Website", <a key="web" href={website} target="_blank" rel="noreferrer">{webLabel(website)}</a>] : null,
     googleBusinessHref ? ["Google", <a key="google" href={googleBusinessHref} target="_blank" rel="noreferrer">Business profile ↗</a>] : null,
   ].filter(Boolean);
+
+  // ----- Booking -----
+  const ownTier = isOwnStringTier(tier);
+  const tension = tensionConfigForCategory(tier?.string_category);
+  const selectedString = stringChoice === STRING_CHOICE.SPECIFIED
+    ? catalog.rows.find((item) => Number(item.id) === Number(stringId)) || null
+    : null;
+  // A restored string that the shop no longer lists falls back to stringer's pick.
+  const stringStillLoading = catalog.status !== "ready" && stringChoice === STRING_CHOICE.SPECIFIED;
+  const effectiveChoice = selectedString || stringStillLoading ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP;
+  const gaugeChoice = gaugeChoiceForString(selectedString);
+  const effectiveGauge = gaugeChoice.gauges.includes(gauge) ? gauge : gaugeChoice.defaultGauge;
+  const effectiveTension = clampTension(tensionLbs, tier?.string_category);
+  const selection = {
+    tier,
+    stringChoice: effectiveChoice,
+    stringId: selectedString?.id ?? null,
+    gauge: effectiveGauge,
+    ownStringText,
+    tensionLbs: effectiveTension,
+    stringerChoosesTension,
+    racketMakeModel,
+  };
+  const draft = {
+    tierId,
+    stringChoice: effectiveChoice,
+    stringId: effectiveChoice === STRING_CHOICE.SPECIFIED ? stringId : null,
+    gauge: effectiveGauge,
+    ownStringText,
+    tensionLbs: effectiveTension,
+    stringerChoosesTension,
+    racketMakeModel,
+  };
+
+  const serviceLine = !tier ? "Choose a service" : ownTier ? "Restringing only" : `Restring + ${tierTitle(tier).toLowerCase()}`;
+  const stringLine = !tier
+    ? "—"
+    : ownTier
+      ? clean(ownStringText) || "Your own string"
+      : selectedString
+        ? `${stringName(selectedString)}${effectiveGauge ? ` ${effectiveGauge}` : ""}`
+        : "Stringer’s pick";
+  const tensionLine = !tier ? "—" : stringerChoosesTension ? "Stringer’s choice" : `${effectiveTension} lbs`;
+  const totalLine = tier ? formatMoneyCents(tier.price_cents) : "—";
+  const turnaround = Number(vendor.turnaround_days);
+  const readyLine = Number.isFinite(turnaround) && turnaround > 0
+    ? `${turnaround} day${turnaround === 1 ? "" : "s"} after drop-off`
+    : "";
+
+  const chooseTier = (next) => {
+    setTierId(next.id);
+    setStringChoice(STRING_CHOICE.SHOP);
+    setStringId(null);
+    setGauge(null);
+    setTensionLbs(tensionConfigForCategory(next.string_category).defaultLbs);
+    setBookError("");
+  };
+
+  const chooseString = (string) => {
+    setStringChoice(string ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP);
+    setStringId(string ? string.id : null);
+    setGauge(null);
+    setBookError("");
+  };
+
+  const stepTension = (delta) => setTensionLbs(clampTension(effectiveTension + delta, tier?.string_category));
+
+  const book = () => {
+    const gaps = orderSelectionGaps(selection);
+    if (gaps.length) {
+      setBookError(GAP_MESSAGES[gaps[0]] || "Finish your order to book.");
+      return;
+    }
+    setBookError("");
+    if (isAuthenticated) {
+      setCheckoutOpen(true);
+      return;
+    }
+    // Saved before the drawer opens so the order survives sign-in, however the player signs in.
+    saveOrderDraft(vendor.id, { ...draft, pendingBook: true });
+    authDrawer.openAuth({
+      mode: "signup",
+      reason: "Sign in to confirm your restring — your choices are saved.",
+      onSuccess: () => setCheckoutOpen(true),
+      onDismiss: () => saveOrderDraft(vendor.id, draft),
+    });
+  };
+
+  if (checkoutOpen && tier) {
+    return (
+      <RestringingPlayerFlow
+        vendorSlug={slug}
+        checkoutHandoff={{
+          vendor,
+          tierId: tier.id,
+          item: buildVendorPageCheckoutItem(selection),
+          summary: `${stringLine} · ${tensionLine} · ${clean(racketMakeModel)}`,
+          onBack: () => setCheckoutOpen(false),
+        }}
+      />
+    );
+  }
 
   const copyLink = async () => {
     try {
@@ -278,10 +494,130 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
             </section>
           ) : null}
 
+          {tiers.length ? (
+            <section className="vp-card vp-booking">
+              <div>
+                <h2>Book a restring</h2>
+                <p className="vp-muted vp-booking-intro">Pick a service, then a string, then your tension.</p>
+              </div>
+
+              <div className="vp-step">
+                <div className="vp-step-h">1 · Service</div>
+                <div className="vp-grid2">
+                  {tiers.map((item) => (
+                    <button key={item.id} type="button" className="vp-opt" aria-pressed={Number(item.id) === Number(tierId)} onClick={() => chooseTier(item)}>
+                      <span className="vp-radio" />
+                      <span className="vp-opt-text"><b>{tierTitle(item)}</b>{tierSub(item) ? <small>{tierSub(item)}</small> : null}</span>
+                      <span className="vp-opt-price">{formatMoneyCents(item.price_cents)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="vp-step">
+                <div className="vp-step-h">2 · String</div>
+                {!tier ? (
+                  <p className="vp-muted vp-small">Choose a service first.</p>
+                ) : ownTier ? (
+                  <label className="vp-field">
+                    Your string (brand and model)
+                    <input value={ownStringText} onChange={(event) => setOwnStringText(event.target.value)} placeholder="e.g. Babolat RPM Blast 17" />
+                    <span className="vp-muted">Bring your string set with the racket at drop-off.</span>
+                  </label>
+                ) : (
+                  <div className="vp-strings">
+                    <div className="vp-muted vp-small">{tierTitle(tier)} strings in stock</div>
+                    <button type="button" className="vp-opt" aria-pressed={effectiveChoice === STRING_CHOICE.SHOP} onClick={() => chooseString(null)}>
+                      <span className="vp-radio" />
+                      <span className="vp-opt-text"><b>Stringer’s pick</b><small>Any {tierTitle(tier).toLowerCase()} we have in stock</small></span>
+                      <span className="vp-pill vp-pill--rec">Recommended</span>
+                    </button>
+                    {catalog.rows.map((string) => {
+                      const gauges = gaugeChoiceForString(string).gauges;
+                      return (
+                        <button key={string.id} type="button" className="vp-opt" aria-pressed={Number(selectedString?.id) === Number(string.id)} onClick={() => chooseString(string)}>
+                          <span className="vp-radio" />
+                          <span className="vp-opt-text"><b>{stringName(string)}</b>{gauges.length ? <small>Gauge{gauges.length === 1 ? "" : "s"} {gauges.join(", ")}</small> : null}</span>
+                          <span className="vp-pill">In stock</span>
+                        </button>
+                      );
+                    })}
+                    {catalog.status === "loading" ? <p className="vp-muted vp-small">Loading strings…</p> : null}
+                    {catalog.status === "error" ? <p className="vp-muted vp-small">We couldn’t load this shop’s strings. You can still book with stringer’s pick.</p> : null}
+                    {catalog.status === "ready" && !catalog.rows.length ? <p className="vp-muted vp-small">This shop hasn’t listed its strings yet.</p> : null}
+                    {selectedString && gaugeChoice.needsChoice ? (
+                      <div className="vp-gauges">
+                        <span>Gauge for {stringName(selectedString)}</span>
+                        {gaugeChoice.gauges.map((option) => (
+                          <button key={option} type="button" aria-pressed={option === effectiveGauge} onClick={() => setGauge(option)}>{option}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
+              <div className="vp-step">
+                <div className="vp-step-h">3 · Tension</div>
+                {!tier ? (
+                  <p className="vp-muted vp-small">Choose a service first.</p>
+                ) : (
+                  <>
+                    <div className={`vp-tension ${stringerChoosesTension ? "is-dim" : ""}`}>
+                      <div className="vp-stepper">
+                        <button type="button" aria-label="Lower tension" disabled={stringerChoosesTension || effectiveTension <= tension.minLbs} onClick={() => stepTension(-1)}><Minus size={20} /></button>
+                        <div className="vp-tension-value"><b>{effectiveTension}</b> <span>lbs</span></div>
+                        <button type="button" aria-label="Raise tension" disabled={stringerChoosesTension || effectiveTension >= tension.maxLbs} onClick={() => stepTension(1)}><Plus size={20} /></button>
+                      </div>
+                      <div className="vp-range">
+                        <b>{tension.isFallback ? "Tell us the tension you want" : `Recommended for ${tierTitle(tier)}: ${tension.defaultLbs} lbs`}</b>
+                        <div className="vp-track">
+                          <div className="vp-knob" style={{ left: `${Math.round(((effectiveTension - tension.minLbs) / (tension.maxLbs - tension.minLbs)) * 100)}%` }} />
+                        </div>
+                        <div className="vp-ends"><span>{tension.minLbs} lbs</span><span>{tension.maxLbs} lbs</span></div>
+                      </div>
+                    </div>
+                    <button type="button" className="vp-check" aria-pressed={stringerChoosesTension} onClick={() => setStringerChoosesTension((value) => !value)}>
+                      <span className="vp-box">{stringerChoosesTension ? <Check size={13} strokeWidth={3.5} /> : null}</span>
+                      <span>Not sure? <strong>Let my stringer choose</strong></span>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="vp-step">
+                <div className="vp-step-h">4 · Your racket</div>
+                <label className="vp-field">
+                  Make and model
+                  <input value={racketMakeModel} onChange={(event) => { setRacketMakeModel(event.target.value); setBookError(""); }} placeholder="e.g. Babolat Pure Aero 98" required />
+                </label>
+              </div>
+              <p className="vp-muted vp-signin-note vp-signin-note--sm">You’ll sign in when you book — your choices are saved.</p>
+            </section>
+          ) : null}
+
           <ReviewsSection vendor={vendor} />
         </div>
 
         <aside className="vp-col">
+          {tiers.length ? (
+            <section className="vp-card vp-order">
+              <h3>Your order</h3>
+              <div className="vp-rows">
+                <div><span>Service</span><span>{serviceLine}</span></div>
+                <div><span>String</span><span>{stringLine}</span></div>
+                <div><span>Tension</span><span>{tensionLine}</span></div>
+                {readyLine ? <div><span>Ready</span><span>{readyLine}</span></div> : null}
+              </div>
+              <div className="vp-total">
+                <div><b>{totalLine}</b> {tier ? <small>+ tax</small> : null}</div>
+                <button type="button" className="vp-btn vp-btn--primary vp-book" onClick={book}>Book restring</button>
+              </div>
+              {bookError ? <p className="vp-book-error" role="alert">{bookError}</p> : null}
+              <p className="vp-muted vp-signin-note">You’ll sign in to confirm — your choices are saved.</p>
+            </section>
+          ) : null}
+
           {hours ? (
             <section className="vp-card">
               <div className="vp-card-head">
@@ -326,6 +662,16 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
           ) : null}
         </aside>
       </main>
+
+      {tiers.length ? (
+        <div className="vp-sticky">
+          <div>
+            <small>{bookError || (tier ? `${stringLine} · ${tensionLine}${readyLine ? ` · ready in ${readyLine.replace(" after drop-off", "")}` : ""}` : "Choose a service to book")}</small>
+            <b>{totalLine}</b>{tier ? <small className="vp-sticky-tax"> + tax</small> : null}
+          </div>
+          <button type="button" className="vp-btn vp-btn--primary vp-book" onClick={book}>Book</button>
+        </div>
+      ) : null}
     </div>
   );
 }

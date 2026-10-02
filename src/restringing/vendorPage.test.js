@@ -86,10 +86,10 @@ test("vendorHoursSummary is empty when there are no usable hours", () => {
   assert.equal(vendorHoursSummary("Mon-Sat 9 AM - 7 PM"), "");
 });
 
-test("tensionConfigForCategory mirrors the admin values and falls back to checkout limits", () => {
+test("tensionConfigForCategory mirrors the admin values and falls back to a wide range", () => {
   assert.deepEqual(tensionConfigForCategory("std_poly"), { defaultLbs: 50, minLbs: 48, maxLbs: 52, isFallback: false });
   assert.deepEqual(tensionConfigForCategory("syn_gut"), { defaultLbs: 54, minLbs: 52, maxLbs: 56, isFallback: false });
-  assert.deepEqual(tensionConfigForCategory("nat_gut"), { defaultLbs: 54, minLbs: 40, maxLbs: 70, isFallback: true });
+  assert.deepEqual(tensionConfigForCategory("nat_gut"), { defaultLbs: 52, minLbs: 40, maxLbs: 65, isFallback: true });
 });
 
 test("clampTension keeps the stepper inside the category range", () => {
