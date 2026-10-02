@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { PlayerPersonalDetails } from "../../api/playerProfile";
 import type { LeagueJoinPending } from "./types";
-import { buildJoinProfilePatch } from "./joinProfile";
+import { buildJoinProfilePatch, mergeJoinProfilePatchResult } from "./joinProfile";
 
 const baseProfile = (
   overrides: Partial<PlayerPersonalDetails> = {},
@@ -139,4 +139,33 @@ test("buildJoinProfilePatch refuses to build when pending aliases disagree", () 
     ),
     null,
   );
+});
+
+test("mergeJoinProfilePatchResult keeps saved join fields when the API response is partial", () => {
+  const merged = mergeJoinProfilePatchResult(
+    baseProfile({
+      gender: "male",
+      usta_rating: null,
+      self_rated_seed: null,
+      date_of_birth: "1990-05-10",
+    }),
+    {
+      id: 42,
+      gender: "male",
+      usta_rating: null,
+      self_rated_seed: null,
+      date_of_birth: "1990-05-10",
+    },
+    {
+      usta_rating: "3.5",
+    },
+  );
+
+  assert.deepEqual(merged, {
+    gender: "male",
+    usta_rating: "3.5",
+    date_of_birth: "1990-05-10",
+    id: 42,
+    self_rated_seed: null,
+  });
 });

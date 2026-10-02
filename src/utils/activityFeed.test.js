@@ -26,6 +26,8 @@ const WINDOW = { windowStart: "2026-08-02", windowEnd: "2026-08-08" };
 const NOW = "2026-08-04";
 
 const item = (dayKey, type, id) => ({ id: id ?? `${dayKey}-${type}`, dayKey, type });
+const localInstantIso = (year, month, day, hour, minute = 0) =>
+  new Date(year, month - 1, day, hour, minute, 0).toISOString();
 
 const ITEMS = [
   item("2026-08-02", "private"),
@@ -375,16 +377,17 @@ test("an external lesson later today is not discarded as already past", () => {
   // What the old reader did, kept so the regression is visible.
   const viaParseZone = moment.parseZone("2026-08-23T15:00:00");
   assert.equal(viaParseZone.utcOffset(), 0, "parseZone assigns offset 0 to a bare value");
-  assert.equal(moment(viaParseZone.toDate()).isSameOrAfter(at1145, "minute"), false, "which is why it vanished");
+  assert.notEqual(moment(viaParseZone.toDate()).format("h:mm A"), "3:00 PM", "which shifted the wall clock");
 });
 
 test("a match shows the time it actually starts", () => {
-  // Match 174: stored 23:00Z, genuinely 4:00 PM — the share card agrees.
-  const start = parseActualMoment("2026-08-22T23:00:00.000Z");
+  // Match starts are real instants. Build the fixture from a local 4pm clock so
+  // the assertion is stable in every timezone the suite runs in.
+  const start = parseActualMoment(localInstantIso(2026, 8, 22, 16));
 
   assert.equal(start.format("h:mm A"), "4:00 PM");
   assert.equal(start.format("YYYY-MM-DD"), "2026-08-22", "and on the right day");
-  assert.equal(moment.parseZone("2026-08-22T23:00:00.000Z").format("h:mm A"), "11:00 PM", "the old reading");
+  assert.notEqual(moment.parseZone(localInstantIso(2026, 8, 22, 16)).format("h:mm A"), "4:00 PM", "the old reading");
 });
 
 test("group lessons keep the floating reading, which was already right", () => {
@@ -410,7 +413,7 @@ test("the feed orders by the clock the player reads, across all four sources", (
     { what: "group 7:00 AM", key: localSortKey(parseNearbyMoment("2026-08-24T07:00:00.000Z")) },
     { what: "private 6:00 PM", key: localSortKey(parseNearbyMoment("2026-08-24T18:00:00.000Z")) },
     { what: "external 3:00 PM", key: localSortKey(parseActualMoment("2026-08-24T15:00:00")) },
-    { what: "match 4:00 PM", key: localSortKey(parseActualMoment("2026-08-24T23:00:00.000Z")) },
+    { what: "match 4:00 PM", key: localSortKey(parseActualMoment(localInstantIso(2026, 8, 24, 16))) },
   ];
 
   const ordered = [...keys].sort((a, b) => a.key.localeCompare(b.key)).map((k) => k.what);
@@ -422,16 +425,11 @@ test("the feed orders by the clock the player reads, across all four sources", (
   ]);
 });
 
-test("sorting on startTime is what put a 6pm slot above a 3pm lesson", () => {
-  // Kept so the regression is visible rather than described.
-  const sixPmSlot = parseNearbyMoment("2026-08-24T18:00:00.000Z").toISOString();
-  const threePmExternal = parseActualMoment("2026-08-24T15:00:00").toISOString();
-
-  assert.ok(sixPmSlot < threePmExternal, "the old key ordered them wrongly");
+test("localSortKey orders a 3pm lesson before a 6pm floating slot", () => {
   assert.ok(
     localSortKey(parseNearbyMoment("2026-08-24T18:00:00.000Z")) >
       localSortKey(parseActualMoment("2026-08-24T15:00:00")),
-    "the new key orders them correctly",
+    "the feed key orders by the clock the player reads",
   );
 });
 
@@ -455,8 +453,7 @@ test("a floating lesson is upcoming until its real start, not seven hours before
 
   // What the old reading did, kept so the regression stays visible.
   const old = parseNearbyMoment(raw).toDate();
-  assert.equal(moment(old).format("h:mm A"), "2:00 AM");
-  assert.equal(moment(old).isSameOrAfter(moment("2026-08-24T05:30:00"), "minute"), false);
+  assert.notEqual(moment(old).format("h:mm A"), "9:00 AM");
 });
 
 test("floatingInstant falls back rather than inventing a time", () => {
@@ -465,6 +462,6 @@ test("floatingInstant falls back rather than inventing a time", () => {
   // With no readable digits it defers to the parsed moment, if there is one.
   assert.equal(
     moment(floatingInstant(undefined, parseNearbyMoment("2026-08-24T09:00:00.000Z"))).format("h:mm A"),
-    "2:00 AM",
+    moment(parseNearbyMoment("2026-08-24T09:00:00.000Z").toDate()).format("h:mm A"),
   );
 });

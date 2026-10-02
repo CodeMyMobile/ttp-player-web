@@ -14,7 +14,7 @@ import {
   type LeagueJoinEligibility,
   type LeagueJoinPending,
 } from "./eligibility";
-import { buildJoinProfilePatch } from "./joinProfile";
+import { buildJoinProfilePatch, mergeJoinProfilePatchResult } from "./joinProfile";
 
 import "./LeagueJoin.css";
 
@@ -316,10 +316,11 @@ const LeagueJoinReviewSheet = ({
           throw new Error("You're no longer signed in. Please sign in again to continue.");
         }
 
-        nextProfile = await patchPlayerPersonalDetails({
+        const savedProfile = await patchPlayerPersonalDetails({
           token,
           body: patch,
         });
+        nextProfile = mergeJoinProfilePatchResult(currentProfile, savedProfile, patch);
         setLocalProfile(nextProfile);
         setPending({});
       }

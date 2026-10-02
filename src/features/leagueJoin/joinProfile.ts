@@ -118,3 +118,13 @@ export const buildJoinProfilePatch = (
 
   return patch;
 };
+
+export const mergeJoinProfilePatchResult = (
+  currentProfile: PlayerPersonalDetails,
+  savedProfile: PlayerPersonalDetails,
+  patch: PatchPlayerPersonalDetailsBody,
+): PlayerPersonalDetails => ({
+  ...currentProfile,
+  ...savedProfile,
+  ...patch,
+});
