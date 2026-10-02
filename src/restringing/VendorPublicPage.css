@@ -516,6 +516,11 @@
   .vp-btn {
     padding: 0 8px;
     font-size: 14px;
+    min-width: 0;
+  }
+
+  .vp-actions-row .vp-btn svg {
+    display: none;
   }
 
   .vp-layout {
