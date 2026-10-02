@@ -433,6 +433,328 @@
   overflow: hidden;
 }
 
+/* ----- Booking ----- */
+
+.vp-booking {
+  gap: 26px;
+}
+
+.vp-booking-intro {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.vp-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vp-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.vp-strings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vp-opt {
+  padding: 15px 16px;
+  border-radius: 14px;
+  border: 2px solid var(--vp-line);
+  background: #fff;
+  color: var(--vp-ink);
+  font: inherit;
+  text-align: left;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+}
+
+.vp-opt[aria-pressed="true"] {
+  border-color: var(--vp-purple);
+  background: var(--vp-purple-soft);
+}
+
+.vp-radio {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  border: 2px solid #b9bec9;
+}
+
+.vp-opt[aria-pressed="true"] .vp-radio {
+  border-color: var(--vp-purple);
+  background: var(--vp-purple);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.vp-opt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.vp-opt-text b {
+  display: block;
+  font-size: 15px;
+}
+
+.vp-opt-text small {
+  display: block;
+  font-size: 13px;
+  color: var(--vp-muted);
+  margin-top: 2px;
+}
+
+.vp-opt-price {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.vp-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--vp-bg);
+  color: #344054;
+  white-space: nowrap;
+}
+
+.vp-pill--rec {
+  background: #eef9d2;
+  color: #3d5a0c;
+}
+
+.vp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--vp-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vp-field input {
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  font: inherit;
+  font-weight: 400;
+  font-size: 15px;
+}
+
+.vp-field span {
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.vp-gauges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 14px;
+  color: var(--vp-muted);
+}
+
+.vp-gauges button {
+  height: 38px;
+  min-width: 56px;
+  padding: 0 14px;
+  border-radius: 19px;
+  border: 2px solid #d0d5dd;
+  background: #fff;
+  color: var(--vp-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vp-gauges button[aria-pressed="true"] {
+  border-color: var(--vp-purple);
+  background: var(--vp-purple-soft);
+}
+
+.vp-tension {
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--vp-soft);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  transition: opacity 0.15s;
+}
+
+.vp-tension.is-dim {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.vp-stepper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vp-stepper button {
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: var(--vp-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.vp-stepper button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.vp-tension-value {
+  width: 108px;
+  text-align: center;
+}
+
+.vp-tension-value b {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.vp-tension-value span {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vp-muted);
+}
+
+.vp-range {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: #344054;
+}
+
+.vp-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: #e4e7ec;
+}
+
+.vp-knob {
+  position: absolute;
+  top: -5px;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  border-radius: 9px;
+  background: var(--vp-purple);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.3);
+}
+
+.vp-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vp-muted);
+}
+
+.vp-check {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  font-size: 14px;
+  color: #344054;
+  cursor: pointer;
+}
+
+.vp-box {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 2px solid #b9bec9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.vp-check[aria-pressed="true"] .vp-box {
+  background: var(--vp-purple);
+  border-color: var(--vp-purple);
+}
+
+.vp-order {
+  border: 2px solid var(--vp-purple);
+}
+
+.vp-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.vp-total b {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.vp-total small {
+  font-size: 13px;
+  color: var(--vp-muted);
+}
+
+.vp-book {
+  height: 50px;
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.vp-book-error {
+  font-size: 14px;
+  font-weight: 600;
+  color: #b42318;
+}
+
+.vp-signin-note {
+  font-size: 13px;
+  text-align: center;
+}
+
+.vp-signin-note--sm,
+.vp-sticky {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .vp-hero .vp-wrap {
     flex-direction: column;
@@ -516,5 +838,67 @@
 
   .vp-reviews-grid .vp-review:nth-child(3) {
     display: none;
+  }
+
+  .vp-layout {
+    padding-bottom: 120px;
+  }
+
+  .vp-grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  .vp-tension {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .vp-stepper {
+    justify-content: space-between;
+  }
+
+  .vp-order {
+    display: none;
+  }
+
+  .vp-signin-note--sm {
+    display: block;
+  }
+
+  .vp-sticky {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid var(--vp-line);
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+    gap: 12px;
+    align-items: center;
+    z-index: 20;
+  }
+
+  .vp-sticky > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vp-sticky small {
+    display: block;
+    font-size: 12px;
+    color: var(--vp-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vp-sticky b {
+    font-size: 20px;
+  }
+
+  .vp-sticky small.vp-sticky-tax {
+    display: inline;
   }
 }

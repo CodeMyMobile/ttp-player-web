@@ -147,9 +147,9 @@ const TENSION_BY_CATEGORY = {
   prem_poly: { defaultLbs: 50, minLbs: 48, maxLbs: 52 },
 };
 
-// Categories with no configured range (own string, hybrids, natural gut) fall back to the limits
-// the checkout endpoint itself enforces.
-const TENSION_FALLBACK = { defaultLbs: 54, minLbs: 40, maxLbs: 70 };
+// Categories with no configured range (own string, hybrids, natural gut) get the wide range the
+// design uses for "Restringing only"; it sits inside the 40–70 the checkout endpoint accepts.
+const TENSION_FALLBACK = { defaultLbs: 52, minLbs: 40, maxLbs: 65 };
 
 export function tensionConfigForCategory(category) {
   const config = TENSION_BY_CATEGORY[category];
