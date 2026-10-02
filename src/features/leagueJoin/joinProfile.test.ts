@@ -99,6 +99,22 @@ test("buildJoinProfilePatch saves league join levels as declared USTA ratings", 
   });
 });
 
+test("buildJoinProfilePatch treats string zero seeds as missing ratings", () => {
+  const patch = buildJoinProfilePatch(
+    baseProfile({
+      usta_rating: null,
+      self_rated_seed: "0.000000",
+    }),
+    basePending({
+      usta_rating: "3.5",
+    }),
+  );
+
+  assert.deepEqual(patch, {
+    usta_rating: "3.5",
+  });
+});
+
 test("buildJoinProfilePatch treats dob as an existing profile date of birth", () => {
   const patch = buildJoinProfilePatch(
     baseProfile({

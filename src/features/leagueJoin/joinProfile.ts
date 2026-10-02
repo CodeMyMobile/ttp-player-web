@@ -14,7 +14,13 @@ const hasValue = (value: unknown): boolean => {
   }
 
   if (typeof value === "string") {
-    return value.trim() !== "";
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return false;
+    }
+
+    const numeric = Number(trimmed);
+    return !Number.isFinite(numeric) || numeric !== 0;
   }
 
   if (typeof value === "number") {
