@@ -156,7 +156,7 @@ test("buildVendorPageCheckoutItem maps stringer's pick with a set tension", () =
   );
 });
 
-test("buildVendorPageCheckoutItem maps a catalog string with gauge and stringer's-choice tension", () => {
+test("buildVendorPageCheckoutItem keeps the string and gauge when the stringer chooses the tension", () => {
   const item = buildVendorPageCheckoutItem({
     tier: POLY_TIER,
     stringChoice: STRING_CHOICE.SPECIFIED,
@@ -169,9 +169,10 @@ test("buildVendorPageCheckoutItem maps a catalog string with gauge and stringer'
   assert.equal(item.string_selection, "specified");
   assert.equal(item.string_id, 12);
   assert.equal(item.gauge, "17");
-  assert.equal(item.advice_requested, true);
+  assert.equal(item.advice_requested, false);
   assert.equal(item.tension_lbs_mains, null);
   assert.equal(item.tension_lbs_crosses, null);
+  assert.equal(item.notes, "Tension: stringer's choice");
 });
 
 test("buildVendorPageCheckoutItem maps the player's own string", () => {

@@ -200,9 +200,14 @@ export function orderSelectionGaps({ tier, stringChoice, stringId, gauge, ownStr
   return gaps;
 }
 
+// Printed on the shop's order and tag when the player leaves the tension to the stringer.
+export const STRINGER_TENSION_NOTE = "Tension: stringer's choice";
+
 /**
  * One checkout item for POST /player/restringing/checkout from the page's selections.
- * `stringerChoosesTension` maps to `advice_requested`, which the API stores as null tensions.
+ * "Let my stringer choose" sends no tension plus a note. It deliberately does not set
+ * `advice_requested`: the shop and the player's order list read that as "decide everything at
+ * drop-off", which hides a string the player did choose.
  */
 export function buildVendorPageCheckoutItem({
   tier,
@@ -228,9 +233,9 @@ export function buildVendorPageCheckoutItem({
     gauge: specified ? cleanText(gauge) || null : null,
     tension_lbs_mains: tension,
     tension_lbs_crosses: tension,
-    advice_requested: Boolean(stringerChoosesTension),
+    advice_requested: false,
     racket_make_model: cleanText(racketMakeModel),
-    notes: null,
+    notes: stringerChoosesTension ? STRINGER_TENSION_NOTE : null,
   };
 }
 
