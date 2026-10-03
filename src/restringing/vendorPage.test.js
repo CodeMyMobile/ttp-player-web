@@ -12,6 +12,7 @@ import {
   parseVendorHours,
   saveOrderDraft,
   tensionConfigForCategory,
+  tierForRecommendedCategory,
   vendorHoursSummary,
   vendorOpenStatus,
 } from "./vendorPage.js";
@@ -235,3 +236,60 @@ test("order drafts fail quietly when storage is unavailable", () => {
   assert.doesNotThrow(() => clearOrderDraft(1, { storage: broken }));
   assert.equal(saveOrderDraft(1, {}, { storage: null }), false);
 });
+
+test("tierForRecommendedCategory prefers the exact category, then the nearest one offered", () => {
+  const tiers = [
+    { id: 1, string_category: null },
+    { id: 2, string_category: "syn_gut" },
+    { id: 3, string_category: "std_multi" },
+    { id: 5, string_category: "std_poly" },
+  ];
+  assert.equal(tierForRecommendedCategory(tiers, "std_poly").id, 5);
+  assert.equal(tierForRecommendedCategory(tiers, "prem_poly").id, 5);
+  assert.equal(tierForRecommendedCategory(tiers, "prem_multi").id, 3);
+  assert.equal(tierForRecommendedCategory([{ id: 2, string_category: "syn_gut" }], "prem_poly").id, 2);
+  assert.equal(tierForRecommendedCategory([{ id: 1, string_category: null }], "std_poly"), null);
+  assert.equal(tierForRecommendedCategory(null, "std_poly"), null);
+});
+
+test("decide at drop-off books stringer's pick with advice_requested and no specs", () => {
+  assert.deepEqual(orderSelectionGaps({ tier: POLY_TIER, stringChoice: STRING_CHOICE.AT_DROP_OFF, racketMakeModel: "Pure Aero" }), []);
+  assert.deepEqual(
+    buildVendorPageCheckoutItem({
+      tier: POLY_TIER,
+      stringChoice: STRING_CHOICE.AT_DROP_OFF,
+      stringId: 12,
+      gauge: "17",
+      tensionLbs: 50,
+      stringerChoosesTension: true,
+      racketMakeModel: " Pure Aero ",
+    }),
+    {
+      service_tier_id: 5,
+      string_selection: "shop_choice",
+      string_id: null,
+      custom_string_text: null,
+      own_string_text: null,
+      gauge: null,
+      tension_lbs_mains: null,
+      tension_lbs_crosses: null,
+      advice_requested: true,
+      racket_make_model: "Pure Aero",
+      notes: null,
+    },
+  );
+});
+
+test("decide at drop-off does not apply to the own-string service", () => {
+  const item = buildVendorPageCheckoutItem({
+    tier: OWN_TIER,
+    stringChoice: STRING_CHOICE.AT_DROP_OFF,
+    ownStringText: "RPM Blast",
+    tensionLbs: 52,
+    racketMakeModel: "Pure Aero",
+  });
+  assert.equal(item.string_selection, "player_supplied");
+  assert.equal(item.advice_requested, false);
+  assert.equal(item.tension_lbs_mains, 52);
+});
+

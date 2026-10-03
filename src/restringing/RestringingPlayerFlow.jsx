@@ -29,6 +29,7 @@ import {
   orderStatusLabel,
   paymentStatusLabel,
   recommendStringCategory,
+  WIZARD_QUESTIONS,
   isPresetCompositionTier,
   serviceCompositionLabel,
   vendorImageSrc,
@@ -58,13 +59,6 @@ const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLEKEY ??
   "";
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
-
-const WIZARD_QUESTIONS = [
-  { key: "arm", label: "Arm/elbow/shoulder discomfort?", options: ["Yes", "Sometimes", "No"] },
-  { key: "breaks", label: "How often do you break strings?", options: ["Rarely", "Every couple of months", "Monthly+"] },
-  { key: "priority", label: "What matters most?", options: ["Spin & control", "Power & comfort", "Reliable & affordable"] },
-  { key: "budget", label: "Premium or standard?", options: ["Best performance", "Good value"] },
-];
 
 const defaultTiers = [
   { id: 1, name: "Restringing Only", price_cents: 2999, string_category: null },
@@ -280,7 +274,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [tension, setTension] = useState(54);
   const [splitTension, setSplitTension] = useState(false);
   const [crosses, setCrosses] = useState(52);
-  const [adviceRequested, setAdviceRequested] = useState(false);
+  const [adviceRequested, setAdviceRequested] = useState(Boolean(checkoutHandoff?.item?.advice_requested));
   const [quantity, setQuantity] = useState(1);
   const [setupMode, setSetupMode] = useState("");
   const [racketMakeModel, setRacketMakeModel] = useState("");
