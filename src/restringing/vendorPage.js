@@ -138,6 +138,18 @@ export function vendorHoursSummary(hours) {
     .join(", ");
 }
 
+// Vendors write collection details for the "ready for pickup" text, so some carry SMS-only
+// lines. Strip the reply warning on the web page, where it makes no sense.
+const SMS_ONLY_PHRASES = [/\bdo not reply to this message\b[.!]*/gi];
+
+export function collectionDetailsForPage(text) {
+  return SMS_ONLY_PHRASES
+    .reduce((value, pattern) => value.replace(pattern, ""), String(text || ""))
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 // Mirrors the admin recommendation config. Hardcoded until the API exposes it publicly.
 const TENSION_BY_CATEGORY = {
   syn_gut: { defaultLbs: 54, minLbs: 52, maxLbs: 56 },
