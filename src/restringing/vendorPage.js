@@ -112,6 +112,32 @@ export function vendorOpenStatus(hours, now = new Date(), timeZone = VENDOR_TIME
   return { isOpen: false, todayKey: dayKey, label: "Closed" };
 }
 
+/**
+ * One-line hours for running text: "Mon–Sat 8 AM – 8 PM, Sun 8 AM – 5 PM". Consecutive days with
+ * the same hours are grouped; closed days are left out. Empty string when there are no hours.
+ */
+export function vendorHoursSummary(hours) {
+  const days = parseVendorHours(hours);
+  if (!days) return "";
+  const groups = [];
+  days.forEach((day, index) => {
+    if (day.closed) return;
+    const last = groups[groups.length - 1];
+    if (last && last.text === day.text && last.endIndex === index - 1) {
+      last.endIndex = index;
+    } else {
+      groups.push({ startIndex: index, endIndex: index, text: day.text });
+    }
+  });
+  return groups
+    .map(({ startIndex, endIndex, text }) => {
+      const start = DAY_SHORT_LABELS[DAY_KEYS[startIndex]];
+      const end = DAY_SHORT_LABELS[DAY_KEYS[endIndex]];
+      return `${startIndex === endIndex ? start : `${start}–${end}`} ${text}`;
+    })
+    .join(", ");
+}
+
 // Mirrors the admin recommendation config. Hardcoded until the API exposes it publicly.
 const TENSION_BY_CATEGORY = {
   syn_gut: { defaultLbs: 54, minLbs: 52, maxLbs: 56 },

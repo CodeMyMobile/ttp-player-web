@@ -11,6 +11,7 @@ import {
   parseVendorHours,
   saveOrderDraft,
   tensionConfigForCategory,
+  vendorHoursSummary,
   vendorOpenStatus,
 } from "./vendorPage.js";
 
@@ -70,6 +71,19 @@ test("vendorOpenStatus covers before opening, closing time and closed days", () 
   const weekdaysOnly = { mon: "09:00-17:00", tue: "09:00-17:00" };
   assert.equal(vendorOpenStatus(weekdaysOnly, laTime("2026-10-02T12:00:00")).label, "Closed · opens Mon 9 AM");
   assert.equal(vendorOpenStatus(null), null);
+});
+
+test("vendorHoursSummary groups consecutive days with the same hours", () => {
+  assert.equal(vendorHoursSummary(HOURS), "Mon–Sat 8 AM – 8 PM, Sun 8 AM – 5 PM");
+  assert.equal(
+    vendorHoursSummary({ mon: "09:00-17:00", tue: "09:00-17:00", thu: "09:00-17:00", sat: "10:00-14:00" }),
+    "Mon–Tue 9 AM – 5 PM, Thu 9 AM – 5 PM, Sat 10 AM – 2 PM",
+  );
+});
+
+test("vendorHoursSummary is empty when there are no usable hours", () => {
+  assert.equal(vendorHoursSummary(null), "");
+  assert.equal(vendorHoursSummary("Mon-Sat 9 AM - 7 PM"), "");
 });
 
 test("tensionConfigForCategory mirrors the admin values and falls back to checkout limits", () => {

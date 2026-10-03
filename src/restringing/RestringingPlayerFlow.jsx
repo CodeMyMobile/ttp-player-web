@@ -50,6 +50,7 @@ import {
   listVendorStrings,
   listVendors,
 } from "./restringingService.js";
+import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 
 const stripePublishableKey =
@@ -1021,7 +1022,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             <section className="rsg-card">
               <h2>What happens next</h2>
               <div className="rsg-steps">
-                <p><b>1</b> Drop off at {selectedVendor?.address}. Hours: {selectedVendor?.hours ? JSON.stringify(selectedVendor.hours) : "vendor hours"}</p>
+                <p><b>1</b> Drop off at {selectedVendor?.address}.{vendorHoursSummary(selectedVendor?.hours) ? ` Hours: ${vendorHoursSummary(selectedVendor.hours)}.` : ""}</p>
                 <p><b>2</b> {selectedVendor?.name} strings it {adviceRequested ? "with specs agreed at drop-off" : "with your selected specs"}.</p>
                 <p><b>3</b> We text you when it is ready.</p>
               </div>
