@@ -112,6 +112,32 @@ export function vendorOpenStatus(hours, now = new Date(), timeZone = VENDOR_TIME
   return { isOpen: false, todayKey: dayKey, label: "Closed" };
 }
 
+/**
+ * One-line hours for running text: "Mon–Sat 8 AM – 8 PM, Sun 8 AM – 5 PM". Consecutive days with
+ * the same hours are grouped; closed days are left out. Empty string when there are no hours.
+ */
+export function vendorHoursSummary(hours) {
+  const days = parseVendorHours(hours);
+  if (!days) return "";
+  const groups = [];
+  days.forEach((day, index) => {
+    if (day.closed) return;
+    const last = groups[groups.length - 1];
+    if (last && last.text === day.text && last.endIndex === index - 1) {
+      last.endIndex = index;
+    } else {
+      groups.push({ startIndex: index, endIndex: index, text: day.text });
+    }
+  });
+  return groups
+    .map(({ startIndex, endIndex, text }) => {
+      const start = DAY_SHORT_LABELS[DAY_KEYS[startIndex]];
+      const end = DAY_SHORT_LABELS[DAY_KEYS[endIndex]];
+      return `${startIndex === endIndex ? start : `${start}–${end}`} ${text}`;
+    })
+    .join(", ");
+}
+
 // Mirrors the admin recommendation config. Hardcoded until the API exposes it publicly.
 const TENSION_BY_CATEGORY = {
   syn_gut: { defaultLbs: 54, minLbs: 52, maxLbs: 56 },
@@ -121,9 +147,9 @@ const TENSION_BY_CATEGORY = {
   prem_poly: { defaultLbs: 50, minLbs: 48, maxLbs: 52 },
 };
 
-// Categories with no configured range (own string, hybrids, natural gut) fall back to the limits
-// the checkout endpoint itself enforces.
-const TENSION_FALLBACK = { defaultLbs: 54, minLbs: 40, maxLbs: 70 };
+// Categories with no configured range (own string, hybrids, natural gut) get the wide range the
+// design uses for "Restringing only"; it sits inside the 40–70 the checkout endpoint accepts.
+const TENSION_FALLBACK = { defaultLbs: 52, minLbs: 40, maxLbs: 65 };
 
 export function tensionConfigForCategory(category) {
   const config = TENSION_BY_CATEGORY[category];
@@ -174,9 +200,14 @@ export function orderSelectionGaps({ tier, stringChoice, stringId, gauge, ownStr
   return gaps;
 }
 
+// Printed on the shop's order and tag when the player leaves the tension to the stringer.
+export const STRINGER_TENSION_NOTE = "Tension: stringer's choice";
+
 /**
  * One checkout item for POST /player/restringing/checkout from the page's selections.
- * `stringerChoosesTension` maps to `advice_requested`, which the API stores as null tensions.
+ * "Let my stringer choose" sends no tension plus a note. It deliberately does not set
+ * `advice_requested`: the shop and the player's order list read that as "decide everything at
+ * drop-off", which hides a string the player did choose.
  */
 export function buildVendorPageCheckoutItem({
   tier,
@@ -202,9 +233,9 @@ export function buildVendorPageCheckoutItem({
     gauge: specified ? cleanText(gauge) || null : null,
     tension_lbs_mains: tension,
     tension_lbs_crosses: tension,
-    advice_requested: Boolean(stringerChoosesTension),
+    advice_requested: false,
     racket_make_model: cleanText(racketMakeModel),
-    notes: null,
+    notes: stringerChoosesTension ? STRINGER_TENSION_NOTE : null,
   };
 }
 

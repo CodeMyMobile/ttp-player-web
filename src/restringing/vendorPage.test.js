@@ -11,6 +11,7 @@ import {
   parseVendorHours,
   saveOrderDraft,
   tensionConfigForCategory,
+  vendorHoursSummary,
   vendorOpenStatus,
 } from "./vendorPage.js";
 
@@ -72,10 +73,23 @@ test("vendorOpenStatus covers before opening, closing time and closed days", () 
   assert.equal(vendorOpenStatus(null), null);
 });
 
-test("tensionConfigForCategory mirrors the admin values and falls back to checkout limits", () => {
+test("vendorHoursSummary groups consecutive days with the same hours", () => {
+  assert.equal(vendorHoursSummary(HOURS), "Mon–Sat 8 AM – 8 PM, Sun 8 AM – 5 PM");
+  assert.equal(
+    vendorHoursSummary({ mon: "09:00-17:00", tue: "09:00-17:00", thu: "09:00-17:00", sat: "10:00-14:00" }),
+    "Mon–Tue 9 AM – 5 PM, Thu 9 AM – 5 PM, Sat 10 AM – 2 PM",
+  );
+});
+
+test("vendorHoursSummary is empty when there are no usable hours", () => {
+  assert.equal(vendorHoursSummary(null), "");
+  assert.equal(vendorHoursSummary("Mon-Sat 9 AM - 7 PM"), "");
+});
+
+test("tensionConfigForCategory mirrors the admin values and falls back to a wide range", () => {
   assert.deepEqual(tensionConfigForCategory("std_poly"), { defaultLbs: 50, minLbs: 48, maxLbs: 52, isFallback: false });
   assert.deepEqual(tensionConfigForCategory("syn_gut"), { defaultLbs: 54, minLbs: 52, maxLbs: 56, isFallback: false });
-  assert.deepEqual(tensionConfigForCategory("nat_gut"), { defaultLbs: 54, minLbs: 40, maxLbs: 70, isFallback: true });
+  assert.deepEqual(tensionConfigForCategory("nat_gut"), { defaultLbs: 52, minLbs: 40, maxLbs: 65, isFallback: true });
 });
 
 test("clampTension keeps the stepper inside the category range", () => {
@@ -142,7 +156,7 @@ test("buildVendorPageCheckoutItem maps stringer's pick with a set tension", () =
   );
 });
 
-test("buildVendorPageCheckoutItem maps a catalog string with gauge and stringer's-choice tension", () => {
+test("buildVendorPageCheckoutItem keeps the string and gauge when the stringer chooses the tension", () => {
   const item = buildVendorPageCheckoutItem({
     tier: POLY_TIER,
     stringChoice: STRING_CHOICE.SPECIFIED,
@@ -155,9 +169,10 @@ test("buildVendorPageCheckoutItem maps a catalog string with gauge and stringer'
   assert.equal(item.string_selection, "specified");
   assert.equal(item.string_id, 12);
   assert.equal(item.gauge, "17");
-  assert.equal(item.advice_requested, true);
+  assert.equal(item.advice_requested, false);
   assert.equal(item.tension_lbs_mains, null);
   assert.equal(item.tension_lbs_crosses, null);
+  assert.equal(item.notes, "Tension: stringer's choice");
 });
 
 test("buildVendorPageCheckoutItem maps the player's own string", () => {

@@ -50,6 +50,7 @@ import {
   listVendorStrings,
   listVendors,
 } from "./restringingService.js";
+import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 
 const stripePublishableKey =
@@ -245,19 +246,21 @@ function StripePaymentForm({ clientSecret, totalLabel, onPaid, disabled }) {
   );
 }
 
-export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "" }) {
+// checkoutHandoff: an order already chosen on the public vendor page — { vendor, tierId, item,
+// summary, onBack }. The flow opens straight on checkout and submits that item as-is.
+export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "", checkoutHandoff = null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { vendorSlug: routeVendorSlug = "" } = useParams();
   const activeVendorSlug = clean(directVendorSlug || routeVendorSlug);
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const authDrawer = useAuthDrawer();
-  const [screen, setScreen] = useState("home");
+  const [screen, setScreen] = useState(checkoutHandoff ? "checkout" : "home");
   const [history, setHistory] = useState([]);
   const [tiers, setTiers] = useState(defaultTiers);
   const [vendors, setVendors] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
-  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [selectedVendor, setSelectedVendor] = useState(checkoutHandoff?.vendor || null);
   const [catalog, setCatalog] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -269,7 +272,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [wizardIndex, setWizardIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [recommendation, setRecommendation] = useState(null);
-  const [tierId, setTierId] = useState(null);
+  const [tierId, setTierId] = useState(checkoutHandoff?.tierId ?? null);
   const [stringId, setStringId] = useState("");
   const [otherString, setOtherString] = useState("");
   const [ownString, setOwnString] = useState("");
@@ -310,6 +313,10 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   }, [screen]);
 
   const back = useCallback(() => {
+    if (checkoutHandoff && screen === "checkout") {
+      checkoutHandoff.onBack?.();
+      return;
+    }
     if (screen === "wizard" && wizardIndex > 0) {
       setWizardIndex((index) => index - 1);
       return;
@@ -320,7 +327,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setScreen(previous);
       return next;
     });
-  }, [screen, wizardIndex]);
+  }, [checkoutHandoff, screen, wizardIndex]);
 
   const refreshOrders = useCallback(async () => {
     if (!isAuthenticated) {
@@ -398,7 +405,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   }, [refreshPaymentMethods]);
 
   useEffect(() => {
-    if (!activeVendorSlug || loading) return undefined;
+    if (!activeVendorSlug || loading || checkoutHandoff) return undefined;
     const vendor = findVendorBySlug(allVendors.length ? allVendors : vendors, activeVendorSlug);
     if (!vendor) {
       setScreen("vendor");
@@ -427,7 +434,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return () => {
       cancelled = true;
     };
-  }, [activeVendorSlug, allVendors, loading, vendors]);
+  }, [activeVendorSlug, allVendors, checkoutHandoff, loading, vendors]);
 
   useEffect(() => {
     if (!tier || !selectedVendor) return;
@@ -574,7 +581,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     return Boolean(clean(racketMakeModel));
   };
 
-  const buildItems = () => buildCheckoutItems({
+  const buildItems = () => checkoutHandoff ? [checkoutHandoff.item] : buildCheckoutItems({
     serviceTierId: tier.id,
     selectedStringId: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? null : stringId || catalog[0]?.id || null,
     customStringText: adviceRequested || isPresetCompositionTier(tier) ? null : needsOtherString ? otherString : null,
@@ -944,7 +951,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
               <h1>Checkout</h1>
               <div className="rsg-summary">
                 <b>{tier.name} · x{quantity}</b>
-                <span>{adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
+                <span>{checkoutHandoff ? checkoutHandoff.summary : adviceRequested ? "Specs decided at drop-off" : `${isPresetCompositionTier(tier) ? serviceCompositionLabel(tier.string_composition) : `${selectedStringName || "String"} · gauge ${gauge}`} · ${splitTension ? `${tension}/${crosses}` : tension} lbs`}</span>
                 <span>{selectedVendor?.name} · {selectedVendor?.address}</span>
                 {orderNotes ? <span>{orderNotes}</span> : null}
                 <strong>{totalLabel}</strong>
@@ -1021,7 +1028,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
             <section className="rsg-card">
               <h2>What happens next</h2>
               <div className="rsg-steps">
-                <p><b>1</b> Drop off at {selectedVendor?.address}. Hours: {selectedVendor?.hours ? JSON.stringify(selectedVendor.hours) : "vendor hours"}</p>
+                <p><b>1</b> Drop off at {selectedVendor?.address}.{vendorHoursSummary(selectedVendor?.hours) ? ` Hours: ${vendorHoursSummary(selectedVendor.hours)}.` : ""}</p>
                 <p><b>2</b> {selectedVendor?.name} strings it {adviceRequested ? "with specs agreed at drop-off" : "with your selected specs"}.</p>
                 <p><b>3</b> We text you when it is ready.</p>
               </div>
