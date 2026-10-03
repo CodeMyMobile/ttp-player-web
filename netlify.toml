@@ -13,6 +13,10 @@
 # (App.jsx). It was preview-only while the sequence was built; now that every
 # section the mockups draw has shipped, it is on everywhere.
 #
+# VITE_VENDOR_PAGE=true renders the redesigned public vendor page at /:vendorSlug
+# (VendorPublicPage) instead of RestringingPlayerFlow. To roll back: delete the line
+# and redeploy; vendor links then render RestringingPlayerFlow as before.
+#
 # To roll back: delete the VITE_HOME_V2 line and redeploy. Flag off is
 # structurally identical to the old home — DashboardPage was never modified for
 # the redesign — so there is nothing to undo beyond the flag itself.
@@ -23,6 +27,7 @@
 [build.environment]
   VITE_MULTI_MATCH = "true"
   VITE_HOME_V2 = "true"
+  VITE_VENDOR_PAGE = "true"
 
 
 # Netlify Image CDN. Avatars are uploaded to S3 unresized (measured up to 2048x1536,
