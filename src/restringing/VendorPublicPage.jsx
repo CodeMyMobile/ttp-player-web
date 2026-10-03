@@ -13,6 +13,7 @@ import {
   buildVendorPageCheckoutItem,
   clampTension,
   clearOrderDraft,
+  collectionDetailsForPage,
   gaugeChoiceForString,
   loadOrderDraft,
   orderSelectionGaps,
@@ -80,11 +81,22 @@ const TIER_SUBS = {
   prem_multi: "Best feel, arm-friendly",
   std_poly: "Control and spin",
   prem_poly: "Tour-level spin and control",
+  poly_multi: "Spin with comfort",
+  gut_poly: "Feel of gut, durability of poly",
+  nat_gut: "The softest, most powerful feel",
 };
 
 const tierSub = (tier) => (isOwnStringTier(tier) ? "You bring the string" : TIER_SUBS[tier?.string_category] || "");
 
 const stringName = (string) => `${clean(string?.brand)} ${clean(string?.name)}`.trim();
+
+// Where Book sends the player when something is missing; gauge chips sit under the strings.
+const GAP_STEP_IDS = {
+  service: "vp-step-service",
+  string: "vp-step-string",
+  gauge: "vp-step-string",
+  racket: "vp-step-racket",
+};
 
 const GAP_MESSAGES = {
   service: "Choose a service to book.",
@@ -293,7 +305,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const googleBusiness = webHref(vendor.google_business_url) || googleMapsUriForVendor(vendor);
   const googleBusinessHref = /^https?:\/\//i.test(googleBusiness) ? googleBusiness : "";
   const description = clean(vendor.description);
-  const collection = clean(vendor.collection_details);
+  const collection = collectionDetailsForPage(vendor.collection_details);
   const shareUrl = `${window.location.origin}/${vendorSlug(vendor.name)}`;
   const shareText = `Book a restring at ${vendor.name}`;
   const contactRows = [
@@ -374,6 +386,9 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     const gaps = orderSelectionGaps(selection);
     if (gaps.length) {
       setBookError(GAP_MESSAGES[gaps[0]] || "Finish your order to book.");
+      const step = document.getElementById(GAP_STEP_IDS[gaps[0]]);
+      step?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (gaps[0] === "racket") step?.querySelector("input")?.focus({ preventScroll: true });
       return;
     }
     setBookError("");
@@ -501,7 +516,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 <p className="vp-muted vp-booking-intro">Pick a service, then a string, then your tension.</p>
               </div>
 
-              <div className="vp-step">
+              <div className="vp-step" id="vp-step-service">
                 <div className="vp-step-h">1 · Service</div>
                 <div className="vp-grid2">
                   {tiers.map((item) => (
@@ -514,7 +529,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 </div>
               </div>
 
-              <div className="vp-step">
+              <div className="vp-step" id="vp-step-string">
                 <div className="vp-step-h">2 · String</div>
                 {!tier ? (
                   <p className="vp-muted vp-small">Choose a service first.</p>
@@ -585,7 +600,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 )}
               </div>
 
-              <div className="vp-step">
+              <div className="vp-step" id="vp-step-racket">
                 <div className="vp-step-h">4 · Your racket</div>
                 <label className="vp-field">
                   Make and model
@@ -667,7 +682,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
         <div className="vp-sticky">
           <div>
             <small>{bookError || (tier ? `${stringLine} · ${tensionLine}${readyLine ? ` · ready in ${readyLine.replace(" after drop-off", "")}` : ""}` : "Choose a service to book")}</small>
-            <b>{totalLine}</b>{tier ? <small className="vp-sticky-tax"> + tax</small> : null}
+            {tier ? <><b>{totalLine}</b><small className="vp-sticky-tax"> + tax</small></> : null}
           </div>
           <button type="button" className="vp-btn vp-btn--primary vp-book" onClick={book}>Book</button>
         </div>

@@ -5,6 +5,7 @@ import {
   buildVendorPageCheckoutItem,
   clampTension,
   clearOrderDraft,
+  collectionDetailsForPage,
   gaugeChoiceForString,
   loadOrderDraft,
   orderSelectionGaps,
@@ -84,6 +85,16 @@ test("vendorHoursSummary groups consecutive days with the same hours", () => {
 test("vendorHoursSummary is empty when there are no usable hours", () => {
   assert.equal(vendorHoursSummary(null), "");
   assert.equal(vendorHoursSummary("Mon-Sat 9 AM - 7 PM"), "");
+});
+
+test("collectionDetailsForPage drops the SMS reply warning", () => {
+  assert.equal(
+    collectionDetailsForPage("Call or text us first 310-463-5004. Drop box also possible if we know you're coming! DO NOT REPLY TO THIS MESSAGE."),
+    "Call or text us first 310-463-5004. Drop box also possible if we know you're coming!",
+  );
+  assert.equal(collectionDetailsForPage("Ring the bell.\nDo not reply to this message"), "Ring the bell.");
+  assert.equal(collectionDetailsForPage("Leave it at the front desk."), "Leave it at the front desk.");
+  assert.equal(collectionDetailsForPage(null), "");
 });
 
 test("tensionConfigForCategory mirrors the admin values and falls back to a wide range", () => {
