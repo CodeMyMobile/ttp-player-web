@@ -251,3 +251,45 @@ test("tierForRecommendedCategory prefers the exact category, then the nearest on
   assert.equal(tierForRecommendedCategory([{ id: 1, string_category: null }], "std_poly"), null);
   assert.equal(tierForRecommendedCategory(null, "std_poly"), null);
 });
+
+test("decide at drop-off books stringer's pick with advice_requested and no specs", () => {
+  assert.deepEqual(orderSelectionGaps({ tier: POLY_TIER, stringChoice: STRING_CHOICE.AT_DROP_OFF, racketMakeModel: "Pure Aero" }), []);
+  assert.deepEqual(
+    buildVendorPageCheckoutItem({
+      tier: POLY_TIER,
+      stringChoice: STRING_CHOICE.AT_DROP_OFF,
+      stringId: 12,
+      gauge: "17",
+      tensionLbs: 50,
+      stringerChoosesTension: true,
+      racketMakeModel: " Pure Aero ",
+    }),
+    {
+      service_tier_id: 5,
+      string_selection: "shop_choice",
+      string_id: null,
+      custom_string_text: null,
+      own_string_text: null,
+      gauge: null,
+      tension_lbs_mains: null,
+      tension_lbs_crosses: null,
+      advice_requested: true,
+      racket_make_model: "Pure Aero",
+      notes: null,
+    },
+  );
+});
+
+test("decide at drop-off does not apply to the own-string service", () => {
+  const item = buildVendorPageCheckoutItem({
+    tier: OWN_TIER,
+    stringChoice: STRING_CHOICE.AT_DROP_OFF,
+    ownStringText: "RPM Blast",
+    tensionLbs: 52,
+    racketMakeModel: "Pure Aero",
+  });
+  assert.equal(item.string_selection, "player_supplied");
+  assert.equal(item.advice_requested, false);
+  assert.equal(item.tension_lbs_mains, 52);
+});
+

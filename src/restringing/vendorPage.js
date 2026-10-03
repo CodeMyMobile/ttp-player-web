@@ -212,6 +212,9 @@ export const STRING_CHOICE = {
   SHOP: "shop_choice",
   SPECIFIED: "specified",
   OWN: "player_supplied",
+  // Page-only: string and tension are agreed with the stringer at drop-off. Sent to the API as
+  // stringer's pick with advice_requested, which makes the shop record the final setup.
+  AT_DROP_OFF: "at_drop_off",
 };
 
 const cleanText = (value) => String(value || "").trim();
@@ -225,7 +228,7 @@ export function orderSelectionGaps({ tier, stringChoice, stringId, gauge, ownStr
   } else if (stringChoice === STRING_CHOICE.SPECIFIED) {
     if (!stringId) gaps.push("string");
     else if (!cleanText(gauge)) gaps.push("gauge");
-  } else if (stringChoice !== STRING_CHOICE.SHOP) {
+  } else if (stringChoice !== STRING_CHOICE.SHOP && stringChoice !== STRING_CHOICE.AT_DROP_OFF) {
     gaps.push("string");
   }
   if (!cleanText(racketMakeModel)) gaps.push("racket");
@@ -252,9 +255,26 @@ export function buildVendorPageCheckoutItem({
   racketMakeModel = "",
 }) {
   const ownTier = tier.string_category === null;
-  const selection = ownTier ? STRING_CHOICE.OWN : stringChoice;
+  const atDropOff = !ownTier && stringChoice === STRING_CHOICE.AT_DROP_OFF;
+  const selection = ownTier ? STRING_CHOICE.OWN : atDropOff ? STRING_CHOICE.SHOP : stringChoice;
   const specified = selection === STRING_CHOICE.SPECIFIED;
-  const tension = stringerChoosesTension ? null : clampTension(tensionLbs, tier.string_category);
+  const tension = atDropOff || stringerChoosesTension ? null : clampTension(tensionLbs, tier.string_category);
+
+  if (atDropOff) {
+    return {
+      service_tier_id: Number(tier.id),
+      string_selection: STRING_CHOICE.SHOP,
+      string_id: null,
+      custom_string_text: null,
+      own_string_text: null,
+      gauge: null,
+      tension_lbs_mains: null,
+      tension_lbs_crosses: null,
+      advice_requested: true,
+      racket_make_model: cleanText(racketMakeModel),
+      notes: null,
+    };
+  }
 
   return {
     service_tier_id: Number(tier.id),

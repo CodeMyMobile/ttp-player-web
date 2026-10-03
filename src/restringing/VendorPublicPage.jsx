@@ -317,7 +317,9 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     const draft = loadOrderDraft(vendorId);
     if (!draft || !tiers.some((item) => Number(item.id) === Number(draft.tierId))) return;
     setTierId(draft.tierId);
-    setStringChoice(draft.stringChoice === STRING_CHOICE.SPECIFIED ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP);
+    setStringChoice(
+      [STRING_CHOICE.SPECIFIED, STRING_CHOICE.AT_DROP_OFF].includes(draft.stringChoice) ? draft.stringChoice : STRING_CHOICE.SHOP,
+    );
     setStringId(draft.stringId ?? null);
     setGauge(draft.gauge ?? null);
     setOwnStringText(clean(draft.ownStringText));
@@ -399,7 +401,10 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     : null;
   // A restored string that the shop no longer lists falls back to stringer's pick.
   const stringStillLoading = catalog.status !== "ready" && stringChoice === STRING_CHOICE.SPECIFIED;
-  const effectiveChoice = selectedString || stringStillLoading ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP;
+  const decideAtDropOff = !ownTier && stringChoice === STRING_CHOICE.AT_DROP_OFF;
+  const effectiveChoice = decideAtDropOff
+    ? STRING_CHOICE.AT_DROP_OFF
+    : selectedString || stringStillLoading ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP;
   const gaugeChoice = gaugeChoiceForString(selectedString);
   const effectiveGauge = gaugeChoice.gauges.includes(gauge) ? gauge : gaugeChoice.defaultGauge;
   const effectiveTension = clampTension(tensionLbs, tier?.string_category);
@@ -429,10 +434,16 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     ? "—"
     : ownTier
       ? clean(ownStringText) || "Your own string"
-      : selectedString
-        ? `${stringName(selectedString)}${effectiveGauge ? ` ${effectiveGauge}` : ""}`
-        : "Stringer’s pick";
-  const tensionLine = !tier ? "—" : stringerChoosesTension ? "Stringer’s choice" : `${effectiveTension} lbs`;
+      : decideAtDropOff
+        ? "Decided at drop-off"
+        : selectedString
+          ? `${stringName(selectedString)}${effectiveGauge ? ` ${effectiveGauge}` : ""}`
+          : "Stringer’s pick";
+  const tensionLine = !tier
+    ? "—"
+    : decideAtDropOff
+      ? "Decided at drop-off"
+      : stringerChoosesTension ? "Stringer’s choice" : `${effectiveTension} lbs`;
   const totalLine = tier ? formatMoneyCents(tier.price_cents) : "—";
   const turnaround = Number(vendor.turnaround_days);
   const readyLine = Number.isFinite(turnaround) && turnaround > 0
@@ -666,6 +677,10 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                       <span className="vp-opt-text"><b>Stringer’s pick</b><small>Any {tierTitle(tier).toLowerCase()} we have in stock</small></span>
                       <span className="vp-pill vp-pill--rec">Recommended</span>
                     </button>
+                    <button type="button" className="vp-opt" aria-pressed={decideAtDropOff} onClick={() => { setStringChoice(STRING_CHOICE.AT_DROP_OFF); setStringId(null); setGauge(null); setBookError(""); }}>
+                      <span className="vp-radio" />
+                      <span className="vp-opt-text"><b>Not sure? Decide at drop-off</b><small>Your stringer recommends the string and tension when you bring the racket in</small></span>
+                    </button>
                     {catalog.rows.map((string) => {
                       const gauges = gaugeChoiceForString(string).gauges;
                       return (
@@ -695,6 +710,8 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 <div className="vp-step-h">3 · Tension</div>
                 {!tier ? (
                   <p className="vp-muted vp-small">Choose a service first.</p>
+                ) : decideAtDropOff ? (
+                  <p className="vp-muted vp-small">Your stringer sets the tension with you at drop-off.</p>
                 ) : (
                   <>
                     <div className={`vp-tension ${stringerChoosesTension ? "is-dim" : ""}`}>
