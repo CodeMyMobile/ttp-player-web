@@ -5,7 +5,7 @@ import { AuthDrawerProvider, useAuthDrawer } from "./context/AuthDrawerContext";
 import DashboardPage from "./pages/DashboardPage";
 import LandingPage from "./pages/LandingPage";
 import HomePage from "./pages/HomePage";
-import { isHomeV2Enabled } from "./utils/featureFlags";
+import { isHomeV2Enabled, isVendorPageEnabled } from "./utils/featureFlags";
 import PlayDatesMatchesApp from "./play-dates/TennisMatchApp";
 import PlayDatesInvitationPage from "./play-dates/InvitationPage";
 import PlayDatesMatchPage from "./play-dates/pages/MatchPage";
@@ -62,6 +62,7 @@ import MobileHomeBottomNav from "./components/MobileHomeBottomNav";
 import PlayerCoachListPage from "./pages/PlayerCoachListPage";
 import RestringingClaimPage from "./restringing/RestringingClaimPage";
 import RestringingPlayerFlow from "./restringing/RestringingPlayerFlow";
+import VendorPublicPage from "./restringing/VendorPublicPage";
 import { resolveShareHostId } from "./play-dates/utils/multiMatchCreate";
 import { getScrollResetKey } from "./utils/routerScroll";
 import {
@@ -607,7 +608,7 @@ const AppRoutes = () => (
     />
     <Route
       path="/:vendorSlug"
-      element={<RestringingPlayerFlow />}
+      element={isVendorPageEnabled() ? <VendorPublicPage /> : <RestringingPlayerFlow />}
     />
     {/* Deprecated: the post-questionnaire "Your matches" experience now lives in FindCoaches
         matched-mode. Redirect any lingering links into it. */}
@@ -849,7 +850,9 @@ function App() {
             {directPayMatch ? (
               <PayLinkCheckoutPage token={decodeURIComponent(directPayMatch[1])} />
             ) : directVendorSlug ? (
-              <RestringingPlayerFlow vendorSlug={directVendorSlug} />
+              isVendorPageEnabled()
+                ? <VendorPublicPage vendorSlug={directVendorSlug} />
+                : <RestringingPlayerFlow vendorSlug={directVendorSlug} />
             ) : (
               <AppRoutes />
             )}
