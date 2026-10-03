@@ -12,6 +12,7 @@ import {
   parseVendorHours,
   saveOrderDraft,
   tensionConfigForCategory,
+  tierForRecommendedCategory,
   vendorHoursSummary,
   vendorOpenStatus,
 } from "./vendorPage.js";
@@ -234,4 +235,19 @@ test("order drafts fail quietly when storage is unavailable", () => {
   assert.equal(loadOrderDraft(1, { storage: broken }), null);
   assert.doesNotThrow(() => clearOrderDraft(1, { storage: broken }));
   assert.equal(saveOrderDraft(1, {}, { storage: null }), false);
+});
+
+test("tierForRecommendedCategory prefers the exact category, then the nearest one offered", () => {
+  const tiers = [
+    { id: 1, string_category: null },
+    { id: 2, string_category: "syn_gut" },
+    { id: 3, string_category: "std_multi" },
+    { id: 5, string_category: "std_poly" },
+  ];
+  assert.equal(tierForRecommendedCategory(tiers, "std_poly").id, 5);
+  assert.equal(tierForRecommendedCategory(tiers, "prem_poly").id, 5);
+  assert.equal(tierForRecommendedCategory(tiers, "prem_multi").id, 3);
+  assert.equal(tierForRecommendedCategory([{ id: 2, string_category: "syn_gut" }], "prem_poly").id, 2);
+  assert.equal(tierForRecommendedCategory([{ id: 1, string_category: null }], "std_poly"), null);
+  assert.equal(tierForRecommendedCategory(null, "std_poly"), null);
 });

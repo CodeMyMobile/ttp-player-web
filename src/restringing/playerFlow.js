@@ -68,6 +68,15 @@ export const paymentStatusLabel = (status) => ({
   payment_failed: "Payment failed",
 }[cleanText(status).toLowerCase()] || titleizeStatus(status) || "Unknown");
 
+// The 4-question string quiz. Answers feed recommendStringCategory; shared by the restring flow
+// and the public vendor page.
+export const WIZARD_QUESTIONS = [
+  { key: "arm", label: "Arm/elbow/shoulder discomfort?", options: ["Yes", "Sometimes", "No"] },
+  { key: "breaks", label: "How often do you break strings?", options: ["Rarely", "Every couple of months", "Monthly+"] },
+  { key: "priority", label: "What matters most?", options: ["Spin & control", "Power & comfort", "Reliable & affordable"] },
+  { key: "budget", label: "Premium or standard?", options: ["Best performance", "Good value"] },
+];
+
 export function recommendStringCategory(answers = {}) {
   const premium = answers.budget === "Best performance" || answers.premiumPreference === "premium";
   const arm = answers.arm || answers.armDiscomfort;

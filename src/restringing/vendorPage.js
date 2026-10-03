@@ -188,6 +188,26 @@ export function gaugeChoiceForString(string) {
   };
 }
 
+// When the shop has no tier for the quiz's category, the nearest one: the same material a step
+// down or up in price, then the closest material.
+const CATEGORY_FALLBACKS = {
+  prem_multi: ["std_multi", "syn_gut", "prem_poly", "std_poly"],
+  std_multi: ["prem_multi", "syn_gut", "std_poly", "prem_poly"],
+  prem_poly: ["std_poly", "prem_multi", "std_multi", "syn_gut"],
+  std_poly: ["prem_poly", "std_multi", "syn_gut", "prem_multi"],
+  syn_gut: ["std_multi", "std_poly", "prem_multi", "prem_poly"],
+};
+
+/** The tier to preselect for a quiz category: an exact match, else the nearest one offered. */
+export function tierForRecommendedCategory(tiers, category) {
+  const rows = Array.isArray(tiers) ? tiers : [];
+  for (const candidate of [category, ...(CATEGORY_FALLBACKS[category] || [])]) {
+    const tier = rows.find((item) => item?.string_category === candidate);
+    if (tier) return tier;
+  }
+  return null;
+}
+
 export const STRING_CHOICE = {
   SHOP: "shop_choice",
   SPECIFIED: "specified",

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Check, MessageCircle, Minus, Navigation, Phone, Plus, Share2 } from "lucide-react";
+import { Check, ChevronLeft, Lightbulb, MessageCircle, Minus, Navigation, Phone, Plus, Share2, X } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import RestringingPlayerFlow from "./RestringingPlayerFlow.jsx";
 import { googleMapsUriForVendor, googleReviewsForVendor, hasGoogleSummary } from "./googleReviews.js";
-import { formatMoneyCents, vendorImageSrc } from "./playerFlow.js";
+import { WIZARD_QUESTIONS, formatMoneyCents, recommendStringCategory, vendorImageSrc } from "./playerFlow.js";
 import { getVendorProfile, listServiceTiers, listVendorStrings, listVendors } from "./restringingService.js";
 import {
   STRING_CHOICE,
@@ -20,6 +20,7 @@ import {
   parseVendorHours,
   saveOrderDraft,
   tensionConfigForCategory,
+  tierForRecommendedCategory,
   vendorOpenStatus,
 } from "./vendorPage.js";
 import { findVendorBySlug, vendorSlug } from "./vendorProfileRoutes.js";
@@ -171,6 +172,78 @@ function ReviewsSection({ vendor }) {
   );
 }
 
+// The existing 4-question string quiz, as a modal (a bottom sheet on phones).
+function StringQuizSheet({ onClose, onFinish }) {
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const sheetRef = useRef(null);
+  const question = WIZARD_QUESTIONS[index];
+
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    sheetRef.current?.querySelector(".vp-quiz-option")?.focus();
+  }, [index]);
+
+  const answer = (option) => {
+    const next = { ...answers, [question.key]: option };
+    setAnswers(next);
+    if (index + 1 < WIZARD_QUESTIONS.length) {
+      setIndex(index + 1);
+      return;
+    }
+    onFinish(recommendStringCategory(next));
+  };
+
+  return (
+    <div className="vp-quiz-backdrop" role="presentation" onClick={onClose}>
+      <div
+        ref={sheetRef}
+        className="vp-quiz-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vp-quiz-question"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="vp-quiz-top">
+          {index > 0 ? (
+            <button type="button" className="vp-quiz-icon" aria-label="Previous question" onClick={() => setIndex(index - 1)}><ChevronLeft size={20} /></button>
+          ) : <span />}
+          <span className="vp-quiz-count">Question {index + 1} of {WIZARD_QUESTIONS.length}</span>
+          <button type="button" className="vp-quiz-icon" aria-label="Close" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="vp-quiz-progress"><span style={{ width: `${((index + 1) / WIZARD_QUESTIONS.length) * 100}%` }} /></div>
+        <h2 id="vp-quiz-question">{question.label}</h2>
+        <div className="vp-quiz-options">
+          {question.options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className="vp-opt vp-quiz-option"
+              aria-pressed={answers[question.key] === option}
+              onClick={() => answer(option)}
+            >
+              <span className="vp-radio" />
+              <span className="vp-opt-text"><b>{option}</b></span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) {
   const { vendorSlug: routeVendorSlug = "" } = useParams();
   const slug = clean(directVendorSlug || routeVendorSlug);
@@ -193,6 +266,8 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
   const [bookError, setBookError] = useState("");
   const [draftRestored, setDraftRestored] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [quizResult, setQuizResult] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,6 +455,28 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     setBookError("");
   };
 
+  const recommendedTierId = quizResult?.tierId ?? null;
+
+  // Quiz result: preselect the recommended tier (or the nearest this shop offers), stringer's
+  // pick and the recommended tension, then send the player on to the racket field.
+  const finishQuiz = (result) => {
+    setQuizOpen(false);
+    const recommended = tierForRecommendedCategory(tiers, result.category);
+    if (!recommended) {
+      setQuizResult({ tierId: null, rationale: result.rationale, label: result.categoryLabel });
+      return;
+    }
+    chooseTier(recommended);
+    setTensionLbs(clampTension(result.tensionLbs, recommended.string_category));
+    setStringerChoosesTension(false);
+    setQuizResult({ tierId: recommended.id, rationale: result.rationale, label: tierTitle(recommended) });
+    window.setTimeout(() => {
+      const step = document.getElementById("vp-step-racket");
+      step?.scrollIntoView({ behavior: "smooth", block: "center" });
+      step?.querySelector("input")?.focus({ preventScroll: true });
+    }, 0);
+  };
+
   const stepTension = (delta) => setTensionLbs(clampTension(effectiveTension + delta, tier?.string_category));
 
   const book = () => {
@@ -516,21 +613,43 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
                 <p className="vp-muted vp-booking-intro">Pick a service, then a string, then your tension.</p>
               </div>
 
+              <div className="vp-quiz-box">
+                <Lightbulb size={24} aria-hidden="true" />
+                <div>
+                  <b>Not sure which string you need?</b>
+                  <p className="vp-muted">Answer {WIZARD_QUESTIONS.length} quick questions and we’ll recommend a string type for your game.</p>
+                </div>
+                <button type="button" className="vp-btn vp-btn--primary" onClick={() => setQuizOpen(true)}>Take the quiz</button>
+              </div>
+
               <div className="vp-step" id="vp-step-service">
                 <div className="vp-step-h">1 · Service</div>
                 <div className="vp-grid2">
                   {tiers.map((item) => (
                     <button key={item.id} type="button" className="vp-opt" aria-pressed={Number(item.id) === Number(tierId)} onClick={() => chooseTier(item)}>
                       <span className="vp-radio" />
-                      <span className="vp-opt-text"><b>{tierTitle(item)}</b>{tierSub(item) ? <small>{tierSub(item)}</small> : null}</span>
+                      <span className="vp-opt-text">
+                        <b>{tierTitle(item)}</b>
+                        {tierSub(item) ? <small>{tierSub(item)}</small> : null}
+                        {Number(item.id) === Number(recommendedTierId) ? <span className="vp-pill vp-pill--rec vp-pill--inline">Recommended for you</span> : null}
+                      </span>
                       <span className="vp-opt-price">{formatMoneyCents(item.price_cents)}</span>
                     </button>
                   ))}
                 </div>
+                {quizResult ? (
+                  <p className="vp-quiz-why">
+                    {quizResult.tierId ? <b>Recommended for you: {quizResult.label}. </b> : <b>We suggest {quizResult.label}, which this shop doesn’t list. </b>}
+                    {quizResult.rationale}
+                  </p>
+                ) : null}
               </div>
 
               <div className="vp-step" id="vp-step-string">
-                <div className="vp-step-h">2 · String</div>
+                <div className="vp-step-h">
+                  <span>2 · String</span>
+                  <button type="button" className="vp-link-btn" onClick={() => setQuizOpen(true)}>Not sure? Take the quiz</button>
+                </div>
                 {!tier ? (
                   <p className="vp-muted vp-small">Choose a service first.</p>
                 ) : ownTier ? (
@@ -613,6 +732,8 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
 
           <ReviewsSection vendor={vendor} />
         </div>
+
+        {quizOpen ? <StringQuizSheet onClose={() => setQuizOpen(false)} onFinish={finishQuiz} /> : null}
 
         <aside className="vp-col">
           {tiers.length ? (
