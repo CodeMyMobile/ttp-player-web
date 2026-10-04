@@ -170,3 +170,58 @@
   background: #f5f3ff;
   border-color: #c4b5fd;
 }
+
+/* Matches offered at several times or courts: the offered options, as chips. */
+.omp-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 2px;
+  cursor: default;
+}
+
+.omp-slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.omp-slot-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #667085;
+}
+
+.omp-slot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.omp-slot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid #e4e7ec;
+  background: #fff;
+  color: #344054;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+button.omp-slot {
+  cursor: pointer;
+}
+
+button.omp-slot[aria-pressed="true"] {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+

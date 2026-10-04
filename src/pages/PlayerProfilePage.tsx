@@ -6,7 +6,7 @@ import moment from "moment";
 import MainLayout from "../components/MainLayout";
 import { useAuthDrawer } from "../context/AuthDrawerContext";
 import ConnectPlayerModal from "../components/players/ConnectPlayerModal";
-import OpenMatchPlayCard from "../components/players/OpenMatchPlayCard";
+import OpenMatchPlayCard, { type SlotJoinChoice } from "../components/players/OpenMatchPlayCard";
 import { fetchPlayerDetails, fetchPublicPlayerProfile, verifyUserLevel } from "../api/playerHome";
 import { getPlayedWith } from "../api/playerHistory";
 import { joinMatch, listMatches } from "../play-dates/services/matches";
@@ -302,7 +302,7 @@ const PlayerProfilePage = () => {
   }, [playedWith, playedWithAverageNtrp]);
 
   const handleJoinMatch = useCallback(
-    async (matchId: string) => {
+    async (matchId: string, slot?: SlotJoinChoice) => {
       if (!matchId || joiningId) {
         return;
       }
@@ -312,7 +312,8 @@ const PlayerProfilePage = () => {
       }
       try {
         setJoiningId(matchId);
-        await joinMatch(matchId);
+        // Matches offered at several times need the chosen one, or the API rejects the join.
+        await joinMatch(matchId, slot);
         await loadOpenMatches({ silent: true });
       } catch (error) {
         window.alert(

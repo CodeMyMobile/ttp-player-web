@@ -1,3 +1,5 @@
+import { buildOfferedSlotOptions, isUnresolvedSinglesSlotMatch } from "../../play-dates/utils/matchSlotOptions.js";
+
 const idsMatch = (a, b) => {
   if (a === undefined || a === null || b === undefined || b === null) {
     return false;
@@ -114,3 +116,21 @@ export const isCurrentUserInMatch = (match, currentUserId, hostId = null) => {
   );
 };
 
+
+// Matches offered at several times or places (singles "slot" matches): the joiner picks one,
+// and the join request must carry it. Plain matches return empty lists.
+export const openMatchSlotChoices = (match) => {
+  if (!match || !isUnresolvedSinglesSlotMatch(match)) {
+    return { isSlotMatch: false, times: [], locations: [] };
+  }
+  const { times, locations } = buildOfferedSlotOptions(match);
+  return { isSlotMatch: times.length > 1 || locations.length > 1, times, locations };
+};
+
+// The join body for the chosen slot, or undefined for a plain match.
+export const slotJoinChoice = (choices, timeIndex = 0, locationIndex = 0) => {
+  if (!choices?.isSlotMatch) return undefined;
+  const time = choices.times[timeIndex] || choices.times[0];
+  const location = choices.locations[locationIndex] || choices.locations[0];
+  return time && location ? { chosen_time: time.value, chosen_location: location.value } : undefined;
+};
