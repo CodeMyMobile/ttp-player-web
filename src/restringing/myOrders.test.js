@@ -7,6 +7,7 @@ import {
   orderPaymentNote,
   orderProgressSteps,
   orderStatusChip,
+  ordersSummaryLine,
   readyLine,
   restringAgainHref,
   spansVendors,
@@ -227,3 +228,18 @@ test("spansVendors is true only for orders from more than one shop", () => {
   assert.equal(spansVendors([]), false);
 });
 
+
+test("ordersSummaryLine sums up orders for Restring home", () => {
+  const picked = order({ id: 1, fulfillment_status: "picked_up" });
+  assert.equal(ordersSummaryLine([]), "No restrings yet");
+  assert.equal(ordersSummaryLine([picked, order({ id: 2, fulfillment_status: "cancelled" })]), "No restrings in progress · 2 past");
+  assert.equal(ordersSummaryLine([order({ id: 3 }), picked]), "1 in progress · drop off to start");
+  assert.equal(
+    ordersSummaryLine([order({ id: 4, fulfillment_status: "dropped_off", dropped_off_at: "2026-10-03T17:00:00Z" })]),
+    "1 in progress · ready Mon",
+  );
+  assert.equal(
+    ordersSummaryLine([order({ id: 5, fulfillment_status: "ready_for_pickup" }), order({ id: 6 })]),
+    "2 in progress · ready now",
+  );
+});

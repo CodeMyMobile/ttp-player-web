@@ -13,7 +13,7 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: end;
   /* Safe-area padded so the labels clear the home indicator on notched phones. */
-  padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 6px calc(10px + var(--safe-bottom, env(safe-area-inset-bottom)));
   background: rgba(255, 255, 255, 0.985);
   border-top: 1px solid #dbe3ef;
   backdrop-filter: blur(14px);

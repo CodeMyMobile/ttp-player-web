@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, MapPin, Navigation, RefreshCw, RotateCcw } from "lucide-react";
 import {
   directionsUrl,
@@ -149,8 +149,15 @@ function PastOrderRow({ order, showVendor }) {
             {line.detail ? <span className="mo-row-detail">{line.detail}</span> : null}
           </span>
         ))}
-        <span className="mo-meta">{orderMeta(order, showVendor, when)}</span>
-        {againLink("mo-row-again--sm")}
+        <span className="mo-meta mo-meta--lg">{orderMeta(order, showVendor, when)}</span>
+        {/* Phones: status as coloured text, then date and #id, with Restring again on the right. */}
+        <div className="mo-row-l3">
+          <span className="mo-meta mo-meta--sm">
+            <span className={`mo-status-text mo-status-text--${orderStatusChip(order).tone === "grey" ? "green" : orderStatusChip(order).tone}`}>{orderStatusChip(order).label}</span>
+            {[showVendor ? order.vendor_name : "", formatShopDate(when), `#${order.id}`].filter(Boolean).map((part) => ` · ${part}`).join("")}
+          </span>
+          {againLink("mo-row-again--sm")}
+        </div>
       </div>
       <div className="mo-row-side">
         <Price order={order} />
@@ -207,8 +214,40 @@ function ShopCard({ order }) {
   );
 }
 
+// The indicator moves at half the finger's speed; release past PULL_TRIGGER to refresh.
+const PULL_TRIGGER = 56;
+const PULL_MAX = 96;
+
+// Pull down at the top of the page to refresh, as in a native list. Same refetch as the button.
+function usePullToRefresh(onRefresh, refreshing) {
+  const startY = useRef(null);
+  const [pull, setPull] = useState(0);
+
+  const onTouchStart = (event) => {
+    startY.current = window.scrollY <= 0 && !refreshing ? event.touches[0]?.clientY ?? null : null;
+  };
+  const onTouchMove = (event) => {
+    if (startY.current == null) return;
+    const delta = (event.touches[0]?.clientY ?? 0) - startY.current;
+    if (delta <= 0 || window.scrollY > 0) {
+      setPull(0);
+      return;
+    }
+    setPull(Math.min(PULL_MAX, delta * 0.5));
+  };
+  const onTouchEnd = () => {
+    if (startY.current == null) return;
+    startY.current = null;
+    if (pull >= PULL_TRIGGER) onRefresh?.();
+    setPull(0);
+  };
+
+  return { pull, handlers: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: () => { startY.current = null; setPull(0); } } };
+}
+
 export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefresh, onBack, onCancel, onStartNew }) {
   const [tab, setTab] = useState("all");
+  const { pull, handlers: pullHandlers } = usePullToRefresh(onRefresh, refreshing);
   const [now, setNow] = useState(() => Date.now());
   const rows = useMemo(() => (Array.isArray(orders) ? orders : []), [orders]);
   const { active, past } = useMemo(() => splitOrders(rows), [rows]);
@@ -230,7 +269,18 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
   const bookHref = setup?.href || "";
 
   return (
-    <div className="mo-screen">
+    <div className="mo-screen" {...pullHandlers}>
+      <div
+        className={`mo-pull ${refreshing ? "is-refreshing" : ""}`}
+        style={{ height: refreshing ? 44 : pull }}
+        aria-hidden={!refreshing && !pull}
+      >
+        <RefreshCw
+          size={20}
+          className={refreshing ? "is-spinning" : ""}
+          style={refreshing ? undefined : { transform: `rotate(${pull * 3}deg)`, opacity: Math.min(1, pull / 48) }}
+        />
+      </div>
       <header className="mo-head">
         <button type="button" className="mo-icon-btn mo-icon-btn--bare" aria-label="Back" onClick={onBack}><ChevronLeft size={26} /></button>
         <div className="mo-title">
@@ -261,11 +311,14 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
         <div className="mo-main">
           {showNothingActive ? (
             <section className="mo-card mo-nothing-active">
-              <span>No restrings in progress</span>
+              <span className="mo-nothing-text">
+                <b>No restrings in progress</b>
+                <small>Book one in under a minute</small>
+              </span>
               {bookHref ? (
-                <a className="mo-btn mo-btn--small" href={bookHref}>Book a restring</a>
+                <a className="mo-btn mo-btn--small" href={bookHref}>Book</a>
               ) : (
-                <button type="button" className="mo-btn mo-btn--small" onClick={onStartNew}>Book a restring</button>
+                <button type="button" className="mo-btn mo-btn--small" onClick={onStartNew}>Book</button>
               )}
             </section>
           ) : null}

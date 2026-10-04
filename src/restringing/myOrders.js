@@ -277,3 +277,28 @@ export function updatedLabel(updatedAt, now = Date.now()) {
   if (minutes < 60) return `Updated ${minutes} min ago`;
   return `Updated ${Math.floor(minutes / 60)} h ago`;
 }
+
+const shortWeekday = (label) => clean(label).split(",")[0];
+
+/**
+ * One line for the My orders row on Restring home:
+ * "1 in progress · ready Sun", "2 in progress · ready now", "No restrings in progress · 5 past".
+ */
+export function ordersSummaryLine(orders) {
+  const { active, past } = splitOrders(orders);
+  if (!active.length) {
+    return past.length ? `No restrings in progress · ${past.length} past` : "No restrings yet";
+  }
+  const lead = `${active.length} in progress`;
+  if (active.some((order) => statusOf(order) === "ready_for_pickup")) return `${lead} · ready now`;
+  const estimates = active
+    .map((order) => ({ order, label: estimatedReadyDate(order) }))
+    .filter((row) => row.label);
+  if (estimates.length) {
+    const soonest = estimates.sort(
+      (left, right) => new Date(left.order.dropped_off_at) - new Date(right.order.dropped_off_at),
+    )[0];
+    return `${lead} · ready ${shortWeekday(soonest.label)}`;
+  }
+  return `${lead} · drop off to start`;
+}
