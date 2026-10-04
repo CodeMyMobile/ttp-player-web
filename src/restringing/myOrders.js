@@ -42,15 +42,21 @@ export function orderStatusChip(order) {
   }
 }
 
-/** Payment, shown next to the price only. */
+/** Payment, beside the price, for exceptions only: a normal paid order shows nothing. */
 export function orderPaymentNote(order) {
   const payment = clean(order?.payment_status).toLowerCase();
   if (payment === "payment_failed") return { label: "Payment failed", tone: "red" };
-  if (isCancelledOrder(order)) return payment === "refunded" ? { label: "Refunded", tone: "grey" } : null;
-  if (payment === "paid") return { label: "Paid", tone: "grey" };
   if (payment === "refunded") return { label: "Refunded", tone: "grey" };
+  if (isCancelledOrder(order)) return null;
+  if (payment === "paid") return clean(order?.payment_method).toLowerCase() === "comp" ? { label: "Comp", tone: "grey" } : null;
   if (payment === "unpaid" && isActiveOrder(order)) return { label: "Pay at drop-off", tone: "amber" };
   return null;
+}
+
+/** True when the player's orders come from more than one shop, so rows need the shop's name. */
+export function spansVendors(orders) {
+  const shops = new Set((Array.isArray(orders) ? orders : []).map((order) => order?.vendor_id ?? clean(order?.vendor_name)));
+  return shops.size > 1;
 }
 
 // ----- Dates, on the shop's calendar -----
@@ -178,9 +184,15 @@ export function formatTension(mains, crosses) {
 export function itemStringName(item) {
   const catalog = [clean(item?.string_brand), clean(item?.string_name)].filter(Boolean).join(" ");
   if (catalog) return catalog;
-  if (clean(item?.own_string_text)) return `${clean(item.own_string_text)} (your string)`;
+  if (clean(item?.own_string_text)) return `Own string: ${clean(item.own_string_text)}`;
   if (clean(item?.custom_string_text)) return clean(item.custom_string_text);
   return "Stringer’s choice";
+}
+
+/** "16" -> "16g"; lettered gauges such as "15L" or "1.25mm" stay as they are. */
+export function formatGauge(gauge) {
+  const text = clean(gauge);
+  return /^\d+(\.\d+)?$/.test(text) ? `${text}g` : text;
 }
 
 /** One line per item: racket as the title, then string · gauge · tension. */
@@ -194,7 +206,7 @@ export function orderItemLine(item) {
   if (item?.advice_requested && !tension && !clean(item?.gauge) && !clean(item?.custom_string_text)) {
     return { title, detail: "Setup decided at drop-off" };
   }
-  const parts = [itemStringName(item), clean(item?.gauge), tension || "Stringer’s choice tension"];
+  const parts = [itemStringName(item), formatGauge(item?.gauge), tension || "Stringer’s choice tension"];
   return { title, detail: parts.filter(Boolean).join(" · ") };
 }
 
@@ -213,28 +225,47 @@ const restringItem = (order) =>
   (Array.isArray(order?.items) ? order.items : []).find((item) => item?.item_type !== "custom" && item?.service_tier_id) || null;
 
 /** Link to the shop's page with this order's setup filled in; "" when it can't be rebuilt. */
-export function restringAgainHref(order) {
+export function restringAgainHref(order, item = restringItem(order)) {
   const slug = vendorSlug(order?.vendor_name);
-  const item = restringItem(order);
   const search = item ? vendorPagePrefillSearch(item) : "";
   return slug && search ? `/${slug}${search}` : "";
 }
 
 const timeOf = (order) => new Date(order?.picked_up_at || order?.fulfilled_at || order?.created_at || 0).getTime() || 0;
 
-/** "Your usual setup": the latest picked-up order with a restring on it. */
+const setupKey = (item) => `${clean(item?.racket_make_model).toLowerCase()}|${itemStringName(item).toLowerCase()}`;
+
+/**
+ * "Your usual setup": the racket + string combination picked up most often, ties going to the
+ * most recent. With no repeats that is simply the latest picked-up restring.
+ */
 export function usualSetup(orders) {
-  const completed = (Array.isArray(orders) ? orders : [])
-    .filter((order) => COMPLETED_STATUSES.includes(statusOf(order)) && restringItem(order))
-    .sort((left, right) => timeOf(right) - timeOf(left));
-  const order = completed[0];
-  if (!order) return null;
-  const item = restringItem(order);
+  const seen = new Map();
+  (Array.isArray(orders) ? orders : [])
+    .filter((order) => COMPLETED_STATUSES.includes(statusOf(order)))
+    .forEach((order) => {
+      (Array.isArray(order.items) ? order.items : [])
+        .filter((item) => item?.item_type !== "custom" && item?.service_tier_id)
+        .forEach((item) => {
+          const key = setupKey(item);
+          const time = timeOf(order);
+          const entry = seen.get(key) || { count: 0, latest: null };
+          entry.count += 1;
+          if (!entry.latest || time > entry.latest.time) entry.latest = { order, item, time };
+          seen.set(key, entry);
+        });
+    });
+  const best = [...seen.values()].sort(
+    (left, right) => right.count - left.count || right.latest.time - left.latest.time,
+  )[0];
+  if (!best) return null;
+  const { order, item } = best.latest;
   return {
     order,
     item,
+    count: best.count,
     line: orderItemLine(item),
-    href: restringAgainHref(order),
+    href: restringAgainHref(order, item),
   };
 }
 

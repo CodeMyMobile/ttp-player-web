@@ -12,6 +12,7 @@ import {
   orderStatusChip,
   readyLine,
   restringAgainHref,
+  spansVendors,
   splitOrders,
   updatedLabel,
   usualSetup,
@@ -74,7 +75,11 @@ function Progress({ order }) {
   );
 }
 
-function ActiveOrderCard({ order, onCancel }) {
+// "#142 · Sat, Oct 3", with the shop's name first only when orders span several shops.
+const orderMeta = (order, showVendor, when) =>
+  [showVendor ? order.vendor_name : "", `#${order.id}`, formatShopDate(when)].filter(Boolean).join(" · ");
+
+function ActiveOrderCard({ order, showVendor, onCancel }) {
   const directions = directionsUrl(order.vendor_address);
   const ready = readyLine(order);
   const [cancelling, setCancelling] = useState(false);
@@ -82,7 +87,7 @@ function ActiveOrderCard({ order, onCancel }) {
     <article className="mo-card mo-card--active">
       <header className="mo-card-head">
         <div>
-          <span className="mo-meta">{order.vendor_name} · #{order.id} · {formatShopDate(order.created_at)}</span>
+          <span className="mo-meta">{orderMeta(order, showVendor, order.created_at)}</span>
         </div>
         <StatusChip order={order} />
       </header>
@@ -119,20 +124,37 @@ function ActiveOrderCard({ order, onCancel }) {
   );
 }
 
-function PastOrderRow({ order }) {
+// Line 1: racket + chip, price on the right. Line 2: string · gauge · tension. Line 3: #id · date.
+// Restring again sits under the price on desktop and on its own line on phones.
+function PastOrderRow({ order, showVendor }) {
   const cancelled = isCancelledOrder(order);
   const again = cancelled ? "" : restringAgainHref(order);
   const when = order.picked_up_at || order.fulfilled_at || order.cancelled_at || order.created_at;
+  const items = (Array.isArray(order.items) ? order.items : []).map(orderItemLine);
+  const [first, ...rest] = items.length ? items : [{ title: `Order #${order.id}`, detail: "" }];
+  const againLink = (className) => (
+    again ? <a className={`mo-link ${className}`} href={again}><RotateCcw size={14} /> Restring again</a> : null
+  );
   return (
     <li className={`mo-row ${cancelled ? "is-cancelled" : ""}`}>
       <div className="mo-row-main">
-        <ItemLines order={order} compact />
-        <span className="mo-meta">{order.vendor_name} · #{order.id} · {formatShopDate(when)}</span>
+        <div className="mo-row-title">
+          <b>{first.title}</b>
+          <StatusChip order={order} />
+        </div>
+        {first.detail ? <span className="mo-row-detail">{first.detail}</span> : null}
+        {rest.map((line, index) => (
+          <span className="mo-row-extra" key={index}>
+            <b>{line.title}</b>
+            {line.detail ? <span className="mo-row-detail">{line.detail}</span> : null}
+          </span>
+        ))}
+        <span className="mo-meta">{orderMeta(order, showVendor, when)}</span>
+        {againLink("mo-row-again--sm")}
       </div>
       <div className="mo-row-side">
-        <StatusChip order={order} />
         <Price order={order} />
-        {again ? <a className="mo-link" href={again}><RotateCcw size={14} /> Restring again</a> : null}
+        {againLink("mo-row-again--lg")}
       </div>
     </li>
   );
@@ -202,11 +224,15 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
   const showActive = tab !== "past" && active.length > 0;
   const showPast = tab !== "active" && past.length > 0;
   const empty = tab === "active" ? !active.length : tab === "past" ? !past.length : !counts.all;
+  const showVendor = spansVendors(rows);
+  // Phones only: with nothing in progress, a short prompt above the past orders.
+  const showNothingActive = tab === "all" && !active.length && past.length > 0;
+  const bookHref = setup?.href || "";
 
   return (
     <div className="mo-screen">
       <header className="mo-head">
-        <button type="button" className="mo-icon-btn" aria-label="Back" onClick={onBack}><ChevronLeft size={22} /></button>
+        <button type="button" className="mo-icon-btn mo-icon-btn--bare" aria-label="Back" onClick={onBack}><ChevronLeft size={26} /></button>
         <div className="mo-title">
           <h1>My orders</h1>
           <span className="mo-muted" aria-live="polite">{refreshing ? "Updating…" : updatedLabel(updatedAt, now)}</span>
@@ -231,19 +257,29 @@ export default function MyOrdersScreen({ orders, updatedAt, refreshing, onRefres
         ))}
       </div>
 
-      <div className="mo-layout">
+      <div className={`mo-layout ${tab === "all" && (showActive || showPast) ? "has-section-label" : ""}`}>
         <div className="mo-main">
+          {showNothingActive ? (
+            <section className="mo-card mo-nothing-active">
+              <span>No restrings in progress</span>
+              {bookHref ? (
+                <a className="mo-btn mo-btn--small" href={bookHref}>Book a restring</a>
+              ) : (
+                <button type="button" className="mo-btn mo-btn--small" onClick={onStartNew}>Book a restring</button>
+              )}
+            </section>
+          ) : null}
           {showActive ? (
             <section className="mo-section" aria-label="Active orders">
               {tab === "all" ? <h2 className="mo-section-h">Active</h2> : null}
-              {active.map((order) => <ActiveOrderCard key={order.id} order={order} onCancel={onCancel} />)}
+              {active.map((order) => <ActiveOrderCard key={order.id} order={order} showVendor={showVendor} onCancel={onCancel} />)}
             </section>
           ) : null}
           {showPast ? (
             <section className="mo-section" aria-label="Past orders">
               {tab === "all" ? <h2 className="mo-section-h">Past</h2> : null}
               <ul className="mo-card mo-rows">
-                {past.map((order) => <PastOrderRow key={order.id} order={order} />)}
+                {past.map((order) => <PastOrderRow key={order.id} order={order} showVendor={showVendor} />)}
               </ul>
             </section>
           ) : null}
