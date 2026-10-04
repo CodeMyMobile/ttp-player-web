@@ -26,8 +26,6 @@ import {
   formatMoneyCents,
   lbsToKg,
   normalizePaymentMethods,
-  orderStatusLabel,
-  paymentStatusLabel,
   recommendStringCategory,
   WIZARD_QUESTIONS,
   isPresetCompositionTier,
@@ -53,6 +51,7 @@ import {
 } from "./restringingService.js";
 import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
+import MyOrdersScreen from "./MyOrdersScreen.jsx";
 
 const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
@@ -257,6 +256,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   const [selectedVendor, setSelectedVendor] = useState(checkoutHandoff?.vendor || null);
   const [catalog, setCatalog] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [ordersUpdatedAt, setOrdersUpdatedAt] = useState(null);
+  const [ordersRefreshing, setOrdersRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -328,10 +329,14 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       setOrders([]);
       return;
     }
+    setOrdersRefreshing(true);
     try {
       setOrders(await listMyOrders());
+      setOrdersUpdatedAt(Date.now());
     } catch {
       setOrders([]);
+    } finally {
+      setOrdersRefreshing(false);
     }
   }, [isAuthenticated]);
 
@@ -680,17 +685,6 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
     }
   };
 
-  const orderStringLine = (item) => {
-    if (item.item_type === "custom") {
-      return `${item.label || "Custom item"} x ${item.item_qty || 1} · ${formatMoneyCents(Number(item.unit_price_cents || 0) * Number(item.item_qty || 1))}`;
-    }
-    if (item.advice_requested) return "Specs decided at drop-off";
-    const stringName = item.string_name
-      ? `${item.string_brand || ""} ${item.string_name}`.trim()
-      : item.custom_string_text || item.own_string_text || "String";
-    return `${stringName} · gauge ${item.gauge || "-"} · ${item.tension_lbs_mains || "-"}${item.tension_lbs_crosses && item.tension_lbs_crosses !== item.tension_lbs_mains ? `/${item.tension_lbs_crosses}` : ""} lbs`;
-  };
-
   const selectedStringName = selectedString
     ? `${selectedString.brand || ""} ${selectedString.name || ""}`.trim()
     : stringId === "other"
@@ -700,8 +694,8 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
   return (
     <div className="dashboard-page restring-page">
       <AppNav />
-      <main className="rsg-shell">
-        {screen !== "home" ? (
+      <main className={`rsg-shell ${screen === "orders" ? "rsg-shell--wide" : ""}`}>
+        {screen !== "home" && screen !== "orders" ? (
           <button type="button" className="rsg-back" onClick={back}>
             <ChevronLeft size={18} /> Back
           </button>
@@ -1032,42 +1026,20 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         ) : null}
 
         {screen === "orders" ? (
-          <>
-            <section className="rsg-hero compact"><h1>My orders</h1><p>Live status on your restrings.</p></section>
-            <button type="button" className="rsg-secondary" onClick={refreshOrders}><RefreshCw size={16} /> Refresh</button>
-            <div className="rsg-stack">
-              {orders.map((order) => (
-                <section className="rsg-card" key={order.id}>
-                  <div className="rsg-order-head">
-                    <b>#{order.id}</b>
-                    <span className="rsg-status-pill"><small>Order</small>{orderStatusLabel(order.fulfillment_status || order.status)}</span>
-                    <span className="rsg-status-pill rsg-status-pill--payment"><small>Payment</small>{paymentStatusLabel(order.payment_status)}</span>
-                  </div>
-                  {(order.items || []).map((item) => (
-                    <p key={item.id}>
-                      {item.item_type === "custom" ? "Item" : item.racket_make_model}: {orderStringLine(item)}
-                    </p>
-                  ))}
-                  <p>{order.vendor_name} · {formatMoneyCents(order.total_cents)}</p>
-                  {Number(order.discount_amount_cents || 0) > 0 ? (
-                    <p>{order.discount_label || "Discount"} -{formatMoneyCents(order.discount_amount_cents)}</p>
-                  ) : null}
-                  {order.fulfillment_status === "pending" ? (
-                    <>
-                      <button type="button" className="rsg-secondary" onClick={async () => { await cancelOrder(order.id); await refreshOrders(); }}>Cancel order (full refund)</button>
-                      <p className="rsg-fine">Free cancellation until your racket is dropped off.</p>
-                    </>
-                  ) : null}
-                </section>
-              ))}
-              {!orders.length ? <section className="rsg-card">No restringing orders yet.</section> : null}
-            </div>
-          </>
+          <MyOrdersScreen
+            orders={orders}
+            updatedAt={ordersUpdatedAt}
+            refreshing={ordersRefreshing}
+            onRefresh={refreshOrders}
+            onBack={back}
+            onCancel={async (orderId) => { await cancelOrder(orderId); await refreshOrders(); }}
+            onStartNew={() => go("home")}
+          />
         ) : null}
       </main>
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
-        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}
+        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
         .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}
