@@ -6,7 +6,10 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
+  ClipboardList,
   CreditCard,
+  Lightbulb,
   MapPin,
   MessageCircle,
   Minus,
@@ -14,8 +17,11 @@ import {
   Plus,
   RefreshCw,
   Star,
+  Target,
 } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
+import FeatureNavBar, { FeatureNavIconButton } from "../components/FeatureNavBar";
+import MobileHomeBottomNav from "../components/MobileHomeBottomNav";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthDrawer } from "../context/AuthDrawerContext.jsx";
 import {
@@ -52,6 +58,7 @@ import {
 import { vendorHoursSummary } from "./vendorPage.js";
 import { findVendorBySlug, vendorProfilePath } from "./vendorProfileRoutes.js";
 import MyOrdersScreen from "./MyOrdersScreen.jsx";
+import { formatOrderTotal, ordersSummaryLine, usualSetup } from "./myOrders.js";
 
 const stripePublishableKey =
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ??
@@ -691,12 +698,61 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       ? otherString
       : ownString;
 
+  // ----- Phone chrome: FeatureNavBar in place of AppNav, bottom nav outside task flows -----
+  const goHome = () => {
+    setHistory([]);
+    setScreen("home");
+    setError("");
+  };
+  const STEP_TITLES = {
+    wizard: "String quiz",
+    recommendation: "Recommendation",
+    tier: "Service",
+    vendor: "Choose a stringer",
+    profile: selectedVendor?.name || "Stringer",
+    config: "String setup",
+    rackets: checkoutHandoff ? "Your racket" : `Your racket${quantity > 1 ? "s" : ""}`,
+    checkout: "Checkout",
+    confirmation: "Order confirmed",
+  };
+  const featureNav = screen === "home"
+    ? {
+        backLabel: "Home",
+        backTo: "/",
+        title: "Restring",
+        titleMode: "on-scroll",
+        action: (
+          <FeatureNavIconButton label="My orders" onClick={() => { void refreshOrders(); go("orders"); }}>
+            <ClipboardList size={22} />
+          </FeatureNavIconButton>
+        ),
+      }
+    : screen === "orders"
+      ? {
+          backLabel: "Restring",
+          onBack: back,
+          title: "My orders",
+          action: (
+            <FeatureNavIconButton label="Refresh orders" onClick={() => void refreshOrders()} disabled={ordersRefreshing}>
+              <RefreshCw size={20} className={ordersRefreshing ? "rsg-spin" : ""} />
+            </FeatureNavIconButton>
+          ),
+        }
+      : screen === "confirmation"
+        ? { backLabel: "Restring", onBack: goHome, title: STEP_TITLES.confirmation }
+        : { backLabel: "Back", onBack: back, title: STEP_TITLES[screen] || "" };
+  // Booking and checkout are task flows: no tab bar until they're done.
+  const showTabBar = !checkoutHandoff && ["home", "orders", "confirmation"].includes(screen);
+  const usual = usualSetup(orders);
+  const usualPrice = usual ? Number(usual.item?.unit_price_cents || usual.order?.total_cents || 0) : 0;
+
   return (
     <div className={`dashboard-page restring-page ${screen === "orders" ? "restring-page--orders" : ""}`}>
-      <AppNav />
-      <main className={`rsg-shell ${screen === "orders" ? "rsg-shell--wide" : ""}`}>
+      <div className="rsg-desktop-nav"><AppNav /></div>
+      <FeatureNavBar {...featureNav} />
+      <main className={`rsg-shell ${screen === "orders" ? "rsg-shell--wide" : ""} ${showTabBar ? "rsg-shell--tabbar" : ""}`}>
         {screen !== "home" && screen !== "orders" ? (
-          <button type="button" className="rsg-back" onClick={back}>
+          <button type="button" className="rsg-back rsg-desktop-only" onClick={back}>
             <ChevronLeft size={18} /> Back
           </button>
         ) : null}
@@ -705,7 +761,46 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
         {loading || authLoading ? <div className="rsg-card">Loading restringing options...</div> : null}
 
         {!loading && screen === "home" ? (
-          <>
+          <div className="rsg-home rsg-mobile-only">
+            <header className="rsg-home-title">
+              <h1>Restring</h1>
+              <p>Fresh strings, from a stringer near you.</p>
+            </header>
+            {usual?.href ? (
+              <section className="rsg-usual" aria-label="Your usual setup">
+                <span className="rsg-usual-label">Your usual</span>
+                <b>{usual.line.title}</b>
+                <span>{usual.line.detail}</span>
+                <span className="rsg-usual-shop">{usual.order.vendor_name}</span>
+                <a className="rsg-usual-btn" href={usual.href}>
+                  Restring again{usualPrice ? ` · ${formatOrderTotal(usualPrice)}` : ""}
+                </a>
+              </section>
+            ) : null}
+            <div className="rsg-list">
+              <button type="button" className="rsg-list-row" onClick={() => go("tier")}>
+                <span className="rsg-list-icon rsg-list-icon--purple"><Target size={20} /></span>
+                <span className="rsg-list-text"><b>I know what I want</b><small>Pick a service and string</small></span>
+                <ChevronRight size={20} className="rsg-list-chevron" />
+              </button>
+              <button type="button" className="rsg-list-row" onClick={() => { setWizardIndex(0); setAnswers({}); go("wizard"); }}>
+                <span className="rsg-list-icon rsg-list-icon--amber"><Lightbulb size={20} /></span>
+                <span className="rsg-list-text"><b>Help me choose a string</b><small>4 quick questions</small></span>
+                <ChevronRight size={20} className="rsg-list-chevron" />
+              </button>
+            </div>
+            <div className="rsg-list">
+              <button type="button" className="rsg-list-row" onClick={() => { void refreshOrders(); go("orders"); }}>
+                <span className="rsg-list-icon rsg-list-icon--green"><ClipboardList size={20} /></span>
+                <span className="rsg-list-text"><b>My orders</b><small>{isAuthenticated ? ordersSummaryLine(orders) : "Sign in to see your restrings"}</small></span>
+                <ChevronRight size={20} className="rsg-list-chevron" />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {!loading && screen === "home" ? (
+          <div className="rsg-desktop-only">
             <section className="rsg-hero">
               <h1>Restring my racket</h1>
               <p>Fresh strings, from a stringer near you.</p>
@@ -727,7 +822,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
                 <ArrowRight size={20} />
               </button>
             ) : null}
-          </>
+          </div>
         ) : null}
 
         {screen === "wizard" ? (
@@ -1037,9 +1132,32 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
           />
         ) : null}
       </main>
+      {showTabBar ? <MobileHomeBottomNav /> : null}
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
-        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px;width:100%;box-sizing:border-box}.restring-page--orders{gap:16px}.restring-page--orders .rsg-shell{padding-top:9px}
+        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px;width:100%;box-sizing:border-box}
+        .rsg-mobile-only{display:none}
+        @keyframes rsg-spin{to{transform:rotate(360deg)}}.rsg-spin{animation:rsg-spin .9s linear infinite}
+        @media (max-width:820px){
+          .rsg-desktop-nav,.rsg-desktop-only{display:none!important}
+          .rsg-mobile-only{display:block}
+          .restring-page,.restring-page--orders{gap:0}
+          .rsg-shell,.restring-page--orders .rsg-shell{padding:12px 0 32px;width:100%;box-sizing:border-box}
+          .rsg-shell--tabbar{padding-bottom:calc(84px + var(--safe-bottom,env(safe-area-inset-bottom)))!important}
+          .rsg-home-title{padding:2px 2px 16px}.rsg-home-title h1{margin:0;font-size:34px;line-height:1.1;font-weight:800;letter-spacing:-.02em}.rsg-home-title p{margin:4px 0 0;color:#6b7280;font-size:15px}
+          .rsg-usual{display:flex;flex-direction:column;gap:3px;margin-bottom:16px;padding:18px;border-radius:20px;background:linear-gradient(145deg,#3b0764,#5b21b6);color:#fff;box-shadow:0 12px 28px rgba(59,7,100,.28)}
+          .rsg-usual-label{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#ddd6fe}
+          .rsg-usual b{font-size:20px;font-weight:800;margin-top:2px}.rsg-usual span{font-size:14px;color:#ede9fe}.rsg-usual .rsg-usual-shop{font-size:13px;color:#c4b5fd}
+          .rsg-usual-btn{align-self:flex-start;margin-top:12px;padding:11px 16px;border-radius:12px;background:#c4ec52;color:#1a2e05;font-weight:800;font-size:15px;text-decoration:none}
+          .rsg-list{margin-bottom:16px;border-radius:16px;background:#fff;border:1px solid #edf0f4;overflow:hidden}
+          .rsg-list-row{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;background:#fff;text-align:left;color:#111827;font:inherit}
+          .rsg-list-row+.rsg-list-row{border-top:1px solid #f1f2f4}
+          .rsg-list-row:active{background:#f5f6f8}
+          .rsg-list-icon{flex:0 0 36px;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+          .rsg-list-icon--purple{background:#ede9fe;color:#6d28d9}.rsg-list-icon--amber{background:#fef3c7;color:#b45309}.rsg-list-icon--green{background:#dcfce7;color:#15803d}
+          .rsg-list-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.rsg-list-text b{font-size:16px;font-weight:700}.rsg-list-text small{font-size:13.5px;color:#6b7280;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+          .rsg-list-chevron{flex-shrink:0;color:#c0c4cc}
+        }.restring-page--orders{gap:16px}.restring-page--orders .rsg-shell{padding-top:9px}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
         .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}

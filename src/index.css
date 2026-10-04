@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 :root {
+  /* Device safe areas (notch / home indicator). Read through these variables so a screen
+     can be previewed with a simulated inset. Needs viewport-fit=cover (index.html). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
   /* Brand primary — single source of truth for app purple. See CLAUDE.md. */
   --color-primary: #8b5cf6;
   --color-primary-dark: #7c3aed;

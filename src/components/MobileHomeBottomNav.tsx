@@ -173,7 +173,7 @@ const MobileHomeBottomNav = () => {
     prefixes.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
 
   const tabs: TabDef[] = [
-    { key: "home", label: "Home", icon: Home, to: "/", match: ["/"] },
+    { key: "home", label: "Home", icon: Home, to: "/", match: ["/", "/restring"] },
     { key: "coaches", label: "Coaches", icon: Users, to: "/my-coaches", match: ["/my-coaches"] },
     { key: "leagues", label: "Leagues", icon: Trophy, match: ["/leagues"], onClick: goLeagues },
     { key: "schedule", label: "Schedule", icon: CalendarDays, to: "/player/calendar", match: ["/player/calendar"] },

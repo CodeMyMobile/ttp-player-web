@@ -1,0 +1,105 @@
+/* FeatureNavBar — see FeatureNavBar.tsx. The bar bleeds past the mobile .app-shell padding
+   (16px) so its translucent background runs edge to edge and up under the status bar. */
+
+.fnb {
+  --fnb-bg: rgba(244, 245, 247, 0.82);
+  --fnb-accent: #6d28d9;
+  --fnb-bleed: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: calc(-1 * var(--fnb-bleed)) calc(-1 * var(--fnb-bleed)) 0;
+  padding-top: var(--safe-top, env(safe-area-inset-top, 0px));
+  background: var(--fnb-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.fnb.is-scrolled {
+  border-bottom-color: rgba(17, 24, 39, 0.14);
+}
+
+.fnb__inner {
+  height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding: 0 6px;
+}
+
+.fnb__side {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.fnb__side--end {
+  justify-content: flex-end;
+}
+
+.fnb__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 8px 0 0;
+  border: 0;
+  background: none;
+  color: var(--fnb-accent);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.fnb__back span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fnb__title {
+  margin: 0;
+  max-width: 56vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #111827;
+  transition: opacity 0.15s ease;
+}
+
+.fnb__title.is-hidden {
+  opacity: 0;
+}
+
+.fnb__icon-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--fnb-accent);
+  cursor: pointer;
+}
+
+.fnb__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (min-width: 821px) {
+  .fnb--mobile-only {
+    display: none;
+  }
+}
