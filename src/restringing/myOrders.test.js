@@ -9,6 +9,7 @@ import {
   orderStatusChip,
   readyLine,
   restringAgainHref,
+  spansVendors,
   splitOrders,
   updatedLabel,
   usualSetup,
@@ -73,8 +74,9 @@ test("orderStatusChip gives one chip per status", () => {
   assert.deepEqual(chip("cancelled"), { label: "Cancelled", tone: "red" });
 });
 
-test("orderPaymentNote shows paid, pay at drop-off and failures", () => {
-  assert.equal(orderPaymentNote(order()).label, "Paid");
+test("orderPaymentNote shows exceptions only", () => {
+  assert.equal(orderPaymentNote(order()), null);
+  assert.equal(orderPaymentNote(order({ payment_method: "comp" })).label, "Comp");
   assert.equal(orderPaymentNote(order({ payment_status: "unpaid" })).label, "Pay at drop-off");
   assert.equal(orderPaymentNote(order({ fulfillment_status: "picked_up", payment_status: "unpaid" })), null);
   assert.deepEqual(orderPaymentNote(order({ payment_status: "payment_failed" })), { label: "Payment failed", tone: "red" });
@@ -128,10 +130,11 @@ test("formatTension drops the decimal and splits mains and crosses", () => {
 });
 
 test("orderItemLine names the string whichever way it was chosen", () => {
-  assert.deepEqual(orderItemLine(item()), { title: "Babolat Pure Aero 98", detail: "Head Lynx Tour · 16 · 52/50 lbs" });
+  assert.deepEqual(orderItemLine(item()), { title: "Babolat Pure Aero 98", detail: "Head Lynx Tour · 16g · 52/50 lbs" });
+  assert.equal(orderItemLine(item({ gauge: "15L" })).detail, "Head Lynx Tour · 15L · 52/50 lbs");
   assert.equal(
     orderItemLine(item({ string_brand: null, string_name: null, string_id: null, own_string_text: "RPM Blast 17", gauge: null })).detail,
-    "RPM Blast 17 (your string) · 52/50 lbs",
+    "Own string: RPM Blast 17 · 52/50 lbs",
   );
   assert.equal(
     orderItemLine(item({ string_brand: null, string_name: null, string_id: null, gauge: null, tension_lbs_mains: null, tension_lbs_crosses: null })).detail,
@@ -173,6 +176,25 @@ test("vendor page prefill round-trips stringer's choice and own string", () => {
   assert.equal(parseVendorPagePrefill("?tier=5&string=2&gauge=17&tension=50").stringChoice, "specified");
 });
 
+test("usualSetup prefers the most frequent racket and string, ties going to the latest", () => {
+  const done = (id, when, overrides) => order({ id, fulfillment_status: "picked_up", picked_up_at: when, items: [item(overrides)] });
+  const orders = [
+    done(1, "2026-06-01T17:00:00Z", { racket_make_model: "Wilson Blade 98" }),
+    done(2, "2026-07-01T17:00:00Z", { racket_make_model: "Wilson Blade 98" }),
+    done(3, "2026-09-01T17:00:00Z", { racket_make_model: "Head Speed MP" }),
+  ];
+  const setup = usualSetup(orders);
+  assert.equal(setup.order.id, 2);
+  assert.equal(setup.count, 2);
+  assert.equal(setup.line.title, "Wilson Blade 98");
+  // Same racket, different string: not the same setup.
+  orders.push(done(4, "2026-09-15T17:00:00Z", { racket_make_model: "Wilson Blade 98", string_brand: "Wilson", string_name: "NXT" }));
+  assert.equal(usualSetup(orders).order.id, 2);
+  // A tie goes to the most recent.
+  orders.push(done(5, "2026-09-20T17:00:00Z", { racket_make_model: "Head Speed MP" }));
+  assert.equal(usualSetup(orders).order.id, 5);
+});
+
 test("usualSetup comes from the latest picked-up order", () => {
   const older = order({ id: 1, fulfillment_status: "fulfilled", picked_up_at: "2026-08-01T17:00:00Z" });
   const newer = order({
@@ -198,3 +220,10 @@ test("directionsUrl and updatedLabel", () => {
   assert.equal(updatedLabel(now - 5 * 60_000, now), "Updated 5 min ago");
   assert.equal(updatedLabel(null, now), "");
 });
+
+test("spansVendors is true only for orders from more than one shop", () => {
+  assert.equal(spansVendors([order(), order({ id: 2 })]), false);
+  assert.equal(spansVendors([order(), order({ id: 2, vendor_id: 7, vendor_name: "Racket Lab" })]), true);
+  assert.equal(spansVendors([]), false);
+});
+

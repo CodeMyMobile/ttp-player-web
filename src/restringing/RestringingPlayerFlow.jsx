@@ -692,7 +692,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       : ownString;
 
   return (
-    <div className="dashboard-page restring-page">
+    <div className={`dashboard-page restring-page ${screen === "orders" ? "restring-page--orders" : ""}`}>
       <AppNav />
       <main className={`rsg-shell ${screen === "orders" ? "rsg-shell--wide" : ""}`}>
         {screen !== "home" && screen !== "orders" ? (
@@ -1039,7 +1039,7 @@ export default function RestringingPlayerFlow({ vendorSlug: directVendorSlug = "
       </main>
       <style>{`
         .restring-page{background:#f4f5f7;min-height:100vh}
-        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px}
+        .rsg-shell{max-width:760px;margin:0 auto;padding:18px 16px 96px;color:#111827;font-family:Inter,system-ui,sans-serif}.rsg-shell--wide{max-width:1080px;width:100%;box-sizing:border-box}.restring-page--orders{gap:16px}.restring-page--orders .rsg-shell{padding-top:9px}
         .rsg-back,.rsg-secondary,.rsg-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #e5e7eb;background:white;color:#111827;border-radius:14px;padding:12px 14px;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.05)}
         .rsg-back{margin-bottom:14px}
         .rsg-hero{padding:14px 2px 18px}.rsg-hero.compact{padding-top:4px}.rsg-hero h1,.rsg-card h1{font-size:34px;line-height:1.05;font-weight:900;margin:0 0 6px}.rsg-hero p,.rsg-card p{color:#6b7280;margin:4px 0}
