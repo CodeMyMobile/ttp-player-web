@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { Check, ChevronLeft, Lightbulb, MessageCircle, Minus, Navigation, Phone, Plus, Share2, X } from "lucide-react";
 import AppNav from "../components/AppNav.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -18,6 +18,7 @@ import {
   loadOrderDraft,
   orderSelectionGaps,
   parseVendorHours,
+  parseVendorPagePrefill,
   saveOrderDraft,
   tensionConfigForCategory,
   tierForRecommendedCategory,
@@ -246,6 +247,9 @@ function StringQuizSheet({ onClose, onFinish }) {
 
 export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) {
   const { vendorSlug: routeVendorSlug = "" } = useParams();
+  const location = useLocation();
+  // Prefill links work both as /thetennisgarage?tier=… and as #/thetennisgarage?tier=….
+  const prefillSearch = location.search || (typeof window !== "undefined" ? window.location.search : "");
   const slug = clean(directVendorSlug || routeVendorSlug);
   const [status, setStatus] = useState("loading");
   const [vendor, setVendor] = useState(null);
@@ -311,10 +315,13 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
 
   // Bring back an order saved before sign-in (or before a reload), once, when the data it
   // refers to has loaded. An order that was mid-Book carries on to checkout after sign-in.
+  // Otherwise a prefill link (e.g. "Restring again") wins over an older saved order.
   useEffect(() => {
     if (draftRestored || !vendorId || !tiers.length || authLoading) return;
     setDraftRestored(true);
-    const draft = loadOrderDraft(vendorId);
+    const saved = loadOrderDraft(vendorId);
+    const prefill = parseVendorPagePrefill(prefillSearch);
+    const draft = saved?.pendingBook ? saved : prefill || saved;
     if (!draft || !tiers.some((item) => Number(item.id) === Number(draft.tierId))) return;
     setTierId(draft.tierId);
     setStringChoice(
@@ -327,7 +334,7 @@ export default function VendorPublicPage({ vendorSlug: directVendorSlug = "" }) 
     setStringerChoosesTension(Boolean(draft.stringerChoosesTension));
     setRacketMakeModel(clean(draft.racketMakeModel));
     if (draft.pendingBook && isAuthenticated) setCheckoutOpen(true);
-  }, [authLoading, draftRestored, isAuthenticated, tiers, vendorId]);
+  }, [authLoading, draftRestored, isAuthenticated, prefillSearch, tiers, vendorId]);
 
   useEffect(() => {
     if (!vendorId || !tier || isOwnStringTier(tier)) {

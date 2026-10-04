@@ -335,3 +335,61 @@ export function clearOrderDraft(vendorId, { storage = defaultStorage() } = {}) {
     // Storage unavailable: nothing to clear.
   }
 }
+
+// ----- Prefill from a link (e.g. "Restring again" on My orders) -----
+//
+// /:vendorSlug?tier=5&string=2&gauge=16&tension=50&racket=Pure%20Aero
+//   tension=stringer means "Let my stringer choose"; own=... is the player's own string.
+// The page still checks everything against what the shop offers now: a string it no longer
+// stocks falls back to stringer's pick, and the tension is clamped to the tier's range.
+
+const positiveInt = (value) => {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+};
+
+export function parseVendorPagePrefill(search) {
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  const tierId = positiveInt(params.get("tier"));
+  if (!tierId) return null;
+  const stringId = positiveInt(params.get("string"));
+  const tension = cleanText(params.get("tension"));
+  const tensionLbs = Number(tension);
+  return {
+    tierId,
+    stringChoice: stringId ? STRING_CHOICE.SPECIFIED : STRING_CHOICE.SHOP,
+    stringId,
+    gauge: stringId ? cleanText(params.get("gauge")) || null : null,
+    ownStringText: cleanText(params.get("own")),
+    tensionLbs: Number.isFinite(tensionLbs) && tensionLbs > 0 ? tensionLbs : null,
+    stringerChoosesTension: tension.toLowerCase() === "stringer",
+    racketMakeModel: cleanText(params.get("racket")).slice(0, 255),
+  };
+}
+
+const tensionNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+/** Query string that reopens an order item's setup on the vendor page; "" when it can't. */
+export function vendorPagePrefillSearch(item) {
+  const tierId = positiveInt(item?.service_tier_id);
+  if (!tierId || item?.item_type === "custom") return "";
+  const params = new URLSearchParams();
+  params.set("tier", String(tierId));
+  const own = cleanText(item.own_string_text);
+  const stringId = positiveInt(item.string_id);
+  if (own) {
+    params.set("own", own);
+  } else if (stringId) {
+    params.set("string", String(stringId));
+    if (cleanText(item.gauge)) params.set("gauge", cleanText(item.gauge));
+  }
+  const mains = tensionNumber(item.tension_lbs_mains);
+  if (mains) params.set("tension", String(mains));
+  else if (!item.advice_requested) params.set("tension", "stringer");
+  if (cleanText(item.racket_make_model)) params.set("racket", cleanText(item.racket_make_model));
+  return `?${params.toString()}`;
+}
