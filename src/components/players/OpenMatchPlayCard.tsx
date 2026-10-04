@@ -1,9 +1,10 @@
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Calendar, MapPin, Swords, Users } from "lucide-react";
 
 import { getMatchSpots } from "../../play-dates/services/matches";
 import { getAvatarInitials, getProfileImageFromSource } from "../../play-dates/utils/avatar";
-import { isCurrentUserInMatch } from "./openMatchPlayCardState.js";
+import { isCurrentUserInMatch, openMatchSlotChoices, slotJoinChoice } from "./openMatchPlayCardState.js";
 
 import "./OpenMatchPlayCard.css";
 
@@ -13,9 +14,14 @@ type MatchRecord = Record<string, unknown>;
 
 type Spots = { joined: number; total: number | null; spotsLeft: number | null };
 
+type SlotOption = { value: unknown; label: string };
+type SlotChoices = { isSlotMatch: boolean; times: SlotOption[]; locations: SlotOption[] };
+export type SlotJoinChoice = { chosen_time: string; chosen_location: Record<string, unknown> };
+
 export interface OpenMatchPlayCardProps {
   match: MatchRecord;
-  onJoin?: (matchId: string) => void;
+  // For a match offered at several times/places, the second argument carries the chosen slot.
+  onJoin?: (matchId: string, slot?: SlotJoinChoice) => void;
   joining?: boolean;
   currentUserId?: string | number | null;
   // Authoritative host id for this listing (the profile owner — every card here
@@ -186,6 +192,23 @@ const OpenMatchPlayCard = ({
   };
   const doubles = /doubles|mixed/i.test(formatType(match));
 
+  // Singles offered at several times/places: show them all, and let the joiner pick one.
+  const slots = useMemo(() => openMatchSlotChoices(match) as SlotChoices, [match]);
+  const [timeIndex, setTimeIndex] = useState(0);
+  const [locationIndex, setLocationIndex] = useState(0);
+  const multipleTimes = slots.isSlotMatch && slots.times.length > 1;
+  const multiplePlaces = slots.isSlotMatch && slots.locations.length > 1;
+  const durationLabel = formatDuration(match);
+  // When every offered time is on the same day, say the day once and show times only.
+  const slotDays = new Set(
+    slots.times.map((time) => new Date(String(time.value)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })),
+  );
+  const sameDay = slotDays.size === 1 ? [...slotDays][0] : "";
+  const timeChipLabel = (time: SlotOption) =>
+    sameDay
+      ? new Date(String(time.value)).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+      : time.label;
+
   const hasRoster = Array.isArray(match.participants);
   const participants = hasRoster ? (match.participants as MatchRecord[]) : [];
   const total = spots.total ?? participants.length;
@@ -247,12 +270,71 @@ const OpenMatchPlayCard = ({
 
       <div className="omp-detail">
         <Calendar size={15} strokeWidth={2} aria-hidden="true" />
-        <span>{formatWhen(match)}</span>
+        <span>
+          {multipleTimes
+            ? [sameDay, `${slots.times.length} possible times`, durationLabel].filter(Boolean).join(" · ")
+            : formatWhen(match)}
+        </span>
       </div>
       <div className="omp-detail">
         <MapPin size={15} strokeWidth={2} aria-hidden="true" />
-        <span>{formatLocation(match)}</span>
+        <span>{multiplePlaces ? `${slots.locations.length} possible courts` : formatLocation(match)}</span>
       </div>
+
+      {multipleTimes || multiplePlaces ? (
+        // Chips are inside the clickable card: keep taps on them from opening the details.
+        <div
+          className="omp-slots"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+          role="presentation"
+        >
+          {multipleTimes ? (
+            <div className="omp-slot-group">
+              <span className="omp-slot-label">{isSelf ? "Times offered" : "Pick a time"}</span>
+              <div className="omp-slot-chips">
+                {slots.times.map((time, index) =>
+                  isSelf ? (
+                    <span key={String(time.value)} className="omp-slot">{timeChipLabel(time)}</span>
+                  ) : (
+                    <button
+                      key={String(time.value)}
+                      type="button"
+                      className="omp-slot"
+                      aria-pressed={index === timeIndex}
+                      onClick={() => setTimeIndex(index)}
+                    >
+                      {timeChipLabel(time)}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
+          {multiplePlaces ? (
+            <div className="omp-slot-group">
+              <span className="omp-slot-label">{isSelf ? "Courts offered" : "Pick a court"}</span>
+              <div className="omp-slot-chips">
+                {slots.locations.map((place, index) =>
+                  isSelf ? (
+                    <span key={`${place.label}-${index}`} className="omp-slot">{place.label}</span>
+                  ) : (
+                    <button
+                      key={`${place.label}-${index}`}
+                      type="button"
+                      className="omp-slot"
+                      aria-pressed={index === locationIndex}
+                      onClick={() => setLocationIndex(index)}
+                    >
+                      {place.label}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {filled.length > 0 || emptyCount > 0 ? (
         <div className="omp-roster">
@@ -293,7 +375,7 @@ const OpenMatchPlayCard = ({
           disabled={joining || isFull}
           onClick={(event) => {
             event.stopPropagation();
-            onJoin?.(matchId);
+            onJoin?.(matchId, slotJoinChoice(slots, timeIndex, locationIndex) as SlotJoinChoice | undefined);
           }}
         >
           {joinLabel}
