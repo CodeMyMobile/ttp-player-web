@@ -1,14 +1,21 @@
 /// <reference types="google.maps" />
 import moment from "moment";
 import Autocomplete from "react-google-autocomplete";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Clock, ExternalLink, MapPin, Search, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, Clock, ExternalLink, MapPin, Search, Target, Users } from "lucide-react";
 
 import ResultsHeader from "../components/coaches/ResultsHeader";
 import MainLayout from "../components/MainLayout";
 import { fetchCoachProfile, type CoachProfileRecord } from "../api/coachProfile";
+import { getPlayerPersonalDetails } from "../api/playerProfile";
+import {
+  classLevelBand,
+  fitsPlayerLevel,
+  formatPlayerLevel,
+  playerLevelOf,
+} from "../utils/groupLessonLevelFit";
 import {
   fetchUpcomingGroupLessons,
   holdsGroupSpot,
@@ -39,6 +46,30 @@ import "../components/coaches/coaches.css";
 import "./GroupLessonsPage.css";
 
 const DEFAULT_LOCATION = "San Francisco, CA";
+
+/** The level filter's value for "classes that fit my level". */
+const YOUR_LEVEL = "Your level";
+
+/**
+ * The level the player last chose, for this browser session. The page remounts every time
+ * they open a class and come back, and without this "Your level" would be chosen for them
+ * again on each return, undoing a switch to All.
+ */
+const LEVEL_CHOICE_KEY = "group-lessons:level-choice";
+const readLevelChoice = (): string | null => {
+  try {
+    return sessionStorage.getItem(LEVEL_CHOICE_KEY);
+  } catch {
+    return null;
+  }
+};
+const rememberLevelChoice = (value: string) => {
+  try {
+    sessionStorage.setItem(LEVEL_CHOICE_KEY, value);
+  } catch {
+    // Not remembered: the next visit preselects Your level again, which is the default anyway.
+  }
+};
 
 const formatLevelRange = (level: number) => {
   const upperBound = (level + 0.5).toFixed(1);
@@ -240,6 +271,11 @@ const GroupLessonsPage = () => {
   const { user } = useAuth();
   const [coachFilter, setCoachFilter] = useState<string>("All coaches");
   const [levelFilter, setLevelFilter] = useState<string>("All levels");
+  // The signed-in player's NTRP level. undefined while loading, null when they have none.
+  const [playerLevel, setPlayerLevel] = useState<number | null | undefined>(undefined);
+  // "Your level" is chosen for the player once, on arrival. After that the filter is theirs:
+  // switching to All must stick, and a deep link or back-navigation keeps its own filters.
+  const levelPreselectDone = useRef(false);
   const [position, setPosition] = useState<Coordinates | null>(
     () => getStoredLocation() ?? DEFAULT_POSITION,
   );
@@ -420,7 +456,9 @@ const GroupLessonsPage = () => {
   const lessonsMatchingFilters = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return lessonsWithIso.filter((lesson) => {
-      if (levelFilter !== "All levels" && (lesson.level == null || lesson.level.toFixed(1) !== levelFilter)) {
+      if (levelFilter === YOUR_LEVEL) {
+        if (playerLevel != null && !fitsPlayerLevel(classLevelBand(lesson), playerLevel)) return false;
+      } else if (levelFilter !== "All levels" && (lesson.level == null || lesson.level.toFixed(1) !== levelFilter)) {
         return false;
       }
       if (coachFilter !== "All coaches" && getResolvedCoachName(lesson) !== coachFilter) {
@@ -437,7 +475,7 @@ const GroupLessonsPage = () => {
       }
       return true;
     });
-  }, [coachFilter, getResolvedCoachName, lessonsWithIso, levelFilter, searchTerm]);
+  }, [coachFilter, getResolvedCoachName, lessonsWithIso, levelFilter, playerLevel, searchTerm]);
 
   const dayLessonCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -578,6 +616,7 @@ const GroupLessonsPage = () => {
     // carries every one — but a deep link that sets only coachFilter (the coach card's
     // "also runs N weekly group sessions") would have blanked the other nine, replacing
     // real defaults with undefined.
+    levelPreselectDone.current = true;
     const apply = <T,>(value: T | undefined, set: (next: T) => void) => {
       if (value !== undefined) set(value);
     };
@@ -769,6 +808,36 @@ const GroupLessonsPage = () => {
 
     return () => controller.abort();
   }, [authToken, coachProfilesById, lessons]);
+
+  useEffect(() => {
+    if (!authToken) {
+      setPlayerLevel(null);
+      return;
+    }
+    const controller = new AbortController();
+    getPlayerPersonalDetails({ token: authToken, signal: controller.signal })
+      .then((details) => setPlayerLevel(playerLevelOf(details)))
+      .catch(() => {
+        if (!controller.signal.aborted) setPlayerLevel(null);
+      });
+    return () => controller.abort();
+  }, [authToken]);
+
+  useEffect(() => {
+    if (playerLevel == null || levelPreselectDone.current) return;
+    levelPreselectDone.current = true;
+    const remembered = readLevelChoice();
+    setLevelFilter((current) => (current === "All levels" ? remembered ?? YOUR_LEVEL : current));
+  }, [playerLevel]);
+
+  // Only once the page has settled its starting filter, so the "All levels" it starts on
+  // is not mistaken for a choice.
+  useEffect(() => {
+    if (levelPreselectDone.current) rememberLevelChoice(levelFilter);
+  }, [levelFilter]);
+
+  const yourLevelLabel = playerLevel != null ? `Your level · ${formatPlayerLevel(playerLevel)}` : null;
+  const showLevelPrompt = playerLevel === null;
 
   useEffect(() => {
     let cancelled = false;
@@ -1001,6 +1070,22 @@ const GroupLessonsPage = () => {
                 </div>
               </div>
 
+              {showLevelPrompt && (
+                <Link to="/rating-quiz" className="group-lessons-level-prompt">
+                  <span className="group-lessons-level-prompt__icon" aria-hidden="true">
+                    <Target size={18} />
+                  </span>
+                  <span className="group-lessons-level-prompt__text">
+                    <strong>Not sure which classes are right for you?</strong>
+                    <span>Answer 5 quick questions to find your level, and we&apos;ll show the classes that fit.</span>
+                  </span>
+                  <span className="group-lessons-level-prompt__cta">
+                    Find my level
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </span>
+                </Link>
+              )}
+
               <div className="group-lessons-desktop-chip-row">
                 <span className="group-lessons-desktop-chip-row__label">Level</span>
                 <div className="group-lessons-desktop-chip-row__chips">
@@ -1013,6 +1098,18 @@ const GroupLessonsPage = () => {
                   >
                     All
                   </button>
+                  {yourLevelLabel && (
+                    <button
+                      type="button"
+                      className={`group-lessons-desktop-chip group-lessons-your-level-chip${
+                        levelFilter === YOUR_LEVEL ? " group-lessons-desktop-chip--active" : ""
+                      }`}
+                      onClick={() => setLevelFilter(YOUR_LEVEL)}
+                    >
+                      <Target size={14} aria-hidden="true" />
+                      {yourLevelLabel}
+                    </button>
+                  )}
                   {levelOptions
                     .filter((option) => option !== "All levels")
                     .map((option) => (
@@ -1082,6 +1179,22 @@ const GroupLessonsPage = () => {
               </label>
             </div>
 
+            {showLevelPrompt && (
+              <Link to="/rating-quiz" className="group-lessons-level-prompt">
+                <span className="group-lessons-level-prompt__icon" aria-hidden="true">
+                  <Target size={18} />
+                </span>
+                <span className="group-lessons-level-prompt__text">
+                  <strong>Not sure which classes are right for you?</strong>
+                  <span>Answer 5 quick questions to find your level, and we&apos;ll show the classes that fit.</span>
+                </span>
+                <span className="group-lessons-level-prompt__cta">
+                  Find my level
+                  <ChevronRight size={16} aria-hidden="true" />
+                </span>
+              </Link>
+            )}
+
             <div className="group-lessons-mobile-chip-row">
               <span className="group-lessons-mobile-chip-row__label">Level</span>
               <div className="group-lessons-mobile-chip-row__scroller">
@@ -1094,6 +1207,18 @@ const GroupLessonsPage = () => {
                 >
                   All
                 </button>
+                {yourLevelLabel && (
+                  <button
+                    type="button"
+                    className={`group-lessons-mobile-chip group-lessons-your-level-chip${
+                      levelFilter === YOUR_LEVEL ? " group-lessons-mobile-chip--active" : ""
+                    }`}
+                    onClick={() => setLevelFilter(YOUR_LEVEL)}
+                  >
+                    <Target size={13} aria-hidden="true" />
+                    {yourLevelLabel}
+                  </button>
+                )}
                 {levelOptions
                   .filter((option) => option !== "All levels")
                   .map((option) => (
@@ -1389,13 +1514,24 @@ const GroupLessonsPage = () => {
               </div>
             ) : displayedLessons.length === 0 ? (
               <div className="empty-state">
-                <p>No lessons match your current filters.</p>
-                <button
-                  type="button"
-                  onClick={resetAllFilters}
-                >
-                  Reset filters
-                </button>
+                {levelFilter === YOUR_LEVEL ? (
+                  <>
+                    <p>No classes at your level on these days.</p>
+                    <button type="button" onClick={() => setLevelFilter("All levels")}>
+                      Show all levels
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p>No lessons match your current filters.</p>
+                    <button
+                      type="button"
+                      onClick={resetAllFilters}
+                    >
+                      Reset filters
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="lessons-grid">
