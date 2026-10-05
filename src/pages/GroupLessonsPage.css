@@ -1584,3 +1584,90 @@
     color: var(--fc-color-accent);
   }
 }
+
+/* "Your level" chip: same chip, a touch more weight so it reads as the player's own filter. */
+.group-lessons-your-level-chip {
+  border-style: dashed;
+}
+
+.group-lessons-your-level-chip.group-lessons-desktop-chip--active,
+.group-lessons-your-level-chip.group-lessons-mobile-chip--active {
+  border-style: solid;
+}
+
+/* Prompt for a player with no level yet: take the quiz so we can pick classes for them. */
+.group-lessons-level-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  color: #101828;
+  text-decoration: none;
+}
+
+.group-lessons-level-prompt:hover {
+  border-color: #8b5cf6;
+}
+
+.group-lessons-level-prompt__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #8b5cf6;
+  color: #fff;
+}
+
+.group-lessons-level-prompt__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.group-lessons-level-prompt__text strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.group-lessons-level-prompt__text span {
+  font-size: 12.5px;
+  color: #475467;
+  line-height: 1.35;
+}
+
+.group-lessons-level-prompt__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.group-lessons-mobile-shell .group-lessons-level-prompt {
+  margin: 4px var(--group-lessons-mobile-gutter, 16px) 12px;
+  flex-wrap: wrap;
+}
+
+/* Icon (36px) + gap (12px) beside the text; the button drops to its own line under it. */
+.group-lessons-mobile-shell .group-lessons-level-prompt__text {
+  flex: 1 1 calc(100% - 48px);
+}
+
+.group-lessons-mobile-shell .group-lessons-level-prompt__cta {
+  margin-left: 48px;
+}
