@@ -59,6 +59,7 @@ import {
   type PlayerStripePaymentMethod,
 } from "../api/playerStripe";
 import { getPlayerCoachLessonHistory, getPlayerUpcomingLessons, updatePlayerLesson, type PlayerLesson } from "../api/player";
+import { recordCoachMessageTap } from "../api/playerCoaches";
 import { useAuth } from "../context/AuthContext";
 import { useCoachRoster } from "../hooks/useCoachRoster";
 import usePlayerIdentity from "../hooks/usePlayerIdentity";
@@ -2716,6 +2717,10 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
     `Hi ${coachFirstName}, I found your profile on The Tennis Plan and would like to learn more about lessons.\n\n` +
     `Thanks,\n${playerName}`;
   const smsHref = buildSmsHref(coachPhone, smsMessage);
+  // Every "Message coach" link: record the tap for the coach funnel, then let the link open.
+  const handleMessageTap = () => {
+    if (authToken && profile?.id) void recordCoachMessageTap({ token: authToken, coachId: profile.id });
+  };
   const handleOpenPurchaseModal = () => {
     if (!profile?.id) {
       return;
@@ -3308,7 +3313,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   See all availability
                 </button>
                 {smsHref ? (
-                  <a href={smsHref} className="is-secondary coach-empty-card__link">
+                  <a href={smsHref} onClick={handleMessageTap} className="is-secondary coach-empty-card__link">
                     Message coach
                   </a>
                 ) : !isLoggedIn ? (
@@ -4135,7 +4140,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                   </button>
                   {smsHref ? (
                     <a
-                      href={smsHref}
+                      href={smsHref} onClick={handleMessageTap}
                       className="coach-profile-top-action coach-profile-top-action--outline coach-profile-top-action--mobile-only"
                     >
                       <MessageCircle size={16} /> Message
@@ -4234,7 +4239,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                 />
                 <div className="coach-hero-m__actions">
                   {smsHref ? (
-                    <a href={smsHref} className="coach-hero-m__btn coach-hero-m__btn--secondary">
+                    <a href={smsHref} onClick={handleMessageTap} className="coach-hero-m__btn coach-hero-m__btn--secondary">
                       <MessageCircle size={17} /> Message
                     </a>
                   ) : !isLoggedIn ? (
@@ -4295,7 +4300,7 @@ const CoachProfilePage = ({ bookMode = false }: { bookMode?: boolean } = {}) => 
                       </div>
                       <div className="coach-profile-hero-v2__actions">
                         {smsHref ? (
-                          <a href={smsHref} className="coach-profile-top-action coach-profile-top-action--outline">
+                          <a href={smsHref} onClick={handleMessageTap} className="coach-profile-top-action coach-profile-top-action--outline">
                             <MessageCircle size={16} /> Message
                           </a>
                         ) : !isLoggedIn ? (
