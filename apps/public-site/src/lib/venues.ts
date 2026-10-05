@@ -63,5 +63,21 @@ export const areaLabel = (area: string): string =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+/**
+ * A location that names an area rather than a court — a coach whose location is just
+ * "Marina del Rey". Coaches are not required to name a specific court, so these place the
+ * coach in that area and show the area name where a court would go.
+ *
+ * Exact name only (any case, "Marina Del Rey" too). A street address that happens to be in
+ * the area is not matched: normalizeVenueLabel cuts it at the house number, and a home
+ * address must never place a coach on a public page.
+ */
+export const areaVenueForLabel = (normalisedLabel: string): Venue | null => {
+  const wanted = normalisedLabel.trim().toLowerCase();
+  if (!wanted) return null;
+  const area = Object.keys(AREA_LABELS).find((slug) => AREA_LABELS[slug].toLowerCase() === wanted);
+  return area ? { name: AREA_LABELS[area], area } : null;
+};
+
 /** Every slug that has a display name — the source for any generated list of areas. */
 export const knownAreaSlugs = (): string[] => Object.keys(AREA_LABELS);
