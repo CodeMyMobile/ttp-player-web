@@ -101,3 +101,28 @@ test("missing stored slug rejects build data", () => {
     /stored slug/i,
   );
 });
+
+test("a location that is just an area's name places the coach in that area", () => {
+  const [coach] = buildPublicCoaches([{
+    slug: "megan-govi",
+    name: "Megan Govi",
+    bio: "word ".repeat(60),
+    courts: [{ name: "Marina del Rey" }, { name: "Cheviot Hills Tennis Center 2601 Motor Ave #3411, Los Angeles, CA 90064, USA" }],
+  }], { ...venues, "Cheviot Hills Tennis Center": { name: "Cheviot Hills Tennis Center", area: "cheviot-hills" } });
+
+  assert.deepEqual(coach.courts, [
+    { name: "Marina del Rey", area: "marina-del-rey" },
+    { name: "Cheviot Hills Tennis Center", area: "cheviot-hills" },
+  ]);
+  assert.deepEqual(coach.areas, ["marina-del-rey", "cheviot-hills"]);
+});
+
+test("area names match in any case, and a street address in the area does not", () => {
+  const [coach] = buildPublicCoaches([{
+    slug: "a",
+    name: "A",
+    courts: [{ name: "MARINA DEL REY, CA" }, { name: "Santa Monica" }, { name: "13816 Bora Bora Way, Marina Del Rey, CA 90292, USA" }, { name: "Marina" }],
+  }], venues);
+
+  assert.deepEqual(coach.areas, ["marina-del-rey", "santa-monica"]);
+});

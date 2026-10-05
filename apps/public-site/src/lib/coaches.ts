@@ -1,4 +1,4 @@
-import { isDeliberatelyExcluded, normalizeVenueLabel, VENUES, type Venue } from "./venues.ts";
+import { areaVenueForLabel, isDeliberatelyExcluded, normalizeVenueLabel, VENUES, type Venue } from "./venues.ts";
 
 export type Coach = {
   slug: string;
@@ -162,7 +162,7 @@ export const incompleteReasons = (coach: Coach): string[] => {
   const words = wordCount(coach.bio);
   if (words < HUB_BIO_WORDS) reasons.push(`bio ${words} words (needs ${HUB_BIO_WORDS})`);
   if (!coach.photo) reasons.push("no photo");
-  if (coach.courts.length === 0) reasons.push("no approved court");
+  if (coach.courts.length === 0) reasons.push("no approved court or area");
   return reasons;
 };
 
@@ -177,7 +177,8 @@ export const buildPublicCoaches = (records: ApiCoach[], venues: Record<string, V
       const rawCourts = (Array.isArray(record.courts) ? record.courts : [])
         .map((court) => normalizeVenueLabel(textOrEmpty(court?.name)))
         .map((name) => {
-          const venue = venues[name];
+          // A named court first; failing that, a location that is just an area's name.
+          const venue = venues[name] ?? areaVenueForLabel(name);
           // Quiet for the two expected cases — a residence (every bare street address
           // normalises to itself and matches nothing) and a venue already recorded in
           // venues.json's _excluded_* blocks. What is left is a label nobody has
