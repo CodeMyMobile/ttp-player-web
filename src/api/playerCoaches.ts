@@ -87,3 +87,12 @@ export const requestCoachPlayer = ({ token, coachId, status = "PENDING" }: Reque
       status,
     },
   });
+
+// "Message coach" opens the player's own texting app, so the app can't see the message itself.
+// Record the tap instead; it feeds the admin coach funnel. Best effort: never blocks the tap.
+export const recordCoachMessageTap = ({ token, coachId }: { token: string; coachId: number | string }) =>
+  request<Record<string, unknown>>(`/player/coaches/${encodeURIComponent(String(coachId))}/contact-events`, {
+    method: "POST",
+    token,
+    body: { kind: "message_tap", source: "web" },
+  }).catch(() => null);
